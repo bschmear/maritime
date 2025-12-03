@@ -1,23 +1,23 @@
 <?php
 
-namespace App\Domains\Contacts\Actions;
+namespace Domain\Contact\Actions;
 
-use App\Models\Tenant\Contact;
+use Domain\Contact\Models\Contact;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class Update
+class UpdateContact
 {
     /**
      * Handle the action.
      *
-     * @param  \App\Models\Tenant\Contact  $contact
+     * @param  int  $id
      * @param  array  $data
-     * @return \App\Models\Tenant\Contact
+     * @return array
      *
      * @throws ValidationException
      */
-    public function __invoke(Contact $contact, array $data): Contact
+    public function __invoke(int $id, array $data): array
     {
         // Validate incoming data
         $validated = Validator::make($data, [
@@ -28,9 +28,20 @@ class Update
             'notes'      => ['nullable', 'string'],
         ])->validate();
 
-        // Update the contact in the tenant database
-        $contact->update($validated);
+        try {
+            $contact = Contact::findOrFail($id);
+            $contact->update($validated);
 
-        return $contact;
+            return [
+                'success' => true,
+                'record' => $contact,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'record' => null,
+            ];
+        }
     }
 }

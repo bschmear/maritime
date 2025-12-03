@@ -74,20 +74,6 @@ export default {
               900: '#060811',
               950: '#030406',
             },
-            white: {
-              DEFAULT: '#F5F3F5',
-              50: '#FFFFFF',
-              100: '#FDFBFD',
-              200: '#FAF8FB',
-              300: '#F7F4F8',
-              400: '#F3F1F5',
-              500: '#F5F3F5',
-              600: '#EAE7EA',
-              700: '#DAD6DA',
-              800: '#C0BCBF',
-              900: '#9C979C',
-              950: '#7A7579',
-            },
 
             // Red Accent
             red: {
@@ -106,6 +92,7 @@ export default {
             },
           black: colors.black,
           gray: colors.gray,
+          white: colors.white,
           emerald: colors.emerald,
           green: colors.green,
           indigo: colors.indigo,

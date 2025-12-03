@@ -53,7 +53,7 @@ const secondaryNavItems = ref([
         </header> -->
 
         <!-- Page Content -->
-        <main class="max-w-screen-2xl mx-auto flex w-full h-full relative pt-4 xl:pt-8 px-4">
+        <main class=" mx-auto flex w-full h-full relative p-4">
             <slot />
         </main>
     </div>

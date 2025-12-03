@@ -8,6 +8,7 @@ use Inertia\Inertia;
 
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Tenant\ContactController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -28,11 +29,12 @@ Route::middleware([
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
         // Contacts routes
-        Route::prefix('contacts')->name('contacts.')->group(function () {
-            Route::get('/', function () {
-                return Inertia::render('Tenant/Contacts/Index');
-            })->name('index');
-        });
+        // Route::prefix('contacts')->name('contacts.')->group(function () {
+        //     Route::get('/', function () {
+        //         return Inertia::render('Tenant/Contacts/Index');
+        //     })->name('index');
+        // });
+        Route::resource('contacts', ContactController::class);
 
         // Profile routes
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Models\Tenant;
+namespace Domain\Lead\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Contact extends Model
+class Lead extends Model
 {
     //
 }

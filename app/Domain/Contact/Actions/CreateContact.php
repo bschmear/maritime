@@ -1,21 +1,13 @@
 <?php
 
-namespace App\Domains\Contacts\Actions;
+namespace Domain\Contact\Actions;
 
-use App\Models\Tenant\Contact;
+use Domain\Contact\Models\Contact;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
-class Create
+class CreateContact
 {
-    /**
-     * Handle the action.
-     *
-     * @param  array  $data
-     * @return \App\Models\Tenant\Contact
-     *
-     * @throws ValidationException
-     */
     public function __invoke(array $data): Contact
     {
         // Validate incoming data
