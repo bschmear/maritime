@@ -5,14 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use App\Models\Tenant;
 
 class Account extends Model
 {
     use HasFactory;
 
+    /**
+     * The database connection name for the model.
+     * Accounts are stored in the central/public schema, not tenant schemas.
+     *
+     * @var string|null
+     */
+    protected $connection = 'pgsql';
+
     protected $fillable = [
         'name',
         'owner_id',
+        'tenant_id',
     ];
 
     /**
@@ -21,6 +31,22 @@ class Account extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    /**
+     * The tenant associated with this account.
+     */
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
+    /**
+     * Domains for this account's tenant.
+     */
+    public function domains()
+    {
+        return $this->hasMany(\Stancl\Tenancy\Database\Models\Domain::class, 'tenant_id', 'tenant_id');
     }
 
     /**

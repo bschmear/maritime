@@ -25,16 +25,11 @@ class TenancyServiceProvider extends ServiceProvider
             Events\CreatingTenant::class => [],
             Events\TenantCreated::class => [
                 JobPipeline::make([
-                    Jobs\CreateDatabase::class,
-                    Jobs\MigrateDatabase::class,
-                    // Jobs\SeedDatabase::class,
-
-                    // Your own jobs to prepare the tenant.
-                    // Provision API keys, create S3 buckets, anything you want!
-
+                    \App\Jobs\CreateTenantDatabase::class,  // Use our custom job
+                    \App\Jobs\MigrateTenantDatabase::class,
                 ])->send(function (Events\TenantCreated $event) {
                     return $event->tenant;
-                })->shouldBeQueued(false), // `false` by default, but you probably want to make this `true` for production.
+                })->shouldBeQueued(false),
             ],
             Events\SavingTenant::class => [],
             Events\TenantSaved::class => [],
@@ -122,7 +117,15 @@ class TenancyServiceProvider extends ServiceProvider
     {
         $this->app->booted(function () {
             if (file_exists(base_path('routes/tenant.php'))) {
-                Route::namespace(static::$controllerNamespace)
+                // Load tenant routes with domain constraint
+                // This ensures routes only match on tenant subdomains (e.g., 123456.maritime.test)
+                // and NOT on central domains (e.g., maritime.test)
+                $centralDomain = config('app.domain', 'localhost');
+
+                // Register routes for any subdomain pattern
+                // The PreventAccessFromCentralDomains middleware will block central domains
+                Route::domain('{subdomain}.' . $centralDomain)
+                    ->namespace(static::$controllerNamespace)
                     ->group(base_path('routes/tenant.php'));
             }
         });
@@ -130,19 +133,8 @@ class TenancyServiceProvider extends ServiceProvider
 
     protected function makeTenancyMiddlewareHighestPriority()
     {
-        $tenancyMiddleware = [
-            // Even higher priority than the initialization middleware
-            Middleware\PreventAccessFromCentralDomains::class,
-
-            Middleware\InitializeTenancyByDomain::class,
-            Middleware\InitializeTenancyBySubdomain::class,
-            Middleware\InitializeTenancyByDomainOrSubdomain::class,
-            Middleware\InitializeTenancyByPath::class,
-            Middleware\InitializeTenancyByRequestData::class,
-        ];
-
-        foreach (array_reverse($tenancyMiddleware) as $middleware) {
-            $this->app[\Illuminate\Contracts\Http\Kernel::class]->prependToMiddlewarePriority($middleware);
-        }
+        // Don't register tenancy initialization middlewares globally
+        // They should only be applied to tenant routes (already in routes/tenant.php)
+        // This prevents them from running on central domain requests
     }
 }

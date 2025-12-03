@@ -16,6 +16,14 @@ class User extends Authenticatable
     use HasFactory, Notifiable, Billable;
 
     /**
+     * The database connection name for the model.
+     * Users are stored in the central/public schema, not tenant schemas.
+     *
+     * @var string|null
+     */
+    protected $connection = 'pgsql';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>

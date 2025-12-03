@@ -1,29 +1,45 @@
 <?php
-
 declare(strict_types=1);
-
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+use Inertia\Inertia;
 
+
+use App\Http\Controllers\Tenant\DashboardController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
-|--------------------------------------------------------------------------
-| Tenant Routes
-|--------------------------------------------------------------------------
-|
-| Here you can register the tenant routes for your application.
-| These routes are loaded by the TenantRouteServiceProvider.
-|
-| Feel free to customize them however you want. Good luck!
-|
+|||--------------------------------------------------------------------------
+||| Tenant Routes
+|||--------------------------------------------------------------------------
+|||
+||| These routes are loaded for tenant subdomains (tenant.example.com).
+||| These routes are loaded by the TenantRouteServiceProvider.
+|||
 */
-
 Route::middleware([
     'web',
-    InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
+    InitializeTenancyByDomain::class,
 ])->group(function () {
-    Route::get('/', function () {
-        return 'This is your multi-tenant application. The id of the current tenant is ' . tenant('id');
+    Route::middleware(['auth', 'tenant.access'])->group(function () {
+        // Tenant dashboard
+        Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        // Contacts routes
+        Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::get('/', function () {
+                return Inertia::render('Tenant/Contacts/Index');
+            })->name('index');
+        });
+
+        // Profile routes
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        // Logout route
+        Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     });
 });

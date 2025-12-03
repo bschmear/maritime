@@ -21,12 +21,12 @@ class RouteServiceProvider extends ServiceProvider
 
             if($domainType == 'kiosk') {
                 $this->mapAdminRoutes();
+            } else if($domainType == 'tenant') {
+                $this->mapTenantRoutes();
             } else {
                 $this->mapWebRoutes();
             }
             
-            // API routes if needed
-            // $this->mapApiRoutes();
         });
     }
 
@@ -35,6 +35,14 @@ class RouteServiceProvider extends ServiceProvider
     {
         Route::middleware(['web'])
              ->group(base_path('routes/web.php'));
+    }
+
+    protected function mapTenantRoutes()
+    {
+        // Register kiosk routes with domain constraint
+        Route::domain('{tenantid}.{domain}')
+             ->middleware(['web', 'auth'])
+             ->group(base_path('routes/tenant.php'));
     }
 
     protected function mapAdminRoutes()
@@ -62,7 +70,11 @@ class RouteServiceProvider extends ServiceProvider
         // Check if the subdomain is 'admin'
         if (count($parts) >= 2 && $parts[0] === 'kiosk') {
             return 'kiosk';
+        } elseif (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
+
+            return 'tenant';
         }  elseif (count($parts) === 2 || (count($parts) === 3 && $parts[0] === 'www')) {
+
             return 'web';
         } else {
             return 'web';

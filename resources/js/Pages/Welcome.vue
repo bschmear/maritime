@@ -102,19 +102,6 @@
                     </a>
                 </div>
 
-                <!-- Social Proof -->
-                <div class="mt-16 flex flex-col items-center">
-                    <div class="flex -space-x-2 mb-4">
-                        <img class="w-10 h-10 rounded-full border-2 border-white-500 dark:border-navy-700 shadow-lg" src="https://i.pravatar.cc/150?img=1" alt="User" />
-                        <img class="w-10 h-10 rounded-full border-2 border-white-500 dark:border-navy-700 shadow-lg" src="https://i.pravatar.cc/150?img=2" alt="User" />
-                        <img class="w-10 h-10 rounded-full border-2 border-white-500 dark:border-navy-700 shadow-lg" src="https://i.pravatar.cc/150?img=3" alt="User" />
-                        <img class="w-10 h-10 rounded-full border-2 border-white-500 dark:border-navy-700 shadow-lg" src="https://i.pravatar.cc/150?img=4" alt="User" />
-                        <img class="w-10 h-10 rounded-full border-2 border-white-500 dark:border-navy-700 shadow-lg" src="https://i.pravatar.cc/150?img=5" alt="User" />
-                    </div>
-                    <p class="text-sm text-gray-700 dark:text-white-400">
-                        Trusted by <span class="font-semibold text-gray-900 dark:text-white-100">500+</span> boat dealerships nationwide
-                    </p>
-                </div>
 
             </div>
         </section>

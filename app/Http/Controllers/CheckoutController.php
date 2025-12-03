@@ -4,20 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\Plan;
+use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Stancl\Tenancy\Database\Models\Domain;
+use Exception;
 
 class CheckoutController extends Controller
 {
-    /**
-     * Show the plan selection page
-     */
     public function plans(Request $request)
     {
         $plans = Plan::active()->orderBy('monthly_price')->get();
-        
+
         $selectedPlanId = $request->query('plan');
         $billingCycle = $request->query('billing', 'monthly');
 
@@ -28,9 +29,6 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /**
-     * Show the checkout page
-     */
     public function checkout(Request $request)
     {
         $request->validate([
@@ -44,13 +42,11 @@ class CheckoutController extends Controller
         $accountName = $request->account_name;
         $user = Auth::user();
 
-        // Check if user already has a subscription
         if ($user->subscribed()) {
             return redirect()->route('dashboard')
                 ->with('error', 'You already have an active subscription.');
         }
 
-        // Create or get Stripe customer and setup intent
         $user->createOrGetStripeCustomer();
         $intent = $user->createSetupIntent();
 
@@ -63,69 +59,105 @@ class CheckoutController extends Controller
         ]);
     }
 
-    /**
-     * Process the checkout and create subscription
-     */
-    public function process(Request $request)
-    {
-        $request->validate([
-            'plan_id' => 'required|exists:plans,id',
-            'billing_cycle' => 'required|in:monthly,yearly',
-            'payment_method' => 'required|string',
-            'account_name' => 'required|string|max:255',
-        ]);
+public function process(Request $request)
+{
+    $request->validate([
+        'plan_id' => 'required|exists:plans,id',
+        'billing_cycle' => 'required|in:monthly,yearly',
+        'payment_method' => 'required|string',
+        'account_name' => 'required|string|max:255',
+    ]);
 
-        $plan = Plan::findOrFail($request->plan_id);
-        $user = Auth::user();
+    $plan = Plan::findOrFail($request->plan_id);
+    $user = Auth::user();
+    $tenant = null;
 
-        try {
-            DB::beginTransaction();
+    try {
+        // Add payment method to user
+        $user->updateDefaultPaymentMethod($request->payment_method);
 
-            // Add payment method to user
-            $user->updateDefaultPaymentMethod($request->payment_method);
+        // Get Stripe price ID
+        $stripePriceId = $plan->getStripePriceId($request->billing_cycle);
+        if (!$stripePriceId) {
+            throw new Exception('Stripe price ID not configured for this plan.');
+        }
 
-            // Get the Stripe price ID based on billing cycle
-            $stripePriceId = $plan->getStripePriceId($request->billing_cycle);
+        // Create subscription with 14-day trial
+        $user->newSubscription('default', $stripePriceId)
+            ->trialDays(14)
+            ->create($request->payment_method);
 
-            if (!$stripePriceId) {
-                throw new \Exception('Stripe price ID not configured for this plan.');
-            }
+        // Check for existing account
+        $account = $user->ownedAccounts()->first();
 
-            // Create subscription with 14-day trial
-            $subscription = $user->newSubscription('default', $stripePriceId)
-                ->trialDays(14)
-                ->create($request->payment_method);
+        if (!$account) {
+            // Generate unique 6-digit subdomain
+            do {
+                $subdomain = str_pad((string) rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+                $domainName = $subdomain . '.' . config('app.domain', 'localhost');
+            } while (Domain::where('domain', $domainName)->exists());
 
-            // Only create account AFTER successful payment
-            $account = $user->ownedAccounts()->first();
-            
-            if (!$account) {
+            $tenantId = \Illuminate\Support\Str::uuid()->toString();
+            $schemaName = 'tenant' . $tenantId;
+
+            // Create schema directly
+            Log::info('Creating schema directly in controller', ['schema' => $schemaName]);
+            $centralConnection = DB::connection('pgsql');
+            $centralConnection->statement("CREATE SCHEMA IF NOT EXISTS \"{$schemaName}\"");
+
+            $schemaExists = $centralConnection->select(
+                "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?",
+                [$schemaName]
+            );
+
+            Log::info('Schema created', [
+                'schema' => $schemaName,
+                'exists' => !empty($schemaExists),
+            ]);
+
+            // Create tenant record
+            $tenant = Tenant::create(['id' => $tenantId]);
+
+            $tenant->domains()->create([
+                'domain' => $domainName,
+            ]);
+
+            // Tenant setup
+            try {
+                sleep(1); // optional delay for jobs
                 $account = Account::create([
                     'name' => $request->account_name,
                     'owner_id' => $user->id,
+                    'tenant_id' => $tenant->id,
                 ]);
 
-                // Attach user to account as owner
                 $account->users()->attach($user->id, ['role' => 'owner']);
+
+            } catch (Exception $e) {
+                Log::error('Tenant setup failed', [
+                    'tenant_id' => $tenant->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // do not rollback tenant or schema
             }
-
-            DB::commit();
-
-            return redirect()->route('dashboard')
-                ->with('success', 'Subscription created successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return back()->withErrors([
-                'error' => 'Payment failed: ' . $e->getMessage()
-            ]);
         }
-    }
 
-    /**
-     * Show the cart/review page before checkout
-     */
+        return redirect()->route('dashboard')
+            ->with('success', 'Subscription created successfully!');
+
+    } catch (Exception $e) {
+        Log::error('Checkout process failed', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return back()->withErrors([
+            'error' => 'Payment or tenant setup failed. Please contact support.',
+        ]);
+    }
+}
+
+
     public function cart(Request $request)
     {
         $request->validate([
@@ -137,13 +169,8 @@ class CheckoutController extends Controller
         $billingCycle = $request->billing_cycle;
         $user = Auth::user();
 
-        // Check if user already has an account
         $existingAccount = $user->ownedAccounts()->first();
-        
-        // Prepare default account name (don't create yet)
         $defaultAccountName = $existingAccount ? $existingAccount->name : ($user->name . "'s Account");
-
-        // Get available add-ons for this plan
         $addOns = $plan->items()->where('active', true)->get();
 
         return Inertia::render('Checkout/Cart', [
@@ -155,4 +182,3 @@ class CheckoutController extends Controller
         ]);
     }
 }
-

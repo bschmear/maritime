@@ -28,7 +28,7 @@ const currentYear = new Date().getFullYear();
                         Quick Links
                     </h4>
                     <ul class="mt-4 space-y-2.5">
-                        <li>
+                        <li v-if="route().has('home')">
                             <Link
                                 :href="route('home')"
                                 class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors"

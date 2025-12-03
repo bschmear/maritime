@@ -1,0 +1,44 @@
+{
+  "columns": [
+    {
+      "key": "first_name",
+      "label": "First Name",
+      "sortable": true
+    },
+    {
+      "key": "last_name",
+      "label": "Last Name",
+      "sortable": true
+    },
+    {
+      "key": "email",
+      "label": "Email",
+      "sortable": true
+    },
+    {
+      "key": "phone",
+      "label": "Phone",
+      "sortable": false
+    },
+    {
+      "key": "company",
+      "label": "Company",
+      "sortable": true
+    },
+    {
+      "key": "city",
+      "label": "City",
+      "sortable": true
+    },
+    {
+      "key": "state",
+      "label": "State",
+      "sortable": false
+    },
+    {
+      "key": "country",
+      "label": "Country",
+      "sortable": false
+    }
+  ]
+}

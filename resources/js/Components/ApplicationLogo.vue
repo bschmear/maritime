@@ -19,7 +19,7 @@
 </style>
 
 <template>
-<svg class="nav-logo" width="368.63" height="82.885" preserveAspectRatio="xMidYMid" version="1.0" viewBox="0 0 276.47 62.164" xmlns="http://www.w3.org/2000/svg" zoomAndPan="magnify">
+<svg class="nav-logo" width="" height="82.885" preserveAspectRatio="xMidYMid" version="1.0" viewBox="0 0 276.47 62.164" xmlns="http://www.w3.org/2000/svg" zoomAndPan="magnify">
 <defs>
 <clipPath id="d">
 <path d="m241.75 24.781h61.793v62.219h-61.793z"/>
