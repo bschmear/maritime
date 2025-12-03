@@ -1,5 +1,5 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
+import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 
@@ -14,7 +14,7 @@ defineProps({
 <template>
     <Head title="Tenant Dashboard" />
 
-    <AppLayout>
+    <TenantLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                 Tenant Dashboard
@@ -60,6 +60,6 @@ defineProps({
                 </div>
             </div>
         </div>
-    </AppLayout>
+    </TenantLayout>
 </template>
 

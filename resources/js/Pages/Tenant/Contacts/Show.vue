@@ -1,12 +1,12 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
+import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head } from '@inertiajs/vue3';
 </script>
 
 <template>
     <Head title="Contacts" />
 
-    <AppLayout>
+    <TenantLayout>
         <template #header>
             <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                 Contacts
@@ -22,6 +22,6 @@ import { Head } from '@inertiajs/vue3';
                 </div>
             </div>
         </div>
-    </AppLayout>
+    </TenantLayout>
 </template>
 

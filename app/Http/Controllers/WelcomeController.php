@@ -13,6 +13,7 @@ class WelcomeController extends Controller
 {
     public function index(): Response
     {
+
         // Get featured posts first, then latest posts to fill up to 3 total
         $featuredPosts = Post::with(['user', 'category'])
             ->where('published', true)

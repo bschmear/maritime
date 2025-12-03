@@ -37,7 +37,7 @@ Route::domain('kiosk.' . config('app.domain'))->middleware(['auth'])->name('kios
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });
-dd('breh');
+
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog');
 Route::get('/blog/category', [BlogController::class, 'category'])->name('blogCategory');
