@@ -3,7 +3,8 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     record: {
@@ -42,8 +43,9 @@ const handleEdit = () => {
 };
 
 const handleCancel = () => {
+    // Form reset is handled by Form component's cancelForm()
+    // Just exit edit mode
     isEditMode.value = false;
-    router.reload({ only: ['record'] });
 };
 
 const handleSubmit = () => {
@@ -82,19 +84,31 @@ const handleSave = () => {
 };
 
 const handleCancelEdit = () => {
+    // Just exit edit mode - form.reset() is already called in cancelForm()
+    isEditMode.value = false;
+    // Optionally reset form if needed
     if (formRef.value) {
         formRef.value.cancelForm();
     }
-    handleCancel();
 };
+
+const breadcrumbItems = computed(() => {
+    return [
+        { label: 'Home', href: route('dashboard') },
+        { label: props.recordTitle, href: route(`${props.recordType}.index`) },
+        { label: props.record.display_name || `${props.record.first_name} ${props.record.last_name}` },
+    ];
+});
 </script>
 
 <template>
     <Head :title="`${recordTitle} - ${record.display_name}`" />
 
     <TenantLayout>
-        <template #sitckyeheader>
-            <div class="flex items-center justify-between ">
+        <template #header>
+            <div class="col-span-full ">
+            <Breadcrumb :items="breadcrumbItems" />
+            <div class="flex items-center justify-between mt-4">
                 <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                     {{ record.first_name }} {{ record.last_name }}
                 </h2>
@@ -144,6 +158,7 @@ const handleCancelEdit = () => {
                         Cancel
                     </button>
                 </div>
+            </div>
             </div>
         </template>
 

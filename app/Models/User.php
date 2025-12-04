@@ -33,6 +33,7 @@ class User extends Authenticatable
         'email',
         'password',
         'trial_ends_at',
+        'current_tenant_id',
     ];
 
     /**
@@ -76,6 +77,14 @@ class User extends Authenticatable
     public function isKioskAdmin(): bool
     {
         return $this->hasKioskRole('admin');
+    }
+
+    /**
+     * The user's current tenant.
+     */
+    public function currentTenant()
+    {
+        return $this->belongsTo(Tenant::class, 'current_tenant_id');
     }
 
 

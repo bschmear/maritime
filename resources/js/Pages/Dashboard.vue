@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 defineProps({
     accounts: {
@@ -9,10 +10,19 @@ defineProps({
     },
 });
 
-const getTenantUrl = (domain) => {
-    if (!domain) return null;
-    const protocol = window.location.protocol;
-    return `${protocol}//${domain}`;
+const switchingTenant = ref(false);
+
+const switchToTenant = (accountId) => {
+    switchingTenant.value = true;
+
+    router.post(route('dashboard.switch-tenant'), {
+        account_id: accountId,
+    }, {
+        onError: () => {
+            switchingTenant.value = false;
+        },
+        // The redirect will happen server-side, so we don't need onSuccess
+    });
 };
 </script>
 
@@ -99,23 +109,22 @@ const getTenantUrl = (domain) => {
                                 </div>
 
                                 <div class="space-y-3">
-                                    <!-- Tenant Link -->
-                                    <div v-if="account.domain" class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                        <div class="flex-1 min-w-0">
-                                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Tenant URL</p>
-                                            <p class="text-sm font-mono text-gray-900 dark:text-white truncate">{{ account.domain }}</p>
-                                        </div>
-                                        <a
-                                            :href="getTenantUrl(account.domain)"
-                                            target="_blank"
-                                            class="ml-3 inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                        >
-                                            Open
-                                            <svg class="ml-1 w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </a>
-                                    </div>
+                                    <!-- Go to Dashboard Button -->
+                                    <button
+                                        @click="switchToTenant(account.id)"
+                                        :disabled="switchingTenant"
+                                        class="w-full inline-flex items-center justify-center px-4 py-3 bg-primary-600 border border-transparent rounded-lg font-semibold text-sm text-white hover:bg-primary-700 focus:bg-primary-700 active:bg-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <svg v-if="switchingTenant" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <svg v-else class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5a2 2 0 012-2h2a2 2 0 012 2v2H8V5z" />
+                                        </svg>
+                                        {{ switchingTenant ? 'Switching...' : 'Go to Dashboard' }}
+                                    </button>
 
                                     <!-- Owner Actions -->
                                     <div v-if="account.is_owner" class="space-y-2">

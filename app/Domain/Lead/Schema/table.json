@@ -41,11 +41,6 @@
         "sortable": true
       },
       {
-        "key": "created_at",
-        "label": "Created",
-        "sortable": true
-      },
-      {
         "key": "last_contacted_at",
         "label": "Last Contacted",
         "sortable": true
@@ -53,6 +48,11 @@
       {
         "key": "next_followup_at",
         "label": "Next Follow Up",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
         "sortable": true
       }
     ]

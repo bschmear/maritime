@@ -1,9 +1,11 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-defineProps({
+const props = defineProps({
     records: {
         type: Object,
         required: true,
@@ -26,26 +28,37 @@ defineProps({
     },
     recordType: {
         type: String,
-        default: 'contact',
+        default: 'lead',
     },
     recordTitle: {
         type: String,
-        default: 'contact',
+        default: 'lead',
     },
+    pluralTitle: {
+        type: String,
+        default: 'leads',
+    },
+});
+
+const breadcrumbItems = computed(() => {
+    return [
+        { label: 'Home', href: route('dashboard') },
+        { label: props.pluralTitle },
+    ];
 });
 </script>
 
 <template>
-    <Head title="Leads" />
+    <Head :title="recordTitle" />
 
     <TenantLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                Leads
-            </h2>
+            <div class="col-span-full">
+                <Breadcrumb :items="breadcrumbItems" />
+            </div>
         </template>
 
-        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" :record-title="recordTitle" />
+        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" :record-title="recordTitle" :plural-title="pluralTitle" />
     </TenantLayout>
 </template>
 

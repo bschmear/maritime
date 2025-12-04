@@ -1,16 +1,39 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const props = defineProps({
+    recordTitle: {
+        type: String,
+        default: 'Vendor',
+    },
+    pluralTitle: {
+        type: String,
+        default: 'Vendors',
+    },
+});
+
+const breadcrumbItems = computed(() => {
+    return [
+        { label: 'Home', href: route('dashboard') },
+        { label: props.pluralTitle },
+    ];
+});
 </script>
 
 <template>
-    <Head title="Vendors" />
+    <Head :title="recordTitle" />
 
     <TenantLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                Vendors
-            </h2>
+            <div class="col-span-full">
+                <Breadcrumb :items="breadcrumbItems" />
+                <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200 mt-4">
+                    {{ recordTitle }}
+                </h2>
+            </div>
         </template>
 
         <div class="py-12">

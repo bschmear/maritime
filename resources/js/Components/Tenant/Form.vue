@@ -419,7 +419,7 @@ defineExpose({
                     <button
                         type="button"
                         @click="toggleSection(group.key)"
-                        class="flex justify-between items-center py-4 px-4 w-full font-medium leading-none text-left text-gray-900 bg-gray-50 sm:px-5 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-800 dark:text-white hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600"
+                        class="flex justify-between items-center py-4 px-4 w-full font-medium leading-none text-left text-gray-900 bg-gray-100 sm:px-5 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-800 dark:text-white hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600"
                         :class="groupIndex > 0 ? 'border-t border-gray-200 dark:border-gray-700' : ''"
                         :aria-expanded="openSections[group.key]"
                         :aria-controls="`accordion-body-${group.index}`"

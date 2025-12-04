@@ -8,7 +8,7 @@
       { "key": "phone", "required": false },
       { "key": "mobile", "required": false },
       { "key": "inactive", "required": false },
-      { "key": "converted", "required": false, "disabled": true },
+      { "key": "converted", "required": false, "disabled": true }
     ]
   },
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
@@ -126,17 +127,141 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $records = $this->recordModel->select($columns)->paginate(15);
+        
+        $query = $this->recordModel->select($columns);
+        
+        // Apply search query (fuzzy search on display_name, case-insensitive)
+        $searchQuery = $request->get('search');
+        if ($searchQuery && !empty(trim($searchQuery))) {
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+        }
+        
+        // Apply filters from query parameters
+        $filtersParam = $request->get('filters');
+        if ($filtersParam) {
+            try {
+                $filters = json_decode(urldecode($filtersParam), true);
+                if (is_array($filters)) {
+                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
+                }
+            } catch (\Exception $e) {
+                // Invalid filters, ignore
+            }
+        }
+        
+        $records = $query->paginate(15);
+
+        // Pluralize the record title for the index page
+        $pluralTitle = Str::plural($this->recordTitle);
 
         return inertia('Tenant/' . $this->domainName . '/Index', [
             'records' => $records,
             'recordType' => $this->recordType,
-            'recordTitle' => $this->recordTitle,
+            'recordTitle' => $this->recordTitle, // Singular for "Add" button
+            'pluralTitle' => $pluralTitle, // Plural for table heading
             'schema' => $schema,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
         ]);
+    }
+
+    protected function applyFilters($query, array $filters, $fieldsSchema)
+    {
+        foreach ($filters as $filter) {
+            if (!isset($filter['field']) || !isset($filter['operator'])) {
+                continue;
+            }
+            
+            $field = $filter['field'];
+            $operator = $filter['operator'];
+            $value = $filter['value'] ?? null;
+            
+            $fieldConfig = $fieldsSchema[$field] ?? [];
+            $fieldType = $fieldConfig['type'] ?? 'text';
+            
+            switch ($operator) {
+                case 'contains':
+                    $query->where($field, 'LIKE', "%{$value}%");
+                    break;
+                case 'equals':
+                    $query->where($field, '=', $value);
+                    break;
+                case 'starts_with':
+                    $query->where($field, 'LIKE', "{$value}%");
+                    break;
+                case 'ends_with':
+                    $query->where($field, 'LIKE', "%{$value}");
+                    break;
+                case 'is_empty':
+                    $query->where(function($q) use ($field) {
+                        $q->whereNull($field)->orWhere($field, '');
+                    });
+                    break;
+                case 'is_not_empty':
+                    $query->whereNotNull($field)->where($field, '!=', '');
+                    break;
+                case 'not_equals':
+                    $query->where($field, '!=', $value);
+                    break;
+                case 'any_of':
+                    if (is_array($value)) {
+                        $query->whereIn($field, $value);
+                    } else {
+                        $query->where($field, '=', $value);
+                    }
+                    break;
+                case 'none_of':
+                    if (is_array($value)) {
+                        $query->whereNotIn($field, $value);
+                    } else {
+                        $query->where($field, '!=', $value);
+                    }
+                    break;
+                case 'before':
+                    $query->where($field, '<', $value);
+                    break;
+                case 'after':
+                    $query->where($field, '>', $value);
+                    break;
+                case 'between':
+                    if (is_array($value)) {
+                        $start = $value['start'] ?? $value['min'] ?? null;
+                        $end = $value['end'] ?? $value['max'] ?? null;
+                        if ($start && $end) {
+                            $query->whereBetween($field, [$start, $end]);
+                        }
+                    }
+                    break;
+                case 'today':
+                    $query->whereDate($field, '=', now()->toDateString());
+                    break;
+                case 'this_week':
+                    $query->whereBetween($field, [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                case 'this_month':
+                    $query->whereMonth($field, now()->month)->whereYear($field, now()->year);
+                    break;
+                case 'greater_than':
+                    $query->where($field, '>', $value);
+                    break;
+                case 'less_than':
+                    $query->where($field, '<', $value);
+                    break;
+                case 'is_true':
+                    $query->where($field, '=', 1)->orWhere($field, '=', true);
+                    break;
+                case 'is_false':
+                    $query->where(function($q) use ($field) {
+                        $q->where($field, '=', 0)
+                          ->orWhere($field, '=', false)
+                          ->orWhereNull($field);
+                    });
+                    break;
+            }
+        }
+        
+        return $query;
     }
 
     public function create()
@@ -216,6 +341,17 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
+
+        // If it's an AJAX request, return JSON
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'record' => $record,
+                'recordType' => $this->recordType,
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+            ]);
+        }
 
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $record,

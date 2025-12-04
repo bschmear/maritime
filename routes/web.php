@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+Route::post('/dashboard/switch-tenant', [DashboardController::class, 'switchTenant'])->middleware(['auth', 'verified'])->name('dashboard.switch-tenant');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
