@@ -8,7 +8,9 @@ use Inertia\Inertia;
 
 use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Tenant\ContactController;
+use App\Http\Controllers\Tenant\CustomerController;
+use App\Http\Controllers\Tenant\LeadController;
+use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -28,12 +30,19 @@ Route::middleware([
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-        // Contacts routes
-        Route::prefix('contacts')->name('contacts.')->group(function () {
-            Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
+        // Customers routes
+        Route::prefix('customers')->name('customers.')->group(function () {
+            Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
+        });
 
-            // Additional custom routes
-            // Route::post('/bulk-delete', [ContactController::class, 'bulkDelete'])->name('bulk-delete');
+        // Leads routes
+        Route::prefix('leads')->name('leads.')->group(function () {
+            Route::resource('/', LeadController::class)->parameters(['' => 'lead']);
+        });
+
+        // Vendors routes
+        Route::prefix('vendors')->name('vendors.')->group(function () {
+            Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
         });
 
 

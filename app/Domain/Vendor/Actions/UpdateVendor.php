@@ -1,14 +1,14 @@
 <?php
-namespace Domain\Lead\Actions;
+namespace Domain\Vendor\Actions;
 
-use Domain\Lead\Models\Lead as RecordModel;
+use Domain\Vendor\Models\Vendor as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
 
-class UpdateLead
+class UpdateVendor
 {
     /**
      * Handle the action.
@@ -31,7 +31,7 @@ class UpdateLead
         ])->validate();
 
         try {
-            $lead = RecordModel::findOrFail($id);
+            $vendor = RecordModel::findOrFail($id);
             
             // Merge all data with validated fields (validated fields take precedence)
             // This ensures validated fields use their validated values, while other fields are preserved
@@ -39,11 +39,11 @@ class UpdateLead
             // Remove fields that shouldn't be mass-assigned
             unset($fieldsToSave['id'], $fieldsToSave['created_at'], $fieldsToSave['updated_at']);
             $fieldsToSave['display_name'] = $fieldsToSave['first_name'] . ' ' . $fieldsToSave['last_name'];
-            $lead->update($fieldsToSave);
+            $vendor->update($fieldsToSave);
 
             return [
                 'success' => true,
-                'record' => $lead,
+                'record' => $vendor,
             ];
         } catch (\Exception $e) {
             return [
@@ -52,7 +52,7 @@ class UpdateLead
                 'record' => null,
             ];
         } catch (QueryException $e) {
-            Log::error('Database query error in UpdateLead', [
+            Log::error('Database query error in UpdateVendor', [
                 'error' => $e->getMessage(),
                 'id' => $id,
                 'data' => $data
@@ -63,7 +63,7 @@ class UpdateLead
                 'record' => null,
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in UpdateLead', [
+            Log::error('Unexpected error in UpdateVendor', [
                 'error' => $e->getMessage(),
                 'id' => $id,
                 'data' => $data

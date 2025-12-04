@@ -1,10 +1,10 @@
 <?php
 
-namespace Domain\Lead\Models;
+namespace Domain\Vendor\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Lead extends Model
+class Vendor extends Model
 {
     /**
      * The attributes that aren't mass assignable.
@@ -26,9 +26,6 @@ class Lead extends Model
         'status_id' => 'integer',
         'source_id' => 'integer',
         'priority_id' => 'integer',
-        'purchase_timeline' => 'integer',
-        'preferred_contact_time' => 'integer',
-        'preferred_contact_method' => 'integer',
     ];
 
     /**

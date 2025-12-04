@@ -1,31 +1,25 @@
 <?php
-namespace Domain\Lead\Actions;
+namespace Domain\Customer\Actions;
 
-use Domain\Lead\Models\Lead as RecordModel;
+use Domain\Customer\Models\Customer as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
 
-class DeleteLead
+class DeleteCustomer
 {
-    /**
-     * Handle the action.
-     *
-     * @param  int  $id
-     * @return array
-     */
     public function __invoke(int $id): array
     {
         try {
-            $lead = RecordModel::findOrFail($id);
-            $lead->delete();
+            $record = RecordModel::findOrFail($id);
+            $record->delete();
 
             return [
                 'success' => true,
                 'message' => 'Record deleted successfully.',
             ];
         } catch (QueryException $e) {
-            Log::error('Database query error in DeleteLead', [
+            Log::error('Database query error in DeleteCustomer', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);
@@ -34,7 +28,7 @@ class DeleteLead
                 'message' => $e->getMessage(),
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in DeleteLead', [
+            Log::error('Unexpected error in DeleteCustomer', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);

@@ -74,17 +74,17 @@
   "status_id": {
     "label": "Status",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\Status"
+    "enum": "App\\Enums\\Entity\\Status"
   },
   "source_id": {
     "label": "Source",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\Source"
+    "enum": "App\\Enums\\Entity\\Source"
   },
   "priority_id": {
     "label": "Priority",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\Priority"
+    "enum": "App\\Enums\\Entity\\Priority"
   },
   "assigned_user_id": {
     "label": "Assigned To",
@@ -123,17 +123,17 @@
   "preferred_contact_method": {
     "label": "Preferred Contact Method",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\PreferredContactMethod"
+    "enum": "App\\Enums\\Entity\\PreferredContactMethod"
   },
   "preferred_contact_time": {
     "label": "Preferred Contact Time",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\PreferredContactTime"
+    "enum": "App\\Enums\\Entity\\PreferredContactTime"
   },
   "purchase_timeline": {
     "label": "Purchase Timeline",
     "type": "select",
-    "enum": "App\\Enums\\Contacts\\Timeline"
+    "enum": "App\\Enums\\Entity\\PurchaseTimeline"
   },
   "budget_min": {
     "label": "Minimum Budget",

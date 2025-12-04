@@ -1,12 +1,12 @@
 <?php
-namespace Domain\Lead\Actions;
+namespace Domain\Vendor\Actions;
 
-use Domain\Lead\Models\Lead as RecordModel;
+use Domain\Vendor\Models\Vendor as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
 
-class DeleteLead
+class DeleteVendor
 {
     /**
      * Handle the action.
@@ -17,15 +17,15 @@ class DeleteLead
     public function __invoke(int $id): array
     {
         try {
-            $lead = RecordModel::findOrFail($id);
-            $lead->delete();
+            $vendor = RecordModel::findOrFail($id);
+            $vendor->delete();
 
             return [
                 'success' => true,
                 'message' => 'Record deleted successfully.',
             ];
         } catch (QueryException $e) {
-            Log::error('Database query error in DeleteLead', [
+            Log::error('Database query error in DeleteVendor', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);
@@ -34,7 +34,7 @@ class DeleteLead
                 'message' => $e->getMessage(),
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in DeleteLead', [
+            Log::error('Unexpected error in DeleteVendor', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);

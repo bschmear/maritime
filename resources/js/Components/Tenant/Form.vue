@@ -83,7 +83,7 @@ const initializeFormData = () => {
                             }
                         } else if (fieldType === 'datetime' || fieldType === 'date') {
                             formData[field.key] = null;
-                        } else if (fieldType === 'checkbox') {
+                        } else if (fieldType === 'checkbox' || fieldType === 'boolean') {
                             formData[field.key] = 0; // Initialize as 0 (unchecked)
                         } else {
                             formData[field.key] = '';
@@ -106,7 +106,7 @@ watch(() => props.record, (newRecord) => {
         Object.keys(newRecord).forEach(key => {
             const fieldDef = getFieldDefinition(key);
             // Convert checkbox values: ensure 0/1 instead of false/true
-            if (fieldDef.type === 'checkbox') {
+            if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                 form[key] = newRecord[key] === true || newRecord[key] === 1 ? 1 : 0;
             } else {
                 form[key] = newRecord[key] ?? '';
@@ -150,7 +150,14 @@ const getEnumOptions = (fieldKey) => {
 };
 const getEnumLabel = (fieldKey, value) => {
     const options = getEnumOptions(fieldKey);
-    const option = options.find(opt => opt.id === value || opt.value === value);
+    // Convert value to string for comparison to handle both integer IDs and string values
+    const valueStr = value != null ? String(value) : '';
+    const option = options.find(opt => 
+        String(opt.id) === valueStr || 
+        String(opt.value) === valueStr ||
+        opt.id === value ||
+        opt.value === value
+    );
     return option ? option.name : value;
 };
 const getFieldType = (fieldKey) => {
@@ -235,7 +242,7 @@ const prepareFormData = () => {
             if (group.fields && Array.isArray(group.fields)) {
                 group.fields.forEach(field => {
                     const fieldDef = getFieldDefinition(field.key);
-                    if (fieldDef.type === 'checkbox') {
+                    if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                         // Convert boolean to 1/0
                         data[field.key] = data[field.key] === true || data[field.key] === 1 ? 1 : 0;
                     }
@@ -291,7 +298,7 @@ const handleSubmit = () => {
                         if (group.fields && Array.isArray(group.fields)) {
                             group.fields.forEach(field => {
                                 const fieldDef = getFieldDefinition(field.key);
-                                if (fieldDef.type === 'checkbox') {
+                                if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                                     transformed[field.key] = transformed[field.key] === true || transformed[field.key] === 1 ? 1 : 0;
                                 }
                             });
@@ -359,7 +366,7 @@ const handleSubmit = () => {
                         if (group.fields && Array.isArray(group.fields)) {
                             group.fields.forEach(field => {
                                 const fieldDef = getFieldDefinition(field.key);
-                                if (fieldDef.type === 'checkbox') {
+                                if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                                     transformed[field.key] = transformed[field.key] === true || transformed[field.key] === 1 ? 1 : 0;
                                 }
                             });
@@ -568,7 +575,7 @@ defineExpose({
                                     />
 
                                     <!-- Checkbox -->
-                                    <div v-else-if="getFieldType(field.key) === 'checkbox'" class="flex items-center">
+                                    <div v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center">
                                         <!-- Hidden input to ensure false value is submitted when checkbox is unchecked -->
                                         <input
                                             type="hidden"

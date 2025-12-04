@@ -1,14 +1,14 @@
 <?php
-namespace Domain\Lead\Actions;
+namespace Domain\Vendor\Actions;
 
-use Domain\Lead\Models\Lead as RecordModel;
+use Domain\Vendor\Models\Vendor as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
-class CreateLead
+class CreateVendor
 {
     public function __invoke(array $data): array
     {
@@ -29,7 +29,7 @@ class CreateLead
             unset($fieldsToSave['id'], $fieldsToSave['created_at'], $fieldsToSave['updated_at']);
             $fieldsToSave['display_name'] = $fieldsToSave['first_name'] . ' ' . $fieldsToSave['last_name'];
 
-            // Create the lead in the tenant database
+            // Create the vendor in the tenant database
             $record = RecordModel::create($fieldsToSave);
 
             return [
@@ -40,7 +40,7 @@ class CreateLead
             // Re-throw validation exceptions so Laravel can handle them properly
             throw $e;
         } catch (QueryException $e) {
-            Log::error('Database query error in CreateLead', [
+            Log::error('Database query error in CreateVendor', [
                 'error' => $e->getMessage(),
                 'data' => $data
             ]);
@@ -50,7 +50,7 @@ class CreateLead
                 'record' => null,
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in CreateLead', [
+            Log::error('Unexpected error in CreateVendor', [
                 'error' => $e->getMessage(),
                 'data' => $data
             ]);

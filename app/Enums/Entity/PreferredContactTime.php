@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums\Contacts;
+namespace App\Enums\Entity;
 
 enum PreferredContactTime: string
 {
