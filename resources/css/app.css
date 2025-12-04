@@ -41,3 +41,7 @@
 .gradient-btn:active {
     transform: translateY(0);
 }
+
+th {
+    white-space:nowrap;
+}

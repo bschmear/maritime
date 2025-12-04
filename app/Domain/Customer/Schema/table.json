@@ -1,13 +1,8 @@
 {
     "columns": [
       {
-        "key": "first_name",
-        "label": "First Name",
-        "sortable": true
-      },
-      {
-        "key": "last_name",
-        "label": "Last Name",
+        "key": "display_name",
+        "label": "Name",
         "sortable": true
       },
       {
@@ -31,16 +26,6 @@
         "sortable": true
       },
       {
-        "key": "position",
-        "label": "Position",
-        "sortable": true
-      },
-      {
-        "key": "title",
-        "label": "Title",
-        "sortable": false
-      },
-      {
         "key": "city",
         "label": "City",
         "sortable": true
@@ -48,11 +33,6 @@
       {
         "key": "state",
         "label": "State",
-        "sortable": false
-      },
-      {
-        "key": "country",
-        "label": "Country",
         "sortable": false
       },
       {

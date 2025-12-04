@@ -18,8 +18,8 @@ return new class extends Migration
             $table->boolean('inactive')->default(false);
             $table->boolean('converted')->default(false);
             $table->dateTime('converted_at')->nullable();
-            $table->unsignedBigInteger('converted_contact_id')->nullable();
-            $table->foreign('converted_contact_id')->references('id')->on('contacts')->onDelete('set null');
+            $table->unsignedBigInteger('converted_customer_id')->nullable();
+            $table->foreign('converted_customer_id')->references('id')->on('customers')->onDelete('set null');
 
             // Primary
             $table->string('display_name')->nullable();

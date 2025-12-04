@@ -14,6 +14,10 @@ const props = defineProps({
         type: String,
         default: 'leads',
     },
+    recordTitle: {
+        type: String,
+        default: 'Leads',
+    },
     formSchema: {
         type: Object,
         default: null,
@@ -86,7 +90,7 @@ const handleCancelEdit = () => {
 </script>
 
 <template>
-    <Head :title="`${recordType} - ${record.id}`" />
+    <Head :title="`${recordTitle} - ${record.display_name}`" />
 
     <TenantLayout>
         <template #sitckyeheader>

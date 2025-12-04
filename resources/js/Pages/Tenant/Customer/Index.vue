@@ -1,6 +1,38 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
+import Table from '@/Components/Tenant/Table.vue';
 import { Head } from '@inertiajs/vue3';
+
+defineProps({
+    records: {
+        type: Object,
+        required: true,
+    },
+    schema: {
+        type: Object,
+        default: null,
+    },
+    formSchema: {
+        type: Object,
+        default: null,
+    },
+    fieldsSchema: {
+        type: Object,
+        default: () => ({}),
+    },
+    enumOptions: {
+        type: Object,
+        default: () => ({}),
+    },
+    recordType: {
+        type: String,
+        default: 'customer',
+    },
+    recordTitle: {
+        type: String,
+        default: 'Customer',
+    },
+});
 </script>
 
 <template>
@@ -13,14 +45,7 @@ import { Head } from '@inertiajs/vue3';
             </h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <p>Customers management coming soon...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" :record-title="recordTitle" />
     </TenantLayout>
 </template>
+

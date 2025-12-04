@@ -26,6 +26,9 @@ class Customer extends Model
         'status_id' => 'integer',
         'source_id' => 'integer',
         'priority_id' => 'integer',
+        'purchase_timeline' => 'integer',
+        'preferred_contact_time' => 'integer',
+        'preferred_contact_method' => 'integer',
     ];
 
     /**

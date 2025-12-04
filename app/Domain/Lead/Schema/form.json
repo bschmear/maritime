@@ -6,7 +6,9 @@
       { "key": "last_name", "required": true },
       { "key": "email", "required": false },
       { "key": "phone", "required": false },
-      { "key": "mobile", "required": false }
+      { "key": "mobile", "required": false },
+      { "key": "inactive", "required": false },
+      { "key": "converted", "required": false, "disabled": true },
     ]
   },
 

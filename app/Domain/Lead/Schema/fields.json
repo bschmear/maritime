@@ -190,5 +190,23 @@
   "facebook": {
     "label": "Facebook",
     "type": "text"
+  },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean"
+  },
+  "converted": {
+    "label": "Converted",
+    "type": "boolean"
+  },
+  "converted_at": {
+    "label": "Converted At",
+    "type": "datetime",
+    "disabled": true
+  },
+  "converted_customer_id": {
+    "label": "Customer",
+    "type": "record",
+    "typeDomain": "Customer"
   }
 }

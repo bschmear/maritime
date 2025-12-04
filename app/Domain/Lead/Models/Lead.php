@@ -29,6 +29,7 @@ class Lead extends Model
         'purchase_timeline' => 'integer',
         'preferred_contact_time' => 'integer',
         'preferred_contact_method' => 'integer',
+        'converted_customer_id' => 'integer',
     ];
 
     /**
@@ -39,5 +40,6 @@ class Lead extends Model
     protected $dates = [
         'last_contacted_at',
         'next_followup_at',
+        'converted_at',
     ];
 }
