@@ -19,7 +19,7 @@ class UpdateContact
      */
     public function __invoke(int $id, array $data): array
     {
-        // Validate incoming data
+        // Validate only fields that have validation rules
         $validated = Validator::make($data, [
             'first_name' => ['sometimes', 'required', 'string', 'max:255'],
             'last_name'  => ['sometimes', 'required', 'string', 'max:255'],
@@ -30,7 +30,14 @@ class UpdateContact
 
         try {
             $contact = Contact::findOrFail($id);
-            $contact->update($validated);
+            
+            // Merge all data with validated fields (validated fields take precedence)
+            // This ensures validated fields use their validated values, while other fields are preserved
+            $fieldsToSave = array_merge($data, $validated);
+            // Remove fields that shouldn't be mass-assigned
+            unset($fieldsToSave['id'], $fieldsToSave['created_at'], $fieldsToSave['updated_at']);
+            $fieldsToSave['display_name'] = $fieldsToSave['first_name'] . ' ' . $fieldsToSave['last_name'];
+            $contact->update($fieldsToSave);
 
             return [
                 'success' => true,

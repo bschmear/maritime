@@ -19,20 +19,7 @@ export default {
             transparent: 'transparent',
             current: 'currentColor',
             // Blues
-            primary: {
-              DEFAULT: '#274690',
-              50: '#E6E9F7',
-              100: '#CBD2F0',
-              200: '#A6B4E4',
-              300: '#7F95D7',
-              400: '#5976CB',
-              500: '#274690',
-              600: '#20387A',
-              700: '#1B2C5F',
-              800: '#152144',
-              900: '#0F1630',
-              950: '#0B0E20',
-            },
+            primary: colors.blue,
             secondary: {
               50: '#e6f9f7',
               100: '#c0f0eb',
@@ -74,7 +61,20 @@ export default {
               900: '#060811',
               950: '#030406',
             },
-
+            white: {
+              DEFAULT: '#FFFFFF',
+              50: '#FFFFFF',
+              100: '#FDFBFD',
+              200: '#FAF8FB',
+              300: '#F7F4F8',
+              400: '#F3F1F5',
+              500: '#F5F3F5',
+              600: '#EAE7EA',
+              700: '#DAD6DA',
+              800: '#C0BCBF',
+              900: '#9C979C',
+              950: '#7A7579',
+            },
             // Red Accent
             red: {
               DEFAULT: '#D1495B',
@@ -92,7 +92,6 @@ export default {
             },
           black: colors.black,
           gray: colors.gray,
-          white: colors.white,
           emerald: colors.emerald,
           green: colors.green,
           indigo: colors.indigo,

@@ -13,10 +13,10 @@ class PostgresSearchPathBootstrapper implements TenancyBootstrapper
         // Get the FULL schema name with prefix (e.g., "tenant" + UUID)
         $schemaName = 'tenant' . $tenant->getTenantKey();
 
-        \Log::info('PostgresSearchPathBootstrapper: Setting search_path', [
-            'schema' => $schemaName,
-            'tenant_id' => $tenant->id,
-        ]);
+        // \Log::info('PostgresSearchPathBootstrapper: Setting search_path', [
+        //     'schema' => $schemaName,
+        //     'tenant_id' => $tenant->id,
+        // ]);
 
         // Update the tenant connection config
         $config = config('database.connections.tenant');
@@ -26,9 +26,9 @@ class PostgresSearchPathBootstrapper implements TenancyBootstrapper
         // Purge to force fresh connection with new config
         DB::purge('tenant');
 
-        \Log::info('PostgresSearchPathBootstrapper: Config updated', [
-            'full_config' => config('database.connections.tenant'),
-        ]);
+        // \Log::info('PostgresSearchPathBootstrapper: Config updated', [
+        //     'full_config' => config('database.connections.tenant'),
+        // ]);
     }
 
     public function revert()

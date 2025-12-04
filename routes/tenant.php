@@ -29,12 +29,13 @@ Route::middleware([
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
         // Contacts routes
-        // Route::prefix('contacts')->name('contacts.')->group(function () {
-        //     Route::get('/', function () {
-        //         return Inertia::render('Tenant/Contacts/Index');
-        //     })->name('index');
-        // });
-        Route::resource('contacts', ContactController::class);
+        Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
+
+            // Additional custom routes
+            // Route::post('/bulk-delete', [ContactController::class, 'bulkDelete'])->name('bulk-delete');
+        });
+
 
         // Profile routes
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

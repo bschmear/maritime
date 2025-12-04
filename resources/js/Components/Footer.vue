@@ -5,9 +5,9 @@ const currentYear = new Date().getFullYear();
 </script>
 
 <template>
-    <footer class="border-t border-navy-800 dark:border-navy-950
-        bg-gradient-to-b from-navy-900 via-navy-950 to-navy-950 dark:from-navy-800 dark:via-navy-800 dark:to-navy-900
-        text-white-400 dark:text-white-300">
+    <footer class="border-t border-navy-950
+        bg-gradient-to-b from-navy-800 via-navy-800 to-navy-900
+        text-white-300">
         <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
 
             <div class="grid grid-cols-1 gap-10 md:grid-cols-4">

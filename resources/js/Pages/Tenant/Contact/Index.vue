@@ -12,7 +12,23 @@ defineProps({
         type: Object,
         default: null,
     },
+    formSchema: {
+        type: Object,
+        default: null,
+    },
+    fieldsSchema: {
+        type: Object,
+        default: () => ({}),
+    },
+    enumOptions: {
+        type: Object,
+        default: () => ({}),
+    },
     recordType: {
+        type: String,
+        default: 'contact',
+    },
+    recordTitle: {
         type: String,
         default: 'contact',
     },
@@ -29,7 +45,7 @@ defineProps({
             </h2>
         </template>
 
-        <Table :records="records" :schema="schema" :record-type="recordType" />
+        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" :record-title="recordTitle" />
     </TenantLayout>
 </template>
 

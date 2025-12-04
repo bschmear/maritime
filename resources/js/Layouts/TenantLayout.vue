@@ -46,11 +46,17 @@ const secondaryNavItems = ref([
         </nav>
 
         <!-- Page Header (Optional) -->
-<!--         <header v-if="$slots.header" class="bg-white dark:bg-gray-800 shadow">
-            <div class="max-w-screen-xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <header v-if="$slots.header" class="bg-white dark:bg-gray-800 shadow-md">
+            <div class="w-full px-4 py-6 sm:px-6 ">
                 <slot name="header" />
             </div>
-        </header> -->
+        </header>
+        <!-- Page Header (Optional) -->
+        <header v-if="$slots.sitckyeheader" class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
+            <div class="w-full px-4 py-6 sm:px-6 ">
+                <slot name="sitckyeheader" />
+            </div>
+        </header>
 
         <!-- Page Content -->
         <main class=" mx-auto flex w-full h-full relative p-4">

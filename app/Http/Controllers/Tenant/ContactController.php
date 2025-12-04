@@ -16,13 +16,13 @@ class ContactController extends RecordController
     {
         parent::__construct(
             $request,
-            'contact',
-            'Contact',
+            'contacts', //$recordType
+            'Contact', //$typeTitle
             new RecordModel(),
             new CreateAction(),
             new UpdateAction(),
             new DeleteAction(),
-            $this->recordType
+            $this->recordType //$domainName
         );
     }
 }

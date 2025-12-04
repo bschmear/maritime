@@ -48,6 +48,7 @@ class MakeDomain extends Command
         $this->createUpdateActionClass($domainName, 'Update'. $modelName, $modelName);
         $this->createDeleteActionClass($domainName, 'Delete'. $modelName, $modelName);
         $this->createFormClass($domainName, 'form');
+        $this->createFieldsClass($domainName, 'fields');
         $this->createTableClass($domainName, 'table');
         $this->updateNamespace($destinationPath, "Domain\\{$domainName}\\Models");
 
@@ -94,6 +95,20 @@ class MakeDomain extends Command
 
     ]
   }
+}'
+            );
+        }
+    }
+
+    protected function createFieldsClass($domainName, $fileName)
+    {
+        $dataDirectory = app_path("Domain/{$domainName}/Schema");
+        $filePath = "{$dataDirectory}/{$fileName}.json";
+
+        if (!File::exists($filePath)) {
+            File::put($filePath,
+'{
+
 }'
             );
         }

@@ -1,5 +1,60 @@
 {
     "columns": [
-
+      {
+        "key": "first_name",
+        "label": "First Name",
+        "sortable": true
+      },
+      {
+        "key": "last_name",
+        "label": "Last Name",
+        "sortable": true
+      },
+      {
+        "key": "email",
+        "label": "Email",
+        "sortable": true
+      },
+      {
+        "key": "phone",
+        "label": "Phone",
+        "sortable": false
+      },
+      {
+        "key": "status_id",
+        "label": "Status",
+        "sortable": true
+      },
+      {
+        "key": "source_id",
+        "label": "Source",
+        "sortable": true
+      },
+      {
+        "key": "priority_id",
+        "label": "Priority",
+        "sortable": true
+      },
+      {
+        "key": "assigned_user_id",
+        "label": "Assigned To",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      },
+      {
+        "key": "last_contacted_at",
+        "label": "Last Contacted",
+        "sortable": true
+      },
+      {
+        "key": "next_followup_at",
+        "label": "Next Follow Up",
+        "sortable": true
+      }
     ]
-}
+  }
+  
