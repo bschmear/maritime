@@ -198,7 +198,7 @@ const setGroupBy = (field) => {
             </div>
         </template>
 
-        <div class="w-full">
+        <div class="w-full flex flex-col">
             <!-- Kanban View -->
             <KanbanBoard
                 v-if="currentView === 'kanban'"

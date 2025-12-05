@@ -155,14 +155,14 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="flex gap-4 overflow-x-auto pb-4">
+    <div class="flex gap-4 overflow-x-auto pb-4 grow">
         <div
             v-for="group in groupedTasks"
             :key="group.id"
-            class="min-w-[22rem] flex-shrink-0"
+            class="min-w-[22rem] flex-shrink-0 dark:bg-gray-800 flex flex-col rounded-lg"
         >
             <!-- Column Header -->
-            <div class="flex items-center justify-between mb-4 px-1">
+            <div class="flex items-center justify-between p-4">
                 <div class="flex items-center space-x-2">
                     <div
                         :class="[
@@ -183,7 +183,7 @@ onMounted(() => {
             <div
                 :ref="el => columnRefs[group.id] = el"
                 :data-column-id="group.id"
-                class="space-y-3 min-h-[200px] p-2 rounded-lg bg-gray-50 dark:bg-gray-900/50"
+                class="space-y-3 min-h-[200px] p-2  bg-gray-50 dark:bg-gray-900/50 grow"
             >
                 <!-- Task Card -->
                 <div
