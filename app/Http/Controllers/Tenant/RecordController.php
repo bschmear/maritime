@@ -422,22 +422,18 @@ class RecordController extends BaseController
 
     public function show(Request $request, $id)
     {
-        $record = $this->recordModel->findOrFail($id);
-        $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
+        
+        // Load the record with relationships
+        $record = $this->recordModel
+            ->with($this->getRelationshipsToLoad($fieldsSchema))
+            ->findOrFail($id);
+            
+        $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
-        // If it's an AJAX request, return JSON
-        if ($request->wantsJson() || $request->ajax()) {
-            return response()->json([
-                'record' => $record,
-                'recordType' => $this->recordType,
-                'formSchema' => $formSchema,
-                'fieldsSchema' => $fieldsSchema,
-                'enumOptions' => $enumOptions,
-            ]);
-        }
-
+        // Always return Inertia response for navigation
+        // Inertia requests have X-Inertia header, not X-Requested-With
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $record,
             'recordType' => $this->recordType,

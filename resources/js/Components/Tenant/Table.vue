@@ -323,6 +323,9 @@ const handleRecordCreated = (recordId) => {
     createdRecordId.value = recordId;
     showCreateModal.value = false;
     showSuccessModal.value = true;
+    
+    // Reload the page data to show the new record
+    router.reload({ only: ['records'] });
 };
 
 const viewRecord = () => {
