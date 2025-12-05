@@ -9,6 +9,7 @@ enum VendorType: string
     case Lender        = 'lender';
     case Service       = 'service';
     case Parts         = 'parts';
+    case Contractor    = 'contractor';
     case Other         = 'other';
 
     public function id(): int
@@ -19,7 +20,8 @@ enum VendorType: string
             self::Lender        => 3,
             self::Service       => 4,
             self::Parts         => 5,
-            self::Other         => 6,
+            self::Contractor    => 6,
+            self::Other         => 7,
         };
     }
 
@@ -31,7 +33,8 @@ enum VendorType: string
             self::Lender        => 'Lender',
             self::Service       => 'Service',
             self::Parts         => 'Parts Supplier',
-            self::Other         => 'Other',
+            self::Contractor         => 'Contractor',
+            self::Other         => 'Other'
         };
     }
 
@@ -43,7 +46,8 @@ enum VendorType: string
             self::Lender        => 'green',
             self::Service       => 'teal',
             self::Parts         => 'orange',
-            self::Other         => 'gray',
+            self::Contractor    => 'red',
+            self::Other         => 'gray'
         };
     }
 
@@ -55,7 +59,8 @@ enum VendorType: string
             self::Lender        => 'bg-green-200 dark:text-white dark:bg-green-900',
             self::Service       => 'bg-teal-200 dark:text-white dark:bg-teal-900',
             self::Parts         => 'bg-orange-200 dark:text-white dark:bg-orange-900',
-            self::Other         => 'bg-gray-200 dark:text-white dark:bg-gray-900',
+            self::Contractor    => 'bg-red-200 dark:text-white dark:bg-red-900',
+            self::Other         => 'bg-gray-200 dark:text-white dark:bg-gray-900'
         };
     }
 

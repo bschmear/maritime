@@ -62,9 +62,9 @@ class MakeDomain extends Command
         if ($this->confirm("Do you want to create a migration for {$modelName}?")) {
             Artisan::call('make:migration', [
                 'name' => "create_" . strtolower(Str::plural($modelName)) . "_table",
-                '--path' => 'database/migrations/tenants'
+                '--path' => 'database/migrations/tenant'
             ]);
-            $this->info("Migration created for {$modelName} in database/migrations/tenants.");
+            $this->info("Migration created for {$modelName} in database/migrations/tenant.");
         }
 
         // Create Vue pages

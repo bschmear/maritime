@@ -1,5 +1,55 @@
 {
     "columns": [
-
+      {
+        "key": "display_name",
+        "label": "Vendor Name",
+        "sortable": true
+      },
+      {
+        "key": "vendor_type",
+        "label": "Type",
+        "sortable": true
+      },
+      {
+        "key": "industry",
+        "label": "Industry",
+        "sortable": true
+      },
+      {
+        "key": "contact_first_name",
+        "label": "Primary Contact",
+        "sortable": true
+      },
+      {
+        "key": "contact_email",
+        "label": "Email",
+        "sortable": true
+      },
+      {
+        "key": "contact_phone",
+        "label": "Phone",
+        "sortable": false
+      },
+      {
+        "key": "status_id",
+        "label": "Status",
+        "sortable": true
+      },
+      {
+        "key": "assigned_user_id",
+        "label": "Assigned To",
+        "sortable": true
+      },
+      {
+        "key": "rating",
+        "label": "Rating",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      }
     ]
-}
+  }
+  

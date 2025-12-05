@@ -32,8 +32,8 @@ return new class extends Migration
             $table->index('created_at');
             $table->index('featured');
 
-            // Full-text search index (for MySQL 5.6+)
-            $table->fullText(['title', 'body', 'short_description'], 'posts_search');
+            // PostgreSQL doesn't support fullText indexes
+            // $table->fullText(['title', 'body', 'short_description'], 'posts_search');
 
             // Foreign keys
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');

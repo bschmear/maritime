@@ -29,20 +29,17 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-
-        // Customers routes
         Route::prefix('customers')->name('customers.')->group(function () {
             Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
         });
-
-        // Leads routes
         Route::prefix('leads')->name('leads.')->group(function () {
             Route::resource('/', LeadController::class)->parameters(['' => 'lead']);
         });
-
-        // Vendors routes
         Route::prefix('vendors')->name('vendors.')->group(function () {
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
+        });
+        Route::prefix('tasks')->name('tasks.')->group(function () {
+            Route::resource('/', TaskController::class)->parameters(['' => 'task']);
         });
 
 

@@ -1,0 +1,14 @@
+{
+  "primary": {
+    "label": "Primary",
+    "fields": [
+
+    ]
+  },
+  "secondary": {
+    "label": "Secondary",
+    "fields": [
+
+    ]
+  }
+}

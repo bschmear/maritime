@@ -13,21 +13,35 @@ return new class extends Migration
     {
         Schema::create('vendors', function (Blueprint $table) {
             $table->id();
-
+        
             // Company Details
-            $table->string('company_name');
-            $table->string('vendor_type')->nullable(); // dealer, manufacturer, lender, service, parts, etc
-
+            $table->string('display_name');
+            $table->tinyInteger('vendor_type')->nullable(); // dealer, manufacturer, lender, service, parts, etc
+            $table->string('industry')->nullable(); // HVAC, roofing, staging, lender, photography
+        
+            // Vendor Code for internal reference (short ID)
+            $table->string('vendor_code')->unique()->nullable();
+        
+            // Tags for flexible grouping
+            $table->json('tags')->nullable(); // ["preferred", "wholesale"]
+        
             // Primary Contact Person
             $table->string('contact_first_name')->nullable();
             $table->string('contact_last_name')->nullable();
             $table->string('contact_email')->nullable();
             $table->string('contact_phone')->nullable();
-
-            // Secondary contact (optional)
+        
+            // Additional contacts in JSON
+            $table->json('contacts')->nullable(); 
+            // [{ "name": "...", "email": "...", "phone": "...", "title": "..." }]
+        
+            // Secondary Contact
             $table->string('secondary_email')->nullable();
             $table->string('secondary_phone')->nullable();
-
+        
+            // Preferred contact method
+            $table->tinyInteger('preferred_contact_method')->nullable(); // phone, email, portal
+        
             // Address
             $table->string('address_line_1')->nullable();
             $table->string('address_line_2')->nullable();
@@ -35,26 +49,44 @@ return new class extends Migration
             $table->string('state')->nullable();
             $table->string('postal_code')->nullable();
             $table->string('country')->nullable();
-
-            // Relationship / CRM
-            $table->tinyInteger('status_id')->default(1);
-            // active, inactive, partner, preferred, blacklisted, etc (I can build enum)
-
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+        
+            // Relationship and CRM
+            $table->tinyInteger('status_id')->default(1); 
+            // active, inactive, partner, preferred, blacklisted, etc.
+        
+            $table->string('status_reason')->nullable(); 
+            // reason for status changes, example: stopped responding
+        
             $table->unsignedBigInteger('assigned_user_id')->nullable(); // relationship owner
             $table->text('notes')->nullable();
-
-            // Financial (optional depending on business)
-            $table->string('payment_terms')->nullable(); // Net 30, COD, etc.
+        
+            // Rating
+            $table->unsignedTinyInteger('rating')->nullable(); // 1 to 5
+        
+            // Financial
+            $table->tinyInteger('payment_terms')->nullable(); // Net 30, COD
             $table->decimal('credit_limit', 12, 2)->nullable();
-
-            // Links / Online
+        
+            // Links and Online
             $table->string('website')->nullable();
             $table->string('linkedin')->nullable();
             $table->string('facebook')->nullable();
-
+        
+            // Contract Info
+            $table->date('contract_start')->nullable();
+            $table->date('contract_end')->nullable();
+            $table->tinyInteger('contract_status')->nullable(); // active, pending, expired
+        
+            // Verification and compliance
+            $table->boolean('is_verified')->default(false);
+            $table->date('verified_at')->nullable();
+        
             // Timestamps
             $table->timestamps();
         });
+        
     }
 
     /**

@@ -1,3 +1,165 @@
 {
-
-}
+    "display_name": {
+      "label": "Company Name",
+      "type": "text"
+    },
+    "vendor_type": {
+      "label": "Vendor Type",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\VendorType"
+      
+    },
+    "industry": {
+      "label": "Industry",
+      "type": "text"
+    },
+    "vendor_code": {
+      "label": "Vendor Code",
+      "type": "text"
+    },
+    "tags": {
+      "label": "Tags",
+      "type": "json"
+    },
+    "contact_first_name": {
+      "label": "Contact First Name",
+      "type": "text"
+    },
+    "contact_last_name": {
+      "label": "Contact Last Name",
+      "type": "text"
+    },
+    "contact_email": {
+      "label": "Contact Email",
+      "type": "email"
+    },
+    "contact_phone": {
+      "label": "Contact Phone",
+      "type": "tel"
+    },
+    "contacts": {
+      "label": "Additional Contacts",
+      "type": "json"
+    },
+    "secondary_email": {
+      "label": "Secondary Email",
+      "type": "email"
+    },
+    "secondary_phone": {
+      "label": "Secondary Phone",
+      "type": "tel"
+    },
+    "preferred_contact_method": {
+      "label": "Preferred Contact Method",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\PreferredContactMethod"
+    },
+    "address_line_1": {
+      "label": "Street Address",
+      "type": "text"
+    },
+    "address_line_2": {
+      "label": "Address Line 2",
+      "type": "text"
+    },
+    "city": {
+      "label": "City",
+      "type": "text"
+    },
+    "state": {
+      "label": "State",
+      "type": "text"
+    },
+    "postal_code": {
+      "label": "Postal Code",
+      "type": "text"
+    },
+    "country": {
+      "label": "Country",
+      "type": "text"
+    },
+    "latitude": {
+      "label": "Latitude",
+      "type": "number"
+    },
+    "longitude": {
+      "label": "Longitude",
+      "type": "number"
+    },
+    "status_id": {
+      "label": "Status",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\VendorStatus"
+    },
+    "status_reason": {
+      "label": "Status Reason",
+      "type": "text"
+    },
+    "assigned_user_id": {
+      "label": "Assigned To",
+      "type": "record",
+      "typeDomain": "User"
+    },
+    "notes": {
+      "label": "Notes",
+      "type": "textarea"
+    },
+    "rating": {
+      "label": "Rating",
+      "type": "rating"
+    },
+    "payment_terms": {
+      "label": "Payment Terms",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\PaymentTerms"
+    },
+    "credit_limit": {
+      "label": "Credit Limit",
+      "type": "number"
+    },
+    "website": {
+      "label": "Website",
+      "type": "text"
+    },
+    "linkedin": {
+      "label": "LinkedIn",
+      "type": "text"
+    },
+    "facebook": {
+      "label": "Facebook",
+      "type": "text"
+    },
+    "contract_start": {
+      "label": "Contract Start",
+      "type": "date"
+    },
+    "contract_end": {
+      "label": "Contract End",
+      "type": "date"
+    },
+    "contract_status": {
+      "label": "Contract Status",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\ContractStatus"
+    },
+    "is_verified": {
+      "label": "Verified",
+      "type": "boolean"
+    },
+    "verified_at": {
+      "label": "Verified At",
+      "type": "datetime",
+      "disabled": true
+    },
+    "created_at": {
+      "label": "Created At",
+      "type": "datetime",
+      "disabled": true
+    },
+    "updated_at": {
+      "label": "Updated At",
+      "type": "datetime",
+      "disabled": true
+    }
+  }
+  

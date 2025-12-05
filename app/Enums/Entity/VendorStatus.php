@@ -2,22 +2,22 @@
 
 namespace App\Enums\Entity;
 
-enum Status: string
-{
-    case Active          = 'active';
-    case Inactive        = 'inactive';
-    case PendingApproval = 'pending';
-    case Suspended       = 'suspended';
-    case Archived        = 'archived';
+enum VendorStatus: string
+{    
+    case Active      = 'active';
+    case Inactive    = 'inactive';
+    case Partner     = 'partner';
+    case Preferred   = 'preferred';
+    case Blacklisted = 'blacklisted';
 
     public function id(): int
     {
         return match ($this) {
-            self::Active          => 1,
-            self::Inactive        => 2,
-            self::PendingApproval => 3,
-            self::Suspended       => 4,
-            self::Archived        => 5,
+            self::Active            => 1,
+            self::Inactive          => 2,
+            self::Partner           => 3,
+            self::Preferred         => 4,
+            self::Blacklisted       => 5,
         };
     }
 
@@ -26,9 +26,9 @@ enum Status: string
         return match ($this) {
             self::Active          => 'Active',
             self::Inactive        => 'Inactive',
-            self::PendingApproval => 'Pending Approval',
-            self::Suspended       => 'Suspended',
-            self::Archived        => 'Archived',
+            self::Partner         => 'Partner',
+            self::Preferred       => 'Preferred',
+            self::Blacklisted     => 'Blacklisted',
         };
     }
 

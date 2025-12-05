@@ -10,6 +10,7 @@ import Checkbox from '@/Components/Tenant/FormComponents/Checkbox.vue';
 import Radio from '@/Components/Tenant/FormComponents/Radio.vue';
 import Date from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTime from '@/Components/Tenant/FormComponents/DateTime.vue';
+import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 
 const props = defineProps({
     schema: {
@@ -83,6 +84,8 @@ const initializeFormData = () => {
                             }
                         } else if (fieldType === 'datetime' || fieldType === 'date') {
                             formData[field.key] = null;
+                        } else if (fieldType === 'rating') {
+                            formData[field.key] = 0; // Initialize rating as 0
                         } else if (fieldType === 'checkbox' || fieldType === 'boolean') {
                             formData[field.key] = 0; // Initialize as 0 (unchecked)
                         } else {
@@ -230,6 +233,44 @@ const handlePhoneInput = (fieldKey, event) => {
 const getFormattedPhoneValue = (fieldKey) => {
     const value = form[fieldKey] || '';
     return formatPhoneNumber(value);
+};
+
+// Date formatting functions
+const formatDate = (value) => {
+    if (!value) return '';
+    try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return value;
+        
+        // Format as "December 5, 2025"
+        return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        }).format(date);
+    } catch (e) {
+        return value;
+    }
+};
+
+const formatDateTime = (value) => {
+    if (!value) return '';
+    try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return value;
+        
+        // Format as "December 5, 2025 at 3:30 PM"
+        return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        }).format(date);
+    } catch (e) {
+        return value;
+    }
 };
 
 // Prepare form data with checkbox values converted to 1/0
@@ -456,6 +497,29 @@ defineExpose({
                                     <span v-if="getFieldType(field.key) === 'tel'">
                                         {{ getFormattedPhoneValue(field.key) || '—' }}
                                     </span>
+                                    <span v-else-if="getFieldType(field.key) === 'datetime'">
+                                        {{ formatDateTime(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'date'">
+                                        {{ formatDate(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'rating'">
+                                        <div class="flex items-center space-x-1">
+                                            <template v-for="star in 5" :key="star">
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    :class="star <= getFieldValue(field.key) ? 'text-yellow-400' : 'text-gray-300'"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                            </template>
+                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                                {{ getFieldValue(field.key) || 0 }}/5
+                                            </span>
+                                        </div>
+                                    </span>
                                     <span v-else>
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
@@ -495,6 +559,29 @@ defineExpose({
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'tel'">
                                         {{ getFormattedPhoneValue(field.key) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'datetime'">
+                                        {{ formatDateTime(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'date'">
+                                        {{ formatDate(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'rating'">
+                                        <div class="flex items-center space-x-1">
+                                            <template v-for="star in 5" :key="star">
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    :class="star <= getFieldValue(field.key) ? 'text-yellow-400' : 'text-gray-300'"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                </svg>
+                                            </template>
+                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                                {{ getFieldValue(field.key) || 0 }}/5
+                                            </span>
+                                        </div>
                                     </span>
                                     <span v-else>
                                         {{ getFieldValue(field.key) || '—' }}
@@ -572,6 +659,14 @@ defineExpose({
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
+                                    />
+
+                                    <!-- Rating -->
+                                    <Rating
+                                        v-else-if="getFieldType(field.key) === 'rating'"
+                                        v-model="form[field.key]"
+                                        :disabled="isFieldDisabled(field.key)"
+                                        :show-value="false"
                                     />
 
                                     <!-- Checkbox -->

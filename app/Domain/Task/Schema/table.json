@@ -1,0 +1,54 @@
+{
+  "columns": [
+    {
+      "key": "display_name",
+      "label": "Task",
+      "sortable": true
+    },
+    {
+      "key": "status_id",
+      "label": "Status",
+      "sortable": true
+    },
+    {
+      "key": "priority_id",
+      "label": "Priority",
+      "sortable": true
+    },
+    {
+      "key": "assigned_id",
+      "label": "Assigned To",
+      "sortable": true
+    },
+    {
+      "key": "due_date",
+      "label": "Due Date",
+      "sortable": true
+    },
+    {
+      "key": "completed",
+      "label": "Completed",
+      "sortable": true
+    },
+    {
+      "key": "completed_at",
+      "label": "Completed At",
+      "sortable": true
+    },
+    {
+      "key": "relatable_type",
+      "label": "Related Type",
+      "sortable": false
+    },
+    {
+      "key": "relatable_id",
+      "label": "Related ID",
+      "sortable": false
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ]
+}

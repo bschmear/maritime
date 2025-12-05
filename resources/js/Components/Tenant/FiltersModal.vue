@@ -176,7 +176,8 @@ const needsValueInput = (operator) => {
 </script>
 
 <template>
-    <div class=" bg-white ">
+
+    <div class=" bg-white dark:bg-gray-800">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
                 <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
