@@ -31,10 +31,11 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['task-updated', 'task-clicked']);
+const emit = defineEmits(['task-updated', 'task-clicked', 'view-task', 'create-task']);
 
 const columnRefs = ref({});
 const sortableInstances = ref({});
+const isDragging = ref(false);
 
 // Group tasks by the specified field
 const groupedTasks = computed(() => {
@@ -63,8 +64,15 @@ const initializeSortable = () => {
                     dragClass: 'sortable-drag',
                     chosenClass: 'sortable-chosen',
                     handle: '.task-drag-handle',
+                    onStart: () => {
+                        isDragging.value = true;
+                    },
                     onEnd: (evt) => {
                         handleTaskMove(evt);
+                        // Small delay to prevent click events from firing
+                        setTimeout(() => {
+                            isDragging.value = false;
+                        }, 100);
                     },
                 });
             }
@@ -102,7 +110,13 @@ const handleTaskMove = async (evt) => {
 };
 
 const handleTaskClick = (task) => {
-    emit('task-clicked', task);
+    // Don't open modal if we just finished dragging
+    if (isDragging.value) return;
+    emit('view-task', task);
+};
+
+const handleCreateTask = (groupId) => {
+    emit('create-task', groupId);
 };
 
 const formatDate = (date) => {
@@ -137,17 +151,20 @@ const getColorClasses = (color) => {
     return colors[color] || colors.gray;
 };
 
-// Watch for tasks changes and reinitialize Sortable
-watch(() => props.tasks, () => {
-    // Destroy existing instances
-    Object.values(sortableInstances.value).forEach(instance => {
-        if (instance) instance.destroy();
+// Watch for changes in group structure (not individual tasks)
+watch(() => props.groupOptions.length, () => {
+    // Only reinitialize if group structure changes
+    nextTick(() => {
+        // Destroy existing instances
+        Object.values(sortableInstances.value).forEach(instance => {
+            if (instance) instance.destroy();
+        });
+        sortableInstances.value = {};
+        
+        // Reinitialize
+        initializeSortable();
     });
-    sortableInstances.value = {};
-    
-    // Reinitialize
-    initializeSortable();
-}, { deep: true });
+});
 
 onMounted(() => {
     initializeSortable();
@@ -159,7 +176,7 @@ onMounted(() => {
         <div
             v-for="group in groupedTasks"
             :key="group.id"
-            class="min-w-[22rem] flex-shrink-0 dark:bg-gray-800 flex flex-col rounded-lg"
+            class="w-[22rem] flex-shrink-0 bg-gray-100 dark:bg-gray-800 flex flex-col rounded-lg"
         >
             <!-- Column Header -->
             <div class="flex items-center justify-between p-4">
@@ -183,7 +200,7 @@ onMounted(() => {
             <div
                 :ref="el => columnRefs[group.id] = el"
                 :data-column-id="group.id"
-                class="space-y-3 min-h-[200px] p-2  bg-gray-50 dark:bg-gray-900/50 grow"
+                class="space-y-3 min-h-[200px] p-2 bg-gray-100 dark:bg-gray-900/50 flex-1 overflow-y-auto"
             >
                 <!-- Task Card -->
                 <div
@@ -238,6 +255,19 @@ onMounted(() => {
                     </div>
                 </div>
             </div>
+                <div class="p-2 flex-shrink-0">
+                    <button
+                        @click="handleCreateTask(group.id)"
+                        type="button"
+                        class="flex w-full items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white py-2 font-medium text-gray-500 hover:border-primary-700 hover:bg-primary-50 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:bg-gray-700 dark:hover:text-white transition-colors"
+                    >
+                        <svg class="-ms-0.5 me-1.5 h-4 w-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7 7V5"></path>
+                        </svg>
+                        Add new task
+                    </button>
+                </div>
+
         </div>
     </div>
 </template>

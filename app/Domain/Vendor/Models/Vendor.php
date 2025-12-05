@@ -68,4 +68,9 @@ class Vendor extends Model
     {
         return $this->belongsTo(\Domain\User\Models\User::class, 'assigned_user_id');
     }
+
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'relatable');
+    }
 }

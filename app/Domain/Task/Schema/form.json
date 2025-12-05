@@ -4,12 +4,10 @@
     "fields": [
       { "key": "display_name", "required": true },
       { "key": "notes", "required": false },
-      { "key": "start_date", "required": false },
+      { "key": "start_date", "required": true },
       { "key": "due_date", "required": false },
-      { "key": "completed_at", "required": false, "disabled": true },
-      { "key": "completed", "required": false },
-      { "key": "recurring_rule", "required": false },
-      { "key": "task_type_id", "required": false }
+      { "key": "has_due_time", "required": false },
+      { "key": "due_time", "required": false, "conditional": { "key": "has_due_time", "value": true } }
     ]
   },
   "management": {
@@ -18,15 +16,10 @@
       { "key": "status_id", "required": true },
       { "key": "priority_id", "required": true },
       { "key": "assigned_id", "required": false },
-      { "key": "created_by", "required": false, "disabled": true },
-      { "key": "updated_by", "required": false, "disabled": true },
-      { "key": "relatable_type", "required": false },
-      { "key": "relatable_id", "required": false },
-      { "key": "reminder_at", "required": false },
-      { "key": "snoozed_until", "required": false },
-      { "key": "created_at", "required": false, "disabled": true },
-      { "key": "updated_at", "required": false, "disabled": true },
-      { "key": "deleted_at", "required": false, "disabled": true }
+      { "key": "created_by", "required": false, "disabled": true, "update_only": true },
+      { "key": "updated_by", "required": false, "disabled": true, "update_only": true },
+      { "key": "created_at", "required": false, "disabled": true, "update_only": true },
+      { "key": "updated_at", "required": false, "disabled": true, "update_only": true }
     ]
   }
 }

@@ -5,6 +5,10 @@ const model = defineModel({
 });
 
 const props = defineProps({
+    id: {
+        type: String,
+        default: '',
+    },
     required: {
         type: Boolean,
         default: false,
@@ -18,6 +22,7 @@ const props = defineProps({
 
 <template>
     <input
+        :id="id"
         type="date"
         v-model="model"
         :required="required"

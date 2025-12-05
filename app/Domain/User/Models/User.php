@@ -40,4 +40,9 @@ class User extends Model
     {
         return $this->display_name ?: $this->full_name;
     }
+
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'relatable');
+    }
 }

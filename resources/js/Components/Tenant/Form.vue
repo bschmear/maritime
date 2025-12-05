@@ -8,8 +8,8 @@ import TextInput from '@/Components/Tenant/FormComponents/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
 import Checkbox from '@/Components/Tenant/FormComponents/Checkbox.vue';
 import Radio from '@/Components/Tenant/FormComponents/Radio.vue';
-import Date from '@/Components/Tenant/FormComponents/Date.vue';
-import DateTime from '@/Components/Tenant/FormComponents/DateTime.vue';
+import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
+import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 
 const props = defineProps({
@@ -57,6 +57,16 @@ const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
 
+// Generate unique form ID for this form instance
+const formUniqueId = computed(() => {
+    return `form-${props.recordType}-${props.record?.id || 'new'}-${Math.random().toString(36).substr(2, 9)}`;
+});
+
+// Generate unique field ID for input elements
+const getFieldId = (fieldKey) => {
+    return `${formUniqueId.value}-field-${fieldKey}`;
+};
+
 const getFieldDefinition = (fieldKey) => {
     return props.fieldsSchema[fieldKey] || {};
 };
@@ -65,24 +75,72 @@ const initializeFormData = () => {
     const formData = {};
 
     if (props.record) {
-        Object.assign(formData, props.record);
+        // First, copy all record data
+        Object.keys(props.record).forEach(key => {
+            const fieldDef = getFieldDefinition(key);
+            const value = props.record[key];
+            
+            // Handle date/datetime fields - convert to proper format for inputs
+            if (fieldDef.type === 'datetime' || fieldDef.type === 'date') {
+                if (value) {
+                    if (value instanceof Date) {
+                        formData[key] = fieldDef.type === 'datetime'
+                            ? value.toISOString().slice(0, 16)
+                            : value.toISOString().split('T')[0];
+                    } else if (typeof value === 'string') {
+                        const parsedDate = new Date(value);
+                        if (!isNaN(parsedDate.getTime())) {
+                            formData[key] = fieldDef.type === 'datetime'
+                                ? parsedDate.toISOString().slice(0, 16)
+                                : parsedDate.toISOString().split('T')[0];
+                        } else {
+                            formData[key] = value;
+                        }
+                    } else {
+                        formData[key] = value;
+                    }
+                } else {
+                    formData[key] = null;
+                }
+            } else if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
+                formData[key] = value === true || value === 1 ? 1 : 0;
+            } else {
+                formData[key] = value;
+            }
+        });
     }
 
+    // Initialize any missing fields from schema
     if (props.schema) {
-        Object.values(props.schema).forEach(group => {
+        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
-                group.fields.forEach(field => {
+                group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     if (!(field.key in formData)) {
                         const fieldDef = getFieldDefinition(field.key);
                         const fieldType = fieldDef.type || 'text';
-                        if (fieldType === 'select') {
+                        
+                        // Check for default_value first
+                        if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
+                            formData[field.key] = fieldDef.default_value;
+                        }
+                        // Check for default_today for date fields
+                        else if (fieldType === 'date' && fieldDef.default_today === true) {
+                            const today = new Date();
+                            formData[field.key] = today.toISOString().split('T')[0]; // YYYY-MM-DD
+                        }
+                        // Check for default_now for datetime fields
+                        else if (fieldType === 'datetime' && fieldDef.default_now === true) {
+                            const now = new Date();
+                            formData[field.key] = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+                        }
+                        else if (fieldType === 'select' || fieldType === 'record') {
                             // If required and has enum options, auto-select first option
                             if (field.required && fieldDef.enum && props.enumOptions[fieldDef.enum] && props.enumOptions[fieldDef.enum].length > 0) {
                                 formData[field.key] = props.enumOptions[fieldDef.enum][0].id;
                             } else {
                                 formData[field.key] = null;
                             }
-                        } else if (fieldType === 'datetime' || fieldType === 'date') {
+                        } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'time') {
                             formData[field.key] = null;
                         } else if (fieldType === 'rating') {
                             formData[field.key] = 0; // Initialize rating as 0
@@ -111,8 +169,54 @@ watch(() => props.record, (newRecord) => {
             // Convert checkbox values: ensure 0/1 instead of false/true
             if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                 form[key] = newRecord[key] === true || newRecord[key] === 1 ? 1 : 0;
+            } else if (fieldDef.type === 'datetime' || fieldDef.type === 'date') {
+                // Handle date/datetime fields - convert to proper format for components
+                const dateValue = newRecord[key];
+                if (dateValue) {
+                    if (dateValue instanceof Date) {
+                        // If it's already a Date object, format it for the input
+                        if (fieldDef.type === 'datetime') {
+                            form[key] = dateValue.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM format
+                        } else {
+                            form[key] = dateValue.toISOString().split('T')[0]; // YYYY-MM-DD format
+                        }
+                    } else if (typeof dateValue === 'string') {
+                        // If it's a string, try to parse it
+                        const parsedDate = new Date(dateValue);
+                        if (!isNaN(parsedDate.getTime())) {
+                            if (fieldDef.type === 'datetime') {
+                                form[key] = parsedDate.toISOString().slice(0, 16);
+                            } else {
+                                form[key] = parsedDate.toISOString().split('T')[0];
+                            }
+                        } else {
+                            form[key] = dateValue; // Keep as is if parsing fails
+                        }
+                    } else {
+                        form[key] = dateValue;
+                    }
+                } else {
+                    form[key] = null;
+                }
             } else {
                 form[key] = newRecord[key] ?? '';
+            }
+        });
+    }
+}, { deep: true, immediate: true });
+
+// Watch form changes to handle conditional field visibility
+watch(() => form.data(), (newData, oldData) => {
+    // Check if any fields that control conditional visibility have changed
+    if (props.schema) {
+        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
+            if (group.fields && Array.isArray(group.fields)) {
+                group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
+                    // If this field has conditional logic and is currently hidden, clear its value
+                    if (field.conditional && !isFieldVisible(field)) {
+                        form[field.key] = getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean' ? 0 : '';
+                    }
+                });
             }
         });
     }
@@ -120,11 +224,18 @@ watch(() => props.record, (newRecord) => {
 
 const formGroups = computed(() => {
     if (!props.schema) return [];
-    return Object.entries(props.schema).map(([key, group], index) => ({
-        key,
-        index,
-        ...group,
-    }));
+    // Ensure reactivity to form changes for conditional field visibility
+    const currentFormData = form.data();
+    return Object.entries(props.schema)
+        .filter(([key, group]) => group && typeof group === 'object')
+        .map(([key, group], index) => ({
+            key,
+            index,
+            label: group.label || key,
+            is_address: group.is_address || false,
+            // Filter out invalid fields and ensure field.key exists
+            filteredFields: (group.fields || []).filter(f => f && typeof f === 'object' && f.key)
+        }));
 });
 
 // Track which accordion sections are open
@@ -148,6 +259,11 @@ const getEnumOptions = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     if (fieldDef.enum) {
         return props.enumOptions[fieldDef.enum] || [];
+    }
+    // Handle record type fields
+    if (fieldDef.type === 'record' && fieldDef.typeDomain) {
+        const domainKey = `Domain\\${fieldDef.typeDomain}\\Models\\${fieldDef.typeDomain}`;
+        return props.enumOptions[domainKey] || [];
     }
     return [];
 };
@@ -175,6 +291,64 @@ const isFieldRequired = (field) => field.required === true;
 const isFieldDisabled = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     return fieldDef.disabled === true || (!isEditMode.value && props.mode === 'view');
+};
+
+const isFieldVisible = (field) => {
+    // Guard clause - if field is undefined/null, hide it
+    if (!field || typeof field !== 'object') {
+        return false;
+    }
+
+    // Check if field is update_only and we're in create mode
+    if (field.update_only === true && isCreateMode.value) {
+        return false;
+    }
+
+    // Check if field has conditional logic
+    if (field.conditional && typeof field.conditional === 'object') {
+        const { key, value, operator = 'equals' } = field.conditional;
+        const currentValue = form[key];
+
+        switch (operator) {
+            case 'equals':
+            case 'eq':
+                // Handle boolean comparisons for checkboxes (1/0 vs true/false)
+                if (typeof value === 'boolean') {
+                    const boolCurrentValue = currentValue === 1 || currentValue === true;
+                    return boolCurrentValue === value;
+                }
+                return currentValue === value;
+            case 'not_equals':
+            case 'neq':
+                if (typeof value === 'boolean') {
+                    const boolCurrentValue = currentValue === 1 || currentValue === true;
+                    return boolCurrentValue !== value;
+                }
+                return currentValue !== value;
+            case 'greater_than':
+            case 'gt':
+                return currentValue > value;
+            case 'less_than':
+            case 'lt':
+                return currentValue < value;
+            case 'contains':
+                return String(currentValue).includes(String(value));
+            case 'is_empty':
+                return !currentValue || currentValue === '';
+            case 'is_not_empty':
+                return currentValue && currentValue !== '';
+            default:
+                // Default to equals with boolean handling
+                if (typeof value === 'boolean') {
+                    const boolCurrentValue = currentValue === 1 || currentValue === true;
+                    return boolCurrentValue === value;
+                }
+                return currentValue === value;
+        }
+    }
+
+    // No conditional logic, field is always visible
+    return true;
 };
 
 // Phone number formatting functions
@@ -292,9 +466,9 @@ const prepareFormData = () => {
     
     // Convert checkbox boolean values to 1/0 for proper submission
     if (props.schema) {
-        Object.values(props.schema).forEach(group => {
+        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
-                group.fields.forEach(field => {
+                group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     const fieldDef = getFieldDefinition(field.key);
                     if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                         // Convert boolean to 1/0
@@ -348,9 +522,9 @@ const handleSubmit = () => {
             form.transform((data) => {
                 const transformed = { ...data };
                 if (props.schema) {
-                    Object.values(props.schema).forEach(group => {
+                    Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
                         if (group.fields && Array.isArray(group.fields)) {
-                            group.fields.forEach(field => {
+                            group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                                 const fieldDef = getFieldDefinition(field.key);
                                 if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                                     transformed[field.key] = transformed[field.key] === true || transformed[field.key] === 1 ? 1 : 0;
@@ -416,9 +590,9 @@ const handleSubmit = () => {
             form.transform((data) => {
                 const transformed = { ...data };
                 if (props.schema) {
-                    Object.values(props.schema).forEach(group => {
+                    Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
                         if (group.fields && Array.isArray(group.fields)) {
-                            group.fields.forEach(field => {
+                            group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                                 const fieldDef = getFieldDefinition(field.key);
                                 if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                                     transformed[field.key] = transformed[field.key] === true || transformed[field.key] === 1 ? 1 : 0;
@@ -492,16 +666,18 @@ defineExpose({
 
                 <!-- Accordion Body -->
                 <div
+                    v-if="group.filteredFields && group.filteredFields.length > 0"
                     :id="`accordion-body-${group.index}`"
                     v-show="openSections[group.key]"
                     :aria-labelledby="`accordion-heading-${group.index}`"
                 >
                     <div class="p-4 border-gray-200 sm:p-5 dark:border-gray-700">
                         <!-- Address Group -->
-                        <div v-if="group.is_address" class="grid gap-4 sm:grid-cols-2">
-                            <div v-for="field in group.fields" :key="field.key"
-                                 :class="field.key === 'address_line_1' || field.key === 'address_line_2' ? 'sm:col-span-2' : ''">
-                                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                        <div v-if="group.is_address && group.filteredFields" class="grid gap-4 sm:grid-cols-2">
+                            <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
+                                <div v-if="field && isFieldVisible(field)"
+                                     :class="field.key === 'address_line_1' || field.key === 'address_line_2' ? 'sm:col-span-2' : ''">
+                                <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                                     {{ getFieldLabel(field.key) }}
                                     <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
                                 </label>
@@ -515,6 +691,9 @@ defineExpose({
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'date'">
                                         {{ formatDate(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'time'">
+                                        {{ getFieldValue(field.key) || '—' }}
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'rating'">
                                         <div class="flex items-center space-x-1">
@@ -548,6 +727,7 @@ defineExpose({
 
                                 <div v-else>
                                     <input
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :type="getFieldType(field.key)"
                                         :required="isFieldRequired(field)"
@@ -558,14 +738,16 @@ defineExpose({
                                         {{ form.errors[field.key] }}
                                     </p>
                                 </div>
-                            </div>
+                                </div>
+                            </template>
                         </div>
 
                         <!-- Regular Fields -->
-                        <div v-else class="grid gap-4 sm:grid-cols-2">
-                            <div v-for="field in group.fields" :key="field.key"
-                                 :class="getFieldType(field.key) === 'textarea' ? 'sm:col-span-2' : ''">
-                                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                        <div v-else-if="group.filteredFields" class="grid gap-4 sm:grid-cols-2">
+                            <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
+                                <div v-if="field && isFieldVisible(field)"
+                                     :class="getFieldType(field.key) === 'textarea' ? 'sm:col-span-2' : ''">
+                                <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                                     {{ getFieldLabel(field.key) }}
                                     <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
                                 </label>
@@ -586,6 +768,9 @@ defineExpose({
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'date'">
                                         {{ formatDate(getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'time'">
+                                        {{ getFieldValue(field.key) || '—' }}
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'rating'">
                                         <div class="flex items-center space-x-1">
@@ -622,6 +807,7 @@ defineExpose({
                                     <!-- Phone Input with Formatting -->
                                     <div v-if="getFieldType(field.key) === 'tel'" class="relative">
                                         <input
+                                            :id="getFieldId(field.key)"
                                             type="tel"
                                             :value="getFormattedPhoneValue(field.key)"
                                             @input="handlePhoneInput(field.key, $event)"
@@ -636,6 +822,7 @@ defineExpose({
                                     <!-- Text/Email/Number Input -->
                                     <input
                                         v-else-if="['text', 'email', 'number'].includes(getFieldType(field.key))"
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :type="getFieldType(field.key)"
                                         :required="isFieldRequired(field)"
@@ -646,6 +833,7 @@ defineExpose({
                                     <!-- Textarea -->
                                     <textarea
                                         v-else-if="getFieldType(field.key) === 'textarea'"
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
@@ -656,6 +844,7 @@ defineExpose({
                                     <!-- Select / Record -->
                                     <select
                                         v-else-if="getFieldType(field.key) === 'select' || getFieldType(field.key) === 'record'"
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
@@ -675,19 +864,32 @@ defineExpose({
                                     </select>
 
                                     <!-- DateTime -->
-                                    <DateTime
+                                    <DateTimeInput
                                         v-else-if="getFieldType(field.key) === 'datetime'"
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
                                     />
 
                                     <!-- Date -->
-                                    <Date
+                                    <DateInput
                                         v-else-if="getFieldType(field.key) === 'date'"
+                                        :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
+                                    />
+
+                                    <!-- Time -->
+                                    <input
+                                        v-else-if="getFieldType(field.key) === 'time'"
+                                        :id="getFieldId(field.key)"
+                                        type="time"
+                                        v-model="form[field.key]"
+                                        :required="isFieldRequired(field)"
+                                        :disabled="isFieldDisabled(field.key)"
+                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                                     />
 
                                     <!-- Rating -->
@@ -701,6 +903,7 @@ defineExpose({
                                     <!-- File Input -->
                                     <div v-else-if="getFieldType(field.key) === 'file'" class="space-y-2">
                                         <input
+                                            :id="getFieldId(field.key)"
                                             type="file"
                                             @change="handleFileInput(field.key, $event)"
                                             :required="isFieldRequired(field)"
@@ -725,6 +928,7 @@ defineExpose({
                                             :value="0"
                                         />
                                         <input
+                                            :id="getFieldId(field.key)"
                                             v-model="form[field.key]"
                                             type="checkbox"
                                             :name="field.key"
@@ -739,7 +943,8 @@ defineExpose({
                                         {{ form.errors[field.key] }}
                                     </p>
                                 </div>
-                            </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>

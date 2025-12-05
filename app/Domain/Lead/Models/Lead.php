@@ -42,4 +42,9 @@ class Lead extends Model
         'next_followup_at',
         'converted_at',
     ];
+
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'relatable');
+    }
 }

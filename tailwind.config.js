@@ -93,6 +93,7 @@ export default {
           black: colors.black,
           gray: colors.gray,
           emerald: colors.emerald,
+          orange: colors.orange,
           green: colors.green,
           indigo: colors.indigo,
           yellow: colors.yellow,

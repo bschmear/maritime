@@ -173,6 +173,14 @@ class RecordController extends BaseController
                         strtolower($fieldDef['typeDomain']), // Domain name lowercase
                     ];
 
+                    // Add common Laravel relationship naming patterns
+                    if (str_ends_with($fieldKey, '_by')) {
+                        // For fields like created_by, updated_by -> try creator, updater
+                        $baseName = str_replace('_by', '', $fieldKey);
+                        $alternatives[] = $baseName . 'r'; // creator, updater
+                        $alternatives[] = $baseName . 'By'; // createdBy, updatedBy (camelCase)
+                    }
+
                     foreach ($alternatives as $altRelationship) {
                         if (method_exists($this->recordModel, $altRelationship)) {
                             $relationships[] = $altRelationship;
@@ -186,34 +194,16 @@ class RecordController extends BaseController
         return array_unique($relationships);
     }
 
-    protected function getSchemaColumns()
-    {
-        $schema = $this->getTableSchema();
-        
-        if (!$schema || !isset($schema['columns'])) {
-            return ['*'];
-        }
-
-        // Extract column keys from schema, always include 'id'
-        $columns = ['id'];
-        foreach ($schema['columns'] as $column) {
-            if (isset($column['key'])) {
-                $columns[] = $column['key'];
-            }
-        }
-
-        return $columns;
-    }
-
     public function index(Request $request)
     {
-        $columns = $this->getSchemaColumns();
+        // Load all columns instead of limiting to table schema
+        // This ensures Kanban/List views have access to all fields like notes
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
-        $query = $this->recordModel->select($columns)->with($this->getRelationshipsToLoad($fieldsSchema));
+        $query = $this->recordModel->with($this->getRelationshipsToLoad($fieldsSchema));
         
         // Apply search query (fuzzy search on display_name, case-insensitive)
         $searchQuery = $request->get('search');
@@ -423,17 +413,27 @@ class RecordController extends BaseController
     public function show(Request $request, $id)
     {
         $fieldsSchema = $this->getFieldsSchema();
-        
+
         // Load the record with relationships
         $record = $this->recordModel
             ->with($this->getRelationshipsToLoad($fieldsSchema))
             ->findOrFail($id);
-            
+
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
-        // Always return Inertia response for navigation
-        // Inertia requests have X-Inertia header, not X-Requested-With
+        // If it's an AJAX request, return JSON with full record data
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'record' => $record,
+                'recordType' => $this->recordType,
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+            ]);
+        }
+
+        // Otherwise return Inertia response for navigation
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $record,
             'recordType' => $this->recordType,

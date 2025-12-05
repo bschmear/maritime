@@ -9,11 +9,22 @@
   },
   "start_date": {
     "label": "Start Date",
-    "type": "datetime"
+    "default_today": true,
+    "type": "date"
   },
   "due_date": {
     "label": "Due Date",
-    "type": "datetime"
+    "type": "date"
+  },
+  "has_due_time": {
+    "label": "Set Specific Time",
+    "type": "checkbox"
+  },
+  "due_time": {
+    "label": "Due Time",
+    "type": "time",
+    "default_value": "12:00",
+    "depends_on": "has_due_time"
   },
   "completed_at": {
     "label": "Completed At",

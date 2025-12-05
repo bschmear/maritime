@@ -40,4 +40,9 @@ class Customer extends Model
         'last_contacted_at',
         'next_followup_at',
     ];
+
+    public function tasks()
+    {
+        return $this->morphMany(Task::class, 'relatable');
+    }
 }

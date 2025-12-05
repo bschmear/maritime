@@ -19,8 +19,10 @@ return new class extends Migration
             $table->text('notes')->nullable();
 
             // Dates
-            $table->dateTime('start_date')->nullable();
-            $table->dateTime('due_date')->nullable();
+            $table->date('start_date')->nullable();
+            $table->date('due_date')->nullable(); 
+            $table->boolean('has_due_time')->default(false); 
+            $table->time('due_time')->nullable(); 
             $table->dateTime('completed_at')->nullable();
 
             // Status & Priority (via enums or lookup tables)
