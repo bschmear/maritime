@@ -12,7 +12,10 @@ class UpdateRole
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            // Add validation rules here
+            'display_name' => 'required|string|max:255',
+            'slug' => 'required|string|max:100|unique:roles,slug,' . $id,
+            'description' => 'nullable|string|max:1000',
+            'permissions' => 'nullable|array',
         ])->validate();
 
         try {

@@ -11,12 +11,17 @@ class CreateTask
 {
     public function __invoke(array $data): array
     {
-        $validated = Validator::make($data, [
-            // Add validation rules here
-        ])->validate();
+  
+            $validated = Validator::make($data, [
+                'display_name' => ['required', 'string', 'max:255'],
+                'notes'      => ['nullable', 'string'],
+            ])->validate();
+
+            $fieldsToSave = array_merge($data, $validated);
 
         try {
-            $record = RecordModel::create($validated);
+
+            $record = RecordModel::create($fieldsToSave);
 
             return [
                 'success' => true,

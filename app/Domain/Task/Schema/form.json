@@ -16,7 +16,7 @@
     "label": "Management & Assignment",
     "fields": [
       { "key": "status_id", "required": true },
-      { "key": "priority_id", "required": false },
+      { "key": "priority_id", "required": true },
       { "key": "assigned_id", "required": false },
       { "key": "created_by", "required": false, "disabled": true },
       { "key": "updated_by", "required": false, "disabled": true },

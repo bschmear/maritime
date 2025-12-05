@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stancl\Tenancy\Database\Models\Domain;
 use Exception;
+use Domain\User\Models\User as TenantUser;
+use Domain\Role\Models\Role;
 
 class CheckoutController extends Controller
 {
@@ -133,6 +135,9 @@ public function process(Request $request)
 
                 $account->users()->attach($user->id, ['role' => 'owner']);
 
+                // Copy authenticated user to tenant users table
+                $this->copyUserToTenant($user, $tenant);
+
             } catch (Exception $e) {
                 Log::error('Tenant setup failed', [
                     'tenant_id' => $tenant->id,
@@ -180,5 +185,62 @@ public function process(Request $request)
             'defaultAccountName' => $defaultAccountName,
             'hasExistingAccount' => (bool) $existingAccount,
         ]);
+    }
+
+    /**
+     * Copy the authenticated user to the tenant's users table.
+     */
+    private function copyUserToTenant(\App\Models\User $user, \App\Models\Tenant $tenant): void
+    {
+        try {
+            // Switch to tenant context
+            tenancy()->initialize($tenant);
+
+            // Parse name into first and last name
+            $nameParts = explode(' ', $user->name, 2);
+            $firstName = $nameParts[0] ?? '';
+            $lastName = $nameParts[1] ?? '';
+
+            // Create tenant user
+            TenantUser::create([
+                'display_name' => $user->name,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'email' => $user->email,
+                'current_role' => $this->getAdminRoleId(), // Assign admin role
+            ]);
+
+            Log::info('User copied to tenant', [
+                'user_id' => $user->id,
+                'tenant_id' => $tenant->id,
+                'email' => $user->email,
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to copy user to tenant', [
+                'user_id' => $user->id,
+                'tenant_id' => $tenant->id,
+                'error' => $e->getMessage(),
+            ]);
+            // Don't throw exception - tenant creation should continue
+        } finally {
+            // Reset tenancy context
+            tenancy()->end();
+        }
+    }
+
+    /**
+     * Get the admin role ID from the tenant database.
+     */
+    private function getAdminRoleId(): ?int
+    {
+        try {
+            return Role::where('slug', 'admin')->first()?->id;
+        } catch (Exception $e) {
+            Log::error('Failed to get admin role ID', [
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
     }
 }

@@ -1,5 +1,20 @@
 {
     "columns": [
-
+        {
+            "key": "display_name",
+            "label": " Name"
+        },
+        {
+            "key": "email",
+            "label": "Email"
+        },
+        {
+            "key": "current_role",
+            "label": "Role"
+        },
+        {
+            "key": "created_at",
+            "label": "Created"
+        }
     ]
 }

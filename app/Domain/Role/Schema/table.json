@@ -1,5 +1,20 @@
 {
     "columns": [
-
+        {
+            "key": "display_name",
+            "label": "Name"
+        },
+        {
+            "key": "slug",
+            "label": "Slug"
+        },
+        {
+            "key": "description",
+            "label": "Description"
+        },
+        {
+            "key": "created_at",
+            "label": "Created"
+        }
     ]
 }

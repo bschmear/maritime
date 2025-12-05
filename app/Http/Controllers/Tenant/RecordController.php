@@ -86,8 +86,11 @@ class RecordController extends BaseController
 
         $enumOptions = [];
 
-        // Iterate through fields to find enum fields
+        // Iterate through fields to find enum and record fields
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            $fieldType = $fieldDef['type'] ?? 'text';
+
+            // Handle enum fields (existing functionality)
             if (isset($fieldDef['enum']) && !empty($fieldDef['enum'])) {
                 $enumClass = $fieldDef['enum'];
 
@@ -96,9 +99,91 @@ class RecordController extends BaseController
                     $enumOptions[$enumClass] = $enumClass::options();
                 }
             }
+
+            // Handle record type fields (new functionality)
+            if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
+                $domainName = $fieldDef['typeDomain'];
+                $modelClass = "Domain\\{$domainName}\\Models\\{$domainName}";
+
+                // Check if the model class exists
+                if (class_exists($modelClass)) {
+                    try {
+                        // Get all records from the related domain
+                        $records = $modelClass::select('id', 'display_name')->get();
+
+                        // Format as options array
+                        $options = $records->map(function ($record) {
+                            return [
+                                'id' => $record->id,
+                                'name' => $record->display_name,
+                                'value' => $record->id,
+                            ];
+                        })->toArray();
+
+                        // Use the field key as the options key
+                        $enumOptions[$fieldKey] = $options;
+                    } catch (\Exception $e) {
+                        // Log error but don't break the page
+                        \Log::warning("Failed to load record options for {$domainName}: " . $e->getMessage());
+                        $enumOptions[$fieldKey] = [];
+                    }
+                }
+            }
         }
 
         return $enumOptions;
+    }
+
+    protected function getRelationshipsToLoad($fieldsSchema)
+    {
+        if (!$fieldsSchema) {
+            return [];
+        }
+
+        $relationships = [];
+
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            $fieldType = $fieldDef['type'] ?? 'text';
+
+            if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
+                // Try to infer the relationship name from the field key
+                $relationshipName = $fieldKey;
+
+                // Remove common suffixes and prefixes
+                if (substr($relationshipName, -3) === '_id') {
+                    $relationshipName = substr($relationshipName, 0, -3); // Remove '_id'
+                }
+                if (substr($relationshipName, 0, 8) === 'current_') {
+                    $relationshipName = substr($relationshipName, 8); // Remove 'current_' prefix
+                }
+
+                // Try singular version if it ends with 's'
+                if (substr($relationshipName, -1) === 's') {
+                    $relationshipName = substr($relationshipName, 0, -1);
+                }
+
+                // Check if the relationship exists on the model
+                if (method_exists($this->recordModel, $relationshipName)) {
+                    $relationships[] = $relationshipName;
+                } else {
+                    // Try alternative relationship names
+                    $alternatives = [
+                        $fieldKey, // Original field key
+                        $fieldKey . '_data', // With _data suffix
+                        strtolower($fieldDef['typeDomain']), // Domain name lowercase
+                    ];
+
+                    foreach ($alternatives as $altRelationship) {
+                        if (method_exists($this->recordModel, $altRelationship)) {
+                            $relationships[] = $altRelationship;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_unique($relationships);
     }
 
     protected function getSchemaColumns()
@@ -127,8 +212,8 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        
-        $query = $this->recordModel->select($columns);
+
+        $query = $this->recordModel->select($columns)->with($this->getRelationshipsToLoad($fieldsSchema));
         
         // Apply search query (fuzzy search on display_name, case-insensitive)
         $searchQuery = $request->get('search');

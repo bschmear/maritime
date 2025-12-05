@@ -1,14 +1,26 @@
 {
-  "primary": {
-    "label": "Primary",
-    "fields": [
-
-    ]
-  },
-  "secondary": {
-    "label": "Secondary",
-    "fields": [
-
-    ]
-  }
+    "basic": {
+        "label": "Basic Information",
+        "fields": [
+            {
+                "key": "display_name",
+                "required": true
+            },
+            {
+                "key": "slug",
+                "required": true
+            }
+        ]
+    },
+    "details": {
+        "label": "Details",
+        "fields": [
+            {
+                "key": "description"
+            },
+            {
+                "key": "permissions"
+            }
+        ]
+    }
 }

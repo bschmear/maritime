@@ -235,6 +235,19 @@ const getFormattedPhoneValue = (fieldKey) => {
     return formatPhoneNumber(value);
 };
 
+// File input handling
+const handleFileInput = (fieldKey, event) => {
+    const file = event.target.files[0];
+    if (file) {
+        form[fieldKey] = file;
+    }
+};
+
+const getFileName = (filePath) => {
+    if (!filePath) return '';
+    return filePath.split('/').pop().split('\\').pop();
+};
+
 // Date formatting functions
 const formatDate = (value) => {
     if (!value) return '';
@@ -520,6 +533,14 @@ defineExpose({
                                             </span>
                                         </div>
                                     </span>
+                                    <span v-else-if="getFieldType(field.key) === 'file'">
+                                        <span v-if="getFieldValue(field.key)" class="text-sm text-blue-600 dark:text-blue-400 underline">
+                                            {{ getFileName(getFieldValue(field.key)) }}
+                                        </span>
+                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            No file uploaded
+                                        </span>
+                                    </span>
                                     <span v-else>
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
@@ -554,7 +575,7 @@ defineExpose({
                                     <span v-if="getFieldType(field.key) === 'textarea'" class="whitespace-pre-wrap">
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
-                                    <span v-else-if="getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum">
+                                    <span v-else-if="(getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum) || getFieldType(field.key) === 'record'">
                                         {{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'tel'">
@@ -582,6 +603,14 @@ defineExpose({
                                                 {{ getFieldValue(field.key) || 0 }}/5
                                             </span>
                                         </div>
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'file'">
+                                        <span v-if="getFieldValue(field.key)" class="text-sm text-blue-600 dark:text-blue-400 underline">
+                                            {{ getFileName(getFieldValue(field.key)) }}
+                                        </span>
+                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            No file uploaded
+                                        </span>
                                     </span>
                                     <span v-else>
                                         {{ getFieldValue(field.key) || '—' }}
@@ -624,9 +653,9 @@ defineExpose({
                                         class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                                     />
 
-                                    <!-- Select -->
+                                    <!-- Select / Record -->
                                     <select
-                                        v-else-if="getFieldType(field.key) === 'select'"
+                                        v-else-if="getFieldType(field.key) === 'select' || getFieldType(field.key) === 'record'"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
@@ -668,6 +697,24 @@ defineExpose({
                                         :disabled="isFieldDisabled(field.key)"
                                         :show-value="false"
                                     />
+
+                                    <!-- File Input -->
+                                    <div v-else-if="getFieldType(field.key) === 'file'" class="space-y-2">
+                                        <input
+                                            type="file"
+                                            @change="handleFileInput(field.key, $event)"
+                                            :required="isFieldRequired(field)"
+                                            :disabled="isFieldDisabled(field.key)"
+                                            :accept="getFieldDefinition(field.key).accept || '*/*'"
+                                            class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                                        />
+                                        <div v-if="form[field.key] && typeof form[field.key] === 'string'" class="text-sm text-gray-600 dark:text-gray-400">
+                                            Current file: <span class="font-medium">{{ getFileName(form[field.key]) }}</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ getFieldDefinition(field.key).help || 'Select a file to upload' }}
+                                        </p>
+                                    </div>
 
                                     <!-- Checkbox -->
                                     <div v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center">

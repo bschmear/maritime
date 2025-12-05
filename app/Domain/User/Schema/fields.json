@@ -1,3 +1,43 @@
 {
-
+    "display_name": {
+        "label": "Name",
+        "type": "text",
+        "validation": "required|string|max:255",
+        "help": "Name shown in the interface"
+    },
+    "first_name": {
+        "label": "First Name",
+        "type": "text",
+        "validation": "required|string|max:255"
+    },
+    "last_name": {
+        "label": "Last Name",
+        "type": "text",
+        "validation": "required|string|max:255"
+    },
+    "email": {
+        "label": "Email Address",
+        "type": "email",
+        "validation": "required|email|max:255|unique:users,email",
+        "help": "Email address for login and notifications"
+    },
+    "bio": {
+        "label": "Bio",
+        "type": "textarea",
+        "validation": "nullable|string|max:1000",
+        "help": "A brief description about the user"
+    },
+    "avatar": {
+        "label": "Avatar",
+        "type": "file",
+        "validation": "nullable|image|max:2048",
+        "help": "Profile picture (max 2MB, JPG, PNG, GIF)"
+    },
+    "current_role": {
+        "label": "Role",
+        "type": "record",
+        "typeDomain": "Role",
+        "validation": "nullable|exists:roles,id",
+        "help": "The user's current role in the system"
+    }
 }

@@ -17,8 +17,16 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('email')->unique();
-            $table->string('current_role')->nullable();
-            $table->foreign('current_role')->references('id')->on('roles')->onDelete('set null');
+            $table->text('bio')->nullable();
+            $table->string('avatar')->nullable();
+            
+            // Changed from string to unsignedBigInteger to match roles.id type
+            $table->unsignedBigInteger('current_role')->nullable();
+            $table->foreign('current_role')
+                ->references('id')
+                ->on('roles')
+                ->onDelete('set null');
+            
             $table->timestamps();
         });
     }

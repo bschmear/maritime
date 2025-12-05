@@ -37,7 +37,7 @@ return new class extends Migration
             // Boolean cached state
             $table->boolean('completed')->default(false);
 
-            // Polymorphic relationship
+            // Polymorphic relationship (automatically creates index)
             $table->nullableMorphs('relatable'); // relatable_type, relatable_id
 
             // Optional linking to calendar events
@@ -53,10 +53,10 @@ return new class extends Migration
             // Recurrence rule (ex: "weekly", "RRULE:FREQ=WEEKLY;INTERVAL=1")
             $table->string('recurring_rule')->nullable();
 
-            // Indexes
+            // Indexes (note: nullableMorphs already creates an index on relatable_type, relatable_id)
             $table->index(['status_id', 'priority_id']);
             $table->index(['assigned_id']);
-            $table->index(['relatable_type', 'relatable_id']);
+            
 
             $table->timestamps();
             $table->softDeletes();

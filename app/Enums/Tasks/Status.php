@@ -2,7 +2,7 @@
 
 namespace App\Enums\Tasks;
 
-enum TaskStatus: string
+enum Status: string
 {
     case Open        = 'open';
     case InProgress  = 'in_progress';

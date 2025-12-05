@@ -54,5 +54,6 @@ return [
     ],
     'seeder_parameters' => [
         '--class' => 'DatabaseSeeder',
+        
     ],
 ];

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums\Entity;
+namespace App\Enums\Tasks;
 
 enum Priority: string
 {

@@ -224,6 +224,49 @@ const getRecordValue = (record, column) => {
         if (fieldType === 'rating') {
             return `${rawValue || 0}/5`;
         }
+
+        // Handle record relationships
+        if (fieldType === 'record' && fieldDef.typeDomain) {
+            // Try to infer the relationship name from the field key
+            let relationshipKey = key;
+
+            // Remove common suffixes and prefixes
+            if (relationshipKey.endsWith('_id')) {
+                relationshipKey = relationshipKey.slice(0, -3); // Remove '_id'
+            }
+            if (relationshipKey.startsWith('current_')) {
+                relationshipKey = relationshipKey.slice(8); // Remove 'current_' prefix
+            }
+
+            // Try singular version if it ends with 's'
+            if (relationshipKey.endsWith('s')) {
+                relationshipKey = relationshipKey.slice(0, -1);
+            }
+
+            // Look for the relationship data in the record
+            const relatedRecord = record[relationshipKey];
+
+            if (relatedRecord && typeof relatedRecord === 'object' && relatedRecord.display_name) {
+                return relatedRecord.display_name;
+            }
+
+            // If relationship not loaded, try alternative keys
+            const alternativeKeys = [
+                key, // Original key
+                key.replace('_id', ''), // Remove _id
+                key.replace('current_', ''), // Remove current_ prefix
+                fieldDef.typeDomain.toLowerCase(), // Domain name lowercase
+            ];
+
+            for (const altKey of alternativeKeys) {
+                if (record[altKey] && typeof record[altKey] === 'object' && record[altKey].display_name) {
+                    return record[altKey].display_name;
+                }
+            }
+
+            // Fallback to showing the raw value if relationship data isn't available
+            return rawValue;
+        }
     }
     
     // Auto-detect Laravel timestamp fields (created_at, updated_at, deleted_at, etc.)

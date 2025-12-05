@@ -1,3 +1,25 @@
 {
-
+    "display_name": {
+        "label": "Display Name",
+        "type": "text",
+        "validation": "required|string|max:255"
+    },
+    "slug": {
+        "label": "Slug",
+        "type": "text",
+        "validation": "required|string|max:100|unique:roles,slug",
+        "help": "URL-friendly identifier for the role"
+    },
+    "description": {
+        "label": "Description",
+        "type": "textarea",
+        "validation": "nullable|string|max:1000",
+        "help": "Optional description of what this role can do"
+    },
+    "permissions": {
+        "label": "Permissions",
+        "type": "json",
+        "validation": "nullable|array",
+        "help": "JSON array of permissions for this role"
+    }
 }
