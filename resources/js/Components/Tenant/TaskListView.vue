@@ -110,7 +110,6 @@ const initializeSortable = () => {
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
                     chosenClass: 'sortable-chosen',
-                    handle: '.task-drag-handle',
                     onStart: () => {
                         isDragging.value = true;
                     },
@@ -127,7 +126,7 @@ const initializeSortable = () => {
     });
 };
 
-// Handle task movement between groups - FIXED
+// Handle task movement between groups
 const handleTaskMove = async (evt) => {
     const taskId = evt.item.dataset.taskId;
     const newGroupId = evt.to.dataset.groupId;
@@ -139,7 +138,7 @@ const handleTaskMove = async (evt) => {
 
     try {
         // Update task via API
-        const response = await axios.put(route(`${props.recordType}.update`, taskId), {
+        await axios.put(route(`${props.recordType}.update`, taskId), {
             [props.groupByField]: parseInt(newGroupId),
         }, {
             headers: {
@@ -148,14 +147,12 @@ const handleTaskMove = async (evt) => {
             },
         });
 
-        console.log('Task updated successfully:', response.data);
         emit('task-updated', taskId);
-        
+
         // Reload the page to refresh data
         router.reload({ only: ['tasks'] });
     } catch (error) {
         console.error('Error updating task:', error);
-        console.error('Error details:', error.response?.data);
         // Revert the move on error
         router.reload({ only: ['tasks'] });
     }
@@ -208,28 +205,20 @@ onMounted(() => {
                 </div>
             </div>
 
-            <!-- Tasks List (always render for drag-drop) -->
-            <div 
+            <!-- Tasks List -->
+            <div
                 :ref="el => groupRefs[group.id] = el"
                 :data-group-id="group.id"
-                class="min-h-[100px]"
+                class="min-h-[100px] divide-y divide-gray-200 dark:divide-gray-700"
             >
-                <div v-if="group.tasks.length > 0" class="divide-y divide-gray-200 dark:divide-gray-700">
-                    <div
-                        v-for="task in group.tasks"
-                        :key="task.id"
-                        :data-task-id="task.id"
-                        class="task-drag-handle px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-move transition-colors"
-                        @click="handleTaskClick(task)"
-                    >
+                <div
+                    v-for="task in group.tasks"
+                    :key="task.id"
+                    :data-task-id="task.id"
+                    class="px-4 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                    @click="handleTaskClick(task)"
+                >
                         <div class="flex items-start justify-between">
-                            <!-- Drag Handle -->
-                            <div class="mr-3 pt-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
-                                </svg>
-                            </div>
-                            
                             <!-- Task Info -->
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center space-x-2 mb-1">
@@ -286,10 +275,9 @@ onMounted(() => {
                             </div>
                         </div>
                     </div>
-                </div>
 
                 <!-- Empty State -->
-                <div v-else class="px-4 py-8 text-center">
+                <div v-if="group.tasks.length === 0" class="px-4 py-8 text-center">
                     <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>

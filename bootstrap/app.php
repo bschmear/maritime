@@ -11,10 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
             $parts = explode('.', $host);
 
             // Kiosk subdomain
-            if (count($parts) >= 2 && $parts[0] === 'kiosk') {
-                require base_path('routes/kiosk.php');
-                return;
-            }
+            // if (count($parts) >= 2 && $parts[0] === 'kiosk') {
+            //     require base_path('routes/web.php');
+            //     return;
+            // }
 
             // Tenant subdomain (6-digit)
             if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {

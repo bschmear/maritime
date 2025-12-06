@@ -7,7 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import axios from 'axios';
 
 const props = defineProps({
@@ -45,7 +45,8 @@ const props = defineProps({
     },
 });
 
-const currentView = ref('kanban'); // 'kanban', 'list', or 'table'
+// Initialize view from localStorage or default to 'kanban'
+const currentView = ref(localStorage.getItem('task-view') || 'kanban'); // 'kanban', 'list', or 'table'
 const groupBy = ref('status_id'); // 'status_id' or 'priority_id'
 const showGroupDropdown = ref(false);
 
@@ -155,6 +156,11 @@ const handleTaskCreated = () => {
     router.reload({ only: ['records'] });
     closeCreateModal();
 };
+
+// Watch for view changes and save to localStorage
+watch(currentView, (newView) => {
+    localStorage.setItem('task-view', newView);
+});
 </script>
 
 <template>

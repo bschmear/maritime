@@ -121,12 +121,14 @@ defineProps({
         <div class="border-b border-gray-200 dark:border-navy-700 px-6 py-4">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white-100">Recent Posts</h2>
-                <Link :href="route('kiosk.posts.create')" class="gradient-btn inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all">
-                    <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    New Post
-                </Link>
+                <div>
+                    <Link :href="route('kiosk.posts.create')" class="gradient-btn inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all">
+                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        New Post
+                    </Link>
+                </div>
             </div>
         </div>
         <ul class="divide-y divide-gray-200 dark:divide-navy-700">
@@ -157,19 +159,21 @@ defineProps({
                     </div>
                 </div>
             </li>
-            <li v-if="!recentPosts || recentPosts.length === 0" class="px-6 py-12 text-center">
+            <li v-if="!recentPosts || recentPosts.length === 0" class="px-6 py-12 text-center flex flex-col">
                 <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white-100">No posts</h3>
                 <p class="mt-1 text-sm text-gray-600 dark:text-white-400">Get started by creating a new post.</p>
                 <div class="mt-6">
+                    <div>
                     <Link :href="route('kiosk.posts.create')" class="gradient-btn inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all">
                         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                         New Post
                     </Link>
+                </div>
                 </div>
             </li>
         </ul>
