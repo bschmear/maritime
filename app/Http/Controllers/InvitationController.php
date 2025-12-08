@@ -139,6 +139,7 @@ public function accept(Request $request, string $token)
                                         'quantity' => (int) $extraSeatCount,
                                     ],
                                 ],
+                                'proration_behavior' => 'create_prorations',
                             ]
                         );
 
@@ -154,6 +155,7 @@ public function accept(Request $request, string $token)
                                         'quantity' => (int) $extraSeatCount,
                                     ],
                                 ],
+                                'proration_behavior' => 'create_prorations',
                             ]
                         );
                     }
@@ -177,6 +179,7 @@ public function accept(Request $request, string $token)
                                         'deleted' => true,
                                     ],
                                 ],
+                                'proration_behavior' => 'create_prorations',
                             ]
                         );
 

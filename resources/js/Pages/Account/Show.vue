@@ -293,7 +293,7 @@ const totalMonthlyCost = computed(() => {
     const planCost = billingCycle.value === 'yearly'
         ? (selectedPlan.yearly_price ? Number(selectedPlan.yearly_price) / 12 : Number(selectedPlan.monthly_price))
         : Number(selectedPlan.monthly_price);
-    const total = planCost + Number(props.seat_usage.additional_cost || 0);
+    const total = planCost + Number(selectedPlanAdditionalCost.value || 0);
     return Number(total.toFixed(2));
 });
 
@@ -303,7 +303,7 @@ const totalYearlyCost = computed(() => {
     const yearlyPlanCost = billingCycle.value === 'yearly'
         ? (selectedPlan.yearly_price ? Number(selectedPlan.yearly_price) : Number(selectedPlan.monthly_price) * 12)
         : Number(selectedPlan.monthly_price) * 12;
-    const total = yearlyPlanCost + (Number(props.seat_usage.additional_cost || 0) * 12);
+    const total = yearlyPlanCost + (Number(selectedPlanAdditionalCost.value || 0) * 12);
     return Number(total.toFixed(2));
 });
 
@@ -318,6 +318,24 @@ const yearlySavingsPercent = computed(() => {
 
 const seatUsagePercentage = computed(() => {
     return Math.min(100, (props.seat_usage.current_users / props.seat_usage.seat_limit) * 100);
+});
+
+// Calculate additional seats needed for selected plan
+const selectedPlanExtraSeats = computed(() => {
+    if (!selectedPlanId.value) return 0;
+    const selectedPlan = props.plans.find(p => p.id == selectedPlanId.value);
+    if (!selectedPlan) return 0;
+    
+    const currentUsers = props.seat_usage.current_users;
+    const includedSeats = selectedPlan.seat_limit;
+    return Math.max(0, currentUsers - includedSeats);
+});
+
+// Calculate additional cost for selected plan
+const selectedPlanAdditionalCost = computed(() => {
+    const extraSeats = selectedPlanExtraSeats.value;
+    if (extraSeats === 0) return 0;
+    return extraSeats * props.additional_seat_cost;
 });
 
 // Handle account cancellation
@@ -825,12 +843,12 @@ const cancelAccount = () => {
             <dt class="text-gray-600 dark:text-gray-400">Seats included:</dt>
             <dd class="font-medium text-gray-900 dark:text-white">{{ plans.find(p => p.id == selectedPlanId)?.seat_limit }}</dd>
         </div>
-        <div v-if="seat_usage.over_limit > 0" class="flex justify-between">
+        <div v-if="selectedPlanExtraSeats > 0" class="flex justify-between">
             <dt class="text-gray-600 dark:text-gray-400">Additional seats:</dt>
             <dd class="font-medium text-red-600 dark:text-red-400">
-                {{ seat_usage.over_limit }} × ${{ Number(additional_seat_cost || 0).toFixed(2) }}
-                <span v-if="billingCycle === 'monthly'">= ${{ Number(seat_usage.additional_cost || 0).toFixed(2) }}/month</span>
-                <span v-else>= ${{ (Number(seat_usage.additional_cost || 0) * 12).toFixed(2) }}/year</span>
+                {{ selectedPlanExtraSeats }} × ${{ Number(additional_seat_cost || 0).toFixed(2) }}
+                <span v-if="billingCycle === 'monthly'">= ${{ Number(selectedPlanAdditionalCost || 0).toFixed(2) }}/month</span>
+                <span v-else>= ${{ (Number(selectedPlanAdditionalCost || 0) * 12).toFixed(2) }}/year</span>
             </dd>
         </div>
         <div class="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-600">

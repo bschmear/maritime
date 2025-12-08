@@ -138,7 +138,7 @@ class AccountController extends Controller
         try {
             Mail::to($email)->send(new AccountInvitation($invitation, $account, Auth::user()));
         } catch (\Exception $e) {
-            \Log::error('Failed to send invitation email', [
+            Log::error('Failed to send invitation email', [
                 'invitation_id' => $invitation->id,
                 'email' => $email,
                 'error' => $e->getMessage(),
@@ -213,9 +213,10 @@ class AccountController extends Controller
                                     'items' => [
                                         [
                                             'id' => $extraSeatItem->id,
-                                            'quantity' => $extraSeatCount,
+                                            'quantity' => (int) $extraSeatCount,
                                         ],
                                     ],
+                                    'proration_behavior' => 'create_prorations',
                                 ]
                             );
 
@@ -236,6 +237,7 @@ class AccountController extends Controller
                                             'deleted' => true,
                                         ],
                                     ],
+                                    'proration_behavior' => 'create_prorations',
                                 ]
                             );
 
@@ -252,9 +254,10 @@ class AccountController extends Controller
                                 'items' => [
                                     [
                                         'price' => $extraSeatPriceId,
-                                        'quantity' => $extraSeatCount,
+                                        'quantity' => (int) $extraSeatCount,
                                     ],
                                 ],
+                                'proration_behavior' => 'create_prorations',
                             ]
                         );
 
@@ -340,98 +343,82 @@ class AccountController extends Controller
         }
     
         try {
-            // Swap base plan in Stripe
+            // Get new price IDs
             $newPriceId = $plan->getStripePriceId($billingCycle);
             if (!$newPriceId) {
                 return redirect()->back()->withErrors(['plan' => 'Stripe price ID not configured for this plan and billing cycle.']);
             }
-    
-            $cashierSubscription->swap($newPriceId);
-    
+
             // Recalculate extra seats with new plan
             $totalUsers = $account->users()->count();
             $includedSeats = $plan->seat_limit;
             $extraSeats = max(0, $totalUsers - $includedSeats);
 
-            // Extra seat Stripe price ID
-            $extraSeatPriceId = $billingCycle === 'yearly'
-                ? config('app.extra_seats.yearly_price_id')
-                : config('app.extra_seats.monthly_price_id');
+            // Use Stripe SDK directly for ALL updates (base plan + extra seats) in ONE atomic call
+            $stripe = new \Stripe\StripeClient(config('cashier.secret'));
+            $stripeSub = $cashierSubscription->asStripeSubscription();
+            
+            // Identify subscription items
+            $monthlyExtraSeatPriceId = config('app.extra_seats.monthly_price_id');
+            $yearlyExtraSeatPriceId = config('app.extra_seats.yearly_price_id');
+            $newExtraSeatPriceId = $billingCycle === 'yearly' ? $yearlyExtraSeatPriceId : $monthlyExtraSeatPriceId;
 
-            if ($extraSeatPriceId) {
-                // Use Stripe SDK directly for reliable updates
-                $stripe = new \Stripe\StripeClient(config('cashier.secret'));
-                $stripeSub = $cashierSubscription->asStripeSubscription();
-                $extraSeatItem = collect($stripeSub->items->data)
-                    ->firstWhere('price.id', $extraSeatPriceId);
+            // Find the BASE PLAN item (the main subscription item)
+            $basePlanItem = collect($stripeSub->items->data)->first(function($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
+                // Base plan is any item that's NOT an extra seat price
+                return $item->price->id !== $monthlyExtraSeatPriceId && $item->price->id !== $yearlyExtraSeatPriceId;
+            });
 
-                if ($extraSeatItem) {
-                    if ($extraSeats > 0) {
-                        // Update quantity
-                        $stripe->subscriptions->update(
-                            $stripeSub->id,
-                            [
-                                'items' => [
-                                    [
-                                        'id' => $extraSeatItem->id,
-                                        'quantity' => $extraSeats,
-                                    ],
-                                ],
-                            ]
-                        );
+            // Find ALL extra seat line items (both monthly and yearly)
+            $extraSeatItems = collect($stripeSub->items->data)->filter(function($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
+                return $item->price->id === $monthlyExtraSeatPriceId || $item->price->id === $yearlyExtraSeatPriceId;
+            });
 
-                        \Log::info('Updated extra seat quantity after plan switch', [
-                            'account_id' => $account->id,
-                            'subscription_id' => $stripeSub->id,
-                            'new_plan_id' => $plan->id,
-                            'extra_seats' => $extraSeats,
-                            'billing_cycle' => $billingCycle,
-                        ]);
-                    } else {
-                        // Remove extra seat line item
-                        $stripe->subscriptions->update(
-                            $stripeSub->id,
-                            [
-                                'items' => [
-                                    [
-                                        'id' => $extraSeatItem->id,
-                                        'deleted' => true,
-                                    ],
-                                ],
-                            ]
-                        );
+            // Build array of ALL subscription item changes (base plan + extra seats)
+            $itemsToUpdate = [];
 
-                        \Log::info('Removed extra seat line item after plan switch', [
-                            'account_id' => $account->id,
-                            'subscription_id' => $stripeSub->id,
-                            'new_plan_id' => $plan->id,
-                            'billing_cycle' => $billingCycle,
-                        ]);
-                    }
-
-                } elseif ($extraSeats > 0) {
-                    // Need extra seats but item doesn't exist - add it
-                    $stripe->subscriptions->update(
-                        $stripeSub->id,
-                        [
-                            'items' => [
-                                [
-                                    'price' => $extraSeatPriceId,
-                                    'quantity' => $extraSeats,
-                                ],
-                            ],
-                        ]
-                    );
-
-                    \Log::info('Added extra seat line item after plan switch', [
-                        'account_id' => $account->id,
-                        'subscription_id' => $stripeSub->id,
-                        'new_plan_id' => $plan->id,
-                        'extra_seats' => $extraSeats,
-                        'billing_cycle' => $billingCycle,
-                    ]);
-                }
+            // Update the base plan item to the new price
+            if ($basePlanItem) {
+                $itemsToUpdate[] = [
+                    'id' => $basePlanItem->id,
+                    'price' => $newPriceId, // Change to new plan price
+                ];
             }
+
+            // Mark all existing extra seat items for deletion
+            foreach ($extraSeatItems as $extraSeatItem) {
+                $itemsToUpdate[] = [
+                    'id' => $extraSeatItem->id,
+                    'deleted' => true,
+                ];
+            }
+
+            // Add new extra seat line item if needed
+            if ($extraSeats > 0 && $newExtraSeatPriceId) {
+                $itemsToUpdate[] = [
+                    'price' => $newExtraSeatPriceId,
+                    'quantity' => (int) $extraSeats,
+                ];
+            }
+
+            // Apply ALL changes (base plan swap + extra seat adjustments) in a SINGLE atomic API call
+            $stripe->subscriptions->update(
+                $stripeSub->id,
+                [
+                    'items' => $itemsToUpdate,
+                    'proration_behavior' => 'create_prorations',
+                ]
+            );
+
+            Log::info('Switched plan and updated subscription items atomically', [
+                'account_id' => $account->id,
+                'subscription_id' => $stripeSub->id,
+                'old_plan_id' => $subscription->plan_id ?? null,
+                'new_plan_id' => $plan->id,
+                'extra_seats' => $extraSeats,
+                'billing_cycle' => $billingCycle,
+                'total_items_updated' => count($itemsToUpdate),
+            ]);
     
             // Update internal subscription record
             $subscription = $account->subscription;
@@ -444,7 +431,7 @@ class AccountController extends Controller
             }
     
         } catch (\Laravel\Cashier\Exceptions\SubscriptionUpdateFailure $e) {
-            \Log::error('Stripe subscription update failed', [
+            Log::error('Stripe subscription update failed', [
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
                 'billing_cycle' => $billingCycle,
@@ -453,7 +440,7 @@ class AccountController extends Controller
 
             return redirect()->back()->withErrors(['stripe' => 'Failed to update subscription with Stripe. Please check your payment method and try again.']);
         } catch (\Exception $e) {
-            \Log::error('Plan switch failed', [
+            Log::error('Plan switch failed', [
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
                 'billing_cycle' => $billingCycle,
@@ -492,16 +479,10 @@ class AccountController extends Controller
             // Cancel the subscription at period end (not immediately)
             $cashierSubscription->cancel();
 
-            \Log::info('Subscription cancelled', [
-                'account_id' => $account->id,
-                'subscription_id' => $cashierSubscription->stripe_id,
-                'ends_at' => $cashierSubscription->ends_at,
-            ]);
-
             return redirect()->back()->with('success', 'Subscription cancelled successfully. You will retain access until ' . $cashierSubscription->ends_at->format('F j, Y') . '.');
 
         } catch (\Exception $e) {
-            \Log::error('Subscription cancellation failed', [
+            Log::error('Subscription cancellation failed', [
                 'account_id' => $account->id,
                 'error' => $e->getMessage(),
             ]);
@@ -540,7 +521,7 @@ class AccountController extends Controller
         $cashierSub = $owner->subscription('default');
     
         if (!$cashierSub || !$cashierSub->active()) {
-            \Log::warning('No active Cashier subscription for account', ['account_id' => $account->id]);
+            Log::warning('No active Cashier subscription for account', ['account_id' => $account->id]);
             return;
         }
     
@@ -554,7 +535,7 @@ class AccountController extends Controller
             : config('app.extra_seats.monthly_price_id');
 
         if (!$extraSeatPriceId) {
-            \Log::warning('Extra seat price ID not configured', [
+            Log::warning('Extra seat price ID not configured', [
                 'account_id' => $account->id,
                 'billing_cycle' => $subscription->billing_cycle,
             ]);
@@ -577,17 +558,13 @@ class AccountController extends Controller
                             'items' => [
                                 [
                                     'id' => $extraSeatItem->id,
-                                    'quantity' => $extraSeats,
+                                    'quantity' => (int) $extraSeats,
                                 ],
                             ],
+                            'proration_behavior' => 'create_prorations',
                         ]
                     );
 
-                    \Log::info('Synced extra seat quantity in Stripe', [
-                        'account_id' => $account->id,
-                        'subscription_id' => $stripeSub->id,
-                        'extra_seats' => $extraSeats,
-                    ]);
                 } else {
                     // Remove extra seat line item
                     $stripe->subscriptions->update(
@@ -599,13 +576,10 @@ class AccountController extends Controller
                                     'deleted' => true,
                                 ],
                             ],
+                            'proration_behavior' => 'create_prorations',
                         ]
                     );
 
-                    \Log::info('Removed extra seat line item', [
-                        'account_id' => $account->id,
-                        'subscription_id' => $stripeSub->id,
-                    ]);
                 }
 
             } elseif ($extraSeats > 0) {
@@ -616,24 +590,20 @@ class AccountController extends Controller
                         'items' => [
                             [
                                 'price' => $extraSeatPriceId,
-                                'quantity' => $extraSeats,
+                                'quantity' => (int) $extraSeats,
                             ],
                         ],
+                        'proration_behavior' => 'create_prorations',
                     ]
                 );
 
-                \Log::info('Added extra seat line item', [
-                    'account_id' => $account->id,
-                    'subscription_id' => $stripeSub->id,
-                    'extra_seats' => $extraSeats,
-                ]);
             }
 
             // Always update internal subscription quantity
             $subscription->update(['quantity' => $totalUsers]);
 
         } catch (\Exception $e) {
-            \Log::error('Failed to sync extra seats', [
+            Log::error('Failed to sync extra seats', [
                 'account_id' => $account->id,
                 'error' => $e->getMessage(),
             ]);
