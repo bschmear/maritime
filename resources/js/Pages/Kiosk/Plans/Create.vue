@@ -179,6 +179,24 @@ const submit = () => {
                                 <InputError class="mt-2" :message="form.errors.seat_limit" />
                             </div>
 
+                            <!-- Cost per extra seat beyond limit -->
+                            <div>
+                                <InputLabel for="seat_extra" value="Extra Seats Cost Per Month" class="text-gray-900 dark:text-white" />
+                                <TextInput
+                                    id="seat_extra"
+                                    v-model="form.seat_extra"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                    placeholder="15.00"
+                                />
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Cost per additional user beyond the seat limit (e.g., $15.00).
+                                </p>
+                                <InputError class="mt-2" :message="form.errors.seat_extra" />
+                            </div>
+
                             <!-- Description Field -->
                             <div>
                                 <InputLabel for="description" value="Description" class="text-gray-900 dark:text-white" />

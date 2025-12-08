@@ -84,12 +84,7 @@ public function process(Request $request)
             throw new Exception('Stripe price ID not configured for this plan.');
         }
 
-        // Create subscription with 14-day trial
-        $user->newSubscription('default', $stripePriceId)
-            ->trialDays(14)
-            ->create($request->payment_method);
-
-        // Check for existing account
+        // Check for existing account first
         $account = $user->ownedAccounts()->first();
 
         if (!$account) {
@@ -145,6 +140,32 @@ public function process(Request $request)
                 ]);
                 // do not rollback tenant or schema
             }
+        }
+
+        // Create subscription with base plan
+        $subscriptionBuilder = $user->newSubscription('default', $stripePriceId)
+            ->trialDays(14)
+            ->quantity(1); // Base quantity (included seats covered by base plan)
+
+        // Note: Extra seats will be added as separate line items when users are invited
+        // This allows for proper billing separation between included and extra seats
+
+        $subscription = $subscriptionBuilder->create($request->payment_method);
+
+        // Link subscription to account and plan
+        if ($account) {
+            $subscription->update([
+                'account_id' => $account->id,
+                'plan_id' => $plan->id,
+                'billing_cycle' => $request->billing_cycle,
+            ]);
+
+            Log::info('Subscription linked to account', [
+                'subscription_id' => $subscription->id,
+                'account_id' => $account->id,
+                'plan_id' => $plan->id,
+                'initial_quantity' => 1,
+            ]);
         }
 
         return redirect()->route('dashboard')

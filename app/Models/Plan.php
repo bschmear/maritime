@@ -16,6 +16,7 @@ class Plan extends Model
         'stripe_monthly_id',
         'stripe_yearly_id',
         'seat_limit',
+        'seat_extra',
         'description',
         'included',
         'active',
@@ -28,6 +29,7 @@ class Plan extends Model
         'popular' => 'boolean',
         'monthly_price' => 'decimal:2',
         'yearly_price' => 'decimal:2',
+        'seat_extra' => 'decimal:2',
     ];
 
     /**

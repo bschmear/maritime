@@ -12,6 +12,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\InvitationController;
 use App\Http\Middleware\EnsureKioskAdmin;
 use App\Http\Controllers\BlogController;
 use Illuminate\Foundation\Application;
@@ -57,6 +59,33 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 Route::post('/dashboard/switch-tenant', [DashboardController::class, 'switchTenant'])->middleware(['auth', 'verified'])->name('dashboard.switch-tenant');
+
+// Account Management Routes
+Route::middleware(['auth', 'verified'])
+    ->prefix('accounts')
+    ->name('accounts.')
+    ->group(function () {
+
+        // User routes FIRST
+        Route::post('{account}/users', [AccountController::class, 'inviteUser'])->name('users.invite');
+        Route::delete('{account}/users/{user}', [AccountController::class, 'removeUser'])->name('users.destroy');
+        Route::patch('{account}/users/{user}/role', [AccountController::class, 'updateUserRole'])->name('users.update-role');
+
+        Route::post('{account}/switch-plan', [AccountController::class, 'switchPlan'])->name('switch-plan');
+        Route::post('{account}/cancel', [AccountController::class, 'cancelSubscription'])->name('cancel');
+
+        Route::get('{account}', [AccountController::class, 'show'])->name('show');
+});
+// Invitation Routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('invitations/{token}', [InvitationController::class, 'show'])->name('invitations.show');
+    Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])->name('invitations.accept');
+    Route::post('invitations/{token}/decline', [InvitationController::class, 'decline'])->name('invitations.decline');
+
+    // Account owner invitation management
+    Route::post('invitations/{invitation}/resend', [InvitationController::class, 'resend'])->name('invitations.resend');
+    Route::delete('invitations/{invitation}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

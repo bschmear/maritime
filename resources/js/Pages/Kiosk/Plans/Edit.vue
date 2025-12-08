@@ -17,6 +17,7 @@ const form = useForm({
     stripe_monthly_id: props.plan.stripe_monthly_id || '',
     stripe_yearly_id: props.plan.stripe_yearly_id || '',
     seat_limit: props.plan.seat_limit || 1,
+    seat_extra: props.plan.seat_extra || '',
     description: props.plan.description || '',
     included: props.plan.included || [],
     popular: props.plan.popular ?? false,
@@ -181,6 +182,29 @@ const submit = () => {
                                     Maximum number of users/seats for this plan.
                                 </p>
                                 <InputError class="mt-2" :message="form.errors.seat_limit" />
+                            </div>
+
+                            <!-- Cost per extra seat beyond limit -->
+                            <div>
+                                <InputLabel for="seat_extra" value="Extra Seats Cost Per Month" class="text-gray-900 dark:text-white" />
+                                <div class="relative mt-2">
+                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <span class="text-gray-500 dark:text-gray-400 sm:text-sm">$</span>
+                                    </div>
+                                    <TextInput
+                                        id="seat_extra"
+                                        v-model="form.seat_extra"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="mt-0 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400 pl-7"
+                                        placeholder="15.00"
+                                    />
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Cost per additional user beyond the seat limit (e.g., $15.00).
+                                </p>
+                                <InputError class="mt-2" :message="form.errors.seat_extra" />
                             </div>
 
                             <!-- Description Field -->

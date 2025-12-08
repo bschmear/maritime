@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\Invitation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,11 +17,21 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        $invitation = null;
+        $invitationToken = $request->query('invitation');
+
+        if ($invitationToken) {
+            $invitation = Invitation::with(['account', 'inviter'])
+                ->where('token', $invitationToken)
+                ->first();
+        }
+
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
+            'invitation' => $invitation,
         ]);
     }
 
@@ -32,6 +43,12 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        // If there's an invitation token, redirect to the invitation page
+        $invitationToken = $request->input('invitation_token');
+        if ($invitationToken) {
+            return redirect()->route('invitations.show', ['token' => $invitationToken]);
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

@@ -12,21 +12,34 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     use HasDatabase, HasDomains;
 
     /**
-     * Get the name that should be used for the tenant's schema.
-     * This is called by PostgreSQLSchemaManager.
+     * The primary key for the model.
      */
-    public function getTenantKey()
-    {
-        return $this->id;
-    }
+    protected $primaryKey = 'id';
 
     /**
-     * Get the name for the tenant's database/schema with the configured prefix.
-     * PostgreSQLSchemaManager uses this to create the schema name.
+     * The "type" of the primary key ID.
+     */
+    protected $keyType = 'string';
+
+    /**
+     * Indicates if the IDs are auto-incrementing.
+     */
+    public $incrementing = false;
+
+    /**
+     * Get the name of the tenant key column.
+     * Override to ensure 'id' is used as the tenant identifier.
      */
     public function getTenantKeyName(): string
     {
-        $prefix = config('tenancy.database.prefix', 'tenant');
-        return $prefix . $this->getTenantKey();
+        return 'id';
+    }
+
+    /**
+     * Get the value of the tenant's key.
+     */
+    public function getTenantKey()
+    {
+        return $this->getAttribute('id');
     }
 }

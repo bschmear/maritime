@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('stripe_monthly_id')->nullable();
             $table->string('stripe_yearly_id')->nullable();
             $table->integer('seat_limit')->default(1);
+            $table->integer('seat_extra')->default(0)->nullable();
             $table->text('description')->nullable();
             $table->json('included')->nullable();
             $table->boolean('active')->default(true);
