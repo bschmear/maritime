@@ -340,17 +340,16 @@ public function accept(Request $request, string $token)
     private function copyUserToTenant(\App\Models\User $user, \App\Models\Tenant $tenant, string $invitationRole): void
     {
         try {
-
             // Check if tenant exists
             if (!$tenant) {
                 throw new Exception('Tenant not found');
             }
-
+    
             // Check if tenant has domains
             if ($tenant->domains()->count() === 0) {
                 throw new Exception('Tenant has no domains configured');
             }
-
+    
             // Verify tenant schema exists
             $schemaName = 'tenant' . $tenant->id;
             $centralConnection = DB::connection('pgsql');
@@ -358,7 +357,7 @@ public function accept(Request $request, string $token)
                 "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?",
                 [$schemaName]
             );
-
+    
             if (empty($schemaExists)) {
                 Log::error('Tenant schema does not exist', [
                     'tenant_id' => $tenant->id,
@@ -366,17 +365,16 @@ public function accept(Request $request, string $token)
                 ]);
                 throw new Exception("Tenant schema {$schemaName} does not exist");
             }
-
+    
             // Switch to tenant context
             tenancy()->initialize($tenant);
-
+    
             Log::info('Tenancy initialized', [
                 'tenant_id' => $tenant->id,
                 'current_database' => config('database.connections.pgsql.database'),
-                'tenant_database' => tenancy()->getTenantDatabaseName(),
-                'tenancy_active' => tenancy()->isActive(),
+                'tenancy_active' => tenancy()->initialized, // Changed from isActive()
             ]);
-
+    
             // Ensure tenant database is set up
             try {
                 // Check if we can connect to tenant database
@@ -389,14 +387,14 @@ public function accept(Request $request, string $token)
                 ]);
                 throw new Exception('Cannot connect to tenant database');
             }
-
+    
             // Verify we're in the right tenant context
             $currentConnection = DB::getDefaultConnection();
             Log::info('Database connection check', [
                 'default_connection' => $currentConnection,
                 'pgsql_database' => config("database.connections.{$currentConnection}.database"),
             ]);
-
+    
             // Check if users table exists in tenant schema
             try {
                 $tableExists = DB::select("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = 'users')", [$schemaName]);
@@ -404,18 +402,18 @@ public function accept(Request $request, string $token)
                     'schema' => $schemaName,
                     'table_exists' => !empty($tableExists) && $tableExists[0]->exists,
                 ]);
-
+    
                 if (empty($tableExists) || !$tableExists[0]->exists) {
                     throw new Exception("Users table does not exist in tenant schema {$schemaName}");
                 }
-
+    
             } catch (Exception $e) {
                 Log::error('Failed to check users table', [
                     'error' => $e->getMessage(),
                 ]);
                 throw $e;
             }
-
+    
             // Check if user already exists in tenant
             $existingTenantUser = TenantUserModel::where('email', $user->email)->first();
             if ($existingTenantUser) {
@@ -426,17 +424,17 @@ public function accept(Request $request, string $token)
                 ]);
                 return; // User already exists, skip creation
             }
-
+    
             // Map invitation role to tenant role (needs to be done in tenant context)
             $tenantRoleId = $this->getTenantRoleId($invitationRole);
-
+    
             Log::info('Creating tenant user', [
                 'user_id' => $user->id,
                 'tenant_id' => $tenant->id,
                 'email' => $user->email,
                 'role_id' => $tenantRoleId,
             ]);
-
+    
             // Create tenant user using raw SQL to ensure it works
             try {
                 DB::insert(
@@ -449,18 +447,18 @@ public function accept(Request $request, string $token)
                         $tenantRoleId,
                     ]
                 );
-
+    
                 Log::info('Tenant user created with raw SQL', [
                     'user_id' => $user->id,
                     'tenant_id' => $tenant->id,
                     'email' => $user->email,
                 ]);
-
+    
             } catch (Exception $e) {
                 Log::error('Raw SQL insert failed, trying Eloquent', [
                     'error' => $e->getMessage(),
                 ]);
-
+    
                 // Fallback to Eloquent
                 $tenantUser = TenantUserModel::create([
                     'display_name' => trim($user->first_name . ' ' . $user->last_name),
@@ -469,21 +467,20 @@ public function accept(Request $request, string $token)
                     'email' => $user->email,
                     'current_role' => $tenantRoleId,
                 ]);
-
+    
                 Log::info('Tenant user created with Eloquent fallback', [
                     'user_id' => $user->id,
                     'tenant_user_id' => $tenantUser->id,
                 ]);
             }
-
+    
             Log::info('User copied to tenant via invitation', [
                 'user_id' => $user->id,
                 'tenant_id' => $tenant->id,
-                'tenant_user_id' => $tenantUser->id,
                 'email' => $user->email,
                 'invitation_role' => $invitationRole,
             ]);
-
+    
         } catch (Exception $e) {
             Log::error('Failed to copy user to tenant via invitation', [
                 'user_id' => $user->id,
@@ -498,7 +495,6 @@ public function accept(Request $request, string $token)
             Log::info('Tenancy ended');
         }
     }
-
     /**
      * Map invitation role to tenant role ID.
      * Note: This method should be called within the tenant context.

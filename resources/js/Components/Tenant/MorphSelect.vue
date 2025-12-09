@@ -38,6 +38,27 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 const perPage = 10;
 
+const getRecordDisplayName = (record) => {
+    if (!record) return '';
+
+    // 1. display_name
+    if (record.display_name) return record.display_name;
+
+    // 2. first_name + last_name
+    const hasFirst = !!record.first_name;
+    const hasLast = !!record.last_name;
+
+    if (hasFirst && hasLast) return `${record.first_name} ${record.last_name}`;
+    if (hasFirst) return record.first_name;
+    if (hasLast) return record.last_name;
+
+    // 3. email
+    if (record.email) return record.email;
+
+    // 4. final fallback
+    return '';
+};
+
 // Get the selected morph config
 const selectedMorphConfig = computed(() => {
     if (!selectedMorphType.value) return null;
@@ -47,10 +68,15 @@ const selectedMorphConfig = computed(() => {
 // Get the selected record display name
 const selectedRecordDisplay = computed(() => {
     if (!selectedRecordId.value) return '';
-    if (selectedRecordName.value) return selectedRecordName.value;
+
+    if (selectedRecordName.value) {
+        return selectedRecordName.value;
+    }
+
     const record = records.value.find(r => r.id === selectedRecordId.value);
-    return record ? record.display_name : '';
+    return getRecordDisplayName(record);
 });
+
 
 // Get display text for input field
 const displayText = computed(() => {
@@ -162,7 +188,8 @@ const fetchRecords = async () => {
 // Handle record selection and confirm
 const selectRecord = (record) => {
     selectedRecordId.value = record.id;
-    selectedRecordName.value = record.display_name;
+    selectedRecordName.value = getRecordDisplayName(record);
+
     emit('update:modelValue', record.id);
     emit('update:selectedType', selectedMorphType.value);
     closeModal();
@@ -320,12 +347,10 @@ watch(() => props.selectedType, (newValue) => {
                             >
                                 <div class="flex items-center justify-between">
                                     <div class="flex-1">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                            {{ record.display_name }}
+                                       <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ getRecordDisplayName(record) }}
                                         </p>
-                                        <p v-if="record.email" class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ record.email }}
-                                        </p>
+
                                     </div>
                                     <div v-if="selectedRecordId === record.id" class="ml-2">
                                         <svg class="w-5 h-5 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20">

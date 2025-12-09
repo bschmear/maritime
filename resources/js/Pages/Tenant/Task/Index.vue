@@ -66,7 +66,7 @@ const breadcrumbItems = computed(() => {
 
 // Get tasks as flat array from paginated records
 const tasks = computed(() => {
-    return props.records?.data || [];
+    return props.records || [];
 });
 
 // Get group options based on groupBy field

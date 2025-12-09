@@ -45,7 +45,7 @@ class Task extends Model
      */
     public function assigned(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\TenantUser\Models\TenantUser::class, 'assigned_id');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_id');
     }
 
     /**
@@ -53,7 +53,7 @@ class Task extends Model
      */
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\TenantUser\Models\TenantUser::class, 'created_by');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'created_by');
     }
 
     /**
@@ -61,7 +61,7 @@ class Task extends Model
      */
     public function updater(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\TenantUser\Models\TenantUser::class, 'updated_by');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'updated_by');
     }
 
     /**

@@ -287,9 +287,11 @@ const declineInvitation = (invitation) => {
                                             {{ account.name }}
                                         </h4>
                                         <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                                                :class="account.is_owner ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:bg-blue-200'">
-                                                {{ account.is_owner ? 'Owner' : account.user_role }}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" v-if="account.is_owner">
+                                                Owner
+                                            </span>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:text-blue-200 dark:bg-blue-900 dark:bg-blue-200" v-if="!account.is_owner">
+                                                {{ account.user_role }}
                                             </span>
                                             <span>•</span>
                                             <span>{{ account.users_count }} {{ account.users_count === 1 ? 'user' : 'users' }}</span>

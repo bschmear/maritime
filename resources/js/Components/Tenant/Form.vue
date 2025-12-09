@@ -744,10 +744,16 @@ defineExpose({
                                         v-if="getFieldType(field.key) === 'morph'"
                                         :id="getFieldId(field.key)"
                                         :field="getFieldDefinition(field.key)"
-                                        v-model="form[getFieldDefinition(field.key).id_field]"
-                                        v-model:selected-type="form[field.key]"
+
+                                        :model-value="form[getFieldDefinition(field.key).id_field]"
+                                        @update:modelValue="value => form[getFieldDefinition(field.key).id_field] = value"
+
+                                        :selected-type="form[field.key]"
+                                        @update:selected-type="value => form[field.key] = value"
+
                                         :disabled="isFieldDisabled(field.key)"
                                     />
+
                                     <input
                                         v-else
                                         :id="getFieldId(field.key)"

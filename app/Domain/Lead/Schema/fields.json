@@ -1,4 +1,8 @@
 {
+    "display_name": {
+      "label": "Name",
+      "type": "text"
+    },
   "first_name": {
     "label": "First Name",
     "type": "text"
