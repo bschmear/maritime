@@ -7,7 +7,8 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     password: '',
     password_confirmation: '',
@@ -54,24 +55,43 @@ const submit = () => {
                 <!-- Form Card -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
                     <form @submit.prevent="submit" class="space-y-6">
-                        <!-- Name Field -->
+                        <!-- First Name Field -->
                         <div>
                             <InputLabel
-                                for="name"
-                                value="Name"
+                                for="first_name"
+                                value="First Name"
                                 class="text-gray-700 dark:text-gray-300 font-medium"
                             />
                             <TextInput
-                                id="name"
+                                id="first_name"
                                 type="text"
                                 class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
-                                v-model="form.name"
+                                v-model="form.first_name"
                                 required
                                 autofocus
-                                autocomplete="name"
-                                placeholder="John Doe"
+                                autocomplete="given-name"
+                                placeholder="John"
                             />
-                            <InputError class="mt-2" :message="form.errors.name" />
+                            <InputError class="mt-2" :message="form.errors.first_name" />
+                        </div>
+
+                        <!-- Last Name Field -->
+                        <div>
+                            <InputLabel
+                                for="last_name"
+                                value="Last Name"
+                                class="text-gray-700 dark:text-gray-300 font-medium"
+                            />
+                            <TextInput
+                                id="last_name"
+                                type="text"
+                                class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
+                                v-model="form.last_name"
+                                required
+                                autocomplete="family-name"
+                                placeholder="Doe"
+                            />
+                            <InputError class="mt-2" :message="form.errors.last_name" />
                         </div>
 
                         <!-- Email Field -->

@@ -30,6 +30,8 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'trial_ends_at',
@@ -114,6 +116,33 @@ class User extends Authenticatable
         $pivot = $this->accounts()->where('account_id', $account->id)->first()?->pivot;
 
         return $pivot && $pivot->role === $role;
+    }
+
+    /**
+     * Get the user's full name.
+     */
+    public function getFullNameAttribute(): string
+    {
+        if ($this->first_name && $this->last_name) {
+            return trim($this->first_name . ' ' . $this->last_name);
+        }
+
+        return $this->name ?? '';
+    }
+
+    /**
+     * Set the name attribute (for backward compatibility).
+     */
+    public function setNameAttribute($value)
+    {
+        $this->attributes['name'] = $value;
+
+        // If we're setting name and don't have first/last, try to split it
+        if (!$this->first_name && !$this->last_name && $value) {
+            $parts = explode(' ', $value, 2);
+            $this->attributes['first_name'] = $parts[0] ?? '';
+            $this->attributes['last_name'] = $parts[1] ?? '';
+        }
     }
 
 }

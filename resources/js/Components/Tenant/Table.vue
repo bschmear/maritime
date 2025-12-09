@@ -311,12 +311,27 @@ const getColumnLabel = (column) => {
     return column.key;
 };
 
+const getRouteParamName = () => {
+    let paramName = 'id'; // default fallback
+    if (props.recordType.includes('.')) {
+        // For nested routes like 'account.users', extract the last part
+        const parts = props.recordType.split('.');
+        const lastPart = parts[parts.length - 1];
+        paramName = lastPart.replace(/s$/, ''); // Remove trailing 's' (users -> user)
+    } else {
+        paramName = props.recordType.replace(/s$/, ''); // Remove trailing 's'
+    }
+    return paramName;
+};
+
 const getShowUrl = (recordId) => {
-    return route(`${props.recordType}.show`, recordId);
+    const paramName = getRouteParamName();
+    return route(`${props.recordType}.show`, { [paramName]: recordId });
 };
 
 const getEditUrl = (recordId) => {
-    return route(`${props.recordType}.edit`, recordId);
+    const paramName = getRouteParamName();
+    return route(`${props.recordType}.edit`, { [paramName]: recordId });
 };
 
 const handleRecordCreated = (recordId) => {
@@ -365,9 +380,22 @@ const handleViewOnPage = async (record) => {
     // Fetch the full record from the server
     isLoadingRecord.value = true;
     showViewModal.value = true;
-    
+
     try {
-        const response = await axios.get(route(`${props.recordType}.show`, record.id), {
+        // Determine the parameter name based on record type
+        let paramName = 'id'; // default fallback
+        if (props.recordType.includes('.')) {
+            // For nested routes like 'account.users', extract the last part
+            const parts = props.recordType.split('.');
+            const lastPart = parts[parts.length - 1];
+            paramName = lastPart.replace(/s$/, ''); // Remove trailing 's' (users -> user)
+        } else {
+            paramName = props.recordType.replace(/s$/, ''); // Remove trailing 's'
+        }
+        console.log(props.recordType);
+        console.log(paramName);
+        console.log(record);
+        const response = await axios.get(route(`${props.recordType}.show`, { [paramName]: record.id }), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Accept': 'application/json',

@@ -45,12 +45,17 @@ class RecordController extends BaseController
     {
         // Load all columns instead of limiting to table schema
         // This ensures Kanban/List views have access to all fields like notes
+        $columns = $this->getSchemaColumns();
+        $fieldsSchema = $this->getFieldsSchema();
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
-        $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
-        $query = $this->recordModel->with($this->getRelationshipsToLoad($fieldsSchema));
+        if (!in_array('id', $columns)) {
+            $columns[] = 'id';
+        }
+
+        $query = $this->recordModel->select($columns)->with($this->getRelationshipsToLoad($fieldsSchema));
         
         // Apply search query (fuzzy search on display_name, case-insensitive)
         $searchQuery = $request->get('search');

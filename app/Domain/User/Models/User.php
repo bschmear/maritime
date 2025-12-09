@@ -1,10 +1,11 @@
 <?php
 
-namespace Domain\User\Models;
+namespace App\Domain\User\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use App\Domain\Task\Models\Task;
+use App\Domain\Role\Models\Role;
 class User extends Model
 {
     protected $fillable = [
@@ -22,7 +23,7 @@ class User extends Model
      */
     public function role(): BelongsTo
     {
-        return $this->belongsTo(\Domain\Role\Models\Role::class, 'current_role');
+        return $this->belongsTo(Role::class, 'current_role');
     }
 
     /**

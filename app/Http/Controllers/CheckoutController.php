@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stancl\Tenancy\Database\Models\Domain;
 use Exception;
-use App\Domain\TenantUser\Models\TenantUser;
+use App\Domain\User\Models\User as TenantUserModel;
 use App\Domain\Role\Models\Role;
 
 class CheckoutController extends Controller
@@ -196,7 +196,7 @@ public function process(Request $request)
         $user = Auth::user();
 
         $existingAccount = $user->ownedAccounts()->first();
-        $defaultAccountName = $existingAccount ? $existingAccount->name : ($user->name . "'s Account");
+        $defaultAccountName = $existingAccount ? $existingAccount->name : ($user->full_name . "'s Account");
         $addOns = $plan->items()->where('active', true)->get();
 
         return Inertia::render('Checkout/Cart', [
@@ -217,16 +217,11 @@ public function process(Request $request)
             // Switch to tenant context
             tenancy()->initialize($tenant);
 
-            // Parse name into first and last name
-            $nameParts = explode(' ', $user->name, 2);
-            $firstName = $nameParts[0] ?? '';
-            $lastName = $nameParts[1] ?? '';
-
-            // Create tenant user
-            TenantUser::create([
-                'display_name' => $user->name,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
+            // Create tenant user with proper first/last name fields
+            TenantUserModel::create([
+                'display_name' => trim($user->first_name . ' ' . $user->last_name),
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
                 'email' => $user->email,
                 'current_role' => $this->getAdminRoleId(), // Assign admin role
             ]);

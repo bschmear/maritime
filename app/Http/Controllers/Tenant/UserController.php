@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Tenant\RecordController;
-use Domain\User\Models\User as RecordModel;
-use Domain\User\Actions\CreateUser as CreateAction;
-use Domain\User\Actions\UpdateUser as UpdateAction;
-use Domain\User\Actions\DeleteUser as DeleteAction;
+use App\Domain\User\Models\User as RecordModel;
+use App\Domain\User\Actions\CreateUser as CreateAction;
+use App\Domain\User\Actions\UpdateUser as UpdateAction;
+use App\Domain\User\Actions\DeleteUser as DeleteAction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -40,6 +40,10 @@ class UserController extends RecordController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
+
+        if (!in_array('id', $columns)) {
+            $columns[] = 'id';
+        }
 
         $query = $this->recordModel->select($columns)->with($this->getRelationshipsToLoad($fieldsSchema));
 

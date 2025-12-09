@@ -1,7 +1,7 @@
 <?php
-namespace Domain\User\Actions;
+namespace App\Domain\User\Actions;
 
-use Domain\User\Models\User as RecordModel;
+use App\Domain\User\Models\User as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
