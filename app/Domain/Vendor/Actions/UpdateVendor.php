@@ -1,7 +1,7 @@
 <?php
-namespace Domain\Vendor\Actions;
+namespace App\Domain\Vendor\Actions;
 
-use Domain\Vendor\Models\Vendor as RecordModel;
+use App\Domain\Vendor\Models\Vendor as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;

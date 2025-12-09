@@ -1,10 +1,10 @@
 <?php
 namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Tenant\RecordController;
-use Domain\Lead\Models\Lead as RecordModel;
-use Domain\Lead\Actions\CreateLead as CreateAction;
-use Domain\Lead\Actions\UpdateLead as UpdateAction;
-use Domain\Lead\Actions\DeleteLead as DeleteAction;
+use App\Domain\Lead\Models\Lead as RecordModel;
+use App\Domain\Lead\Actions\CreateLead as CreateAction;
+use App\Domain\Lead\Actions\UpdateLead as UpdateAction;
+use App\Domain\Lead\Actions\DeleteLead as DeleteAction;
 use Illuminate\Http\Request;
 
 class LeadController extends RecordController

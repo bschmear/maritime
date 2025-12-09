@@ -11,6 +11,7 @@ import Radio from '@/Components/Tenant/FormComponents/Radio.vue';
 import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
+import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 
 const props = defineProps({
     schema: {
@@ -720,13 +721,35 @@ defineExpose({
                                             No file uploaded
                                         </span>
                                     </span>
+                                    <span v-else-if="getFieldType(field.key) === 'morph'">
+                                        <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
+                                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                                                {{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}
+                                            </span>
+                                            <span class="text-gray-400">→</span>
+                                            <span class="text-sm">{{ record.relatable?.display_name || '—' }}</span>
+                                        </span>
+                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            Not assigned
+                                        </span>
+                                    </span>
                                     <span v-else>
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
                                 </div>
 
                                 <div v-else>
+                                    <!-- Morph Select (Polymorphic Relationship) -->
+                                    <MorphSelect
+                                        v-if="getFieldType(field.key) === 'morph'"
+                                        :id="getFieldId(field.key)"
+                                        :field="getFieldDefinition(field.key)"
+                                        v-model="form[getFieldDefinition(field.key).id_field]"
+                                        v-model:selected-type="form[field.key]"
+                                        :disabled="isFieldDisabled(field.key)"
+                                    />
                                     <input
+                                        v-else
                                         :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :type="getFieldType(field.key)"
@@ -795,6 +818,18 @@ defineExpose({
                                         </span>
                                         <span v-else class="text-sm text-gray-500 dark:text-gray-400">
                                             No file uploaded
+                                        </span>
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'morph'">
+                                        <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
+                                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
+                                                {{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}
+                                            </span>
+                                            <span class="text-gray-400">→</span>
+                                            <span class="text-sm">{{ record.relatable?.display_name || '—' }}</span>
+                                        </span>
+                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            Not assigned
                                         </span>
                                     </span>
                                     <span v-else>
@@ -918,6 +953,16 @@ defineExpose({
                                             {{ getFieldDefinition(field.key).help || 'Select a file to upload' }}
                                         </p>
                                     </div>
+
+                                    <!-- Morph Select (Polymorphic Relationship) -->
+                                    <MorphSelect
+                                        v-else-if="getFieldType(field.key) === 'morph'"
+                                        :id="getFieldId(field.key)"
+                                        :field="getFieldDefinition(field.key)"
+                                        v-model="form[getFieldDefinition(field.key).id_field]"
+                                        v-model:selected-type="form[field.key]"
+                                        :disabled="isFieldDisabled(field.key)"
+                                    />
 
                                     <!-- Checkbox -->
                                     <div v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center">

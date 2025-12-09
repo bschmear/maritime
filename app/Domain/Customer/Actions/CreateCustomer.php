@@ -1,7 +1,7 @@
 <?php
-namespace Domain\Customer\Actions;
+namespace App\Domain\Customer\Actions;
 
-use Domain\Customer\Models\Customer as RecordModel;
+use App\Domain\Customer\Models\Customer as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;

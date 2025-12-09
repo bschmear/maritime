@@ -1,7 +1,8 @@
 <?php
 
-namespace Domain\Lead\Models;
+namespace App\Domain\Lead\Models;
 
+use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 
 class Lead extends Model

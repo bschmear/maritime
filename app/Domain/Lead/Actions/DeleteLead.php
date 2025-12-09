@@ -1,7 +1,7 @@
 <?php
-namespace Domain\Lead\Actions;
+namespace App\Domain\Lead\Actions;
 
-use Domain\Lead\Models\Lead as RecordModel;
+use App\Domain\Lead\Models\Lead as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;

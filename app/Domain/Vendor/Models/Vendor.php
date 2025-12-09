@@ -1,7 +1,8 @@
 <?php
 
-namespace Domain\Vendor\Models;
+namespace App\Domain\Vendor\Models;
 
+use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
@@ -66,7 +67,7 @@ class Vendor extends Model
      */
     public function assignedUser()
     {
-        return $this->belongsTo(\Domain\User\Models\User::class, 'assigned_user_id');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id');
     }
 
     public function tasks()

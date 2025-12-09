@@ -1,7 +1,7 @@
 <?php
-namespace Domain\Task\Actions;
+namespace App\Domain\Task\Actions;
 
-use Domain\Task\Models\Task as RecordModel;
+use App\Domain\Task\Models\Task as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;

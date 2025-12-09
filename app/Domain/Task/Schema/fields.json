@@ -63,12 +63,30 @@
     "type": "boolean"
   },
   "relatable_type": {
-    "label": "Related Type",
-    "type": "text"
+    "label": "Related To",
+    "type": "morph",
+    "morphable_types": [
+      {
+        "value": "App\\Domain\\Lead\\Models\\Lead",
+        "label": "Lead",
+        "domain": "Lead"
+      },
+      {
+        "value": "App\\Domain\\Customer\\Models\\Customer",
+        "label": "Customer",
+        "domain": "Customer"
+      },
+      {
+        "value": "App\\Domain\\Vendor\\Models\\Vendor",
+        "label": "Vendor",
+        "domain": "Vendor"
+      }
+    ],
+    "id_field": "relatable_id"
   },
   "relatable_id": {
     "label": "Related ID",
-    "type": "number"
+    "type": "hidden"
   },
   "event_id": {
     "label": "Event ID",

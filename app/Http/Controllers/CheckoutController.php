@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stancl\Tenancy\Database\Models\Domain;
 use Exception;
-use Domain\User\Models\User as TenantUser;
-use Domain\Role\Models\Role;
+use App\Domain\TenantUser\Models\TenantUser;
+use App\Domain\Role\Models\Role;
 
 class CheckoutController extends Controller
 {

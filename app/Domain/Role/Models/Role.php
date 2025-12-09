@@ -1,6 +1,6 @@
 <?php
 
-namespace Domain\Role\Models;
+namespace App\Domain\Role\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +23,6 @@ class Role extends Model
      */
     public function users(): HasMany
     {
-        return $this->hasMany(\Domain\User\Models\User::class, 'current_role');
+        return $this->hasMany(\App\Domain\User\Models\User::class, 'current_role');
     }
 }

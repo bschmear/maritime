@@ -50,7 +50,7 @@ class MakeDomain extends Command
         $this->createFormClass($domainName, 'form');
         $this->createFieldsClass($domainName, 'fields');
         $this->createTableClass($domainName, 'table');
-        $this->updateNamespace($destinationPath, "Domain\\{$domainName}\\Models");
+        $this->updateNamespace($destinationPath, "App\\Domain\\{$domainName}\\Models");
 
         // Ask user if they want to create a controller
         if ($this->confirm("Do you want to create a controller for {$modelName}?")) {
@@ -137,9 +137,9 @@ protected function createCreateActionClass($domainName, $className, $modelName)
 
     if (!File::exists($filePath)) {
         File::put($filePath, "<?php
-namespace Domain\\{$domainName}\\Actions;
+namespace App\\Domain\\{$domainName}\\Actions;
 
-use Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
+use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -194,9 +194,9 @@ protected function createUpdateActionClass($domainName, $className, $modelName)
 
     if (!File::exists($filePath)) {
         File::put($filePath, "<?php
-namespace Domain\\{$domainName}\\Actions;
+namespace App\\Domain\\{$domainName}\\Actions;
 
-use Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
+use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -254,9 +254,9 @@ protected function createDeleteActionClass($domainName, $className, $modelName)
 
     if (!File::exists($filePath)) {
         File::put($filePath, "<?php
-namespace Domain\\{$domainName}\\Actions;
+namespace App\\Domain\\{$domainName}\\Actions;
 
-use Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
+use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
@@ -315,10 +315,10 @@ class {$className}
             File::put($controllerPath, "<?php
 namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Tenant\RecordController;
-use Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
-use Domain\\{$domainName}\\Actions\\Create{$modelName} as CreateAction;
-use Domain\\{$domainName}\\Actions\\Update{$modelName} as UpdateAction;
-use Domain\\{$domainName}\\Actions\\Delete{$modelName} as DeleteAction;
+use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
+use App\\Domain\\{$domainName}\\Actions\\Create{$modelName} as CreateAction;
+use App\\Domain\\{$domainName}\\Actions\\Update{$modelName} as UpdateAction;
+use App\\Domain\\{$domainName}\\Actions\\Delete{$modelName} as DeleteAction;
 use Illuminate\Http\Request;
 
 class {$controllerName} extends RecordController

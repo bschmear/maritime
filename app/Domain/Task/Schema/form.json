@@ -3,6 +3,7 @@
     "label": "Task Details",
     "fields": [
       { "key": "display_name", "required": true },
+      { "key": "relatable_type", "required": false },
       { "key": "notes", "required": false },
       { "key": "start_date", "required": true },
       { "key": "due_date", "required": false },

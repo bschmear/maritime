@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Http\Controllers\Concerns\HasSchemaSupport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -10,7 +11,7 @@ use Illuminate\Routing\Controller as BaseController;
 
 class RecordController extends BaseController
 {
-    use AuthorizesRequests, ValidatesRequests;
+    use AuthorizesRequests, ValidatesRequests, HasSchemaSupport;
 
     protected $recordType;
     protected $recordTitle;
@@ -38,160 +39,6 @@ class RecordController extends BaseController
         $this->updateAction = $updateAction;
         $this->deleteAction = $deleteAction;
         $this->domainName = $domainName ?? $recordTitle;
-    }
-
-    protected function getTableSchema()
-    {
-        $schemaPath = app_path("Domain/{$this->domainName}/Schema/table.json");
-        
-        if (!file_exists($schemaPath)) {
-            return null;
-        }
-
-        $schema = json_decode(file_get_contents($schemaPath), true);
-        return $schema;
-    }
-
-    protected function getFormSchema()
-    {
-        $schemaPath = app_path("Domain/{$this->domainName}/Schema/form.json");
-
-        if (!file_exists($schemaPath)) {
-            return null;
-        }
-
-        $schema = json_decode(file_get_contents($schemaPath), true);
-        return $schema;
-    }
-
-    protected function getFieldsSchema()
-    {
-        $schemaPath = app_path("Domain/{$this->domainName}/Schema/fields.json");
-
-        if (!file_exists($schemaPath)) {
-            return null;
-        }
-
-        $schema = json_decode(file_get_contents($schemaPath), true);
-        return $schema;
-    }
-
-    protected function getEnumOptions()
-    {
-        $fieldsSchema = $this->getFieldsSchema();
-
-        if (!$fieldsSchema) {
-            return [];
-        }
-
-        $enumOptions = [];
-
-        // Iterate through fields to find enum and record fields
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            $fieldType = $fieldDef['type'] ?? 'text';
-
-            // Handle enum fields (existing functionality)
-            if (isset($fieldDef['enum']) && !empty($fieldDef['enum'])) {
-                $enumClass = $fieldDef['enum'];
-
-                // Check if the enum class exists and has an options() method
-                if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
-                    $enumOptions[$enumClass] = $enumClass::options();
-                }
-            }
-
-            // Handle record type fields (new functionality)
-            if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
-                $domainName = $fieldDef['typeDomain'];
-                $modelClass = "Domain\\{$domainName}\\Models\\{$domainName}";
-
-                // Check if the model class exists
-                if (class_exists($modelClass)) {
-                    try {
-                        // Get all records from the related domain
-                        $records = $modelClass::select('id', 'display_name')->get();
-
-                        // Format as options array
-                        $options = $records->map(function ($record) {
-                            return [
-                                'id' => $record->id,
-                                'name' => $record->display_name,
-                                'value' => $record->id,
-                            ];
-                        })->toArray();
-
-                        // Use the field key as the options key
-                        $enumOptions[$fieldKey] = $options;
-                    } catch (\Exception $e) {
-                        // Log error but don't break the page
-                        \Log::warning("Failed to load record options for {$domainName}: " . $e->getMessage());
-                        $enumOptions[$fieldKey] = [];
-                    }
-                }
-            }
-        }
-
-        return $enumOptions;
-    }
-
-    protected function getRelationshipsToLoad($fieldsSchema)
-    {
-        if (!$fieldsSchema) {
-            return [];
-        }
-
-        $relationships = [];
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            $fieldType = $fieldDef['type'] ?? 'text';
-
-            if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
-                // Try to infer the relationship name from the field key
-                $relationshipName = $fieldKey;
-
-                // Remove common suffixes and prefixes
-                if (substr($relationshipName, -3) === '_id') {
-                    $relationshipName = substr($relationshipName, 0, -3); // Remove '_id'
-                }
-                if (substr($relationshipName, 0, 8) === 'current_') {
-                    $relationshipName = substr($relationshipName, 8); // Remove 'current_' prefix
-                }
-
-                // Try singular version if it ends with 's'
-                if (substr($relationshipName, -1) === 's') {
-                    $relationshipName = substr($relationshipName, 0, -1);
-                }
-
-                // Check if the relationship exists on the model
-                if (method_exists($this->recordModel, $relationshipName)) {
-                    $relationships[] = $relationshipName;
-                } else {
-                    // Try alternative relationship names
-                    $alternatives = [
-                        $fieldKey, // Original field key
-                        $fieldKey . '_data', // With _data suffix
-                        strtolower($fieldDef['typeDomain']), // Domain name lowercase
-                    ];
-
-                    // Add common Laravel relationship naming patterns
-                    if (str_ends_with($fieldKey, '_by')) {
-                        // For fields like created_by, updated_by -> try creator, updater
-                        $baseName = str_replace('_by', '', $fieldKey);
-                        $alternatives[] = $baseName . 'r'; // creator, updater
-                        $alternatives[] = $baseName . 'By'; // createdBy, updatedBy (camelCase)
-                    }
-
-                    foreach ($alternatives as $altRelationship) {
-                        if (method_exists($this->recordModel, $altRelationship)) {
-                            $relationships[] = $altRelationship;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        return array_unique($relationships);
     }
 
     public function index(Request $request)
@@ -224,7 +71,23 @@ class RecordController extends BaseController
             }
         }
         
-        $records = $query->paginate(15);
+        // Get per_page from request, default to 15
+        $perPage = $request->get('per_page', 15);
+        $records = $query->paginate($perPage);
+
+        // If this is a fetch/AJAX request (NOT Inertia), return JSON
+        // Check for XMLHttpRequest but exclude Inertia requests
+        if ($request->ajax() && !$request->header('X-Inertia')) {
+            return response()->json([
+                'records' => $records->items(),
+                'meta' => [
+                    'current_page' => $records->currentPage(),
+                    'last_page' => $records->lastPage(),
+                    'per_page' => $records->perPage(),
+                    'total' => $records->total(),
+                ]
+            ]);
+        }
 
         // Pluralize the record title for the index page
         $pluralTitle = Str::plural($this->recordTitle);
@@ -239,104 +102,6 @@ class RecordController extends BaseController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
         ]);
-    }
-
-    protected function applyFilters($query, array $filters, $fieldsSchema)
-    {
-        foreach ($filters as $filter) {
-            if (!isset($filter['field']) || !isset($filter['operator'])) {
-                continue;
-            }
-            
-            $field = $filter['field'];
-            $operator = $filter['operator'];
-            $value = $filter['value'] ?? null;
-            
-            $fieldConfig = $fieldsSchema[$field] ?? [];
-            $fieldType = $fieldConfig['type'] ?? 'text';
-            
-            switch ($operator) {
-                case 'contains':
-                    $query->where($field, 'LIKE', "%{$value}%");
-                    break;
-                case 'equals':
-                    $query->where($field, '=', $value);
-                    break;
-                case 'starts_with':
-                    $query->where($field, 'LIKE', "{$value}%");
-                    break;
-                case 'ends_with':
-                    $query->where($field, 'LIKE', "%{$value}");
-                    break;
-                case 'is_empty':
-                    $query->where(function($q) use ($field) {
-                        $q->whereNull($field)->orWhere($field, '');
-                    });
-                    break;
-                case 'is_not_empty':
-                    $query->whereNotNull($field)->where($field, '!=', '');
-                    break;
-                case 'not_equals':
-                    $query->where($field, '!=', $value);
-                    break;
-                case 'any_of':
-                    if (is_array($value)) {
-                        $query->whereIn($field, $value);
-                    } else {
-                        $query->where($field, '=', $value);
-                    }
-                    break;
-                case 'none_of':
-                    if (is_array($value)) {
-                        $query->whereNotIn($field, $value);
-                    } else {
-                        $query->where($field, '!=', $value);
-                    }
-                    break;
-                case 'before':
-                    $query->where($field, '<', $value);
-                    break;
-                case 'after':
-                    $query->where($field, '>', $value);
-                    break;
-                case 'between':
-                    if (is_array($value)) {
-                        $start = $value['start'] ?? $value['min'] ?? null;
-                        $end = $value['end'] ?? $value['max'] ?? null;
-                        if ($start && $end) {
-                            $query->whereBetween($field, [$start, $end]);
-                        }
-                    }
-                    break;
-                case 'today':
-                    $query->whereDate($field, '=', now()->toDateString());
-                    break;
-                case 'this_week':
-                    $query->whereBetween($field, [now()->startOfWeek(), now()->endOfWeek()]);
-                    break;
-                case 'this_month':
-                    $query->whereMonth($field, now()->month)->whereYear($field, now()->year);
-                    break;
-                case 'greater_than':
-                    $query->where($field, '>', $value);
-                    break;
-                case 'less_than':
-                    $query->where($field, '<', $value);
-                    break;
-                case 'is_true':
-                    $query->where($field, '=', 1)->orWhere($field, '=', true);
-                    break;
-                case 'is_false':
-                    $query->where(function($q) use ($field) {
-                        $q->where($field, '=', 0)
-                          ->orWhere($field, '=', false)
-                          ->orWhereNull($field);
-                    });
-                    break;
-            }
-        }
-        
-        return $query;
     }
 
     public function create()

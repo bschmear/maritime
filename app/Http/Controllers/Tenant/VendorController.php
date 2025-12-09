@@ -1,10 +1,10 @@
 <?php
 namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Tenant\RecordController;
-use Domain\Vendor\Models\Vendor as RecordModel;
-use Domain\Vendor\Actions\CreateVendor as CreateAction;
-use Domain\Vendor\Actions\UpdateVendor as UpdateAction;
-use Domain\Vendor\Actions\DeleteVendor as DeleteAction;
+use App\Domain\Vendor\Models\Vendor as RecordModel;
+use App\Domain\Vendor\Actions\CreateVendor as CreateAction;
+use App\Domain\Vendor\Actions\UpdateVendor as UpdateAction;
+use App\Domain\Vendor\Actions\DeleteVendor as DeleteAction;
 use Illuminate\Http\Request;
 
 class VendorController extends RecordController

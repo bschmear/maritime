@@ -1,7 +1,7 @@
 <?php
-namespace Domain\Role\Actions;
+namespace App\Domain\Role\Actions;
 
-use Domain\Role\Models\Role as RecordModel;
+use App\Domain\Role\Models\Role as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;

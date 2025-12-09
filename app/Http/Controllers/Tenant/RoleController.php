@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Tenant\RecordController;
-use Domain\Role\Models\Role as RecordModel;
-use Domain\Role\Actions\CreateRole as CreateAction;
-use Domain\Role\Actions\UpdateRole as UpdateAction;
-use Domain\Role\Actions\DeleteRole as DeleteAction;
+use App\Domain\Role\Models\Role as RecordModel;
+use App\Domain\Role\Actions\CreateRole as CreateAction;
+use App\Domain\Role\Actions\UpdateRole as UpdateAction;
+use App\Domain\Role\Actions\DeleteRole as DeleteAction;
 use Illuminate\Http\Request;
 
 class RoleController extends RecordController

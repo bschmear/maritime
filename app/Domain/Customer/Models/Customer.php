@@ -1,7 +1,8 @@
 <?php
 
-namespace Domain\Customer\Models;
+namespace App\Domain\Customer\Models;
 
+use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model

@@ -74,7 +74,7 @@
   "status_id": {
     "label": "Status",
     "type": "select",
-    "enum": "App\\Enums\\Entity\\Status"
+    "enum": "App\\Enums\\Leads\\Status"
   },
   "source_id": {
     "label": "Source",
