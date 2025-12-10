@@ -43,27 +43,35 @@ class RecordController extends BaseController
 
     public function index(Request $request)
     {
-        // Load all columns instead of limiting to table schema
-        // This ensures Kanban/List views have access to all fields like notes
         $columns = $this->getSchemaColumns();
         $fieldsSchema = $this->getFieldsSchema();
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
-
-        if (!in_array('id', $columns)) {
+    
+        if (! in_array('id', $columns)) {
             $columns[] = 'id';
         }
-
-        $query = $this->recordModel->select($columns)->with($this->getRelationshipsToLoad($fieldsSchema));
-        
-        // Apply search query (fuzzy search on display_name, case-insensitive)
+    
+        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+    
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                $relationshipName = str_replace('_id', '', $fieldKey);
+    
+                $relationships[$relationshipName] = function ($query) {
+                    $query->select('id', 'display_name');
+                };
+            }
+        }
+    
+        $query = $this->recordModel->select($columns)->with($relationships);
+    
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
+        if ($searchQuery && ! empty(trim($searchQuery))) {
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
         }
-        
-        // Apply filters from query parameters
+    
         $filtersParam = $request->get('filters');
         if ($filtersParam) {
             try {
@@ -72,16 +80,16 @@ class RecordController extends BaseController
                     $query = $this->applyFilters($query, $filters, $fieldsSchema);
                 }
             } catch (\Exception $e) {
-                // Invalid filters, ignore
+                // ignore invalid filters
             }
         }
-        
-        // Get per_page from request, default to 15
+    
+        $query->orderByRaw('LOWER(display_name) ASC');
+    
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
-
-        // If this is a fetch/AJAX request (NOT Inertia), return JSON
-        // Check for XMLHttpRequest but exclude Inertia requests
+    
+        // Return JSON for Inertia / AJAX / JSON requests only
         if ($request->ajax() && !$request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
@@ -90,25 +98,25 @@ class RecordController extends BaseController
                     'last_page' => $records->lastPage(),
                     'per_page' => $records->perPage(),
                     'total' => $records->total(),
-                ]
+                ],
             ]);
         }
-
-        // Pluralize the record title for the index page
+    
+        // Normal initial page load - return Inertia page
         $pluralTitle = Str::plural($this->recordTitle);
-
+    
         return inertia('Tenant/' . $this->domainName . '/Index', [
             'records' => $records,
             'recordType' => $this->recordType,
-            'recordTitle' => $this->recordTitle, // Singular for "Add" button
-            'pluralTitle' => $pluralTitle, // Plural for table heading
+            'recordTitle' => $this->recordTitle,
+            'pluralTitle' => $pluralTitle,
             'schema' => $schema,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
         ]);
     }
-
+    
     public function create()
     {
         $formSchema = $this->getFormSchema();
@@ -139,9 +147,27 @@ class RecordController extends BaseController
             if ($result['success']) {
                 // If it's an AJAX request that wants JSON, return JSON instead of redirecting
                 if ($request->wantsJson()) {
+                    // Reload the record with relationships to ensure display_name is available
+                    $fieldsSchema = $this->getFieldsSchema();
+                    $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+                    
+                    // Add record type relationships with only id and display_name
+                    foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                        if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                            $relationshipName = str_replace('_id', '', $fieldKey);
+                            $relationships[$relationshipName] = function($query) {
+                                $query->select('id', 'display_name');
+                            };
+                        }
+                    }
+                    
+                    // Reload the record with relationships
+                    $record = $this->recordModel->with($relationships)->find($result['record']->id);
+                    
                     return response()->json([
                         'success' => true,
                         'recordId' => $result['record']->id,
+                        'record' => $record,
                         'message' => $this->domainName . ' created successfully',
                     ]);
                 }
@@ -184,9 +210,24 @@ class RecordController extends BaseController
     {
         $fieldsSchema = $this->getFieldsSchema();
 
+        // Build relationships array including both morph and record types
+        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+        
+        // Add record type relationships with only id and display_name
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                // Convert field key like 'assigned_id' to relationship name like 'assigned'
+                $relationshipName = str_replace('_id', '', $fieldKey);
+                // Only select id and display_name for the related record
+                $relationships[$relationshipName] = function($query) {
+                    $query->select('id', 'display_name');
+                };
+            }
+        }
+
         // Load the record with relationships
         $record = $this->recordModel
-            ->with($this->getRelationshipsToLoad($fieldsSchema))
+            ->with($relationships)
             ->findOrFail($id);
 
         $formSchema = $this->getFormSchema();
@@ -236,9 +277,26 @@ class RecordController extends BaseController
         if ($result['success']) {
             // If it's an AJAX request that wants JSON, return JSON instead of redirecting
             if ($request->wantsJson()) {
+                // Reload the record with relationships to ensure display_name is available
+                $fieldsSchema = $this->getFieldsSchema();
+                $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+                
+                // Add record type relationships with only id and display_name
+                foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                    if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                        $relationshipName = str_replace('_id', '', $fieldKey);
+                        $relationships[$relationshipName] = function($query) {
+                            $query->select('id', 'display_name');
+                        };
+                    }
+                }
+                
+                // Reload the record with relationships
+                $record = $this->recordModel->with($relationships)->find($id);
+                
                 return response()->json([
                     'success' => true,
-                    'record' => $result['record'],
+                    'record' => $record,
                     'message' => $this->domainName . ' updated successfully',
                 ]);
             }
@@ -274,5 +332,33 @@ class RecordController extends BaseController
 
         return back()
             ->with('error', $result['message'] ?? 'Failed to delete ' . $this->recordTitle);
+    }
+
+    public function lookup(Request $request)
+    {
+        // Simple lookup - just return id and display_name
+        $columns = ['id', 'display_name'];
+
+        $query = $this->recordModel->select($columns);
+
+        // Apply search query (fuzzy search on display_name, case-insensitive)
+        $searchQuery = $request->get('search');
+        if ($searchQuery && !empty(trim($searchQuery))) {
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+        }
+
+        // Get per_page from request, default to 15
+        $perPage = $request->get('per_page', 15);
+        $records = $query->paginate($perPage);
+
+        return response()->json([
+            'records' => $records->items(),
+            'meta' => [
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'per_page' => $records->perPage(),
+                'total' => $records->total(),
+            ]
+        ]);
     }
 }

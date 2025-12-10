@@ -15,6 +15,7 @@ use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\AccountController;
+use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -49,19 +50,20 @@ Route::middleware([
         Route::prefix('tasks')->name('tasks.')->group(function () {
             Route::resource('/', TaskController::class)->parameters(['' => 'task']);
         });
+
+        Route::prefix('users')->name('users.')->group(function () {
+            Route::resource('/', UserController::class)->parameters(['' => 'user']);
+        });
+
+        Route::prefix('roles')->name('roles.')->group(function () {
+            Route::resource('/', RoleController::class)->parameters(['' => 'role']);
+        });
         
         Route::prefix('account')->name('account.')->group(function () {
-            // Fixed: Changed from ->name('.index') to ->name('index')
             Route::get('/', [AccountController::class, 'index'])->name('index');
-            
-            Route::prefix('users')->name('users.')->group(function () {
-                Route::resource('/', UserController::class)->parameters(['' => 'user']);
-            });
-            
-            Route::prefix('roles')->name('roles.')->group(function () {
-                Route::resource('/', RoleController::class)->parameters(['' => 'role']);
-            });
         });
+
+        Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');
 
 
         // Profile routes

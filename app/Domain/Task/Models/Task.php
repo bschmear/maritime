@@ -51,7 +51,7 @@ class Task extends Model
     /**
      * User who created this task.
      */
-    public function creator(): BelongsTo
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'created_by');
     }
@@ -59,7 +59,7 @@ class Task extends Model
     /**
      * User who last updated this task.
      */
-    public function updater(): BelongsTo
+    public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'updated_by');
     }

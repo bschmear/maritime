@@ -46,4 +46,20 @@ class Customer extends Model
     {
         return $this->morphMany(Task::class, 'relatable');
     }
+
+    public function assigned_user()
+    {
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
+    }
+
+
+    public function created_by_user()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id')->select('id', 'display_name');
+    }
+
+    public function last_updated_by_user()
+    {
+        return $this->belongsTo(User::class, 'last_updated_by_user_id')->select('id', 'display_name');
+    }
 }

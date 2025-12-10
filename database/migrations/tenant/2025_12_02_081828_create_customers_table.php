@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -51,8 +50,8 @@ return new class extends Migration
             $table->unsignedBigInteger('assigned_user_id')->nullable();
 
             // Lead timelines
-            $table->dateTime('last_contacted_at')->nullable();
-            $table->dateTime('next_followup_at')->nullable();
+            $table->date('last_contacted_at')->nullable();
+            $table->date('next_followup_at')->nullable();
 
             // Lead scoring & qualification
             $table->unsignedSmallInteger('lead_score')->nullable()->comment('Numeric lead quality score');

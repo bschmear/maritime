@@ -18,7 +18,7 @@ class RoleController extends RecordController
     {
         parent::__construct(
             $request,
-            'account.roles',
+            'roles',
             'Role',
             new RecordModel(),
             new CreateAction(),

@@ -215,16 +215,15 @@ onMounted(() => {
                         <h4 class="text-sm font-semibold text-gray-900 dark:text-white flex-1">
                             {{ task.display_name }}
                         </h4>
-                        <button
-                            type="button"
-                            class="ml-2 rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
-                            @click.stop
+                        <div
+                            class="ml-2 rounded-lg p-1 text-gray-400 cursor-pointer hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white"
+                            
                         >
                             <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path fill-rule="evenodd" d="M11.3 6.2H5a2 2 0 0 0-2 2V19a2 2 0 0 0 2 2h11c1.1 0 2-1 2-2.1V11l-4 4.2c-.3.3-.7.6-1.2.7l-2.7.6c-1.7.3-3.3-1.3-3-3.1l.6-2.9c.1-.5.4-1 .7-1.3l3-3.1Z" clip-rule="evenodd"></path>
                                 <path fill-rule="evenodd" d="M19.8 4.3a2.1 2.1 0 0 0-1-1.1 2 2 0 0 0-2.2.4l-.6.6 2.9 3 .5-.6a2.1 2.1 0 0 0 .6-1.5c0-.2 0-.5-.2-.8Zm-2.4 4.4-2.8-3-4.8 5-.1.3-.7 3c0 .3.3.7.6.6l2.7-.6.3-.1 4.7-5Z" clip-rule="evenodd"></path>
                             </svg>
-                        </button>
+                        </div>
                     </div>
 
                     <!-- Task Description -->

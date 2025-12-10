@@ -1,35 +1,40 @@
 {
-    "personal": {
-        "label": "Personal Information",
-        "fields": [
-            {
-                "key": "first_name",
-                "required": true
-            },
-            {
-                "key": "last_name",
-                "required": true
-            }
-        ]
+    "settings": {
+        "max_width": "4xl"
     },
-    "contact": {
-        "label": "Contact Information",
-        "fields": [
-            {
-                "key": "email",
-                "required": true
-            }
-        ]
-    },
-    "profile": {
-        "label": "Profile",
-        "fields": [
-            {
-                "key": "bio"
-            },
-            {
-                "key": "avatar"
-            }
-        ]
+    "form": {
+        "personal": {
+            "label": "Personal Information",
+            "fields": [
+                {
+                    "key": "first_name",
+                    "required": true
+                },
+                {
+                    "key": "last_name",
+                    "required": true
+                }
+            ]
+        },
+        "contact": {
+            "label": "Contact Information",
+            "fields": [
+                {
+                    "key": "email",
+                    "required": true
+                }
+            ]
+        },
+        "profile": {
+            "label": "Profile",
+            "fields": [
+                {
+                    "key": "bio"
+                },
+                {
+                    "key": "avatar"
+                }
+            ]
+        }
     }
 }

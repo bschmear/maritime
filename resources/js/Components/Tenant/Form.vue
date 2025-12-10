@@ -12,6 +12,7 @@ import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 
 const props = defineProps({
     schema: {
@@ -280,6 +281,26 @@ const getEnumLabel = (fieldKey, value) => {
     );
     return option ? option.name : value;
 };
+
+const getRecordDisplayName = (fieldKey, value) => {
+    if (!value) return '—';
+    
+    const fieldDef = getFieldDefinition(fieldKey);
+    
+    // If it's a record type field, try to get the display name from the loaded relationship
+    if (fieldDef.type === 'record' && props.record) {
+        // Convert field key like 'assigned_id' to relationship name like 'assigned'
+        const relationshipName = fieldKey.replace('_id', '');
+        const relatedRecord = props.record[relationshipName];
+        
+        if (relatedRecord && relatedRecord.display_name) {
+            return relatedRecord.display_name;
+        }
+    }
+    
+    // Fallback to enum label for backward compatibility
+    return getEnumLabel(fieldKey, value);
+};
 const getFieldType = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     return fieldDef.type || 'text';
@@ -350,6 +371,31 @@ const isFieldVisible = (field) => {
 
     // No conditional logic, field is always visible
     return true;
+};
+
+const getFieldColSpan = (field) => {
+    // Check for explicit class override in schema
+    if (field.col_span) {
+        return field.col_span;
+    }
+    
+    // Check for span number in schema (1-12)
+    if (field.span) {
+        return `sm:col-span-${field.span}`;
+    }
+
+    const fieldType = getFieldType(field.key);
+    
+    // Full width fields by default
+    if (fieldType === 'textarea' || 
+        field.key === 'address_line_1' || 
+        field.key === 'address_line_2' ||
+        fieldType === 'editor') {
+        return 'sm:col-span-12';
+    }
+
+    // Default to half width (6 columns out of 12)
+    return 'sm:col-span-6';
 };
 
 // Phone number formatting functions
@@ -674,17 +720,20 @@ defineExpose({
                 >
                     <div class="p-4 border-gray-200 sm:p-5 dark:border-gray-700">
                         <!-- Address Group -->
-                        <div v-if="group.is_address && group.filteredFields" class="grid gap-4 sm:grid-cols-2">
+                        <div v-if="group.is_address && group.filteredFields" class="grid gap-4 sm:grid-cols-12">
                             <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
                                 <div v-if="field && isFieldVisible(field)"
-                                     :class="field.key === 'address_line_1' || field.key === 'address_line_2' ? 'sm:col-span-2' : ''">
+                                     :class="getFieldColSpan(field)">
                                 <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                                     {{ getFieldLabel(field.key) }}
                                     <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
                                 </label>
 
                                 <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
-                                    <span v-if="getFieldType(field.key) === 'tel'">
+                                    <span v-if="getFieldType(field.key) === 'record'">
+                                        {{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'tel'">
                                         {{ getFormattedPhoneValue(field.key) || '—' }}
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'datetime'">
@@ -754,6 +803,18 @@ defineExpose({
                                         :disabled="isFieldDisabled(field.key)"
                                     />
 
+                                    <!-- Record Select (with search modal) -->
+                                    <RecordSelect
+                                        v-else-if="getFieldType(field.key) === 'record'"
+                                        :id="getFieldId(field.key)"
+                                        :field="getFieldDefinition(field.key)"
+                                        v-model="form[field.key]"
+                                        :disabled="isFieldDisabled(field.key)"
+                                        :enum-options="getEnumOptions(field.key)"
+                                        :record="record"
+                                        :field-key="field.key"
+                                    />
+
                                     <input
                                         v-else
                                         :id="getFieldId(field.key)"
@@ -772,10 +833,10 @@ defineExpose({
                         </div>
 
                         <!-- Regular Fields -->
-                        <div v-else-if="group.filteredFields" class="grid gap-4 sm:grid-cols-2">
+                        <div v-else-if="group.filteredFields" class="grid gap-4 sm:grid-cols-12">
                             <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
                                 <div v-if="field && isFieldVisible(field)"
-                                     :class="getFieldType(field.key) === 'textarea' ? 'sm:col-span-2' : ''">
+                                     :class="getFieldColSpan(field)">
                                 <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
                                     {{ getFieldLabel(field.key) }}
                                     <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
@@ -786,7 +847,10 @@ defineExpose({
                                     <span v-if="getFieldType(field.key) === 'textarea'" class="whitespace-pre-wrap">
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
-                                    <span v-else-if="(getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum) || getFieldType(field.key) === 'record'">
+                                    <span v-else-if="getFieldType(field.key) === 'record'">
+                                        {{ getRecordDisplayName(field.key, getFieldValue(field.key)) }}
+                                    </span>
+                                    <span v-else-if="getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum">
                                         {{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}
                                     </span>
                                     <span v-else-if="getFieldType(field.key) === 'tel'">
@@ -882,9 +946,21 @@ defineExpose({
                                         class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
                                     />
 
-                                    <!-- Select / Record -->
+                                    <!-- Record Select (with search modal) -->
+                                    <RecordSelect
+                                        v-else-if="getFieldType(field.key) === 'record'"
+                                        :id="getFieldId(field.key)"
+                                        :field="getFieldDefinition(field.key)"
+                                        v-model="form[field.key]"
+                                        :disabled="isFieldDisabled(field.key)"
+                                        :enum-options="getEnumOptions(field.key)"
+                                        :record="record"
+                                        :field-key="field.key"
+                                    />
+
+                                    <!-- Select (enum dropdown) -->
                                     <select
-                                        v-else-if="getFieldType(field.key) === 'select' || getFieldType(field.key) === 'record'"
+                                        v-else-if="getFieldType(field.key) === 'select'"
                                         :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"

@@ -20,7 +20,7 @@ class UserController extends RecordController
 
         parent::__construct(
             $request,
-            'account.users',
+            'users',
             'User',
             new RecordModel(),
             new CreateAction(),

@@ -97,12 +97,12 @@
   },
   "last_contacted_at": {
     "label": "Last Contacted",
-    "type": "datetime",
-    "disabled": true
+    "type": "date",
+    "disabled": false
   },
   "next_followup_at": {
     "label": "Next Follow Up",
-    "type": "datetime"
+    "type": "date"
   },
   "lead_score": {
     "label": "Lead Score",

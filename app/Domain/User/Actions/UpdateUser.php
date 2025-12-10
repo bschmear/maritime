@@ -22,6 +22,8 @@ class UpdateUser
 
         try {
             $record = RecordModel::findOrFail($id);
+
+            $validated['display_name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
             $record->update($validated);
 
             return [

@@ -60,6 +60,20 @@ const columns = computed(() => {
     return props.schema.columns;
 });
 
+const modalMaxWidth = computed(() => {
+    if (props.formSchema && props.formSchema.settings && props.formSchema.settings.max_width) {
+        return props.formSchema.settings.max_width;
+    }
+    return '4xl';
+});
+
+const formSchemaContent = computed(() => {
+    if (props.formSchema && props.formSchema.form) {
+        return props.formSchema.form;
+    }
+    return props.formSchema;
+});
+
 const isFirstPage = computed(() => {
     return props.records.current_page === 1;
 });
@@ -392,9 +406,7 @@ const handleViewOnPage = async (record) => {
         } else {
             paramName = props.recordType.replace(/s$/, ''); // Remove trailing 's'
         }
-        console.log(props.recordType);
-        console.log(paramName);
-        console.log(record);
+
         const response = await axios.get(route(`${props.recordType}.show`, { [paramName]: record.id }), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -919,7 +931,7 @@ onMounted(() => {
         </div>
 
         <!-- Create Modal -->
-        <Modal :show="showCreateModal" @close="showCreateModal = false" max-width="4xl">
+        <Modal :show="showCreateModal" @close="showCreateModal = false" :max-width="modalMaxWidth">
             <!-- Modal header (fixed) -->
             <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
@@ -940,7 +952,7 @@ onMounted(() => {
             <!-- Modal body (scrollable) -->
             <div class="overflow-y-auto flex-1">
                 <Form
-                    :schema="formSchema"
+                    :schema="formSchemaContent"
                     :fields-schema="fieldsSchema"
                     :record-type="recordType"
                     :record-title="recordTitle"
@@ -988,7 +1000,7 @@ onMounted(() => {
         </Modal>
 
         <!-- View/Edit Modal -->
-        <Modal :show="showViewModal" @close="closeViewModal" max-width="4xl">
+        <Modal :show="showViewModal" @close="closeViewModal" :max-width="modalMaxWidth">
             <!-- Modal header (fixed) -->
             <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
@@ -1019,7 +1031,7 @@ onMounted(() => {
                 </div>
                 <Form
                     v-else-if="selectedRecord"
-                    :schema="formSchema"
+                    :schema="formSchemaContent"
                     :fields-schema="fieldsSchema"
                     :record="selectedRecord"
                     :record-type="recordType"

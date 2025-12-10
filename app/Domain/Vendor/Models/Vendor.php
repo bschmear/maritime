@@ -63,13 +63,16 @@ class Vendor extends Model
     }
 
     /**
-     * Example relation: assigned user.
+     * Assigned user relationship.
      */
-    public function assignedUser()
+    public function assigned_user()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
     }
 
+    /**
+     * Tasks related to this vendor.
+     */
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');

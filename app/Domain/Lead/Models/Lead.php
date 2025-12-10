@@ -3,6 +3,8 @@
 namespace App\Domain\Lead\Models;
 
 use App\Domain\Task\Models\Task;
+use App\Domain\User\Models\User;
+use App\Domain\Customer\Models\Customer;
 use Illuminate\Database\Eloquent\Model;
 
 class Lead extends Model
@@ -42,10 +44,33 @@ class Lead extends Model
         'last_contacted_at',
         'next_followup_at',
         'converted_at',
+        'created_at',
+        'updated_at',
     ];
 
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');
+    }
+    public function assigned_user()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id')->select('id', 'display_name');
+    }
+
+    public function created_by_user()
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id')->select('id', 'display_name');
+    }
+
+    public function last_updated_by_user()
+    {
+        return $this->belongsTo(User::class, 'last_updated_by_user_id')->select('id', 'display_name');
+    }
+
+    
+
+    public function converted_customer()
+    {
+        return $this->belongsTo(Customer::class, 'converted_customer_id')->select('id', 'display_name');
     }
 }
