@@ -48,30 +48,30 @@ class RecordController extends BaseController
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
-    
-        if (! in_array('id', $columns)) {
+
+        if (!in_array('id', $columns)) {
             $columns[] = 'id';
         }
-    
+
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-    
+
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 $relationshipName = str_replace('_id', '', $fieldKey);
-    
+
                 $relationships[$relationshipName] = function ($query) {
                     $query->select('id', 'display_name');
                 };
             }
         }
-    
+
         $query = $this->recordModel->select($columns)->with($relationships);
-    
+
         $searchQuery = $request->get('search');
-        if ($searchQuery && ! empty(trim($searchQuery))) {
+        if ($searchQuery && !empty(trim($searchQuery))) {
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
         }
-    
+
         $filtersParam = $request->get('filters');
         if ($filtersParam) {
             try {
@@ -83,12 +83,12 @@ class RecordController extends BaseController
                 // ignore invalid filters
             }
         }
-    
+
         $query->orderByRaw('LOWER(display_name) ASC');
-    
+
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
-    
+
         // Return JSON for Inertia / AJAX / JSON requests only
         if ($request->ajax() && !$request->header('X-Inertia')) {
             return response()->json([
@@ -101,10 +101,10 @@ class RecordController extends BaseController
                 ],
             ]);
         }
-    
+
         // Normal initial page load - return Inertia page
         $pluralTitle = Str::plural($this->recordTitle);
-    
+
         return inertia('Tenant/' . $this->domainName . '/Index', [
             'records' => $records,
             'recordType' => $this->recordType,
@@ -116,7 +116,7 @@ class RecordController extends BaseController
             'enumOptions' => $enumOptions,
         ]);
     }
-    
+
     public function create()
     {
         $formSchema = $this->getFormSchema();
@@ -146,24 +146,24 @@ class RecordController extends BaseController
 
             if ($result['success']) {
                 // If it's an AJAX request that wants JSON, return JSON instead of redirecting
-                if ($request->wantsJson()) {
+                if ($request->wantsJson() && !$request->header('X-Inertia')) {
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-                    
+
                     // Add record type relationships with only id and display_name
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                             $relationshipName = str_replace('_id', '', $fieldKey);
-                            $relationships[$relationshipName] = function($query) {
+                            $relationships[$relationshipName] = function ($query) {
                                 $query->select('id', 'display_name');
                             };
                         }
                     }
-                    
+
                     // Reload the record with relationships
                     $record = $this->recordModel->with($relationships)->find($result['record']->id);
-                    
+
                     return response()->json([
                         'success' => true,
                         'recordId' => $result['record']->id,
@@ -179,7 +179,7 @@ class RecordController extends BaseController
             }
 
             // Handle errors for AJAX requests
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
@@ -192,7 +192,7 @@ class RecordController extends BaseController
                 ->with('error', $result['message'] ?? 'Failed to create ' . $this->recordTitle);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors
-            if ($request->wantsJson()) {
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
@@ -212,14 +212,14 @@ class RecordController extends BaseController
 
         // Build relationships array including both morph and record types
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-        
+
         // Add record type relationships with only id and display_name
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
                 $relationshipName = str_replace('_id', '', $fieldKey);
                 // Only select id and display_name for the related record
-                $relationships[$relationshipName] = function($query) {
+                $relationships[$relationshipName] = function ($query) {
                     $query->select('id', 'display_name');
                 };
             }
@@ -272,52 +272,69 @@ class RecordController extends BaseController
 
     public function update(Request $request, $id)
     {
-        $result = ($this->updateAction)($id, $request->all());
+        try {
+            $result = ($this->updateAction)($id, $request->all());
 
-        if ($result['success']) {
-            // If it's an AJAX request that wants JSON, return JSON instead of redirecting
-            if ($request->wantsJson()) {
-                // Reload the record with relationships to ensure display_name is available
-                $fieldsSchema = $this->getFieldsSchema();
-                $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-                
-                // Add record type relationships with only id and display_name
-                foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-                    if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                        $relationshipName = str_replace('_id', '', $fieldKey);
-                        $relationships[$relationshipName] = function($query) {
-                            $query->select('id', 'display_name');
-                        };
+            if ($result['success']) {
+                // Check if this is a non-Inertia AJAX request (axios from preventRedirect)
+                if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                    // Reload the record with relationships to ensure display_name is available
+                    $fieldsSchema = $this->getFieldsSchema();
+                    $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+
+                    // Add record type relationships with only id and display_name
+                    foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                        if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                            $relationshipName = str_replace('_id', '', $fieldKey);
+                            $relationships[$relationshipName] = function ($query) {
+                                $query->select('id', 'display_name');
+                            };
+                        }
                     }
+
+                    // Reload the record with relationships
+                    $record = $this->recordModel->with($relationships)->find($id);
+
+                    return response()->json([
+                        'success' => true,
+                        'record' => $record,
+                        'message' => $this->domainName . ' updated successfully',
+                    ]);
                 }
-                
-                // Reload the record with relationships
-                $record = $this->recordModel->with($relationships)->find($id);
-                
-                return response()->json([
-                    'success' => true,
-                    'record' => $record,
-                    'message' => $this->domainName . ' updated successfully',
-                ]);
+
+                // Inertia Response (Always redirect for Inertia requests)
+                return redirect()
+                    ->route($this->recordType . '.show', $id)
+                    ->with('success', $this->domainName . ' updated successfully');
             }
 
-            return redirect()
-                ->route($this->recordType . '.show', $id)
-                ->with('success', $this->domainName . ' updated successfully');
-        }
+            // Handle business logic errors
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $result['errors'] ?? [],
+                    'message' => $result['message'] ?? 'Failed to update ' . $this->recordTitle,
+                ], 422);
+            }
 
-        // Handle errors for AJAX requests
-        if ($request->wantsJson()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $result['errors'] ?? [],
-                'message' => $result['message'] ?? 'Failed to update ' . $this->recordTitle,
-            ], 422);
-        }
+            // For Inertia requests, return back with errors
+            return back()
+                ->withInput()
+                ->withErrors(['general' => $result['message'] ?? 'Failed to update ' . $this->recordTitle]);
 
-        return back()
-            ->withInput()
-            ->with('error', $result['message'] ?? 'Failed to update ' . $this->recordTitle);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Handle validation errors
+            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $e->errors(),
+                    'message' => 'Validation failed',
+                ], 422);
+            }
+
+            // For Inertia requests, throw the exception and let Inertia handle it
+            throw $e;
+        }
     }
 
     public function destroy($id)

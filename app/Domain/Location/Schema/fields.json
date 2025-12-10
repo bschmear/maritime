@@ -1,0 +1,83 @@
+{
+    "display_name": {
+        "label": "Location Name",
+        "type": "text",
+        "required": true
+    },
+    "inactive": {
+        "label": "Inactive",
+        "type": "boolean"
+    },
+    "location_type": {
+        "label": "Location Type",
+        "type": "select",
+        "enum": "App\\Enums\\Locations\\LocationType"
+    },
+    "phone": {
+        "label": "Phone",
+        "type": "tel"
+    },
+    "email": {
+        "label": "Email",
+        "type": "email"
+    },
+    "address_line_1": {
+        "label": "Street Address",
+        "type": "text"
+    },
+    "address_line_2": {
+        "label": "Address Line 2",
+        "type": "text"
+    },
+    "city": {
+        "label": "City",
+        "type": "text"
+    },
+    "state": {
+        "label": "State or Province",
+        "type": "text"
+    },
+    "postal_code": {
+        "label": "Postal Code",
+        "type": "text"
+    },
+    "country": {
+        "label": "Country",
+        "type": "text"
+    },
+    "latitude": {
+        "label": "Latitude",
+        "type": "number"
+    },
+    "longitude": {
+        "label": "Longitude",
+        "type": "number"
+    },
+    "timezone": {
+        "label": "Timezone",
+        "type": "text"
+    },
+    "operating_hours": {
+        "label": "Operating Hours",
+        "type": "json"
+    },
+    "manager_user_id": {
+        "label": "Manager",
+        "type": "record",
+        "typeDomain": "User"
+    },
+    "created_by_id": {
+        "label": "Created By",
+        "type": "record",
+        "typeDomain": "User"
+    },
+    "updated_by_id": {
+        "label": "Updated By",
+        "type": "record",
+        "typeDomain": "User"
+    },
+    "notes": {
+        "label": "Notes",
+        "type": "textarea"
+    }
+}

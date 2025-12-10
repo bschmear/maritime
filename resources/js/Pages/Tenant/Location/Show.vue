@@ -13,11 +13,11 @@ const props = defineProps({
     },
     recordType: {
         type: String,
-        default: 'leads',
+        default: 'locations',
     },
     recordTitle: {
         type: String,
-        default: 'Leads',
+        default: 'locations',
     },
     formSchema: {
         type: Object,

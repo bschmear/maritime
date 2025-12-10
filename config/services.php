@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'radar' => [
+        'secret' => env('RADAR_SECRET'),
+        'publishable' => env('RADAR_PUBLISHABLE'),
+    ]
 ];

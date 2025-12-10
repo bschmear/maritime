@@ -27,10 +27,10 @@ createInertiaApp({
 });
 
 var token = document.head.querySelector('meta[name="csrf-token"]');
-console.log(token)
+// console.log(token)
 if (token) {
     window.axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
-    window.axios.defaults.headers.common['X-App-Ajax'] = 'true';
+    // window.axios.defaults.headers.common['X-App-Ajax'] = 'true';
 } else {
     console.error('CSRF token not found.');
 }

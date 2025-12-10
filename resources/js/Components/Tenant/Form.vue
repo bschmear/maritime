@@ -13,6 +13,7 @@ import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 
 const props = defineProps({
     schema: {
@@ -58,6 +59,14 @@ const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
 
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
+
+// Handle both old schema format and new nested format (with settings)
+const normalizedSchema = computed(() => {
+    if (props.schema && props.schema.form) {
+        return props.schema.form;
+    }
+    return props.schema;
+});
 
 // Generate unique form ID for this form instance
 const formUniqueId = computed(() => {
@@ -113,8 +122,8 @@ const initializeFormData = () => {
     }
 
     // Initialize any missing fields from schema
-    if (props.schema) {
-        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
+    if (normalizedSchema.value) {
+        Object.values(normalizedSchema.value).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
                 group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     if (!(field.key in formData)) {
@@ -210,8 +219,8 @@ watch(() => props.record, (newRecord) => {
 // Watch form changes to handle conditional field visibility
 watch(() => form.data(), (newData, oldData) => {
     // Check if any fields that control conditional visibility have changed
-    if (props.schema) {
-        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
+    if (normalizedSchema.value) {
+        Object.values(normalizedSchema.value).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
                 group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     // If this field has conditional logic and is currently hidden, clear its value
@@ -225,10 +234,10 @@ watch(() => form.data(), (newData, oldData) => {
 }, { deep: true });
 
 const formGroups = computed(() => {
-    if (!props.schema) return [];
+    if (!normalizedSchema.value) return [];
     // Ensure reactivity to form changes for conditional field visibility
     const currentFormData = form.data();
-    return Object.entries(props.schema)
+    return Object.entries(normalizedSchema.value)
         .filter(([key, group]) => group && typeof group === 'object')
         .map(([key, group], index) => ({
             key,
@@ -456,6 +465,119 @@ const getFormattedPhoneValue = (fieldKey) => {
     return formatPhoneNumber(value);
 };
 
+// Number formatting functions
+const formatNumber = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    // specific check to avoid formatting partial decimals like "12." losing the decimal
+    const strValue = String(value);
+    const parts = strValue.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+};
+
+const unformatNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    return String(value).replace(/,/g, '');
+};
+
+const handleNumberInput = (fieldKey, event) => {
+    const input = event.target;
+    const cursorPosition = input.selectionStart;
+    const oldValue = input.value;
+    
+    // Remove commas to get raw number
+    const unformatted = unformatNumber(oldValue);
+    
+    // Update form data with raw number (or string representation of it)
+    form[fieldKey] = unformatted;
+    
+    // Format for display
+    const formatted = formatNumber(unformatted);
+    
+    // Only update display if it changed (avoids cursor jump issues on simple appends)
+    if (input.value !== formatted) {
+         input.value = formatted;
+
+         // Restore cursor position
+         // Count distinct numbers before the cursor in the ORIGINAL value
+         // We only care about digits, not commas
+         let digitCountBeforeCursor = 0;
+         for (let i = 0; i < cursorPosition; i++) {
+             if (/\d/.test(oldValue[i])) {
+                 digitCountBeforeCursor++;
+             }
+         }
+
+         // Find the new position in the FORMATTED value
+         let newPosition = 0;
+         let digitsEncountered = 0;
+         for (let i = 0; i < formatted.length; i++) {
+             if (/\d/.test(formatted[i])) {
+                 digitsEncountered++;
+             }
+             if (digitsEncountered === digitCountBeforeCursor) {
+                 // If we've found all our digits, we are basically done.
+                 // But if the next char is a comma, we might want to step over it?
+                 // Usually standard behavior is fine, let's just break here or check next char.
+                 // Actually, we just need the index AFTER this digit.
+                 newPosition = i + 1;
+                 break;
+             }
+         }
+
+         // If we had 0 digits before cursor (beginning of string), newPosition is 0
+         if (digitCountBeforeCursor === 0) newPosition = 0;
+         
+         // Set the selection range
+         // Vue updates DOM asynchronously sometimes, but setting value directly helps.
+         // We verify if we need nextTick or can do it immediately.
+         // Usually doing it immediately works if we manipulated input.value directly.
+         input.setSelectionRange(newPosition, newPosition);
+    }
+};
+
+// Address Autocomplete Helpers
+const hasAddressTags = (group) => {
+    return group.filteredFields && group.filteredFields.some(field => field.tag);
+};
+
+const getAddressFieldValue = (group, tag) => {
+    if (!group.filteredFields) return '';
+    const field = group.filteredFields.find(f => f.tag === tag);
+    return field ? (form[field.key] || '') : '';
+};
+
+const updateAddressFields = (group, data) => {
+    // data keys match the tags we expect: street, unit, city, state, etc.
+    // data keys come from AddressAutocomplete emits (camelCase usually: street, unit, city, state, stateCode, postalCode...)
+    // But let's check what AddressAutocomplete emits. 
+    // It emits: { street, unit, city, state, stateCode, postalCode, country, countryCode, latitude, longitude }
+    // Ideally our tags in schema should match these or we map them. 
+    // Let's assume schema tags will match these keys (camelCase or snake_case? Component emits camelCase).
+    // Let's support mapping if needed, but for now direct match.
+    // Wait, component emits `stateCode` but maybe schema uses `state_code`?
+    // Let's standardize on snake_case tags for consistency with DB columns, BUT the component emits camelCase props.
+    // I will convert the emitted keys to snake_case or just check both.
+    
+    // Actually, simpler: I'll make the helpers robust.
+    
+    Object.keys(data).forEach(emittedKey => {
+        // We look for a field with tag === emittedKey
+        // If emittedKey is 'stateCode', tag might be 'state_code' or 'stateCode'.
+        // Let's try to match loosely or define a map.
+        let tag = emittedKey;
+        if (emittedKey === 'stateCode') tag = 'state_code';
+        if (emittedKey === 'postalCode') tag = 'postal_code';
+        if (emittedKey === 'countryCode') tag = 'country_code';
+        
+        // Find field with this tag
+        const field = group.filteredFields.find(f => f.tag === tag || f.tag === emittedKey);
+        if (field) {
+            form[field.key] = data[emittedKey];
+        }
+    });
+};
+
 // File input handling
 const handleFileInput = (fieldKey, event) => {
     const file = event.target.files[0];
@@ -512,8 +634,8 @@ const prepareFormData = () => {
     const data = { ...form.data() };
     
     // Convert checkbox boolean values to 1/0 for proper submission
-    if (props.schema) {
-        Object.values(props.schema).filter(g => g && typeof g === 'object').forEach(group => {
+    if (normalizedSchema.value) {
+        Object.values(normalizedSchema.value).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
                 group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     const fieldDef = getFieldDefinition(field.key);
@@ -620,6 +742,7 @@ const handleSubmit = () => {
                 } else {
                     emit('submit');
                 }
+                isEditMode.value = false;
             })
             .catch((error) => {
                 // Handle validation errors
@@ -630,10 +753,11 @@ const handleSubmit = () => {
                 }
             })
             .finally(() => {
+                isEditMode.value = false;
                 isProcessing.value = false;
             });
         } else {
-            // Normal Inertia form submission with redirect
+                        // Normal Inertia form submission with redirect
             form.transform((data) => {
                 const transformed = { ...data };
                 if (props.schema) {
@@ -651,7 +775,22 @@ const handleSubmit = () => {
                 return transformed;
             }).put(route(`${props.recordType}.update`, props.record.id), {
                 preserveScroll: true,
-                onSuccess: () => emit('submit'),
+                onSuccess: (page) => {
+                    console.log('onSuccess page object:', page);
+                    console.log('page.props:', page.props);
+                    console.log('page.url:', page.url);
+                    console.log('flash messages:', page.props?.flash);
+                    isEditMode.value = false;
+                    emit('submit');
+                    // Reload the record data from the server
+                    router.reload({ only: ['record'] });
+                },
+                onError: (errors) => {
+                    console.log('onError:', errors);
+                },
+                onFinish: () => {
+                    console.log('onFinish - request completed');
+                },
             });
         }
     }
@@ -685,7 +824,7 @@ defineExpose({
 </script>
 
 <template>
-    <form :id="formId || `form-${recordType}-${record?.id || 'new'}`" @submit.prevent="handleSubmit" v-if="schema">
+    <form :id="formId || `form-${recordType}-${record?.id || 'new'}`" @submit.prevent="handleSubmit" v-if="normalizedSchema">
         <!-- Accordion -->
         <div id="accordion-collapse">
             <div v-for="(group, groupIndex) in formGroups" :key="group.key">
@@ -719,118 +858,26 @@ defineExpose({
                     :aria-labelledby="`accordion-heading-${group.index}`"
                 >
                     <div class="p-4 border-gray-200 sm:p-5 dark:border-gray-700">
-                        <!-- Address Group -->
-                        <div v-if="group.is_address && group.filteredFields" class="grid gap-4 sm:grid-cols-12">
-                            <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
-                                <div v-if="field && isFieldVisible(field)"
-                                     :class="getFieldColSpan(field)">
-                                <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                                    {{ getFieldLabel(field.key) }}
-                                    <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
-                                </label>
-
-                                <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
-                                    <span v-if="getFieldType(field.key) === 'record'">
-                                        {{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'tel'">
-                                        {{ getFormattedPhoneValue(field.key) || '—' }}
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'datetime'">
-                                        {{ formatDateTime(getFieldValue(field.key)) || '—' }}
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'date'">
-                                        {{ formatDate(getFieldValue(field.key)) || '—' }}
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'time'">
-                                        {{ getFieldValue(field.key) || '—' }}
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'rating'">
-                                        <div class="flex items-center space-x-1">
-                                            <template v-for="star in 5" :key="star">
-                                                <svg
-                                                    class="w-4 h-4"
-                                                    :class="star <= getFieldValue(field.key) ? 'text-yellow-400' : 'text-gray-300'"
-                                                    fill="currentColor"
-                                                    viewBox="0 0 20 20"
-                                                >
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
-                                            </template>
-                                            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                                                {{ getFieldValue(field.key) || 0 }}/5
-                                            </span>
-                                        </div>
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'file'">
-                                        <span v-if="getFieldValue(field.key)" class="text-sm text-blue-600 dark:text-blue-400 underline">
-                                            {{ getFileName(getFieldValue(field.key)) }}
-                                        </span>
-                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
-                                            No file uploaded
-                                        </span>
-                                    </span>
-                                    <span v-else-if="getFieldType(field.key) === 'morph'">
-                                        <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
-                                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
-                                                {{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}
-                                            </span>
-                                            <span class="text-gray-400">→</span>
-                                            <span class="text-sm">{{ record.relatable?.display_name || '—' }}</span>
-                                        </span>
-                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
-                                            Not assigned
-                                        </span>
-                                    </span>
-                                    <span v-else>
-                                        {{ getFieldValue(field.key) || '—' }}
-                                    </span>
-                                </div>
-
-                                <div v-else>
-                                    <!-- Morph Select (Polymorphic Relationship) -->
-                                    <MorphSelect
-                                        v-if="getFieldType(field.key) === 'morph'"
-                                        :id="getFieldId(field.key)"
-                                        :field="getFieldDefinition(field.key)"
-
-                                        :model-value="form[getFieldDefinition(field.key).id_field]"
-                                        @update:modelValue="value => form[getFieldDefinition(field.key).id_field] = value"
-
-                                        :selected-type="form[field.key]"
-                                        @update:selected-type="value => form[field.key] = value"
-
-                                        :disabled="isFieldDisabled(field.key)"
-                                    />
-
-                                    <!-- Record Select (with search modal) -->
-                                    <RecordSelect
-                                        v-else-if="getFieldType(field.key) === 'record'"
-                                        :id="getFieldId(field.key)"
-                                        :field="getFieldDefinition(field.key)"
-                                        v-model="form[field.key]"
-                                        :disabled="isFieldDisabled(field.key)"
-                                        :enum-options="getEnumOptions(field.key)"
-                                        :record="record"
-                                        :field-key="field.key"
-                                    />
-
-                                    <input
-                                        v-else
-                                        :id="getFieldId(field.key)"
-                                        v-model="form[field.key]"
-                                        :type="getFieldType(field.key)"
-                                        :required="isFieldRequired(field)"
-                                        :disabled="isFieldDisabled(field.key)"
-                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
-                                    />
-                                    <p v-if="form.errors[field.key]" class="mt-2 text-sm text-red-600 dark:text-red-500">
-                                        {{ form.errors[field.key] }}
-                                    </p>
-                                </div>
-                                </div>
-                            </template>
+                        <!-- Address Group (Autocomplete) -->
+                        <div v-if="group.is_address && group.filteredFields && hasAddressTags(group)" class="mb-4 grid sm:grid-cols-12 gap-4">
+                            <div class="sm:col-span-6">
+                            <AddressAutocomplete
+                                :street="getAddressFieldValue(group, 'street')"
+                                :unit="getAddressFieldValue(group, 'unit')"
+                                :city="getAddressFieldValue(group, 'city')"
+                                :state="getAddressFieldValue(group, 'state')"
+                                :state-code="getAddressFieldValue(group, 'state_code')"
+                                :postal-code="getAddressFieldValue(group, 'postal_code')"
+                                :country="getAddressFieldValue(group, 'country')"
+                                :country-code="getAddressFieldValue(group, 'country_code')"
+                                :latitude="getAddressFieldValue(group, 'latitude')"
+                                :longitude="getAddressFieldValue(group, 'longitude')"
+                                :disabled="!isEditMode && !isCreateMode"
+                                @update="(data) => updateAddressFields(group, data)"
+                            />
+                            </div>
                         </div>
+
 
                         <!-- Regular Fields -->
                         <div v-else-if="group.filteredFields" class="grid gap-4 sm:grid-cols-12">
@@ -924,9 +971,21 @@ defineExpose({
                                         />
                                     </div>
                                     
-                                    <!-- Text/Email/Number Input -->
+                                    <!-- Number Input -->
                                     <input
-                                        v-else-if="['text', 'email', 'number'].includes(getFieldType(field.key))"
+                                        v-else-if="getFieldType(field.key) === 'number'"
+                                        :id="getFieldId(field.key)"
+                                        :value="formatNumber(form[field.key])"
+                                        @input="handleNumberInput(field.key, $event)"
+                                        type="text"
+                                        :required="isFieldRequired(field)"
+                                        :disabled="isFieldDisabled(field.key)"
+                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                    />
+
+                                    <!-- Text/Email Input -->
+                                    <input
+                                        v-else-if="['text', 'email'].includes(getFieldType(field.key))"
                                         :id="getFieldId(field.key)"
                                         v-model="form[field.key]"
                                         :type="getFieldType(field.key)"

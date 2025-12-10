@@ -3,9 +3,17 @@
 @tailwind utilities;
 
 @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
+
 .animate-float {
     animation: float 3s ease-in-out infinite;
 }
@@ -26,11 +34,11 @@
 }
 
 .nav-logo {
-    max-height:25px;
+    max-height: 25px;
 }
 
 .gradient-btn {
-    @apply inline-flex items-center justify-center rounded-xl text-white font-semibold  px-6 py-3  bg-gradient-to-r from-primary-500 via-primary-500 to-secondary-500 hover:from-primary-600 hover:via-primary-600 hover:to-secondary-600 shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center rounded-xl text-white font-semibold px-6 py-3 bg-gradient-to-r from-primary-500 via-primary-500 to-secondary-500 hover:from-primary-600 hover:via-primary-600 hover:to-secondary-600 shadow-lg hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .gradient-btn:hover {
@@ -43,5 +51,9 @@
 }
 
 th {
-    white-space:nowrap;
+    white-space: nowrap;
+}
+
+.address-autocomplete-wrapper {
+    max-width: 350px;
 }

@@ -36,7 +36,7 @@ class HandleInertiaRequests extends Middleware
     {
         $host = $request->getHost();
         $parts = explode('.', $host);
-        
+
         // Check if first part is a 6-digit number (tenant subdomain pattern)
         return count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
     }
@@ -57,15 +57,18 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
-        
+
         return [
             ...parent::share($request),
             'auth' => [
                 'user' => $user,
                 'onTrial' => $user ? $user->onTrial() : false,
-                'trialEndsAt' => $user && $user->onTrial() 
+                'trialEndsAt' => $user && $user->onTrial()
                     ? $user->subscription('default')?->trial_ends_at?->format('M j, Y')
                     : null,
+            ],
+            'radar' => [
+                'publishable' => config('services.radar.publishable'),
             ],
         ];
     }

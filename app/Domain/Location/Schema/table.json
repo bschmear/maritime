@@ -1,0 +1,34 @@
+{
+    "columns": [
+        {
+            "key": "display_name",
+            "label": "Location Name",
+            "sortable": true
+        },
+        {
+            "key": "city",
+            "label": "City",
+            "sortable": true
+        },
+        {
+            "key": "state",
+            "label": "State",
+            "sortable": true
+        },
+        {
+            "key": "country",
+            "label": "Country",
+            "sortable": true
+        },
+        {
+            "key": "phone",
+            "label": "Phone",
+            "sortable": false
+        },
+        {
+            "key": "inactive",
+            "label": "Inactive",
+            "sortable": true
+        }
+    ]
+}

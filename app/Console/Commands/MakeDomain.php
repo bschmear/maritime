@@ -44,9 +44,9 @@ class MakeDomain extends Command
             File::makeDirectory($dataDirectory, 0755, true, true);
         }
 
-        $this->createCreateActionClass($domainName, 'Create'. $modelName, $modelName);
-        $this->createUpdateActionClass($domainName, 'Update'. $modelName, $modelName);
-        $this->createDeleteActionClass($domainName, 'Delete'. $modelName, $modelName);
+        $this->createCreateActionClass($domainName, 'Create' . $modelName, $modelName);
+        $this->createUpdateActionClass($domainName, 'Update' . $modelName, $modelName);
+        $this->createDeleteActionClass($domainName, 'Delete' . $modelName, $modelName);
         $this->createFormClass($domainName, 'form');
         $this->createFieldsClass($domainName, 'fields');
         $this->createTableClass($domainName, 'table');
@@ -81,19 +81,25 @@ class MakeDomain extends Command
         $filePath = "{$dataDirectory}/{$fileName}.json";
 
         if (!File::exists($filePath)) {
-            File::put($filePath,
-'{
-  "primary": {
-    "label": "Primary",
-    "fields": [
-
-    ]
+            File::put(
+                $filePath,
+                '{
+  "settings": {
+    "max_width": "4xl"
   },
-  "secondary": {
-    "label": "Secondary",
-    "fields": [
+  "form": {
+    "primary": {
+        "label": "Primary",
+        "fields": [
 
-    ]
+        ]
+    },
+    "secondary": {
+        "label": "Secondary",
+        "fields": [
+
+        ]
+    }
   }
 }'
             );
@@ -106,9 +112,12 @@ class MakeDomain extends Command
         $filePath = "{$dataDirectory}/{$fileName}.json";
 
         if (!File::exists($filePath)) {
-            File::put($filePath,
-'{
+            File::put(
+                $filePath,
+                '{
+    "fields": [
 
+    ]
 }'
             );
         }
@@ -120,8 +129,9 @@ class MakeDomain extends Command
         $filePath = "{$dataDirectory}/{$fileName}.json";
 
         if (!File::exists($filePath)) {
-            File::put($filePath,
-'{
+            File::put(
+                $filePath,
+                '{
     "columns": [
 
     ]
@@ -130,13 +140,15 @@ class MakeDomain extends Command
         }
     }
 
-protected function createCreateActionClass($domainName, $className, $modelName)
-{
-    $actionsDirectory = app_path("Domain/{$domainName}/Actions");
-    $filePath = "{$actionsDirectory}/{$className}.php";
+    protected function createCreateActionClass($domainName, $className, $modelName)
+    {
+        $actionsDirectory = app_path("Domain/{$domainName}/Actions");
+        $filePath = "{$actionsDirectory}/{$className}.php";
 
-    if (!File::exists($filePath)) {
-        File::put($filePath, "<?php
+        if (!File::exists($filePath)) {
+            File::put(
+                $filePath,
+                "<?php
 namespace App\\Domain\\{$domainName}\\Actions;
 
 use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
@@ -183,17 +195,19 @@ class {$className}
         }
     }
 }"
-        );
+            );
+        }
     }
-}
 
-protected function createUpdateActionClass($domainName, $className, $modelName)
-{
-    $actionsDirectory = app_path("Domain/{$domainName}/Actions");
-    $filePath = "{$actionsDirectory}/{$className}.php";
+    protected function createUpdateActionClass($domainName, $className, $modelName)
+    {
+        $actionsDirectory = app_path("Domain/{$domainName}/Actions");
+        $filePath = "{$actionsDirectory}/{$className}.php";
 
-    if (!File::exists($filePath)) {
-        File::put($filePath, "<?php
+        if (!File::exists($filePath)) {
+            File::put(
+                $filePath,
+                "<?php
 namespace App\\Domain\\{$domainName}\\Actions;
 
 use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
@@ -243,17 +257,19 @@ class {$className}
         }
     }
 }"
-        );
+            );
+        }
     }
-}
 
-protected function createDeleteActionClass($domainName, $className, $modelName)
-{
-    $actionsDirectory = app_path("Domain/{$domainName}/Actions");
-    $filePath = "{$actionsDirectory}/{$className}.php";
+    protected function createDeleteActionClass($domainName, $className, $modelName)
+    {
+        $actionsDirectory = app_path("Domain/{$domainName}/Actions");
+        $filePath = "{$actionsDirectory}/{$className}.php";
 
-    if (!File::exists($filePath)) {
-        File::put($filePath, "<?php
+        if (!File::exists($filePath)) {
+            File::put(
+                $filePath,
+                "<?php
 namespace App\\Domain\\{$domainName}\\Actions;
 
 use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
@@ -294,9 +310,9 @@ class {$className}
         }
     }
 }"
-        );
+            );
+        }
     }
-}
 
 
     protected function updateNamespace($filePath, $newNamespace)
@@ -312,7 +328,9 @@ class {$className}
         $controllerPath = app_path("Http/Controllers/Tenant/{$controllerName}.php");
 
         if (!File::exists($controllerPath)) {
-            File::put($controllerPath, "<?php
+            File::put(
+                $controllerPath,
+                "<?php
 namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Tenant\RecordController;
 use App\\Domain\\{$domainName}\\Models\\{$modelName} as RecordModel;
@@ -330,7 +348,7 @@ class {$controllerName} extends RecordController
     {
         parent::__construct(
             \$request,
-            '".strtolower(Str::plural($modelName))."',
+            '" . strtolower(Str::plural($modelName)) . "',
             '{$modelName}',
             new RecordModel(),
             new CreateAction(),
@@ -355,7 +373,9 @@ class {$controllerName} extends RecordController
         $title = Str::plural($modelName);
 
         if (!File::exists($filePath)) {
-            File::put($filePath, "<script setup>
+            File::put(
+                $filePath,
+                "<script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head } from '@inertiajs/vue3';
 </script>
@@ -397,7 +417,9 @@ import { Head } from '@inertiajs/vue3';
         $title = $modelName;
 
         if (!File::exists($filePath)) {
-            File::put($filePath, "<script setup>
+            File::put(
+                $filePath,
+                "<script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head } from '@inertiajs/vue3';
 </script>

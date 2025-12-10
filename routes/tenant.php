@@ -16,6 +16,7 @@ use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\GeneralController;
+use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -34,19 +35,19 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-        
+
         Route::prefix('customers')->name('customers.')->group(function () {
             Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
         });
-        
+
         Route::prefix('leads')->name('leads.')->group(function () {
             Route::resource('/', LeadController::class)->parameters(['' => 'lead']);
         });
-        
+
         Route::prefix('vendors')->name('vendors.')->group(function () {
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
         });
-        
+
         Route::prefix('tasks')->name('tasks.')->group(function () {
             Route::resource('/', TaskController::class)->parameters(['' => 'task']);
         });
@@ -58,7 +59,11 @@ Route::middleware([
         Route::prefix('roles')->name('roles.')->group(function () {
             Route::resource('/', RoleController::class)->parameters(['' => 'role']);
         });
-        
+
+        Route::prefix('locations')->name('locations.')->group(function () {
+            Route::resource('/', LocationController::class)->parameters(['' => 'location']);
+        });
+
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
         });

@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Primary Information",
+      "fields": [
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "inactive",
+          "required": false
+        }
+      ]
+    },
+    "address": {
+      "label": "Address",
+      "is_address": true,
+      "fields": [
+        {
+          "key": "address_line_1",
+          "required": false,
+          "tag": "street"
+        },
+        {
+          "key": "address_line_2",
+          "required": false,
+          "tag": "unit"
+        },
+        {
+          "key": "city",
+          "required": false,
+          "tag": "city"
+        },
+        {
+          "key": "state",
+          "required": false,
+          "tag": "state"
+        },
+        {
+          "key": "postal_code",
+          "required": false,
+          "tag": "postal_code"
+        },
+        {
+          "key": "country",
+          "required": false,
+          "tag": "country"
+        },
+        {
+          "key": "latitude",
+          "hidden": true,
+          "tag": "latitude"
+        },
+        {
+          "key": "longitude",
+          "hidden": true,
+          "tag": "longitude"
+        }
+      ]
+    },
+    "contact_info": {
+      "label": "Contact Information",
+      "fields": [
+        {
+          "key": "phone",
+          "required": false
+        },
+        {
+          "key": "email",
+          "required": false
+        }
+      ]
+    },
+    "management": {
+      "label": "Management",
+      "fields": [
+        {
+          "key": "manager_user_id",
+          "required": false
+        },
+        {
+          "key": "notes",
+          "required": false
+        }
+      ]
+    }
+  }
+}

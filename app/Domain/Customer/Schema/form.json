@@ -84,27 +84,43 @@
       "fields": [
         {
           "key": "address_line_1",
-          "required": false
+          "required": false,
+          "tag": "street"
         },
         {
           "key": "address_line_2",
-          "required": false
+          "required": false,
+          "tag": "unit"
         },
         {
           "key": "city",
-          "required": false
+          "required": false,
+          "tag": "city"
         },
         {
           "key": "state",
-          "required": false
+          "required": false,
+          "tag": "state"
         },
         {
           "key": "postal_code",
-          "required": false
+          "required": false,
+          "tag": "postal_code"
         },
         {
           "key": "country",
-          "required": false
+          "required": false,
+          "tag": "country"
+        },
+        {
+          "key": "latitude",
+          "hidden": true,
+          "tag": "latitude"
+        },
+        {
+          "key": "longitude",
+          "hidden": true,
+          "tag": "longitude"
         }
       ]
     },
