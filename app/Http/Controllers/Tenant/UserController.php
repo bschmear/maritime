@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Tenant\RecordController;
 use App\Domain\User\Models\User as RecordModel;
 use App\Domain\User\Actions\CreateUser as CreateAction;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 
 class UserController extends RecordController
 {
+    use HasImageSupport;
+
     protected $recordType = 'User';
     protected $table = null;
 
@@ -112,6 +115,7 @@ class UserController extends RecordController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
         ]);
     }
 }

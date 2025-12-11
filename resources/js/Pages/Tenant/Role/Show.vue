@@ -48,7 +48,12 @@ const handleCancel = () => {
 
 const handleSubmit = () => {
     isEditMode.value = false;
-    router.reload({ only: ['record'] });
+    router.reload({ only: ['record', 'imageUrls'] });
+};
+
+const handleUpdated = (updatedRecord) => {
+    isEditMode.value = false;
+    router.reload({ only: ['record', 'imageUrls'] });
 };
 
 const handleDelete = () => {
@@ -200,6 +205,7 @@ const parsedPermissions = computed(() => {
                     mode="edit"
                     :form-id="`form-${recordType}-${record.id}`"
                     @submit="handleSubmit"
+                    @updated="handleUpdated"
                     @cancel="handleCancel"
                 />
             </div>

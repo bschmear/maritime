@@ -50,7 +50,12 @@ const handleCancel = () => {
 
 const handleSubmit = () => {
     isEditMode.value = false;
-    router.reload({ only: ['record'] });
+    router.reload({ only: ['record', 'imageUrls'] });
+};
+
+const handleUpdated = (updatedRecord) => {
+    isEditMode.value = false;
+    router.reload({ only: ['record', 'imageUrls'] });
 };
 
 const handleDelete = () => {
@@ -177,6 +182,7 @@ const breadcrumbItems = computed(() => {
                             :prevent-redirect="true"
                             :form-id="`form-${recordType}-${record.id}`"
                             @submit="handleSubmit"
+                            @updated="handleUpdated"
                             @cancel="handleCancel"
                         />
                     </div>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Concerns\HasImageSupport;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class RecordController extends BaseController
 {
-    use AuthorizesRequests, ValidatesRequests, HasSchemaSupport;
+    use AuthorizesRequests, ValidatesRequests, HasSchemaSupport, HasImageSupport;
 
     protected $recordType;
     protected $recordTitle;
@@ -60,7 +61,7 @@ class RecordController extends BaseController
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relationshipName = str_replace('_id', '', $fieldKey);
+                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
                 $relationships[$relationshipName] = function ($query) {
                     $query->select('id', 'display_name');
@@ -202,10 +203,12 @@ class RecordController extends BaseController
                     // Add record type relationships with only id and display_name
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                            $relationshipName = str_replace('_id', '', $fieldKey);
-                            $relationships[$relationshipName] = function ($query) {
-                                $query->select('id', 'display_name');
-                            };
+                            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select('id', 'display_name');
+                                };
+                            }
                         }
                     }
 
@@ -265,7 +268,7 @@ class RecordController extends BaseController
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
-                $relationshipName = str_replace('_id', '', $fieldKey);
+                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                 // Only select id and display_name for the related record
                 $relationships[$relationshipName] = function ($query) {
                     $query->select('id', 'display_name');
@@ -281,18 +284,19 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
-        // If it's an AJAX request, return JSON with full record data
-        if ($request->wantsJson() || $request->ajax()) {
+        // If it's a non-Inertia AJAX request, return JSON with full record data
+        if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
             return response()->json([
                 'record' => $record,
                 'recordType' => $this->recordType,
                 'formSchema' => $formSchema,
                 'fieldsSchema' => $fieldsSchema,
                 'enumOptions' => $enumOptions,
+                'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
             ]);
         }
 
-        // Otherwise return Inertia response for navigation
+        // Return Inertia response (for navigation and partial reloads)
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $record,
             'recordType' => $this->recordType,
@@ -325,7 +329,6 @@ class RecordController extends BaseController
         try {
             $data = $request->all();
             $fieldsSchema = $this->getFieldsSchema();
-            dd($data);
             // Handle image uploads
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                 if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
@@ -382,7 +385,6 @@ class RecordController extends BaseController
                     }
                 }
             }
-            dd($data);
             $result = ($this->updateAction)($id, $data);
 
             if ($result['success']) {
@@ -395,7 +397,7 @@ class RecordController extends BaseController
                     // Add record type relationships with only id and display_name
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                            $relationshipName = str_replace('_id', '', $fieldKey);
+                            $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                             $relationships[$relationshipName] = function ($query) {
                                 $query->select('id', 'display_name');
                             };
@@ -489,20 +491,5 @@ class RecordController extends BaseController
         ]);
     }
 
-    protected function getImageUrls($record, $fieldsSchema)
-    {
-        $urls = [];
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
-                $documentId = $record->{$fieldKey};
-                if ($documentId) {
-                    $document = Document::find($documentId);
-                    if ($document && $document->file) {
-                        $urls[$fieldKey] = Storage::disk('s3')->url($document->file);
-                    }
-                }
-            }
-        }
-        return $urls;
-    }
+
 }

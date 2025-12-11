@@ -31,6 +31,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    imageUrls: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const isEditMode = ref(false);
@@ -49,6 +53,11 @@ const handleCancel = () => {
 const handleSubmit = () => {
     isEditMode.value = false;
     router.reload({ only: ['record'] });
+};
+
+const handleUpdated = (updatedRecord) => {
+    isEditMode.value = false;
+    router.reload({ only: ['record', 'imageUrls'] });
 };
 
 const handleDelete = () => {
@@ -109,7 +118,7 @@ const breadcrumbItems = computed(() => {
                     <div class="flex items-center space-x-4">
                         <!-- User Avatar -->
                         <div class="flex items-center justify-center w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full overflow-hidden">
-                            <img v-if="record.avatar" :src="record.avatar" :alt="record.display_name" class="w-full h-full object-cover" />
+                            <img v-if="record.avatar && imageUrls.avatar" :src="imageUrls.avatar" :alt="record.display_name" class="w-full h-full object-cover" />
                             <svg v-else class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
@@ -188,8 +197,10 @@ const breadcrumbItems = computed(() => {
                     :prevent-redirect="true"
                     mode="edit"
                     :form-id="`form-${recordType}-${record.id}`"
+                    :image-urls="imageUrls"
                     @submit="handleSubmit"
                     @cancel="handleCancel"
+                    @updated="handleUpdated"
                 />
             </div>
 
@@ -202,7 +213,7 @@ const breadcrumbItems = computed(() => {
                             Profile Picture
                         </h3>
                         <div class="flex items-center space-x-4">
-                            <img :src="record.avatar" :alt="record.display_name" class="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-600" />
+                            <img :src="imageUrls.avatar" :alt="record.display_name" class="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-600" />
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
                                     This is {{ record.display_name }}'s profile picture

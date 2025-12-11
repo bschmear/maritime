@@ -53,6 +53,7 @@
         "label": "Role",
         "type": "record",
         "typeDomain": "Role",
+        "relationship": "role",
         "validation": "nullable|exists:roles,id",
         "help": "The user's current role in the system"
     }

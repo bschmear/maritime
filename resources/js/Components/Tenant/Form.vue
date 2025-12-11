@@ -3,11 +3,6 @@
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
-import InputLabel from '@/Components/Tenant/FormComponents/InputLabel.vue';
-import TextInput from '@/Components/Tenant/FormComponents/TextInput.vue';
-import InputError from '@/Components/InputError.vue';
-import Checkbox from '@/Components/Tenant/FormComponents/Checkbox.vue';
-import Radio from '@/Components/Tenant/FormComponents/Radio.vue';
 import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
@@ -807,7 +802,6 @@ const handleSubmit = () => {
                 } else {
                     emit('submit');
                 }
-                isEditMode.value = false;
             })
             .catch((error) => {
                 // Handle validation errors
@@ -818,7 +812,6 @@ const handleSubmit = () => {
                 }
             })
             .finally(() => {
-                isEditMode.value = false;
                 isProcessing.value = false;
             });
         } else {
@@ -841,20 +834,12 @@ const handleSubmit = () => {
             }).put(route(`${props.recordType}.update`, props.record.id), {
                 preserveScroll: true,
                 onSuccess: (page) => {
-                    console.log('onSuccess page object:', page);
-                    console.log('page.props:', page.props);
-                    console.log('page.url:', page.url);
-                    console.log('flash messages:', page.props?.flash);
-                    isEditMode.value = false;
                     emit('submit');
                     // Reload the record data from the server
-                    router.reload({ only: ['record'] });
+                    router.reload({ only: ['record', 'imageUrls'] });
                 },
                 onError: (errors) => {
-                    console.log('onError:', errors);
-                },
-                onFinish: () => {
-                    console.log('onFinish - request completed');
+                    // Errors are handled by form.errors
                 },
             });
         }
