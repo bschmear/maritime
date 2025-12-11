@@ -53,6 +53,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    imageUrls: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -251,6 +255,32 @@ const formGroups = computed(() => {
 
 // Track which accordion sections are open
 const openSections = ref({});
+const imagePreviews = ref({});
+
+const handleImageInput = (fieldKey, event) => {
+    const file = event.target.files[0];
+    if (file) {
+        form[fieldKey] = file;
+        // Create local preview
+        imagePreviews.value[fieldKey] = URL.createObjectURL(file);
+    }
+};
+
+const getImageSource = (fieldKey) => {
+    if (imagePreviews.value[fieldKey]) {
+        return imagePreviews.value[fieldKey];
+    }
+    if (props.imageUrls && props.imageUrls[fieldKey]) {
+        return props.imageUrls[fieldKey];
+    }
+    const val = form[fieldKey];
+    if (val && typeof val === 'string') {
+        if (val.startsWith('http')) return val;
+        // Try storage relative path for local dev or if symlinked
+        return `/storage/${val.replace(/^public\//, '')}`;
+    }
+    return null;
+};
 
 // Initialize all sections as open
 watch(() => formGroups.value, (groups) => {
@@ -652,13 +682,30 @@ const prepareFormData = () => {
 };
 
 const handleSubmit = () => {
-    const formData = prepareFormData();
+    const rawData = prepareFormData();
+    
+    // Check if we have files
+    const hasFiles = Object.values(rawData).some(val => val instanceof File || val instanceof Blob);
     
     if (isCreateMode.value) {
         // If preventRedirect is true, use axios to prevent Inertia redirect
         if (props.preventRedirect) {
             isProcessing.value = true;
-            axios.post(route(`${props.recordType}.store`), formData, {
+            
+            let submissionData = rawData;
+            
+            if (hasFiles) {
+                const formData = new FormData();
+                Object.keys(rawData).forEach(key => {
+                    const value = rawData[key];
+                    if (value !== null && value !== undefined) {
+                        formData.append(key, value);
+                    }
+                });
+                submissionData = formData;
+            }
+
+            axios.post(route(`${props.recordType}.store`), submissionData, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
@@ -728,7 +775,25 @@ const handleSubmit = () => {
         // If preventRedirect is true, use axios to prevent Inertia redirect
         if (props.preventRedirect) {
             isProcessing.value = true;
-            axios.put(route(`${props.recordType}.update`, props.record.id), formData, {
+            
+            let submissionData = rawData;
+            let method = 'put';
+            let url = route(`${props.recordType}.update`, props.record.id);
+            
+            if (hasFiles) {
+                const formData = new FormData();
+                formData.append('_method', 'PUT');
+                Object.keys(rawData).forEach(key => {
+                    const value = rawData[key];
+                    if (value !== null && value !== undefined) {
+                        formData.append(key, value);
+                    }
+                });
+                submissionData = formData;
+                method = 'post'; // Use POST with _method=PUT for FormData
+            }
+
+            axios[method](url, submissionData, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
@@ -894,6 +959,12 @@ defineExpose({
                                     <span v-if="getFieldType(field.key) === 'textarea'" class="whitespace-pre-wrap">
                                         {{ getFieldValue(field.key) || '—' }}
                                     </span>
+                                    <div v-else-if="getFieldType(field.key) === 'boolean' || getFieldType(field.key) === 'checkbox'" class="flex items-center bg-neutral-primary-soft opacity-75 ">
+                                       
+                                        <label class="select-none w-full text-sm font-medium text-heading">
+                                            {{ getFieldValue(field.key) ? 'Yes' : 'No' }}
+                                        </label>
+                                    </div>
                                     <span v-else-if="getFieldType(field.key) === 'record'">
                                         {{ getRecordDisplayName(field.key, getFieldValue(field.key)) }}
                                     </span>
@@ -937,6 +1008,18 @@ defineExpose({
                                             No file uploaded
                                         </span>
                                     </span>
+                                    <div v-else-if="getFieldType(field.key) === 'image'">
+                                        <img
+                                            v-if="getImageSource(field.key)"
+                                            :src="getImageSource(field.key)"
+                                            class="h-32 w-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                            alt="Image"
+                                            @error="$event.target.style.display='none'"
+                                        />
+                                        <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            No image
+                                        </span>
+                                    </div>
                                     <span v-else-if="getFieldType(field.key) === 'morph'">
                                         <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
                                             <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">
@@ -1095,6 +1178,42 @@ defineExpose({
                                         </p>
                                     </div>
 
+                                    <!-- Image Input -->
+                                    <div v-else-if="getFieldType(field.key) === 'image'" class="space-y-4">
+                                        <!-- Preview -->
+                                        <div v-if="getImageSource(field.key)" class="relative w-32 h-32 group">
+                                            <img
+                                                :src="getImageSource(field.key)"
+                                                class="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                                alt="Preview"
+                                            />
+                                            <button
+                                                v-if="!isFieldDisabled(field.key)"
+                                                type="button"
+                                                @click="form[field.key] = null; delete imagePreviews[field.key]"
+                                                class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Input -->
+                                        <div v-if="!getImageSource(field.key) || !isFieldDisabled(field.key)">
+                                            <input
+                                                :id="getFieldId(field.key)"
+                                                type="file"
+                                                @change="handleImageInput(field.key, $event)"
+                                                :required="isFieldRequired(field) && !form[field.key]" 
+                                                :disabled="isFieldDisabled(field.key)"
+                                                accept="image/*"
+                                                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                                            />
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ getFieldDefinition(field.key).help || 'Upload an image' }}
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <!-- Morph Select (Polymorphic Relationship) -->
                                     <MorphSelect
                                         v-else-if="getFieldType(field.key) === 'morph'"
@@ -1106,7 +1225,7 @@ defineExpose({
                                     />
 
                                     <!-- Checkbox -->
-                                    <div v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center">
+                                    <div v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center ps-4 bg-neutral-primary-soft border border-default rounded-lg shadow-xs">
                                         <!-- Hidden input to ensure false value is submitted when checkbox is unchecked -->
                                         <input
                                             type="hidden"
@@ -1121,8 +1240,11 @@ defineExpose({
                                             :true-value="1"
                                             :false-value="0"
                                             :disabled="isFieldDisabled(field.key)"
-                                            class="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                            class="w-4 h-4 border border-default-medium rounded-sm bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"
                                         />
+                                        <label :for="getFieldId(field.key)" class="select-none w-full py-2.5 ms-2 text-sm font-medium text-heading">
+                                            {{ getFieldLabel(field.key) }}
+                                        </label>
                                     </div>
 
                                     <p v-if="form.errors[field.key]" class="mt-2 text-sm text-red-600 dark:text-red-500">

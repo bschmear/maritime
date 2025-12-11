@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -17,16 +16,18 @@ return new class extends Migration
             $table->string('first_name');
             $table->string('last_name');
             $table->string('email')->unique();
+            $table->string('office_phone', 20)->nullable();
+            $table->string('mobile_phone', 20)->nullable();
             $table->text('bio')->nullable();
             $table->string('avatar')->nullable();
-            
+
             // Changed from string to unsignedBigInteger to match roles.id type
             $table->unsignedBigInteger('current_role')->nullable();
             $table->foreign('current_role')
                 ->references('id')
                 ->on('roles')
                 ->onDelete('set null');
-            
+
             $table->timestamps();
         });
     }

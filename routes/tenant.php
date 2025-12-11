@@ -17,6 +17,7 @@ use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -50,6 +51,10 @@ Route::middleware([
 
         Route::prefix('tasks')->name('tasks.')->group(function () {
             Route::resource('/', TaskController::class)->parameters(['' => 'task']);
+        });
+
+        Route::prefix('documents')->name('documents.')->group(function () {
+            Route::resource('/', DocumentController::class)->parameters(['' => 'document']);
         });
 
         Route::prefix('users')->name('users.')->group(function () {

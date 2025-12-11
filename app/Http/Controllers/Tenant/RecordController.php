@@ -8,6 +8,9 @@ use Illuminate\Support\Str;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
+use App\Actions\PublicStorage;
+use App\Domain\Document\Models\Document;
+use Illuminate\Support\Facades\Storage;
 
 class RecordController extends BaseController
 {
@@ -131,10 +134,55 @@ class RecordController extends BaseController
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PublicStorage $publicStorage)
     {
         try {
-            $result = ($this->createAction)($request->all());
+            $data = $request->all();
+            $fieldsSchema = $this->getFieldsSchema();
+
+            // Handle image uploads
+            foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
+                    if ($request->hasFile($fieldKey)) {
+                        $file = $request->file($fieldKey);
+
+                        // Get meta options if available
+                        $meta = $fieldDef['meta'] ?? [];
+
+                        // Default options
+                        $directory = $meta['directory'] ?? ($this->domainName . '/' . $fieldKey); // e.g., "User/avatar"
+                        $isPrivate = $meta['private'] ?? false;
+                        $resizeWidth = $meta['max_width'] ?? null;
+                        $crop = $meta['crop'] ?? false;
+
+                        // Store the image
+                        $result = $publicStorage->store(
+                            file: $file,
+                            directory: $directory,
+                            resizeWidth: $resizeWidth,
+                            existingFile: null,
+                            crop: $crop,
+                            deleteOld: false,
+                            isPrivate: $isPrivate
+                        );
+
+                        // Create Document record
+                        $document = Document::create([
+                            'display_name' => $result['display_name'],
+                            'file' => $result['key'],
+                            'file_extension' => $result['file_extension'],
+                            'file_size' => $result['file_size'],
+                            'created_by_id' => auth()->id(),
+                            'updated_by_id' => auth()->id(),
+                        ]);
+
+                        // Update data to save the document ID instead of the file object/key
+                        $data[$fieldKey] = $document->id;
+                    }
+                }
+            }
+
+            $result = ($this->createAction)($data);
 
             // Handle case where action returns a model directly (for backward compatibility)
             if (!is_array($result)) {
@@ -251,6 +299,7 @@ class RecordController extends BaseController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
         ]);
     }
 
@@ -267,13 +316,74 @@ class RecordController extends BaseController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, $id, PublicStorage $publicStorage)
     {
         try {
-            $result = ($this->updateAction)($id, $request->all());
+            $data = $request->all();
+            $fieldsSchema = $this->getFieldsSchema();
+            dd($data);
+            // Handle image uploads
+            foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
+                    // Get current record to find existing image
+                    $currentRecord = $this->recordModel->find($id);
+                    $existingDocumentId = $currentRecord ? $currentRecord->{$fieldKey} : null;
+
+                    if ($request->hasFile($fieldKey)) {
+                        $file = $request->file($fieldKey);
+
+                        // Get meta options
+                        $meta = $fieldDef['meta'] ?? [];
+
+                        // Default options
+                        $directory = $meta['directory'] ?? ($this->domainName . '/' . $fieldKey);
+                        $isPrivate = $meta['private'] ?? false;
+                        $resizeWidth = $meta['max_width'] ?? null;
+                        $crop = $meta['crop'] ?? false;
+
+                        $existingDocument = $existingDocumentId ? Document::find($existingDocumentId) : null;
+                        $existingFileKey = $existingDocument ? $existingDocument->file : null;
+
+                        // Store new image and delete old one
+                        $storageResult = $publicStorage->store(
+                            file: $file,
+                            directory: $directory,
+                            resizeWidth: $resizeWidth,
+                            existingFile: $existingFileKey,
+                            crop: $crop,
+                            deleteOld: true,
+                            isPrivate: $isPrivate
+                        );
+
+                        // Create New Document record
+                        $document = Document::create([
+                            'display_name' => $storageResult['display_name'],
+                            'file' => $storageResult['key'],
+                            'file_extension' => $storageResult['file_extension'],
+                            'file_size' => $storageResult['file_size'],
+                            'created_by_id' => auth()->id(),
+                            'updated_by_id' => auth()->id(),
+                        ]);
+
+                        // Delete old document record
+                        if ($existingDocument) {
+                            $existingDocument->delete();
+                        }
+
+                        // Update data
+                        $data[$fieldKey] = $document->id;
+                    } elseif (isset($data[$fieldKey]) && $data[$fieldKey] == $existingDocumentId) {
+                        // Value is unchanged ID, remove from data to bypass validation "image" rule
+                        unset($data[$fieldKey]);
+                    }
+                }
+            }
+            dd($data);
+            $result = ($this->updateAction)($id, $data);
 
             if ($result['success']) {
                 // Check if this is a non-Inertia AJAX request (axios from preventRedirect)
@@ -377,5 +487,22 @@ class RecordController extends BaseController
                 'total' => $records->total(),
             ]
         ]);
+    }
+
+    protected function getImageUrls($record, $fieldsSchema)
+    {
+        $urls = [];
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
+                $documentId = $record->{$fieldKey};
+                if ($documentId) {
+                    $document = Document::find($documentId);
+                    if ($document && $document->file) {
+                        $urls[$fieldKey] = Storage::disk('s3')->url($document->file);
+                    }
+                }
+            }
+        }
+        return $urls;
     }
 }

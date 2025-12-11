@@ -22,6 +22,14 @@
                 {
                     "key": "email",
                     "required": true
+                },
+                {
+                    "key": "mobile_phone",
+                    "required": false
+                },
+                {
+                    "key": "office_phone",
+                    "required": false
                 }
             ]
         },

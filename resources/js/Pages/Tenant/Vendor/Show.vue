@@ -174,6 +174,7 @@ const breadcrumbItems = computed(() => {
                             :record-type="recordType"
                             :enum-options="enumOptions"
                             :mode="isEditMode ? 'edit' : 'view'"
+                    :prevent-redirect="true"
                             :form-id="`form-${recordType}-${record.id}`"
                             @submit="handleSubmit"
                             @cancel="handleCancel"

@@ -21,6 +21,16 @@
         "validation": "required|email|max:255|unique:users,email",
         "help": "Email address for login and notifications"
     },
+    "mobile_phone": {
+        "label": "Mobile Phone",
+        "type": "tel",
+        "validation": "nullable|string|max:20"
+    },
+    "office_phone": {
+        "label": "Office Phone",
+        "type": "tel",
+        "validation": "nullable|string|max:20"
+    },
     "bio": {
         "label": "Bio",
         "type": "textarea",
@@ -29,9 +39,15 @@
     },
     "avatar": {
         "label": "Avatar",
-        "type": "file",
+        "type": "image",
         "validation": "nullable|image|max:2048",
-        "help": "Profile picture (max 2MB, JPG, PNG, GIF)"
+        "help": "Profile picture (max 2MB, JPG, PNG, GIF)",
+        "meta": {
+            "directory": "user/avatar",
+            "private": false,
+            "max_width": 350,
+            "ratio": "1/1"
+        }
     },
     "current_role": {
         "label": "Role",

@@ -11,6 +11,12 @@
           "required": true
         },
         {
+          "key": "location_type",
+          "type": "select",
+          "enum": "App\\Enums\\Locations\\LocationType",
+          "required": true
+        },
+        {
           "key": "inactive",
           "required": false
         }

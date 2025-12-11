@@ -17,7 +17,7 @@ const props = defineProps({
     },
     recordTitle: {
         type: String,
-        default: 'locations',
+        default: 'Locations',
     },
     formSchema: {
         type: Object,
@@ -96,7 +96,7 @@ const breadcrumbItems = computed(() => {
     return [
         { label: 'Home', href: route('dashboard') },
         { label: props.recordTitle, href: route(`${props.recordType}.index`) },
-        { label: props.record.display_name || `${props.record.first_name} ${props.record.last_name}` },
+        { label: props.record.display_name },
     ];
 });
 </script>

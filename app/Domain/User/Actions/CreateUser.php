@@ -16,8 +16,7 @@ class CreateUser
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'bio' => 'nullable|string|max:1000',
-            'avatar' => 'nullable|image|max:2048',
-            'current_role' => 'nullable|exists:roles,id',
+            'avatar' => 'nullable|integer'
         ])->validate();
 
         try {

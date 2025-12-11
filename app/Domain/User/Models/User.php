@@ -15,8 +15,12 @@ class User extends Model
         'email',
         'bio',
         'avatar',
+        'office_phone',
+        'mobile_phone',
         'current_role',
     ];
+
+    protected $with = ['role'];
 
     /**
      * The role this user currently has.
