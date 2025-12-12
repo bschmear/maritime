@@ -388,8 +388,10 @@ class RecordController extends BaseController
             $result = ($this->updateAction)($id, $data);
 
             if ($result['success']) {
+
                 // Check if this is a non-Inertia AJAX request (axios from preventRedirect)
                 if ($request->wantsJson() && !$request->header('X-Inertia')) {
+
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
@@ -413,7 +415,7 @@ class RecordController extends BaseController
                         'message' => $this->domainName . ' updated successfully',
                     ]);
                 }
-
+                dd('is inertia');
                 // Inertia Response (Always redirect for Inertia requests)
                 return redirect()
                     ->route($this->recordType . '.show', $id)

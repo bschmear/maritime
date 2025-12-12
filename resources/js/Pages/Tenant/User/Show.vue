@@ -57,7 +57,8 @@ const handleSubmit = () => {
 
 const handleUpdated = (updatedRecord) => {
     isEditMode.value = false;
-    router.reload({ only: ['record', 'imageUrls'] });
+    location.reload();
+    // router.reload({ only: ['record', 'imageUrls'] });
 };
 
 const handleDelete = () => {
@@ -101,7 +102,7 @@ const breadcrumbItems = computed(() => {
     return [
         { label: 'Home', href: route('dashboard') },
         { label: 'Account', href: route('account.index') },
-        { label: props.recordTitle, href: route(`${props.recordType}.index`) },
+        { label: 'Users', href: route(`${props.recordType}.index`) },
         { label: props.record.display_name },
     ];
 });
@@ -117,17 +118,20 @@ const breadcrumbItems = computed(() => {
                 <div class="flex items-center justify-between mt-4">
                     <div class="flex items-center space-x-4">
                         <!-- User Avatar -->
-                        <div class="flex items-center justify-center w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full overflow-hidden">
+                        <div class="flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800">
                             <img v-if="record.avatar && imageUrls.avatar" :src="imageUrls.avatar" :alt="record.display_name" class="w-full h-full object-cover" />
-                            <svg v-else class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg v-else class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                         </div>
                         <div>
-                            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                                 {{ record.display_name }}
                             </h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">
+                            <p class="text-sm text-gray-600 dark:text-gray-400 flex items-center mt-1">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
                                 {{ record.email }}
                             </p>
                         </div>
@@ -147,7 +151,7 @@ const breadcrumbItems = computed(() => {
                         <button
                             v-if="record.email !== 'admin@example.com'"
                             @click="handleDelete"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300"
                         >
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -205,108 +209,137 @@ const breadcrumbItems = computed(() => {
             </div>
 
             <!-- View Mode - Profile Cards -->
-            <div v-else class="space-y-6">
-                <!-- Avatar Card -->
-                <div v-if="record.avatar" class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
-                    <div class="px-4 py-5 sm:p-6">
-                        <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">
-                            Profile Picture
-                        </h3>
-                        <div class="flex items-center space-x-4">
-                            <img :src="imageUrls.avatar" :alt="record.display_name" class="w-24 h-24 rounded-full object-cover border-4 border-gray-200 dark:border-gray-600" />
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    This is {{ record.display_name }}'s profile picture
-                                </p>
-                            </div>
+            <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Personal Information Card -->
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+                    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                Personal Information
+                            </h3>
                         </div>
+                    </div>
+                    <div class="px-6 py-6">
+                        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    First Name
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-medium">
+                                    {{ record.first_name }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Last Name
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-medium">
+                                    {{ record.last_name }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Email Address
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-md inline-flex items-center">
+                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    {{ record.email }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Mobile Phone
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-medium inline-flex items-center">
+                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                    {{ record.mobile_phone || '—' }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Office Phone
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-medium inline-flex items-center">
+                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                    {{ record.office_phone || '—' }}
+                                </dd>
+                            </div>
+                            <div v-if="record.bio" class="sm:col-span-2">
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Bio
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white leading-relaxed whitespace-pre-wrap bg-gray-50 dark:bg-gray-700/50 px-4 py-3 rounded-md">
+                                    {{ record.bio }}
+                                </dd>
+                            </div>
+                        </dl>
                     </div>
                 </div>
 
-                <!-- User Overview Card -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
-                    <div class="px-4 py-5 sm:p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Personal Information -->
+                <!-- Role & Permissions Card -->
+                <div class="lg:col-span-1 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden h-fit">
+                    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                Role & Permissions
+                            </h3>
+                        </div>
+                    </div>
+                    <div class="px-6 py-6">
+                        <div v-if="record.role" class="space-y-4">
                             <div>
-                                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">
-                                    Personal Information
-                                </h3>
-                                <dl class="space-y-3">
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            First Name
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {{ record.first_name }}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Last Name
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {{ record.last_name }}
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Email Address
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                                            {{ record.email }}
-                                        </dd>
-                                    </div>
-                                    <div v-if="record.bio">
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Bio
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
-                                            {{ record.bio }}
-                                        </dd>
-                                    </div>
-                                </dl>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Current Role
+                                </dt>
+                                <dd>
+                                    <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-primary-100 to-primary-200 text-primary-800 dark:from-primary-900/50 dark:to-primary-800/50 dark:text-primary-300 border border-primary-300 dark:border-primary-700">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                        </svg>
+                                        {{ record.role.display_name }}
+                                    </span>
+                                </dd>
                             </div>
 
-                            <!-- Role Information -->
-                            <div>
-                                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">
-                                    Role & Permissions
-                                </h3>
-                                <div v-if="record.role" class="space-y-3">
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Current Role
-                                        </dt>
-                                        <dd class="mt-1">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300">
-                                                {{ record.role.display_name }}
-                                            </span>
-                                        </dd>
-                                    </div>
-                                    <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Role Description
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {{ record.role.description || 'No description available' }}
-                                        </dd>
-                                    </div>
-                                    <!-- <div>
-                                        <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                            Permissions Count
-                                        </dt>
-                                        <dd class="mt-1 text-sm text-gray-900 dark:text-white">
-                                            {{ (record.role.permissions ? Object.keys(record.role.permissions).length : 0) }} permission{{ (record.role.permissions ? Object.keys(record.role.permissions).length : 0) !== 1 ? 's' : '' }}
-                                        </dd>
-                                    </div> -->
-                                </div>
-                                <div v-else>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        No role assigned
-                                    </p>
-                                </div>
+                            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                    Description
+                                </dt>
+                                <dd class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                    {{ record.role.description || 'No description available' }}
+                                </dd>
                             </div>
+
+                            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-900/20 dark:text-primary-400 dark:border-primary-800 dark:hover:bg-primary-900/30">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                    View Permissions
+                                </button>
+                            </div>
+                        </div>
+                        <div v-else class="text-center py-8">
+                            <div class="inline-flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full mb-3">
+                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                No role assigned
+                            </p>
                         </div>
                     </div>
                 </div>

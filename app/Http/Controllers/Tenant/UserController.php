@@ -73,7 +73,7 @@ class UserController extends RecordController
 
         // For now, always return Inertia response for navigation
         // AJAX requests are handled by the parent RecordController
-
+        $pluralTitle = Str::plural($this->recordTitle);
         return inertia('Tenant/' . $this->domainName . '/Index', [
             'records' => $records,
             'schema' => $schema,
@@ -81,7 +81,7 @@ class UserController extends RecordController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'recordType' => $this->recordType,
-            'pluralTitle' => $this->recordTitle,
+            'pluralTitle' => $pluralTitle,
             'recordTitle' => Str::singular($this->recordTitle),
         ]);
     }
@@ -97,6 +97,8 @@ class UserController extends RecordController
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
+        $imgUrls = $this->getImageUrls($record, $fieldsSchema);
+
         // If it's an AJAX request, return JSON
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
@@ -105,6 +107,7 @@ class UserController extends RecordController
                 'formSchema' => $formSchema,
                 'fieldsSchema' => $fieldsSchema,
                 'enumOptions' => $enumOptions,
+                'imageUrls' => $imgUrls,
             ]);
         }
 
@@ -115,7 +118,7 @@ class UserController extends RecordController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
-            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+            'imageUrls' => $imgUrls,
         ]);
     }
 }

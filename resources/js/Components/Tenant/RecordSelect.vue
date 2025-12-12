@@ -251,7 +251,7 @@
                     :placeholder="`Select ${field.label}...`"
                     :disabled="disabled"
                     :tabindex="disabled ? -1 : 0"
-                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 pr-20 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="input-style"
                     :class="disabled ? '' : 'cursor-pointer'"
                 />
                 <div v-if="!disabled" class="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">

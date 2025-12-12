@@ -20,7 +20,9 @@ class CreateUser
         ])->validate();
 
         try {
-            $record = RecordModel::create($validated);
+            $validated['display_name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
+            $fieldsToSave = array_merge($data, $validated);
+            $record = RecordModel::create($fieldsToSave);
 
             return [
                 'success' => true,

@@ -10,6 +10,7 @@ import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 
+
 const props = defineProps({
     schema: {
         type: Object,
@@ -934,7 +935,7 @@ defineExpose({
                             <template v-for="field in group.filteredFields" :key="field?.key || `field-${Math.random()}`">
                                 <div v-if="field && isFieldVisible(field)"
                                      :class="getFieldColSpan(field)">
-                                <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-bold text-gray-900 dark:text-white">
                                     {{ getFieldLabel(field.key) }}
                                     <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
                                 </label>
@@ -1034,7 +1035,7 @@ defineExpose({
                                             @blur="handlePhoneInput(field.key, $event)"
                                             :required="isFieldRequired(field)"
                                             :disabled="isFieldDisabled(field.key)"
-                                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                            class="input-style"
                                             placeholder="(123) 456-7890"
                                         />
                                     </div>
@@ -1048,7 +1049,7 @@ defineExpose({
                                         type="text"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
-                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                        class="input-style"
                                     />
 
                                     <!-- Text/Email Input -->
@@ -1059,7 +1060,7 @@ defineExpose({
                                         :type="getFieldType(field.key)"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
-                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                        class="input-style"
                                     />
 
                                     <!-- Textarea -->
@@ -1070,7 +1071,7 @@ defineExpose({
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
                                         rows="4"
-                                        class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                        class="block p-2.5 w-full input-style"
                                     />
 
                                     <!-- Record Select (with search modal) -->
@@ -1093,7 +1094,7 @@ defineExpose({
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
                                         :class="[
-                                            'bg-gray-50 border border-gray-300 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500',
+                                            'input-style',
                                             !form[field.key] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900'
                                         ]"
                                     >
@@ -1133,7 +1134,7 @@ defineExpose({
                                         v-model="form[field.key]"
                                         :required="isFieldRequired(field)"
                                         :disabled="isFieldDisabled(field.key)"
-                                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+                                        class="input-style"
                                     />
 
                                     <!-- Rating -->
@@ -1153,7 +1154,7 @@ defineExpose({
                                             :required="isFieldRequired(field)"
                                             :disabled="isFieldDisabled(field.key)"
                                             :accept="getFieldDefinition(field.key).accept || '*/*'"
-                                            class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                                            class="input-style"
                                         />
                                         <div v-if="form[field.key] && typeof form[field.key] === 'string'" class="text-sm text-gray-600 dark:text-gray-400">
                                             Current file: <span class="font-medium">{{ getFileName(form[field.key]) }}</span>
@@ -1184,14 +1185,16 @@ defineExpose({
                                         
                                         <!-- Input -->
                                         <div v-if="!getImageSource(field.key) || !isFieldDisabled(field.key)">
+                                            <!-- <input class="cursor-pointer bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand block w-full shadow-xs placeholder:text-body" id="file_input" type="file"> -->
+
                                             <input
                                                 :id="getFieldId(field.key)"
                                                 type="file"
                                                 @change="handleImageInput(field.key, $event)"
-                                                :required="isFieldRequired(field) && !form[field.key]" 
+                                                :required="isFieldRequired(field) && !form[field.key]"
                                                 :disabled="isFieldDisabled(field.key)"
                                                 accept="image/*"
-                                                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                                                class="input-style"
                                             />
                                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 {{ getFieldDefinition(field.key).help || 'Upload an image' }}
@@ -1227,7 +1230,7 @@ defineExpose({
                                             :disabled="isFieldDisabled(field.key)"
                                             class="w-4 h-4 border border-default-medium rounded-sm bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"
                                         />
-                                        <label :for="getFieldId(field.key)" class="select-none w-full py-2.5 ms-2 text-sm font-medium text-heading">
+                                        <label :for="getFieldId(field.key)" class="select-none w-full py-3 ms-2 text-sm font-medium text-heading">
                                             {{ getFieldLabel(field.key) }}
                                         </label>
                                     </div>

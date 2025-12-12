@@ -23,7 +23,8 @@ class UpdateUser
             $record = RecordModel::findOrFail($id);
 
             $validated['display_name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
-            $record->update($validated);
+            $fieldsToSave = array_merge($data, $validated);
+            $record->update($fieldsToSave);
 
             return [
                 'success' => true,

@@ -36,7 +36,7 @@ const props = defineProps({
     },
     pluralTitle: {
         type: String,
-        default: 'users',
+        default: 'Users',
     },
 });
 

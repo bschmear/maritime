@@ -49,6 +49,7 @@ const createdRecordId = ref(null);
 const selectedRecords = ref(new Set());
 const selectAll = ref(false);
 const selectedRecord = ref(null);
+const selectedRecordImageUrls = ref({});
 const activeFilters = ref([]);
 const isLoadingRecord = ref(false);
 const searchQuery = ref('');
@@ -414,17 +415,20 @@ const handleViewOnPage = async (record) => {
             },
         });
         
-        // Extract the record from the JSON response
+        // Extract the record and imageUrls from the JSON response
         if (response.data && response.data.record) {
             selectedRecord.value = response.data.record;
+            selectedRecordImageUrls.value = response.data.imageUrls || {};
         } else {
             // Fallback to the partial record if full record not available
             selectedRecord.value = record;
+            selectedRecordImageUrls.value = {};
         }
     } catch (error) {
         console.error('Error fetching record:', error);
         // Fallback to the partial record on error
         selectedRecord.value = record;
+        selectedRecordImageUrls.value = {};
     } finally {
         isLoadingRecord.value = false;
     }
@@ -437,6 +441,7 @@ const handleNavigateToItem = (recordId) => {
 const closeViewModal = () => {
     showViewModal.value = false;
     selectedRecord.value = null;
+    selectedRecordImageUrls.value = {};
 };
 
 const handleRecordUpdated = (updatedRecord) => {
@@ -1037,6 +1042,7 @@ onMounted(() => {
                     :record-type="recordType"
                     :record-title="recordTitle"
                     :enum-options="enumOptions"
+                    :image-urls="selectedRecordImageUrls"
                     mode="edit"
                     :prevent-redirect="true"
                     @updated="handleRecordUpdated"

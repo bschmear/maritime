@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+        "label": "Primary",
+        "fields": [
+
+        ]
+    },
+    "secondary": {
+        "label": "Secondary",
+        "fields": [
+
+        ]
+    }
+  }
+}

@@ -55,8 +55,10 @@ const handleSubmit = () => {
 
 const handleUpdated = (updatedRecord) => {
     isEditMode.value = false;
-    router.reload({ only: ['record', 'imageUrls'] });
+    location.reload();
+    // router.reload({ only: ['record', 'imageUrls'] });
 };
+
 const handleDelete = () => {
     showDeleteModal.value = true;
 };
