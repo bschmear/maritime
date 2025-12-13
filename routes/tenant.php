@@ -18,6 +18,8 @@ use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\DocumentController;
+use App\Http\Controllers\Tenant\OperationsController;
+use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
@@ -50,6 +52,14 @@ Route::middleware([
 
         Route::prefix('vendors')->name('vendors.')->group(function () {
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
+        });
+
+        Route::prefix('operations')->name('operations.')->group(function () {
+            Route::get('/', [OperationsController::class, 'index'])->name('index');
+        });
+
+        Route::prefix('transactions')->name('transactions.')->group(function () {
+            Route::resource('/', TransactionController::class)->parameters(['' => 'transaction']);
         });
 
         Route::prefix('invoices')->name('invoices.')->group(function () {

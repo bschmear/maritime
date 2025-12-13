@@ -1,5 +1,49 @@
 {
-    "columns": [
-
-    ]
+  "columns": [
+    {
+      "key": "display_name",
+      "label": "Item Name",
+      "sortable": true
+    },
+    {
+      "key": "sku",
+      "label": "SKU",
+      "sortable": true
+    },
+    {
+      "key": "type",
+      "label": "Type",
+      "sortable": true
+    },
+    {
+      "key": "make",
+      "label": "Make",
+      "sortable": true
+    },
+    {
+      "key": "model",
+      "label": "Model",
+      "sortable": true
+    },
+    {
+      "key": "year",
+      "label": "Year",
+      "sortable": true
+    },
+    {
+      "key": "default_price",
+      "label": "Price",
+      "sortable": true
+    },
+    {
+      "key": "default_cost",
+      "label": "Cost",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ]
 }

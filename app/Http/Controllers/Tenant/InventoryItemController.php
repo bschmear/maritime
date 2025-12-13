@@ -22,7 +22,7 @@ class InventoryItemController extends RecordController
             new CreateAction(),
             new UpdateAction(),
             new DeleteAction(),
-            $this->recordType // Domain name for schema lookup
+            'InventoryItem' // Domain name for schema lookup
         );
     }
 }

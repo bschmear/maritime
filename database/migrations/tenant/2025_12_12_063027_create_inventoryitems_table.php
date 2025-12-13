@@ -12,20 +12,31 @@ return new class extends Migration
             $table->id();
 
             // General item info
-            $table->unsignedInteger('type')->default(1); // boat, part, accessory, service
+            $table->unsignedInteger('type')->default(1); // 1=boat, 2=part, 3=accessory, 4=service
             $table->string('sku')->nullable()->unique();
-            $table->string('name');
+            $table->string('display_name');
             $table->string('slug')->unique();
+            $table->boolean('inactive')->default(false);
 
-            // Boat-specific attributes (optional)
+            // Boat-specific attributes
             $table->string('make')->nullable();
             $table->string('model')->nullable();
             $table->string('year')->nullable();
             $table->string('length')->nullable();
-            $table->string('engine_details')->nullable();
+            $table->string('beam')->nullable();
+            $table->string('tube_diameter')->nullable();
+            $table->unsignedInteger('tubes_compartment')->nullable();
+            $table->unsignedInteger('persons')->nullable();
+            $table->string('weight')->nullable(); // store as string to keep "1,213 lbs"
+            $table->unsignedInteger('minimum_power')->nullable(); // HP
+            $table->unsignedInteger('maximum_power')->nullable(); // HP
+            $table->string('engine_shaft')->nullable(); // e.g., "1L"
+            $table->string('fuel_tank')->nullable(); // e.g., "28 Gal"
+            $table->string('water_tank')->nullable(); // e.g., "12 Gal"
+            $table->string('category')->nullable();
 
-            // Generic attributes
-            $table->json('attributes')->nullable(); // flexible for parts, accessories
+            // Generic attributes for parts, accessories, or flexible use
+            $table->json('attributes')->nullable();
 
             // Media
             $table->json('photos')->nullable();
@@ -35,7 +46,7 @@ return new class extends Migration
             $table->decimal('default_cost', 12, 2)->nullable();
             $table->decimal('default_price', 12, 2)->nullable();
 
-            // Text
+            // Text description
             $table->text('description')->nullable();
 
             $table->timestamps();

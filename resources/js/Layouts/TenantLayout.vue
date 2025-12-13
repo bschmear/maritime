@@ -119,7 +119,7 @@ const handleItemKeydown = (event, item) => {
 
 // Secondary navigation items - customize based on your needs
 const secondaryNavItems = ref([
-    { name: 'Overview', href: 'dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+    { name: 'Overview', href: 'dashboard'},
     {
         name: 'Account',
         href: 'account.index',
@@ -127,14 +127,23 @@ const secondaryNavItems = ref([
             { name: 'Overview', href: 'account.index' },
             { name: 'Locations', href: 'locations.index' },
             { name: 'Users', href: 'users.index' },
-            { name: 'Roles', href: 'roles.index' },
+            { name: 'Roles', href: 'roles.index' }
+        ]
+    },
+    {
+        name: 'Operations',
+        href: 'operations.index',
+        children: [
+            { name: 'Overview', href: 'operations.index' },
+            { name: 'Transactions', href: 'transactions.index' },
+            { name: 'Inventory', href: 'inventoryitems.index' },
+            { name: 'Invoices', href: 'invoices.index' }
         ]
     },
     { name: 'Leads', href: 'leads.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { name: 'Customers', href: 'customers.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-    { name: 'Vendors', href: 'vendors.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-    { name: 'Tasks', href: 'tasks.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-    { name: 'Invoices', href: 'invoices.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+    { name: 'Vendors', href: 'vendors.index'},
+    { name: 'Tasks', href: 'tasks.index' }
 ]);
 </script>
 

@@ -1,5 +1,132 @@
 {
-    "fields": [
-
-    ]
+  "type": {
+    "label": "Item Type",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\ItemType"
+  },
+  "sku": {
+    "label": "SKU",
+    "type": "text"
+  },
+  "display_name": {
+    "label": "Name",
+    "type": "text",
+    "required": true
+  },
+    "inactive": {
+        "label": "Inactive",
+        "type": "boolean"
+    },
+  "slug": {
+    "label": "Slug",
+    "type": "text",
+    "disabled": true
+  },
+  "make": {
+    "label": "Make",
+    "type": "text"
+  },
+  "model": {
+    "label": "Model",
+    "type": "text"
+  },
+  "year": {
+    "label": "Year",
+    "type": "number"
+  },
+  "length": {
+    "label": "Length",
+    "type": "text"
+  },
+  "beam": {
+    "label": "Beam",
+    "type": "text"
+  },
+  "tube_diameter": {
+    "label": "Tube Diameter",
+    "type": "text"
+  },
+  "tubes_compartment": {
+    "label": "Tubes Compartment",
+    "type": "number"
+  },
+  "persons": {
+    "label": "Persons Capacity",
+    "type": "number"
+  },
+  "weight": {
+    "label": "Weight",
+    "type": "text"
+  },
+  "minimum_power": {
+    "label": "Minimum Power (HP)",
+    "type": "number"
+  },
+  "maximum_power": {
+    "label": "Maximum Power (HP)",
+    "type": "number"
+  },
+  "engine_shaft": {
+    "label": "Engine Shaft",
+    "type": "text"
+  },
+  "fuel_tank": {
+    "label": "Fuel Tank",
+    "type": "text"
+  },
+  "water_tank": {
+    "label": "Water Tank",
+    "type": "text"
+  },
+  "category": {
+    "label": "Category",
+    "type": "text"
+  },
+  "engine_details": {
+    "label": "Engine Details",
+    "type": "textarea"
+  },
+  "attributes": {
+    "label": "Attributes",
+    "type": "keyValue",
+    "description": "Custom attributes for parts, accessories, or services"
+  },
+  "photos": {
+    "label": "Photos",
+    "type": "media",
+    "accept": ["image/*"],
+    "multiple": true
+  },
+  "videos": {
+    "label": "Videos",
+    "type": "media",
+    "accept": ["video/*"],
+    "multiple": true
+  },
+  "default_cost": {
+    "label": "Default Cost",
+    "type": "currency"
+  },
+  "default_price": {
+    "label": "Default Price",
+    "type": "currency"
+  },
+  "description": {
+    "label": "Description",
+    "type": "textarea"
+  },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean"
+  },
+  "created_at": {
+    "label": "Created At",
+    "type": "datetime",
+    "disabled": true
+  },
+  "updated_at": {
+    "label": "Updated At",
+    "type": "datetime",
+    "disabled": true
+  }
 }
