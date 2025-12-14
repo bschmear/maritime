@@ -1,5 +1,89 @@
 {
-    "fields": [
-
-    ]
+    "fields": {
+        "inventory_item_id": {
+            "label": "Inventory Item",
+            "type": "record",
+            "typeDomain": "InventoryItem",
+            "relationship": "inventory_item",
+            "required": true
+        },
+        "serial_number": {
+            "label": "Serial Number",
+            "type": "text",
+            "description": "Manufacturer serial number for this unit"
+        },
+        "hull_id": {
+            "label": "Hull ID (HIN)",
+            "type": "text",
+            "description": "Hull Identification Number for boats"
+        },
+        "sku": {
+            "label": "SKU",
+            "type": "text",
+            "description": "SKU for non-boat inventory units"
+        },
+        "batch_number": {
+            "label": "Batch / Lot Number",
+            "type": "text"
+        },
+        "quantity": {
+            "label": "Quantity",
+            "type": "number",
+            "min": 1,
+            "description": "Used for parts and accessories. Boats typically remain 1."
+        },
+        "condition": {
+            "label": "Condition",
+            "type": "select",
+            "enum": "App\\Enums\\Inventory\\UnitCondition"
+        },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Inventory\\UnitStatus"
+        },
+        "engine_hours": {
+            "label": "Engine Hours",
+            "type": "number",
+            "description": "Applies primarily to boats"
+        },
+        "cost": {
+            "label": "Cost",
+            "type": "currency"
+        },
+        "asking_price": {
+            "label": "Asking Price",
+            "type": "currency"
+        },
+        "price_history": {
+            "label": "Price History",
+            "type": "hidden",
+            "description": "System managed price history"
+        },
+        "vendor_id": {
+            "label": "Vendor",
+            "type": "record",
+            "typeDomain": "Vendor",
+            "relationship": "vendor"
+        },
+        "owner_name": {
+            "label": "Owner Name",
+            "type": "text",
+            "description": "Optional freeform owner name for consignments"
+        },
+        "location_id": {
+            "label": "Location",
+            "type": "record",
+            "typeDomain": "Location",
+            "relationship": "location"
+        },
+        "notes": {
+            "label": "Notes",
+            "type": "textarea"
+        },
+        "inactive": {
+            "label": "Inactive",
+            "type": "boolean"
+        }
+    }
 }

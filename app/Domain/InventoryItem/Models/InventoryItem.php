@@ -3,20 +3,20 @@
 namespace App\Domain\InventoryItem\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Domain\InventoryUnit\Models\InventoryUnit;
 
 class InventoryItem extends Model
 {
-    // Fillable fields for mass assignment
     protected $fillable = [
         'type',
         'sku',
         'display_name',
         'slug',
+        'boat_type',
         'make',
         'model',
         'year',
         'length',
-        'boat_type',
         'engine_details',
         'attributes',
         'photos',
@@ -27,7 +27,6 @@ class InventoryItem extends Model
         'inactive',
     ];
 
-    // Cast JSON and other fields
     protected $casts = [
         'attributes' => 'array',
         'photos' => 'array',
@@ -37,13 +36,24 @@ class InventoryItem extends Model
         'default_price' => 'decimal:2',
     ];
 
-    // Automatically generate slug from display_name if not provided
-    public static function boot()
+    /**
+     * Inventory item has many units
+     * (ex: 5 of the same boat, or 20 parts in stock)
+     */
+    public function units()
+    {
+        return $this->hasMany(InventoryUnit::class);
+    }
+
+    /**
+     * Automatically generate slug
+     */
+    protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($item) {
-            if (isset($item->slug) && empty($item->slug) && !empty($item->display_name)) {
+            if (empty($item->slug) && !empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }
         });

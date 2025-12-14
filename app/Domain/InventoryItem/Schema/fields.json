@@ -89,7 +89,7 @@
   },
   "engine_details": {
     "label": "Engine Details",
-    "type": "wysiwyg"
+    "type": "textarea"
   },
   "attributes": {
     "label": "Attributes",

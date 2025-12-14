@@ -4,7 +4,8 @@ import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { ref, computed, getCurrentInstance } from 'vue';
+import { ref, computed, getCurrentInstance, watch, onMounted } from 'vue';
+import axios from 'axios';
 
 // Get access to global properties
 const instance = getCurrentInstance();
@@ -42,6 +43,95 @@ const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 const formRef = ref(null);
+
+// Sublist State
+const activeTab = ref(null);
+const sublistData = ref([]);
+const sublistSchema = ref({});
+const sublistPagination = ref(null);
+const isLoadingSublist = ref(false);
+
+const sublists = computed(() => {
+    return props.formSchema?.sublists || [];
+});
+
+const formatRouteName = (domain) => {
+    // Convert "InventoryUnit" to "inventory-units.index"
+    // Convert camelCase or PascalCase to kebab-case plural
+    const kebab = domain.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    
+    // Simple pluralization (add 's') - might need more robust pluralizer if domain names get complex
+    const plural = kebab.endsWith('s') ? kebab : kebab + 's';
+    
+    return `${plural}.index`;
+};
+
+const fetchSublistData = async (sublist, page = 1) => {
+    if (!sublist) return;
+    
+    isLoadingSublist.value = true;
+    try {
+        const routeName = formatRouteName(sublist.domain);
+        
+        // Construct filter for current record
+        // Assuming standard FK convention: inventory_item_id
+        // We need to know the foreign key name. For now, let's guess based on current record type.
+        // Or we could add a 'foreign_key' property to the sublist definition in form.json?
+        // Let's assume singular_record_type_id for now.
+        const singularRecordType = props.recordType.endsWith('s') ? props.recordType.slice(0, -1) : props.recordType;
+        const foreignKey = `${singularRecordType}_id`;
+        
+        const filters = {
+            [foreignKey]: props.record.id
+        };
+
+        // Handle Polymorphic relationships if needed (basic check)
+        // If domain is Document, it might be polymorphic
+        if (sublist.domain === 'Document') {
+            // Polymorphic structure often uses relatable_type and relatable_id
+            // Or we might need a specific endpoint. 
+            // For now, let's stick to the generic controller pattern.
+            // If it's a standard relational setup for documents to the item.
+        }
+
+        const response = await axios.get(route(routeName), {
+            params: {
+                filters: JSON.stringify(filters),
+                page: page,
+                per_page: 10
+            },
+             headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+        });
+
+        sublistData.value = response.data.records || [];
+        sublistSchema.value = response.data.fieldsSchema || {};
+        // If schema is returned, we might use that for headers
+        // Otherwise use fieldsSchema
+        
+        sublistPagination.value = response.data.meta;
+
+    } catch (error) {
+        console.error('Error fetching sublist data:', error);
+        sublistData.value = [];
+    } finally {
+        isLoadingSublist.value = false;
+    }
+};
+
+const handleTabChange = (sublist) => {
+    activeTab.value = sublist;
+    fetchSublistData(sublist);
+};
+
+// Initialize first tab if available
+onMounted(() => {
+    if (sublists.value.length > 0) {
+        handleTabChange(sublists.value[0]);
+    }
+});
 
 const handleEdit = () => {
     isEditMode.value = true;
@@ -192,7 +282,7 @@ const breadcrumbItems = computed(() => {
                 </div>
                 <div class="hidden xl:block sticky top-5 xl:col-span-3 w-full">
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg w-full overflow-hidden sticky top-5">
-                        <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700 ">
                             Actions
                         </div>
                         <div class="p-4 sm:p-5 space-y-4">
@@ -261,28 +351,110 @@ const breadcrumbItems = computed(() => {
 
             <div class="w-full">
                 <div class="sm:hidden">
-                    <label for="tabs" class="sr-only">Select your country</label>
-                    <select id="tabs" class="input-style bg-primary-600">
-                        <option>Profile</option>
-                        <option>Dashboard</option>
-                        <option>setting</option>
-                        <option>Invoice</option>
+                    <label for="tabs" class="sr-only">Select User Sublist</label>
+                    <select id="tabs" class="input-style bg-primary-600" @change="handleTabChange(sublists[$event.target.selectedIndex])">
+                        <option v-for="(sublist, index) in sublists" :key="index" :selected="activeTab === sublist">
+                            {{ sublist.label }}
+                        </option>
                     </select>
                 </div>
-                <ul class="inline-sublist">
-                    <li class="w-full focus-within:z-10">
-                        <a href="#" class="inline-sublist-item active" aria-current="page">Profile</a>
-                    </li>
-                    <li class="w-full focus-within:z-10">
-                        <a href="#" class="inline-sublist-item">Dashboard</a>
-                    </li>
-                    <li class="w-full focus-within:z-10">
-                        <a href="#" class="inline-sublist-item">Settings</a>
-                    </li>
-                    <li class="w-full focus-within:z-10">
-                        <a href="#" class="inline-sublist-item">Invoice</a>
-                    </li>
-                </ul>
+                <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg w-full overflow-hidden sticky top-5">
+                    <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
+                        Related Records
+                    </div>
+                    <div class="p-4 sm:p-5 space-x-2 border-b border-gray-200 dark:border-gray-600">
+                        <ul class="record-sublist">
+                            <li v-for="(sublist, index) in sublists" :key="index" class="me-2">
+                                <a 
+                                    href="#" 
+                                    @click.prevent="handleTabChange(sublist)"
+                                    class="record-sublist-item"
+                                    :class="{ 'active': activeTab === sublist }"
+                                >
+                                    {{ sublist.label }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="p-4 sm:p-5 relative min-h-[200px]">
+                        <div v-if="isLoadingSublist" class="absolute inset-0 flex items-center justify-center bg-white/50 dark:bg-gray-800/50 z-10">
+                            <svg class="animate-spin h-8 w-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        
+                        <div v-if="sublistData.length > 0" class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                    <tr>
+                                        <!-- Determine headers from schema or first record keys -->
+                                        <th v-for="(field, key) in sublistSchema" :key="key" class="px-6 py-3" v-show="field.show_in_index !== false">
+                                            {{ field.label || key }}
+                                        </th>
+                                        <!-- Fallback if no schema -->
+                                        <template v-if="!sublistSchema || Object.keys(sublistSchema).length === 0">
+                                             <th class="px-6 py-3">Display Name</th>
+                                             <th class="px-6 py-3">Created At</th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="item in sublistData" :key="item.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                        <template v-if="Object.keys(sublistSchema).length > 0">
+                                            <td v-for="(field, key) in sublistSchema" :key="key" class="px-6 py-4" v-show="field.show_in_index !== false">
+                                                <template v-if="field.type === 'record'">
+                                                     <!-- Handle record display if expanded, usually just generic name here -->
+                                                     {{ item[key.replace('_id', '')]?.display_name || item[key] }}
+                                                </template>
+                                                <template v-else-if="field.type === 'boolean'">
+                                                    {{ item[key] ? 'Yes' : 'No' }}
+                                                </template>
+                                                <template v-else-if="field.type === 'date'">
+                                                    {{ $formatDate(item[key]) }}
+                                                </template>
+                                                 <template v-else-if="field.type === 'datetime'">
+                                                    {{ $formatDate(item[key]) }}
+                                                </template>
+                                                <template v-else>
+                                                    {{ item[key] }}
+                                                </template>
+                                            </td>
+                                        </template>
+                                        <template v-else>
+                                            <td class="px-6 py-4">{{ item.display_name }}</td>
+                                            <td class="px-6 py-4">{{ $formatDate(item.created_at) }}</td>
+                                        </template>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <!-- Pagination -->
+                            <div v-if="sublistPagination && sublistPagination.last_page > 1" class="flex justify-between items-center mt-4">
+                                <button 
+                                    @click="fetchSublistData(activeTab, sublistPagination.current_page - 1)"
+                                    :disabled="sublistPagination.current_page === 1"
+                                    class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                    Previous
+                                </button>
+                                <span class="text-sm text-gray-600 dark:text-gray-400">
+                                    Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
+                                </span>
+                                <button 
+                                    @click="fetchSublistData(activeTab, sublistPagination.current_page + 1)"
+                                    :disabled="sublistPagination.current_page === sublistPagination.last_page"
+                                    class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                        <div v-else-if="!isLoadingSublist" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                            No records found.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

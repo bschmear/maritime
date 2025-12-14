@@ -145,5 +145,19 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Inventory Units",
+      "domain": "InventoryUnit"
+    },
+    {
+      "label": "Transactions",
+      "domain": "Transaction"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document"
+    }
+  ]
 }

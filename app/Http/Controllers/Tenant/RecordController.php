@@ -97,6 +97,8 @@ class RecordController extends BaseController
         if ($request->ajax() && !$request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
+                'schema' => $schema,
+                'fieldsSchema' => $fieldsSchema,
                 'meta' => [
                     'current_page' => $records->currentPage(),
                     'last_page' => $records->lastPage(),
