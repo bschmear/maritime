@@ -12,13 +12,14 @@ return new class extends Migration
             $table->id();
 
             // General item info
-            $table->unsignedInteger('type')->default(1); // 1=boat, 2=part, 3=accessory, 4=service
+            $table->unsignedInteger('type')->nullable(); // 1=boat, 2=part, 3=accessory, 4=service
             $table->string('sku')->nullable()->unique();
             $table->string('display_name');
-            $table->string('slug')->unique();
+            $table->string('slug')->nullable();
             $table->boolean('inactive')->default(false);
 
             // Boat-specific attributes
+            $table->unsignedInteger('boat_type')->nullable();
             $table->string('make')->nullable();
             $table->string('model')->nullable();
             $table->string('year')->nullable();
@@ -34,6 +35,7 @@ return new class extends Migration
             $table->string('fuel_tank')->nullable(); // e.g., "28 Gal"
             $table->string('water_tank')->nullable(); // e.g., "12 Gal"
             $table->string('category')->nullable();
+            $table->text('engine_details')->nullable();
 
             // Generic attributes for parts, accessories, or flexible use
             $table->json('attributes')->nullable();

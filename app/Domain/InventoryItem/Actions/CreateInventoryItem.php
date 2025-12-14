@@ -18,7 +18,6 @@ class CreateInventoryItem
                 'type'          => ['required', 'integer'],
                 'sku'           => ['nullable', 'string', 'max:50', 'unique:inventory_items,sku'],
                 'display_name'  => ['required', 'string', 'max:255'],
-                'slug'          => ['nullable', 'string', 'max:255', 'unique:inventory_items,slug'],
                 'make'          => ['nullable', 'string', 'max:255'],
                 'model'         => ['nullable', 'string', 'max:255'],
                 'year'          => ['nullable', 'string', 'max:10'],
@@ -34,12 +33,9 @@ class CreateInventoryItem
 
             $fieldsToSave = array_merge($data, $validated);
 
-            // Generate slug if not provided
-            if (empty($fieldsToSave['slug']) && !empty($fieldsToSave['name'])) {
+            // // Generate slug if not provided
+            if (!empty($fieldsToSave['name'])) {
                 $fieldsToSave['slug'] = Str::slug($fieldsToSave['name']);
-            } else {
-                // Ensure provided slug is also formatted
-                $fieldsToSave['slug'] = Str::slug($fieldsToSave['slug']);
             }
 
             // Remove fields that shouldn't be mass-assigned

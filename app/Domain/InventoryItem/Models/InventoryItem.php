@@ -8,22 +8,23 @@ class InventoryItem extends Model
 {
     // Fillable fields for mass assignment
     protected $fillable = [
-        'type',              // Item type (boat, part, accessory, service)
-        'sku',               // Stock keeping unit
-        'display_name',      // Name of the item
-        'slug',              // URL-friendly identifier
-        'make',              // Boat manufacturer
-        'model',             // Boat model
-        'year',              // Model year
-        'length',            // Boat length
-        'engine_details',    // Engine information
-        'attributes',        // JSON field for custom attributes
-        'photos',            // JSON array of photo URLs
-        'videos',            // JSON array of video URLs
-        'default_cost',      // Default cost
-        'default_price',     // Default price
-        'description',       // Description
-        'inactive',          // Boolean flag for inactive items
+        'type',
+        'sku',
+        'display_name',
+        'slug',
+        'make',
+        'model',
+        'year',
+        'length',
+        'boat_type',
+        'engine_details',
+        'attributes',
+        'photos',
+        'videos',
+        'default_cost',
+        'default_price',
+        'description',
+        'inactive',
     ];
 
     // Cast JSON and other fields
@@ -42,7 +43,7 @@ class InventoryItem extends Model
         parent::boot();
 
         static::creating(function ($item) {
-            if (empty($item->slug) && !empty($item->display_name)) {
+            if (isset($item->slug) && empty($item->slug) && !empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }
         });

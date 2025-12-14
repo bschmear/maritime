@@ -45,6 +45,10 @@
       },
       "fields": [
         {
+          "key": "boat_type",
+          "required": false
+        },
+        {
           "key": "make",
           "required": false
         },

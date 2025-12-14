@@ -13,14 +13,19 @@
     "type": "text",
     "required": true
   },
-    "inactive": {
-        "label": "Inactive",
-        "type": "boolean"
-    },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean"
+  },
   "slug": {
     "label": "Slug",
     "type": "text",
     "disabled": true
+  },
+  "boat_type": {
+    "label": "Boat Type",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\BoatType"
   },
   "make": {
     "label": "Make",
@@ -84,7 +89,7 @@
   },
   "engine_details": {
     "label": "Engine Details",
-    "type": "textarea"
+    "type": "wysiwyg"
   },
   "attributes": {
     "label": "Attributes",
@@ -93,14 +98,22 @@
   },
   "photos": {
     "label": "Photos",
-    "type": "media",
-    "accept": ["image/*"],
-    "multiple": true
+    "type": "image",
+    "validation": "nullable|image|max:2048",
+    "help": "Profile picture (max 2MB, JPG, PNG, GIF)",
+    "multiple": true,
+    "meta": {
+      "directory": "items",
+      "private": false,
+      "max_width": 1250
+    }
   },
   "videos": {
     "label": "Videos",
     "type": "media",
-    "accept": ["video/*"],
+    "accept": [
+      "video/*"
+    ],
     "multiple": true
   },
   "default_cost": {
@@ -114,10 +127,6 @@
   "description": {
     "label": "Description",
     "type": "textarea"
-  },
-  "inactive": {
-    "label": "Inactive",
-    "type": "boolean"
   },
   "created_at": {
     "label": "Created At",

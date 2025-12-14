@@ -10,6 +10,7 @@ import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
+import TipTapEditor from '@/Components/TipTapEditor.vue';
 
 const props = defineProps({
     schema: {
@@ -473,12 +474,13 @@ const getFieldColSpan = (field) => {
     if (fieldType === 'textarea' || 
         field.key === 'address_line_1' || 
         field.key === 'address_line_2' ||
-        fieldType === 'editor') {
-        return 'sm:col-span-12';
+        fieldType === 'editor' ||
+        fieldType === 'wysiwyg') {
+        return 'md:col-span-12 xl:col-span-6';
     }
 
     // Default to half width (6 columns out of 12)
-    return 'sm:col-span-6';
+    return 'form-width';
 };
 
 // Phone number formatting functions
@@ -943,7 +945,7 @@ defineExpose({
                         <div class="p-4 border-gray-200 sm:p-5 dark:border-gray-700">
                             <!-- Address Group (Autocomplete) -->
                             <div v-if="group.is_address && group.filteredFields && hasAddressTags(group)" class="mb-4 grid sm:grid-cols-12 gap-4">
-                                <div class="sm:col-span-6">
+                                <div class="sm:col-span-6 ">
                                 <AddressAutocomplete
                                     :street="getAddressFieldValue(group, 'street')"
                                     :unit="getAddressFieldValue(group, 'unit')"
@@ -1037,6 +1039,9 @@ defineExpose({
                                             <span v-else class="text-sm text-gray-500 dark:text-gray-400">
                                                 No image
                                             </span>
+                                        </div>
+                                        <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg max-h-[400px] overflow-y-auto">
+                                            <div v-html="getFieldValue(field.key) || '—'"></div>
                                         </div>
                                         <span v-else-if="getFieldType(field.key) === 'morph'">
                                             <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
@@ -1257,6 +1262,15 @@ defineExpose({
                                             v-model="form[getFieldDefinition(field.key).id_field]"
                                             v-model:selected-type="form[field.key]"
                                             :disabled="isFieldDisabled(field.key)"
+                                        />
+
+                                        <!-- WYSIWYG Editor -->
+                                        <TipTapEditor
+                                            v-else-if="getFieldType(field.key) === 'wysiwyg'"
+                                            :id="getFieldId(field.key)"
+                                            v-model="form[field.key]"
+                                            :error="form.errors[field.key]"
+                                            :show-anchor="getFieldDefinition(field.key).show_anchor"
                                         />
 
                                         <!-- Checkbox -->

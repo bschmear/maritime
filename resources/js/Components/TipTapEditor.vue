@@ -277,7 +277,7 @@
         <!-- Editor -->
         <editor-content
             :editor="editor"
-            class="prose prose-sm sm:prose lg:prose-lg max-w-none block w-full px-4 py-3 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-lg focus-within:ring-2 focus-within:ring-secondary-500 focus-within:border-secondary-500 dark:focus-within:ring-secondary-400 dark:focus-within:border-secondary-400 min-h-[300px] transition-colors"
+            class="prose prose-sm sm:prose lg:prose-lg !max-w-none block w-full px-4 py-3 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-lg focus-within:ring-2 focus-within:ring-secondary-500 focus-within:border-secondary-500 dark:focus-within:ring-secondary-400 dark:focus-within:border-secondary-400 min-h-[300px] transition-colors"
         />
 
         <InputError v-if="error" class="mt-2" :message="error" />
