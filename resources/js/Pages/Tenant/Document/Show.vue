@@ -200,9 +200,10 @@ const cancelDelete = () => {
                 <div class="flex flex-col lg:flex-row gap-6">
                     <!-- Left Column: Form -->
                     <div class="flex-1 bg-white rounded-lg shadow dark:bg-gray-800">
+
                         <form @submit.prevent="handleSubmit" enctype="multipart/form-data">
                             <div class="grid gap-6 sm:grid-cols-12 p-4 lg:p-6">
-                                <div class="sm:col-span-12">
+                                <div class="sm:col-span-12 border-b dark:border-gray-700">
                                     <h5 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Primary Information</h5>
                                 </div>
 
@@ -345,10 +346,11 @@ const cancelDelete = () => {
                     <!-- Right Column: Other Info -->
                     <div class="hidden lg:block w-full lg:max-w-md">
                         <div class="bg-white rounded-lg shadow dark:bg-gray-800 w-full overflow-hidden sticky top-5">
-                            <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
-                                Actions
-                            </div>
+
                             <div class="p-4 sm:p-5 space-y-4">
+                                <div class="flex justify-between items-center w-full font-semibold text-gray-900 border-b dark:border-gray-700  dark:text-white ">
+                                    <h5 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Actions</h5>
+                                </div>
                                 <!-- Timestamp Information -->
                                 <div class="space-y-3 pb-4 border-b border-gray-200 dark:border-gray-700">
                                     <div class="flex flex-col space-y-1">
