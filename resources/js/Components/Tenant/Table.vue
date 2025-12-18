@@ -68,13 +68,6 @@ const modalMaxWidth = computed(() => {
     return '4xl';
 });
 
-const formSchemaContent = computed(() => {
-    if (props.formSchema && props.formSchema.form) {
-        return props.formSchema.form;
-    }
-    return props.formSchema;
-});
-
 const isFirstPage = computed(() => {
     return props.records.current_page === 1;
 });
@@ -957,7 +950,7 @@ onMounted(() => {
             <!-- Modal body (scrollable) -->
             <div class="overflow-y-auto flex-1">
                 <Form
-                    :schema="formSchemaContent"
+                    :schema="formSchema"
                     :fields-schema="fieldsSchema"
                     :record-type="recordType"
                     :record-title="recordTitle"
@@ -1036,7 +1029,7 @@ onMounted(() => {
                 </div>
                 <Form
                     v-else-if="selectedRecord"
-                    :schema="formSchemaContent"
+                    :schema="formSchema"
                     :fields-schema="fieldsSchema"
                     :record="selectedRecord"
                     :record-type="recordType"

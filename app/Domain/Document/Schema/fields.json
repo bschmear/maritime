@@ -1,5 +1,81 @@
 {
-    "fields": [
-
-    ]
+    "display_name": {
+      "label": "Document Name",
+      "type": "text",
+      "required": true
+    },
+    "description": {
+      "label": "Description",
+      "type": "textarea"
+    },
+    "file": {
+        "label": "File",
+        "type": "file",
+        "required": true
+    },
+    "file_extension": {
+      "label": "File Extension",
+      "type": "text",
+      "disabled": true
+    },
+    "file_size": {
+      "label": "File Size",
+      "type": "number",
+      "disabled": true
+    },
+    "extracted_text": {
+      "label": "Extracted Text",
+      "type": "textarea",
+      "wysiwyg": true,
+      "disabled": true
+    },
+    "ai_summary": {
+      "label": "AI Summary",
+      "type": "textarea",
+      "wysiwyg": true,
+      "disabled": true
+    },
+    "key_points": {
+      "label": "Key Points",
+      "type": "list",
+      "disabled": true
+    },
+    "ai_status": {
+      "label": "AI Status",
+      "type": "select",
+      "enum": "App\\Enums\\Documents\\AIStatus",
+      "disabled": true
+    },
+    "ai_processed_at": {
+      "label": "AI Processed At",
+      "type": "datetime",
+      "disabled": true
+    },
+    "assigned_id": {
+      "label": "Assigned To",
+      "type": "record",
+      "typeDomain": "User"
+    },
+    "created_by_id": {
+      "label": "Created By",
+      "type": "record",
+      "typeDomain": "User",
+      "disabled": true
+    },
+    "updated_by_id": {
+      "label": "Updated By",
+      "type": "record",
+      "typeDomain": "User",
+      "disabled": true
+    },
+    "created_at": {
+      "label": "Created At",
+      "type": "datetime",
+      "disabled": true
+    },
+    "updated_at": {
+      "label": "Updated At",
+      "type": "datetime",
+      "disabled": true
+    }
 }

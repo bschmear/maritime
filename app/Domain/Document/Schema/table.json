@@ -1,5 +1,24 @@
 {
     "columns": [
-
+      {
+        "key": "display_name",
+        "label": "Document Name",
+        "sortable": true
+      },
+      {
+        "key": "file_extension",
+        "label": "Type",
+        "sortable": true
+      },
+      {
+        "key": "updated_at",
+        "label": "Updated",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      }
     ]
 }

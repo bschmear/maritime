@@ -197,7 +197,7 @@ class RecordController extends BaseController
 
             if ($result['success']) {
                 // If it's an AJAX request that wants JSON, return JSON instead of redirecting
-                if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                if ($request->ajax() && !$request->header('X-Inertia')) {
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
@@ -232,7 +232,7 @@ class RecordController extends BaseController
             }
 
             // Handle errors for AJAX requests
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
@@ -245,7 +245,7 @@ class RecordController extends BaseController
                 ->with('error', $result['message'] ?? 'Failed to create ' . $this->recordTitle);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
@@ -287,7 +287,7 @@ class RecordController extends BaseController
         $enumOptions = $this->getEnumOptions();
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
-        if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
+        if ($request->ajax() && !$request->header('X-Inertia')) {
             return response()->json([
                 'record' => $record,
                 'recordType' => $this->recordType,
@@ -392,7 +392,7 @@ class RecordController extends BaseController
             if ($result['success']) {
 
                 // Check if this is a non-Inertia AJAX request (axios from preventRedirect)
-                if ($request->wantsJson() && !$request->header('X-Inertia')) {
+                if ($request->ajax() && !$request->header('X-Inertia')) {
 
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getFieldsSchema();
@@ -417,15 +417,13 @@ class RecordController extends BaseController
                         'message' => $this->domainName . ' updated successfully',
                     ]);
                 }
-                dd('is inertia');
+
                 // Inertia Response (Always redirect for Inertia requests)
-                return redirect()
-                    ->route($this->recordType . '.show', $id)
-                    ->with('success', $this->domainName . ' updated successfully');
+                return back()->with('success', $this->domainName . ' updated successfully');
             }
 
             // Handle business logic errors
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
@@ -440,7 +438,7 @@ class RecordController extends BaseController
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors
-            if ($request->wantsJson() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && !$request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),

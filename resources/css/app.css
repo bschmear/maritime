@@ -74,6 +74,10 @@ th {
     @apply sm:col-span-6 lg:col-span-3;
 }
 
+/*.show #accordion-collapse h2 button {
+    @apply bg-gray-800 text-white;
+}*/
+
 .inline-sublist {
     @apply hidden text-sm font-medium text-center sm:flex;
 }
@@ -105,3 +109,5 @@ th {
 .record-sublist-item.active {
     @apply text-white bg-blue-600  hover:text-white hover:bg-blue-600 dark:hover:bg-blue-600 dark:hover:text-white;
 }
+
+

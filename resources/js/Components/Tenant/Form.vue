@@ -69,6 +69,14 @@ const normalizedSchema = computed(() => {
     return props.schema;
 });
 
+// Get column count from schema settings (default to 2)
+const columnCount = computed(() => {
+    if (props.schema && props.schema.settings && props.schema.settings.columns) {
+        return props.schema.settings.columns;
+    }
+    return 2; // Default to 2 columns
+});
+
 // Generate unique form ID for this form instance
 const formUniqueId = computed(() => {
     return `form-${props.recordType}-${props.record?.id || 'new'}-${Math.random().toString(36).substr(2, 9)}`;
@@ -476,11 +484,12 @@ const getFieldColSpan = (field) => {
         field.key === 'address_line_2' ||
         fieldType === 'editor' ||
         fieldType === 'wysiwyg') {
-        return 'md:col-span-12 xl:col-span-6';
+        return 'sm:col-span-12';
     }
 
-    // Default to half width (6 columns out of 12)
-    return 'form-width';
+    // Calculate default span based on column count setting
+    const defaultSpan = Math.floor(12 / columnCount.value);
+    return `sm:col-span-${defaultSpan}`;
 };
 
 // Phone number formatting functions

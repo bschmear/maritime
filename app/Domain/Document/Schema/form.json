@@ -1,19 +1,25 @@
 {
   "settings": {
-    "max_width": "4xl"
+    "max_width": "xl",
+    "columns": 1
   },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
-    },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+      "label": "Document",
+      "fields": [
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "file",
+          "required": true
+        },
+        {
+          "key": "description",
+          "required": false
+        }
+      ]
     }
   }
 }
