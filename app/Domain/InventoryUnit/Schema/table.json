@@ -1,5 +1,79 @@
 {
-    "columns": [
-
-    ]
+  "columns": [
+    {
+      "key": "serial_number",
+      "label": "Serial Number",
+      "sortable": true
+    },
+    {
+      "key": "hull_id",
+      "label": "Hull ID",
+      "sortable": true
+    },
+    {
+      "key": "sku",
+      "label": "SKU",
+      "sortable": true
+    },
+    {
+      "key": "batch_number",
+      "label": "Batch / Lot",
+      "sortable": true
+    },
+    {
+      "key": "quantity",
+      "label": "Quantity",
+      "sortable": true
+    },
+    {
+      "key": "condition",
+      "label": "Condition",
+      "sortable": true
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "sortable": true
+    },
+    {
+      "key": "engine_hours",
+      "label": "Engine Hours",
+      "sortable": true
+    },
+    {
+      "key": "cost",
+      "label": "Cost",
+      "sortable": true
+    },
+    {
+      "key": "asking_price",
+      "label": "Asking Price",
+      "sortable": true
+    },
+    {
+      "key": "vendor_id",
+      "label": "Vendor",
+      "sortable": false
+    },
+    {
+      "key": "owner_name",
+      "label": "Owner",
+      "sortable": false
+    },
+    {
+      "key": "location_id",
+      "label": "Location",
+      "sortable": false
+    },
+    {
+      "key": "inactive",
+      "label": "Inactive",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ]
 }

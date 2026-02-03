@@ -1,5 +1,7 @@
 <script setup>
     import { ref, computed, watch } from 'vue';
+    import axios from 'axios';
+    import Form from '@/Components/Tenant/Form.vue';
     
     const props = defineProps({
         field: {
@@ -35,6 +37,7 @@
     const emit = defineEmits(['update:modelValue']);
     
     const showModal = ref(false);
+    const showCreateModal = ref(false);
     const selectedRecordId = ref(props.modelValue || null);
     const selectedRecordName = ref('');
     const records = ref([]);
@@ -43,6 +46,10 @@
     const currentPage = ref(1);
     const totalPages = ref(1);
     const perPage = 10;
+
+    // Form data for create modal (loaded on demand)
+    const createFormData = ref(null);
+    const isLoadingForm = ref(false);
     
     const getRecordDisplayName = (record) => {
         if (!record) return '';
@@ -192,6 +199,59 @@
         emit('update:modelValue', record.id);
         closeModal();
     };
+
+    const openCreateModal = async () => {
+        if (!createFormData.value) {
+            // Load form data if not already loaded
+            isLoadingForm.value = true;
+            try {
+                // Use the typeDomain directly (e.g., 'BoatMake')
+                const type = props.field.typeDomain;
+                console.log('Loading form for type:', type);
+                console.log('Route URL:', route('records.select-form', { type: type }));
+                const response = await axios.get(route('records.select-form', { type: type }), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                });
+                console.log('Form data loaded:', response.data);
+                createFormData.value = response.data;
+            } catch (error) {
+                console.error('Error loading form data:', error);
+                return; // Don't open modal if loading failed
+            } finally {
+                isLoadingForm.value = false;
+            }
+        }
+
+        showCreateModal.value = true;
+        showModal.value = false; // Close the select modal
+    };
+
+    const closeCreateModal = () => {
+        showCreateModal.value = false;
+        showModal.value = true; // Re-open the select modal
+    };
+
+    const handleRecordCreated = (recordId) => {
+        // Refresh the records list to include the new record
+        fetchRecords();
+        // Select the newly created record
+        selectedRecordId.value = recordId;
+        emit('update:modelValue', recordId);
+        showCreateModal.value = false;
+        showModal.value = false;
+    };
+
+    // Helper function for create modal
+    const getCreateRecordType = () => {
+        if (props.field.typeDomain) {
+            // Convert PascalCase to plural lowercase (e.g., BoatMake -> boatmakes)
+            return props.field.typeDomain.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase() + 's';
+        }
+        return props.fieldKey.replace('_id', 's');
+    };
     
     // Handle pagination
     const nextPage = () => {
@@ -287,15 +347,30 @@
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                             Select {{ field.label }}
                         </h3>
-                        <button
-                            @click="closeModal"
-                            type="button"
-                            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                        >
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        <div class="flex items-center space-x-2">
+                            <!-- Add New Button -->
+                            <button
+                                v-if="field.addNew"
+                                @click="openCreateModal"
+                                type="button"
+                                class="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add New
+                            </button>
+                            <!-- Close Button -->
+                            <button
+                                @click="closeModal"
+                                type="button"
+                                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                            >
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
     
                     <!-- Modal Body -->
@@ -382,6 +457,55 @@
                                 Next
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Modal -->
+            <div v-if="showCreateModal && !disabled" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50">
+                <div class="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl dark:bg-gray-800 flex flex-col">
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Create New {{ field.label }}
+                        </h3>
+                        <button
+                            @click="closeCreateModal"
+                            type="button"
+                            class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                        >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Modal Body -->
+                    <div class="flex-1 overflow-y-auto p-4">
+                        <div v-if="isLoadingForm" class="flex justify-center py-8">
+                            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </div>
+                        <div v-if="!createFormData && !isLoadingForm" class="text-center text-gray-500 py-8">
+                            Form data not loaded
+                        </div>
+                        <div v-else-if="createFormData && !createFormData.formSchema" class="text-center text-red-500 py-8">
+                            Form schema is empty - check if {{ createFormData.recordTitle }} has a form.json file
+                        </div>
+                        <Form
+                            v-else-if="createFormData && createFormData.formSchema"
+                            :schema="createFormData.formSchema"
+                            :fields-schema="createFormData.fieldsSchema"
+                            :record-type="createFormData.recordType"
+                            :record-title="createFormData.recordTitle"
+                            :enum-options="createFormData.enumOptions"
+                            mode="create"
+                            :prevent-redirect="true"
+                            @created="handleRecordCreated"
+                            @cancel="closeCreateModal"
+                        />
                     </div>
                 </div>
             </div>

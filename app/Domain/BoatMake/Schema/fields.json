@@ -1,5 +1,5 @@
 {
-    "title": {
+    "display_name": {
       "label": "Boat Make",
       "type": "text",
       "required": true

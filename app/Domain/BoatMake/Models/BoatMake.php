@@ -9,7 +9,7 @@ class BoatMake extends Model
     protected $table = 'boat_make';
 
     protected $fillable = [
-        'title',
+        'display_name',
         'slug',
         'is_custom',
         'logo',

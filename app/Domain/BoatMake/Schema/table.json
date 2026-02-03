@@ -1,7 +1,7 @@
 {
     "columns": [
       {
-        "key": "title",
+        "key": "display_name",
         "label": "Boat Make",
         "sortable": true
       },

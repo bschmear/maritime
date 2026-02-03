@@ -76,7 +76,7 @@ Route::middleware([
         Route::prefix('inventoryitems')->name('inventoryitems.')->group(function () {
             Route::resource('/', InventoryItemController::class)->parameters(['' => 'inventoryitem']);
         });
-        Route::prefix('boat-make')->name('boatmake.')->group(function () {
+        Route::prefix('boatmakes')->name('boatmakes.')->group(function () {
             Route::resource('/', BoatMakeController::class)->parameters(['' => 'boatmake']);
         });
 
@@ -109,6 +109,7 @@ Route::middleware([
         });
 
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');
+        Route::get('/records/select-form', [GeneralController::class, 'selectForm'])->name('records.select-form');
 
 
         // Profile routes

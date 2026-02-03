@@ -46,4 +46,37 @@ class GeneralController extends BaseController
             ]
         ]);
     }
+
+    public function selectForm(Request $request)
+    {
+        $type = $request->get('type');
+
+        // Get the domain name from the type
+        $domainName = ucfirst($type);
+
+        // Temporarily set the domain name for schema methods
+        $this->domainName = $domainName;
+
+        // Get form schema and fields schema
+        $formSchema = $this->getFormSchema();
+        $fieldsSchemaRaw = $this->getFieldsSchema();
+
+        // Handle fields schema structure - some schemas have a "fields" wrapper
+        $fieldsSchema = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+
+        $enumOptions = $this->getEnumOptions();
+
+        // If it's an AJAX request, return JSON
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+                'recordType' => strtolower($domainName) . 's', // Convert to plural (BoatMake -> boatmakes)
+                'recordTitle' => $domainName,
+            ]);
+        }
+
+        return response()->json(['error' => 'Invalid request'], 400);
+    }
 }

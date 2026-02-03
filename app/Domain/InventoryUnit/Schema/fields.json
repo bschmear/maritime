@@ -64,7 +64,8 @@
             "label": "Vendor",
             "type": "record",
             "typeDomain": "Vendor",
-            "relationship": "vendor"
+            "relationship": "vendor",
+            "addNew": true
         },
         "owner_name": {
             "label": "Owner Name",
@@ -75,7 +76,8 @@
             "label": "Location",
             "type": "record",
             "typeDomain": "Location",
-            "relationship": "location"
+            "relationship": "location",
+            "addNew": true
         },
         "notes": {
             "label": "Notes",

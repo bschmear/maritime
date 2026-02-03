@@ -51,18 +51,23 @@ const sublistSchema = ref({});
 const sublistPagination = ref(null);
 const isLoadingSublist = ref(false);
 
+// Sublist Create Modal State
+const showSublistCreateModal = ref(false);
+const sublistCreateFormData = ref(null);
+const isLoadingSublistForm = ref(false);
+
 const sublists = computed(() => {
     return props.formSchema?.sublists || [];
 });
 
 const formatRouteName = (domain) => {
-    // Convert "InventoryUnit" to "inventory-units.index"
-    // Convert camelCase or PascalCase to kebab-case plural
-    const kebab = domain.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
-    
+    // Convert "InventoryUnit" to "inventoryunits.index"
+    // Convert camelCase or PascalCase to lowercase plural (no hyphens)
+    const lowercase = domain.toLowerCase();
+
     // Simple pluralization (add 's') - might need more robust pluralizer if domain names get complex
-    const plural = kebab.endsWith('s') ? kebab : kebab + 's';
-    
+    const plural = lowercase.endsWith('s') ? lowercase : lowercase + 's';
+
     return `${plural}.index`;
 };
 
@@ -124,6 +129,96 @@ const fetchSublistData = async (sublist, page = 1) => {
 const handleTabChange = (sublist) => {
     activeTab.value = sublist;
     fetchSublistData(sublist);
+};
+
+// Sublist Create Modal Functions
+const openSublistCreateModal = async () => {
+    if (!sublistCreateFormData.value && activeTab.value) {
+        // Load form data if not already loaded
+        isLoadingSublistForm.value = true;
+        try {
+            // Use the domain name directly (e.g., 'InventoryUnit')
+            const type = activeTab.value.domain;
+            const response = await axios.get(route('records.select-form', { type: type }), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+            sublistCreateFormData.value = response.data;
+        } catch (error) {
+            console.error('Error loading sublist form data:', error);
+            return; // Don't open modal if loading failed
+        } finally {
+            isLoadingSublistForm.value = false;
+        }
+    }
+
+    showSublistCreateModal.value = true;
+};
+
+const closeSublistCreateModal = () => {
+    showSublistCreateModal.value = false;
+};
+
+const handleSublistItemCreated = (recordId) => {
+    // Refresh the sublist data to include the new record
+    if (activeTab.value) {
+        fetchSublistData(activeTab.value);
+    }
+    showSublistCreateModal.value = false;
+    sublistCreateFormData.value = null; // Reset form data
+};
+
+// Get initial form data for sublist creation
+const getSublistInitialData = () => {
+    const initialData = {};
+
+    // For InventoryUnit creation, automatically set the inventory_item_id
+    if (activeTab.value?.domain === 'InventoryUnit') {
+        initialData.inventory_item_id = props.record.id;
+        // Also include relationship data so RecordSelect can display the name
+        initialData.inventory_item = {
+            id: props.record.id,
+            display_name: props.record.display_name
+        };
+    }
+
+    return initialData;
+};
+
+// Get modified fields schema for sublist creation (to disable auto-filled fields)
+const getSublistFieldsSchema = () => {
+    if (!sublistCreateFormData.value?.fieldsSchema) return {};
+
+    const fieldsSchema = { ...sublistCreateFormData.value.fieldsSchema };
+
+    // For InventoryUnit creation, disable the inventory_item_id field since it's auto-filled
+    if (activeTab.value?.domain === 'InventoryUnit' && fieldsSchema.inventory_item_id) {
+        fieldsSchema.inventory_item_id = {
+            ...fieldsSchema.inventory_item_id,
+            disabled: true
+        };
+    }
+
+    return fieldsSchema;
+};
+
+// Get record context for sublist creation (provides relationship data for RecordSelect components)
+const getSublistRecordContext = () => {
+    // For create mode, we provide a mock record with relationship data
+    // so RecordSelect components can display the correct names
+    const contextRecord = {};
+
+    // For InventoryUnit creation, provide the inventory_item relationship
+    if (activeTab.value?.domain === 'InventoryUnit') {
+        contextRecord.inventory_item = {
+            id: props.record.id,
+            display_name: props.record.display_name
+        };
+    }
+
+    return contextRecord;
 };
 
 // Initialize first tab if available
@@ -450,8 +545,19 @@ const breadcrumbItems = computed(() => {
                                 </button>
                             </div>
                         </div>
-                        <div v-else-if="!isLoadingSublist" class="text-center py-8 text-gray-500 dark:text-gray-400">
-                            No records found.
+                        <div v-else-if="!isLoadingSublist" class="text-center py-8">
+                            <div class="text-gray-500 dark:text-gray-400 mb-4">
+                                No {{ activeTab?.label || 'records' }} found.
+                            </div>
+                            <button
+                                @click="openSublistCreateModal"
+                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add New {{ activeTab?.label || 'Record' }}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -494,6 +600,49 @@ const breadcrumbItems = computed(() => {
                         Cancel
                     </button>
                 </div>
+            </div>
+        </Modal>
+
+        <!-- Sublist Create Modal -->
+        <Modal :show="showSublistCreateModal" @close="closeSublistCreateModal" :max-width="'4xl'">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Create New {{ activeTab?.label || 'Record' }}
+                </h3>
+                <button
+                    @click="closeSublistCreateModal"
+                    type="button"
+                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="flex-1 overflow-y-auto p-4">
+                <div v-if="isLoadingSublistForm" class="flex justify-center py-8">
+                    <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <Form
+                    v-else-if="sublistCreateFormData"
+                    :schema="sublistCreateFormData.formSchema"
+                    :fields-schema="getSublistFieldsSchema()"
+                    :record="getSublistRecordContext()"
+                    :record-type="sublistCreateFormData.recordType"
+                    :record-title="activeTab?.label || 'Record'"
+                    :enum-options="sublistCreateFormData.enumOptions"
+                    :initial-data="getSublistInitialData()"
+                    mode="create"
+                    :prevent-redirect="true"
+                    @created="handleSublistItemCreated"
+                    @cancel="closeSublistCreateModal"
+                />
             </div>
         </Modal>
     </TenantLayout>

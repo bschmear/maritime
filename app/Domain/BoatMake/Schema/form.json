@@ -1,13 +1,13 @@
 {
   "settings": {
-    "max_width": "4xl"
+    "max_width": "2xl"
   },
   "form": {
     "primary": {
       "label": "Primary Information",
       "fields": [
         {
-          "key": "title",
+          "key": "display_name",
           "required": true
         }
       ]

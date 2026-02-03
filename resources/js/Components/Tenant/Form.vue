@@ -54,6 +54,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    initialData: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -94,12 +98,17 @@ const getFieldDefinition = (fieldKey) => {
 const initializeFormData = () => {
     const formData = {};
 
+    // Start with initial data if provided (for create mode with pre-filled values)
+    if (props.initialData && Object.keys(props.initialData).length > 0) {
+        Object.assign(formData, props.initialData);
+    }
+
     if (props.record) {
         // First, copy all record data
         Object.keys(props.record).forEach(key => {
             const fieldDef = getFieldDefinition(key);
             const value = props.record[key];
-            
+
             // Handle date/datetime fields - convert to proper format for inputs
             if (fieldDef.type === 'datetime' || fieldDef.type === 'date') {
                 if (value) {
@@ -138,7 +147,7 @@ const initializeFormData = () => {
                     if (!(field.key in formData)) {
                         const fieldDef = getFieldDefinition(field.key);
                         const fieldType = fieldDef.type || 'text';
-                        
+
                         // Check for default_value first
                         if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
                             formData[field.key] = fieldDef.default_value;
@@ -164,7 +173,7 @@ const initializeFormData = () => {
                             formData[field.key] = null;
                         } else if (fieldType === 'rating') {
                             formData[field.key] = 0; // Initialize rating as 0
-                        } else if (fieldType === 'checkbox' || fieldType === 'boolean') {
+                        } else if (fieldType === 'checkbox' || fieldDef.type === 'boolean') {
                             formData[field.key] = 0; // Initialize as 0 (unchecked)
                         } else {
                             formData[field.key] = '';
@@ -244,6 +253,7 @@ watch(() => form.data(), (newData, oldData) => {
 
 const formGroups = computed(() => {
     if (!normalizedSchema.value) return [];
+
     // Ensure reactivity to form changes for conditional group/field visibility
     const currentFormData = form.data();
 

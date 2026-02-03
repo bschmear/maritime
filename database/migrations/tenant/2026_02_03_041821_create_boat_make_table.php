@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('boat_make', function (Blueprint $table) {
             $table->id();
-            $table->string('title');
+            $table->string('display_name');
             $table->string('slug')->nullable()->unique();
             $table->boolean('is_custom')->default(false);
             $table->string('logo')->nullable();

@@ -39,7 +39,8 @@
   },
   "year": {
     "label": "Year",
-    "type": "number"
+    "type": "number",
+    "isYear": true
   },
   "length": {
     "label": "Length",
