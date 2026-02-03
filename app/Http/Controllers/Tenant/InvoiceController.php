@@ -28,7 +28,7 @@ class InvoiceController extends RecordController
 
     public function index(Request $request)
     {
-        return 'invoice table';
+        return inertia('Tenant/Invoice/Index');
     }
 
     /**
@@ -36,7 +36,7 @@ class InvoiceController extends RecordController
      */
     public function show(Request $request, $id)
     {
-        return inertia('Tenant/' . $this->domainName . '/Show');
+        return inertia('Tenant/Invoice/Show');
     }
 
     /**
@@ -44,7 +44,7 @@ class InvoiceController extends RecordController
      */
     public function create()
     {
-        return inertia('Tenant/' . $this->domainName . '/Create');
+        return inertia('Tenant/Invoice/Create');
     }
 
 }

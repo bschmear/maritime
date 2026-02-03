@@ -27,9 +27,11 @@
     "type": "select",
     "enum": "App\\Enums\\Inventory\\BoatType"
   },
-  "make": {
+  "boat_make_id": {
     "label": "Make",
-    "type": "text"
+    "type": "record",
+    "typeDomain": "BoatMake",
+    "addNew": true
   },
   "model": {
     "label": "Model",

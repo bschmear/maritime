@@ -25,4 +25,29 @@ class TransactionController extends RecordController
             $this->recordType // Domain name for schema lookup
         );
     }
+
+
+    public function index(Request $request)
+    {
+        return inertia('Tenant/Transaction/Index');
+    }
+
+    /**
+     * Show a specific user with role relationship loaded.
+     */
+    public function show(Request $request, $id)
+    {
+        return inertia('Tenant/Transaction/Show');
+    }
+
+    /**
+     * Show a specific user with role relationship loaded.
+     */
+    public function create()
+    {
+        return inertia('Tenant/' . $this->domainName . '/Create');
+    }
+
+
+
 }

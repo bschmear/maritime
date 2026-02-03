@@ -21,6 +21,10 @@
         {
           "key": "inactive",
           "required": false
+        },
+        {
+          "key": "description",
+          "required": false
         }
       ]
     },
@@ -49,7 +53,7 @@
           "required": false
         },
         {
-          "key": "make",
+          "key": "boat_make_id",
           "required": false
         },
         {
@@ -132,15 +136,6 @@
         },
         {
           "key": "videos",
-          "required": false
-        }
-      ]
-    },
-    "description": {
-      "label": "Description",
-      "fields": [
-        {
-          "key": "description",
           "required": false
         }
       ]

@@ -1,0 +1,44 @@
+{
+    "title": {
+      "label": "Boat Make",
+      "type": "text",
+      "required": true
+    },
+    "slug": {
+      "label": "Slug",
+      "type": "text",
+      "disabled": true,
+      "description": "Unique identifier or enum reference"
+    },
+    "is_custom": {
+      "label": "Custom Make",
+      "type": "boolean",
+      "help": "Check if this is a custom boat make"
+    },
+    "logo": {
+      "label": "Logo",
+      "type": "image",
+      "validation": "nullable|image|max:2048",
+      "help": "Upload a logo for custom makes (max 2MB, JPG, PNG, GIF)",
+      "meta": {
+        "directory": "boat_makes",
+        "private": false,
+        "max_width": 500
+      }
+    },
+    "active": {
+      "label": "Active",
+      "type": "boolean",
+      "help": "Uncheck to mark the make as inactive"
+    },
+    "created_at": {
+      "label": "Created At",
+      "type": "datetime",
+      "disabled": true
+    },
+    "updated_at": {
+      "label": "Updated At",
+      "type": "datetime",
+      "disabled": true
+    }
+  }

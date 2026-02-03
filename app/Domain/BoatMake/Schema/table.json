@@ -1,0 +1,15 @@
+{
+    "columns": [
+      {
+        "key": "title",
+        "label": "Boat Make",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      }
+    ]
+  }
+  

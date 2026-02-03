@@ -8,9 +8,12 @@ enum LocationType: string
     case Marina = 'marina';
     case Service = 'service';
     case Storage = 'storage';
+    case Warehouse = 'warehouse';
+    case Storefront = 'storefront';
     case Parts = 'parts';
     case Corporate = 'corporate';
     case Other = 'other';
+
     public function id(): int
     {
         return match ($this) {
@@ -18,9 +21,11 @@ enum LocationType: string
             self::Marina => 2,
             self::Service => 3,
             self::Storage => 4,
-            self::Parts => 5,
-            self::Corporate => 6,
-            self::Other => 7,
+            self::Warehouse => 5,
+            self::Storefront => 6,
+            self::Parts => 7,
+            self::Corporate => 8,
+            self::Other => 9,
         };
     }
 
@@ -31,6 +36,8 @@ enum LocationType: string
             self::Marina => 'Marina',
             self::Service => 'Service Center',
             self::Storage => 'Storage Facility',
+            self::Warehouse => 'Warehouse',
+            self::Storefront => 'Retail Storefront',
             self::Parts => 'Parts Department',
             self::Corporate => 'Corporate / HQ',
             self::Other => 'Other',
@@ -39,7 +46,7 @@ enum LocationType: string
 
     public static function options(): array
     {
-        return array_map(fn(self $case) => [
+        return array_map(fn (self $case) => [
             'id' => $case->id(),
             'value' => $case->value,
             'name' => $case->label(),

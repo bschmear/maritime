@@ -4,7 +4,7 @@ namespace App\Domain\InventoryItem\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Domain\InventoryUnit\Models\InventoryUnit;
-
+use App\Domain\BoatMake\Models\BoatMake;
 class InventoryItem extends Model
 {
     protected $fillable = [
@@ -13,7 +13,7 @@ class InventoryItem extends Model
         'display_name',
         'slug',
         'boat_type',
-        'make',
+        'boat_make_id',
         'model',
         'year',
         'length',
@@ -45,6 +45,10 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryUnit::class);
     }
 
+    public function boat_make()
+    {
+        return $this->belongsTo(BoatMake::class, 'boat_make_id', 'id');
+    }
     /**
      * Automatically generate slug
      */
@@ -52,7 +56,7 @@ class InventoryItem extends Model
     {
         parent::boot();
 
-        static::creating(function ($item) {
+        static::creating(callback: function ($item) {
             if (empty($item->slug) && !empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }

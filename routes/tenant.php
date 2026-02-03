@@ -23,6 +23,7 @@ use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
+use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -66,8 +67,17 @@ Route::middleware([
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
         });
 
+        // Route::prefix('inventory')->group(function () {
+        //     Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
+        //     Route::get('/make', [InventoryController::class, 'make'])->name('inventory.make');
+        //     Route::get('/type', [InventoryController::class, 'type'])->name('inventory.type');
+        // });
+
         Route::prefix('inventoryitems')->name('inventoryitems.')->group(function () {
             Route::resource('/', InventoryItemController::class)->parameters(['' => 'inventoryitem']);
+        });
+        Route::prefix('boat-make')->name('boatmake.')->group(function () {
+            Route::resource('/', BoatMakeController::class)->parameters(['' => 'boatmake']);
         });
 
         Route::prefix('inventoryunits')->name('inventoryunits.')->group(function () {

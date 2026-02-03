@@ -16,7 +16,7 @@
       "sortable": true
     },
     {
-      "key": "make",
+      "key": "boat_make_id",
       "label": "Make",
       "sortable": true
     },

@@ -4,7 +4,7 @@ import Footer from '@/Components/Footer.vue';
 </script>
 
 <template>
-    <div class="flex min-h-screen flex-col">
+    <div class="flex min-h-screen flex-col ">
         <!-- Global Navbar -->
         <Navbar />
 
@@ -16,7 +16,7 @@ import Footer from '@/Components/Footer.vue';
         </header>
 
         <!-- Page Content -->
-        <main class="flex-grow bg-gray-100">
+        <main class="flex-grow bg-gray-100  dark:bg-gray-900">
             <slot />
         </main>
         <Footer />
