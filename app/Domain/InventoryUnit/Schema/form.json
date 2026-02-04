@@ -17,10 +17,10 @@
     },
     "secondary": {
       "label": "Details",
-      "fields": [
+      "fields": [        
         { "key": "condition", "required": true },
         { "key": "status", "required": true },
-        { "key": "engine_hours", "required": false },
+        { "key": "engine_hours", "required": false, "conditional": { "key": "InventoryItem.type", "value": 1} },
         { "key": "cost", "required": false },
         { "key": "asking_price", "required": false },
         { "key": "price_history", "required": false, "hidden": true }
@@ -44,6 +44,12 @@
       "fields": [
         { "key": "notes", "required": false }
       ]
+    }
+  },
+  "sublistConditions": {
+    "auto_fill": {
+      "cost": "InventoryItem.default_cost",
+      "asking_price": "InventoryItem.default_price"
     }
   }
 }

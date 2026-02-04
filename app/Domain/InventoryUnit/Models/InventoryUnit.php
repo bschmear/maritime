@@ -4,8 +4,8 @@ namespace App\Domain\InventoryUnit\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Domain\InventoryItem\Models\InventoryItem;
-use App\Models\User;
-use App\Models\Location;
+use App\Domain\Vendor\Models\Vendor;
+use App\Domain\Location\Models\Location;
 
 class InventoryUnit extends Model
 {
@@ -41,11 +41,16 @@ class InventoryUnit extends Model
     ];
 
     /**
+     * Attributes to append to model's array/JSON form
+     */
+    protected $appends = ['display_name'];
+
+    /**
      * Unit belongs to an inventory item
      */
     public function inventoryItem()
     {
-        return $this->belongsTo(InventoryItem::class);
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
 
     /**
@@ -53,7 +58,7 @@ class InventoryUnit extends Model
      */
     public function vendor()
     {
-        return $this->belongsTo(User::class, 'vendor_id');
+        return $this->belongsTo(Vendor::class, 'vendor_id');
     }
 
     /**
@@ -62,5 +67,26 @@ class InventoryUnit extends Model
     public function location()
     {
         return $this->belongsTo(Location::class);
+    }
+
+    /**
+     * Generate a display name for the unit
+     * Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
+     */
+    public function getDisplayNameAttribute()
+    {
+        if (!empty($this->serial_number)) {
+            return "SN: {$this->serial_number}";
+        }
+        
+        if (!empty($this->hull_id)) {
+            return "HIN: {$this->hull_id}";
+        }
+        
+        if (!empty($this->sku)) {
+            return "SKU: {$this->sku}";
+        }
+        
+        return "Unit #{$this->id}";
     }
 }

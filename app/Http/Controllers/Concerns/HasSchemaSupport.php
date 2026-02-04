@@ -61,11 +61,14 @@ trait HasSchemaSupport
 
     protected function getEnumOptions()
     {
-        $fieldsSchema = $this->getFieldsSchema();
+        $fieldsSchemaRaw = $this->getFieldsSchema();
 
-        if (!$fieldsSchema) {
+        if (!$fieldsSchemaRaw) {
             return [];
         }
+
+        // Handle fields wrapper like GeneralController does
+        $fieldsSchema = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
 
         $enumOptions = [];
 

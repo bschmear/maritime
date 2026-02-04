@@ -110,4 +110,6 @@ th {
     @apply text-white bg-blue-600  hover:text-white hover:bg-blue-600 dark:hover:bg-blue-600 dark:hover:text-white;
 }
 
-
+a, td {
+    white-space: nowrap;
+}

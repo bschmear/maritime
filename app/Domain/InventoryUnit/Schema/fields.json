@@ -4,8 +4,9 @@
             "label": "Inventory Item",
             "type": "record",
             "typeDomain": "InventoryItem",
-            "relationship": "inventory_item",
-            "required": true
+            "relationship": "inventoryItem",
+            "required": true,
+            "locked": true
         },
         "serial_number": {
             "label": "Serial Number",
@@ -30,6 +31,7 @@
             "label": "Quantity",
             "type": "number",
             "min": 1,
+            "default": 1,
             "description": "Used for parts and accessories. Boats typically remain 1."
         },
         "condition": {
@@ -45,6 +47,8 @@
         "engine_hours": {
             "label": "Engine Hours",
             "type": "number",
+            "min": 0,
+            "default": 0,
             "description": "Applies primarily to boats"
         },
         "cost": {
@@ -77,7 +81,8 @@
             "type": "record",
             "typeDomain": "Location",
             "relationship": "location",
-            "addNew": true
+            "addNew": true,
+            "displayField": "display_name"
         },
         "notes": {
             "label": "Notes",
@@ -86,6 +91,16 @@
         "inactive": {
             "label": "Inactive",
             "type": "boolean"
+        },
+        "created_at": {
+            "label": "Created At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "updated_at": {
+            "label": "Updated At",
+            "type": "datetime",
+            "readOnly": true
         }
     }
 }

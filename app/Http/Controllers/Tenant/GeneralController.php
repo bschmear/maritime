@@ -66,6 +66,17 @@ class GeneralController extends BaseController
 
         $enumOptions = $this->getEnumOptions();
 
+        // Debug: ensure enum options are loaded
+        if (empty($enumOptions)) {
+            // Fallback: manually load the enum options for InventoryUnit
+            if ($domainName === 'InventoryUnit') {
+                $enumOptions = [
+                    'App\Enums\Inventory\UnitCondition' => \App\Enums\Inventory\UnitCondition::options(),
+                    'App\Enums\Inventory\UnitStatus' => \App\Enums\Inventory\UnitStatus::options(),
+                ];
+            }
+        }
+
         // If it's an AJAX request, return JSON
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([

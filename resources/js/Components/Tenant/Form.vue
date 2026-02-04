@@ -10,6 +10,7 @@ import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
+import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 
 const props = defineProps({
@@ -148,8 +149,11 @@ const initializeFormData = () => {
                         const fieldDef = getFieldDefinition(field.key);
                         const fieldType = fieldDef.type || 'text';
 
-                        // Check for default_value first
-                        if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
+                        // Check for default or default_value
+                        if (fieldDef.default !== undefined && fieldDef.default !== null) {
+                            formData[field.key] = fieldDef.default;
+                        }
+                        else if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
                             formData[field.key] = fieldDef.default_value;
                         }
                         // Check for default_today for date fields
@@ -274,6 +278,11 @@ const formGroups = computed(() => {
 const openSections = ref({});
 const imagePreviews = ref({});
 
+// Generate localStorage key for this form's section states
+const getStorageKey = () => {
+    return `form-sections-${props.recordType}-${props.mode}`;
+};
+
 const handleImageInput = (fieldKey, event) => {
     const file = event.target.files[0];
     if (file) {
@@ -299,14 +308,40 @@ const getImageSource = (fieldKey) => {
     return null;
 };
 
-// Initialize all sections as open
+// Initialize sections from localStorage or default to open
 watch(() => formGroups.value, (groups) => {
     if (groups.length > 0 && Object.keys(openSections.value).length === 0) {
-        groups.forEach(group => {
-            openSections.value[group.key] = true;
-        });
+        // Try to load saved state from localStorage
+        const storageKey = getStorageKey();
+        const savedState = localStorage.getItem(storageKey);
+        
+        if (savedState) {
+            try {
+                const parsed = JSON.parse(savedState);
+                groups.forEach(group => {
+                    // Use saved state if available, otherwise default to open
+                    openSections.value[group.key] = parsed[group.key] !== undefined ? parsed[group.key] : true;
+                });
+            } catch (e) {
+                // If parsing fails, default all to open
+                groups.forEach(group => {
+                    openSections.value[group.key] = true;
+                });
+            }
+        } else {
+            // No saved state, default all to open
+            groups.forEach(group => {
+                openSections.value[group.key] = true;
+            });
+        }
     }
 }, { immediate: true });
+
+// Save section state to localStorage whenever it changes
+watch(openSections, (newState) => {
+    const storageKey = getStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(newState));
+}, { deep: true });
 
 const toggleSection = (key) => {
     openSections.value[key] = !openSections.value[key];
@@ -320,6 +355,11 @@ const getEnumOptions = (fieldKey) => {
     }
     // Handle record type fields
     if (fieldDef.type === 'record' && fieldDef.typeDomain) {
+        // First check if options are keyed by field key (preferred)
+        if (props.enumOptions[fieldKey]) {
+            return props.enumOptions[fieldKey];
+        }
+        // Fallback to domain key format
         const domainKey = `Domain\\${fieldDef.typeDomain}\\Models\\${fieldDef.typeDomain}`;
         return props.enumOptions[domainKey] || [];
     }
@@ -371,6 +411,51 @@ const isFieldDisabled = (fieldKey) => {
     return fieldDef.disabled === true || (!isEditMode.value && props.mode === 'view');
 };
 
+// Helper function to get value from field path (supports dot notation for related records)
+const getConditionalFieldValue = (fieldPath) => {
+    // Check if it's a dot notation path (e.g., "inventory_item.type" or "InventoryItem.type")
+    if (fieldPath.includes('.')) {
+        let [relationshipOrTypeDomain, fieldName] = fieldPath.split('.', 2);
+        let relationshipName = relationshipOrTypeDomain;
+
+        // Check if the first part matches a typeDomain (e.g., "InventoryItem")
+        // If so, find the corresponding field and get its relationship name
+        if (props.fieldsSchema) {
+            const fieldWithTypeDomain = Object.values(props.fieldsSchema).find(
+                field => field.typeDomain === relationshipOrTypeDomain
+            );
+
+            if (fieldWithTypeDomain && fieldWithTypeDomain.relationship) {
+                relationshipName = fieldWithTypeDomain.relationship;
+            }
+        }
+
+        // First check if we have the relationship data in props.record (for edit mode)
+        if (props.record && props.record[relationshipName]) {
+            return props.record[relationshipName][fieldName];
+        }
+
+        // For create mode or when relationship data isn't loaded,
+        // try to find it in the form data (relationships are stored as objects)
+        const relationshipData = form[relationshipName];
+        if (relationshipData && typeof relationshipData === 'object') {
+            return relationshipData[fieldName];
+        }
+
+        // Also check initialData directly (for cases where form hasn't been initialized yet)
+        if (props.initialData && props.initialData[relationshipName] && typeof props.initialData[relationshipName] === 'object') {
+            return props.initialData[relationshipName][fieldName];
+        }
+
+        // Fallback: check if the field name itself contains the relationship data
+        // (e.g., for cases where the relationship is stored directly in form)
+        return undefined;
+    }
+
+    // Regular field access
+    return form[fieldPath];
+};
+
 const isFieldVisible = (field) => {
     // Guard clause - if field is undefined/null, hide it
     if (!field || typeof field !== 'object') {
@@ -385,7 +470,7 @@ const isFieldVisible = (field) => {
     // Check if field has conditional logic
     if (field.conditional && typeof field.conditional === 'object') {
         const { key, value, operator = 'equals' } = field.conditional;
-        const currentValue = form[key];
+        const currentValue = getConditionalFieldValue(key);
 
         switch (operator) {
             case 'equals':
@@ -558,77 +643,6 @@ const handlePhoneInput = (fieldKey, event) => {
 const getFormattedPhoneValue = (fieldKey) => {
     const value = form[fieldKey] || '';
     return formatPhoneNumber(value);
-};
-
-// Number formatting functions
-const formatNumber = (value) => {
-    if (value === null || value === undefined || value === '') return '';
-    // specific check to avoid formatting partial decimals like "12." losing the decimal
-    const strValue = String(value);
-    const parts = strValue.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return parts.join('.');
-};
-
-const unformatNumber = (value) => {
-    if (value === null || value === undefined || value === '') return null;
-    return String(value).replace(/,/g, '');
-};
-
-const handleNumberInput = (fieldKey, event) => {
-    const input = event.target;
-    const cursorPosition = input.selectionStart;
-    const oldValue = input.value;
-    
-    // Remove commas to get raw number
-    const unformatted = unformatNumber(oldValue);
-    
-    // Update form data with raw number (or string representation of it)
-    form[fieldKey] = unformatted;
-    
-    // Format for display
-    const formatted = formatNumber(unformatted);
-    
-    // Only update display if it changed (avoids cursor jump issues on simple appends)
-    if (input.value !== formatted) {
-         input.value = formatted;
-
-         // Restore cursor position
-         // Count distinct numbers before the cursor in the ORIGINAL value
-         // We only care about digits, not commas
-         let digitCountBeforeCursor = 0;
-         for (let i = 0; i < cursorPosition; i++) {
-             if (/\d/.test(oldValue[i])) {
-                 digitCountBeforeCursor++;
-             }
-         }
-
-         // Find the new position in the FORMATTED value
-         let newPosition = 0;
-         let digitsEncountered = 0;
-         for (let i = 0; i < formatted.length; i++) {
-             if (/\d/.test(formatted[i])) {
-                 digitsEncountered++;
-             }
-             if (digitsEncountered === digitCountBeforeCursor) {
-                 // If we've found all our digits, we are basically done.
-                 // But if the next char is a comma, we might want to step over it?
-                 // Usually standard behavior is fine, let's just break here or check next char.
-                 // Actually, we just need the index AFTER this digit.
-                 newPosition = i + 1;
-                 break;
-             }
-         }
-
-         // If we had 0 digits before cursor (beginning of string), newPosition is 0
-         if (digitCountBeforeCursor === 0) newPosition = 0;
-         
-         // Set the selection range
-         // Vue updates DOM asynchronously sometimes, but setting value directly helps.
-         // We verify if we need nextTick or can do it immediately.
-         // Usually doing it immediately works if we manipulated input.value directly.
-         input.setSelectionRange(newPosition, newPosition);
-    }
 };
 
 // Address Autocomplete Helpers
@@ -1103,15 +1117,16 @@ defineExpose({
                                         </div>
 
                                         <!-- Number Input -->
-                                        <input
+                                        <NumberInput
                                             v-else-if="getFieldType(field.key) === 'number'"
                                             :id="getFieldId(field.key)"
-                                            :value="formatNumber(form[field.key])"
-                                            @input="handleNumberInput(field.key, $event)"
-                                            type="text"
+                                            v-model="form[field.key]"
                                             :required="isFieldRequired(field)"
                                             :disabled="isFieldDisabled(field.key)"
-                                            class="input-style"
+                                            :min="getFieldDefinition(field.key).min"
+                                            :max="getFieldDefinition(field.key).max"
+                                            :step="getFieldDefinition(field.key).step || 1"
+                                            :allow-decimals="getFieldDefinition(field.key).allow_decimals !== false"
                                         />
 
                                         <!-- Currency Input -->

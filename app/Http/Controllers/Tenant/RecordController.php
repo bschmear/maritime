@@ -44,11 +44,21 @@ class RecordController extends BaseController
         $this->deleteAction = $deleteAction;
         $this->domainName = $domainName ?? $recordTitle;
     }
+    
+    /**
+     * Get unwrapped fields schema (handles both wrapped and unwrapped structures)
+     */
+    protected function getUnwrappedFieldsSchema()
+    {
+        $fieldsSchemaRaw = $this->getFieldsSchema();
+        // Unwrap fields if necessary
+        return isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+    }
 
     public function index(Request $request)
     {
         $columns = $this->getSchemaColumns();
-        $fieldsSchema = $this->getFieldsSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
@@ -63,8 +73,19 @@ class RecordController extends BaseController
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
-                $relationships[$relationshipName] = function ($query) {
-                    $query->select('id', 'display_name');
+                // Determine which fields to select for this relationship
+                $selectFields = ['id', 'display_name'];
+                
+                // If a custom displayField is specified, add it to the select
+                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                    $selectFields[] = $fieldDef['displayField'];
+                }
+                
+                // Make sure we have unique fields
+                $selectFields = array_unique($selectFields);
+
+                $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                    $query->select($selectFields);
                 };
             }
         }
@@ -88,7 +109,16 @@ class RecordController extends BaseController
             }
         }
 
-        $query->orderByRaw('LOWER(display_name) ASC');
+        // Order by display_name if the column exists, otherwise by created_at
+        $tableName = $this->recordModel->getTable();
+        $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+            ->hasColumn($tableName, 'display_name');
+        
+        if ($hasDisplayName) {
+            $query->orderByRaw('LOWER(display_name) ASC');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
 
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
@@ -98,7 +128,7 @@ class RecordController extends BaseController
             return response()->json([
                 'records' => $records->items(),
                 'schema' => $schema,
-                'fieldsSchema' => $fieldsSchema,
+                'fieldsSchema' => $fieldsSchema, // Already unwrapped above
                 'meta' => [
                     'current_page' => $records->currentPage(),
                     'last_page' => $records->lastPage(),
@@ -126,7 +156,7 @@ class RecordController extends BaseController
     public function create()
     {
         $formSchema = $this->getFormSchema();
-        $fieldsSchema = $this->getFieldsSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
         return inertia('Tenant/' . $this->domainName . '/Create', [
@@ -141,7 +171,7 @@ class RecordController extends BaseController
     {
         try {
             $data = $request->all();
-            $fieldsSchema = $this->getFieldsSchema();
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
             // Handle image uploads
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
@@ -199,18 +229,28 @@ class RecordController extends BaseController
                 // If it's an AJAX request that wants JSON, return JSON instead of redirecting
                 if ($request->ajax() && !$request->header('X-Inertia')) {
                     // Reload the record with relationships to ensure display_name is available
-                    $fieldsSchema = $this->getFieldsSchema();
+                    $fieldsSchema = $this->getUnwrappedFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
-                    // Add record type relationships with only id and display_name
+                    // Add record type relationships with id, display_name, and custom displayField
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                                $relationships[$relationshipName] = function ($query) {
-                                    $query->select('id', 'display_name');
-                                };
+                            $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
+                            
+                            // Determine which fields to select for this relationship
+                            $selectFields = ['id', 'display_name'];
+                            
+                            // If a custom displayField is specified, add it to the select
+                            if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                                $selectFields[] = $fieldDef['displayField'];
                             }
+                            
+                            // Make sure we have unique fields
+                            $selectFields = array_unique($selectFields);
+                            
+                            $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                                $query->select($selectFields);
+                            };
                         }
                     }
 
@@ -261,19 +301,30 @@ class RecordController extends BaseController
 
     public function show(Request $request, $id)
     {
-        $fieldsSchema = $this->getFieldsSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
         // Build relationships array including both morph and record types
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
-        // Add record type relationships with only id and display_name
+        // Add record type relationships with id, display_name, and custom displayField
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                // Only select id and display_name for the related record
-                $relationships[$relationshipName] = function ($query) {
-                    $query->select('id', 'display_name');
+                
+                // Determine which fields to select for this relationship
+                $selectFields = ['id', 'display_name'];
+                
+                // If a custom displayField is specified, add it to the select
+                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                    $selectFields[] = $fieldDef['displayField'];
+                }
+                
+                // Make sure we have unique fields
+                $selectFields = array_unique($selectFields);
+                
+                $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                    $query->select($selectFields);
                 };
             }
         }
@@ -291,6 +342,8 @@ class RecordController extends BaseController
             return response()->json([
                 'record' => $record,
                 'recordType' => $this->recordType,
+                'recordTitle' => $this->recordTitle,
+                'domainName' => $this->domainName,
                 'formSchema' => $formSchema,
                 'fieldsSchema' => $fieldsSchema,
                 'enumOptions' => $enumOptions,
@@ -302,6 +355,8 @@ class RecordController extends BaseController
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $record,
             'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'domainName' => $this->domainName,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
@@ -313,7 +368,7 @@ class RecordController extends BaseController
     {
         $record = $this->recordModel->findOrFail($id);
         $formSchema = $this->getFormSchema();
-        $fieldsSchema = $this->getFieldsSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
         return inertia('Tenant/' . $this->domainName . '/Edit', [
@@ -330,7 +385,7 @@ class RecordController extends BaseController
     {
         try {
             $data = $request->all();
-            $fieldsSchema = $this->getFieldsSchema();
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
             // Handle image uploads
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                 if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
@@ -395,15 +450,27 @@ class RecordController extends BaseController
                 if ($request->ajax() && !$request->header('X-Inertia')) {
 
                     // Reload the record with relationships to ensure display_name is available
-                    $fieldsSchema = $this->getFieldsSchema();
+                    $fieldsSchema = $this->getUnwrappedFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
-                    // Add record type relationships with only id and display_name
+                    // Add record type relationships with id, display_name, and custom displayField
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                            $relationships[$relationshipName] = function ($query) {
-                                $query->select('id', 'display_name');
+                            
+                            // Determine which fields to select for this relationship
+                            $selectFields = ['id', 'display_name'];
+                            
+                            // If a custom displayField is specified, add it to the select
+                            if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                                $selectFields[] = $fieldDef['displayField'];
+                            }
+                            
+                            // Make sure we have unique fields
+                            $selectFields = array_unique($selectFields);
+                            
+                            $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                                $query->select($selectFields);
                             };
                         }
                     }

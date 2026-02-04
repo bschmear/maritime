@@ -9,20 +9,17 @@ use Illuminate\Http\Request;
 
 class InventoryUnitController extends RecordController
 {
-    protected $recordType = 'InventoryUnit';
-    protected $table = null;
-
     public function __construct(Request $request)
     {
         parent::__construct(
             $request,
-            'inventoryunits',
-            'InventoryUnit',
-            new RecordModel(),
-            new CreateAction(),
-            new UpdateAction(),
-            new DeleteAction(),
-            $this->recordType // Domain name for schema lookup
+            'inventoryunits',        // recordType (route parameter name)
+            'InventoryUnit',         // recordTitle (display name)
+            new RecordModel(),       // Model instance
+            new CreateAction(),      // Create action
+            new UpdateAction(),      // Update action
+            new DeleteAction(),      // Delete action
+            'InventoryUnit'          // domainName (for schema lookup)
         );
     }
 }
