@@ -5,6 +5,8 @@ namespace App\Domain\InventoryItem\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Domain\InventoryUnit\Models\InventoryUnit;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Domain\InventoryImage\Models\InventoryImage;
+
 class InventoryItem extends Model
 {
     protected $fillable = [
@@ -49,6 +51,12 @@ class InventoryItem extends Model
     {
         return $this->belongsTo(BoatMake::class, 'boat_make_id', 'id');
     }
+
+    public function images()
+    {
+        return $this->morphMany(InventoryImage::class, 'imageable');
+    }
+
     /**
      * Automatically generate slug
      */
@@ -68,4 +76,5 @@ class InventoryItem extends Model
             }
         });
     }
+
 }

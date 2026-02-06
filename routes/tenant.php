@@ -23,6 +23,7 @@ use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
+use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
@@ -82,6 +83,10 @@ Route::middleware([
 
         Route::prefix('inventoryunits')->name('inventoryunits.')->group(function () {
             Route::resource('/', InventoryUnitController::class)->parameters(['' => 'inventoryunit']);
+        });
+
+        Route::prefix('inventoryimages')->name('inventoryimages.')->group(function () {
+            Route::resource('/', InventoryImageController::class)->parameters(['' => 'inventoryimage']);
         });
 
         Route::prefix('tasks')->name('tasks.')->group(function () {

@@ -199,13 +199,20 @@ trait HasSchemaSupport
 
     protected function applyFilters($query, array $filters, $fieldsSchema)
     {
-        foreach ($filters as $filter) {
-            if (!isset($filter['field']) || !isset($filter['operator'])) {
+        foreach ($filters as $key => $filter) {
+            // Handle simple key-value filters (e.g., ['inventory_item_id' => 2])
+            if (!is_array($filter)) {
+                $query->where($key, '=', $filter);
+                continue;
+            }
+            
+            // Handle structured filters with field, operator, value
+            if (!isset($filter['field'])) {
                 continue;
             }
             
             $field = $filter['field'];
-            $operator = $filter['operator'];
+            $operator = $filter['operator'] ?? 'equals';
             $value = $filter['value'] ?? null;
             
             $fieldConfig = $fieldsSchema[$field] ?? [];
@@ -213,16 +220,36 @@ trait HasSchemaSupport
             
             switch ($operator) {
                 case 'contains':
-                    $query->where($field, 'LIKE', "%{$value}%");
+                    // Case-insensitive search using ILIKE (PostgreSQL) or LOWER()
+                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', ['%' . strtolower($value) . '%']);
+                    } else {
+                        $query->where($field, 'LIKE', "%{$value}%");
+                    }
                     break;
                 case 'equals':
-                    $query->where($field, '=', $value);
+                    // Case-insensitive for text fields
+                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                        $query->whereRaw('LOWER(' . $field . ') = ?', [strtolower($value)]);
+                    } else {
+                        $query->where($field, '=', $value);
+                    }
                     break;
                 case 'starts_with':
-                    $query->where($field, 'LIKE', "{$value}%");
+                    // Case-insensitive search
+                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', [strtolower($value) . '%']);
+                    } else {
+                        $query->where($field, 'LIKE', "{$value}%");
+                    }
                     break;
                 case 'ends_with':
-                    $query->where($field, 'LIKE', "%{$value}");
+                    // Case-insensitive search
+                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', ['%' . strtolower($value)]);
+                    } else {
+                        $query->where($field, 'LIKE', "%{$value}");
+                    }
                     break;
                 case 'is_empty':
                     $query->where(function($q) use ($field) {
@@ -233,7 +260,12 @@ trait HasSchemaSupport
                     $query->whereNotNull($field)->where($field, '!=', '');
                     break;
                 case 'not_equals':
-                    $query->where($field, '!=', $value);
+                    // Case-insensitive for text fields
+                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                        $query->whereRaw('LOWER(' . $field . ') != ?', [strtolower($value)]);
+                    } else {
+                        $query->where($field, '!=', $value);
+                    }
                     break;
                 case 'any_of':
                     if (is_array($value)) {

@@ -1,0 +1,34 @@
+{
+    "columns": [
+        {
+            "key": "id",
+            "label": "ID",
+            "sortable": true
+        },
+        {
+            "key": "display_name",
+            "label": "Name",
+            "sortable": true
+        },
+        {
+            "key": "file",
+            "label": "File",
+            "sortable": false
+        },
+        {
+            "key": "is_primary",
+            "label": "Primary",
+            "sortable": true
+        },
+        {
+            "key": "sort_order",
+            "label": "Order",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ]
+}

@@ -37,6 +37,10 @@ const props = defineProps({
     allowDecimals: {
         type: Boolean,
         default: true
+    },
+    isYear: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -48,6 +52,11 @@ const displayValue = ref('');
 // Format number with commas for display
 const formatNumber = (value) => {
     if (value === null || value === undefined || value === '') return '';
+    
+    // If it's a year field, don't format with commas
+    if (props.isYear) {
+        return String(value);
+    }
     
     // Convert to string to handle decimals properly
     const strValue = String(value);
@@ -90,7 +99,13 @@ const handleInput = (event) => {
     
     // Validate: only allow numbers and decimal point
     let cleaned = unformatted;
-    if (props.allowDecimals) {
+    if (props.isYear) {
+        // Year field: only allow digits, max 4 characters
+        cleaned = cleaned.replace(/\D/g, '');
+        if (cleaned.length > 4) {
+            cleaned = cleaned.slice(0, 4);
+        }
+    } else if (props.allowDecimals) {
         // Allow digits and single decimal point
         cleaned = cleaned.replace(/[^\d.]/g, '');
         const parts = cleaned.split('.');
@@ -103,7 +118,12 @@ const handleInput = (event) => {
     }
     
     // Update the underlying value (store as number or null)
-    const numValue = props.allowDecimals ? parseFloat(cleaned) : parseInt(cleaned);
+    let numValue;
+    if (props.isYear || !props.allowDecimals) {
+        numValue = parseInt(cleaned, 10);
+    } else {
+        numValue = parseFloat(cleaned);
+    }
     emit('update:modelValue', isNaN(numValue) ? null : numValue);
     
     // Format for display

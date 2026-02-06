@@ -13,7 +13,7 @@
             "type": "text",
             "description": "Manufacturer serial number for this unit"
         },
-        "hull_id": {
+        "hin": {
             "label": "Hull ID (HIN)",
             "type": "text",
             "description": "Hull Identification Number for boats"

@@ -113,3 +113,28 @@ th {
 a, td {
     white-space: nowrap;
 }
+
+th.sticky, td.sticky {
+    position: sticky;
+    right: 0;
+    background-color: white;
+    z-index: 10;
+}
+
+td.sticky:before {
+    content: '';
+    height: 100%;
+    width: 1px;
+    top: 0;
+    right: 0;
+    z-index: 10;
+    position: absolute;
+    left: 0;    
+    @apply bg-gray-700 dark:bg-gray-400;
+}
+th.sticky {
+    @apply bg-gray-50 dark:bg-gray-700;
+}
+td.sticky {
+    @apply bg-white border-b dark:bg-gray-800 dark:border-gray-700;
+}

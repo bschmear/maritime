@@ -1,0 +1,61 @@
+{
+    "fields": {
+        "imageable_type": {
+            "label": "Related Type",
+            "type": "hidden"
+        },
+        "imageable_id": {
+            "label": "Related ID",
+            "type": "hidden"
+        },
+        "display_name": {
+            "label": "Image Name",
+            "type": "text",
+            "required": true
+        },
+        "description": {
+            "label": "Description",
+            "type": "textarea"
+        },
+        "file": {
+            "label": "Image File",
+            "type": "image",
+            "required": true,
+            "meta": {
+                "directory": "inventory/images",
+                "max_width": 2000,
+                "private": false
+            }
+        },
+        "file_extension": {
+            "label": "File Extension",
+            "type": "hidden"
+        },
+        "file_size": {
+            "label": "File Size",
+            "type": "hidden"
+        },
+        "sort_order": {
+            "label": "Sort Order",
+            "type": "number",
+            "default": 0
+        },
+        "role": {
+            "label": "Role",
+            "type": "text"
+        },
+        "is_primary": {
+            "label": "Primary Image",
+            "type": "boolean",
+            "default": false
+        },
+        "created_by_id": {
+            "label": "Created By",
+            "type": "hidden"
+        },
+        "updated_by_id": {
+            "label": "Updated By",
+            "type": "hidden"
+        }
+    }
+}

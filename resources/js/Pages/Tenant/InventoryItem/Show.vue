@@ -110,7 +110,7 @@ const handleCancelEdit = () => {
 const breadcrumbItems = computed(() => {
     return [
         { label: 'Home', href: route('dashboard') },
-        { label: props.recordTitle, href: route(`${props.recordType}.index`) },
+        { label: 'Inventory', href: route(`${props.recordType}.index`) },
         { label: props.record.display_name },
     ];
 });

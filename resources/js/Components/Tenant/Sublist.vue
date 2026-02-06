@@ -2,6 +2,7 @@
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
+import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 
@@ -33,11 +34,17 @@ const isLoadingSublist = ref(false);
 const activeFilters = ref([]);
 const showFiltersModal = ref(false);
 const updatingItems = ref(new Set()); // Track which items are being updated
+const defaultFiltersLoaded = ref(false); // Track if default filters have been loaded
 
 // Sublist Create Modal State
 const showSublistCreateModal = ref(false);
 const sublistCreateFormData = ref(null);
 const isLoadingSublistForm = ref(false);
+
+// Sublist Edit Modal State
+const showSublistEditModal = ref(false);
+const sublistEditRecord = ref(null);
+const isLoadingEditRecord = ref(false);
 
 // Cache for sublist schemas (keyed by domain name)
 const sublistSchemaCache = ref({});
@@ -204,9 +211,9 @@ const getRecordUrl = (item, fieldKey) => {
 const applyFilters = (filters) => {
     activeFilters.value = filters;
     showFiltersModal.value = false;
-    
-    // Refetch data with new filters
-    if (activeTab.value) {
+
+    // Refetch data with new filters (skip for image galleries)
+    if (activeTab.value && !activeTab.value.modelRelationship) {
         fetchSublistData(activeTab.value);
     }
 };
@@ -262,8 +269,8 @@ const getFilterLabel = (filter) => {
         'this_month': 'is this month',
         'greater_than': 'greater than',
         'less_than': 'less than',
-        'is_true': 'is checked',
-        'is_false': 'is not checked',
+        'is_true': 'is true',
+        'is_false': 'is false',
     };
     
     const operatorLabel = operatorLabels[filter.operator] || filter.operator;
@@ -278,7 +285,13 @@ const tableColumns = computed(() => {
 
 const fetchSublistData = async (sublist, page = 1) => {
     if (!sublist) return;
-    
+
+    // Skip data fetching for image galleries (polymorphic relationships)
+    // The ImageGallery component handles its own data
+    if (sublist.modelRelationship) {
+        return;
+    }
+
     isLoadingSublist.value = true;
     try {
         const routeName = formatRouteName(sublist.domain);
@@ -297,18 +310,13 @@ const fetchSublistData = async (sublist, page = 1) => {
             return;
         }
         
-        // Build filters - always include parent filter
-        const filters = {
-            [foreignKey]: props.parentRecord.id
-        };
-        
-        // Add active filters if any
-        const allFilters = { ...filters };
-        if (activeFilters.value.length > 0) {
-            activeFilters.value.forEach(filter => {
-                allFilters[filter.field] = filter.value;
-            });
-        }
+        // Build filters - always use structured format for consistency
+        const allFilters = [
+            // Parent filter (always include to filter by parent record)
+            { field: foreignKey, operator: 'equals', value: props.parentRecord.id },
+            // Add all active filters
+            ...activeFilters.value
+        ];
 
         const response = await axios.get(route(routeName), {
             params: {
@@ -326,6 +334,19 @@ const fetchSublistData = async (sublist, page = 1) => {
         sublistTableSchema.value = response.data.schema || null; // Table schema with columns array
         sublistFieldsSchema.value = response.data.fieldsSchema || {}; // Fields schema for data types
         sublistPagination.value = response.data.meta;
+        
+        // Load default filters from schema on first load only
+        if (!defaultFiltersLoaded.value && activeFilters.value.length === 0 && sublistTableSchema.value?.filters) {
+            defaultFiltersLoaded.value = true;
+            // Ensure each filter has an id for UI management
+            activeFilters.value = sublistTableSchema.value.filters.map((f, index) => ({
+                ...f,
+                id: f.id || `default-${index}-${Date.now()}`
+            }));
+            // Refetch with default filters applied
+            fetchSublistData(sublist, page);
+            return;
+        }
 
     } catch (error) {
         console.error('Error fetching sublist data:', error);
@@ -339,11 +360,16 @@ const fetchSublistData = async (sublist, page = 1) => {
  * Find the field key that references the parent domain from a fields schema
  */
 const findParentReferenceFieldFromSchema = (fieldsSchema) => {
-    for (const [fieldKey, fieldDef] of Object.entries(fieldsSchema)) {
-        if (fieldDef.typeDomain === props.parentDomain) {
+    // Handle wrapped schema structure
+    const fields = fieldsSchema.fields || fieldsSchema;
+    
+    for (const [fieldKey, fieldDef] of Object.entries(fields)) {
+        if (fieldDef && fieldDef.typeDomain === props.parentDomain) {
             return fieldKey;
         }
     }
+    
+    console.error(`[Sublist] No field found with typeDomain matching ${props.parentDomain}`);
     return null;
 };
 
@@ -356,10 +382,11 @@ const getParentReferenceFields = () => {
         return [];
     }
     
-    const fieldsSchema = sublistCreateFormData.value.fieldsSchema;
+    // Handle wrapped schema structure
+    const fields = sublistCreateFormData.value.fieldsSchema.fields || sublistCreateFormData.value.fieldsSchema;
     const parentReferenceFields = [];
     
-    for (const [fieldKey, fieldDef] of Object.entries(fieldsSchema)) {
+    for (const [fieldKey, fieldDef] of Object.entries(fields)) {
         // Check if this field's typeDomain matches the parent domain
         if (fieldDef.typeDomain === props.parentDomain) {
             parentReferenceFields.push({
@@ -506,6 +533,16 @@ const getSublistEnumOptions = () => {
 const handleTabChange = async (sublist) => {
     activeTab.value = sublist;
     
+    // Reset filters and state for new tab
+    activeFilters.value = [];
+    defaultFiltersLoaded.value = false;
+    
+    // For image galleries (polymorphic relationships), skip normal data fetching
+    // The ImageGallery component handles its own data
+    if (sublist.modelRelationship) {
+        return;
+    }
+    
     // Load the schema for this sublist (includes enum options for inline editing)
     await loadSublistSchema(sublist);
     
@@ -556,11 +593,79 @@ const closeSublistCreateModal = () => {
 };
 
 const handleSublistItemCreated = (recordId) => {
-    if (activeTab.value) {
+    // Skip data fetching for image galleries (they handle their own updates)
+    if (activeTab.value && !activeTab.value.modelRelationship) {
         fetchSublistData(activeTab.value);
     }
     showSublistCreateModal.value = false;
     // Don't reset sublistCreateFormData - we're caching it now
+};
+
+// Edit modal functions
+const openSublistEditModal = async (item) => {
+    // Show modal immediately with loading state
+    showSublistEditModal.value = true;
+    isLoadingEditRecord.value = true;
+    
+    if (!sublistCreateFormData.value && activeTab.value) {
+        await loadSublistSchema(activeTab.value);
+    }
+    
+    // Fetch the full record with all fields (not just table columns)
+    try {
+        const routeBase = activeTab.value.domain.toLowerCase();
+        const routePlural = routeBase.endsWith('s') ? routeBase : routeBase + 's';
+        const routeName = `${routePlural}.show`;
+        const paramName = routePlural.replace(/s$/, '');
+        
+        const url = route(routeName, { [paramName]: item.id });
+        
+        const response = await axios.get(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        });
+        
+        // Use the full record data from the API
+        sublistEditRecord.value = response.data.record || item;
+    } catch (error) {
+        console.error('[Sublist] Error fetching full record:', error);
+        // Fallback to using the table data
+        sublistEditRecord.value = item;
+    } finally {
+        isLoadingEditRecord.value = false;
+    }
+};
+
+const closeSublistEditModal = () => {
+    showSublistEditModal.value = false;
+    sublistEditRecord.value = null;
+};
+
+const handleSublistItemUpdated = () => {
+    if (activeTab.value) {
+        fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+    }
+    showSublistEditModal.value = false;
+    sublistEditRecord.value = null;
+};
+
+// Navigate to record in new window
+const navigateToRecord = (item) => {
+    if (!activeTab.value) return;
+    
+    const routeBase = activeTab.value.domain.toLowerCase();
+    const routePlural = routeBase.endsWith('s') ? routeBase : routeBase + 's';
+    const routeName = `${routePlural}.show`;
+    const paramName = routePlural.replace(/s$/, '');
+    
+    try {
+        const url = route(routeName, { [paramName]: item.id });
+        window.open(url, '_blank');
+    } catch (error) {
+        console.error('[Sublist] Error generating route:', error);
+    }
 };
 
 // Inline editing for select fields
@@ -618,8 +723,10 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         }
     } catch (error) {
         console.error('[Sublist] Error updating field:', error);
-        // Revert the change by refetching data
-        await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+        // Revert the change by refetching data (skip for image galleries)
+        if (activeTab.value && !activeTab.value.modelRelationship) {
+            await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+        }
     } finally {
         updatingItems.value.delete(rowUpdateKey);
     }
@@ -632,14 +739,7 @@ const getEnumOptions = (fieldKey) => {
         return [];
     }
     
-    const options = sublistCreateFormData.value?.enumOptions?.[fieldDef.enum] || [];
-    
-    if (options.length === 0) {
-        // console.warn(`[Sublist] No enum options found for ${fieldKey}. sublistCreateFormData loaded?`, !!sublistCreateFormData.value);
-        // console.log('[Sublist] Available enum keys:', Object.keys(sublistCreateFormData.value?.enumOptions || {}));
-    }
-    
-    return options;
+    return sublistCreateFormData.value?.enumOptions?.[fieldDef.enum] || [];
 };
 
 // Initialize first tab if available
@@ -706,8 +806,18 @@ onMounted(() => {
                     </svg>
                 </div>
                 
+                <!-- Image Gallery (for polymorphic image relationships) -->
+                <div v-if="activeTab?.modelRelationship" class="p-4 sm:p-5">
+                    <ImageGallery
+                        :parent-id="parentRecord.id"
+                        :parent-type="parentDomain"
+                        :domain="activeTab.domain"
+                        :model-relationship="activeTab.modelRelationship"
+                    />
+                </div>
+                
                 <!-- Data Table -->
-                <div v-if="sublistData.length > 0 || activeFilters.length > 0">
+                <div v-else-if="sublistData.length > 0 || activeFilters.length > 0">
                     <!-- Toolbar -->
                     <div class="flex flex-col gap-3 p-4 sm:p-5 ">
                         <!-- Action Buttons -->
@@ -775,6 +885,10 @@ onMounted(() => {
                                 >
                                     {{ column.label }}
                                 </th>
+                                
+                                <th class="px-6 py-3 text-right ">
+                                    <!-- Actions -->
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -784,6 +898,7 @@ onMounted(() => {
                                 class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 relative"
                                 :class="{ 'opacity-50 pointer-events-none': updatingItems.has(`${item.id}-updating`) }"
                             >
+
                                 <td 
                                     v-for="column in tableColumns" 
                                     :key="column.key" 
@@ -848,6 +963,29 @@ onMounted(() => {
                                         {{ item[column.key] || '—' }}
                                     </template>
                                 </td>
+                                <!-- Actions Column -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <!-- Edit Button -->
+                                        <button
+                                            @click="openSublistEditModal(item)"
+                                            class="inline-flex items-center justify-center w-8 h-8 text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                            title="Edit"
+                                        >
+                                            <i class="material-icons text-[18px]">edit</i>
+                                        </button>
+                                        
+                                        <!-- Navigate Button -->
+                                        <button
+                                            @click="navigateToRecord(item)"
+                                            class="inline-flex items-center justify-center w-8 h-8 text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                            title="Open in new tab"
+                                        >
+                                            <i class="material-icons text-[18px]">open_in_new</i>
+                                        </button>
+                                    </div>
+                                </td>
+
                             </tr>
                         </tbody>
                     </table>
@@ -871,8 +1009,8 @@ onMounted(() => {
                         v-if="sublistPagination && sublistPagination.last_page > 1" 
                         class="flex justify-between items-center mt-4"
                     >
-                        <button 
-                            @click="fetchSublistData(activeTab, sublistPagination.current_page - 1)"
+                        <button
+                            @click="activeTab && !activeTab.modelRelationship && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
                             :disabled="sublistPagination.current_page === 1"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -881,8 +1019,8 @@ onMounted(() => {
                         <span class="text-sm text-gray-600 dark:text-gray-400">
                             Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
                         </span>
-                        <button 
-                            @click="fetchSublistData(activeTab, sublistPagination.current_page + 1)"
+                        <button
+                            @click="activeTab && !activeTab.modelRelationship && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
                             :disabled="sublistPagination.current_page === sublistPagination.last_page"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -891,8 +1029,8 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- Empty State -->
-                <div v-else-if="!isLoadingSublist" class="text-center py-8">
+                <!-- Empty State (for non-image-gallery sublists) -->
+                <div v-else-if="!isLoadingSublist && !activeTab?.modelRelationship" class="text-center py-8">
                     <div class="text-gray-500 dark:text-gray-400 mb-4">
                         No {{ activeTab?.label || 'records' }} found.
                     </div>
@@ -929,7 +1067,7 @@ onMounted(() => {
         </div>
 
         <!-- Modal Body -->
-        <div class="flex-1 overflow-y-auto p-4">
+        <div class="flex-1 overflow-y-auto ">
             <div v-if="isLoadingSublistForm" class="flex justify-center py-8">
                 <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -949,6 +1087,48 @@ onMounted(() => {
                 :prevent-redirect="true"
                 @created="handleSublistItemCreated"
                 @cancel="closeSublistCreateModal"
+            />
+        </div>
+    </Modal>
+    
+    <!-- Sublist Edit Modal -->
+    <Modal :show="showSublistEditModal" @close="closeSublistEditModal" :max-width="'4xl'">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                Edit {{ activeTab?.label || 'Record' }}
+            </h3>
+            <button
+                @click="closeSublistEditModal"
+                type="button"
+                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+            >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto ">
+            <div v-if="isLoadingEditRecord" class="flex justify-center py-8">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <Form
+                v-else-if="sublistCreateFormData && sublistEditRecord"
+                :schema="sublistCreateFormData.formSchema"
+                :fields-schema="getSublistFieldsSchema()"
+                :record="sublistEditRecord"
+                :record-type="sublistCreateFormData.recordType"
+                :enum-options="sublistCreateFormData.enumOptions"
+                :image-urls="sublistCreateFormData.imageUrls || {}"
+                :prevent-redirect="true"
+                :mode="'edit'"
+                @updated="handleSublistItemUpdated"
+                @cancel="closeSublistEditModal"
             />
         </div>
     </Modal>

@@ -22,7 +22,7 @@ return new class extends Migration
              * Non-boats (parts/accessories) may have SKU or batch numbers.
              */
             $table->string('serial_number')->nullable();
-            $table->string('hull_id')->nullable(); // boats only
+            $table->string('hin')->nullable()->unique(); // boats only
             $table->string('sku')->nullable();     // non-boat inventory
             $table->string('batch_number')->nullable();
 

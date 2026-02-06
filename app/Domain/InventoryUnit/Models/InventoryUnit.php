@@ -6,13 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\Location\Models\Location;
+use App\Domain\InventoryImage\Models\InventoryImage;
 
 class InventoryUnit extends Model
 {
     protected $fillable = [
         'inventory_item_id',
         'serial_number',
-        'hull_id',
+        'hin',
         'sku',
         'batch_number',
         'quantity',
@@ -52,7 +53,6 @@ class InventoryUnit extends Model
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
-
     /**
      * Optional vendor (consignment)
      */
@@ -79,8 +79,8 @@ class InventoryUnit extends Model
             return "SN: {$this->serial_number}";
         }
         
-        if (!empty($this->hull_id)) {
-            return "HIN: {$this->hull_id}";
+        if (!empty($this->hin)) {
+            return "HIN: {$this->hin}";
         }
         
         if (!empty($this->sku)) {
@@ -89,4 +89,12 @@ class InventoryUnit extends Model
         
         return "Unit #{$this->id}";
     }
+
+    public function images()
+    {
+        return $this->morphMany(InventoryImage::class, 'imageable');
+    }
+
+
+
 }

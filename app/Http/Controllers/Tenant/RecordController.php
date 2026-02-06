@@ -173,7 +173,7 @@ class RecordController extends BaseController
             $data = $request->all();
             $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
-            // Handle image uploads
+            // Handle image uploads (creates Document records)
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                 if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
                     if ($request->hasFile($fieldKey)) {
@@ -386,7 +386,8 @@ class RecordController extends BaseController
         try {
             $data = $request->all();
             $fieldsSchema = $this->getUnwrappedFieldsSchema();
-            // Handle image uploads
+            
+            // Handle image uploads (creates Document records)
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                 if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
                     // Get current record to find existing image

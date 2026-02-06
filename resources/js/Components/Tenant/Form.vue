@@ -1127,6 +1127,7 @@ defineExpose({
                                             :max="getFieldDefinition(field.key).max"
                                             :step="getFieldDefinition(field.key).step || 1"
                                             :allow-decimals="getFieldDefinition(field.key).allow_decimals !== false"
+                                            :is-year="getFieldDefinition(field.key).isYear === true"
                                         />
 
                                         <!-- Currency Input -->

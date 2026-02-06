@@ -6,8 +6,8 @@
       "sortable": true
     },
     {
-      "key": "hull_id",
-      "label": "Hull ID",
+      "key": "hin",
+      "label": "Hull ID (HIN)",
       "sortable": true
     },
     {
@@ -74,6 +74,12 @@
       "key": "created_at",
       "label": "Created",
       "sortable": true
+    }
+  ],
+  "filters": [
+    {
+      "field": "inactive",
+      "operator": "is_false"
     }
   ]
 }

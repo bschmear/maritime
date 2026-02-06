@@ -77,8 +77,8 @@ const operators = {
         { key: 'between', label: 'Between' },
     ],
     boolean: [
-        { key: 'is_true', label: 'Is checked' },
-        { key: 'is_false', label: 'Is not checked' },
+        { key: 'is_true', label: 'Is true' },
+        { key: 'is_false', label: 'Is false' },
     ],
 };
 
@@ -112,10 +112,11 @@ const getFieldOptions = (fieldConfig) => {
 
 const addFilter = () => {
     const firstField = filterFields.value[0];
+    const defaultOperator = firstField?.key ? getDefaultOperatorForField(firstField.key) : 'equals';
     activeFiltersLocal.value.push({
         id: Date.now(),
         field: firstField?.key || '',
-        operator: 'equals',
+        operator: defaultOperator,
         value: '',
     });
 };
@@ -123,7 +124,11 @@ const addFilter = () => {
 // Initialize from props
 watch(() => props.activeFilters, (newFilters) => {
     if (newFilters && newFilters.length > 0) {
-        activeFiltersLocal.value = JSON.parse(JSON.stringify(newFilters));
+        // Clone filters and ensure each has an id
+        activeFiltersLocal.value = JSON.parse(JSON.stringify(newFilters)).map(f => ({
+            ...f,
+            id: f.id || Date.now() + Math.random()
+        }));
     } else if (activeFiltersLocal.value.length === 0) {
         // Add initial empty filter if none exist
         addFilter();
@@ -173,6 +178,24 @@ const getFieldType = (fieldKey) => {
 const needsValueInput = (operator) => {
     return !['is_empty', 'is_not_empty', 'today', 'this_week', 'this_month', 'is_true', 'is_false'].includes(operator);
 };
+
+// Get default operator for a field type
+const getDefaultOperatorForField = (fieldKey) => {
+    const fieldType = getFieldType(fieldKey);
+    
+    // Boolean fields should default to is_true
+    if (fieldType === 'boolean' || fieldType === 'checkbox') {
+        return 'is_true';
+    }
+    
+    // Date fields could default to equals, but 'today' or 'after' might be more useful
+    if (fieldType === 'date' || fieldType === 'datetime') {
+        return 'equals';
+    }
+    
+    // Default to equals for most fields
+    return 'equals';
+};
 </script>
 
 <template>
@@ -210,7 +233,7 @@ const needsValueInput = (operator) => {
                 <!-- Field Select -->
                 <select
                     :value="filter.field"
-                    @change="updateFilter(filter.id, { field: $event.target.value, value: '', operator: 'equals' })"
+                    @change="updateFilter(filter.id, { field: $event.target.value, value: '', operator: getDefaultOperatorForField($event.target.value) })"
                     class="flex-1 min-w-[140px] px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 dark:bg-gray-900 dark:border-gray-700 dark:text-white transition-colors"
                 >
                     <option value="">Select field...</option>

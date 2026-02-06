@@ -20,7 +20,7 @@ The InventoryUnit actions (Create, Update, Delete) have been fully configured wi
 ```php
 'inventory_item_id' => ['required', 'integer', 'exists:inventory_items,id']
 'serial_number'     => ['nullable', 'string', 'max:255']
-'hull_id'           => ['nullable', 'string', 'max:255']
+'hin'           => ['nullable', 'string', 'max:255']
 'sku'               => ['nullable', 'string', 'max:255']
 'batch_number'      => ['nullable', 'string', 'max:255']
 'quantity'          => ['nullable', 'integer', 'min:1']
@@ -109,7 +109,7 @@ The model automatically generates a display name for each unit:
 
 **Priority Order**:
 1. `SN: {serial_number}` - If serial number exists
-2. `HIN: {hull_id}` - If Hull ID exists
+2. `HIN: {hin}` - If Hull ID exists
 3. `SKU: {sku}` - If SKU exists
 4. `Unit #{id}` - Fallback
 

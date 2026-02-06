@@ -555,8 +555,8 @@ const getFilterLabel = (filter) => {
         'this_month': 'is this month',
         'greater_than': 'greater than',
         'less_than': 'less than',
-        'is_true': 'is checked',
-        'is_false': 'is not checked',
+        'is_true': 'is true',
+        'is_false': 'is false',
     };
     
     const operatorLabel = operatorLabels[filter.operator] || filter.operator;
