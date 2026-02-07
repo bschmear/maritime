@@ -127,7 +127,8 @@ const secondaryNavItems = ref([
             { name: 'Overview', href: 'account.index' },
             { name: 'Locations', href: 'locations.index' },
             { name: 'Users', href: 'users.index' },
-            { name: 'Roles', href: 'roles.index' }
+            { name: 'Roles', href: 'roles.index' },
+            { name: 'Subsidiaries', href: 'subsidiaries.index' }
         ]
     },
     {

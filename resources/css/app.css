@@ -122,7 +122,7 @@ th.sticky, td.sticky {
 }
 
 td.sticky:before {
-    content: '';
+    /* content: '';
     height: 100%;
     width: 1px;
     top: 0;
@@ -130,7 +130,7 @@ td.sticky:before {
     z-index: 10;
     position: absolute;
     left: 0;    
-    @apply bg-gray-700 dark:bg-gray-400;
+    @apply bg-gray-700 dark:bg-gray-400; */
 }
 th.sticky {
     @apply bg-gray-50 dark:bg-gray-700;

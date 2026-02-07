@@ -561,5 +561,29 @@ class RecordController extends BaseController
         ]);
     }
 
+    protected function getEnumOptions(): array
+    {
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = [];
+
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['enum']) && $fieldDef['enum']) {
+                $enumClass = $fieldDef['enum'];
+
+                if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
+                    $enumOptions[$enumClass] = $enumClass::options();
+                } elseif (class_exists($enumClass)) {
+                    // Fallback: if no options method, create from cases
+                    $enumOptions[$enumClass] = array_map(fn($case) => [
+                        'id' => $case->value,
+                        'name' => $case->name ?? $case->value,
+                    ], $enumClass::cases());
+                }
+            }
+        }
+
+        return $enumOptions;
+    }
+
 
 }

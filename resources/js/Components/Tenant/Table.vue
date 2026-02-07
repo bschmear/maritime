@@ -320,21 +320,38 @@ const getColumnLabel = (column) => {
 };
 
 const getRouteParamName = () => {
-    let paramName = 'id'; // default fallback
+    // Use singular form of record type as parameter name
+    // This works for standard Laravel resource routes where the parameter
+    // is the singular form of the resource name
+    let routeType = props.recordType;
+
     if (props.recordType.includes('.')) {
         // For nested routes like 'account.users', extract the last part
         const parts = props.recordType.split('.');
-        const lastPart = parts[parts.length - 1];
-        paramName = lastPart.replace(/s$/, ''); // Remove trailing 's' (users -> user)
-    } else {
-        paramName = props.recordType.replace(/s$/, ''); // Remove trailing 's'
+        routeType = parts[parts.length - 1];
     }
-    return paramName;
+
+    // Handle irregular plurals
+    if (routeType === 'subsidiaries') {
+        return 'subsidiary';
+    }
+
+    // For regular plurals, remove trailing 's'
+    return routeType.replace(/s$/, '');
 };
 
 const getShowUrl = (recordId) => {
+    if (!recordId) {
+        console.error('Invalid recordId passed to getShowUrl:', recordId);
+        return '#';
+    }
     const paramName = getRouteParamName();
-    return route(`${props.recordType}.show`, { [paramName]: recordId });
+    try {
+        return route(`${props.recordType}.show`, { [paramName]: recordId });
+    } catch (error) {
+        console.error('Error generating route for', props.recordType, 'with param', paramName, 'and recordId', recordId, error);
+        return '#';
+    }
 };
 
 const getEditUrl = (recordId) => {
@@ -391,14 +408,20 @@ const handleViewOnPage = async (record) => {
 
     try {
         // Determine the parameter name based on record type
-        let paramName = 'id'; // default fallback
+        let routeType = props.recordType;
         if (props.recordType.includes('.')) {
             // For nested routes like 'account.users', extract the last part
             const parts = props.recordType.split('.');
-            const lastPart = parts[parts.length - 1];
-            paramName = lastPart.replace(/s$/, ''); // Remove trailing 's' (users -> user)
+            routeType = parts[parts.length - 1];
+        }
+
+        // Handle irregular plurals
+        let paramName;
+        if (routeType === 'subsidiaries') {
+            paramName = 'subsidiary';
         } else {
-            paramName = props.recordType.replace(/s$/, ''); // Remove trailing 's'
+            // For regular plurals, remove trailing 's'
+            paramName = routeType.replace(/s$/, '');
         }
 
         const response = await axios.get(route(`${props.recordType}.show`, { [paramName]: record.id }), {
@@ -428,7 +451,12 @@ const handleViewOnPage = async (record) => {
 };
 
 const handleNavigateToItem = (recordId) => {
-    window.location.href = getShowUrl(recordId);
+    const url = getShowUrl(recordId);
+    if (url !== '#') {
+        window.location.href = url;
+    } else {
+        console.error('Could not generate valid URL for recordId:', recordId);
+    }
 };
 
 const closeViewModal = () => {
@@ -803,7 +831,7 @@ onMounted(() => {
                                     {{ getColumnLabel(column) }}
                                 </th>
                                 <th scope="col"
-                                    class="px-4 py-3 w-20 sticky right-0 z-10
+                                    class="px-4 py-3 w-20  right-0 z-10
                                            bg-gradient-to-r from-gray-50/0 to-gray-50/100
                                            dark:from-gray-700/0 dark:to-gray-700/100">
                                     <span class="sr-only">Actions</span>
@@ -853,7 +881,7 @@ onMounted(() => {
                                         {{ getRecordValue(record, column) }}
                                     </template>
                                 </td>
-                                <td class="px-4 py-2 sticky right-0  z-10
+                                <td class="px-4 py-2  right-0  z-10
                                             bg-gradient-to-r from-gray-50/0 to-gray-50/100
                                             dark:from-gray-8800/0 dark:to-gray-800/100">
                                     <div class="flex items-center space-x-2">

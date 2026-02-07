@@ -4,9 +4,12 @@ namespace App\Domain\Location\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Domain\User\Models\User;
+use App\Models\Concerns\HasDocuments;
 
 class Location extends Model
 {
+    use HasDocuments;
+
     protected $guarded = [
         'id',
         'created_at',
@@ -36,4 +39,5 @@ class Location extends Model
     {
         return $this->belongsTo(User::class, 'manager_user_id')->select('id', 'display_name');
     }
+
 }

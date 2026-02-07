@@ -55,7 +55,8 @@
     },
     "timezone": {
         "label": "Timezone",
-        "type": "text"
+        "type": "select",
+        "enum": "App\\Enums\\Timezone"
     },
     "operating_hours": {
         "label": "Operating Hours",

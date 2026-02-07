@@ -1,0 +1,29 @@
+{
+    "columns": [
+        {
+            "key": "display_name",
+            "label": "Subsidiary Name",
+            "sortable": true
+        },
+        {
+            "key": "legal_name",
+            "label": "Legal Name",
+            "sortable": true
+        },
+        {
+            "key": "email",
+            "label": "Email",
+            "sortable": true
+        },
+        {
+            "key": "phone",
+            "label": "Phone",
+            "sortable": false
+        },
+        {
+            "key": "inactive",
+            "label": "Inactive",
+            "sortable": true
+        }
+    ]
+}

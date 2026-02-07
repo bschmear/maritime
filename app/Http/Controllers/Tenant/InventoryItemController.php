@@ -22,4 +22,46 @@ class InventoryItemController extends RecordController
             'InventoryItem'       // domainName (for schema lookup)
         );
     }
+
+    /**
+     * Override show method to load documents relationship
+     */
+    public function show(Request $request, $id)
+    {
+        $fieldsSchema = $this->getFieldsSchema();
+        $record = $this->recordModel->with([
+            'documents' => function ($query) {
+                $query->orderBy('created_at', 'desc');
+            }
+        ])->findOrFail($id);
+
+        $formSchema = $this->getFormSchema();
+        $fieldsSchema = $this->getFieldsSchema();
+        $enumOptions = $this->getEnumOptions();
+
+        $imgUrls = $this->getImageUrls($record, $fieldsSchema);
+
+        // If it's a non-Inertia AJAX request, return JSON
+        if ($request->ajax() && !$request->header('X-Inertia')) {
+            return response()->json([
+                'record' => $record,
+                'recordType' => $this->recordType,
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+                'imageUrls' => $imgUrls,
+            ]);
+        }
+
+        return inertia('Tenant/' . $this->domainName . '/Show', [
+            'record' => $record,
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'domainName' => $this->domainName,
+            'imageUrls' => $imgUrls,
+        ]);
+    }
 }

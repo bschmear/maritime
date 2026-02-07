@@ -4,9 +4,11 @@ namespace App\Domain\Customer\Models;
 
 use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasDocuments;
 
 class Customer extends Model
 {
+    use HasDocuments;
     /**
      * The attributes that aren't mass assignable.
      *
@@ -61,5 +63,11 @@ class Customer extends Model
     public function last_updated_by_user()
     {
         return $this->belongsTo(User::class, 'last_updated_by_user_id')->select('id', 'display_name');
+    }
+
+    public function documents()
+    {
+        return $this->morphToMany(Document::class, 'documentable')
+            ->withTimestamps();
     }
 }

@@ -3,6 +3,7 @@ import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
+import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 
@@ -212,8 +213,8 @@ const applyFilters = (filters) => {
     activeFilters.value = filters;
     showFiltersModal.value = false;
 
-    // Refetch data with new filters (skip for image galleries)
-    if (activeTab.value && !activeTab.value.modelRelationship) {
+    // Refetch data with new filters (skip for image galleries and documents)
+    if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
         fetchSublistData(activeTab.value);
     }
 };
@@ -289,6 +290,22 @@ const fetchSublistData = async (sublist, page = 1) => {
     // Skip data fetching for image galleries (polymorphic relationships)
     // The ImageGallery component handles its own data
     if (sublist.modelRelationship) {
+        return;
+    }
+
+    // Handle document relationships specially
+    if (sublist.domain === 'Document') {
+        isLoadingSublist.value = true;
+        try {
+            // Load documents from the parent record's documents relationship
+            const documents = props.parentRecord.documents || [];
+            sublistData.value = documents;
+        } catch (error) {
+            console.error('Error loading documents:', error);
+            sublistData.value = [];
+        } finally {
+            isLoadingSublist.value = false;
+        }
         return;
     }
 
@@ -532,20 +549,26 @@ const getSublistEnumOptions = () => {
 
 const handleTabChange = async (sublist) => {
     activeTab.value = sublist;
-    
+
     // Reset filters and state for new tab
     activeFilters.value = [];
     defaultFiltersLoaded.value = false;
-    
+
     // For image galleries (polymorphic relationships), skip normal data fetching
     // The ImageGallery component handles its own data
     if (sublist.modelRelationship) {
         return;
     }
-    
+
+    // For document relationships, skip schema loading and just fetch data
+    if (sublist.domain === 'Document') {
+        fetchSublistData(sublist);
+        return;
+    }
+
     // Load the schema for this sublist (includes enum options for inline editing)
     await loadSublistSchema(sublist);
-    
+
     // Then fetch the data
     fetchSublistData(sublist);
 };
@@ -593,8 +616,8 @@ const closeSublistCreateModal = () => {
 };
 
 const handleSublistItemCreated = (recordId) => {
-    // Skip data fetching for image galleries (they handle their own updates)
-    if (activeTab.value && !activeTab.value.modelRelationship) {
+    // Skip data fetching for image galleries and documents (they handle their own updates)
+    if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
         fetchSublistData(activeTab.value);
     }
     showSublistCreateModal.value = false;
@@ -723,8 +746,8 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         }
     } catch (error) {
         console.error('[Sublist] Error updating field:', error);
-        // Revert the change by refetching data (skip for image galleries)
-        if (activeTab.value && !activeTab.value.modelRelationship) {
+        // Revert the change by refetching data (skip for image galleries and documents)
+        if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
             await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
         }
     } finally {
@@ -813,6 +836,16 @@ onMounted(() => {
                         :parent-type="parentDomain"
                         :domain="activeTab.domain"
                         :model-relationship="activeTab.modelRelationship"
+                    />
+                </div>
+
+                <!-- Document Manager (for document relationships) -->
+                <div v-else-if="activeTab?.domain === 'Document'" class="p-4 sm:p-5">
+                    <Documentables
+                        :model-value="sublistData"
+                        :parent-id="parentRecord.id"
+                        :parent-type="parentDomain"
+                        @update:model-value="sublistData = $event"
                     />
                 </div>
                 
@@ -1010,7 +1043,7 @@ onMounted(() => {
                         class="flex justify-between items-center mt-4"
                     >
                         <button
-                            @click="activeTab && !activeTab.modelRelationship && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
+                            @click="activeTab && !activeTab.modelRelationship && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
                             :disabled="sublistPagination.current_page === 1"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -1020,7 +1053,7 @@ onMounted(() => {
                             Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
                         </span>
                         <button
-                            @click="activeTab && !activeTab.modelRelationship && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
+                            @click="activeTab && !activeTab.modelRelationship && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
                             :disabled="sublistPagination.current_page === sublistPagination.last_page"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -1029,8 +1062,8 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- Empty State (for non-image-gallery sublists) -->
-                <div v-else-if="!isLoadingSublist && !activeTab?.modelRelationship" class="text-center py-8">
+                <!-- Empty State (for regular sublists only) -->
+                <div v-else-if="!isLoadingSublist && !activeTab?.modelRelationship && activeTab?.domain !== 'Document'" class="text-center py-8">
                     <div class="text-gray-500 dark:text-gray-400 mb-4">
                         No {{ activeTab?.label || 'records' }} found.
                     </div>

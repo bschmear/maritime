@@ -6,8 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\Task\Models\Task;
 use App\Domain\Role\Models\Role;
+use App\Models\Concerns\HasDocuments;
+
 class User extends Model
 {
+    use HasDocuments;
+
     protected $fillable = [
         'display_name',
         'first_name',

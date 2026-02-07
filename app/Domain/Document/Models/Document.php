@@ -33,6 +33,13 @@ class Document extends Model
     protected static function boot()
     {
         parent::boot();
+
+        // Clean up file when document is deleted
+        static::deleting(function ($document) {
+            if ($document->file && \Illuminate\Support\Facades\Storage::disk('s3')->exists($document->file)) {
+                \Illuminate\Support\Facades\Storage::disk('s3')->delete($document->file);
+            }
+        });
     }
 
     public function created_by()
@@ -48,11 +55,6 @@ class Document extends Model
     public function assigned()
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_id');
-    }
-
-    public function documentables()
-    {
-        return $this->morphTo();
     }
 
     public function contacts()
@@ -73,6 +75,16 @@ class Document extends Model
     public function leads()
     {
         return $this->morphedByMany(\App\Domain\Lead\Models\Lead::class, 'documentable')->withTimestamps();
+    }
+
+    public function inventory_items()
+    {
+        return $this->morphedByMany(\App\Domain\InventoryItem\Models\InventoryItem::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
+    }
+
+    public function inventory_units()
+    {
+        return $this->morphedByMany(\App\Domain\InventoryUnit\Models\InventoryUnit::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
     }
 
     /**

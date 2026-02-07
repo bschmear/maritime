@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use App\Domain\InventoryUnit\Models\InventoryUnit;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Models\Concerns\HasDocuments;
 
 class InventoryItem extends Model
 {
+    use HasDocuments;
+
     protected $fillable = [
         'type',
         'sku',

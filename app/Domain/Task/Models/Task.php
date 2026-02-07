@@ -5,10 +5,12 @@ namespace App\Domain\Task\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasDocuments;
 
 class Task extends Model
 {
     use SoftDeletes;
+    use HasDocuments;
 
     protected $fillable = [
         'display_name',
@@ -71,4 +73,5 @@ class Task extends Model
     {
         return $this->morphTo();
     }
+
 }

@@ -2,13 +2,16 @@
 
 namespace App\Domain\Lead\Models;
 
+use Illuminate\Database\Eloquent\Model;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Domain\Customer\Models\Customer;
-use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasDocuments;
 
 class Lead extends Model
 {
+    use HasDocuments;
+
     /**
      * The attributes that aren't mass assignable.
      *
@@ -52,25 +55,28 @@ class Lead extends Model
     {
         return $this->morphMany(Task::class, 'relatable');
     }
+
     public function assigned_user()
     {
-        return $this->belongsTo(User::class, 'assigned_user_id')->select('id', 'display_name');
+        return $this->belongsTo(User::class, 'assigned_user_id')
+            ->select('id', 'display_name');
     }
 
     public function created_by_user()
     {
-        return $this->belongsTo(User::class, 'created_by_user_id')->select('id', 'display_name');
+        return $this->belongsTo(User::class, 'created_by_user_id')
+            ->select('id', 'display_name');
     }
 
     public function last_updated_by_user()
     {
-        return $this->belongsTo(User::class, 'last_updated_by_user_id')->select('id', 'display_name');
+        return $this->belongsTo(User::class, 'last_updated_by_user_id')
+            ->select('id', 'display_name');
     }
-
-    
 
     public function converted_customer()
     {
-        return $this->belongsTo(Customer::class, 'converted_customer_id')->select('id', 'display_name');
+        return $this->belongsTo(Customer::class, 'converted_customer_id')
+            ->select('id', 'display_name');
     }
 }

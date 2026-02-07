@@ -2,6 +2,7 @@
 namespace App\Domain\Document\Actions;
 
 use App\Domain\Document\Models\Document as RecordModel;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -9,7 +10,7 @@ use Throwable;
 
 class CreateDocument
 {
-    public function __invoke(array $data): array
+    public function __invoke(array $data, ?Model $attachTo = null): array
     {
         $validated = Validator::make($data, [
             'display_name' => ['required', 'string', 'max:255'],
@@ -58,7 +59,7 @@ class CreateDocument
                 throw new \Exception('Failed to upload the document to S3.');
             }
 
-            return \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $user, $path, $info, $filename, $fileSize, $extension) {
+                return \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $user, $path, $info, $filename, $fileSize, $extension, $attachTo) {
                 // Update team storage if applicable
                 // $user->currentTeam?->incrementDocumentStorage($fileSize);
 
@@ -72,6 +73,11 @@ class CreateDocument
                     'assigned_id' => $validated['assigned_id'] ?? $user->id,
                     'ai_status' => 'pending',
                 ]);
+
+                // Attach to parent model if provided
+                if ($attachTo && method_exists($attachTo, 'attachDocument')) {
+                    $attachTo->attachDocument($record);
+                }
 
                 // Generate signed URL (optional, for return)
                 // $url = \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));

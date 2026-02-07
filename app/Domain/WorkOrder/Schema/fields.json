@@ -1,0 +1,184 @@
+{
+  "work_order_number": {
+    "label": "Work Order #",
+    "type": "number",
+    "disabled": true,
+    "help": "Auto-generated starting at 1000"
+  },
+
+  "title": {
+    "label": "Title",
+    "type": "text",
+    "required": true,
+    "placeholder": "Brief description of the work"
+  },
+
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "help": "Detailed description of the reported issue or requested work"
+  },
+
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\WorkOrder\\Status",
+    "required": true
+  },
+
+  "priority": {
+    "label": "Priority",
+    "type": "select",
+    "enum": "App\\Enums\\WorkOrder\\Priority",
+    "required": true
+  },
+
+  "type": {
+    "label": "Work Type",
+    "type": "select",
+    "enum": "App\\Enums\\WorkOrder\\Type",
+    "required": true
+  },
+
+  "inventory_item_id": {
+    "label": "Inventory Item",
+    "type": "record",
+    "typeDomain": "InventoryItem",
+    "help": "Boat, vehicle, or asset being serviced",
+    "nullable": true
+  },
+
+  "customer_id": {
+    "label": "Customer",
+    "type": "record",
+    "typeDomain": "Customer",
+    "required": true
+  },
+
+  "assigned_user_id": {
+    "label": "Assigned Technician",
+    "type": "record",
+    "typeDomain": "User",
+    "nullable": true
+  },
+
+  "requested_by_user_id": {
+    "label": "Requested By",
+    "type": "record",
+    "typeDomain": "User",
+    "disabled": true
+  },
+
+  "scheduled_start_at": {
+    "label": "Scheduled Start",
+    "type": "datetime",
+    "nullable": true
+  },
+
+  "scheduled_end_at": {
+    "label": "Scheduled End",
+    "type": "datetime",
+    "nullable": true
+  },
+
+  "started_at": {
+    "label": "Work Started At",
+    "type": "datetime",
+    "disabled": true
+  },
+
+  "completed_at": {
+    "label": "Completed At",
+    "type": "datetime",
+    "disabled": true
+  },
+
+  "estimated_hours": {
+    "label": "Estimated Hours",
+    "type": "number",
+    "step": 0.25,
+    "nullable": true
+  },
+
+  "actual_hours": {
+    "label": "Actual Hours",
+    "type": "number",
+    "step": 0.25,
+    "disabled": true
+  },
+
+  "labor_cost": {
+    "label": "Labor Cost",
+    "type": "currency",
+    "disabled": true
+  },
+
+  "parts_cost": {
+    "label": "Parts Cost",
+    "type": "currency",
+    "disabled": true
+  },
+
+  "total_cost": {
+    "label": "Total Cost",
+    "type": "currency",
+    "disabled": true
+  },
+
+  "billable": {
+    "label": "Billable",
+    "type": "boolean",
+    "default": true
+  },
+
+  "warranty": {
+    "label": "Warranty Work",
+    "type": "boolean",
+    "default": false
+  },
+
+  "internal_notes": {
+    "label": "Internal Notes",
+    "type": "textarea",
+    "help": "Visible only to staff"
+  },
+
+  "customer_notes": {
+    "label": "Customer Notes",
+    "type": "textarea",
+    "help": "Visible to the customer"
+  },
+
+  "attributes": {
+    "label": "Attributes",
+    "type": "keyValue",
+    "description": "Custom fields specific to this work order"
+  },
+
+  "attachments": {
+    "label": "Attachments",
+    "type": "media",
+    "multiple": true,
+    "accept": [
+      "image/*",
+      "application/pdf"
+    ],
+    "meta": {
+      "directory": "work-orders",
+      "private": true,
+      "max_width": 1250
+    }
+  },
+
+  "created_at": {
+    "label": "Created At",
+    "type": "datetime",
+    "disabled": true
+  },
+
+  "updated_at": {
+    "label": "Updated At",
+    "type": "datetime",
+    "disabled": true
+  }
+}

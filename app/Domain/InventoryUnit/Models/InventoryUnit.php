@@ -7,9 +7,12 @@ use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\Location\Models\Location;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Models\Concerns\HasDocuments;
 
 class InventoryUnit extends Model
 {
+    use HasDocuments;
+
     protected $fillable = [
         'inventory_item_id',
         'serial_number',
@@ -94,7 +97,5 @@ class InventoryUnit extends Model
     {
         return $this->morphMany(InventoryImage::class, 'imageable');
     }
-
-
 
 }

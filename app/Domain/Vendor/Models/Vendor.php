@@ -5,9 +5,11 @@ namespace App\Domain\Vendor\Models;
 use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use App\Models\Concerns\HasDocuments;
 
 class Vendor extends Model
 {
+    use HasDocuments;
     /**
      * The attributes that aren't mass assignable.
      *

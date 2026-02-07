@@ -1,0 +1,130 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Primary Information",
+      "fields": [
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "legal_name",
+          "required": false
+        },
+        {
+          "key": "code",
+          "required": false
+        },
+        {
+          "key": "inactive",
+          "required": false
+        },
+        {
+          "key": "notes",
+          "required": false
+        }
+      ]
+    },
+    "contact": {
+      "label": "Contact Information",
+      "fields": [
+        {
+          "key": "email",
+          "required": false
+        },
+        {
+          "key": "phone",
+          "required": false
+        },
+        {
+          "key": "website",
+          "required": false
+        },
+        {
+          "key": "timezone",
+          "required": false
+        }
+      ]
+    },
+    "address": {
+      "label": "Address",
+      "is_address": true,
+      "fields": [
+        {
+          "key": "address_line_1",
+          "required": false,
+          "tag": "street"
+        },
+        {
+          "key": "address_line_2",
+          "required": false,
+          "tag": "unit"
+        },
+        {
+          "key": "city",
+          "required": false,
+          "tag": "city"
+        },
+        {
+          "key": "state",
+          "required": false,
+          "tag": "state"
+        },
+        {
+          "key": "postal_code",
+          "required": false,
+          "tag": "postal_code"
+        },
+        {
+          "key": "country",
+          "required": false,
+          "tag": "country"
+        },
+        {
+          "key": "latitude",
+          "hidden": true,
+          "tag": "latitude"
+        },
+        {
+          "key": "longitude",
+          "hidden": true,
+          "tag": "longitude"
+        }
+      ]
+    },
+    "branding": {
+      "label": "Branding",
+      "fields": [
+        {
+          "key": "logo",
+          "required": false
+        }
+      ]
+    }
+  },
+  "sublists": [
+    {
+      "label": "Work Orders",
+      "domain": "WorkOrder",
+      "modelRelationship": "workOrders"
+    },
+    {
+      "label": "Inventory Items",
+      "domain": "InventoryItem",
+      "modelRelationship": "inventoryItems"
+    },
+    {
+      "label": "Users",
+      "domain": "User",
+      "modelRelationship": "users"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document",
+      "modelRelationship": "documents"
+    }
+  ]
+}

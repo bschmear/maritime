@@ -25,6 +25,8 @@ use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\BoatMakeController;
+use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -43,6 +45,9 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        
+        Route::resource('subsidiaries', SubsidiaryController::class);
 
         Route::prefix('customers')->name('customers.')->group(function () {
             Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
@@ -94,6 +99,9 @@ Route::middleware([
         });
 
         Route::prefix('documents')->name('documents.')->group(function () {
+            Route::get('/search', [DocumentController::class, 'search'])->name('search');
+            Route::post('/upload-attach', [DocumentController::class, 'uploadAttach'])->name('upload-attach');
+            Route::get('/{id}/download', [DocumentController::class, 'download'])->name('download');
             Route::resource('/', DocumentController::class)->parameters(['' => 'document']);
         });
 
@@ -107,6 +115,11 @@ Route::middleware([
 
         Route::prefix('locations')->name('locations.')->group(function () {
             Route::resource('/', LocationController::class)->parameters(['' => 'location']);
+        });
+
+        Route::prefix('documentables')->name('documentables.')->group(function () {
+            Route::post('/attach', [DocumentController::class, 'attach'])->name('attach');
+            Route::delete('/detach', [DocumentController::class, 'detach'])->name('detach');
         });
 
         Route::prefix('account')->name('account.')->group(function () {

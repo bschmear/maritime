@@ -1,0 +1,133 @@
+{
+  "display_name": {
+    "label": "Subsidiary Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Downtown Service Department"
+  },
+
+  "legal_name": {
+    "label": "Legal Name",
+    "type": "text",
+    "help": "Registered legal business name"
+  },
+
+  "code": {
+    "label": "Internal Code",
+    "type": "text",
+    "help": "Short internal identifier (e.g. MARINA-01)",
+    "validation": "alpha_dash",
+    "max": 50
+  },
+
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false
+  },
+
+  "email": {
+    "label": "Email",
+    "type": "email"
+  },
+
+  "phone": {
+    "label": "Phone",
+    "type": "tel"
+  },
+
+  "website": {
+    "label": "Website",
+    "type": "text"
+  },
+
+  "address_line_1": {
+    "label": "Address Line 1",
+    "type": "text"
+  },
+
+  "address_line_2": {
+    "label": "Address Line 2",
+    "type": "text"
+  },
+
+  "city": {
+    "label": "City",
+    "type": "text"
+  },
+
+  "state": {
+    "label": "State",
+    "type": "text"
+  },
+
+  "postal_code": {
+    "label": "Postal Code",
+    "type": "text"
+  },
+
+  "country": {
+    "label": "Country",
+    "type": "text",
+    "default": "US"
+  },
+
+"timezone": {
+    "label": "Timezone",
+    "type": "select",
+    "enum": "App\\Enums\\Timezone"
+},
+
+  "default_labor_rate": {
+    "label": "Default Labor Rate",
+    "type": "currency",
+    "help": "Hourly labor rate used for estimates"
+  },
+
+  "work_order_prefix": {
+    "label": "Work Order Prefix",
+    "type": "text",
+    "help": "Optional prefix for work order numbers (e.g. WO, SRV)"
+  },
+
+  "next_work_order_number": {
+    "label": "Next Work Order Number",
+    "type": "number",
+    "disabled": true,
+    "default": 1000
+  },
+
+  "logo": {
+    "label": "Logo",
+    "type": "image",
+    "validation": "nullable|image|max:2048",
+    "meta": {
+      "directory": "subsidiaries",
+      "private": false,
+      "max_width": 1250
+    }
+  },
+
+  "notes": {
+    "label": "Notes",
+    "type": "textarea"
+  },
+
+  "settings": {
+    "label": "Settings",
+    "type": "json",
+    "description": "Subsidiary-specific configuration"
+  },
+
+  "created_at": {
+    "label": "Created At",
+    "type": "datetime",
+    "disabled": true
+  },
+
+  "updated_at": {
+    "label": "Updated At",
+    "type": "datetime",
+    "disabled": true
+  }
+}
