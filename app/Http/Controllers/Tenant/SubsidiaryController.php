@@ -16,13 +16,13 @@ class SubsidiaryController extends RecordController
 
         parent::__construct(
             $request,
-            $recordType->plural(), // 'subsidiaries'
-            $recordType->domainName(), // 'Subsidiary'
+            $recordType->plural(),
+            $recordType->domainName(),
             new RecordModel(),
             new CreateAction(),
             new UpdateAction(),
             new DeleteAction(),
-            $recordType->domainName() // 'Subsidiary'
+            $recordType->domainName()
         );
     }
 }

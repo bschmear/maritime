@@ -73,6 +73,10 @@ Route::middleware([
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
         });
 
+        Route::prefix('workorders')->name('workorders.')->group(function () {
+            Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
+        });
+
         // Route::prefix('inventory')->group(function () {
         //     Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
         //     Route::get('/make', [InventoryController::class, 'make'])->name('inventory.make');

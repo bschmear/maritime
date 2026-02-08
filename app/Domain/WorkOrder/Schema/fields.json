@@ -6,7 +6,7 @@
     "help": "Auto-generated starting at 1000"
   },
 
-  "title": {
+  "display_name": {
     "label": "Title",
     "type": "text",
     "required": true,
@@ -52,7 +52,25 @@
     "label": "Customer",
     "type": "record",
     "typeDomain": "Customer",
-    "required": true
+    "required": true,
+    "create": true
+  },
+
+  "subsidiary_id": {
+    "label": "Subsidiary",
+    "type": "record",
+    "typeDomain": "Subsidiary",
+    "nullable": true
+  },
+
+  "location_id": {
+    "label": "Location",
+    "type": "record",
+    "typeDomain": "Location",
+    "relationship": "location",
+    "nullable": true,
+    "filterby": "subsidiary_id",
+    "create": true
   },
 
   "assigned_user_id": {
@@ -77,6 +95,12 @@
 
   "scheduled_end_at": {
     "label": "Scheduled End",
+    "type": "datetime",
+    "nullable": true
+  },
+
+  "due_at": {
+    "label": "Due Date",
     "type": "datetime",
     "nullable": true
   },
@@ -110,19 +134,22 @@
   "labor_cost": {
     "label": "Labor Cost",
     "type": "currency",
-    "disabled": true
+    "disabled": true,
+    "default": 0
   },
 
   "parts_cost": {
     "label": "Parts Cost",
     "type": "currency",
-    "disabled": true
+    "disabled": true,
+    "default": 0
   },
 
   "total_cost": {
     "label": "Total Cost",
     "type": "currency",
-    "disabled": true
+    "disabled": true,
+    "default": 0
   },
 
   "billable": {
@@ -135,6 +162,13 @@
     "label": "Warranty Work",
     "type": "boolean",
     "default": false
+  },
+
+  "draft": {
+    "label": "Draft",
+    "type": "boolean",
+    "default": false,
+    "hidden": true
   },
 
   "internal_notes": {

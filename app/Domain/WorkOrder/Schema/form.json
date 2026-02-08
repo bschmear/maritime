@@ -1,19 +1,188 @@
 {
   "settings": {
-    "max_width": "4xl"
+    "max_width": "5xl"
   },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+      "label": "Work Order Details",
+      "fields": [
+        {
+          "key": "work_order_number",
+          "required": false
+        },
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "description",
+          "required": false
+        }
+      ]
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
 
-        ]
+    "classification": {
+      "label": "Classification",
+      "fields": [
+        {
+          "key": "status",
+          "required": true
+        },
+        {
+          "key": "priority",
+          "required": true
+        },
+        {
+          "key": "type",
+          "required": true
+        }
+      ]
+    },
+
+    "relationships": {
+      "label": "Relationships",
+      "fields": [
+        {
+          "key": "customer_id",
+          "required": true
+        },
+        {
+          "key": "subsidiary_id",
+          "required": false
+        },
+        {
+          "key": "inventory_item_id",
+          "required": false
+        },
+        {
+          "key": "assigned_user_id",
+          "required": false
+        },
+        {
+          "key": "requested_by_user_id",
+          "required": false
+        }
+      ]
+    },
+
+    "schedule": {
+      "label": "Schedule",
+      "fields": [
+        {
+          "key": "scheduled_start_at",
+          "required": false
+        },
+        {
+          "key": "scheduled_end_at",
+          "required": false
+        },
+        {
+          "key": "due_at",
+          "required": false
+        },
+        {
+          "key": "started_at",
+          "required": false
+        },
+        {
+          "key": "completed_at",
+          "required": false
+        }
+      ]
+    },
+
+    "time_tracking": {
+      "label": "Time & Costs",
+      "fields": [
+        {
+          "key": "estimated_hours",
+          "required": false
+        },
+        {
+          "key": "actual_hours",
+          "required": false
+        },
+        {
+          "key": "labor_cost",
+          "required": false
+        },
+        {
+          "key": "parts_cost",
+          "required": false
+        },
+        {
+          "key": "total_cost",
+          "required": false
+        }
+      ]
+    },
+
+    "billing": {
+      "label": "Billing",
+      "fields": [
+        {
+          "key": "billable",
+          "required": false
+        },
+        {
+          "key": "warranty",
+          "required": false
+        }
+      ]
+    },
+
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        {
+          "key": "internal_notes",
+          "required": false
+        },
+        {
+          "key": "customer_notes",
+          "required": false
+        }
+      ]
+    },
+
+    "attributes": {
+      "label": "Attributes",
+      "fields": [
+        {
+          "key": "attributes",
+          "required": false
+        }
+      ]
+    },
+
+    "attachments": {
+      "label": "Attachments",
+      "fields": [
+        {
+          "key": "attachments",
+          "required": false
+        }
+      ]
     }
-  }
+  },
+
+  "sublists": [
+    {
+      "label": "Tasks",
+      "domain": "Task"
+    },
+    {
+      "label": "Inventory Usage",
+      "domain": "InventoryUnit"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document"
+    },
+    {
+      "label": "Images",
+      "domain": "InventoryImage",
+      "modelRelationship": "images"
+    }
+  ]
 }

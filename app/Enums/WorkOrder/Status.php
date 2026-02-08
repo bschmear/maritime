@@ -17,15 +17,15 @@ enum Status: string
     public function id(): int
     {
         return match ($this) {
-            self::Draft       => 0,
-            self::Open        => 1,
-            self::Scheduled   => 2,
-            self::InProgress  => 3,
-            self::Waiting     => 4,
-            self::Blocked     => 5,
-            self::Completed   => 6,
-            self::Closed      => 7,
-            self::Cancelled   => 8,
+            self::Draft       => 1,
+            self::Open        => 2,
+            self::Scheduled   => 3,
+            self::InProgress  => 4,
+            self::Waiting     => 5,
+            self::Blocked     => 6,
+            self::Completed   => 7,
+            self::Closed      => 8,
+            self::Cancelled   => 9,
         };
     }
 

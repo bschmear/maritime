@@ -13,8 +13,8 @@
             "label": "Role"
         },
         {
-            "key": "created_at",
-            "label": "Created"
+            "key": "mobile_phone",
+            "label": "Mobile Phone"
         }
     ]
 }

@@ -39,6 +39,10 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    createModal: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const showCreateModal = ref(false);
@@ -379,6 +383,17 @@ const backToPage = () => {
     createdRecordId.value = null;
 };
 
+const handleCreateClick = () => {
+    if (props.createModal === false) {
+        // Redirect to the create page instead of opening modal
+        const createRoute = route(`${props.recordType}.create`);
+        window.location.href = createRoute;
+    } else {
+        // Open the create modal
+        showCreateModal.value = true;
+    }
+};
+
 const toggleSelectAll = () => {
     if (selectAll.value) {
         props.records.data.forEach(record => selectedRecords.value.add(record.id));
@@ -648,7 +663,7 @@ onMounted(() => {
 
                     <div class="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
                         <button
-                            @click="showCreateModal = true"
+                            @click="handleCreateClick"
                             class="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
                         >
                             <svg class="h-3.5 w-3.5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -804,7 +819,7 @@ onMounted(() => {
                         Get started by creating your first {{ recordTitle }} to begin managing your data.
                     </p>
                     <button
-                        @click="showCreateModal = true"
+                        @click="handleCreateClick"
                         class="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
                     >
                         <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">

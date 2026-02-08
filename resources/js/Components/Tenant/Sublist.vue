@@ -117,7 +117,24 @@ const getFieldDef = (fieldKey) => {
 // Helper functions for formatting table data
 const getFieldType = (fieldKey) => {
     const fieldDef = getFieldDef(fieldKey);
-    return fieldDef?.type || 'text';
+
+    // If field has explicit type from schema, use it
+    if (fieldDef?.type) {
+        return fieldDef.type;
+    }
+
+    // Auto-detect common timestamp fields
+    if (fieldKey === 'created_at' || fieldKey === 'updated_at' || fieldKey.endsWith('_at')) {
+        return 'datetime';
+    }
+
+    // Auto-detect common phone fields
+    if (fieldKey.includes('phone') || fieldKey.includes('mobile') || fieldKey.includes('office') || fieldKey.includes('fax')) {
+        return 'tel';
+    }
+
+    // Default fallback
+    return 'text';
 };
 
 const getEnumLabel = (fieldKey, value) => {
@@ -199,6 +216,36 @@ const formatDateTime = (value) => {
 const formatCurrency = (value) => {
     if (value === null || value === undefined) return '—';
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+};
+
+const formatPhone = (value) => {
+    if (!value || typeof value !== 'string') return '—';
+
+    // Remove all non-digit characters
+    const cleaned = value.replace(/\D/g, '');
+
+    // Format based on length
+    if (cleaned.length === 10) {
+        // US format: (123) 456-7890
+        return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    } else if (cleaned.length === 11 && cleaned.startsWith('1')) {
+        // US format with country code: +1 (123) 456-7890
+        const number = cleaned.slice(1);
+        return `+1 (${number.slice(0, 3)}) ${number.slice(3, 6)}-${number.slice(6)}`;
+    } else if (cleaned.length >= 7) {
+        // Generic format for other lengths
+        if (cleaned.length <= 10) {
+            // Split into groups of 3, then remaining
+            const groups = cleaned.match(/.{1,3}/g) || [];
+            return groups.join(' ');
+        } else {
+            // Add country code prefix for longer numbers
+            return `+${cleaned}`;
+        }
+    }
+
+    // Return as-is if we can't format it
+    return value;
 };
 
 // Get the display value for a record field
@@ -1247,6 +1294,9 @@ onMounted(() => {
                                                 </option>
                                             </select>
                                         </div>
+                                    </template>
+                                    <template v-else-if="getFieldType(column.key) === 'tel'">
+                                        {{ formatPhone(item[column.key]) }}
                                     </template>
                                     <template v-else>
                                         {{ item[column.key] || '—' }}

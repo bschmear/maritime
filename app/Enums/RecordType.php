@@ -19,6 +19,7 @@ enum RecordType: string
     case User            = 'user';
     case Role            = 'role';
     case Location        = 'location';
+    case WorkOrder       = 'workorder';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -41,6 +42,7 @@ enum RecordType: string
             self::User            => 'User',
             self::Role            => 'Role',
             self::Location        => 'Location',
+            self::WorkOrder       => 'WorkOrder',
         };
     }
 
@@ -65,6 +67,7 @@ enum RecordType: string
             self::User            => 'App\\Domain\\User',
             self::Role            => 'App\\Domain\\Role',
             self::Location        => 'App\\Domain\\Location',
+            self::WorkOrder       => 'App\\Domain\\WorkOrder',
         };
     }
 
@@ -89,6 +92,7 @@ enum RecordType: string
             self::User            => 'User',
             self::Role            => 'Role',
             self::Location        => 'Location',
+            self::WorkOrder       => 'Work Order',
         };
     }
 
@@ -113,6 +117,7 @@ enum RecordType: string
             self::User            => 'users',
             self::Role            => 'roles',
             self::Location        => 'locations',
+            self::WorkOrder       => 'workorders',
         };
     }
 

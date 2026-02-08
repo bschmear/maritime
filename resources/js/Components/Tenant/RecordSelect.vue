@@ -47,9 +47,11 @@
     const totalPages = ref(1);
     const perPage = 10;
 
-    // Form data for create modal (loaded on demand)
-    const createFormData = ref(null);
+    // Enhanced modal state
+    const showEnhancedModal = ref(false);
+    const enhancedModalTab = ref('existing');
     const isLoadingForm = ref(false);
+    const createFormData = ref(null);
     
     const getRecordDisplayName = (record) => {
         if (!record) return '';
@@ -103,10 +105,19 @@
     // Open modal
     const openModal = () => {
         if (!props.disabled) {
-            showModal.value = true;
-            // If modal is opened and we don't have records yet, fetch them
-            if (records.value.length === 0) {
-                fetchRecords();
+            if (props.field.create) {
+                showEnhancedModal.value = true;
+                enhancedModalTab.value = 'existing';
+                // Load first 10 records ordered by display_name
+                if (records.value.length === 0) {
+                    fetchRecords(true);
+                }
+            } else {
+                showModal.value = true;
+                // If modal is opened and we don't have records yet, fetch them
+                if (records.value.length === 0) {
+                    fetchRecords();
+                }
             }
         }
     };
@@ -116,6 +127,57 @@
         showModal.value = false;
         searchQuery.value = '';
         currentPage.value = 1;
+    };
+
+    // Close enhanced modal
+    const closeEnhancedModal = () => {
+        showEnhancedModal.value = false;
+        enhancedModalTab.value = 'existing';
+        searchQuery.value = '';
+        currentPage.value = 1;
+    };
+
+    // Handle record selection in enhanced modal
+    const selectRecordInEnhanced = (record) => {
+        selectedRecordId.value = record.id;
+        selectedRecordName.value = getRecordDisplayName(record);
+        emit('update:modelValue', record.id);
+        closeEnhancedModal();
+    };
+
+    // Open create new tab in enhanced modal
+    const openCreateNewTab = async () => {
+        enhancedModalTab.value = 'create';
+
+        // Load form data if not already loaded
+        if (!createFormData.value) {
+            isLoadingForm.value = true;
+            try {
+                const type = props.field.typeDomain;
+                const response = await axios.get(route('records.select-form', { type: type }), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                });
+                createFormData.value = response.data;
+            } catch (error) {
+                console.error('Error loading form data:', error);
+                return;
+            } finally {
+                isLoadingForm.value = false;
+            }
+        }
+    };
+
+    // Handle record created in enhanced modal
+    const handleRecordCreated = (recordId) => {
+        // Refresh the records list to include the new record
+        fetchRecords();
+        // Select the newly created record
+        selectedRecordId.value = recordId;
+        emit('update:modelValue', recordId);
+        closeEnhancedModal();
     };
     
     // Clear selection
@@ -132,28 +194,27 @@
     });
     
     // Fetch records from the domain
-    const fetchRecords = async () => {
+    const fetchRecords = async (initialLoad = false) => {
         if (!props.field.typeDomain) return;
-        
+
         isLoading.value = true;
-        
+
         try {
             const domain = props.field.typeDomain.toLowerCase();
-            // const routeName = `${domain}s.lookup`;
             const routeName = 'records.lookup';
-            
-            // Check if route exists
-            // if (!route().has(routeName)) {
-            //     console.error(`Route "${routeName}" does not exist`);
-            //     records.value = [];
-            //     return;
-            // }
-            
+
             // Build the URL with query parameters
             const url = new URL(route(routeName), window.location.origin);
             url.searchParams.append('page', currentPage.value);
             url.searchParams.append('per_page', perPage);
             url.searchParams.append('type', domain);
+
+            // For initial load (first page, no search), order by display_name
+            if (initialLoad && currentPage.value === 1 && !searchQuery.value) {
+                url.searchParams.append('order_by', 'display_name');
+                url.searchParams.append('order_direction', 'asc');
+            }
+
             if (searchQuery.value) {
                 url.searchParams.append('search', searchQuery.value);
             }
@@ -232,16 +293,6 @@
     const closeCreateModal = () => {
         showCreateModal.value = false;
         showModal.value = true; // Re-open the select modal
-    };
-
-    const handleRecordCreated = (recordId) => {
-        // Refresh the records list to include the new record
-        fetchRecords();
-        // Select the newly created record
-        selectedRecordId.value = recordId;
-        emit('update:modelValue', recordId);
-        showCreateModal.value = false;
-        showModal.value = false;
     };
 
     // Helper function for create modal
@@ -506,6 +557,185 @@
                             @created="handleRecordCreated"
                             @cancel="closeCreateModal"
                         />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Modal (when create=true) -->
+        <div v-if="showEnhancedModal && !disabled" @keydown.escape="closeEnhancedModal" class="fixed inset-0 z-50 overflow-y-auto">
+            <!-- Background overlay with blur -->
+            <div class="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity" @click="closeEnhancedModal"></div>
+
+            <!-- Modal container -->
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <!-- Modal panel -->
+                <div @click.stop class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all w-full max-w-4xl max-h-[90vh] flex flex-col">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                                <span class="material-icons text-primary-600 dark:text-primary-400">{{ enhancedModalTab === 'existing' ? 'link' : 'add' }}</span>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ enhancedModalTab === 'existing' ? 'Select' : 'Create New' }} {{ field.label }}</h2>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ enhancedModalTab === 'existing' ? 'Choose from existing records or create a new one' : 'Fill out the form below to create a new record' }}</p>
+                            </div>
+                        </div>
+                        <button
+                            @click="closeEnhancedModal"
+                            type="button"
+                            class="flex items-center justify-center w-10 h-10 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                        >
+                            <span class="material-icons">close</span>
+                        </button>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
+                        <nav class="flex gap-1">
+                            <button
+                                @click="enhancedModalTab = 'existing'; fetchRecords(true)"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
+                                    enhancedModalTab === 'existing'
+                                        ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                ]"
+                            >
+                                <span class="material-icons text-sm">link</span>
+                                Select Existing
+                            </button>
+                            <button
+                                @click="openCreateNewTab"
+                                :class="[
+                                    'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
+                                    enhancedModalTab === 'create'
+                                        ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                ]"
+                            >
+                                <span class="material-icons text-sm">add</span>
+                                Create New
+                            </button>
+                        </nav>
+                    </div>
+
+                    <!-- Content Area -->
+                    <div class="flex-1 overflow-y-auto p-6">
+                        <!-- Select Existing Tab -->
+                        <div v-if="enhancedModalTab === 'existing'" class="space-y-4">
+                            <!-- Search -->
+                            <div class="relative">
+                                <span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">search</span>
+                                <input
+                                    v-model="searchQuery"
+                                    type="text"
+                                    placeholder="Search records..."
+                                    class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
+                                    @input="fetchRecords"
+                                />
+                            </div>
+
+                            <!-- Search Results -->
+                            <div class="space-y-3 min-h-[300px]">
+                                <!-- Loading State -->
+                                <div v-if="isLoading" class="text-center py-12">
+                                    <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
+                                    <p class="text-gray-500 dark:text-gray-400 mt-2">Loading...</p>
+                                </div>
+
+                                <!-- No Results -->
+                                <div v-else-if="records.length === 0" class="text-center py-12">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                                        <span class="material-icons text-gray-400 dark:text-gray-500 text-3xl">search_off</span>
+                                    </div>
+                                    <p class="text-gray-500 dark:text-gray-400 font-medium">No records found</p>
+                                    <p class="text-sm text-gray-400 dark:text-gray-500">{{ searchQuery.trim() ? 'Try a different search term' : 'No records available' }}</p>
+                                </div>
+
+                                <!-- Results List -->
+                                <template v-else>
+                                    <div
+                                        v-for="record in records"
+                                        :key="record.id"
+                                        class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/20 transition-all group"
+                                    >
+                                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                                            <div class="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                <span class="material-icons text-gray-600 dark:text-gray-300">business</span>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                    {{ getRecordDisplayName(record) }}
+                                                </h4>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ record.id }}</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            @click="selectRecordInEnhanced(record)"
+                                            type="button"
+                                            class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary-600 dark:bg-primary-600 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+                                        >
+                                            <span class="material-icons text-sm">check</span>
+                                            <span>Select</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Pagination -->
+                                    <div v-if="totalPages > 1" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                                        <button
+                                            @click="prevPage"
+                                            :disabled="currentPage === 1 || isLoading"
+                                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            <span class="material-icons text-sm">chevron_left</span>
+                                            Previous
+                                        </button>
+
+                                        <span class="text-sm text-gray-600 dark:text-gray-400">
+                                            Page {{ currentPage }} of {{ totalPages }}
+                                        </span>
+
+                                        <button
+                                            @click="nextPage"
+                                            :disabled="currentPage === totalPages || isLoading"
+                                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            Next
+                                            <span class="material-icons text-sm">chevron_right</span>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Create New Tab -->
+                        <div v-if="enhancedModalTab === 'create'" class="space-y-4">
+                            <div v-if="isLoadingForm" class="text-center py-12">
+                                <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
+                                <p class="text-gray-500 dark:text-gray-400 mt-2">Loading form...</p>
+                            </div>
+                            <div v-else-if="!createFormData" class="text-center py-12">
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
+                                    <span class="material-icons text-gray-400 dark:text-gray-500 text-4xl">error</span>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Unable to Load Form</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Please try again later</p>
+                            </div>
+                            <Form
+                                v-else
+                                :schema="createFormData.formSchema"
+                                :fields-schema="createFormData.fieldsSchema"
+                                :record-type="createFormData.recordType"
+                                :record-title="createFormData.recordTitle"
+                                :enum-options="createFormData.enumOptions"
+                                mode="create"
+                                :prevent-redirect="true"
+                                @created="handleRecordCreated"
+                                @cancel="enhancedModalTab = 'existing'"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

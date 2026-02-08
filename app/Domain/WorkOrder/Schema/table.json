@@ -1,5 +1,75 @@
 {
     "columns": [
-
+      {
+        "key": "work_order_number",
+        "label": "WO #",
+        "sortable": true
+      },
+      {
+        "key": "display_name",
+        "label": "Title",
+        "sortable": true
+      },
+      {
+        "key": "status",
+        "label": "Status",
+        "sortable": true
+      },
+      {
+        "key": "priority",
+        "label": "Priority",
+        "sortable": true
+      },
+      {
+        "key": "type",
+        "label": "Type",
+        "sortable": true
+      },
+      {
+        "key": "customer_id",
+        "label": "Customer",
+        "sortable": false
+      },
+      {
+        "key": "assigned_user_id",
+        "label": "Assigned To",
+        "sortable": false
+      },
+      {
+        "key": "subsidiary_id",
+        "label": "Subsidiary",
+        "sortable": false
+      },
+      {
+        "key": "location_id",
+        "label": "Location",
+        "sortable": false
+      },
+      {
+        "key": "due_at",
+        "label": "Due",
+        "sortable": true
+      },
+      {
+        "key": "total_cost",
+        "label": "Total",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      }
+    ],
+    "filters": [
+      {
+        "field": "draft",
+        "operator": "is_false"
+      },
+      {
+        "field": "inactive",
+        "operator": "is_false"
+      }
     ]
-}
+  }
+  

@@ -32,8 +32,17 @@ class GeneralController extends BaseController
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
         }
 
-        // Order alphabetically by display_name
-        $query->orderBy('display_name', 'asc');
+        // Custom ordering support
+        $orderBy = $request->get('order_by', 'display_name');
+        $orderDirection = $request->get('order_direction', 'asc');
+
+        // Validate order_by field exists in the model
+        if (in_array($orderBy, ['id', 'display_name', 'created_at', 'updated_at'])) {
+            $query->orderBy($orderBy, $orderDirection);
+        } else {
+            // Default to display_name ordering
+            $query->orderBy('display_name', 'asc');
+        }
 
         // Get per_page from request, default to 15
         $perPage = $request->get('per_page', 15);
