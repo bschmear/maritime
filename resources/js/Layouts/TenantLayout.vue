@@ -123,7 +123,8 @@ const secondaryNavItems = ref([
             { 
                 name: 'Items',
                 children: [
-                    { name: 'Inventory Items', href: 'inventoryitems.index' },
+                    { name: 'Assets', href: 'inventoryitems.index' },
+                    { name: 'Parts & Accessories', href: 'inventoryitems.index' },
                     { name: 'Service Items', href: 'serviceitems.index' }
                 ]
             },
