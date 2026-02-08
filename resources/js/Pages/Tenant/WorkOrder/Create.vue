@@ -65,10 +65,21 @@ Object.keys(props.fieldsSchema).forEach(key => {
     } else if (field.type === 'boolean' || field.type === 'checkbox') {
         formData[key] = false;
     } else if (field.type === 'select') {
-        // For select fields with enums, auto-select the first option
+        // For select fields with enums, use explicit default or auto-select first option
         const enumOptions = getEnumOptions(key);
         if (enumOptions && enumOptions.length > 0) {
-            formData[key] = enumOptions[0].id;
+            // Check if there's an explicit default value
+            if (field.default !== undefined && field.default !== null) {
+                // Find the option with matching value
+                const defaultOption = enumOptions.find(opt => opt.value === field.default);
+                if (defaultOption) {
+                    formData[key] = defaultOption.id;
+                } else {
+                    formData[key] = enumOptions[0].id;
+                }
+            } else {
+                formData[key] = enumOptions[0].id;
+            }
         } else {
             formData[key] = null;
         }

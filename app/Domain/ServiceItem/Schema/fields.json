@@ -1,0 +1,85 @@
+{
+  "display_name": {
+    "label": "Service Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter service name"
+  },
+
+  "code": {
+    "label": "Service Code",
+    "type": "text",
+    "placeholder": "Optional internal code",
+    "help": "Optional internal reference code"
+  },
+
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "placeholder": "Detailed description of the service"
+  },
+
+  "billing_type": {
+    "label": "Billing Type",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceItem\\BillingType",
+    "required": true,
+    "default": 1
+  },
+
+  "default_rate": {
+    "label": "Default Rate",
+    "type": "currency",
+    "placeholder": "0.00",
+    "help": "Default billing rate (per hour or flat fee)"
+  },
+
+  "default_cost": {
+    "label": "Default Cost",
+    "type": "currency",
+    "placeholder": "0.00",
+    "help": "Internal cost for accounting"
+  },
+
+  "taxable": {
+    "label": "Taxable",
+    "type": "boolean",
+    "default": false
+  },
+
+  "billable": {
+    "label": "Billable",
+    "type": "boolean",
+    "default": true
+  },
+
+  "warranty_eligible": {
+    "label": "Warranty Eligible",
+    "type": "boolean",
+    "default": false
+  },
+
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false
+  },
+
+  "notes": {
+    "label": "Notes",
+    "type": "textarea",
+    "placeholder": "Additional notes or instructions"
+  },
+
+  "created_at": {
+    "label": "Created",
+    "type": "datetime",
+    "disabled": true
+  },
+
+  "updated_at": {
+    "label": "Updated",
+    "type": "datetime",
+    "disabled": true
+  }
+}

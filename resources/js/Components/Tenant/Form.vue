@@ -166,13 +166,31 @@ const initializeFormData = () => {
                             const now = new Date();
                             formData[field.key] = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
                         }
-                        else if (fieldType === 'select' || fieldType === 'record') {
-                            // If required and has enum options, auto-select first option
-                            if (field.required && fieldDef.enum && props.enumOptions[fieldDef.enum] && props.enumOptions[fieldDef.enum].length > 0) {
-                                formData[field.key] = props.enumOptions[fieldDef.enum][0].id;
+                        else if (fieldType === 'select') {
+                            // For select fields with enums, use explicit default or auto-select first option for required fields
+                            if (fieldDef.enum && props.enumOptions[fieldDef.enum] && props.enumOptions[fieldDef.enum].length > 0) {
+                                const enumOptions = props.enumOptions[fieldDef.enum];
+                                // Check if there's an explicit default value
+                                if (fieldDef.default !== undefined && fieldDef.default !== null) {
+                                    // Find the option with matching value
+                                    const defaultOption = enumOptions.find(opt => opt.value === fieldDef.default);
+                                    if (defaultOption) {
+                                        formData[field.key] = defaultOption.id;
+                                    } else {
+                                        // Default not found, use first option
+                                        formData[field.key] = enumOptions[0].id;
+                                    }
+                                } else if (field.required) {
+                                    // No explicit default but required, use first option
+                                    formData[field.key] = enumOptions[0].id;
+                                } else {
+                                    formData[field.key] = null;
+                                }
                             } else {
                                 formData[field.key] = null;
                             }
+                        } else if (fieldType === 'record') {
+                            formData[field.key] = null;
                         } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'time') {
                             formData[field.key] = null;
                         } else if (fieldType === 'rating') {

@@ -27,6 +27,7 @@ use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\WorkOrderController;
+use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -75,6 +76,9 @@ Route::middleware([
 
         Route::prefix('workorders')->name('workorders.')->group(function () {
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
+        });
+        Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
+            Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
 
         // Route::prefix('inventory')->group(function () {

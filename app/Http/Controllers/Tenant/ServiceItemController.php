@@ -1,18 +1,18 @@
 <?php
 namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Tenant\RecordController;
-use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
-use App\Domain\WorkOrder\Actions\CreateWorkOrder as CreateAction;
-use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
-use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
+use App\Domain\ServiceItem\Models\ServiceItem as RecordModel;
+use App\Domain\ServiceItem\Actions\CreateServiceItem as CreateAction;
+use App\Domain\ServiceItem\Actions\UpdateServiceItem as UpdateAction;
+use App\Domain\ServiceItem\Actions\DeleteServiceItem as DeleteAction;
 use App\Enums\RecordType;
 use Illuminate\Http\Request;
 
-class WorkOrderController extends RecordController
+class ServiceItemController extends RecordController
 {
     public function __construct(Request $request)
     {
-        $recordType = RecordType::WorkOrder;
+        $recordType = RecordType::ServiceItem;
         parent::__construct(
             $request,
             $recordType->plural(),
@@ -21,7 +21,7 @@ class WorkOrderController extends RecordController
             new CreateAction(),
             new UpdateAction(),
             new DeleteAction(),
-            'WorkOrder' // Explicitly set domain name
+            $recordType->domainName()
         );
     }
 }

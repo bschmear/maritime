@@ -1,0 +1,29 @@
+{
+  "columns": [
+    {
+      "key": "display_name",
+      "label": "Service Name",
+      "sortable": true
+    },
+    {
+      "key": "code",
+      "label": "Code",
+      "sortable": true
+    },
+    {
+      "key": "billing_type",
+      "label": "Type",
+      "sortable": true
+    },
+    {
+      "key": "default_rate",
+      "label": "Rate",
+      "sortable": true
+    },
+    {
+      "key": "default_cost",
+      "label": "Cost",
+      "sortable": true
+    }
+  ]
+}

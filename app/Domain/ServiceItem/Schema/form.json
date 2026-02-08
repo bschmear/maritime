@@ -1,0 +1,62 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "basic": {
+      "label": "Basic Information",
+      "fields": [
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "code"
+        },
+        {
+          "key": "description"
+        }
+      ]
+    },
+    "billing": {
+      "label": "Billing & Pricing",
+      "fields": [
+        {
+          "key": "billing_type",
+          "required": true
+        },
+        {
+          "key": "default_rate"
+        },
+        {
+          "key": "default_cost"
+        },
+        {
+          "key": "taxable"
+        }
+      ]
+    },
+    "settings": {
+      "label": "Settings",
+      "fields": [
+        {
+          "key": "billable"
+        },
+        {
+          "key": "warranty_eligible"
+        },
+        {
+          "key": "inactive"
+        }
+      ]
+    },
+    "notes": {
+      "label": "Additional Information",
+      "fields": [
+        {
+          "key": "notes"
+        }
+      ]
+    }
+  }
+}

@@ -23,6 +23,7 @@ createInertiaApp({
         app.config.globalProperties.$formatPhoneNumber = formatPhoneNumber;
         app.config.globalProperties.$formatDate = formatDate;
         app.config.globalProperties.$formatDateRelative = formatDateRelative;
+        app.config.globalProperties.$formatCurrency = formatCurrency;
 
         return app.mount(el);
     },
@@ -96,4 +97,9 @@ const formatDateRelative = (dateString) => {
         minute: '2-digit',
         hour12: true
     });
+};
+
+const formatCurrency = (value) => {
+    if (value === null || value === undefined) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 };

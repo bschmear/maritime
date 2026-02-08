@@ -78,6 +78,13 @@ class WorkOrder extends Model
         );
     }
 
+    public function serviceItems()
+    {
+        return $this->hasMany(
+            \App\Domain\WorkOrder\Models\WorkOrderServiceItem::class
+        );
+    }
+
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(

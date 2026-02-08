@@ -4,7 +4,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
 
@@ -63,6 +63,9 @@ const attachSearchPagination = ref({
 
 // Cache for sublist schemas (keyed by domain name)
 const sublistSchemaCache = ref({});
+
+// Get global properties
+const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
 
 // Helper functions for pluralization/singularization
 const getDomainPlural = (domain) => {
@@ -213,10 +216,6 @@ const formatDateTime = (value) => {
     }
 };
 
-const formatCurrency = (value) => {
-    if (value === null || value === undefined) return '—';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-};
 
 const formatPhone = (value) => {
     if (!value || typeof value !== 'string') return '—';
@@ -1264,7 +1263,7 @@ onMounted(() => {
                                         {{ formatDateTime(item[column.key]) }}
                                     </template>
                                     <template v-else-if="getFieldType(column.key) === 'currency'">
-                                        {{ formatCurrency(item[column.key]) }}
+                                        {{ $formatCurrency(item[column.key]) }}
                                     </template>
                                     <template v-else-if="getFieldType(column.key) === 'select'">
                                         <div class="relative inline-block">

@@ -1,6 +1,6 @@
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch, onMounted } from 'vue';
+import { computed, ref, watch, onMounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
@@ -57,6 +57,9 @@ const selectedRecordImageUrls = ref({});
 const activeFilters = ref([]);
 const isLoadingRecord = ref(false);
 const searchQuery = ref('');
+
+// Get global properties
+const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
 
 const columns = computed(() => {
     if (!props.schema || !props.schema.columns) {
@@ -235,6 +238,11 @@ const getRecordValue = (record, column) => {
         // Format rating
         if (fieldType === 'rating') {
             return `${rawValue || 0}/5`;
+        }
+
+        // Format currency
+        if (fieldType === 'currency') {
+            return $formatCurrency(rawValue);
         }
 
         // Handle record relationships

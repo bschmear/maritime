@@ -20,6 +20,7 @@ enum RecordType: string
     case Role            = 'role';
     case Location        = 'location';
     case WorkOrder       = 'workorder';
+    case ServiceItem     = 'serviceitem';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -43,6 +44,7 @@ enum RecordType: string
             self::Role            => 'Role',
             self::Location        => 'Location',
             self::WorkOrder       => 'WorkOrder',
+            self::ServiceItem     => 'ServiceItem',
         };
     }
 
@@ -68,6 +70,7 @@ enum RecordType: string
             self::Role            => 'App\\Domain\\Role',
             self::Location        => 'App\\Domain\\Location',
             self::WorkOrder       => 'App\\Domain\\WorkOrder',
+            self::ServiceItem     => 'App\\Domain\\ServiceItem',
         };
     }
 
@@ -93,6 +96,7 @@ enum RecordType: string
             self::Role            => 'Role',
             self::Location        => 'Location',
             self::WorkOrder       => 'Work Order',
+            self::ServiceItem     => 'Service Item',
         };
     }
 
@@ -118,6 +122,7 @@ enum RecordType: string
             self::Role            => 'roles',
             self::Location        => 'locations',
             self::WorkOrder       => 'workorders',
+            self::ServiceItem     => 'serviceitems',
         };
     }
 

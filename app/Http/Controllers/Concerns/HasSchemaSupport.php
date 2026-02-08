@@ -10,7 +10,7 @@ trait HasSchemaSupport
     {
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
         $schemaPath = app_path("Domain/{$domainName}/Schema/table.json");
-        
+
         if (!file_exists($schemaPath)) {
             return null;
         }
