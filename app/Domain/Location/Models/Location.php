@@ -39,5 +39,13 @@ class Location extends Model
     {
         return $this->belongsTo(User::class, 'manager_user_id')->select('id', 'display_name');
     }
+    public function subsidiaries()
+    {
+        return $this->belongsToMany(
+            \App\Domain\Subsidiary\Models\Subsidiary::class,
+            'location_subsidiary'
+        )->withTimestamps();
+    }
+
 
 }

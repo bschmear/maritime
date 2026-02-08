@@ -144,7 +144,8 @@
   "sublists": [
     {
       "label": "Inventory Units",
-      "domain": "InventoryUnit"
+      "domain": "InventoryUnit",
+      "modelRelationship": "units"
     },
     {
       "label": "Transactions",

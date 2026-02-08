@@ -329,12 +329,25 @@ class RecordController extends BaseController
             }
         }
 
+        // Load form schema to check for sublists
+        $formSchema = $this->getFormSchema();
+
+        // Add sublist relationships (for model relationships like hasMany, belongsToMany)
+        if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
+            foreach ($formSchema['sublists'] as $sublist) {
+                if (isset($sublist['modelRelationship'])) {
+                    $relationships[$sublist['modelRelationship']] = function ($query) {
+                        // Load basic fields for the related records
+                        $query->select('*');
+                    };
+                }
+            }
+        }
+
         // Load the record with relationships
         $record = $this->recordModel
             ->with($relationships)
             ->findOrFail($id);
-
-        $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
@@ -585,5 +598,106 @@ class RecordController extends BaseController
         return $enumOptions;
     }
 
+    /**
+     * Attach a related record via Many-to-Many relationship
+     */
+    public function attachRelationship(Request $request, $id)
+    {
+        $request->validate([
+            'relationship' => 'required|string',
+            'related_id' => 'required|integer',
+        ]);
+
+        try {
+            $record = $this->recordModel->findOrFail($id);
+            $relationship = $request->input('relationship');
+            $relatedId = $request->input('related_id');
+
+            // Check if relationship exists and is a BelongsToMany
+            if (!method_exists($record, $relationship)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Relationship '{$relationship}' does not exist on this model."
+                ], 400);
+            }
+
+            $relationshipInstance = $record->$relationship();
+            
+            if (!($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship."
+                ], 400);
+            }
+
+            // Check if already attached
+            if ($relationshipInstance->where($relationshipInstance->getRelated()->getQualifiedKeyName(), $relatedId)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "This record is already attached."
+                ], 400);
+            }
+
+            // Attach the record
+            $relationshipInstance->attach($relatedId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Record attached successfully.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to attach record: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Detach a related record via Many-to-Many relationship
+     */
+    public function detachRelationship(Request $request, $id)
+    {
+        $request->validate([
+            'relationship' => 'required|string',
+            'related_id' => 'required|integer',
+        ]);
+
+        try {
+            $record = $this->recordModel->findOrFail($id);
+            $relationship = $request->input('relationship');
+            $relatedId = $request->input('related_id');
+
+            // Check if relationship exists and is a BelongsToMany
+            if (!method_exists($record, $relationship)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Relationship '{$relationship}' does not exist on this model."
+                ], 400);
+            }
+
+            $relationshipInstance = $record->$relationship();
+            
+            if (!($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship."
+                ], 400);
+            }
+
+            // Detach the record
+            $relationshipInstance->detach($relatedId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Record detached successfully.',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to detach record: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
 }

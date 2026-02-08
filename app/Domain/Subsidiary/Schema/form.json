@@ -107,19 +107,16 @@
   },
   "sublists": [
     {
-      "label": "Work Orders",
-      "domain": "WorkOrder",
-      "modelRelationship": "workOrders"
-    },
-    {
-      "label": "Inventory Items",
-      "domain": "InventoryItem",
-      "modelRelationship": "inventoryItems"
+      "label": "Locations",
+      "domain": "Location",
+      "modelRelationship": "locations",
+      "relationshipType": "ManyToMany"    
     },
     {
       "label": "Users",
       "domain": "User",
-      "modelRelationship": "users"
+      "modelRelationship": "users",
+      "relationshipType": "ManyToMany"
     },
     {
       "label": "Documents",

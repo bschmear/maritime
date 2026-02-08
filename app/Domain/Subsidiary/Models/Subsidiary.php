@@ -3,10 +3,12 @@
 namespace App\Domain\Subsidiary\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasDocuments;
 use App\Enums\Timezone;
 
 class Subsidiary extends Model
 {
+    use HasDocuments;
     /**
      * The attributes that aren't mass assignable.
      *
@@ -31,6 +33,23 @@ class Subsidiary extends Model
         'next_work_order_number'   => 'integer',
         'settings'                 => 'array',
     ];
+
+    public function locations()
+    {
+        return $this->belongsToMany(
+            \App\Domain\Location\Models\Location::class,
+            'location_subsidiary'
+        )->withTimestamps();
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(
+            \App\Domain\User\Models\User::class,
+            'subsidiary_user'
+        )->withPivot(['primary'])
+        ->withTimestamps();
+    }
 
     /**
      * Accessor for full address.

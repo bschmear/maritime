@@ -69,10 +69,36 @@ class UserController extends RecordController
             }
         }
 
-        $records = $query->paginate(15);
+        // Order by display_name if the column exists, otherwise by created_at
+        $tableName = $this->recordModel->getTable();
+        $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+            ->hasColumn($tableName, 'display_name');
+
+        if ($hasDisplayName) {
+            $query->orderByRaw('LOWER(display_name) ASC');
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        $perPage = $request->get('per_page', 15);
+        $records = $query->paginate($perPage);
+
+        // Return JSON for AJAX requests (needed for sublists to get schema)
+        if ($request->ajax() && !$request->header('X-Inertia')) {
+            return response()->json([
+                'records' => $records->items(),
+                'schema' => $schema,
+                'fieldsSchema' => $fieldsSchema,
+                'meta' => [
+                    'current_page' => $records->currentPage(),
+                    'last_page' => $records->lastPage(),
+                    'per_page' => $records->perPage(),
+                    'total' => $records->total(),
+                ],
+            ]);
+        }
 
         // For now, always return Inertia response for navigation
-        // AJAX requests are handled by the parent RecordController
         $pluralTitle = Str::plural($this->recordTitle);
         return inertia('Tenant/' . $this->domainName . '/Index', [
             'records' => $records,

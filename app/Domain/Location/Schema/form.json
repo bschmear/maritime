@@ -94,5 +94,18 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Subsidiaries",
+      "domain": "Subsidiary",
+      "modelRelationship": "subsidiaries",
+      "relationshipType": "ManyToMany"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document",
+      "modelRelationship": "documents"
+    }
+  ]
 }

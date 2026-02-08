@@ -54,4 +54,14 @@ class User extends Model
     {
         return $this->morphMany(Task::class, 'relatable');
     }
+
+    public function subsidiaries()
+    {
+        return $this->belongsToMany(
+            \App\Domain\Subsidiary\Models\Subsidiary::class,
+            'subsidiary_user'
+        )->withPivot(['primary'])
+        ->withTimestamps();
+    }
+
 }

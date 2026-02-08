@@ -32,6 +32,9 @@ class GeneralController extends BaseController
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
         }
 
+        // Order alphabetically by display_name
+        $query->orderBy('display_name', 'asc');
+
         // Get per_page from request, default to 15
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);

@@ -6,6 +6,7 @@ import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
+import { debounce } from 'lodash-es';
 
 const props = defineProps({
     // Parent record information
@@ -47,13 +48,56 @@ const showSublistEditModal = ref(false);
 const sublistEditRecord = ref(null);
 const isLoadingEditRecord = ref(false);
 
+// Sublist Attach Modal State (for Many-to-Many relationships)
+const showSublistAttachModal = ref(false);
+const attachSearchQuery = ref('');
+const attachSearchResults = ref([]);
+const isLoadingAttachSearch = ref(false);
+const selectedAttachRecord = ref(null);
+const attachSearchPagination = ref({
+    current_page: 1,
+    last_page: 1,
+    per_page: 10,
+    total: 0
+});
+
 // Cache for sublist schemas (keyed by domain name)
 const sublistSchemaCache = ref({});
 
+// Helper functions for pluralization/singularization
+const getDomainPlural = (domain) => {
+    // Handle irregular plurals
+    const irregularPlurals = {
+        'Subsidiary': 'subsidiaries',
+        'subsidiary': 'subsidiaries'
+    };
+    
+    if (irregularPlurals[domain]) {
+        return irregularPlurals[domain];
+    }
+    
+    // Default: lowercase and add 's'
+    const lowercase = domain.toLowerCase();
+    return lowercase.endsWith('s') ? lowercase : lowercase + 's';
+};
+
+const getDomainSingular = (pluralDomain) => {
+    // Handle irregular plurals
+    const irregularSingulars = {
+        'subsidiaries': 'subsidiary'
+    };
+    
+    if (irregularSingulars[pluralDomain]) {
+        return irregularSingulars[pluralDomain];
+    }
+    
+    // Default: remove trailing 's'
+    return pluralDomain.replace(/s$/, '');
+};
+
 const formatRouteName = (domain) => {
     // Convert "InventoryUnit" to "inventoryunits.index"
-    const lowercase = domain.toLowerCase();
-    const plural = lowercase.endsWith('s') ? lowercase : lowercase + 's';
+    const plural = getDomainPlural(domain);
     return `${plural}.index`;
 };
 
@@ -193,12 +237,9 @@ const getRecordUrl = (item, fieldKey) => {
     
     // Build the route name from the typeDomain
     const domain = fieldDef.typeDomain;
-    const lowercase = domain.toLowerCase();
-    const plural = lowercase.endsWith('s') ? lowercase : lowercase + 's';
-    const routeName = `${plural}.show`;
-    
-    // Get the param name (singular form)
-    const paramName = lowercase.replace(/s$/, '');
+    const routePlural = getDomainPlural(domain);
+    const routeName = `${routePlural}.show`;
+    const paramName = getDomainSingular(routePlural);
     
     try {
         return route(routeName, { [paramName]: relatedRecord.id });
@@ -213,8 +254,11 @@ const applyFilters = (filters) => {
     activeFilters.value = filters;
     showFiltersModal.value = false;
 
-    // Refetch data with new filters (skip for image galleries and documents)
-    if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
+    // Refetch data with new filters (skip for image galleries, documents, and Many-to-Many relationships)
+    if (activeTab.value 
+        && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
+        && activeTab.value.domain !== 'Document' 
+        && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
         fetchSublistData(activeTab.value);
     }
 };
@@ -287,9 +331,8 @@ const tableColumns = computed(() => {
 const fetchSublistData = async (sublist, page = 1) => {
     if (!sublist) return;
 
-    // Skip data fetching for image galleries (polymorphic relationships)
-    // The ImageGallery component handles its own data
-    if (sublist.modelRelationship) {
+    // Skip data fetching for image galleries only (they handle their own data)
+    if (sublist.modelRelationship && sublist.domain === 'InventoryImage') {
         return;
     }
 
@@ -302,6 +345,47 @@ const fetchSublistData = async (sublist, page = 1) => {
             sublistData.value = documents;
         } catch (error) {
             console.error('Error loading documents:', error);
+            sublistData.value = [];
+        } finally {
+            isLoadingSublist.value = false;
+        }
+        return;
+    }
+
+    // Handle Many-to-Many relationships (eager-loaded from parent record)
+    if (sublist.modelRelationship && sublist.relationshipType === 'ManyToMany') {
+        isLoadingSublist.value = true;
+        try {
+            // Load data from the parent record's loaded relationship
+            const relationshipData = props.parentRecord[sublist.modelRelationship] || [];
+            sublistData.value = Array.isArray(relationshipData) ? relationshipData : [];
+            
+            // Load the table schema from the API (same as regular sublists)
+            const domain = sublist.domain;
+            const routePlural = getDomainPlural(domain);
+            const routeName = `${routePlural}.index`;
+            
+            try {
+                // Make a minimal request just to get the schema
+                const schemaResponse = await axios.get(route(routeName), {
+                    params: {
+                        per_page: 1, // Minimal data, we only need schema
+                    },
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                });
+                
+                sublistTableSchema.value = schemaResponse.data.schema || null;
+                sublistFieldsSchema.value = schemaResponse.data.fieldsSchema || {};
+            } catch (schemaError) {
+                console.error(`Error loading table schema for ${domain}:`, schemaError);
+                sublistTableSchema.value = null;
+                sublistFieldsSchema.value = {};
+            }
+        } catch (error) {
+            console.error(`Error loading ${sublist.modelRelationship}:`, error);
             sublistData.value = [];
         } finally {
             isLoadingSublist.value = false;
@@ -554,14 +638,21 @@ const handleTabChange = async (sublist) => {
     activeFilters.value = [];
     defaultFiltersLoaded.value = false;
 
-    // For image galleries (polymorphic relationships), skip normal data fetching
+    // For image galleries only, skip normal data fetching
     // The ImageGallery component handles its own data
-    if (sublist.modelRelationship) {
+    if (sublist.modelRelationship && sublist.domain === 'InventoryImage') {
         return;
     }
 
     // For document relationships, skip schema loading and just fetch data
     if (sublist.domain === 'Document') {
+        fetchSublistData(sublist);
+        return;
+    }
+
+    // For Many-to-Many relationships, load schema and fetch data
+    if (sublist.modelRelationship && sublist.relationshipType === 'ManyToMany') {
+        await loadSublistSchema(sublist);
         fetchSublistData(sublist);
         return;
     }
@@ -605,6 +696,15 @@ const loadSublistSchema = async (sublist) => {
 };
 
 const openSublistCreateModal = async () => {
+    // For Many-to-Many relationships, show the attach modal instead
+    if (activeTab.value?.relationshipType === 'ManyToMany') {
+        showSublistAttachModal.value = true;
+        // Load initial paginated results
+        await loadAttachRecords(1);
+        return;
+    }
+    
+    // For regular sublists, show the create modal
     if (!sublistCreateFormData.value && activeTab.value) {
         await loadSublistSchema(activeTab.value);
     }
@@ -615,11 +715,167 @@ const closeSublistCreateModal = () => {
     showSublistCreateModal.value = false;
 };
 
-const handleSublistItemCreated = (recordId) => {
-    // Skip data fetching for image galleries and documents (they handle their own updates)
-    if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
-        fetchSublistData(activeTab.value);
+// Many-to-Many Attach Modal Functions
+const openSublistAttachModalTab = ref('existing'); // 'existing' or 'create'
+
+const closeSublistAttachModal = () => {
+    showSublistAttachModal.value = false;
+    openSublistAttachModalTab.value = 'existing';
+    attachSearchQuery.value = '';
+    attachSearchResults.value = [];
+    selectedAttachRecord.value = null;
+    attachSearchPagination.value = {
+        current_page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0
+    };
+};
+
+const loadAttachRecords = async (page = 1) => {
+    if (!activeTab.value?.domain) return;
+
+    isLoadingAttachSearch.value = true;
+    try {
+        const domain = activeTab.value.domain; // e.g., "Subsidiary"
+        
+        const response = await axios.get(route('records.lookup'), {
+            params: {
+                type: domain,
+                search: attachSearchQuery.value.trim() || undefined, // Only send search if there's a query
+                per_page: 10,
+                page: page
+            }
+        });
+        
+        // Filter out already attached records
+        const attachedIds = sublistData.value.map(item => item.id);
+        attachSearchResults.value = (response.data.records || []).filter(
+            record => !attachedIds.includes(record.id)
+        );
+        
+        // Update pagination
+        if (response.data.meta) {
+            attachSearchPagination.value = {
+                current_page: response.data.meta.current_page,
+                last_page: response.data.meta.last_page,
+                per_page: response.data.meta.per_page,
+                total: response.data.meta.total
+            };
+        }
+    } catch (error) {
+        console.error('Error loading records:', error);
+        attachSearchResults.value = [];
+    } finally {
+        isLoadingAttachSearch.value = false;
     }
+};
+
+const debouncedAttachSearch = debounce(async () => {
+    // When search query changes, reset to page 1
+    await loadAttachRecords(1);
+}, 300);
+
+const attachExistingRecord = async (record) => {
+    if (!activeTab.value?.modelRelationship) return;
+    
+    selectedAttachRecord.value = record.id;
+    
+    try {
+        const parentRoutePlural = getDomainPlural(props.parentDomain);
+        
+        await axios.post(route(`${parentRoutePlural}.attach`, props.parentRecord.id), {
+            relationship: activeTab.value.modelRelationship,
+            related_id: record.id
+        });
+        
+        // Fetch the full record details to ensure we have all fields for display
+        try {
+            const domain = activeTab.value.domain;
+            const routePlural = getDomainPlural(domain);
+            const paramName = getDomainSingular(routePlural);
+            
+            const response = await axios.get(route(`${routePlural}.show`, { [paramName]: record.id }), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+            
+            // Add the full record to local list
+            sublistData.value.push(response.data.record || record);
+        } catch (fetchError) {
+            console.error('Error fetching full record after attach:', fetchError);
+            // Fallback: add the search result record (with at least display_name)
+            sublistData.value.push(record);
+        }
+        
+        closeSublistAttachModal();
+    } catch (error) {
+        console.error('Error attaching record:', error);
+        alert(error.response?.data?.message || 'Failed to attach record. Please try again.');
+    } finally {
+        selectedAttachRecord.value = null;
+    }
+};
+
+const openCreateNewFromAttachModal = async () => {
+    closeSublistAttachModal();
+    if (!sublistCreateFormData.value && activeTab.value) {
+        await loadSublistSchema(activeTab.value);
+    }
+    showSublistCreateModal.value = true;
+};
+
+const detachRelatedRecord = async (record) => {
+    if (!confirm(`Are you sure you want to remove this ${activeTab.value?.label || 'record'}?`)) {
+        return;
+    }
+
+    if (!activeTab.value?.modelRelationship) return;
+    
+    try {
+        const parentRoutePlural = getDomainPlural(props.parentDomain);
+        
+        await axios.post(route(`${parentRoutePlural}.detach`, props.parentRecord.id), {
+            relationship: activeTab.value.modelRelationship,
+            related_id: record.id
+        });
+        
+        // Remove from local list
+        sublistData.value = sublistData.value.filter(item => item.id !== record.id);
+    } catch (error) {
+        console.error('Error detaching record:', error);
+        alert(error.response?.data?.message || 'Failed to remove record. Please try again.');
+    }
+};
+
+const handleSublistItemCreated = async (recordId) => {
+    // If this is a Many-to-Many relationship, attach the newly created record
+    if (activeTab.value?.relationshipType === 'ManyToMany' && activeTab.value?.modelRelationship && recordId) {
+        try {
+            const parentRoutePlural = getDomainPlural(props.parentDomain);
+            
+            await axios.post(route(`${parentRoutePlural}.attach`, props.parentRecord.id), {
+                relationship: activeTab.value.modelRelationship,
+                related_id: recordId
+            });
+            
+            // Reload the parent record to get the updated relationship data
+            window.location.reload();
+        } catch (error) {
+            console.error('Error attaching newly created record:', error);
+            alert('Record created but failed to attach. Please attach it manually.');
+        }
+    } else {
+        // Refetch data for regular sublists (skip for image galleries and documents)
+        if (activeTab.value 
+            && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
+            && activeTab.value.domain !== 'Document') {
+            fetchSublistData(activeTab.value);
+        }
+    }
+    
     showSublistCreateModal.value = false;
     // Don't reset sublistCreateFormData - we're caching it now
 };
@@ -636,10 +892,10 @@ const openSublistEditModal = async (item) => {
     
     // Fetch the full record with all fields (not just table columns)
     try {
-        const routeBase = activeTab.value.domain.toLowerCase();
-        const routePlural = routeBase.endsWith('s') ? routeBase : routeBase + 's';
+        const domain = activeTab.value.domain;
+        const routePlural = getDomainPlural(domain);
         const routeName = `${routePlural}.show`;
-        const paramName = routePlural.replace(/s$/, '');
+        const paramName = getDomainSingular(routePlural);
         
         const url = route(routeName, { [paramName]: item.id });
         
@@ -678,10 +934,10 @@ const handleSublistItemUpdated = () => {
 const navigateToRecord = (item) => {
     if (!activeTab.value) return;
     
-    const routeBase = activeTab.value.domain.toLowerCase();
-    const routePlural = routeBase.endsWith('s') ? routeBase : routeBase + 's';
+    const domain = activeTab.value.domain;
+    const routePlural = getDomainPlural(domain);
     const routeName = `${routePlural}.show`;
-    const paramName = routePlural.replace(/s$/, '');
+    const paramName = getDomainSingular(routePlural);
     
     try {
         const url = route(routeName, { [paramName]: item.id });
@@ -705,13 +961,10 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
     updatingItems.value.add(rowUpdateKey);
     
     try {
-        // Convert InventoryUnit -> inventoryunits
-        const routeBase = activeTab.value.domain.toLowerCase();
-        const routePlural = routeBase.endsWith('s') ? routeBase : routeBase + 's';
+        const domain = activeTab.value.domain;
+        const routePlural = getDomainPlural(domain);
         const routeName = `${routePlural}.update`;
-        
-        // Route param is singular: inventoryunit
-        const paramName = routePlural.replace(/s$/, '');
+        const paramName = getDomainSingular(routePlural);
         
         const updateUrl = route(routeName, { [paramName]: item.id });
         
@@ -746,8 +999,11 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         }
     } catch (error) {
         console.error('[Sublist] Error updating field:', error);
-        // Revert the change by refetching data (skip for image galleries and documents)
-        if (activeTab.value && !activeTab.value.modelRelationship && activeTab.value.domain !== 'Document') {
+        // Revert the change by refetching data (skip for image galleries, documents, and Many-to-Many relationships)
+        if (activeTab.value 
+            && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
+            && activeTab.value.domain !== 'Document' 
+            && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
             await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
         }
     } finally {
@@ -830,7 +1086,7 @@ onMounted(() => {
                 </div>
                 
                 <!-- Image Gallery (for polymorphic image relationships) -->
-                <div v-if="activeTab?.modelRelationship" class="p-4 sm:p-5">
+                <div v-if="activeTab?.modelRelationship && activeTab?.domain === 'InventoryImage'" class="p-4 sm:p-5">
                     <ImageGallery
                         :parent-id="parentRecord.id"
                         :parent-type="parentDomain"
@@ -1016,6 +1272,16 @@ onMounted(() => {
                                         >
                                             <i class="material-icons text-[18px]">open_in_new</i>
                                         </button>
+
+                                        <!-- Detach Button (for Many-to-Many relationships) -->
+                                        <button
+                                            v-if="activeTab?.relationshipType === 'ManyToMany'"
+                                            @click="detachRelatedRecord(item)"
+                                            class="inline-flex items-center justify-center w-8 h-8 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                                            title="Remove"
+                                        >
+                                            <i class="material-icons text-[18px]">link_off</i>
+                                        </button>
                                     </div>
                                 </td>
 
@@ -1043,7 +1309,7 @@ onMounted(() => {
                         class="flex justify-between items-center mt-4"
                     >
                         <button
-                            @click="activeTab && !activeTab.modelRelationship && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
+                            @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
                             :disabled="sublistPagination.current_page === 1"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -1053,7 +1319,7 @@ onMounted(() => {
                             Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
                         </span>
                         <button
-                            @click="activeTab && !activeTab.modelRelationship && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
+                            @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
                             :disabled="sublistPagination.current_page === sublistPagination.last_page"
                             class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
                         >
@@ -1063,7 +1329,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Empty State (for regular sublists only) -->
-                <div v-else-if="!isLoadingSublist && !activeTab?.modelRelationship && activeTab?.domain !== 'Document'" class="text-center py-8">
+                <div v-else-if="!isLoadingSublist && !(activeTab?.modelRelationship && activeTab?.domain === 'InventoryImage') && activeTab?.domain !== 'Document'" class="text-center py-8">
                     <div class="text-gray-500 dark:text-gray-400 mb-4">
                         No {{ activeTab?.label || 'records' }} found.
                     </div>
@@ -1180,4 +1446,178 @@ onMounted(() => {
             />
         </div>
     </Modal>
+
+    <!-- Many-to-Many Attach Modal -->
+    <div v-if="showSublistAttachModal" class="fixed inset-0 z-50 overflow-y-auto" @keydown.escape="closeSublistAttachModal">
+        <!-- Background overlay with blur -->
+        <div class="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity" @click="closeSublistAttachModal"></div>
+
+        <!-- Modal container -->
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <!-- Modal panel -->
+            <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+                            <span class="material-icons text-primary-600 dark:text-primary-400">add_link</span>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Add {{ activeTab?.label || 'Record' }}</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Attach an existing record or create a new one</p>
+                        </div>
+                    </div>
+                    <button
+                        @click="closeSublistAttachModal"
+                        type="button"
+                        class="flex items-center justify-center w-10 h-10 rounded-full text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                    >
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
+                    <nav class="flex gap-1">
+                        <button
+                            @click="openSublistAttachModalTab = 'existing'"
+                            :class="[
+                                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
+                                openSublistAttachModalTab === 'existing'
+                                    ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            ]"
+                        >
+                            <span class="material-icons text-sm">link</span>
+                            Attach Existing
+                        </button>
+                        <button
+                            @click="openSublistAttachModalTab = 'create'"
+                            :class="[
+                                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
+                                openSublistAttachModalTab === 'create'
+                                    ? 'bg-white dark:bg-gray-800 text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            ]"
+                        >
+                            <span class="material-icons text-sm">add</span>
+                            Create New
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Content Area -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <!-- Attach Existing Tab -->
+                    <div v-if="openSublistAttachModalTab === 'existing'" class="space-y-4">
+                        <!-- Search -->
+                        <div class="relative">
+                            <span class="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">search</span>
+                            <input
+                                v-model="attachSearchQuery"
+                                type="text"
+                                placeholder="Search records..."
+                                class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
+                                @input="debouncedAttachSearch"
+                            />
+                        </div>
+
+                        <!-- Search Results -->
+                        <div class="space-y-3 min-h-[300px]">
+                            <!-- Loading State -->
+                            <div v-if="isLoadingAttachSearch" class="text-center py-12">
+                                <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
+                                <p class="text-gray-500 dark:text-gray-400 mt-2">Loading...</p>
+                            </div>
+
+                            <!-- No Results -->
+                            <div v-else-if="attachSearchResults.length === 0" class="text-center py-12">
+                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-3">
+                                    <span class="material-icons text-gray-400 dark:text-gray-500 text-3xl">search_off</span>
+                                </div>
+                                <p class="text-gray-500 dark:text-gray-400 font-medium">No records found</p>
+                                <p class="text-sm text-gray-400 dark:text-gray-500">{{ attachSearchQuery.trim() ? 'Try a different search term' : 'No records available' }}</p>
+                            </div>
+
+                            <!-- Results List -->
+                            <template v-else>
+                                <div
+                                    v-for="record in attachSearchResults"
+                                    :key="record.id"
+                                    class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/20 transition-all group"
+                                >
+                                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                                        <div class="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <span class="material-icons text-gray-600 dark:text-gray-300">
+                                                business
+                                            </span>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                {{ record.display_name || record.name || 'Unnamed' }}
+                                            </h4>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ record.id }}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        @click="attachExistingRecord(record)"
+                                        :disabled="selectedAttachRecord === record.id"
+                                        type="button"
+                                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary-600 dark:bg-primary-600 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+                                    >
+                                        <span v-if="selectedAttachRecord === record.id" class="material-icons text-sm animate-spin">sync</span>
+                                        <span v-else class="material-icons text-sm">add</span>
+                                        <span>Attach</span>
+                                    </button>
+                                </div>
+
+                                <!-- Pagination -->
+                                <div v-if="attachSearchPagination.last_page > 1" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <button
+                                        @click="loadAttachRecords(attachSearchPagination.current_page - 1)"
+                                        :disabled="attachSearchPagination.current_page === 1 || isLoadingAttachSearch"
+                                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        <span class="material-icons text-sm">chevron_left</span>
+                                        Previous
+                                    </button>
+                                    
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                                        Page {{ attachSearchPagination.current_page }} of {{ attachSearchPagination.last_page }}
+                                        <span class="text-gray-400 dark:text-gray-500">({{ attachSearchPagination.total }} total)</span>
+                                    </span>
+                                    
+                                    <button
+                                        @click="loadAttachRecords(attachSearchPagination.current_page + 1)"
+                                        :disabled="attachSearchPagination.current_page === attachSearchPagination.last_page || isLoadingAttachSearch"
+                                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        Next
+                                        <span class="material-icons text-sm">chevron_right</span>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Create New Tab -->
+                    <div v-if="openSublistAttachModalTab === 'create'" class="text-center py-12">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/30 mb-4">
+                            <span class="material-icons text-primary-600 dark:text-primary-400 text-4xl">add_circle</span>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Create New {{ activeTab?.label || 'Record' }}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">This will open the creation form in a new modal</p>
+                        <button
+                            @click="openCreateNewFromAttachModal"
+                            type="button"
+                            class="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-all shadow-sm hover:shadow-md"
+                        >
+                            <span class="material-icons text-sm">add</span>
+                            Open Creation Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </template>

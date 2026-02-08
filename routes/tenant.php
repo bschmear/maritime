@@ -129,6 +129,14 @@ Route::middleware([
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');
         Route::get('/records/select-form', [GeneralController::class, 'selectForm'])->name('records.select-form');
 
+        // Generic Many-to-Many relationship routes (attach/detach for any resource)
+        // These need to be registered for each resource that supports many-to-many relationships
+        Route::post('/locations/{location}/attach', [LocationController::class, 'attachRelationship'])->name('locations.attach');
+        Route::post('/locations/{location}/detach', [LocationController::class, 'detachRelationship'])->name('locations.detach');
+        
+        Route::post('/subsidiaries/{subsidiary}/attach', [SubsidiaryController::class, 'attachRelationship'])->name('subsidiaries.attach');
+        Route::post('/subsidiaries/{subsidiary}/detach', [SubsidiaryController::class, 'detachRelationship'])->name('subsidiaries.detach');
+
 
         // Profile routes
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
