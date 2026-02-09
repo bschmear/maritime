@@ -74,23 +74,25 @@ class InventoryUnit extends Model
 
     /**
      * Generate a display name for the unit
-     * Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
+     * Format: Inventory Item Name - Unit Identifier
      */
     public function getDisplayNameAttribute()
     {
+        $itemName = $this->inventoryItem?->display_name ?? 'Unknown Item';
+        $unitIdentifier = '';
+
+        // Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
         if (!empty($this->serial_number)) {
-            return "SN: {$this->serial_number}";
+            $unitIdentifier = "SN: {$this->serial_number}";
+        } elseif (!empty($this->hin)) {
+            $unitIdentifier = "HIN: {$this->hin}";
+        } elseif (!empty($this->sku)) {
+            $unitIdentifier = "SKU: {$this->sku}";
+        } else {
+            $unitIdentifier = "Unit #{$this->id}";
         }
-        
-        if (!empty($this->hin)) {
-            return "HIN: {$this->hin}";
-        }
-        
-        if (!empty($this->sku)) {
-            return "SKU: {$this->sku}";
-        }
-        
-        return "Unit #{$this->id}";
+
+        return "{$itemName} - {$unitIdentifier}";
     }
 
     public function images()

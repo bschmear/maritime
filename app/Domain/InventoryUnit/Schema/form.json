@@ -8,10 +8,11 @@
       "fields": [
         { "key": "inventory_item_id", "required": true },
         { "key": "serial_number", "required": false },
-        { "key": "hin", "required": false },
         { "key": "sku", "required": false },
         { "key": "batch_number", "required": false },
         { "key": "quantity", "required": true },
+        { "key": "vendor_id", "required": false },
+        { "key": "location_id", "required": false },
         { "key": "inactive", "required": false }
       ]
     },
@@ -24,19 +25,6 @@
         { "key": "cost", "required": false },
         { "key": "asking_price", "required": false },
         { "key": "price_history", "required": false, "hidden": true }
-      ]
-    },
-    "vendor_info": {
-      "label": "Vendor / Owner",
-      "fields": [
-        { "key": "vendor_id", "required": false },
-        { "key": "owner_name", "required": false }
-      ]
-    },
-    "location_info": {
-      "label": "Location",
-      "fields": [
-        { "key": "location_id", "required": false }
       ]
     },
     "notes": {

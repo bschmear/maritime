@@ -63,11 +63,36 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
-        if (!in_array('id', $columns)) {
-            $columns[] = 'id';
+        // Separate actual database columns from relationship columns
+        $actualColumns = [];
+        $relationshipColumns = [];
+
+        foreach ($columns as $column) {
+            if (strpos($column, '.') !== false) {
+                // This is a relationship column like "asset.display_name"
+                $relationshipColumns[] = $column;
+            } else {
+                // This is an actual database column
+                $actualColumns[] = $column;
+            }
+        }
+
+        if (!in_array('id', $actualColumns)) {
+            $actualColumns[] = 'id';
         }
 
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+
+        // Load relationships needed for display names
+        if ($this->domainName === 'AssetUnit') {
+            $relationships['asset'] = function ($query) {
+                $query->select(['id', 'display_name']);
+            };
+        } elseif ($this->domainName === 'InventoryUnit') {
+            $relationships['inventoryItem'] = function ($query) {
+                $query->select(['id', 'display_name']);
+            };
+        }
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
@@ -75,12 +100,12 @@ class RecordController extends BaseController
 
                 // Determine which fields to select for this relationship
                 $selectFields = ['id', 'display_name'];
-                
+
                 // If a custom displayField is specified, add it to the select
                 if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
                     $selectFields[] = $fieldDef['displayField'];
                 }
-                
+
                 // Make sure we have unique fields
                 $selectFields = array_unique($selectFields);
 
@@ -90,11 +115,47 @@ class RecordController extends BaseController
             }
         }
 
-        $query = $this->recordModel->select($columns)->with($relationships);
+        $query = $this->recordModel->select($actualColumns)->with($relationships);
 
         $searchQuery = $request->get('search');
         if ($searchQuery && !empty(trim($searchQuery))) {
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+            // Check if display_name column exists, otherwise search in typical display name fields
+            $tableName = $this->recordModel->getTable();
+            $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+                ->hasColumn($tableName, 'display_name');
+
+            if ($hasDisplayName) {
+                $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+            } else {
+                // Search in fields that typically make up display names
+                $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+                if ($this->domainName === 'AssetUnit') {
+                    // For AssetUnit, also search in the joined assets table
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
+                } elseif ($this->domainName === 'InventoryUnit') {
+                    // For InventoryUnit, also search in the joined inventory_items table
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
+                } else {
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(serial_number) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(hin) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('LOWER(sku) LIKE ?', [$searchTerm])
+                          ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
+                }
+            }
         }
 
         $filtersParam = $request->get('filters');
@@ -113,11 +174,32 @@ class RecordController extends BaseController
         $tableName = $this->recordModel->getTable();
         $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
             ->hasColumn($tableName, 'display_name');
-        
+
         if ($hasDisplayName) {
             $query->orderByRaw('LOWER(display_name) ASC');
         } else {
-            $query->orderBy('created_at', 'desc');
+            // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
+            if ($this->domainName === 'AssetUnit') {
+                // Override select to use table prefixes to avoid ambiguous column errors
+                $prefixedColumns = array_map(function($col) use ($actualColumns) {
+                    return in_array($col, $actualColumns) && $col !== 'id' ? $col : ($col === 'id' ? 'asset_units.id' : $col);
+                }, $actualColumns);
+                $query->select($prefixedColumns)
+                      ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
+                      ->orderBy('assets.display_name')
+                      ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
+            } elseif ($this->domainName === 'InventoryUnit') {
+                // Override select to use table prefixes to avoid ambiguous column errors
+                $prefixedColumns = array_map(function($col) use ($actualColumns) {
+                    return in_array($col, $actualColumns) && $col !== 'id' ? $col : ($col === 'id' ? 'inventory_units.id' : $col);
+                }, $actualColumns);
+                $query->select($prefixedColumns)
+                      ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
+                      ->orderBy('inventory_items.display_name')
+                      ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
         }
 
         $perPage = $request->get('per_page', 15);

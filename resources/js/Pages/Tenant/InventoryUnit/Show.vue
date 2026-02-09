@@ -117,7 +117,7 @@ const breadcrumbItems = computed(() => {
         },
         {
             label: props.record?.sku
-                ?? props.record?.hin
+                ?? props.record?.serial_number
                 ?? 'Unit',
         },
     ];

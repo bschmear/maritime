@@ -4,10 +4,6 @@ namespace App\Enums\Inventory;
 
 enum ItemType: string
 {
-    case Boat        = 'boat';
-    case Engine      = 'engine';
-    case Trailer     = 'trailer';
-
     case Part        = 'part';
     case Accessory   = 'accessory';
     case Electronics = 'electronics';
@@ -19,41 +15,19 @@ enum ItemType: string
     public function id(): int
     {
         return match ($this) {
-            self::Boat        => 1,
-            self::Engine      => 2,
-            self::Trailer     => 3,
-            self::Part        => 4,
-            self::Accessory   => 5,
-            self::Package     => 6,
-            self::Electronics => 7,
-            self::Gear        => 8,
-            self::Apparel     => 9,
-            self::Other       => 10,
-        };
-    }
-
-    /**
-     * High-level inventory category for filtering & UI grouping
-     */
-    public function category(): string
-    {
-        return match ($this) {
-            self::Boat,
-            self::Engine,
-            self::Trailer
-                => 'asset',
-
-            default
-                => 'inventory',
+            self::Part        => 1,
+            self::Accessory   => 2,
+            self::Package     => 3,
+            self::Electronics => 4,
+            self::Gear        => 5,
+            self::Apparel     => 6,
+            self::Other       => 7,
         };
     }
 
     public function label(): string
     {
         return match ($this) {
-            self::Boat        => 'Boat',
-            self::Engine      => 'Engine',
-            self::Trailer     => 'Trailer',
             self::Part        => 'Part',
             self::Accessory   => 'Accessory',
             self::Package     => 'Package',
@@ -70,7 +44,6 @@ enum ItemType: string
             'id'       => $case->id(),
             'value'    => $case->value,
             'name'     => $case->label(),
-            'category' => $case->category(),
         ], self::cases());
     }
 

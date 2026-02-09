@@ -1,0 +1,49 @@
+{
+  "columns": [
+    {
+      "key": "display_name",
+      "label": "Asset Name",
+      "sortable": true
+    },
+    {
+      "key": "type",
+      "label": "Type",
+      "sortable": true
+    },
+    {
+      "key": "make_id",
+      "label": "Make",
+      "sortable": true
+    },
+    {
+      "key": "model",
+      "label": "Model",
+      "sortable": true
+    },
+    {
+      "key": "year",
+      "label": "Year",
+      "sortable": true
+    },
+    {
+      "key": "default_cost",
+      "label": "Default Cost",
+      "sortable": true
+    },
+    {
+      "key": "default_price",
+      "label": "Default Price",
+      "sortable": true
+    },
+    {
+      "key": "inactive",
+      "label": "Inactive",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ]
+}

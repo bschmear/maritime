@@ -16,6 +16,16 @@ class UpdateWorkOrder
         ])->validate();
 
         try {
+            // Debug: Log the incoming data
+            \Log::info('UpdateWorkOrder data received:', $data);
+
+            $validated = $data; // For now, just pass through all data
+
+            // Ensure cost fields have default values
+            $validated['labor_cost'] = $validated['labor_cost'] ?? 0;
+            $validated['parts_cost'] = $validated['parts_cost'] ?? 0;
+            $validated['total_cost'] = $validated['total_cost'] ?? 0;
+
             $record = RecordModel::findOrFail($id);
             $record->update($validated);
 

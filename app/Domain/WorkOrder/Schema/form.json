@@ -43,16 +43,22 @@
       "label": "Relationships",
       "fields": [
         {
-          "key": "customer_id",
-          "required": true
+            "key": "customer_id",
+            "required": true,
+            "addNew": true
         },
         {
           "key": "subsidiary_id",
           "required": false
         },
         {
-          "key": "inventory_item_id",
+          "key": "location_id",
           "required": false
+        },
+        {
+          "key": "asset_unit_id",
+          "required": false,
+            "addNew": true
         },
         {
           "key": "assigned_user_id",

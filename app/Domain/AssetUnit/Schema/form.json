@@ -1,0 +1,70 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Asset Unit",
+      "fields": [
+        { "key": "asset_id", "required": true },
+        { "key": "serial_number" },
+        { "key": "hin" },
+        { "key": "sku" },
+        { "key": "inactive" }
+      ]
+    },
+
+    "status_pricing": {
+      "label": "Status & Pricing",
+      "fields": [
+        { "key": "condition", "required": true },
+        { "key": "status", "required": true },
+
+        {
+          "key": "engine_hours"
+        },
+        { "key": "cost" },
+        { "key": "asking_price" },
+        { "key": "sold_price", "readOnly": true },
+        { "key": "price_history", "hidden": true }
+      ]
+    },
+
+    "ownership": {
+      "label": "Ownership & Assignment",
+      "fields": [
+        { "key": "is_customer_owned" },
+        { "key": "is_consignment" },
+        { "key": "customer_id" },
+        { "key": "vendor_id" },
+        { "key": "subsidiary_id" },
+        { "key": "location_id" }
+      ]
+    },
+
+    "lifecycle": {
+      "label": "Lifecycle",
+      "fields": [
+        { "key": "in_service_at" },
+        { "key": "out_of_service_at" },
+        { "key": "sold_at", "readOnly": true },
+        { "key": "last_service_at" },
+        { "key": "warranty_expires_at" }
+      ]
+    },
+
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        { "key": "notes" }
+      ]
+    }
+  },
+
+  "sublistConditions": {
+    "auto_fill": {
+      "cost": "Asset.default_cost",
+      "asking_price": "Asset.default_price"
+    }
+  }
+}

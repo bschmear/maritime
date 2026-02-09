@@ -6,11 +6,6 @@
       "sortable": true
     },
     {
-      "key": "hin",
-      "label": "Hull ID (HIN)",
-      "sortable": true
-    },
-    {
       "key": "sku",
       "label": "SKU",
       "sortable": true
@@ -33,11 +28,6 @@
     {
       "key": "status",
       "label": "Status",
-      "sortable": true
-    },
-    {
-      "key": "engine_hours",
-      "label": "Engine Hours",
       "sortable": true
     },
     {

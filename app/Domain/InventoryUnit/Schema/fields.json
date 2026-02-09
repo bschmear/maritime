@@ -13,11 +13,6 @@
             "type": "text",
             "description": "Manufacturer serial number for this unit"
         },
-        "hin": {
-            "label": "Hull ID (HIN)",
-            "type": "text",
-            "description": "Hull Identification Number for boats"
-        },
         "sku": {
             "label": "SKU",
             "type": "text",
@@ -70,11 +65,6 @@
             "typeDomain": "Vendor",
             "relationship": "vendor",
             "addNew": true
-        },
-        "owner_name": {
-            "label": "Owner Name",
-            "type": "text",
-            "description": "Optional freeform owner name for consignments"
         },
         "location_id": {
             "label": "Location",

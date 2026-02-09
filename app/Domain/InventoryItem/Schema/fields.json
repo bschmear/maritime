@@ -99,18 +99,6 @@
     "type": "keyValue",
     "description": "Custom attributes for parts, accessories, or services"
   },
-  "photos": {
-    "label": "Photos",
-    "type": "image",
-    "validation": "nullable|image|max:2048",
-    "help": "Profile picture (max 2MB, JPG, PNG, GIF)",
-    "multiple": true,
-    "meta": {
-      "directory": "items",
-      "private": false,
-      "max_width": 1250
-    }
-  },
   "videos": {
     "label": "Videos",
     "type": "media",

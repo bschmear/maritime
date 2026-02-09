@@ -16,7 +16,6 @@ class CreateInventoryUnit
             $validated = Validator::make($data, [
                 'inventory_item_id' => ['required', 'integer', 'exists:inventory_items,id'],
                 'serial_number'     => ['nullable', 'string', 'max:255'],
-                'hin'               => ['nullable', 'string', 'max:255', 'unique:inventory_units,hin'],
                 'sku'               => ['nullable', 'string', 'max:255'],
                 'batch_number'      => ['nullable', 'string', 'max:255'],
                 'quantity'          => ['nullable', 'integer', 'min:1'],

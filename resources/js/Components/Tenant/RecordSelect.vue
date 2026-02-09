@@ -31,6 +31,14 @@
         fieldKey: {
             type: String,
             default: ''
+        },
+        filterBy: {
+            type: String,
+            default: null
+        },
+        filterValue: {
+            type: [String, Number, null],
+            default: null
         }
     });
     
@@ -217,6 +225,15 @@
 
             if (searchQuery.value) {
                 url.searchParams.append('search', searchQuery.value);
+            }
+
+            // Add filter parameters if provided
+            if (props.filterBy && props.filterValue !== null && props.filterValue !== '') {
+                url.searchParams.append('filters', JSON.stringify([{
+                    field: props.filterBy,
+                    operator: 'equals',
+                    value: props.filterValue
+                }]));
             }
             
             const response = await fetch(url.toString(), {
@@ -622,7 +639,7 @@
                     </div>
 
                     <!-- Content Area -->
-                    <div class="flex-1 overflow-y-auto p-6">
+                    <div class="flex-1 overflow-y-auto p-4">
                         <!-- Select Existing Tab -->
                         <div v-if="enhancedModalTab === 'existing'" class="space-y-4">
                             <!-- Search -->
@@ -632,7 +649,7 @@
                                     v-model="searchQuery"
                                     type="text"
                                     placeholder="Search records..."
-                                    class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
+                                    class="rounded-xl w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
                                     @input="fetchRecords"
                                 />
                             </div>

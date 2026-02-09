@@ -16,8 +16,7 @@ class CreateWorkOrder
         ])->validate();
 
         try {
-            // Debug: Log the incoming data
-            \Log::info('CreateWorkOrder data received:', $data);
+            
 
             $validated = $data; // For now, just pass through all data
 

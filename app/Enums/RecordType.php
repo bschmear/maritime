@@ -7,6 +7,8 @@ enum RecordType: string
     case InventoryUnit   = 'inventoryunit';
     case InventoryItem   = 'inventoryitem';
     case InventoryImage  = 'inventoryimage';
+    case Asset           = 'asset';
+    case AssetUnit       = 'assetunit';
     case BoatMake        = 'boatmake';
     case Subsidiary      = 'subsidiary';
     case Lead            = 'lead';
@@ -31,6 +33,8 @@ enum RecordType: string
             self::InventoryUnit   => 'InventoryUnit',
             self::InventoryItem   => 'InventoryItem',
             self::InventoryImage  => 'InventoryImage',
+            self::Asset           => 'Asset',
+            self::AssetUnit       => 'AssetUnit',
             self::BoatMake        => 'BoatMake',
             self::Subsidiary      => 'Subsidiary',
             self::Lead            => 'Lead',
@@ -57,6 +61,8 @@ enum RecordType: string
             self::InventoryUnit   => 'App\\Domain\\InventoryUnit',
             self::InventoryItem   => 'App\\Domain\\InventoryItem',
             self::InventoryImage  => 'App\\Domain\\InventoryImage',
+            self::Asset           => 'App\\Domain\\Asset',
+            self::AssetUnit       => 'App\\Domain\\AssetUnit',
             self::BoatMake        => 'App\\Domain\\BoatMake',
             self::Subsidiary      => 'App\\Domain\\Subsidiary',
             self::Lead            => 'App\\Domain\\Lead',
@@ -81,8 +87,10 @@ enum RecordType: string
     {
         return match($this) {
             self::InventoryUnit   => 'Item',
-            self::InventoryItem   => 'Inventory Item',
+            self::InventoryItem   => 'Parts & Accessories',
             self::InventoryImage  => 'Image',
+            self::Asset           => 'Asset',
+            self::AssetUnit       => 'Asset Unit',
             self::BoatMake        => 'Boat Make',
             self::Subsidiary      => 'Subsidiary',
             self::Lead            => 'Lead',
@@ -109,6 +117,8 @@ enum RecordType: string
             self::InventoryUnit   => 'inventoryunits',
             self::InventoryItem   => 'inventoryitems',
             self::InventoryImage  => 'inventoryimages',
+            self::Asset           => 'assets',
+            self::AssetUnit       => 'assetunits',
             self::BoatMake        => 'boatmakes',
             self::Subsidiary      => 'subsidiaries',
             self::Lead            => 'leads',

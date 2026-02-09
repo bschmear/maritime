@@ -23,29 +23,33 @@
     "label": "Status",
     "type": "select",
     "enum": "App\\Enums\\WorkOrder\\Status",
-    "required": true
+    "required": true,
+    "default": 1
   },
 
   "priority": {
     "label": "Priority",
     "type": "select",
     "enum": "App\\Enums\\WorkOrder\\Priority",
-    "required": true
+    "required": true,
+    "default": 1
   },
 
   "type": {
     "label": "Work Type",
     "type": "select",
     "enum": "App\\Enums\\WorkOrder\\Type",
-    "required": true
+    "required": true,
+    "default": 1
   },
 
-  "inventory_item_id": {
-    "label": "Inventory Item",
+  "asset_unit_id": {
+    "label": "Asset",
     "type": "record",
-    "typeDomain": "InventoryItem",
-    "help": "Boat, vehicle, or asset being serviced",
-    "nullable": true
+    "typeDomain": "AssetUnit",
+    "help": "Boat, engine, or trailer being serviced",
+    "nullable": true,
+    "create": true
   },
 
   "customer_id": {

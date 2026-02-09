@@ -1,0 +1,127 @@
+{
+  "type": {
+    "label": "Asset Type",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\AssetType",
+    "required": true,
+    "default": 1
+  },
+  "display_name": {
+    "label": "Asset Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter asset name"
+  },
+  "slug": {
+    "label": "Slug",
+    "type": "text",
+    "disabled": true,
+    "help": "Auto-generated from name"
+  },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false
+  },
+  "make_id": {
+    "label": "Make",
+    "type": "record",
+    "typeDomain": "BoatMake",
+    "addNew": true
+  },
+  "model": {
+    "label": "Model",
+    "type": "text",
+    "placeholder": "Model name"
+  },
+  "year": {
+    "label": "Year",
+    "type": "text",
+    "placeholder": "Year"
+  },
+  "length": {
+    "label": "Length",
+    "type": "text",
+    "placeholder": "e.g., 22ft",
+    "help": "Boat length"
+  },
+  "beam": {
+    "label": "Beam",
+    "type": "text",
+    "placeholder": "e.g., 8ft",
+    "help": "Boat beam width"
+  },
+  "persons": {
+    "label": "Persons Capacity",
+    "type": "number",
+    "placeholder": "0",
+    "help": "Maximum persons capacity"
+  },
+  "minimum_power": {
+    "label": "Min Power",
+    "type": "number",
+    "placeholder": "HP",
+    "help": "Minimum engine power required"
+  },
+  "maximum_power": {
+    "label": "Max Power",
+    "type": "number",
+    "placeholder": "HP",
+    "help": "Maximum engine power recommended"
+  },
+  "fuel_tank": {
+    "label": "Fuel Tank",
+    "type": "text",
+    "placeholder": "e.g., 50 Gal"
+  },
+  "engine_shaft": {
+    "label": "Engine Shaft",
+    "type": "text",
+    "placeholder": "e.g., 1L"
+  },
+  "water_tank": {
+    "label": "Water Tank",
+    "type": "text",
+    "placeholder": "e.g., 12 Gal"
+  },
+  "category": {
+    "label": "Category",
+    "type": "text",
+    "placeholder": "Asset category"
+  },
+  "engine_details": {
+    "label": "Engine Details",
+    "type": "textarea",
+    "placeholder": "Detailed engine specifications"
+  },
+  "default_cost": {
+    "label": "Default Cost",
+    "type": "currency",
+    "placeholder": "0.00"
+  },
+  "default_price": {
+    "label": "Default Price",
+    "type": "currency",
+    "placeholder": "0.00"
+  },
+  "attributes": {
+    "label": "Additional Attributes",
+    "type": "json",
+    "help": "Custom attributes as JSON"
+  },
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "placeholder": "Asset description"
+  },
+  "created_at": {
+    "label": "Created",
+    "type": "datetime",
+    "disabled": true
+  },
+  "updated_at": {
+    "label": "Updated",
+    "type": "datetime",
+    "disabled": true
+  }
+}

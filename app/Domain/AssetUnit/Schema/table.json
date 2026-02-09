@@ -1,0 +1,85 @@
+{
+  "columns": [
+    {
+      "key": "hin",
+      "label": "Hull ID (HIN)",
+      "sortable": true
+    },
+    {
+      "key": "serial_number",
+      "label": "Serial Number",
+      "sortable": true
+    },
+    {
+      "key": "sku",
+      "label": "SKU",
+      "sortable": true
+    },
+    {
+      "key": "condition",
+      "label": "Condition",
+      "sortable": true
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "sortable": true
+    },
+    {
+      "key": "engine_hours",
+      "label": "Engine Hours",
+      "sortable": true
+    },
+    {
+      "key": "cost",
+      "label": "Cost",
+      "sortable": true
+    },
+    {
+      "key": "asking_price",
+      "label": "Asking Price",
+      "sortable": true
+    },
+    {
+      "key": "sold_price",
+      "label": "Sold Price",
+      "sortable": true
+    },
+    {
+      "key": "vendor.display_name",
+      "label": "Vendor",
+      "sortable": false
+    },
+    {
+      "key": "customer.display_name",
+      "label": "Owner",
+      "sortable": false
+    },
+    {
+      "key": "location.display_name",
+      "label": "Location",
+      "sortable": false
+    },
+    {
+      "key": "warranty_expires_at",
+      "label": "Warranty Expiration",
+      "sortable": true
+    },
+    {
+      "key": "inactive",
+      "label": "Inactive",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ],
+  "filters": [
+    {
+      "field": "inactive",
+      "operator": "is_false"
+    }
+  ]
+}

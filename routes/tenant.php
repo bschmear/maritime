@@ -28,6 +28,8 @@ use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\ServiceItemController;
+use App\Http\Controllers\Tenant\AssetController;
+use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -90,6 +92,15 @@ Route::middleware([
         Route::prefix('inventoryitems')->name('inventoryitems.')->group(function () {
             Route::resource('/', InventoryItemController::class)->parameters(['' => 'inventoryitem']);
         });
+
+        Route::prefix('assets')->name('assets.')->group(function () {
+            Route::resource('/', AssetController::class)->parameters(['' => 'asset']);
+        });
+
+        Route::prefix('assetunits')->name('assetunits.')->group(function () {
+            Route::resource('/', AssetUnitController::class)->parameters(['' => 'assetunit']);
+        });
+
         Route::prefix('boatmakes')->name('boatmakes.')->group(function () {
             Route::resource('/', BoatMakeController::class)->parameters(['' => 'boatmake']);
         });

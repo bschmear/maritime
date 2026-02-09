@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\WorkOrder\Models\WorkOrderLineItem;
+use App\Domain\InventoryImage\Models\InventoryImage;
 
 class WorkOrder extends Model
 {
@@ -56,6 +57,20 @@ class WorkOrder extends Model
         );
     }
 
+    public function assetUnit(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Domain\AssetUnit\Models\AssetUnit::class
+        );
+    }
+
+    public function asset_unit(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Domain\AssetUnit\Models\AssetUnit::class
+        );
+    }
+
     public function inventoryUnit(): BelongsTo
     {
         return $this->belongsTo(
@@ -76,6 +91,11 @@ class WorkOrder extends Model
             \App\Domain\InventoryItem\Models\InventoryItem::class,
             'inventory_item_id'
         );
+    }
+
+    public function images()
+    {
+        return $this->morphMany(InventoryImage::class, 'imageable');
     }
 
     public function serviceItems()

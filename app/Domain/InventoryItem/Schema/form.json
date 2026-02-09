@@ -41,101 +41,11 @@
         }
       ]
     },
-    "boat_details": {
-      "label": "Boat Details",
-      "conditional": {
-        "key": "type",
-        "value": "1"
-      },
-      "fields": [
-        {
-          "key": "boat_type",
-          "required": false
-        },
-        {
-          "key": "boat_make_id",
-          "required": false
-        },
-        {
-          "key": "model",
-          "required": false
-        },
-        {
-          "key": "year",
-          "required": false
-        },
-        {
-          "key": "length",
-          "required": false
-        },
-        {
-          "key": "beam",
-          "required": false
-        },
-        {
-          "key": "tube_diameter",
-          "required": false
-        },
-        {
-          "key": "tubes_compartment",
-          "required": false
-        },
-        {
-          "key": "persons",
-          "required": false
-        },
-        {
-          "key": "weight",
-          "required": false
-        },
-        {
-          "key": "minimum_power",
-          "required": false
-        },
-        {
-          "key": "maximum_power",
-          "required": false
-        },
-        {
-          "key": "engine_shaft",
-          "required": false
-        },
-        {
-          "key": "fuel_tank",
-          "required": false
-        },
-        {
-          "key": "water_tank",
-          "required": false
-        },
-        {
-          "key": "category",
-          "required": false
-        },
-        {
-          "key": "engine_details",
-          "required": false
-        }
-      ]
-    },
     "attributes": {
       "label": "Attributes",
       "fields": [
         {
           "key": "attributes",
-          "required": false
-        }
-      ]
-    },
-    "media": {
-      "label": "Media",
-      "fields": [
-        {
-          "key": "photos",
-          "required": false
-        },
-        {
-          "key": "videos",
           "required": false
         }
       ]

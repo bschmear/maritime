@@ -228,11 +228,18 @@ trait HasSchemaSupport
                     }
                     break;
                 case 'equals':
-                    // Case-insensitive for text fields
-                    if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $field . ') = ?', [strtolower($value)]);
+                    // Handle special relationship filtering for Location subsidiary filtering
+                    if ($this->domainName === 'Location' && $field === 'subsidiary_id') {
+                        $query->whereHas('subsidiaries', function($q) use ($value) {
+                            $q->where('id', $value);
+                        });
                     } else {
-                        $query->where($field, '=', $value);
+                        // Case-insensitive for text fields
+                        if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
+                            $query->whereRaw('LOWER(' . $field . ') = ?', [strtolower($value)]);
+                        } else {
+                            $query->where($field, '=', $value);
+                        }
                     }
                     break;
                 case 'starts_with':

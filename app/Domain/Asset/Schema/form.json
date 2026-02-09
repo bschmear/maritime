@@ -1,0 +1,94 @@
+{
+  "settings": {
+    "max_width": "5xl"
+  },
+  "form": {
+    "general": {
+      "label": "General",
+      "fields": [
+        {
+          "key": "type",
+          "required": true
+        },
+        {
+          "key": "display_name",
+          "required": true
+        },
+        {
+          "key": "make_id"
+        },
+        {
+          "key": "model"
+        },
+        {
+          "key": "year"
+        },
+        {
+          "key": "default_cost"
+        },
+        {
+          "key": "default_price"
+        }
+      ]
+    },
+
+    "details": {
+      "label": "Details",
+      "fields": [
+        {
+          "key": "inactive"
+        },
+        {
+          "key": "length"
+        },
+        {
+          "key": "beam"
+        },
+        {
+          "key": "persons"
+        },
+        {
+          "key": "minimum_power"
+        },
+        {
+          "key": "maximum_power"
+        },
+        {
+          "key": "fuel_tank"
+        }
+      ]
+    },
+
+    "lifecycle": {
+      "label": "Lifecycle & Notes",
+      "fields": [
+        {
+          "key": "attributes"
+        },
+        {
+          "key": "description"
+        }
+      ]
+    }
+  },
+  "sublists": [
+    {
+      "label": "Asset Units",
+      "domain": "AssetUnit",
+      "modelRelationship": "units"
+    },
+    {
+      "label": "Transactions",
+      "domain": "Transaction"
+    },
+    {
+      "label": "Images",
+      "domain": "InventoryImage",
+      "modelRelationship": "images"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document"
+    }
+  ]
+}

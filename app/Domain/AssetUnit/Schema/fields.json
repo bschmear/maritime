@@ -1,0 +1,170 @@
+{
+  "asset_id": {
+    "label": "Asset",
+    "type": "record",
+    "typeDomain": "Asset",
+    "relationship": "asset",
+    "required": true,
+    "locked": true
+  },
+
+  "serial_number": {
+    "label": "Serial Number",
+    "type": "text",
+    "description": "Manufacturer serial number for this unit"
+  },
+  
+  "hin": {
+    "label": "Hull ID (HIN)",
+    "type": "text",
+    "description": "Hull Identification Number for boats"
+  },
+
+  "sku": {
+    "label": "SKU",
+    "type": "text",
+    "description": "Internal SKU for non-boat inventory"
+  },
+
+  "condition": {
+    "label": "Condition",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\UnitCondition"
+  },
+
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\UnitStatus"
+  },
+
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false
+  },
+
+  "is_customer_owned": {
+    "label": "Customer Owned",
+    "type": "boolean",
+    "default": false,
+    "description": "Indicates this unit is owned by a customer"
+  },
+
+  "is_consignment": {
+    "label": "Consignment",
+    "type": "boolean",
+    "default": false,
+    "description": "Indicates this unit is on consignment"
+  },
+
+  "engine_hours": {
+    "label": "Engine Hours",
+    "type": "number",
+    "min": 0,
+    "description": "Applies primarily to boats"
+  },
+
+  "last_service_at": {
+    "label": "Last Service Date",
+    "type": "datetime"
+  },
+
+  "warranty_expires_at": {
+    "label": "Warranty Expires",
+    "type": "date"
+  },
+
+  "cost": {
+    "label": "Cost",
+    "type": "currency"
+  },
+
+  "asking_price": {
+    "label": "Asking Price",
+    "type": "currency"
+  },
+
+  "sold_price": {
+    "label": "Sold Price",
+    "type": "currency",
+    "readOnly": true
+  },
+
+  "price_history": {
+    "label": "Price History",
+    "type": "hidden",
+    "description": "System managed price history"
+  },
+
+  "vendor_id": {
+    "label": "Vendor",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "relationship": "vendor",
+    "addNew": true
+  },
+
+  "customer_id": {
+    "label": "Customer",
+    "type": "record",
+    "typeDomain": "Customer",
+    "relationship": "customer",
+    "addNew": true,
+    "description": "Customer associated with this unit"
+  },
+
+  "location_id": {
+    "label": "Location",
+    "type": "record",
+    "typeDomain": "Location",
+    "relationship": "location",
+    "addNew": true,
+    "displayField": "display_name"
+  },
+
+  "subsidiary_id": {
+    "label": "Subsidiary",
+    "type": "record",
+    "typeDomain": "Subsidiary",
+    "relationship": "subsidiary"
+  },
+
+  "in_service_at": {
+    "label": "In Service Date",
+    "type": "datetime"
+  },
+
+  "out_of_service_at": {
+    "label": "Out of Service Date",
+    "type": "datetime"
+  },
+
+  "sold_at": {
+    "label": "Sold Date",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "attributes": {
+    "label": "Additional Attributes",
+    "type": "json"
+  },
+
+  "notes": {
+    "label": "Notes",
+    "type": "textarea"
+  },
+
+  "created_at": {
+    "label": "Created At",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "updated_at": {
+    "label": "Updated At",
+    "type": "datetime",
+    "readOnly": true
+  }
+}
