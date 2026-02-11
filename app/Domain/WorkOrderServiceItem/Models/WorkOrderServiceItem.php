@@ -32,9 +32,11 @@ class WorkOrderServiceItem extends Model
         // Ordering / meta
         'sort_order',
         'attributes',
+        'billing_type',
     ];
 
     protected $casts = [
+        'billing_type' => 'integer',
         'quantity'         => 'decimal:2',
         'unit_price'       => 'decimal:2',
         'unit_cost'        => 'decimal:2',

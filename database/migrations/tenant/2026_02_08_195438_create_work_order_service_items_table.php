@@ -31,6 +31,7 @@ return new class extends Migration
             $table->decimal('total_cost', 10, 2)->nullable();
 
             // Billing flags
+            $table->unsignedTinyInteger('billing_type')->default(1);
             $table->boolean('billable')->default(true);
             $table->boolean('warranty')->default(false);
 

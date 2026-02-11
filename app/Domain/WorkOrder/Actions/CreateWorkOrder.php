@@ -56,6 +56,7 @@ class CreateWorkOrder
                     'actual_hours'   => $item['actual_hours'] ?? null,
                     'billable'       => $item['billable'] ?? true,
                     'warranty'       => $item['warranty'] ?? false,
+                    'billing_type'   => $item['billing_type'] ?? null,
                     'sort_order'     => $item['sort_order'] ?? $idx,
                 ]);
             }

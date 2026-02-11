@@ -1,5 +1,9 @@
 {
-    "fields": [
-
-    ]
+  "billing_type": {
+    "label": "Billing Type",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceItem\\BillingType",
+    "required": true,
+    "default": 1
+  }
 }
