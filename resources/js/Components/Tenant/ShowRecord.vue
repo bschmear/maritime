@@ -69,6 +69,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    account: {
+        type: Object,
+        default: null,
+    },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isEditMode = ref(false);
@@ -251,6 +259,8 @@ const breadcrumbItems = computed(() => {
                             :mode="isEditMode ? 'edit' : 'view'"
                             :prevent-redirect="true"
                             :form-id="`form-${recordType}-${record.id}`"
+                            :account="account"
+                            :timezones="timezones"
                             @submit="handleSubmit"
                             @updated="handleUpdated"
                             @cancel="handleCancel"

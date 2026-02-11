@@ -143,6 +143,7 @@ Route::middleware([
 
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
+            Route::post('/update', [AccountController::class, 'update'])->name('update');
         });
 
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');

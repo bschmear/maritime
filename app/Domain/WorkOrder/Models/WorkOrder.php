@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 
 class WorkOrder extends Model
 {
@@ -35,6 +36,9 @@ class WorkOrder extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'due_at' => 'datetime',
+
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     /*
@@ -100,15 +104,13 @@ class WorkOrder extends Model
 
     public function serviceItems()
     {
-        return $this->hasMany(
-            \App\Domain\WorkOrder\Models\WorkOrderServiceItem::class
-        );
+        return $this->hasMany(WorkOrderServiceItem::class);
     }
 
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Models\User::class,
+            \App\Domain\User\Models\User::class,
             'assigned_user_id'
         );
     }
@@ -116,7 +118,7 @@ class WorkOrder extends Model
     public function assigned_user(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Models\User::class,
+            \App\Domain\User\Models\User::class,
             'assigned_user_id'
         );
     }
@@ -124,7 +126,7 @@ class WorkOrder extends Model
     public function requested_by_user(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Models\User::class,
+            \App\Domain\User\Models\User::class,
             'requested_by_user_id'
         );
     }

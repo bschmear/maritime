@@ -54,6 +54,24 @@ class GeneralController extends BaseController
             $query->with('inventoryItem:id,display_name');
         }
 
+        // Apply filters if provided
+        $filters = $request->get('filters');
+        if ($filters) {
+            $filtersArray = is_string($filters) ? json_decode($filters, true) : $filters;
+            if (is_array($filtersArray) && !empty($filtersArray)) {
+                // Set domain name for HasSchemaSupport trait
+                $this->domainName = ucfirst($type);
+                $this->recordModel = $recordModel;
+
+                // Load fields schema for the domain
+                $fieldsSchemaRaw = $this->getFieldsSchema();
+                $fieldsSchema = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+
+                // Apply filters using the trait method
+                $query = $this->applyFilters($query, $filtersArray, $fieldsSchema);
+            }
+        }
+
         // Apply search query (fuzzy search on display_name or related fields, case-insensitive)
         $searchQuery = $request->get('search');
         if ($searchQuery && !empty(trim($searchQuery))) {
@@ -101,7 +119,9 @@ class GeneralController extends BaseController
             if ($type === 'assetunit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
                 $prefixedColumns = array_map(function($col) {
-                    return $col === 'id' ? 'asset_units.id' : $col;
+                    // Prefix all columns that belong to the asset_units table
+                    $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+                    return in_array($col, $tableColumns) ? 'asset_units.' . $col : $col;
                 }, $columns);
                 $query->select($prefixedColumns)
                       ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
@@ -110,7 +130,9 @@ class GeneralController extends BaseController
             } elseif ($type === 'inventoryunit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
                 $prefixedColumns = array_map(function($col) {
-                    return $col === 'id' ? 'inventory_units.id' : $col;
+                    // Prefix all columns that belong to the inventory_units table
+                    $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+                    return in_array($col, $tableColumns) ? 'inventory_units.' . $col : $col;
                 }, $columns);
                 $query->select($prefixedColumns)
                       ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')

@@ -47,6 +47,7 @@
     "label": "Asset",
     "type": "record",
     "typeDomain": "AssetUnit",
+    "filterby": "customer_id",
     "help": "Boat, engine, or trailer being serviced",
     "nullable": true,
     "create": true
@@ -73,13 +74,13 @@
     "typeDomain": "Location",
     "relationship": "location",
     "nullable": true,
-    "filterby": "subsidiary_id",
-    "create": true
+    "filterby": "subsidiary_id"
   },
 
   "assigned_user_id": {
     "label": "Assigned Technician",
     "type": "record",
+    "relationship": "assigned_user",
     "typeDomain": "User",
     "nullable": true
   },
@@ -125,6 +126,7 @@
     "label": "Estimated Hours",
     "type": "number",
     "step": 0.25,
+    "default": 0,
     "nullable": true
   },
 
@@ -132,6 +134,7 @@
     "label": "Actual Hours",
     "type": "number",
     "step": 0.25,
+    "default": 0,
     "disabled": true
   },
 

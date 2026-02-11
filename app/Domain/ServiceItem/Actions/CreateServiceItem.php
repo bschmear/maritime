@@ -18,6 +18,7 @@ class CreateServiceItem
             'billing_type' => 'required|integer|in:1,2,3',
             'default_rate' => 'nullable|numeric|min:0',
             'default_cost' => 'nullable|numeric|min:0',
+            'default_hours' => 'nullable|numeric|min:0',
             'taxable' => 'nullable|boolean',
             'billable' => 'nullable|boolean',
             'warranty_eligible' => 'nullable|boolean',
@@ -41,6 +42,7 @@ class CreateServiceItem
             // Ensure cost and rate fields have default values
             $recordData['default_rate'] = $recordData['default_rate'] ?? 0;
             $recordData['default_cost'] = $recordData['default_cost'] ?? 0;
+            $recordData['default_hours'] = $recordData['default_hours'] ?? 0;
 
             // Add any additional non-validated fields that should be saved
             $additionalFields = ['subsidiary_id', 'attributes'];

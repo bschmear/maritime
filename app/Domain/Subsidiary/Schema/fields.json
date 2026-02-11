@@ -101,6 +101,7 @@
     "label": "Logo",
     "type": "image",
     "validation": "nullable|image|max:2048",
+    "help": "Upload a logo for this subsidiary. If none is provided, the account default logo will be used.",
     "meta": {
       "directory": "subsidiaries",
       "private": false,

@@ -20,6 +20,7 @@ class ServiceItem extends Model
         'billing_type' => 'integer',
         'default_rate' => 'decimal:2',
         'default_cost' => 'decimal:2',
+        'default_hours' => 'decimal:2',
 
         'taxable' => 'boolean',
         'billable' => 'boolean',
@@ -70,19 +71,20 @@ class ServiceItem extends Model
     }
 
     /**
-     * Default pricing payload when added to a work order
+     * Default pricing payload when added to a work order (WorkOrderServiceItem defaults)
      */
     public function toWorkOrderDefaults(): array
     {
         return [
-            'display_name'    => $this->display_name,
-            'description'     => $this->description,
-            'billing_type'    => $this->billing_type,
-            'unit_price'      => $this->default_rate ?? 0,
-            'unit_cost'       => $this->default_cost,
-            'taxable'         => $this->taxable,
-            'billable'        => $this->billable,
-            'warranty'        => $this->warranty_eligible,
+            'display_name'     => $this->display_name,
+            'description'      => $this->description,
+            'billing_type'     => $this->billing_type,
+            'unit_price'       => $this->default_rate ?? 0,
+            'unit_cost'        => $this->default_cost ?? 0,
+            'estimated_hours'   => $this->default_hours ?? 1,
+            'taxable'           => $this->taxable,
+            'billable'          => $this->billable,
+            'warranty'          => $this->warranty_eligible,
         ];
     }
 }

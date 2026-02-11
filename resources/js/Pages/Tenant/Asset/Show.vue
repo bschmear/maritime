@@ -31,6 +31,14 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    account: {
+        type: Object,
+        default: null,
+    },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
 });
 </script>
 
@@ -47,5 +55,7 @@ const props = defineProps({
         :show-sublists="true"
         :breadcrumb-parent-label="'Asset'"
         :breadcrumb-parent-href="route(`${recordType}.index`)"
+        :account="account"
+        :timezones="timezones"
     />
 </template>

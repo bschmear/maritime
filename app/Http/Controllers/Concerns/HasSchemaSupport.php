@@ -197,6 +197,22 @@ trait HasSchemaSupport
         return array_unique($relationships);
     }
 
+    protected function getFieldWithTablePrefix($field)
+    {
+        // For domains that may join with other tables, prefix fields that exist on the main table
+        $domainsWithJoins = ['AssetUnit', 'InventoryUnit'];
+
+        if (in_array($this->domainName, $domainsWithJoins)) {
+            $tableName = $this->recordModel->getTable();
+            // Check if this field exists on the main table
+            if (\Schema::connection($this->recordModel->getConnectionName())->hasColumn($tableName, $field)) {
+                return $tableName . '.' . $field;
+            }
+        }
+
+        return $field;
+    }
+
     protected function applyFilters($query, array $filters, $fieldsSchema)
     {
         foreach ($filters as $key => $filter) {
@@ -221,111 +237,142 @@ trait HasSchemaSupport
             switch ($operator) {
                 case 'contains':
                     // Case-insensitive search using ILIKE (PostgreSQL) or LOWER()
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', ['%' . strtolower($value) . '%']);
+                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', ['%' . strtolower($value) . '%']);
                     } else {
-                        $query->where($field, 'LIKE', "%{$value}%");
+                        $query->where($fieldWithPrefix, 'LIKE', "%{$value}%");
                     }
                     break;
                 case 'equals':
-                    // Handle special relationship filtering for Location subsidiary filtering
+                    // Check if this is a many-to-many relationship filter
+                    $relationshipHandled = false;
+
+                    // Handle Location subsidiary filtering (many-to-many)
                     if ($this->domainName === 'Location' && $field === 'subsidiary_id') {
-                        $query->whereHas('subsidiaries', function($q) use ($value) {
-                            $q->where('id', $value);
+                        $query->whereExists(function($subQuery) use ($value) {
+                            $subQuery->selectRaw('1')
+                                ->from('location_subsidiary')
+                                ->whereColumn('location_subsidiary.location_id', 'locations.id')
+                                ->where('location_subsidiary.subsidiary_id', $value);
                         });
-                    } else {
+                        $relationshipHandled = true;
+                    }
+
+                    // If not a special relationship case, handle as normal field
+                    if (!$relationshipHandled) {
                         // Case-insensitive for text fields
                         if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                            $query->whereRaw('LOWER(' . $field . ') = ?', [strtolower($value)]);
+                            $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                            $query->whereRaw('LOWER(' . $fieldWithPrefix . ') = ?', [strtolower($value)]);
                         } else {
-                            $query->where($field, '=', $value);
+                            $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                            $query->where($fieldWithPrefix, '=', $value);
                         }
                     }
                     break;
                 case 'starts_with':
                     // Case-insensitive search
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', [strtolower($value) . '%']);
+                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', [strtolower($value) . '%']);
                     } else {
-                        $query->where($field, 'LIKE', "{$value}%");
+                        $query->where($fieldWithPrefix, 'LIKE', "{$value}%");
                     }
                     break;
                 case 'ends_with':
                     // Case-insensitive search
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $field . ') LIKE ?', ['%' . strtolower($value)]);
+                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', ['%' . strtolower($value)]);
                     } else {
-                        $query->where($field, 'LIKE', "%{$value}");
+                        $query->where($fieldWithPrefix, 'LIKE', "%{$value}");
                     }
                     break;
                 case 'is_empty':
-                    $query->where(function($q) use ($field) {
-                        $q->whereNull($field)->orWhere($field, '');
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where(function($q) use ($fieldWithPrefix) {
+                        $q->whereNull($fieldWithPrefix)->orWhere($fieldWithPrefix, '');
                     });
                     break;
                 case 'is_not_empty':
-                    $query->whereNotNull($field)->where($field, '!=', '');
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereNotNull($fieldWithPrefix)->where($fieldWithPrefix, '!=', '');
                     break;
                 case 'not_equals':
                     // Case-insensitive for text fields
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $field . ') != ?', [strtolower($value)]);
+                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') != ?', [strtolower($value)]);
                     } else {
-                        $query->where($field, '!=', $value);
+                        $query->where($fieldWithPrefix, '!=', $value);
                     }
                     break;
                 case 'any_of':
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if (is_array($value)) {
-                        $query->whereIn($field, $value);
+                        $query->whereIn($fieldWithPrefix, $value);
                     } else {
-                        $query->where($field, '=', $value);
+                        $query->where($fieldWithPrefix, '=', $value);
                     }
                     break;
                 case 'none_of':
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if (is_array($value)) {
-                        $query->whereNotIn($field, $value);
+                        $query->whereNotIn($fieldWithPrefix, $value);
                     } else {
-                        $query->where($field, '!=', $value);
+                        $query->where($fieldWithPrefix, '!=', $value);
                     }
                     break;
                 case 'before':
-                    $query->where($field, '<', $value);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where($fieldWithPrefix, '<', $value);
                     break;
                 case 'after':
-                    $query->where($field, '>', $value);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where($fieldWithPrefix, '>', $value);
                     break;
                 case 'between':
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if (is_array($value)) {
                         $start = $value['start'] ?? $value['min'] ?? null;
                         $end = $value['end'] ?? $value['max'] ?? null;
                         if ($start && $end) {
-                            $query->whereBetween($field, [$start, $end]);
+                            $query->whereBetween($fieldWithPrefix, [$start, $end]);
                         }
                     }
                     break;
                 case 'today':
-                    $query->whereDate($field, '=', now()->toDateString());
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereDate($fieldWithPrefix, '=', now()->toDateString());
                     break;
                 case 'this_week':
-                    $query->whereBetween($field, [now()->startOfWeek(), now()->endOfWeek()]);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereBetween($fieldWithPrefix, [now()->startOfWeek(), now()->endOfWeek()]);
                     break;
                 case 'this_month':
-                    $query->whereMonth($field, now()->month)->whereYear($field, now()->year);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereMonth($fieldWithPrefix, now()->month)->whereYear($fieldWithPrefix, now()->year);
                     break;
                 case 'greater_than':
-                    $query->where($field, '>', $value);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where($fieldWithPrefix, '>', $value);
                     break;
                 case 'less_than':
-                    $query->where($field, '<', $value);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where($fieldWithPrefix, '<', $value);
                     break;
                 case 'is_true':
-                    $query->where($field, '=', 1)->orWhere($field, '=', true);
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where($fieldWithPrefix, '=', 1)->orWhere($fieldWithPrefix, '=', true);
                     break;
                 case 'is_false':
-                    $query->where(function($q) use ($field) {
-                        $q->where($field, '=', 0)
-                          ->orWhere($field, '=', false)
-                          ->orWhereNull($field);
+                    // Handle table prefixing for domains that may have joins
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->where(function($q) use ($fieldWithPrefix) {
+                        $q->where($fieldWithPrefix, '=', 0)
+                          ->orWhere($fieldWithPrefix, '=', false)
+                          ->orWhereNull($fieldWithPrefix);
                     });
                     break;
             }

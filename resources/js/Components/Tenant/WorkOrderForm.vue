@@ -1,5 +1,6 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
+import { useTimezone } from '@/Composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { computed, ref, watch } from 'vue';
 
@@ -24,10 +25,22 @@ const props = defineProps({
         type: Object,
         default: () => ({})
     },
+    account: {
+        type: Object,
+        default: null
+    },
+    timezones: {
+        type: Array,
+        default: () => []
+    },
     mode: {
         type: String,
         default: 'create', // 'create', 'edit', 'show'
         validator: (value) => ['create', 'edit', 'show'].includes(value)
+    },
+    serviceItems: {
+        type: Array,
+        default: () => [] // From ServiceItem table, with toWorkOrderDefaults()
     }
 });
 
@@ -36,6 +49,124 @@ const emit = defineEmits(['saved', 'cancelled']);
 const pluralTitle = computed(() => {
     // Convert WorkOrder to Work Orders
     return props.recordType.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, l => l.toUpperCase());
+});
+
+// Service Items Management
+const showServiceItemModal = ref(false);
+const editingLineIndex = ref(null);
+
+// Line items (WorkOrderServiceItem structure: unit_price, unit_cost, display_name, etc.)
+const lineItems = ref([]);
+
+// Available service items from ServiceItem table (passed as prop with toWorkOrderDefaults)
+const availableServiceItems = computed(() => props.serviceItems || []);
+
+const getBillingTypeLabel = (billingType) => {
+    const labels = {
+        1: 'Hourly',
+        2: 'Flat Rate',
+        3: 'Per Quantity'
+    };
+    return labels[billingType] || 'Unknown';
+};
+
+const selectedServiceItem = ref(null);
+// WorkOrderServiceItem structure
+const lineItemForm = ref({
+    service_item_id: null,
+    display_name: '',
+    description: '',
+    quantity: 1,
+    unit_price: 0,
+    unit_cost: 0,
+    estimated_hours: 1,
+    actual_hours: null,
+    billable: true,
+    warranty: false
+});
+
+const addServiceItemLine = () => {
+    editingLineIndex.value = null;
+    lineItemForm.value = {
+        service_item_id: null,
+        display_name: '',
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        unit_cost: 0,
+        estimated_hours: 1,
+        actual_hours: null,
+        billable: true,
+        warranty: false
+    };
+    selectedServiceItem.value = null;
+    showServiceItemModal.value = true;
+};
+
+const editServiceItemLine = (index) => {
+    editingLineIndex.value = index;
+    const item = lineItems.value[index];
+    lineItemForm.value = {
+        service_item_id: item.service_item_id,
+        display_name: item.display_name ?? '',
+        description: item.description ?? '',
+        quantity: item.quantity ?? 1,
+        unit_price: item.unit_price ?? 0,
+        unit_cost: item.unit_cost ?? 0,
+        estimated_hours: item.estimated_hours ?? 1,
+        actual_hours: item.actual_hours ?? null,
+        billable: item.billable ?? true,
+        warranty: item.warranty ?? false
+    };
+    selectedServiceItem.value = availableServiceItems.value.find(si => si.id === item.service_item_id);
+    showServiceItemModal.value = true;
+};
+
+const removeServiceItemLine = (index) => {
+    lineItems.value.splice(index, 1);
+};
+
+// Apply ServiceItem.toWorkOrderDefaults() when selecting
+const selectServiceItem = (item) => {
+    selectedServiceItem.value = item;
+    lineItemForm.value.service_item_id = item.id;
+    lineItemForm.value.display_name = item.display_name;
+    lineItemForm.value.description = item.description ?? item.display_name;
+    lineItemForm.value.unit_price = Number(item.unit_price) ?? 0;
+    lineItemForm.value.unit_cost = Number(item.unit_cost) ?? 0;
+    lineItemForm.value.estimated_hours = Number(item.estimated_hours) ?? 1;
+    lineItemForm.value.billable = item.billable ?? true;
+    lineItemForm.value.warranty = item.warranty ?? false;
+};
+
+const saveLineItem = () => {
+    if (editingLineIndex.value !== null) {
+        lineItems.value[editingLineIndex.value] = { ...lineItemForm.value };
+    } else {
+        lineItems.value.push({ ...lineItemForm.value });
+    }
+    showServiceItemModal.value = false;
+};
+
+const cancelLineItem = () => {
+    showServiceItemModal.value = false;
+};
+
+// Computed values from line items for Time & Costs
+const lineItemsEstimatedHours = computed(() => {
+    return lineItems.value.reduce((sum, item) => {
+        const qty = Number(item.quantity) || 1;
+        const hours = Number(item.estimated_hours) || 0;
+        return sum + (qty * hours);
+    }, 0);
+});
+
+const lineItemsLaborCost = computed(() => {
+    return lineItems.value.reduce((sum, item) => {
+        const qty = Number(item.quantity) || 1;
+        const cost = Number(item.unit_cost) || 0;
+        return sum + (qty * cost);
+    }, 0);
 });
 
 // Helper functions
@@ -68,6 +199,9 @@ const isFieldDisabled = (fieldKey) => {
 const isFieldReadonly = (fieldKey) => {
     return props.fieldsSchema[fieldKey]?.readOnly === true || props.mode === 'show';
 };
+
+// Use global timezone composable
+const { convertUTCToTimezone, convertTimezoneToUTC, timezoneLabels, accountTimezone, accountTimezoneLabel } = useTimezone();
 
 const isFieldDisabledByFilter = (fieldKey) => {
     const field = props.fieldsSchema[fieldKey];
@@ -109,7 +243,34 @@ Object.keys(props.fieldsSchema).forEach(key => {
 
     // Use existing record data if in edit mode
     if (props.record && props.record[key] !== undefined) {
-        formData[key] = props.record[key];
+        const value = props.record[key];
+
+        // Handle date/datetime fields - convert UTC to account timezone for display
+        if ((field.type === 'datetime' || field.type === 'date') && value) {
+            let utcDate;
+            if (value instanceof Date) {
+                utcDate = value;
+            } else if (typeof value === 'string') {
+                const parsedDate = new Date(value);
+                if (!isNaN(parsedDate.getTime())) {
+                    utcDate = parsedDate;
+                } else {
+                    formData[key] = value;
+                    return;
+                }
+            } else {
+                formData[key] = value;
+                return;
+            }
+
+            // Convert UTC date to account timezone for display
+            const timezoneDate = convertUTCToTimezone(utcDate.toISOString(), accountTimezone.value);
+            formData[key] = field.type === 'datetime'
+                ? timezoneDate.toISOString().slice(0, 16)
+                : timezoneDate.toISOString().split('T')[0];
+        } else {
+            formData[key] = value;
+        }
     } else if (field.default !== undefined && field.default !== null) {
         formData[key] = field.default;
     } else if (field.default_value !== undefined && field.default_value !== null) {
@@ -142,19 +303,90 @@ Object.keys(props.fieldsSchema).forEach(key => {
     }
 });
 
+// Set default dates for new Work Orders
+if (props.mode === 'create') {
+    const accountTz = accountTimezone.value;
+
+    // Get current date in account timezone
+    const now = new Date();
+    const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTz }));
+
+    // Get tomorrow in account timezone
+    const tomorrow = new Date(localNow);
+    tomorrow.setDate(localNow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0); // 8am in account timezone
+
+    // Get due date (7 days from tomorrow) in account timezone
+    const dueDate = new Date(localNow);
+    dueDate.setDate(localNow.getDate() + 8); // tomorrow + 7 days
+    dueDate.setHours(17, 0, 0, 0); // 5pm in account timezone
+
+    // Convert to UTC for storage
+    const utcNow = new Date();
+    const offset = utcNow.getTime() - localNow.getTime();
+
+    const startUTC = new Date(tomorrow.getTime() + offset);
+    const dueUTC = new Date(dueDate.getTime() + offset);
+
+    // Format for datetime-local input (which expects local time, not UTC)
+    // We want to display the account timezone time, so we use the local dates directly
+    const formatForInput = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
+    formData.scheduled_start_at = formatForInput(tomorrow);
+    formData.due_at = formatForInput(dueDate);
+}
 const form = useForm(formData);
+
+// Initialize line items from record.service_items when editing
+watch(() => props.record?.service_items, (items) => {
+    if (items && Array.isArray(items) && items.length > 0) {
+        lineItems.value = items.map(li => ({
+            service_item_id: li.service_item_id,
+            display_name: li.display_name,
+            description: li.description,
+            quantity: li.quantity ?? 1,
+            unit_price: li.unit_price ?? 0,
+            unit_cost: li.unit_cost ?? 0,
+            estimated_hours: li.estimated_hours ?? 1,
+            actual_hours: li.actual_hours ?? null,
+            billable: li.billable ?? true,
+            warranty: li.warranty ?? false
+        }));
+    }
+}, { immediate: true });
+
+// Track if form has been initialized (to prevent watchers from clearing values on load)
+const formInitialized = ref(false);
+setTimeout(() => {
+    formInitialized.value = true;
+}, 100);
 
 // Watch for subsidiary changes to clear dependent fields
 watch(() => form.subsidiary_id, (newValue, oldValue) => {
-    if (newValue !== oldValue) {
+    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
         // Clear location when subsidiary changes
         form.location_id = null;
     }
 });
 
+// Watch for customer changes to clear dependent fields
+watch(() => form.customer_id, (newValue, oldValue) => {
+    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
+        // Clear asset unit when customer changes
+        form.asset_unit_id = null;
+    }
+});
+
 // Watch for asset unit changes to auto-populate customer
 watch(() => form.asset_unit_id, async (newValue, oldValue) => {
-    if (newValue && newValue !== oldValue) {
+    if (formInitialized.value && newValue && oldValue !== undefined && newValue !== oldValue) {
         try {
             // Fetch the asset unit data to get its customer
             const response = await axios.get(route('assetunits.show', newValue));
@@ -179,22 +411,53 @@ const submit = () => {
     // Ensure all form data is sent by using transform
     form.transform((data) => {
         const allData = { ...form.data() };
+
         // Override with the current values to ensure everything is sent
         Object.keys(allData).forEach(key => {
             if (form[key] !== undefined) {
                 allData[key] = form[key];
             }
         });
+
+        // Add service items in WorkOrderServiceItem format
+        allData.service_items = lineItems.value.map((li, idx) => ({
+            service_item_id: li.service_item_id,
+            display_name: li.display_name,
+            description: li.description,
+            quantity: Number(li.quantity) || 1,
+            unit_price: Number(li.unit_price) || 0,
+            unit_cost: Number(li.unit_cost) || 0,
+            estimated_hours: Number(li.estimated_hours) || 0,
+            actual_hours: li.actual_hours ? Number(li.actual_hours) : null,
+            billable: li.billable ?? true,
+            warranty: li.warranty ?? false,
+            sort_order: idx
+        }));
+
+        // Override Time & Costs with computed values from line items
+        allData.estimated_hours = lineItemsEstimatedHours.value;
+        allData.labor_cost = lineItemsLaborCost.value;
+        allData.total_cost = lineItemsLaborCost.value + (Number(allData.parts_cost) || 0);
+
+        // Convert date/datetime fields from account timezone back to UTC
+        Object.keys(props.fieldsSchema).forEach(key => {
+            const field = props.fieldsSchema[key];
+            if ((field.type === 'datetime' || field.type === 'date') && allData[key]) {
+                // Convert account timezone date back to UTC for database storage
+                const timezoneDate = new Date(allData[key]);
+                const utcDate = convertTimezoneToUTC(timezoneDate.toISOString(), accountTimezone.value);
+                allData[key] = field.type === 'datetime'
+                    ? utcDate.toISOString().slice(0, 16)
+                    : utcDate.toISOString().split('T')[0];
+            }
+        });
+
         return allData;
     });
-
-    console.log('Submitting form data:', form.data());
-    console.log('Route:', props.mode === 'edit' ? route('workorders.update', props.record.id) : route('workorders.store'));
 
     if (props.mode === 'edit') {
         form.put(route('workorders.update', props.record.id), {
             onSuccess: (page) => {
-                console.log('Update successful', page);
                 // Redirect to show page after successful update
                 window.location.href = route('workorders.show', props.record.id);
             },
@@ -205,10 +468,10 @@ const submit = () => {
     } else {
         form.post(route('workorders.store'), {
             onSuccess: (page) => {
-                console.log('Create successful', page);
-                // Redirect to show page after successful creation
-                if (page.props.workorder) {
-                    window.location.href = route('workorders.show', page.props.workorder.id);
+                // Inertia redirects to show page; ensure we're on the right URL
+                const recordId = page.props.record?.id ?? page.props.workorder?.id;
+                if (recordId) {
+                    window.location.href = route('workorders.show', recordId);
                 }
             },
             onError: (errors) => {
@@ -236,9 +499,13 @@ const handleCancel = () => {
 </script>
 
 <template>
-        <div class="w-full flex flex-col space-y-4 md:space-y-6">
+
+    <div class="w-full flex flex-col space-y-4 md:space-y-6">
+
+
+        <div class="">
             <form @submit.prevent="submit">
-                <div class="grid gap-4 lg:grid-cols-12">
+                <div class="grid gap-4 lg:gap-6  lg:grid-cols-12">
             <!-- Main Work Order Form -->
             <div
                 :class="{
@@ -282,6 +549,7 @@ const handleCancel = () => {
                                         v-model="form.customer_id"
                                         :disabled="isFieldReadonly('customer_id')"
                                         :enum-options="getEnumOptions('customer_id')"
+                                        :record="record"
                                         field-key="customer_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
@@ -300,9 +568,12 @@ const handleCancel = () => {
                                         :id="'asset_unit_id'"
                                         :field="fieldsSchema.asset_unit_id"
                                         v-model="form.asset_unit_id"
-                                        :disabled="isFieldReadonly('asset_unit_id')"
+                                        :disabled="isFieldReadonly('asset_unit_id') || isFieldDisabledByFilter('asset_unit_id')"
                                         :enum-options="getEnumOptions('asset_unit_id')"
+                                        :record="record"
                                         field-key="asset_unit_id"
+                                        filter-by="customer_id"
+                                        :filter-value="form.customer_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
                                         {{ record?.asset_unit?.display_name || '—' }}
@@ -322,6 +593,7 @@ const handleCancel = () => {
                                         v-model="form.subsidiary_id"
                                         :disabled="isFieldReadonly('subsidiary_id')"
                                         :enum-options="getEnumOptions('subsidiary_id')"
+                                        :record="record"
                                         field-key="subsidiary_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
@@ -342,6 +614,7 @@ const handleCancel = () => {
                                         v-model="form.location_id"
                                         :disabled="isFieldReadonly('location_id') || isFieldDisabledByFilter('location_id')"
                                         :enum-options="getEnumOptions('location_id')"
+                                        :record="record"
                                         field-key="location_id"
                                         :filter-by="fieldsSchema.location_id.filterby || null"
                                         :filter-value="getFieldFilterValue('location_id')"
@@ -370,10 +643,11 @@ const handleCancel = () => {
                                         v-model="form.assigned_user_id"
                                         :disabled="isFieldReadonly('assigned_user_id')"
                                         :enum-options="getEnumOptions('assigned_user_id')"
+                                        :record="record"
                                         field-key="assigned_user_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
-                                        {{ record?.assigned_user?.name || 'Unassigned' }}
+                                        {{ record?.assigned_user?.display_name || 'Unassigned' }}
                                     </p>
                                 </div>
 
@@ -381,6 +655,9 @@ const handleCancel = () => {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.scheduled_start_at?.label || 'Scheduled Date/Time' }}
+                                        <span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                            ({{ accountTimezoneLabel }})
+                                        </span>
                                         {{ isFieldRequired('scheduled_start_at') ? '*' : '' }}
                                     </label>
                                     <input
@@ -399,6 +676,9 @@ const handleCancel = () => {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.due_at?.label || 'Due Date' }}
+                                        <span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                            ({{ accountTimezoneLabel }})
+                                        </span>
                                         {{ isFieldRequired('due_at') ? '*' : '' }}
                                     </label>
                                     <input
@@ -485,6 +765,98 @@ const handleCancel = () => {
                             </div>
                         </div>
 
+                        <!-- Service Items Section -->
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                    Service Items
+                                </h3>
+                                <button
+                                    v-if="mode !== 'show'"
+                                    @click="addServiceItemLine"
+                                    type="button"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                >
+                                    <span class="material-icons text-base">add_circle</span>
+                                    Add Item
+                                </button>
+                            </div>
+
+                            <!-- Service Items Table -->
+                            <div v-if="lineItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
+                                <div class="inline-block min-w-full align-middle">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                            <tr>
+                                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Description
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Qty
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Hours
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Rate
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Amount
+                                                </th>
+                                                <th v-if="mode !== 'show'" scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Actions
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                            <tr v-for="(item, index) in lineItems" :key="index" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                                    <div class="font-medium">{{ item.display_name || item.description }}</div>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                                    {{ item.quantity }}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                                    {{ item.estimated_hours ?? 0 }}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                                    {{ formatCurrency(item.unit_price) }}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">
+                                                    {{ formatCurrency(item.quantity * item.unit_price) }}
+                                                </td>
+                                                <td v-if="mode !== 'show'" class="px-4 py-3 text-sm text-right">
+                                                    <div class="flex items-center justify-end gap-2">
+                                                        <button
+                                                            @click="editServiceItemLine(index)"
+                                                            type="button"
+                                                            class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                                                        >
+                                                            <span class="material-icons text-base">edit</span>
+                                                        </button>
+                                                        <button
+                                                            @click="removeServiceItemLine(index)"
+                                                            type="button"
+                                                            class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                                        >
+                                                            <span class="material-icons text-base">delete</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Empty State -->
+                            <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                                <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">No service items added yet</p>
+                                <p v-if="mode !== 'show'" class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to get started</p>
+                            </div>
+                        </div>
+
                         <!-- Time & Costs -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
@@ -492,7 +864,7 @@ const handleCancel = () => {
                             </h3>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Estimated Hours -->
+                                <!-- Estimated Hours (from line items) -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.estimated_hours?.label || 'Estimated Hours' }}
@@ -500,13 +872,13 @@ const handleCancel = () => {
                                     </label>
                                     <input
                                         v-if="mode !== 'show'"
-                                        v-model.number="form.estimated_hours"
+                                        :value="lineItemsEstimatedHours"
                                         type="number"
                                         step="0.25"
                                         min="0"
-                                        :readonly="isFieldReadonly('estimated_hours')"
-                                        class="input-style"
-                                        :disabled="isFieldDisabled('estimated_hours')"
+                                        readonly
+                                        class="input-style bg-gray-50 dark:bg-gray-800"
+                                        tabindex="-1"
                                     />
                                     <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
                                         {{ record?.estimated_hours || '0' }}
@@ -534,7 +906,7 @@ const handleCancel = () => {
                                     </p>
                                 </div>
 
-                                <!-- Labor Cost -->
+                                <!-- Labor Cost (from line items) -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.labor_cost?.label || 'Labor Cost' }}
@@ -543,13 +915,13 @@ const handleCancel = () => {
                                     <div v-if="mode !== 'show'" class="relative">
                                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
                                         <input
-                                            v-model.number="form.labor_cost"
+                                            :value="lineItemsLaborCost"
                                             type="number"
                                             step="0.01"
                                             min="0"
-                                            :readonly="isFieldReadonly('labor_cost')"
-                                            class="input-style pl-8"
-                                            :disabled="isFieldDisabled('labor_cost')"
+                                            readonly
+                                            class="input-style pl-8 bg-gray-50 dark:bg-gray-800"
+                                            tabindex="-1"
                                         />
                                     </div>
                                     <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -580,7 +952,7 @@ const handleCancel = () => {
                                     </p>
                                 </div>
 
-                                <!-- Total Cost -->
+                                <!-- Total Cost (labor + parts from line items) -->
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.total_cost?.label || 'Total Cost' }}
@@ -589,13 +961,13 @@ const handleCancel = () => {
                                     <div v-if="mode !== 'show'" class="relative">
                                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
                                         <input
-                                            v-model.number="form.total_cost"
+                                            :value="lineItemsLaborCost + (Number(form.parts_cost) || 0)"
                                             type="number"
                                             step="0.01"
                                             min="0"
-                                            :readonly="isFieldReadonly('total_cost')"
-                                            class="input-style pl-8 font-semibold"
-                                            :disabled="isFieldDisabled('total_cost')"
+                                            readonly
+                                            class="input-style pl-8 font-semibold bg-gray-50 dark:bg-gray-800"
+                                            tabindex="-1"
                                         />
                                     </div>
                                     <p v-else class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -770,5 +1142,194 @@ const handleCancel = () => {
             </div>
             </div>
         </form>
+        </div>
+
+        <!-- Service Item Selection Modal -->
+        <div v-if="showServiceItemModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <!-- Background overlay -->
+                <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75" @click="cancelLineItem"></div>
+
+                <!-- Modal panel -->
+                <div class="inline-block overflow-hidden text-left align-bottom transition-all transform bg-white dark:bg-gray-800 rounded-lg shadow-xl sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                    <!-- Header -->
+                    <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-semibold text-white">
+                                {{ editingLineIndex !== null ? 'Edit Service Item' : 'Add Service Item' }}
+                            </h3>
+                            <button @click="cancelLineItem" type="button" class="text-blue-100 hover:text-white transition-colors">
+                                <span class="material-icons">close</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                        <!-- Service Item Selection -->
+                        <div v-if="!selectedServiceItem">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                                Select a Service Item
+                            </label>
+                            <div class="grid gap-2">
+                                <button
+                                    v-for="item in availableServiceItems"
+                                    :key="item.id"
+                                    @click="selectServiceItem(item)"
+                                    type="button"
+                                    class="flex items-center justify-between p-3 text-left border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                                >
+                                    <div class="flex-1">
+                                        <div class="font-medium text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">
+                                            {{ item.display_name }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
+                                            <span>Code: {{ item.code }}</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                {{ item.billing_type_label }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-4">
+                                        <div class="font-semibold text-gray-900 dark:text-white">
+                                            {{ formatCurrency(item.unit_price) }}
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Line Item Form -->
+                        <div v-else class="space-y-4">
+                            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <div class="font-medium text-gray-900 dark:text-white">{{ selectedServiceItem.display_name }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
+                                            <span>{{ selectedServiceItem.code }}</span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
+                                                {{ selectedServiceItem.billing_type_label }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button @click="selectedServiceItem = null" type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm">
+                                        Change
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Description
+                                </label>
+                                <input
+                                    v-model="lineItemForm.description"
+                                    type="text"
+                                    class="input-style"
+                                />
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Quantity
+                                    </label>
+                                    <input
+                                        v-model.number="lineItemForm.quantity"
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        class="input-style"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Estimated Hours
+                                    </label>
+                                    <input
+                                        v-model.number="lineItemForm.estimated_hours"
+                                        type="number"
+                                        min="0"
+                                        step="0.25"
+                                        class="input-style"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Unit Price
+                                    </label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                                        <input
+                                            v-model.number="lineItemForm.unit_price"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="input-style pl-8"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Unit Cost
+                                    </label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                                        <input
+                                            v-model.number="lineItemForm.unit_cost"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="input-style pl-8"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Line Total</span>
+                                    <span class="text-lg font-bold text-gray-900 dark:text-white">
+                                        {{ formatCurrency(lineItemForm.quantity * lineItemForm.unit_price) }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
+                        <button
+                            @click="cancelLineItem"
+                            type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            @click="saveLineItem"
+                            type="button"
+                            :disabled="!selectedServiceItem"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {{ editingLineIndex !== null ? 'Update Item' : 'Add Item' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
+
+<style scoped>
+.input-style {
+    @apply w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
+           bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400
+           disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
+           read-only:bg-gray-50 dark:read-only:bg-gray-800/50;
+}
+</style>

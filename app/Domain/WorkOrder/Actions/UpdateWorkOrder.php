@@ -2,6 +2,7 @@
 namespace App\Domain\WorkOrder\Actions;
 
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
+use App\Domain\WorkOrder\Models\WorkOrderServiceItem;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -16,10 +17,11 @@ class UpdateWorkOrder
         ])->validate();
 
         try {
-            // Debug: Log the incoming data
-            \Log::info('UpdateWorkOrder data received:', $data);
-
             $validated = $data; // For now, just pass through all data
+
+            // Extract service_items before updating
+            $serviceItems = $validated['service_items'] ?? null;
+            unset($validated['service_items']);
 
             // Ensure cost fields have default values
             $validated['labor_cost'] = $validated['labor_cost'] ?? 0;
@@ -28,6 +30,30 @@ class UpdateWorkOrder
 
             $record = RecordModel::findOrFail($id);
             $record->update($validated);
+
+            // Sync WorkOrderServiceItem line items (replace all)
+            if ($serviceItems !== null) {
+                $record->serviceItems()->delete();
+                foreach ($serviceItems as $idx => $item) {
+                    if (empty($item['display_name'])) {
+                        continue;
+                    }
+                    WorkOrderServiceItem::create([
+                        'work_order_id'   => $record->id,
+                        'service_item_id' => $item['service_item_id'] ?? null,
+                        'display_name'   => $item['display_name'],
+                        'description'    => $item['description'] ?? null,
+                        'quantity'       => $item['quantity'] ?? 1,
+                        'unit_price'     => $item['unit_price'] ?? 0,
+                        'unit_cost'      => $item['unit_cost'] ?? null,
+                        'estimated_hours'=> $item['estimated_hours'] ?? null,
+                        'actual_hours'   => $item['actual_hours'] ?? null,
+                        'billable'       => $item['billable'] ?? true,
+                        'warranty'       => $item['warranty'] ?? false,
+                        'sort_order'     => $item['sort_order'] ?? $idx,
+                    ]);
+                }
+            }
 
             return [
                 'success' => true,

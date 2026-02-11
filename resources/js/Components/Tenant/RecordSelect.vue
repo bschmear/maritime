@@ -200,6 +200,14 @@
         currentPage.value = 1;
         await fetchRecords();
     });
+
+    // Watch for filter value changes
+    watch(() => props.filterValue, async (newValue, oldValue) => {
+        if (newValue !== oldValue) {
+            currentPage.value = 1;
+            await fetchRecords();
+        }
+    });
     
     // Fetch records from the domain
     const fetchRecords = async (initialLoad = false) => {
@@ -229,11 +237,13 @@
 
             // Add filter parameters if provided
             if (props.filterBy && props.filterValue !== null && props.filterValue !== '') {
-                url.searchParams.append('filters', JSON.stringify([{
+                const filterData = [{
                     field: props.filterBy,
                     operator: 'equals',
                     value: props.filterValue
-                }]));
+                }];
+
+                url.searchParams.append('filters', JSON.stringify(filterData));
             }
             
             const response = await fetch(url.toString(), {
@@ -285,15 +295,12 @@
             try {
                 // Use the typeDomain directly (e.g., 'BoatMake')
                 const type = props.field.typeDomain;
-                console.log('Loading form for type:', type);
-                console.log('Route URL:', route('records.select-form', { type: type }));
                 const response = await axios.get(route('records.select-form', { type: type }), {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json',
                     },
                 });
-                console.log('Form data loaded:', response.data);
                 createFormData.value = response.data;
             } catch (error) {
                 console.error('Error loading form data:', error);

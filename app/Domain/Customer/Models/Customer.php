@@ -3,6 +3,7 @@
 namespace App\Domain\Customer\Models;
 
 use App\Domain\Task\Models\Task;
+use App\Domain\AssetUnit\Models\AssetUnit;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\HasDocuments;
 
@@ -47,6 +48,11 @@ class Customer extends Model
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');
+    }
+
+    public function assetUnits()
+    {
+        return $this->hasMany(AssetUnit::class, 'customer_id');
     }
 
     public function assigned_user()

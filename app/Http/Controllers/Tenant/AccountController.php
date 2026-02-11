@@ -1,7 +1,9 @@
 <?php
-
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\PublicStorage;
+use App\Enums\Timezone;
+use App\Models\AccountSettings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -12,29 +14,78 @@ class AccountController extends Controller
      */
     public function index(Request $request)
     {
-        
+        // Get current tenant's account settings (cached)
+        $account = AccountSettings::getCurrent();
+
         $accountSections = [
             [
                 'title' => 'Users',
                 'description' => 'Manage team members and user accounts. Add, edit, and assign roles to users in your organization.',
-                'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+                'icon' => 'people',
                 'href' => route('users.index'),
-                'color' => 'blue',
-                'stats' => null, // Could add user count later
+                'stats' => null,
             ],
             [
                 'title' => 'Roles',
                 'description' => 'Define and manage user roles and permissions. Control what each team member can access and do.',
-                'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+                'icon' => 'shield',
                 'href' => route('roles.index'),
-                'color' => 'green',
-                'stats' => null, // Could add role count later
+                'stats' => null,
+            ],
+            [
+                'title' => 'Subsidiaries',
+                'description' => 'Manage your subsidiary companies and organizational structure. Track and organize related entities.',
+                'icon' => 'corporate_fare',
+                'href' => route('subsidiaries.index'),
+                'stats' => null,
+            ],
+            [
+                'title' => 'Locations',
+                'description' => 'Manage physical locations and addresses. Add, edit, and organize your business locations.',
+                'icon' => 'location_on',
+                'href' => route('locations.index'),
+                'stats' => null,
             ],
         ];
-        // dd($accountSections);
+
         return Inertia::render('Tenant/Account/Index', [
             'accountSections' => $accountSections,
+            'account' => $account,
+            'timezones' => Timezone::options(),
         ]);
     }
 
+    /**
+     * Update account settings.
+     */
+    public function update(Request $request, PublicStorage $publicStorage)
+    {
+        $validated = $request->validate([
+            'logo' => 'nullable|image|max:2048',
+            'default_timezone' => 'required|string',
+            'brand_color' => 'nullable|string|max:7',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        // Handle logo upload
+        if ($request->hasFile('logo')) {
+            $file = $request->file('logo');
+
+            // Upload new logo (store method handles deleting old file if it exists)
+            $result = $publicStorage->store($file, 'logos', null, $account->logo_file);
+
+            // Update logo fields
+            $account->logo_file = $result['key'];
+            $account->logo_file_extension = $result['file_extension'];
+            $account->logo_file_size = $result['file_size'];
+        }
+
+        // Update settings
+        $account->timezone = $validated['default_timezone'];
+        $account->brand_color = $validated['brand_color'] ?? $account->brand_color;
+        $account->save();
+
+        return back()->with('success', 'Account settings updated successfully.');
+    }
 }

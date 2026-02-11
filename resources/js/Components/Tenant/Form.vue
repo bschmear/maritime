@@ -3,6 +3,7 @@
 import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
+import { useTimezone } from '@/Composables/useTimezone';
 import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
@@ -38,6 +39,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
     mode: {
         type: String,
         default: 'view',
@@ -62,6 +67,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
+
+// Use global timezone composable
+const { convertUTCToTimezone, convertTimezoneToUTC, timezoneLabels, accountTimezone, accountTimezoneLabel } = useTimezone();
 
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
@@ -110,25 +118,30 @@ const initializeFormData = () => {
             const fieldDef = getFieldDefinition(key);
             const value = props.record[key];
 
-            // Handle date/datetime fields - convert to proper format for inputs
+            // Handle date/datetime fields - convert UTC to account timezone for display
             if (fieldDef.type === 'datetime' || fieldDef.type === 'date') {
                 if (value) {
+                    let displayDate;
                     if (value instanceof Date) {
-                        formData[key] = fieldDef.type === 'datetime'
-                            ? value.toISOString().slice(0, 16)
-                            : value.toISOString().split('T')[0];
+                        displayDate = value;
                     } else if (typeof value === 'string') {
                         const parsedDate = new Date(value);
                         if (!isNaN(parsedDate.getTime())) {
-                            formData[key] = fieldDef.type === 'datetime'
-                                ? parsedDate.toISOString().slice(0, 16)
-                                : parsedDate.toISOString().split('T')[0];
+                            displayDate = parsedDate;
                         } else {
                             formData[key] = value;
+                            return;
                         }
                     } else {
                         formData[key] = value;
+                        return;
                     }
+
+                    // Convert UTC date to account timezone for display
+                    const timezoneDate = convertUTCToTimezone(displayDate.toISOString(), accountTimezone.value);
+                    formData[key] = fieldDef.type === 'datetime'
+                        ? timezoneDate.toISOString().slice(0, 16)
+                        : timezoneDate.toISOString().split('T')[0];
                 } else {
                     formData[key] = null;
                 }
@@ -158,13 +171,24 @@ const initializeFormData = () => {
                         }
                         // Check for default_today for date fields
                         else if (fieldType === 'date' && fieldDef.default_today === true) {
-                            const today = new Date();
-                            formData[field.key] = today.toISOString().split('T')[0]; // YYYY-MM-DD
+                            // Get current date in account timezone
+                            const now = new Date();
+                            const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+                            formData[field.key] = localNow.toISOString().split('T')[0]; // YYYY-MM-DD
                         }
                         // Check for default_now for datetime fields
                         else if (fieldType === 'datetime' && fieldDef.default_now === true) {
+                            // Get current datetime in account timezone
                             const now = new Date();
-                            formData[field.key] = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+                            const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+
+                            // Format for datetime-local input (which expects local time)
+                            const year = localNow.getFullYear();
+                            const month = String(localNow.getMonth() + 1).padStart(2, '0');
+                            const day = String(localNow.getDate()).padStart(2, '0');
+                            const hours = String(localNow.getHours()).padStart(2, '0');
+                            const minutes = String(localNow.getMinutes()).padStart(2, '0');
+                            formData[field.key] = `${year}-${month}-${day}T${hours}:${minutes}`;
                         }
                         else if (fieldType === 'select') {
                             // For select fields with enums, use explicit default or auto-select first option for required fields
@@ -209,6 +233,7 @@ const initializeFormData = () => {
     return formData;
 };
 
+
 const form = useForm(initializeFormData());
 const isProcessing = ref(false);
 
@@ -221,31 +246,30 @@ watch(() => props.record, (newRecord) => {
             if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                 form[key] = newRecord[key] === true || newRecord[key] === 1 ? 1 : 0;
             } else if (fieldDef.type === 'datetime' || fieldDef.type === 'date') {
-                // Handle date/datetime fields - convert to proper format for components
+                // Handle date/datetime fields - convert UTC to account timezone for display
                 const dateValue = newRecord[key];
                 if (dateValue) {
+                    let utcDate;
                     if (dateValue instanceof Date) {
-                        // If it's already a Date object, format it for the input
-                        if (fieldDef.type === 'datetime') {
-                            form[key] = dateValue.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM format
-                        } else {
-                            form[key] = dateValue.toISOString().split('T')[0]; // YYYY-MM-DD format
-                        }
+                        utcDate = dateValue;
                     } else if (typeof dateValue === 'string') {
-                        // If it's a string, try to parse it
                         const parsedDate = new Date(dateValue);
                         if (!isNaN(parsedDate.getTime())) {
-                            if (fieldDef.type === 'datetime') {
-                                form[key] = parsedDate.toISOString().slice(0, 16);
-                            } else {
-                                form[key] = parsedDate.toISOString().split('T')[0];
-                            }
+                            utcDate = parsedDate;
                         } else {
-                            form[key] = dateValue; // Keep as is if parsing fails
+                            form[key] = dateValue;
+                            return;
                         }
                     } else {
                         form[key] = dateValue;
+                        return;
                     }
+
+                    // Convert UTC date to account timezone for display
+                    const timezoneDate = convertUTCToTimezone(utcDate.toISOString(), accountTimezone.value);
+                    form[key] = fieldDef.type === 'datetime'
+                        ? timezoneDate.toISOString().slice(0, 16)
+                        : timezoneDate.toISOString().split('T')[0];
                 } else {
                     form[key] = null;
                 }
@@ -256,7 +280,7 @@ watch(() => props.record, (newRecord) => {
     }
 }, { deep: true, immediate: true });
 
-// Watch form changes to handle conditional field visibility
+// Watch form changes to handle conditional field visibility and filter dependencies
 watch(() => form.data(), (newData, oldData) => {
     // Check if any fields that control conditional visibility have changed
     if (normalizedSchema.value) {
@@ -266,6 +290,15 @@ watch(() => form.data(), (newData, oldData) => {
                     // If this field has conditional logic and is currently hidden, clear its value
                     if (field.conditional && !isFieldVisible(field)) {
                         form[field.key] = getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean' ? 0 : '';
+                    }
+                    
+                    // If this field has filterby logic and the filter field changed, clear its value
+                    const fieldDef = getFieldDefinition(field.key);
+                    if (fieldDef && fieldDef.filterby) {
+                        const filterFieldKey = fieldDef.filterby;
+                        if (oldData && newData[filterFieldKey] !== oldData[filterFieldKey]) {
+                            form[field.key] = null;
+                        }
                     }
                 });
             }
@@ -295,6 +328,7 @@ const formGroups = computed(() => {
 // Track which accordion sections are open
 const openSections = ref({});
 const imagePreviews = ref({});
+
 
 // Generate localStorage key for this form's section states
 const getStorageKey = () => {
@@ -427,6 +461,24 @@ const isFieldRequired = (field) => field.required === true;
 const isFieldDisabled = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     return fieldDef.disabled === true || (!isEditMode.value && props.mode === 'view');
+};
+
+const isFieldDisabledByFilter = (fieldKey) => {
+    const fieldDef = getFieldDefinition(fieldKey);
+    if (fieldDef && fieldDef.filterby) {
+        // Check if the filter field has a value
+        const filterFieldValue = form[fieldDef.filterby];
+        return !filterFieldValue || filterFieldValue === '' || filterFieldValue === null;
+    }
+    return false;
+};
+
+const getFieldFilterValue = (fieldKey) => {
+    const fieldDef = getFieldDefinition(fieldKey);
+    if (fieldDef && fieldDef.filterby) {
+        return form[fieldDef.filterby] || null;
+    }
+    return null;
 };
 
 // Helper function to get value from field path (supports dot notation for related records)
@@ -739,11 +791,11 @@ const formatDateTime = (value) => {
     }
 };
 
-// Prepare form data with checkbox values converted to 1/0
+// Prepare form data with checkbox values converted to 1/0 and dates converted to UTC
 const prepareFormData = () => {
     const data = { ...form.data() };
-    
-    // Convert checkbox boolean values to 1/0 for proper submission
+
+    // Convert checkbox boolean values to 1/0 and dates to UTC for proper submission
     if (normalizedSchema.value) {
         Object.values(normalizedSchema.value).filter(g => g && typeof g === 'object').forEach(group => {
             if (group.fields && Array.isArray(group.fields)) {
@@ -752,12 +804,19 @@ const prepareFormData = () => {
                     if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                         // Convert boolean to 1/0
                         data[field.key] = data[field.key] === true || data[field.key] === 1 ? 1 : 0;
+                    } else if ((fieldDef.type === 'datetime' || fieldDef.type === 'date') && data[field.key]) {
+                        // Convert account timezone date back to UTC for database storage
+                        const timezoneDate = new Date(data[field.key]);
+                        const utcDate = convertTimezoneToUTC(timezoneDate.toISOString(), accountTimezone.value);
+                        data[field.key] = fieldDef.type === 'datetime'
+                            ? utcDate.toISOString().slice(0, 16)
+                            : utcDate.toISOString().split('T')[0];
                     }
                 });
             }
         });
     }
-    
+
     return data;
 };
 
@@ -1022,6 +1081,9 @@ defineExpose({
                                          :class="getFieldColSpan(field)">
                                     <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-bold text-gray-900 dark:text-white">
                                         {{ getFieldLabel(field.key) }}
+                                        <span v-if="getFieldType(field.key) === 'datetime' || getFieldType(field.key) === 'date'" class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                            ({{ accountTimezoneLabel }})
+                                        </span>
                                         <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
                                     </label>
 
@@ -1185,10 +1247,12 @@ defineExpose({
                                             :id="getFieldId(field.key)"
                                             :field="getFieldDefinition(field.key)"
                                             v-model="form[field.key]"
-                                            :disabled="isFieldDisabled(field.key)"
+                                            :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)"
                                             :enum-options="getEnumOptions(field.key)"
                                             :record="record"
                                             :field-key="field.key"
+                                            :filter-by="getFieldDefinition(field.key).filterby || null"
+                                            :filter-value="getFieldFilterValue(field.key)"
                                         />
 
                                         <!-- Select (enum dropdown) -->
@@ -1264,9 +1328,6 @@ defineExpose({
                                             <div v-if="form[field.key] && typeof form[field.key] === 'string'" class="text-sm text-gray-600 dark:text-gray-400">
                                                 Current file: <span class="font-medium">{{ getFileName(form[field.key]) }}</span>
                                             </div>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                                {{ getFieldDefinition(field.key).help || 'Select a file to upload' }}
-                                            </p>
                                         </div>
 
                                         <!-- Image Input -->
@@ -1301,9 +1362,6 @@ defineExpose({
                                                     accept="image/*"
                                                     class="input-style"
                                                 />
-                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                    {{ getFieldDefinition(field.key).help || 'Upload an image' }}
-                                                </p>
                                             </div>
                                         </div>
 
@@ -1346,6 +1404,11 @@ defineExpose({
                                             />
 
                                         </label>
+
+                                        <!-- Help Text (shown for all input types) -->
+                                        <p v-if="getFieldDefinition(field.key).help" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {{ getFieldDefinition(field.key).help }}
+                                        </p>
 
                                         <p v-if="form.errors[field.key]" class="mt-2 text-sm text-red-600 dark:text-red-500">
                                             {{ form.errors[field.key] }}

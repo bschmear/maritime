@@ -25,7 +25,15 @@ const props = defineProps({
     enumOptions: {
         type: Object,
         default: () => ({})
-    }
+    },
+    account: {
+        type: Object,
+        default: null,
+    },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const pluralTitle = computed(() => {
@@ -53,13 +61,34 @@ const getEnumLabel = (fieldKey, value) => {
 
 const formatDateTime = (value) => {
     if (!value) return '—';
-    return new Date(value).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
+
+    try {
+        // Handle different date formats
+        let date;
+        if (typeof value === 'string') {
+            // Try parsing as ISO string or other formats
+            date = new Date(value);
+        } else if (value instanceof Date) {
+            date = value;
+        } else {
+            return '—';
+        }
+
+        if (isNaN(date.getTime())) return '—';
+
+        // Format as "Dec 5, 2024 at 3:30 PM"
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        }).format(date);
+    } catch (error) {
+        console.warn('Date formatting error:', error, value);
+        return '—';
+    }
 };
 
 const deleteWorkOrder = () => {
@@ -102,101 +131,100 @@ const deleteWorkOrder = () => {
                                 Edit
                             </button>
                         </Link>
+
+
+                                <button
+                                    @click="deleteWorkOrder"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                                    <span class="material-icons ">delete_forever</span>
+                                </button>
+
+
                     </div>
                 </div>
             </div>
         </template>
 
-<div class="w-full space-y-4 md:space-y-6">
-    <div class="grid gap-4 xl:grid-cols-12">
-        <!-- Main Work Order Display -->
-        <div class="xl:col-span-9 space-y-6">
-            <WorkOrderForm
-                :record="record"
-                :record-type="recordType"
-                :form-schema="formSchema"
-                :fields-schema="fieldsSchema"
-                :enum-options="enumOptions"
-                mode="show"
-            />
-        </div>
-
-        <!-- Actions Sidebar -->
-        <div class="xl:col-span-3">
-            <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
-                <div class="flex justify-between items-center p-4 sm:px-5 font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
-                    Actions
+        <div class="w-full space-y-4 md:space-y-6">
+            <div class="grid gap-4 lg:gap-6  xl:grid-cols-12">
+                <!-- Main Work Order Display -->
+                <div class="xl:col-span-9 space-y-6">
+                    <WorkOrderForm
+                        :record="record"
+                        :record-type="recordType"
+                        :form-schema="formSchema"
+                        :fields-schema="fieldsSchema"
+                        :enum-options="enumOptions"
+                        :account="account"
+                        :timezones="timezones"
+                        mode="show"
+                    />
                 </div>
 
-                <div class="p-4 sm:p-5 space-y-6">
-                    <!-- Classification -->
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                                Type
-                            </label>
-                            <p class="text-sm text-gray-900 dark:text-white">
-                                {{ getEnumLabel('type', record.type) }}
-                            </p>
+                <!-- Actions Sidebar -->
+                <div class="xl:col-span-3">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                        <div class="flex justify-between items-center p-4 sm:px-5 font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
+                            Actions
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                                Priority
-                            </label>
-                            <p class="text-sm text-gray-900 dark:text-white">
-                                {{ getEnumLabel('priority', record.priority) }}
-                            </p>
-                        </div>
+                        <div class="p-4 sm:p-5 space-y-6">
+                            <!-- Classification -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                        Type
+                                    </label>
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        {{ getEnumLabel('type', record.type) }}
+                                    </p>
+                                </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                                Status
-                            </label>
-                            <p class="text-sm text-gray-900 dark:text-white">
-                                {{ getEnumLabel('status', record.status) }}
-                            </p>
-                        </div>
-                    </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                        Priority
+                                    </label>
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        {{ getEnumLabel('priority', record.priority) }}
+                                    </p>
+                                </div>
 
-                    <!-- Timestamps -->
-                    <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                                Created
-                            </label>
-                            <p class="text-sm text-gray-900 dark:text-white">
-                                {{ formatDateTime(record.created_at) }}
-                            </p>
-                        </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                        Status
+                                    </label>
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        {{ getEnumLabel('status', record.status) }}
+                                    </p>
+                                </div>
+                            </div>
 
-                        <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-                                Last Updated
-                            </label>
-                            <p class="text-sm text-gray-900 dark:text-white">
-                                {{ formatDateTime(record.updated_at) }}
-                            </p>
-                        </div>
-                    </div>
+                            <!-- Timestamps -->
+                            <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                        Created
+                                    </label>
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        {{ formatDateTime(record.created_at) }}
+                                    </p>
+                                </div>
 
-                    <!-- Delete Section -->
-                    <div class="pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Delete Work Order</h3>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                            Permanently remove this work order. This action cannot be undone.
-                        </p>
-                        <button
-                            @click="deleteWorkOrder"
-                            class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
-                            <span class="material-icons text-sm mr-2">delete_forever</span>
-                            Delete Work Order
-                        </button>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                        Last Updated
+                                    </label>
+                                    <p class="text-sm text-gray-900 dark:text-white">
+                                        {{ formatDateTime(record.updated_at) }}
+                                    </p>
+                                </div>
+                            </div>
+
+
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
     </TenantLayout>
 </template>

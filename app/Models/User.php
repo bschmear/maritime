@@ -49,6 +49,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var list<string>
+     */
+    protected $appends = [
+        'display_name',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -143,6 +152,20 @@ class User extends Authenticatable
             $this->attributes['first_name'] = $parts[0] ?? '';
             $this->attributes['last_name'] = $parts[1] ?? '';
         }
+    }
+
+    /**
+     * Get the display name for this user.
+     * Used by the RecordController when loading relationships.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        // Return full name if available, otherwise fall back to name/email
+        if ($this->first_name || $this->last_name) {
+            return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        }
+
+        return $this->name ?: $this->email;
     }
 
 }

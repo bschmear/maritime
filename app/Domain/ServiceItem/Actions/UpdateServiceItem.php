@@ -18,6 +18,7 @@ class UpdateServiceItem
             'billing_type' => 'sometimes|required|integer|in:1,2,3',
             'default_rate' => 'nullable|numeric|min:0',
             'default_cost' => 'nullable|numeric|min:0',
+            'default_hours' => 'nullable|numeric|min:0',
             'taxable' => 'nullable|boolean',
             'billable' => 'nullable|boolean',
             'warranty_eligible' => 'nullable|boolean',
@@ -44,6 +45,10 @@ class UpdateServiceItem
             }
             if (array_key_exists('default_cost', $recordData) && $recordData['default_cost'] === null) {
                 $recordData['default_cost'] = 0;
+            }
+            
+            if (array_key_exists('default_hours', $recordData) && $recordData['default_hours'] === null) {
+                $recordData['default_hours'] = 0;
             }
 
             // Add any additional non-validated fields that should be saved

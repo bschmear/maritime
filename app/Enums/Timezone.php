@@ -24,10 +24,10 @@ enum Timezone: string
     public function label(): string
     {
         return match($this) {
-            self::Eastern   => 'Eastern (US & Canada)',
-            self::Central   => 'Central (US & Canada)',
-            self::Mountain  => 'Mountain (US & Canada)',
-            self::Pacific   => 'Pacific (US & Canada)',
+            self::Eastern   => 'Eastern - US & Canada',
+            self::Central   => 'Central - US & Canada',
+            self::Mountain  => 'Mountain - US & Canada',
+            self::Pacific   => 'Pacific - US & Canada',
             self::Alaska    => 'Alaska',
             self::Hawaii    => 'Hawaii',
             self::GMT       => 'GMT',

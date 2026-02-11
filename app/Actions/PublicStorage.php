@@ -59,16 +59,17 @@ class PublicStorage
             // Set Cache-Control header to cache the image for 1 week
             $cacheControl = 'public, max-age=604800';
 
-            // Upload the image to S3 with Cache-Control header
+            // Upload the image to S3 with Cache-Control header (without ACLs)
             try {
-                $uploadedImage = Storage::disk('s3')->putFileAs(
-                    "{$prefix}/{$directory}",
-                    $filePath,
-                    $filename,
-                    [
-                        'CacheControl' => $cacheControl
-                    ]
-                );
+                $s3Client = Storage::disk('s3')->getClient();
+                $uploadedImage = $s3Client->putObject([
+                    'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
+                    'Key' => "{$prefix}/{$directory}/{$filename}",
+                    'SourceFile' => $tempPath,
+                    'CacheControl' => $cacheControl,
+                    // Don't set ACL to avoid AccessControlListNotSupported error
+                ]);
+                $uploadedImage = "{$prefix}/{$directory}/{$filename}";
             } catch (Exception $e) {
                 dd($e);
             }
@@ -86,7 +87,14 @@ class PublicStorage
             unlink($tempPath);
 
         } else {
-            Storage::disk('s3')->put($key, file_get_contents($file), $isPrivate ? 'private' : 'public');
+            // Upload the file to S3 without ACLs
+            $s3Client = Storage::disk('s3')->getClient();
+            $s3Client->putObject([
+                'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
+                'Key' => $key,
+                'Body' => file_get_contents($file->getRealPath()),
+                // Don't set ACL to avoid AccessControlListNotSupported error
+            ]);
         }
 
         return [
@@ -132,15 +140,16 @@ class PublicStorage
 
             $cacheControl = 'public, max-age=604800';
 
-            // Upload the image to S3 with Cache-Control header
-            $uploadedImage = Storage::disk('s3')->putFileAs(
-                "public/{$directory}",
-                $filePath,
-                $filename,
-                [
-                    'CacheControl' => $cacheControl
-                ]
-            );
+            // Upload the image to S3 with Cache-Control header (without ACLs)
+            $s3Client = Storage::disk('s3')->getClient();
+            $uploadedImage = $s3Client->putObject([
+                'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
+                'Key' => "public/{$directory}/{$filename}",
+                'SourceFile' => $tempPath,
+                'CacheControl' => $cacheControl,
+                // Don't set ACL to avoid AccessControlListNotSupported error
+            ]);
+            $uploadedImage = "public/{$directory}/{$filename}";
 
             // If upload was successful, delete the existing file from S3
             if ($uploadedImage) {
@@ -154,8 +163,14 @@ class PublicStorage
             // Clean up temporary local file
             unlink($tempPath);
         } else {
-            // If it's not an image or no resizing is needed, upload the file as is
-            Storage::disk('s3')->put($key, file_get_contents($file), 'public');
+            // If it's not an image or no resizing is needed, upload the file as is (without ACLs)
+            $s3Client = Storage::disk('s3')->getClient();
+            $s3Client->putObject([
+                'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
+                'Key' => $key,
+                'Body' => file_get_contents($file->getRealPath()),
+                // Don't set ACL to avoid AccessControlListNotSupported error
+            ]);
         }
 
         return $key;

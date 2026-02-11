@@ -225,17 +225,19 @@ const clearAddress = () => {
                 </div>
 
                 <div class="mt-6 flex justify-end space-x-3">
-                    <button 
+                    <button
+                        type="button"
                         @click="closeModal"
                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
+                        type="button"
                         @click="saveAddress"
                         class="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                     >
-                        Save Address
+                        Set Address
                     </button>
                 </div>
             </div>

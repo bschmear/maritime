@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use App\Actions\PublicStorage;
+use App\Enums\Timezone;
 use App\Domain\Document\Models\Document;
 use Illuminate\Support\Facades\Storage;
 
@@ -99,7 +100,21 @@ class RecordController extends BaseController
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
                 // Determine which fields to select for this relationship
-                $selectFields = ['id', 'display_name'];
+                $selectFields = ['id'];
+
+                // Handle special cases for models that don't have display_name column
+                if ($fieldDef['typeDomain'] === 'AssetUnit') {
+                    // AssetUnit uses accessor for display_name, so select the underlying columns and load asset relationship
+                    $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                              ->with(['asset' => function ($q) {
+                                  $q->select(['id', 'display_name']);
+                              }]);
+                    };
+                } else {
+                    $selectFields[] = 'display_name';
+                }
 
                 // If a custom displayField is specified, add it to the select
                 if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
@@ -109,9 +124,12 @@ class RecordController extends BaseController
                 // Make sure we have unique fields
                 $selectFields = array_unique($selectFields);
 
-                $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                    $query->select($selectFields);
-                };
+                // Only set the relationship if it wasn't already set for AssetUnit
+                if (!isset($relationships[$relationshipName])) {
+                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                        $query->select($selectFields);
+                    };
+                }
             }
         }
 
@@ -170,6 +188,7 @@ class RecordController extends BaseController
             }
         }
 
+
         // Order by display_name if the column exists, otherwise by created_at
         $tableName = $this->recordModel->getTable();
         $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
@@ -181,8 +200,10 @@ class RecordController extends BaseController
             // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
             if ($this->domainName === 'AssetUnit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
-                $prefixedColumns = array_map(function($col) use ($actualColumns) {
-                    return in_array($col, $actualColumns) && $col !== 'id' ? $col : ($col === 'id' ? 'asset_units.id' : $col);
+                $prefixedColumns = array_map(function($col) {
+                    // Prefix all columns that belong to the asset_units table
+                    $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+                    return in_array($col, $tableColumns) ? 'asset_units.' . $col : $col;
                 }, $actualColumns);
                 $query->select($prefixedColumns)
                       ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
@@ -190,8 +211,10 @@ class RecordController extends BaseController
                       ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
             } elseif ($this->domainName === 'InventoryUnit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
-                $prefixedColumns = array_map(function($col) use ($actualColumns) {
-                    return in_array($col, $actualColumns) && $col !== 'id' ? $col : ($col === 'id' ? 'inventory_units.id' : $col);
+                $prefixedColumns = array_map(function($col) {
+                    // Prefix all columns that belong to the inventory_units table
+                    $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+                    return in_array($col, $tableColumns) ? 'inventory_units.' . $col : $col;
                 }, $actualColumns);
                 $query->select($prefixedColumns)
                       ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
@@ -241,11 +264,16 @@ class RecordController extends BaseController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
+        // Get account settings for timezone display (cached)
+        $account = \App\Models\AccountSettings::getCurrent();
+
         return inertia('Tenant/' . $this->domainName . '/Create', [
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => Timezone::options(),
         ]);
     }
 
@@ -320,19 +348,36 @@ class RecordController extends BaseController
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                             
                             // Determine which fields to select for this relationship
-                            $selectFields = ['id', 'display_name'];
-                            
+                            $selectFields = ['id'];
+
+                            // Handle special cases for models that don't have display_name column
+                            if ($fieldDef['typeDomain'] === 'AssetUnit') {
+                                // AssetUnit uses accessor for display_name, so select the underlying columns and load asset relationship
+                                $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                                          ->with(['asset' => function ($q) {
+                                              $q->select(['id', 'display_name']);
+                                          }]);
+                                };
+                            } else {
+                                $selectFields[] = 'display_name';
+                            }
+
                             // If a custom displayField is specified, add it to the select
                             if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
                                 $selectFields[] = $fieldDef['displayField'];
                             }
-                            
+
                             // Make sure we have unique fields
                             $selectFields = array_unique($selectFields);
-                            
-                            $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                                $query->select($selectFields);
-                            };
+
+                            // Only set the relationship if it wasn't already set for AssetUnit
+                            if (!isset($relationships[$relationshipName])) {
+                                $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                                    $query->select($selectFields);
+                                };
+                            }
                         }
                     }
 
@@ -393,21 +438,38 @@ class RecordController extends BaseController
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                
+
                 // Determine which fields to select for this relationship
-                $selectFields = ['id', 'display_name'];
-                
+                $selectFields = ['id'];
+
+                // Handle special cases for models that don't have display_name column
+                if ($fieldDef['typeDomain'] === 'AssetUnit') {
+                    // AssetUnit uses accessor for display_name, so select the underlying columns and load asset relationship
+                    $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                              ->with(['asset' => function ($q) {
+                                  $q->select(['id', 'display_name']);
+                              }]);
+                    };
+                } else {
+                    $selectFields[] = 'display_name';
+                }
+
                 // If a custom displayField is specified, add it to the select
                 if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
                     $selectFields[] = $fieldDef['displayField'];
                 }
-                
+
                 // Make sure we have unique fields
                 $selectFields = array_unique($selectFields);
-                
-                $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                    $query->select($selectFields);
-                };
+
+                // Only set the relationship if it wasn't already set for AssetUnit
+                if (!isset($relationships[$relationshipName])) {
+                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                        $query->select($selectFields);
+                    };
+                }
             }
         }
 
@@ -425,12 +487,16 @@ class RecordController extends BaseController
                 }
             }
         }
-
+       
         // Load the record with relationships
         $record = $this->recordModel
             ->with($relationships)
             ->findOrFail($id);
+           
         $enumOptions = $this->getEnumOptions();
+
+        // Get account settings for timezone display (cached)
+        $account = \App\Models\AccountSettings::getCurrent();
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
         if ($request->ajax() && !$request->header('X-Inertia')) {
@@ -443,6 +509,8 @@ class RecordController extends BaseController
                 'fieldsSchema' => $fieldsSchema,
                 'enumOptions' => $enumOptions,
                 'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+                'account' => $account,
+                'timezones' => Timezone::options(),
             ]);
         }
 
@@ -456,15 +524,66 @@ class RecordController extends BaseController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+            'account' => $account,
+            'timezones' => Timezone::options(),
         ]);
     }
 
     public function edit($id)
     {
-        $record = $this->recordModel->findOrFail($id);
-        $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        // Build relationships array for loading related data
+        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+
+        // Add record type relationships with id, display_name, and custom displayField
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                // Convert field key like 'assigned_id' to relationship name like 'assigned'
+                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
+
+                // Determine which fields to select for this relationship
+                $selectFields = ['id'];
+
+                // Handle special cases for models that don't have display_name column
+                if ($fieldDef['typeDomain'] === 'AssetUnit') {
+                    // AssetUnit uses accessor for display_name, so select the underlying columns and load asset relationship
+                    $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                              ->with(['asset' => function ($q) {
+                                  $q->select(['id', 'display_name']);
+                              }]);
+                    };
+                } else {
+                    $selectFields[] = 'display_name';
+                }
+
+                // If a custom displayField is specified, add it to the select
+                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                    $selectFields[] = $fieldDef['displayField'];
+                }
+
+                // Make sure we have unique fields
+                $selectFields = array_unique($selectFields);
+
+                // Only set the relationship if it wasn't already set for AssetUnit
+                if (!isset($relationships[$relationshipName])) {
+                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                        $query->select($selectFields);
+                    };
+                }
+            }
+        }
+
+        // Load the record with relationships
+        $record = $this->recordModel->with($relationships)->findOrFail($id);
+
+        $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
+
+        // Get account settings for timezone display (cached)
+        $account = \App\Models\AccountSettings::getCurrent();
 
         return inertia('Tenant/' . $this->domainName . '/Edit', [
             'record' => $record,
@@ -473,6 +592,8 @@ class RecordController extends BaseController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+            'account' => $account,
+            'timezones' => Timezone::options(),
         ]);
     }
 
@@ -555,19 +676,36 @@ class RecordController extends BaseController
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                             
                             // Determine which fields to select for this relationship
-                            $selectFields = ['id', 'display_name'];
-                            
+                            $selectFields = ['id'];
+
+                            // Handle special cases for models that don't have display_name column
+                            if ($fieldDef['typeDomain'] === 'AssetUnit') {
+                                // AssetUnit uses accessor for display_name, so select the underlying columns and load asset relationship
+                                $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                                          ->with(['asset' => function ($q) {
+                                              $q->select(['id', 'display_name']);
+                                          }]);
+                                };
+                            } else {
+                                $selectFields[] = 'display_name';
+                            }
+
                             // If a custom displayField is specified, add it to the select
                             if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
                                 $selectFields[] = $fieldDef['displayField'];
                             }
-                            
+
                             // Make sure we have unique fields
                             $selectFields = array_unique($selectFields);
-                            
-                            $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                                $query->select($selectFields);
-                            };
+
+                            // Only set the relationship if it wasn't already set for AssetUnit
+                            if (!isset($relationships[$relationshipName])) {
+                                $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                                    $query->select($selectFields);
+                                };
+                            }
                         }
                     }
 
@@ -630,14 +768,15 @@ class RecordController extends BaseController
 
     public function lookup(Request $request)
     {
-        // Simple lookup - just return id and display_name
+        // Determine which columns to select
         $columns = ['id', 'display_name'];
 
         $query = $this->recordModel->select($columns);
 
-        // Apply search query (fuzzy search on display_name, case-insensitive)
+        // Apply search query
         $searchQuery = $request->get('search');
         if ($searchQuery && !empty(trim($searchQuery))) {
+            // Default search on display_name
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
         }
 

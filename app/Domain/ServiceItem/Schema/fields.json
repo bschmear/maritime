@@ -41,6 +41,15 @@
     "help": "Internal cost for accounting"
   },
 
+    "default_hours": {
+      "label": "Default Hours",
+      "type": "number",
+      "step": 0.25,
+      "min": 0,
+      "placeholder": "1.00",
+      "help": "Default labor time in hours (example: 1.25 = 1 hour 15 minutes)"
+    },
+
   "taxable": {
     "label": "Taxable",
     "type": "boolean",

@@ -5,6 +5,7 @@ use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class CreateAssetUnit
@@ -12,9 +13,15 @@ class CreateAssetUnit
     public function __invoke(array $data): array
     {
         $validator = Validator::make($data, [
-            'asset_id' => 'required|integer|exists:assets,id',
+            'asset_id' => [
+                'required',
+                'integer',
+                Rule::exists('assets', 'id')->where(function ($query) {
+                    $query->where('inactive', false)->orWhereNull('inactive');
+                })
+            ],
             'serial_number' => 'nullable|string|max:255',
-            'hin' => 'nullable|string|max:255',
+            'hin' => 'nullable|string|max:255|unique:asset_units,hin',
             'sku' => 'nullable|string|max:255',
             'condition' => 'nullable|integer|in:1,2,3',
             'status' => 'nullable|integer|in:1,2,3,4,5,6,7',

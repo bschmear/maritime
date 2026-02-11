@@ -5,6 +5,7 @@ use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class UpdateAssetUnit

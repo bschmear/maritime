@@ -32,6 +32,9 @@
           "key": "default_cost"
         },
         {
+          "key": "default_hours"
+        },
+        {
           "key": "taxable"
         }
       ]

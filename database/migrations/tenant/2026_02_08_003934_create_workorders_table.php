@@ -17,7 +17,7 @@ return new class extends Migration
             // Relationships
             $table->unsignedBigInteger('subsidiary_id')->nullable();
             $table->unsignedBigInteger('customer_id')->nullable();
-            $table->unsignedBigInteger('inventory_item_id')->nullable();
+            $table->unsignedBigInteger('asset_unit_id')->nullable();
             $table->unsignedBigInteger('assigned_user_id')->nullable();
             $table->unsignedBigInteger('requested_by_user_id')->nullable();
             $table->unsignedBigInteger('location_id')->nullable();
