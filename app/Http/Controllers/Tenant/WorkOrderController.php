@@ -1,5 +1,7 @@
 <?php
 namespace App\Http\Controllers\Tenant;
+
+use App\Actions\PublicStorage;
 use App\Http\Controllers\Tenant\RecordController;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrder\Actions\CreateWorkOrder as CreateAction;
@@ -224,34 +226,24 @@ class WorkOrderController extends RecordController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'billing_type' => $li->billing_type,
         ])->values()->all();
 
-        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
-            ->where('inactive', false)
-            ->orderBy('display_name')
-            ->get()
-            ->map(function ($si) {
-                $defaults = $si->toWorkOrderDefaults();
-                $billingType = \App\Enums\ServiceItem\BillingType::tryFrom($si->billing_type);
-                return array_merge(
-                    ['id' => $si->id, 'display_name' => $si->display_name, 'code' => $si->code ?? ''],
-                    $defaults,
-                    ['billing_type_label' => $billingType?->label() ?? 'Unknown']
-                );
-            })
-            ->values()
-            ->all();
+        // Service items are now loaded on-demand via the paginated modal
+
+        $enumOptions = $this->getEnumOptions();
+        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
         return inertia('Tenant/' . $this->domainName . '/Edit', [
             'record' => $record,
             'recordType' => $this->recordType,
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $this->getEnumOptions(),
+            'enumOptions' => $enumOptions,
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
             'account' => \App\Models\AccountSettings::getCurrent(),
             'timezones' => Timezone::options(),
-            'serviceItems' => $serviceItems,
+            'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
         ]);
     }
 
@@ -274,22 +266,10 @@ class WorkOrderController extends RecordController
         // Get account settings for timezone display (cached)
         $account = \App\Models\AccountSettings::getCurrent();
 
-        // Get active service items for line item selection (with WorkOrderServiceItem defaults)
-        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
-            ->where('inactive', false)
-            ->orderBy('display_name')
-            ->get()
-            ->map(function ($si) {
-                $defaults = $si->toWorkOrderDefaults();
-                $billingType = \App\Enums\ServiceItem\BillingType::tryFrom($si->billing_type);
-                return array_merge(
-                    ['id' => $si->id, 'display_name' => $si->display_name, 'code' => $si->code ?? ''],
-                    $defaults,
-                    ['billing_type_label' => $billingType?->label() ?? 'Unknown']
-                );
-            })
-            ->values()
-            ->all();
+        // Service items are now loaded on-demand via the paginated modal
+
+        $enumOptions = $this->getEnumOptions();
+        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
         return inertia('Tenant/' . $this->domainName . '/Create', [
             'recordType' => $this->recordType,
@@ -300,7 +280,7 @@ class WorkOrderController extends RecordController
             'users' => $users,
             'account' => $account,
             'timezones' => Timezone::options(),
-            'serviceItems' => $serviceItems,
+            'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
         ]);
     }
 
@@ -334,22 +314,7 @@ class WorkOrderController extends RecordController
         // Get account settings for timezone display (cached)
         $account = \App\Models\AccountSettings::getCurrent();
 
-        // Get active service items for line item selection (for edit mode)
-        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
-            ->where('inactive', false)
-            ->orderBy('display_name')
-            ->get()
-            ->map(function ($si) {
-                $defaults = $si->toWorkOrderDefaults();
-                $billingType = \App\Enums\ServiceItem\BillingType::tryFrom($si->billing_type);
-                return array_merge(
-                    ['id' => $si->id, 'display_name' => $si->display_name, 'code' => $si->code ?? ''],
-                    $defaults,
-                    ['billing_type_label' => $billingType?->label() ?? 'Unknown']
-                );
-            })
-            ->values()
-            ->all();
+        // Service items are now loaded on-demand via the paginated modal
 
         // Ensure timestamps and service_items are included in the record
         $recordArray = $record->toArray();
@@ -367,7 +332,11 @@ class WorkOrderController extends RecordController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'billing_type' => $li->billing_type,
         ])->values()->all();
+
+        $enumOptions = $this->getEnumOptions();
+        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $recordArray,
@@ -379,8 +348,148 @@ class WorkOrderController extends RecordController
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
-            'serviceItems' => $serviceItems,
+            'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
         ]);
     }
 
+    /**
+     * Store a newly created work order (POST /workorders)
+     * Add custom logic for line items (service_items) here.
+     */
+    public function store(Request $request, PublicStorage $publicStorage)
+    {
+        $data = $request->all();
+        $serviceItems = $data['service_items'] ?? [];
+        unset($data['service_items']);
+
+        // Create the work order first
+        $request->merge($data);
+        $response = parent::store($request, $publicStorage);
+
+        // If successful and we have service items, create them now
+        if ($response->getStatusCode() === 302) {
+            // Extract work order ID from redirect URL
+            $location = $response->getTargetUrl();
+            if (preg_match('/\/workorders\/(\d+)/', $location, $matches)) {
+                $workOrderId = $matches[1];
+                if (!empty($serviceItems)) {
+                    $this->createServiceItems($workOrderId, $serviceItems);
+                }
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * Update the specified work order (PUT/PATCH /workorders/{id})
+     * Add custom logic for line items (service_items) here.
+     */
+    public function update(Request $request, $id, PublicStorage $publicStorage)
+    {
+        $data = $request->all();
+        $serviceItems = $data['service_items'] ?? [];
+        unset($data['service_items']);
+
+        // Update existing service items
+        if (!empty($serviceItems)) {
+            $this->updateServiceItems($id, $serviceItems);
+        }
+
+        $request->merge($data);
+        return parent::update($request, $id, $publicStorage);
+    }
+
+    public function lookupServiceItems(Request $request)
+    {
+        $query = $request->get('search', '');
+        $perPage = $request->get('per_page', 10);
+        $page = $request->get('page', 1);
+
+        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
+            ->where('inactive', false)
+            ->select([
+                'id',
+                'display_name',
+                'code',
+                'description',
+                'default_rate',
+                'default_cost',
+                'default_hours',
+                'billable',
+                'warranty_eligible',
+                'billing_type'
+            ])
+            ->when($query, function ($q) use ($query) {
+                $q->where(function ($subQuery) use ($query) {
+                    $subQuery->where('display_name', 'like', "%{$query}%")
+                        ->orWhere('code', 'like', "%{$query}%")
+                        ->orWhere('description', 'like', "%{$query}%");
+                });
+            })
+            ->orderBy('display_name')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'records' => $serviceItems->items(),
+            'meta' => [
+                'current_page' => $serviceItems->currentPage(),
+                'last_page' => $serviceItems->lastPage(),
+                'per_page' => $serviceItems->perPage(),
+                'total' => $serviceItems->total(),
+            ]
+        ]);
+    }
+
+    /**
+     * Get the ID of the work order that was just created
+     */
+    protected function getCreatedWorkOrderId(Request $request, $response)
+    {
+        // Try to get from session flash data first (set by parent controller)
+        $workOrderId = session('created_record_id');
+        if ($workOrderId) {
+            return $workOrderId;
+        }
+
+        // Fallback: get the latest work order for current tenant
+        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::latest()->first();
+        return $workOrder ? $workOrder->id : null;
+    }
+
+    /**
+     * Create service items for a newly created work order
+     */
+    protected function createServiceItems(int $workOrderId, array $serviceItems)
+    {
+        foreach ($serviceItems as $index => $itemData) {
+            \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
+                'work_order_id' => $workOrderId,
+                'service_item_id' => $itemData['service_item_id'] ?? null,
+                'display_name' => $itemData['display_name'] ?? '',
+                'description' => $itemData['description'] ?? '',
+                'quantity' => $itemData['quantity'] ?? 1,
+                'unit_price' => $itemData['unit_price'] ?? 0,
+                'unit_cost' => $itemData['unit_cost'] ?? 0,
+                'estimated_hours' => $itemData['estimated_hours'] ?? 0,
+                'actual_hours' => $itemData['actual_hours'] ?? 0,
+                'billable' => $itemData['billable'] ?? true,
+                'warranty' => $itemData['warranty'] ?? false,
+                'billing_type' => $itemData['billing_type'] ?? null,
+                'sort_order' => $itemData['sort_order'] ?? $index,
+            ]);
+        }
+    }
+
+    /**
+     * Update service items for an existing work order
+     */
+    protected function updateServiceItems(int $workOrderId, array $serviceItems)
+    {
+        // Delete existing service items
+        \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::where('work_order_id', $workOrderId)->delete();
+
+        // Create new ones
+        $this->createServiceItems($workOrderId, $serviceItems);
+    }
 }

@@ -78,6 +78,7 @@ Route::middleware([
 
         Route::prefix('workorders')->name('workorders.')->group(function () {
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
+            Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);

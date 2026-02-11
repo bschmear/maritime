@@ -58,16 +58,37 @@ const editingLineIndex = ref(null);
 // Line items (WorkOrderServiceItem structure: unit_price, unit_cost, display_name, etc.)
 const lineItems = ref([]);
 
-// Available service items from ServiceItem table (passed as prop with toWorkOrderDefaults)
-const availableServiceItems = computed(() => props.serviceItems || []);
+// Service item lookup state
+const serviceItemSearchQuery = ref('');
+const serviceItemRecords = ref([]);
+const serviceItemCurrentPage = ref(1);
+const serviceItemTotalPages = ref(1);
+const serviceItemPerPage = ref(10);
+const serviceItemIsLoading = ref(false);
+
+// Billing type options from enum
+const billingTypeOptions = computed(() => props.enumOptions?.billing_type || []);
 
 const getBillingTypeLabel = (billingType) => {
-    const labels = {
-        1: 'Hourly',
-        2: 'Flat Rate',
-        3: 'Per Quantity'
-    };
-    return labels[billingType] || 'Unknown';
+    const option = billingTypeOptions.value.find(opt => opt.value === billingType);
+    return option?.name || 'Unknown';
+};
+
+// Calculate line item amount (revenue) based on billing type
+const calculateLineItemAmount = (item) => {
+    const rate = Number(item.unit_price) || 0;
+    const quantity = Number(item.quantity) || 1;
+    const actualHours = Number(item.actual_hours) || 0;
+
+    switch (item.billing_type) {
+        case 2: // Flat Rate
+            return rate;
+        case 1: // Hourly
+            return actualHours * rate;
+        case 3: // Quantity
+        default:
+            return quantity * rate;
+    }
 };
 
 const selectedServiceItem = ref(null);
@@ -82,7 +103,8 @@ const lineItemForm = ref({
     estimated_hours: 1,
     actual_hours: null,
     billable: true,
-    warranty: false
+    warranty: false,
+    billing_type: null
 });
 
 const addServiceItemLine = () => {
@@ -95,11 +117,15 @@ const addServiceItemLine = () => {
         unit_price: 0,
         unit_cost: 0,
         estimated_hours: 1,
-        actual_hours: null,
+        actual_hours: 0,
         billable: true,
-        warranty: false
+        warranty: false,
+        billing_type: null
     };
     selectedServiceItem.value = null;
+    serviceItemSearchQuery.value = '';
+    serviceItemCurrentPage.value = 1;
+    fetchServiceItems(true);
     showServiceItemModal.value = true;
 };
 
@@ -114,11 +140,23 @@ const editServiceItemLine = (index) => {
         unit_price: item.unit_price ?? 0,
         unit_cost: item.unit_cost ?? 0,
         estimated_hours: item.estimated_hours ?? 1,
-        actual_hours: item.actual_hours ?? null,
+        actual_hours: item.actual_hours ?? 0,
         billable: item.billable ?? true,
-        warranty: item.warranty ?? false
+        warranty: item.warranty ?? false,
+        billing_type: item.billing_type ?? null
     };
-    selectedServiceItem.value = availableServiceItems.value.find(si => si.id === item.service_item_id);
+    // For editing, we'll pre-fill the form but allow user to change service item via modal
+    selectedServiceItem.value = {
+        id: item.service_item_id,
+        display_name: item.display_name,
+        code: item.code,
+        billing_type: item.billing_type,
+        default_rate: item.unit_price,
+        default_cost: item.unit_cost,
+        default_hours: item.estimated_hours,
+        billable: item.billable,
+        warranty_eligible: item.warranty
+    };
     showServiceItemModal.value = true;
 };
 
@@ -132,11 +170,13 @@ const selectServiceItem = (item) => {
     lineItemForm.value.service_item_id = item.id;
     lineItemForm.value.display_name = item.display_name;
     lineItemForm.value.description = item.description ?? item.display_name;
-    lineItemForm.value.unit_price = Number(item.unit_price) ?? 0;
-    lineItemForm.value.unit_cost = Number(item.unit_cost) ?? 0;
-    lineItemForm.value.estimated_hours = Number(item.estimated_hours) ?? 1;
+    lineItemForm.value.unit_price = Number(item.default_rate) ?? 0;
+    lineItemForm.value.unit_cost = Number(item.default_cost) ?? 0;
+    lineItemForm.value.estimated_hours = Number(item.default_hours) ?? 1;
+    lineItemForm.value.actual_hours = 0;
     lineItemForm.value.billable = item.billable ?? true;
-    lineItemForm.value.warranty = item.warranty ?? false;
+    lineItemForm.value.warranty = item.warranty_eligible ?? false;
+    lineItemForm.value.billing_type = item.billing_type ?? null;
 };
 
 const saveLineItem = () => {
@@ -152,6 +192,69 @@ const cancelLineItem = () => {
     showServiceItemModal.value = false;
 };
 
+// Fetch service items with pagination and search
+const fetchServiceItems = async (resetPage = false) => {
+    if (resetPage) {
+        serviceItemCurrentPage.value = 1;
+    }
+
+    serviceItemIsLoading.value = true;
+
+    try {
+        const url = new URL(route('workorders.service-items.lookup'), window.location.origin);
+        url.searchParams.append('page', serviceItemCurrentPage.value);
+        url.searchParams.append('per_page', serviceItemPerPage.value);
+
+        if (serviceItemSearchQuery.value.trim()) {
+            url.searchParams.append('search', serviceItemSearchQuery.value.trim());
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch service items: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        serviceItemRecords.value = data.records || [];
+        serviceItemTotalPages.value = data.meta?.last_page || 1;
+    } catch (error) {
+        console.error('Error fetching service items:', error);
+        serviceItemRecords.value = [];
+    } finally {
+        serviceItemIsLoading.value = false;
+    }
+};
+
+// Search service items
+const searchServiceItems = () => {
+    fetchServiceItems(true);
+};
+
+// Pagination methods
+const nextServiceItemPage = () => {
+    if (serviceItemCurrentPage.value < serviceItemTotalPages.value) {
+        serviceItemCurrentPage.value++;
+        fetchServiceItems();
+    }
+};
+
+const prevServiceItemPage = () => {
+    if (serviceItemCurrentPage.value > 1) {
+        serviceItemCurrentPage.value--;
+        fetchServiceItems();
+    }
+};
+
 // Computed values from line items for Time & Costs
 const lineItemsEstimatedHours = computed(() => {
     return lineItems.value.reduce((sum, item) => {
@@ -163,9 +266,16 @@ const lineItemsEstimatedHours = computed(() => {
 
 const lineItemsLaborCost = computed(() => {
     return lineItems.value.reduce((sum, item) => {
-        const qty = Number(item.quantity) || 1;
         const cost = Number(item.unit_cost) || 0;
-        return sum + (qty * cost);
+
+        // Calculate cost based on billing type (matches model logic)
+        switch (item.billing_type) {
+            case 2: // Flat Rate
+                return sum + cost;
+            case 1: // Hourly
+            default:
+                return sum + cost;
+        }
     }, 0);
 });
 
@@ -355,9 +465,10 @@ watch(() => props.record?.service_items, (items) => {
             unit_price: li.unit_price ?? 0,
             unit_cost: li.unit_cost ?? 0,
             estimated_hours: li.estimated_hours ?? 1,
-            actual_hours: li.actual_hours ?? null,
+            actual_hours: li.actual_hours ?? 0,
             billable: li.billable ?? true,
-            warranty: li.warranty ?? false
+            warranty: li.warranty ?? false,
+            billing_type: li.billing_type ?? null
         }));
     }
 }, { immediate: true });
@@ -428,9 +539,10 @@ const submit = () => {
             unit_price: Number(li.unit_price) || 0,
             unit_cost: Number(li.unit_cost) || 0,
             estimated_hours: Number(li.estimated_hours) || 0,
-            actual_hours: li.actual_hours ? Number(li.actual_hours) : null,
+            actual_hours: Number(li.actual_hours) || 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
+            billing_type: li.billing_type ? Number(li.billing_type) : null,
             sort_order: idx
         }));
 
@@ -795,10 +907,19 @@ const handleCancel = () => {
                                                     Qty
                                                 </th>
                                                 <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Hours
+                                                    Est Hours
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Act Hours
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Billing Type
                                                 </th>
                                                 <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                     Rate
+                                                </th>
+                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    Cost
                                                 </th>
                                                 <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                     Amount
@@ -819,11 +940,23 @@ const handleCancel = () => {
                                                 <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
                                                     {{ item.estimated_hours ?? 0 }}
                                                 </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                                    <span v-if="item.actual_hours > 0" class="text-blue-600 dark:text-blue-400">{{ item.actual_hours }}</span>
+                                                    <span v-else>{{ item.actual_hours }}</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                        {{ getBillingTypeLabel(item.billing_type) }}
+                                                    </span>
+                                                </td>
                                                 <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
                                                     {{ formatCurrency(item.unit_price) }}
                                                 </td>
+                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                                    {{ formatCurrency(item.unit_cost) }}
+                                                </td>
                                                 <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">
-                                                    {{ formatCurrency(item.quantity * item.unit_price) }}
+                                                    {{ formatCurrency(calculateLineItemAmount(item)) }}
                                                 </td>
                                                 <td v-if="mode !== 'show'" class="px-4 py-3 text-sm text-right">
                                                     <div class="flex items-center justify-end gap-2">
@@ -1171,30 +1304,72 @@ const handleCancel = () => {
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                                 Select a Service Item
                             </label>
-                            <div class="grid gap-2">
+
+                            <!-- Search Input -->
+                            <div class="relative mb-4">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                <input
+                                    v-model="serviceItemSearchQuery"
+                                    @input="searchServiceItems"
+                                    type="text"
+                                    placeholder="Search service items..."
+                                    class="rounded-xl w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
+                                />
+                            </div>
+
+                            <!-- Loading State -->
+                            <div v-if="serviceItemIsLoading" class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+
+                            <!-- Service Items List -->
+                            <div v-else-if="serviceItemRecords.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
                                 <button
-                                    v-for="item in availableServiceItems"
+                                    v-for="item in serviceItemRecords"
                                     :key="item.id"
                                     @click="selectServiceItem(item)"
                                     type="button"
-                                    class="flex items-center justify-between p-3 text-left border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                                    class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                                 >
-                                    <div class="flex-1">
-                                        <div class="font-medium text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                                            {{ item.display_name }}
-                                        </div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
-                                            <span>Code: {{ item.code }}</span>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                                                {{ item.billing_type_label }}
-                                            </span>
-                                        </div>
+                                    <div class="font-medium text-gray-900 dark:text-white">
+                                        {{ item.display_name }}
                                     </div>
-                                    <div class="text-right ml-4">
-                                        <div class="font-semibold text-gray-900 dark:text-white">
-                                            {{ formatCurrency(item.unit_price) }}
-                                        </div>
-                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- Empty State -->
+                            <div v-else class="text-center py-8 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
+                                <span class="material-icons text-4xl text-gray-400 dark:text-gray-600 mb-2 block">receipt_long</span>
+                                <p class="text-gray-500 dark:text-gray-400 mb-1">
+                                    {{ serviceItemSearchQuery.trim() ? 'No service items found' : 'No service items available' }}
+                                </p>
+                                <p v-if="serviceItemSearchQuery.trim()" class="text-sm text-gray-400 dark:text-gray-500">
+                                    Try a different search term
+                                </p>
+                            </div>
+
+                            <!-- Pagination -->
+                            <div v-if="serviceItemRecords.length > 0 && serviceItemTotalPages > 1" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+                                <button
+                                    @click="prevServiceItemPage"
+                                    :disabled="serviceItemCurrentPage === 1"
+                                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                                >
+                                    Previous
+                                </button>
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    Page {{ serviceItemCurrentPage }} of {{ serviceItemTotalPages }}
+                                </span>
+                                <button
+                                    @click="nextServiceItemPage"
+                                    :disabled="serviceItemCurrentPage === serviceItemTotalPages"
+                                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                                >
+                                    Next
                                 </button>
                             </div>
                         </div>
@@ -1208,7 +1383,7 @@ const handleCancel = () => {
                                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
                                             <span>{{ selectedServiceItem.code }}</span>
                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
-                                                {{ selectedServiceItem.billing_type_label }}
+                                                {{ getBillingTypeLabel(selectedServiceItem.billing_type) }}
                                             </span>
                                         </div>
                                     </div>
@@ -1254,6 +1429,34 @@ const handleCancel = () => {
                                         step="0.25"
                                         class="input-style"
                                     />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Actual Hours
+                                    </label>
+                                    <input
+                                        v-model.number="lineItemForm.actual_hours"
+                                        type="number"
+                                        min="0"
+                                        step="0.25"
+                                        class="input-style"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Billing Type
+                                    </label>
+                                    <select
+                                        v-model.number="lineItemForm.billing_type"
+                                        class="input-style"
+                                    >
+                                        <option :value="null">-- Select --</option>
+                                        <option v-for="option in billingTypeOptions" :key="option.id" :value="option.value">
+                                            {{ option.name }}
+                                        </option>
+                                    </select>
                                 </div>
 
                                 <div>
@@ -1323,13 +1526,3 @@ const handleCancel = () => {
         </div>
     </div>
 </template>
-
-<style scoped>
-.input-style {
-    @apply w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-           bg-white dark:bg-gray-900 text-gray-900 dark:text-white
-           focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400
-           disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed
-           read-only:bg-gray-50 dark:read-only:bg-gray-800/50;
-}
-</style>

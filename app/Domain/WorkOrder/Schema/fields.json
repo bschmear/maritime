@@ -152,6 +152,13 @@
     "default": 0
   },
 
+  "estimated_tax": {
+    "label": "Estimated Tax",
+    "type": "currency",
+    "default": 0,
+    "nullable": true
+  },
+
   "total_cost": {
     "label": "Total Cost",
     "type": "currency",

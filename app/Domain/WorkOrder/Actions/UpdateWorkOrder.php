@@ -2,7 +2,7 @@
 namespace App\Domain\WorkOrder\Actions;
 
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
-use App\Domain\WorkOrder\Models\WorkOrderServiceItem;
+use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
