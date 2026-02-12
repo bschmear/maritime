@@ -37,6 +37,9 @@ class WorkOrder extends Model
         'completed_at' => 'datetime',
         'due_at' => 'datetime',
 
+        'estimated_tax' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
+
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

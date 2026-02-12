@@ -109,10 +109,10 @@ class WorkOrderController extends RecordController
             $query->where('priority', $priorityParam);
         }
 
-        $query->orderBy('created_at', 'desc');
+        $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
-
+// dd($records);
         // Get other users (excluding current user)
         $users = \App\Domain\User\Models\User::select('id', 'display_name')
             ->where('id', '!=', $currentUser->id)
@@ -366,14 +366,21 @@ class WorkOrderController extends RecordController
         $request->merge($data);
         $response = parent::store($request, $publicStorage);
 
-        // If successful and we have service items, create them now
+        // If successful, always recalculate work order totals
         if ($response->getStatusCode() === 302) {
             // Extract work order ID from redirect URL
             $location = $response->getTargetUrl();
             if (preg_match('/\/workorders\/(\d+)/', $location, $matches)) {
                 $workOrderId = $matches[1];
-                if (!empty($serviceItems)) {
-                    $this->createServiceItems($workOrderId, $serviceItems);
+                $calculator = app(\App\Services\WorkOrderCalculator::class);
+                $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+                if ($workOrder) {
+                    if (!empty($serviceItems)) {
+                        $this->createServiceItems($workOrderId, $serviceItems);
+                    } else {
+                        // Recalculate totals even without service items
+                        $calculator->recalculateWorkOrder($workOrder);
+                    }
                 }
             }
         }
@@ -391,13 +398,23 @@ class WorkOrderController extends RecordController
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
-        // Update existing service items
-        if (!empty($serviceItems)) {
-            $this->updateServiceItems($id, $serviceItems);
+        $request->merge($data);
+        $response = parent::update($request, $id, $publicStorage);
+
+        // Always recalculate work order totals after update
+        $calculator = app(\App\Services\WorkOrderCalculator::class);
+        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
+        if ($workOrder) {
+            // Update service items if provided
+            if (!empty($serviceItems)) {
+                $this->updateServiceItems($id, $serviceItems);
+            } else {
+                // Recalculate totals even without service item changes
+                $calculator->recalculateWorkOrder($workOrder);
+            }
         }
 
-        $request->merge($data);
-        return parent::update($request, $id, $publicStorage);
+        return $response;
     }
 
     public function lookupServiceItems(Request $request)
@@ -442,6 +459,32 @@ class WorkOrderController extends RecordController
     }
 
     /**
+     * Get tax rate for a location
+     */
+    public function getLocationTaxRate(Request $request)
+    {
+        $locationId = $request->get('location_id');
+
+        if (!$locationId) {
+            return response()->json(['tax_rate' => null]);
+        }
+
+        $location = \App\Domain\Location\Models\Location::find($locationId);
+
+        if (!$location) {
+            return response()->json(['tax_rate' => null]);
+        }
+
+        $taxRateService = app(\App\Services\TaxRateService::class);
+        $taxRate = $taxRateService->getTaxRate($location);
+
+        // Return as percentage for the frontend
+        return response()->json([
+            'tax_rate' => $taxRate ? $taxRate * 100 : null
+        ]);
+    }
+
+    /**
      * Get the ID of the work order that was just created
      */
     protected function getCreatedWorkOrderId(Request $request, $response)
@@ -462,8 +505,11 @@ class WorkOrderController extends RecordController
      */
     protected function createServiceItems(int $workOrderId, array $serviceItems)
     {
+        $calculator = app(\App\Services\WorkOrderCalculator::class);
+        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+
         foreach ($serviceItems as $index => $itemData) {
-            \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
+            $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
                 'work_order_id' => $workOrderId,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
                 'display_name' => $itemData['display_name'] ?? '',
@@ -478,7 +524,13 @@ class WorkOrderController extends RecordController
                 'billing_type' => $itemData['billing_type'] ?? null,
                 'sort_order' => $itemData['sort_order'] ?? $index,
             ]);
+
+            // Recalculate the line item using the service
+            $calculator->recalculateLineItem($lineItem);
         }
+
+        // Recalculate work order totals
+        $calculator->recalculateWorkOrder($workOrder);
     }
 
     /**
@@ -486,10 +538,104 @@ class WorkOrderController extends RecordController
      */
     protected function updateServiceItems(int $workOrderId, array $serviceItems)
     {
+        $calculator = app(\App\Services\WorkOrderCalculator::class);
+        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+
         // Delete existing service items
         \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::where('work_order_id', $workOrderId)->delete();
 
-        // Create new ones
-        $this->createServiceItems($workOrderId, $serviceItems);
+        // Create new ones and recalculate
+        foreach ($serviceItems as $index => $itemData) {
+            $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
+                'work_order_id' => $workOrderId,
+                'service_item_id' => $itemData['service_item_id'] ?? null,
+                'display_name' => $itemData['display_name'] ?? '',
+                'description' => $itemData['description'] ?? '',
+                'quantity' => $itemData['quantity'] ?? 1,
+                'unit_price' => $itemData['unit_price'] ?? 0,
+                'unit_cost' => $itemData['unit_cost'] ?? 0,
+                'estimated_hours' => $itemData['estimated_hours'] ?? 0,
+                'actual_hours' => $itemData['actual_hours'] ?? 0,
+                'billable' => $itemData['billable'] ?? true,
+                'warranty' => $itemData['warranty'] ?? false,
+                'billing_type' => $itemData['billing_type'] ?? null,
+                'sort_order' => $itemData['sort_order'] ?? $index,
+            ]);
+
+            // Recalculate the line item using the service
+            $calculator->recalculateLineItem($lineItem);
+        }
+
+        // Recalculate work order totals
+        $calculator->recalculateWorkOrder($workOrder);
     }
+
+    public function public(Request $request, $id)
+    {
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        // Build relationships array including both morph and record types
+        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+
+        // Load WorkOrder-specific relationships
+        $relationships['assignedUser'] = function ($query) {
+            $query->select(['id', 'display_name']);
+        };
+
+        $relationships['requested_by_user'] = function ($query) {
+            $query->select(['id', 'display_name']);
+        };
+
+        // Load the record with relationships including service items (WorkOrderServiceItem)
+        $relationships['serviceItems'] = function ($query) {
+            $query->orderBy('sort_order')->orderBy('id');
+        };
+        $record = $this->recordModel
+            ->with($relationships)
+            ->findOrFail($id);
+
+        $formSchema = $this->getFormSchema();
+        $enumOptions = $this->getEnumOptions();
+
+        // Get account settings for timezone display (cached)
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        // Service items are now loaded on-demand via the paginated modal
+
+        // Ensure timestamps and service_items are included in the record
+        $recordArray = $record->toArray();
+        $recordArray['created_at'] = $record->created_at?->toISOString();
+        $recordArray['updated_at'] = $record->updated_at?->toISOString();
+        $recordArray['service_items'] = $record->serviceItems->map(fn ($li) => [
+            'id' => $li->id,
+            'service_item_id' => $li->service_item_id,
+            'display_name' => $li->display_name,
+            'description' => $li->description,
+            'quantity' => (float) $li->quantity,
+            'unit_price' => (float) $li->unit_price,
+            'unit_cost' => (float) $li->unit_cost,
+            'estimated_hours' => (float) ($li->estimated_hours ?? 0),
+            'actual_hours' => (float) ($li->actual_hours ?? 0),
+            'billable' => $li->billable,
+            'warranty' => $li->warranty,
+            'billing_type' => $li->billing_type,
+        ])->values()->all();
+
+        $enumOptions = $this->getEnumOptions();
+        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+
+        return inertia('Tenant/' . $this->domainName . '/Public', [
+            'record' => $recordArray,
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'domainName' => $this->domainName,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => Timezone::options(),
+            'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
+        ]);
+    }
+
 }

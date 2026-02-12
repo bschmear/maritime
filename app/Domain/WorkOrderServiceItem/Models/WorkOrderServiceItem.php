@@ -55,37 +55,8 @@ class WorkOrderServiceItem extends Model
 
     protected static function booted()
     {
-        static::saving(function ($model) {
-            $quantity = $model->quantity ?? 1;
-            $rate = $model->unit_price ?? 0;
-            $cost = $model->unit_cost ?? 0;
-            $actualHours = $model->actual_hours ?? 0;
-
-            // Calculate total_price (revenue) based on billing type
-            switch ($model->billing_type) {
-                case 2: // Flat Rate
-                    $model->total_price = $rate;
-                    break;
-                case 1: // Hourly
-                    $model->total_price = $actualHours * $rate;
-                    break;
-                case 3: // Quantity
-                default:
-                    $model->total_price = $quantity * $rate;
-                    break;
-            }
-
-            // Calculate total_cost based on billing type
-            switch ($model->billing_type) {
-                case 2: // Flat Rate
-                    $model->total_cost = $cost;
-                    break;
-                case 1: // Hourly
-                default:
-                    $model->total_cost = $cost;
-                    break;
-            }
-        });
+        // Calculations are now handled by WorkOrderCalculator service
+        // This ensures all pricing logic is centralized and consistent
     }
 
     /*

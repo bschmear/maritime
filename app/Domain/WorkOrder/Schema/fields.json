@@ -159,6 +159,17 @@
     "nullable": true
   },
 
+  "tax_rate": {
+    "label": "Tax Rate (%)",
+    "type": "number",
+    "step": 0.01,
+    "min": 0,
+    "max": 100,
+    "default": 0,
+    "nullable": true,
+    "help": "Tax rate as a percentage (e.g., 8.25 for 8.25%)"
+  },
+
   "total_cost": {
     "label": "Total Cost",
     "type": "currency",

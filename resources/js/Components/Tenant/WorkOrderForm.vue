@@ -1,6 +1,6 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
-import { useTimezone } from '@/Composables/useTimezone';
+import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { computed, ref, watch } from 'vue';
 
@@ -74,22 +74,67 @@ const getBillingTypeLabel = (billingType) => {
     return option?.name || 'Unknown';
 };
 
-// Calculate line item amount (revenue) based on billing type
-const calculateLineItemAmount = (item) => {
+// ==============================
+// Line Item Calculations
+// ==============================
+
+// Customer Price
+const calculateLineItemPrice = (item) => {
     const rate = Number(item.unit_price) || 0;
+    const quantity = Number(item.quantity) || 1;
+    const estimatedHours = Number(item.estimated_hours) || 0;
+
+    let total = 0;
+
+    switch (item.billing_type) {
+        case 1: // Hourly
+            total = estimatedHours * rate;
+            break;
+
+        case 2: // Flat
+            total = rate;
+            break;
+
+        case 3: // Quantity
+        default:
+            total = quantity * rate;
+            break;
+    }
+
+    if (item.warranty) {
+        total = 0;
+    }
+
+    return total;
+};
+
+// Internal Cost
+const calculateLineItemCost = (item) => {
+    const cost = Number(item.unit_cost) || 0;
     const quantity = Number(item.quantity) || 1;
     const actualHours = Number(item.actual_hours) || 0;
 
+    let total = 0;
+
     switch (item.billing_type) {
-        case 2: // Flat Rate
-            return rate;
         case 1: // Hourly
-            return actualHours * rate;
+            total = actualHours * cost;
+            break;
+
+        case 2: // Flat
+            total = cost;
+            break;
+
         case 3: // Quantity
         default:
-            return quantity * rate;
+            total = quantity * cost;
+            break;
     }
+
+    return total;
 };
+
+
 
 const selectedServiceItem = ref(null);
 // WorkOrderServiceItem structure
@@ -255,29 +300,66 @@ const prevServiceItemPage = () => {
     }
 };
 
-// Computed values from line items for Time & Costs
-const lineItemsEstimatedHours = computed(() => {
-    return lineItems.value.reduce((sum, item) => {
-        const qty = Number(item.quantity) || 1;
-        const hours = Number(item.estimated_hours) || 0;
-        return sum + (qty * hours);
-    }, 0);
-});
+// ==============================
+// Aggregated Totals
+// ==============================
 
-const lineItemsLaborCost = computed(() => {
-    return lineItems.value.reduce((sum, item) => {
-        const cost = Number(item.unit_cost) || 0;
+const lineItemsEstimatedHours = computed(() =>
+    lineItems.value.reduce(
+        (sum, item) => sum + (Number(item.estimated_hours) || 0),
+        0
+    )
+);
 
-        // Calculate cost based on billing type (matches model logic)
-        switch (item.billing_type) {
-            case 2: // Flat Rate
-                return sum + cost;
-            case 1: // Hourly
-            default:
-                return sum + cost;
+const lineItemsActualHours = computed(() =>
+    lineItems.value.reduce(
+        (sum, item) => sum + (Number(item.actual_hours) || 0),
+        0
+    )
+);
+
+const lineItemsLaborCost = computed(() =>
+    lineItems.value.reduce((sum, item) => {
+        if (item.billing_type === 1) {
+            return sum + calculateLineItemCost(item);
         }
-    }, 0);
+        return sum;
+    }, 0)
+);
+
+const lineItemsPartsCost = computed(() =>
+    lineItems.value.reduce((sum, item) => {
+        if (item.billing_type === 3) {
+            return sum + calculateLineItemCost(item);
+        }
+        return sum;
+    }, 0)
+);
+
+const lineItemsTotalCost = computed(() =>
+    lineItems.value.reduce(
+        (sum, item) => sum + calculateLineItemCost(item),
+        0
+    )
+);
+
+// Customer Side
+
+const lineItemsSubtotal = computed(() =>
+    lineItems.value.reduce((sum, item) => {
+        if (!item.billable) return sum;
+        return sum + calculateLineItemPrice(item);
+    }, 0)
+);
+
+const lineItemsEstimatedTax = computed(() => {
+    const rate = Number(form.tax_rate) || 0;
+    return lineItemsSubtotal.value * (rate / 100);
 });
+
+const lineItemsGrandTotal = computed(() =>
+    lineItemsSubtotal.value + lineItemsEstimatedTax.value
+);
 
 // Helper functions
 const getEnumOptions = (fieldKey) => {
@@ -452,6 +534,11 @@ if (props.mode === 'create') {
     formData.scheduled_start_at = formatForInput(tomorrow);
     formData.due_at = formatForInput(dueDate);
 }
+// Ensure tax_rate is included in form data
+if (!formData.hasOwnProperty('tax_rate')) {
+    formData.tax_rate = props.record?.tax_rate ?? 0;
+}
+
 const form = useForm(formData);
 
 // Initialize line items from record.service_items when editing
@@ -513,6 +600,26 @@ watch(() => form.asset_unit_id, async (newValue, oldValue) => {
     }
 });
 
+// Watch for location changes to auto-populate tax rate
+watch(() => form.location_id, async (newValue, oldValue) => {
+    if (formInitialized.value && newValue && newValue !== oldValue) {
+        try {
+            // Fetch tax rate for the selected location
+            const response = await axios.get(route('workorders.location-tax-rate'), {
+                params: { location_id: newValue }
+            });
+
+            const taxRate = response.data.tax_rate;
+            // Always update the tax rate when location changes (user can still override)
+            if (taxRate !== null) {
+                form.tax_rate = taxRate;
+            }
+        } catch (error) {
+            console.error('Failed to fetch location tax rate:', error);
+        }
+    }
+});
+
 // Initialize form data properly for asset_unit_id
 if (props.record && props.record.asset_unit_id !== undefined) {
     formData.asset_unit_id = props.record.asset_unit_id;
@@ -530,6 +637,10 @@ const submit = () => {
             }
         });
 
+        // Explicitly ensure tax_rate and status are included
+        allData.tax_rate = form.tax_rate;
+        allData.status = form.status;
+
         // Add service items in WorkOrderServiceItem format
         allData.service_items = lineItems.value.map((li, idx) => ({
             service_item_id: li.service_item_id,
@@ -546,10 +657,7 @@ const submit = () => {
             sort_order: idx
         }));
 
-        // Override Time & Costs with computed values from line items
-        allData.estimated_hours = lineItemsEstimatedHours.value;
-        allData.labor_cost = lineItemsLaborCost.value;
-        allData.total_cost = lineItemsLaborCost.value + (Number(allData.parts_cost) || 0);
+        // Note: Totals will be calculated by WorkOrderCalculator service after save
 
         // Convert date/datetime fields from account timezone back to UTC
         Object.keys(props.fieldsSchema).forEach(key => {
@@ -601,7 +709,11 @@ const saveDraft = () => {
 
 const saveAndOpen = () => {
     form.draft = false;
-    form.status = 2; // Open status ID
+    // Only set status to Open (2) if it's currently Draft (1) or not set
+    // This allows users to manually set other statuses and have them preserved
+    if (!form.status || form.status === 1) {
+        form.status = 2; // Open status ID
+    }
     submit();
 };
 
@@ -896,219 +1008,208 @@ const handleCancel = () => {
 
                             <!-- Service Items Table -->
                             <div v-if="lineItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
-                                <div class="inline-block min-w-full align-middle">
-                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
-                                            <tr>
-                                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Description
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Qty
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Est Hours
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Act Hours
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Billing Type
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Rate
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Cost
-                                                </th>
-                                                <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Amount
-                                                </th>
-                                                <th v-if="mode !== 'show'" scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                    Actions
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            <tr v-for="(item, index) in lineItems" :key="index" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                                    <div class="font-medium">{{ item.display_name || item.description }}</div>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
-                                                    {{ item.quantity }}
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
-                                                    {{ item.estimated_hours ?? 0 }}
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
-                                                    <span v-if="item.actual_hours > 0" class="text-blue-600 dark:text-blue-400">{{ item.actual_hours }}</span>
-                                                    <span v-else>{{ item.actual_hours }}</span>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                                                        {{ getBillingTypeLabel(item.billing_type) }}
-                                                    </span>
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                                                    {{ formatCurrency(item.unit_price) }}
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                                                    {{ formatCurrency(item.unit_cost) }}
-                                                </td>
-                                                <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">
-                                                    {{ formatCurrency(calculateLineItemAmount(item)) }}
-                                                </td>
-                                                <td v-if="mode !== 'show'" class="px-4 py-3 text-sm text-right">
-                                                    <div class="flex items-center justify-end gap-2">
-                                                        <button
-                                                            @click="editServiceItemLine(index)"
-                                                            type="button"
-                                                            class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-                                                        >
-                                                            <span class="material-icons text-base">edit</span>
-                                                        </button>
-                                                        <button
-                                                            @click="removeServiceItemLine(index)"
-                                                            type="button"
-                                                            class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                                                        >
-                                                            <span class="material-icons text-base">delete</span>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="inline-block min-w-full align-middle">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                    <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Description
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Qty
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Est Hrs
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Act Hrs
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Type
+                                    </th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Warranty
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Unit Price
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Unit Cost
+                                    </th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Line Total
+                                    </th>
+                                    <th v-if="mode !== 'show'" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                    <tr
+                                    v-for="(item, index) in lineItems"
+                                    :key="index"
+                                    class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">
+                                        {{ item.display_name || item.description }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                        {{ item.quantity }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                        {{ item.estimated_hours ?? 0 }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                        <span v-if="item.actual_hours > 0" class="text-blue-600 dark:text-blue-400">
+                                        {{ item.actual_hours }}
+                                        </span>
+                                        <span v-else>{{ item.actual_hours }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                        <span
+                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        >
+                                        {{ getBillingTypeLabel(item.billing_type) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-white">
+                                        <span v-if="item.warranty" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                            <span class="material-icons text-xs mr-1">verified_user</span>
+                                            Yes
+                                        </span>
+                                        <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                            No
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                        {{ formatCurrency(item.unit_price) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                        {{ formatCurrency(item.unit_cost) }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">
+                                        {{ formatCurrency(calculateLineItemPrice(item)) }}
+                                        </td>
+
+                                    <td v-if="mode !== 'show'" class="px-4 py-3 text-sm text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                        <button
+                                            @click="editServiceItemLine(index)"
+                                            type="button"
+                                            class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                                        >
+                                            <span class="material-icons text-base">edit</span>
+                                        </button>
+                                        <button
+                                            @click="removeServiceItemLine(index)"
+                                            type="button"
+                                            class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                        >
+                                            <span class="material-icons text-base">delete</span>
+                                        </button>
+                                        </div>
+                                    </td>
+                                    </tr>
+                                </tbody>
+                                </table>
+                            </div>
                             </div>
 
                             <!-- Empty State -->
-                            <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
-                                <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">No service items added yet</p>
-                                <p v-if="mode !== 'show'" class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to get started</p>
+                            <div
+                            v-else
+                            class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700"
+                            >
+                            <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">No service items added yet</p>
+                            <p v-if="mode !== 'show'" class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to get started</p>
                             </div>
                         </div>
 
-                        <!-- Time & Costs -->
+                        <!-- Financial Summary -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
-                                Time & Costs
-                            </h3>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-6">
+                            Financial Summary
+                        </h3>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Estimated Hours (from line items) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.estimated_hours?.label || 'Estimated Hours' }}
-                                        {{ isFieldRequired('estimated_hours') ? '*' : '' }}
-                                    </label>
-                                    <input
-                                        v-if="mode !== 'show'"
-                                        :value="lineItemsEstimatedHours"
-                                        type="number"
-                                        step="0.25"
-                                        min="0"
-                                        readonly
-                                        class="input-style bg-gray-50 dark:bg-gray-800"
-                                        tabindex="-1"
-                                    />
-                                    <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        {{ record?.estimated_hours || '0' }}
-                                    </p>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+                            <!-- Internal -->
+                            <div>
+                            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                                Internal
+                            </h4>
+
+                            <div class="space-y-4 text-gray-900 dark:text-white">
+
+                                <div class="flex justify-between">
+                                <span>Estimated Hours</span>
+                                <span class="font-medium">{{ lineItemsEstimatedHours.toFixed(2) }}</span>
                                 </div>
 
-                                <!-- Actual Hours -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.actual_hours?.label || 'Actual Hours' }}
-                                        {{ isFieldRequired('actual_hours') ? '*' : '' }}
-                                    </label>
-                                    <input
-                                        v-if="mode !== 'show'"
-                                        v-model.number="form.actual_hours"
-                                        type="number"
-                                        step="0.25"
-                                        min="0"
-                                        :readonly="isFieldReadonly('actual_hours')"
-                                        class="input-style"
-                                        :disabled="isFieldDisabled('actual_hours')"
-                                    />
-                                    <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        {{ record?.actual_hours || '0' }}
-                                    </p>
+                                <div class="flex justify-between">
+                                <span>Actual Hours</span>
+                                <span class="font-medium">{{ lineItemsActualHours.toFixed(2) }}</span>
                                 </div>
 
-                                <!-- Labor Cost (from line items) -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.labor_cost?.label || 'Labor Cost' }}
-                                        {{ isFieldRequired('labor_cost') ? '*' : '' }}
-                                    </label>
-                                    <div v-if="mode !== 'show'" class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                                        <input
-                                            :value="lineItemsLaborCost"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            readonly
-                                            class="input-style pl-8 bg-gray-50 dark:bg-gray-800"
-                                            tabindex="-1"
-                                        />
-                                    </div>
-                                    <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        {{ formatCurrency(record?.labor_cost) }}
-                                    </p>
+                                <div class="flex justify-between">
+                                <span>Labor Cost</span>
+                                <span class="font-medium">{{ formatCurrency(lineItemsLaborCost) }}</span>
                                 </div>
 
-                                <!-- Parts Cost -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.parts_cost?.label || 'Parts Cost' }}
-                                        {{ isFieldRequired('parts_cost') ? '*' : '' }}
-                                    </label>
-                                    <div v-if="mode !== 'show'" class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                                        <input
-                                            v-model.number="form.parts_cost"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            :readonly="isFieldReadonly('parts_cost')"
-                                            class="input-style pl-8"
-                                            :disabled="isFieldDisabled('parts_cost')"
-                                        />
-                                    </div>
-                                    <p v-else class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        {{ formatCurrency(record?.parts_cost) }}
-                                    </p>
+                                <div class="flex justify-between">
+                                <span>Parts & Materials</span>
+                                <span class="font-medium">{{ formatCurrency(lineItemsPartsCost) }}</span>
                                 </div>
 
-                                <!-- Total Cost (labor + parts from line items) -->
-                                <div class="md:col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.total_cost?.label || 'Total Cost' }}
-                                        {{ isFieldRequired('total_cost') ? '*' : '' }}
-                                    </label>
-                                    <div v-if="mode !== 'show'" class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                                        <input
-                                            :value="lineItemsLaborCost + (Number(form.parts_cost) || 0)"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            readonly
-                                            class="input-style pl-8 font-semibold bg-gray-50 dark:bg-gray-800"
-                                            tabindex="-1"
-                                        />
-                                    </div>
-                                    <p v-else class="text-2xl font-bold text-gray-900 dark:text-white">
-                                        {{ formatCurrency(record?.total_cost) }}
-                                    </p>
+                                <div class="flex justify-between text-lg font-semibold border-t pt-3">
+                                <span>Total Internal Cost</span>
+                                <span>{{ formatCurrency(lineItemsTotalCost) }}</span>
                                 </div>
                             </div>
+                            </div>
+
+                            <!-- Customer -->
+                            <div>
+                            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                                Customer
+                            </h4>
+
+                            <div class="space-y-4 text-gray-900 dark:text-white">
+
+                                <div class="flex justify-between">
+                                    <span>Subtotal</span>
+                                    <span class="font-medium">{{ formatCurrency(lineItemsSubtotal) }}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span>Tax Rate</span>
+                                    <div v-if="mode !== 'show'" class="flex items-center gap-1">
+                                        <input
+                                        v-model.number="form.tax_rate"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        class="w-16 px-2 py-1 text-sm text-right bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        />
+                                        <span class="text-sm">%</span>
+                                    </div>
+                                    <span v-else class="font-medium">{{ form.tax_rate ?? 0 }}%</span>
+                                </div>
+
+                                <div class="flex justify-between">
+                                    <span>Tax</span>
+                                    <span class="font-medium">{{ formatCurrency(lineItemsEstimatedTax) }}</span>
+                                </div>
+                                <div class="spacer-10 lg:h-6"></div>
+                                <div class="flex justify-between text-2xl font-bold border-t pt-4 ">
+                                <span>Total Due</span>
+                                <span>{{ formatCurrency(lineItemsGrandTotal) }}</span>
+                                </div>
+                            </div>
+                            </div>
                         </div>
+                        </div>
+
 
                         <!-- Flags & Options -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -1458,7 +1559,21 @@ const handleCancel = () => {
                                         </option>
                                     </select>
                                 </div>
+                            </div>
 
+                            <!-- Warranty Checkbox -->
+                            <div class="col-span-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        v-model="lineItemForm.warranty"
+                                        type="checkbox"
+                                        class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
+                                    />
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">Warranty Work</span>
+                                </label>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Unit Price

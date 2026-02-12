@@ -77,8 +77,10 @@ Route::middleware([
         });
 
         Route::prefix('workorders')->name('workorders.')->group(function () {
-            Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
+            Route::get('/location-tax-rate', [WorkOrderController::class, 'getLocationTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
+            Route::get('/{id}/public', [WorkOrderController::class, 'public'])->name('public.view');
+            Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);

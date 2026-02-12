@@ -91,26 +91,14 @@ const getTypeLabel = (typeId) => {
     return type?.name || 'Unknown';
 };
 
-const getPriorityColor = (priorityId) => {
-    const colors = {
-        1: 'gray',   // Low
-        2: 'blue',   // Normal
-        3: 'yellow', // High
-        4: 'red',    // Urgent
-    };
-    return colors[priorityId] || 'gray';
+const getPriorityBgClass = (priorityId) => {
+    const priority = props.enumOptions['App\\Enums\\WorkOrder\\Priority']?.find(p => p.id === priorityId);
+    return priority?.bgClass || 'bg-gray-200 dark:bg-gray-900 dark:text-white';
 };
 
-const getStatusColor = (statusId) => {
-    const colors = {
-        1: 'gray',   // Draft
-        2: 'blue',   // Open
-        3: 'yellow', // In Progress
-        4: 'purple', // On Hold
-        5: 'green',  // Completed
-        6: 'red',    // Cancelled
-    };
-    return colors[statusId] || 'gray';
+const getStatusBgClass = (statusId) => {
+    const status = props.enumOptions['App\\Enums\\WorkOrder\\Status']?.find(s => s.id === statusId);
+    return status?.bgClass || 'bg-gray-200 dark:bg-gray-900 dark:text-white';
 };
 
 const formatDate = (date) => {
@@ -204,106 +192,106 @@ const isOverdue = (dueDate) => {
                 </div>
             </div>
 
-            <!-- Filters & Actions -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-                <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <div class="flex flex-col sm:flex-row gap-4 flex-1">
-                        <!-- User Filter -->
-                        <div class="w-full sm:w-64">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Assigned To
-                            </label>
-                            <select
-                                v-model="selectedUser"
-                                @change="filterWorkOrders"
-                                class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Users</option>
-                                <option :value="currentUser?.id">{{ currentUser?.display_name }}</option>
-                                <option v-for="user in users" :key="user.id" :value="user.id">
-                                    {{ user?.display_name || user?.email || `User ${user?.id}` }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <!-- Status Filter -->
-                        <div class="w-full sm:w-48">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Status
-                            </label>
-                            <select
-                                v-model="selectedStatus"
-                                @change="filterWorkOrders"
-                                class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Statuses</option>
-                                <option v-for="status in enumOptions['App\\Enums\\WorkOrder\\Status']" :key="status.id" :value="status.id">
-                                    {{ status.name }}
-                                </option>
-                            </select>
-                        </div>
-
-                        <!-- Priority Filter -->
-                        <div class="w-full sm:w-48">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Priority
-                            </label>
-                            <select
-                                v-model="selectedPriority"
-                                @change="filterWorkOrders"
-                                class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Priorities</option>
-                                <option v-for="priority in enumOptions['App\\Enums\\WorkOrder\\Priority']" :key="priority.id" :value="priority.id">
-                                    {{ priority.name }}
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2">
-                        <!-- View Toggle -->
-                        <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button
-                                @click="viewMode = 'cards'"
-                                :class="[
-                                    'px-3 py-2 text-sm font-medium transition-colors',
-                                    viewMode === 'cards'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                ]"
-                            >
-                                <span class="material-icons text-base">grid_view</span>
-                            </button>
-                            <button
-                                @click="viewMode = 'table'"
-                                :class="[
-                                    'px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600',
-                                    viewMode === 'table'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
-                                ]"
-                            >
-                                <span class="material-icons text-base">view_list</span>
-                            </button>
-                        </div>
-
-                        <!-- Create Button -->
-                        <a
-                            :href="route('workorders.create')"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                        >
-                            <span class="material-icons text-base">add</span>
-                            New Work Order
-                        </a>
-                    </div>
-                </div>
+    <div class="flex flex-col gap-4">
+        <!-- Filters Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- User Filter -->
+            <div class="w-full">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Assigned To
+                </label>
+                <select
+                    v-model="selectedUser"
+                    @change="filterWorkOrders"
+                    class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="all">All Users</option>
+                    <option :value="currentUser?.id">{{ currentUser?.display_name }}</option>
+                    <option v-for="user in users" :key="user.id" :value="user.id">
+                        {{ user?.display_name || user?.email || `User ${user?.id}` }}
+                    </option>
+                </select>
             </div>
 
+            <!-- Status Filter -->
+            <div class="w-full">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Status
+                </label>
+                <select
+                    v-model="selectedStatus"
+                    @change="filterWorkOrders"
+                    class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="all">All Statuses</option>
+                    <option v-for="status in enumOptions['App\\Enums\\WorkOrder\\Status']" :key="status.id" :value="status.id">
+                        {{ status.name }}
+                    </option>
+                </select>
+            </div>
+
+            <!-- Priority Filter -->
+            <div class="w-full">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Priority
+                </label>
+                <select
+                    v-model="selectedPriority"
+                    @change="filterWorkOrders"
+                    class="block w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                    <option value="all">All Priorities</option>
+                    <option v-for="priority in enumOptions['App\\Enums\\WorkOrder\\Priority']" :key="priority.id" :value="priority.id">
+                        {{ priority.name }}
+                    </option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Actions Row -->
+        <div class="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
+            <!-- View Toggle -->
+            <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden w-fit">
+                <button
+                    @click="viewMode = 'cards'"
+                    :class="[
+                        'px-3 py-2 text-sm font-medium transition-colors',
+                        viewMode === 'cards'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    ]"
+                >
+                    <span class="material-icons text-base">grid_view</span>
+                </button>
+                <button
+                    @click="viewMode = 'table'"
+                    :class="[
+                        'px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600',
+                        viewMode === 'table'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    ]"
+                >
+                    <span class="material-icons text-base">view_list</span>
+                </button>
+            </div>
+
+            <!-- Create Button -->
+            <a
+                :href="route('workorders.create')"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            >
+                <span class="material-icons text-base">add</span>
+                <span>New Work Order</span>
+            </a>
+        </div>
+    </div>
+</div>
             <!-- Work Orders List - Card View -->
             <div v-if="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <a
-                    v-for="workOrder in records.data"
+                v-for="workOrder in records.data"
                     :key="workOrder.id"
                     :href="route('workorders.show', workOrder.id)"
                     class="group bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all"
@@ -338,8 +326,7 @@ const isOverdue = (dueDate) => {
                             <span
                                 :class="[
                                     'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
-                                    `bg-${getStatusColor(workOrder.status)}-100 dark:bg-${getStatusColor(workOrder.status)}-900/30`,
-                                    `text-${getStatusColor(workOrder.status)}-700 dark:text-${getStatusColor(workOrder.status)}-300`
+                                    getStatusBgClass(workOrder.status)
                                 ]"
                             >
                                 {{ getStatusLabel(workOrder.status) }}
@@ -347,8 +334,7 @@ const isOverdue = (dueDate) => {
                             <span
                                 :class="[
                                     'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
-                                    `bg-${getPriorityColor(workOrder.priority)}-100 dark:bg-${getPriorityColor(workOrder.priority)}-900/30`,
-                                    `text-${getPriorityColor(workOrder.priority)}-700 dark:text-${getPriorityColor(workOrder.priority)}-300`
+                                    getPriorityBgClass(workOrder.priority)
                                 ]"
                             >
                                 {{ getPriorityLabel(workOrder.priority) }}
@@ -372,14 +358,27 @@ const isOverdue = (dueDate) => {
                         </div>
 
                         <!-- Footer Info -->
-                        <div class="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
-                            <div class="flex items-center gap-1">
-                                <span class="material-icons text-sm">schedule</span>
+                        <div class="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <div class="flex items-center gap-1">
+                                    <span class="material-icons text-sm">schedule</span>
+                                    <span class="font-medium">Scheduled:</span>
+                                </div>
                                 <span>{{ formatDate(workOrder.scheduled_start_at) }}</span>
                             </div>
-                            <div class="flex items-center gap-1">
-                                <span class="material-icons text-sm">person</span>
-                                <span>{{ workOrder.assigned_user?.display_name || 'Unassigned' }}</span>
+                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <div class="flex items-center gap-1">
+                                    <span class="material-icons text-sm">event</span>
+                                    <span class="font-medium">Due:</span>
+                                </div>
+                                <span>{{ formatDate(workOrder.due_at) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <div class="flex items-center gap-1">
+                                    <span class="material-icons text-sm">person</span>
+                                    <span class="font-medium">Assigned:</span>
+                                </div>
+                                <span class="truncate ml-2">{{ workOrder.assigned_user?.display_name || 'Unassigned' }}</span>
                             </div>
                         </div>
                     </div>
@@ -433,8 +432,7 @@ const isOverdue = (dueDate) => {
                                     <span
                                         :class="[
                                             'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
-                                            `bg-${getStatusColor(workOrder.status)}-100 dark:bg-${getStatusColor(workOrder.status)}-900/30`,
-                                            `text-${getStatusColor(workOrder.status)}-700 dark:text-${getStatusColor(workOrder.status)}-300`
+                                            getStatusBgClass(workOrder.status)
                                         ]"
                                     >
                                         {{ getStatusLabel(workOrder.status) }}
@@ -444,8 +442,7 @@ const isOverdue = (dueDate) => {
                                     <span
                                         :class="[
                                             'inline-flex items-center px-2 py-1 rounded text-xs font-medium',
-                                            `bg-${getPriorityColor(workOrder.priority)}-100 dark:bg-${getPriorityColor(workOrder.priority)}-900/30`,
-                                            `text-${getPriorityColor(workOrder.priority)}-700 dark:text-${getPriorityColor(workOrder.priority)}-300`
+                                            getPriorityBgClass(workOrder.priority)
                                         ]"
                                     >
                                         {{ getPriorityLabel(workOrder.priority) }}
@@ -456,7 +453,7 @@ const isOverdue = (dueDate) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     <span :class="isOverdue(workOrder.due_at) ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'">
-                                        {{ formatDate(workOrder.due_at) }}
+                                        {{ formatDate(workOrder.due_at || workOrder.scheduled_start_at || workOrder.created_at) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
