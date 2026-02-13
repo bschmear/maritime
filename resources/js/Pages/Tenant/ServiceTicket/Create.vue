@@ -91,7 +91,7 @@ const fetchCustomers = async () => {
     customerIsLoading.value = true;
     try {
         const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('domain', 'Customer');
+        url.searchParams.append('type', 'Customer');
         url.searchParams.append('per_page', '20');
         if (customerSearchQuery.value.trim()) {
             url.searchParams.append('search', customerSearchQuery.value.trim());
@@ -216,7 +216,7 @@ const fetchAssets = async () => {
     assetIsLoading.value = true;
     try {
         const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('domain', 'AssetUnit');
+        url.searchParams.append('type', 'AssetUnit');
         url.searchParams.append('per_page', '50');
         url.searchParams.append('filter_field', 'customer_id');
         url.searchParams.append('filter_value', selectedCustomer.value.id);
@@ -311,7 +311,7 @@ fetchCustomers();
              Step 1: Customer Selection
              ============================== -->
         <div v-if="currentStep === 1" class="max-w-4xl mx-auto space-y-6">
-            <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden w-full">
                 <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 py-4">
                     <div class="flex items-center gap-4">
                         <div class="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-white font-bold text-lg">

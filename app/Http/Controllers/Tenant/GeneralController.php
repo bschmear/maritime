@@ -18,6 +18,7 @@ class GeneralController extends BaseController
     {
         // Simple lookup - just return id and display_name
         $type = $request->get('type');
+        // dd($type);
 
         $recordModel = 'App\Domain\\' . ucfirst($type) . '\Models\\' . ucfirst($type);
         $recordModel = new $recordModel();
