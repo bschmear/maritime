@@ -12,7 +12,7 @@ use App\Http\Middleware\EnsureKioskAdmin;
 use Illuminate\Support\Facades\Route;
 // Kiosk Subdomain Routes (kiosk.example.com)
 
-Route::domain(config('app.admin_url')->middleware(['auth'])->name('kiosk.')->group(function () {
+Route::domain(config('app.admin_url'))->middleware(['auth'])->name('kiosk.')->group(function () {
     
     Route::middleware([EnsureKioskAdmin::class])->group(function () {
 

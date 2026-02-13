@@ -1,0 +1,136 @@
+{
+  "service_ticket_id": {
+    "label": "Service Ticket",
+    "type": "record",
+    "typeDomain": "ServiceTicket",
+    "relationship": "serviceTicket",
+    "required": true,
+    "hidden": true
+  },
+
+  "service_item_id": {
+    "label": "Service Item",
+    "type": "record",
+    "typeDomain": "ServiceItem",
+    "relationship": "serviceItem",
+    "nullable": true,
+    "help": "Optional link to predefined service item"
+  },
+
+  "display_name": {
+    "label": "Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Line item name"
+  },
+
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "nullable": true
+  },
+
+  "quantity": {
+    "label": "Quantity",
+    "type": "number",
+    "step": 0.25,
+    "min": 0,
+    "required": true,
+    "default": 1
+  },
+
+  "estimated_hours": {
+    "label": "Estimated Hours",
+    "type": "number",
+    "step": 0.25,
+    "min": 0,
+    "nullable": true
+  },
+
+  "actual_hours": {
+    "label": "Actual Hours",
+    "type": "number",
+    "step": 0.25,
+    "min": 0,
+    "nullable": true
+  },
+
+  "unit_price": {
+    "label": "Unit Price",
+    "type": "currency",
+    "required": true,
+    "default": 0
+  },
+
+  "unit_cost": {
+    "label": "Unit Cost",
+    "type": "currency",
+    "nullable": true
+  },
+
+  "total_price": {
+    "label": "Total Price",
+    "type": "currency",
+    "readOnly": true,
+    "help": "Auto-calculated (Quantity × Unit Price)"
+  },
+
+  "total_cost": {
+    "label": "Total Cost",
+    "type": "currency",
+    "readOnly": true,
+    "help": "Auto-calculated (Quantity × Unit Cost)"
+  },
+
+  "billing_type": {
+    "label": "Billing Type",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceItem\\BillingType",
+    "required": true,
+    "default": 1
+  },
+
+  "billable": {
+    "label": "Billable",
+    "type": "boolean",
+    "default": true
+  },
+
+  "warranty": {
+    "label": "Warranty",
+    "type": "boolean",
+    "default": false
+  },
+
+  "sort_order": {
+    "label": "Sort Order",
+    "type": "number",
+    "default": 0,
+    "hidden": true
+  },
+
+  "attributes": {
+    "label": "Attributes",
+    "type": "keyValue",
+    "description": "Additional custom data for this line item"
+  },
+
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false,
+    "help": "Soft delete for line items"
+  },
+
+  "created_at": {
+    "label": "Created",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "updated_at": {
+    "label": "Updated",
+    "type": "datetime",
+    "readOnly": true
+  }
+}

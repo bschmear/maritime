@@ -570,7 +570,7 @@ class WorkOrderController extends RecordController
         $calculator->recalculateWorkOrder($workOrder);
     }
 
-    public function public(Request $request, $id)
+    public function preview(Request $request, $id)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
 

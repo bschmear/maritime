@@ -1,6 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import WorkOrderCalendar from '@/Components/Tenant/WorkOrderCalendar.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -63,7 +64,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const selectedUser = ref(urlParams.get('user') || props.currentUser.id);
 const selectedStatus = ref(urlParams.get('status') || 'all');
 const selectedPriority = ref(urlParams.get('priority') || 'all');
-const viewMode = ref('cards'); // 'cards' or 'table'
+const viewMode = ref('cards'); // 'cards', 'table', or 'calendar'
 
 const filterWorkOrders = () => {
     router.get(route('workorders.index'), {
@@ -253,10 +254,11 @@ const isOverdue = (dueDate) => {
         <div class="flex flex-col sm:flex-row gap-2 sm:justify-between sm:items-center">
             <!-- View Toggle -->
             <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden w-fit">
+
                 <button
                     @click="viewMode = 'cards'"
                     :class="[
-                        'px-3 py-2 text-sm font-medium transition-colors',
+                        'px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600',
                         viewMode === 'cards'
                             ? 'bg-blue-600 text-white'
                             : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
@@ -275,6 +277,17 @@ const isOverdue = (dueDate) => {
                 >
                     <span class="material-icons text-base">view_list</span>
                 </button>
+                <button
+                    @click="viewMode = 'calendar'"
+                    :class="[
+                        'px-3 py-2 text-sm font-medium transition-colors',
+                        viewMode === 'calendar'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    ]"
+                >
+                    <span class="material-icons text-base">calendar_view_month</span>
+                </button>
             </div>
 
             <!-- Create Button -->
@@ -288,8 +301,11 @@ const isOverdue = (dueDate) => {
         </div>
     </div>
 </div>
+            <!-- Work Orders List - Calendar View -->
+            <WorkOrderCalendar v-if="viewMode === 'calendar'" :work-orders="records.data" :enum-options="enumOptions" />
+
             <!-- Work Orders List - Card View -->
-            <div v-if="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-else-if="viewMode === 'cards'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <a
                 v-for="workOrder in records.data"
                     :key="workOrder.id"
@@ -402,7 +418,7 @@ const isOverdue = (dueDate) => {
             </div>
 
             <!-- Work Orders List - Table View -->
-            <div v-else class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div v-else-if="viewMode === 'table'" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900">

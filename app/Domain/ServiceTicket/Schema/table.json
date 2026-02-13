@@ -1,5 +1,70 @@
 {
-    "columns": [
-
-    ]
+  "columns": [
+    {
+      "key": "uuid",
+      "label": "Ticket ID",
+      "sortable": true
+    },
+    {
+      "key": "customer_id",
+      "label": "Customer",
+      "sortable": false
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "sortable": true
+    },
+    {
+      "key": "expedite",
+      "label": "Expedite",
+      "sortable": true
+    },
+    {
+      "key": "repair_description",
+      "label": "Description",
+      "sortable": false
+    },
+    {
+      "key": "location_id",
+      "label": "Location",
+      "sortable": false
+    },
+    {
+      "key": "subsidiary_id",
+      "label": "Subsidiary",
+      "sortable": false
+    },
+    {
+      "key": "pickup_delivery_requested_at",
+      "label": "Pickup/Delivery",
+      "sortable": true
+    },
+    {
+      "key": "estimated_total",
+      "label": "Estimate",
+      "sortable": true
+    },
+    {
+      "key": "approved",
+      "label": "Approved",
+      "sortable": true
+    },
+    {
+      "key": "signed_at",
+      "label": "Signed",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ],
+  "filters": [
+    {
+      "field": "inactive",
+      "operator": "is_false"
+    }
+  ]
 }

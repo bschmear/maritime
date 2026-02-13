@@ -28,6 +28,7 @@ use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\ServiceItemController;
+use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -79,11 +80,17 @@ Route::middleware([
         Route::prefix('workorders')->name('workorders.')->group(function () {
             Route::get('/location-tax-rate', [WorkOrderController::class, 'getLocationTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
-            Route::get('/{id}/public', [WorkOrderController::class, 'public'])->name('public.view');
+            Route::get('/{id}/preview', [WorkOrderController::class, 'preview'])->name('preview.view');
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
+        });
+
+        Route::prefix('servicetickets')->name('servicetickets.')->group(function () {
+            Route::get('/location-tax-rate', [ServiceTicketController::class, 'getLocationTaxRate'])->name('location-tax-rate');
+            Route::get('/service-items/lookup', [ServiceTicketController::class, 'lookupServiceItems'])->name('service-items.lookup');
+            Route::resource('/', ServiceTicketController::class)->parameters(['' => 'serviceticket']);
         });
 
         // Route::prefix('inventory')->group(function () {

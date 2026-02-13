@@ -1,5 +1,248 @@
 {
-    "fields": [
+  "display_name": {
+    "label": "Name",
+    "type": "text"
+  },
+  "customer_id": {
+    "label": "Customer",
+    "type": "record",
+    "typeDomain": "Customer",
+    "required": true,
+    "create": true
+  },
 
+  "location_id": {
+    "label": "Location",
+    "type": "record",
+    "typeDomain": "Location",
+    "relationship": "location",
+    "required": true
+  },
+
+  "subsidiary_id": {
+    "label": "Subsidiary",
+    "type": "record",
+    "typeDomain": "Subsidiary",
+    "required": true
+  },
+
+  "asset_unit_id": {
+    "label": "Asset",
+    "type": "record",
+    "typeDomain": "AssetUnit",
+    "filterby": "customer_id",
+    "help": "Boat, engine, or trailer being serviced",
+    "nullable": true,
+    "create": true
+  },
+
+  "expedite": {
+    "label": "Expedite",
+    "type": "boolean",
+    "default": false,
+    "help": "Mark as high priority/rush job"
+  },
+
+  "pickup_delivery_requested_at": {
+    "label": "Pickup/Delivery Requested",
+    "type": "date",
+    "nullable": true,
+    "help": "When customer wants pickup/delivery"
+  },
+
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicket\\Status",
+    "required": true,
+    "default": 1
+  },
+
+  "repair_description": {
+    "label": "Repair Description",
+    "type": "textarea",
+    "required": true,
+    "help": "Detailed description of the repair needed"
+  },
+
+  "internal_notes": {
+    "label": "Internal Notes",
+    "type": "textarea",
+    "help": "Visible only to staff"
+  },
+
+  "estimated_labor_hours": {
+    "label": "Estimated Labor Hours",
+    "type": "number",
+    "step": 0.25,
+    "nullable": true,
+    "help": "Total estimated hours for all work"
+  },
+
+  "estimated_labor_amount": {
+    "label": "Estimated Labor Amount",
+    "type": "currency",
+    "nullable": true,
+    "default": 0
+  },
+
+  "estimated_parts_amount": {
+    "label": "Estimated Parts Amount",
+    "type": "currency",
+    "nullable": true,
+    "default": 0
+  },
+
+  "estimated_subtotal": {
+    "label": "Estimated Subtotal",
+    "type": "currency",
+    "readOnly": true,
+    "help": "Auto-calculated (Labor + Parts)"
+  },
+
+  "tax_rate": {
+    "label": "Tax Rate (%)",
+    "type": "number",
+    "step": 0.01,
+    "min": 0,
+    "max": 100,
+    "nullable": true,
+    "help": "Tax rate as a percentage (e.g., 8.25 for 8.25%)"
+  },
+
+  "estimated_tax": {
+    "label": "Estimated Tax",
+    "type": "currency",
+    "readOnly": true,
+    "help": "Auto-calculated from subtotal × tax rate"
+  },
+
+  "estimated_total": {
+    "label": "Estimated Total",
+    "type": "currency",
+    "readOnly": true,
+    "help": "Auto-calculated (Subtotal + Tax)"
+  },
+
+  "approved": {
+    "label": "Approved",
+    "type": "boolean",
+    "default": false,
+    "help": "Customer has approved the estimate"
+  },
+
+  "customer_signature": {
+    "label": "Customer Signature",
+    "type": "signature",
+    "nullable": true,
+    "help": "Customer's electronic signature"
+  },
+
+  "signature_method": {
+    "label": "Signature Method",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicket\\SignatureMethod",
+    "nullable": true,
+    "options": [
+      {"id": 1, "name": "Digital"},
+      {"id": 2, "name": "Paper"},
+      {"id": 3, "name": "Verbal"},
+      {"id": 4, "name": "Email Approval"}
     ]
+  },
+
+  "paper_signature_document_id": {
+    "label": "Paper Signature Document",
+    "type": "record",
+    "typeDomain": "Document",
+    "nullable": true,
+    "relationship": "paperSignatureDocument"
+  },
+
+  "signed_at": {
+    "label": "Signed At",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "signed_ip": {
+    "label": "Signed IP",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true
+  },
+
+  "signed_user_agent": {
+    "label": "Signed User Agent",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true
+  },
+
+  "signature_file": {
+    "label": "Signature File",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true
+  },
+
+  "signature_hash": {
+    "label": "Signature Hash",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true,
+    "help": "Hash of ticket data at time of signing"
+  },
+
+  "requires_reauthorization": {
+    "label": "Requires Reauthorization",
+    "type": "boolean",
+    "default": false,
+    "help": "Estimate changed significantly and needs new approval"
+  },
+
+  "revised_estimated_total": {
+    "label": "Revised Estimated Total",
+    "type": "currency",
+    "nullable": true,
+    "help": "Updated total after revision"
+  },
+
+  "reauthorization_signature": {
+    "label": "Reauthorization Signature",
+    "type": "signature",
+    "nullable": true
+  },
+
+  "reauthorized_at": {
+    "label": "Reauthorized At",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "reauthorized_ip": {
+    "label": "Reauthorized IP",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true
+  },
+
+  "reauthorized_user_agent": {
+    "label": "Reauthorized User Agent",
+    "type": "text",
+    "readOnly": true,
+    "hidden": true
+  },
+
+  "created_at": {
+    "label": "Created At",
+    "type": "datetime",
+    "readOnly": true
+  },
+
+  "updated_at": {
+    "label": "Updated At",
+    "type": "datetime",
+    "readOnly": true
+  }
 }

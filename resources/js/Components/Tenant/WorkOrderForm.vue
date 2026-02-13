@@ -46,6 +46,33 @@ const props = defineProps({
 
 const emit = defineEmits(['saved', 'cancelled']);
 
+/**
+ * Convert a datetime string that represents a time in the account timezone to a UTC Date.
+ *
+ * datetime-local inputs give us a string like "2026-02-14T08:00" with no timezone info.
+ * JavaScript's `new Date()` parses that as browser-local time, but we know it's actually
+ * in the account timezone. This function finds the offset between the browser timezone
+ * and the account timezone, then adjusts accordingly to get the correct UTC value.
+ *
+ * @param {string} dateTimeString - e.g. "2026-02-14T08:00"
+ * @param {string} timezone - IANA timezone, e.g. "America/Chicago"
+ * @returns {Date} UTC Date
+ */
+const accountTimezoneToUTC = (dateTimeString, timezone) => {
+    // Step 1: Parse as browser-local time (internal UTC will be wrong, but we'll fix it)
+    const asBrowserLocal = new Date(dateTimeString);
+
+    // Step 2: Format that same instant in the account timezone, then re-parse as browser-local.
+    // This tells us how the browser interprets the "account timezone reading" of this moment.
+    const inAccountTz = new Date(asBrowserLocal.toLocaleString('en-US', { timeZone: timezone }));
+
+    // Step 3: The difference is the offset between browser-local and account timezone
+    const offset = asBrowserLocal.getTime() - inAccountTz.getTime();
+
+    // Step 4: Apply offset to get the correct UTC timestamp
+    return new Date(asBrowserLocal.getTime() + offset);
+};
+
 const pluralTitle = computed(() => {
     // Convert WorkOrder to Work Orders
     return props.recordType.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, l => l.toUpperCase());
@@ -419,13 +446,23 @@ const formatCurrency = (value) => {
 
 const formatDateTime = (value) => {
     if (!value) return '—';
-    return new Date(value).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
+
+    try {
+        const utcDate = new Date(value);
+
+        // Convert to account timezone for display
+        return utcDate.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: accountTimezone.value
+        });
+    } catch (e) {
+        console.error('Error formatting date:', value, e);
+        return '—';
+    }
 };
 
 // Initialize form with schema-driven defaults or existing record data
@@ -456,10 +493,26 @@ Object.keys(props.fieldsSchema).forEach(key => {
             }
 
             // Convert UTC date to account timezone for display
-            const timezoneDate = convertUTCToTimezone(utcDate.toISOString(), accountTimezone.value);
-            formData[key] = field.type === 'datetime'
-                ? timezoneDate.toISOString().slice(0, 16)
-                : timezoneDate.toISOString().split('T')[0];
+            if (field.type === 'datetime') {
+                // Get the time in account timezone and format for datetime-local
+                const accountTime = utcDate.toLocaleString('sv-SE', {
+                    timeZone: accountTimezone.value,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).replace(' ', 'T');
+                formData[key] = accountTime;
+            } else {
+                // For date input, just the date part in account timezone
+                formData[key] = utcDate.toLocaleString('sv-SE', {
+                    timeZone: accountTimezone.value,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            }
         } else {
             formData[key] = value;
         }
@@ -495,7 +548,7 @@ Object.keys(props.fieldsSchema).forEach(key => {
     }
 });
 
-// Set default dates for new Work Orders
+// Set default dates for new Work Orders (displayed in account timezone)
 if (props.mode === 'create') {
     const accountTz = accountTimezone.value;
 
@@ -503,25 +556,17 @@ if (props.mode === 'create') {
     const now = new Date();
     const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTz }));
 
-    // Get tomorrow in account timezone
+    // Tomorrow at 8am in account timezone
     const tomorrow = new Date(localNow);
     tomorrow.setDate(localNow.getDate() + 1);
-    tomorrow.setHours(8, 0, 0, 0); // 8am in account timezone
+    tomorrow.setHours(8, 0, 0, 0);
 
-    // Get due date (7 days from tomorrow) in account timezone
+    // Due date: 7 days from tomorrow at 5pm in account timezone
     const dueDate = new Date(localNow);
-    dueDate.setDate(localNow.getDate() + 8); // tomorrow + 7 days
-    dueDate.setHours(17, 0, 0, 0); // 5pm in account timezone
+    dueDate.setDate(localNow.getDate() + 8);
+    dueDate.setHours(17, 0, 0, 0);
 
-    // Convert to UTC for storage
-    const utcNow = new Date();
-    const offset = utcNow.getTime() - localNow.getTime();
-
-    const startUTC = new Date(tomorrow.getTime() + offset);
-    const dueUTC = new Date(dueDate.getTime() + offset);
-
-    // Format for datetime-local input (which expects local time, not UTC)
-    // We want to display the account timezone time, so we use the local dates directly
+    // Format for datetime-local input (account timezone values for display)
     const formatForInput = (date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -663,12 +708,13 @@ const submit = () => {
         Object.keys(props.fieldsSchema).forEach(key => {
             const field = props.fieldsSchema[key];
             if ((field.type === 'datetime' || field.type === 'date') && allData[key]) {
-                // Convert account timezone date back to UTC for database storage
-                const timezoneDate = new Date(allData[key]);
-                const utcDate = convertTimezoneToUTC(timezoneDate.toISOString(), accountTimezone.value);
-                allData[key] = field.type === 'datetime'
-                    ? utcDate.toISOString().slice(0, 16)
-                    : utcDate.toISOString().split('T')[0];
+                if (field.type === 'datetime') {
+                    // The input value (e.g. "2026-02-14T08:00") represents account timezone time.
+                    // Convert to UTC for database storage.
+                    const utcDate = accountTimezoneToUTC(allData[key], accountTimezone.value);
+                    allData[key] = utcDate.toISOString().slice(0, 19).replace('T', ' ');
+                }
+                // For date-only fields, keep as-is (no time component to convert)
             }
         });
 

@@ -92,4 +92,28 @@ class WorkOrderCalculator
             'gross_profit' => ($lineItems->where('billable', true)->sum('total_price')) - $lineItems->sum('total_cost'),
         ];
     }
+
+    public function checkForReauthorization(ServiceTicket $ticket, float $actualTotal)
+    {
+        $threshold = $ticket->account->settings->estimate_threshold_percent ?? 20;
+
+        $estimated = $ticket->estimated_total;
+
+        if (!$estimated || $estimated == 0) {
+            return false;
+        }
+
+        $percentIncrease = (($actualTotal - $estimated) / $estimated) * 100;
+
+        if ($percentIncrease > $threshold) {
+            $ticket->update([
+                'requires_reauthorization' => true,
+                'revised_estimated_total' => $actualTotal,
+            ]);
+
+            return true;
+        }
+
+        return false;
+    }
 }

@@ -1,19 +1,160 @@
 {
   "settings": {
-    "max_width": "4xl"
+    "max_width": "5xl"
   },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+      "label": "Service Ticket Details",
+      "fields": [
+        {
+          "key": "repair_description",
+          "required": true
+        },
+        {
+          "key": "internal_notes",
+          "required": false
+        }
+      ]
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
 
-        ]
+    "customer": {
+      "label": "Customer Information",
+      "fields": [
+        {
+          "key": "customer_id",
+          "required": true,
+          "addNew": true
+        },
+        {
+          "key": "asset_unit_id",
+          "required": false
+        },
+        {
+          "key": "pickup_delivery_requested_at",
+          "required": false
+        }
+      ]
+    },
+
+    "location": {
+      "label": "Location & Subsidiary",
+      "fields": [
+        {
+          "key": "subsidiary_id",
+          "required": true
+        },
+        {
+          "key": "location_id",
+          "required": true
+        }
+      ]
+    },
+
+    "status": {
+      "label": "Status & Priority",
+      "fields": [
+        {
+          "key": "status",
+          "required": true
+        },
+        {
+          "key": "expedite",
+          "required": false
+        }
+      ]
+    },
+
+    "estimates": {
+      "label": "Estimates",
+      "fields": [
+        {
+          "key": "estimated_labor_hours",
+          "required": false
+        },
+        {
+          "key": "estimated_labor_amount",
+          "required": false
+        },
+        {
+          "key": "estimated_parts_amount",
+          "required": false
+        },
+        {
+          "key": "estimated_subtotal",
+          "required": false
+        },
+        {
+          "key": "tax_rate",
+          "required": false
+        },
+        {
+          "key": "estimated_tax",
+          "required": false
+        },
+        {
+          "key": "estimated_total",
+          "required": false
+        }
+      ]
+    },
+
+    "approval": {
+      "label": "Approval & Signature",
+      "fields": [
+        {
+          "key": "approved",
+          "required": false
+        },
+        {
+          "key": "customer_signature",
+          "required": false
+        },
+        {
+          "key": "signature_method",
+          "required": false
+        },
+        {
+          "key": "signed_at",
+          "required": false
+        },
+        {
+          "key": "signature_hash",
+          "required": false
+        }
+      ]
+    },
+
+    "reauthorization": {
+      "label": "Reauthorization",
+      "fields": [
+        {
+          "key": "requires_reauthorization",
+          "required": false
+        },
+        {
+          "key": "revised_estimated_total",
+          "required": false
+        },
+        {
+          "key": "reauthorization_signature",
+          "required": false
+        },
+        {
+          "key": "reauthorized_at",
+          "required": false
+        }
+      ]
     }
-  }
+  },
+
+  "sublists": [
+    {
+      "label": "Service Items",
+      "domain": "ServiceTicketServiceItem"
+    },
+    {
+      "label": "Revisions",
+      "domain": "ServiceTicketRevision"
+    }
+  ]
 }
