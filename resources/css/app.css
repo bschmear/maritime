@@ -142,3 +142,8 @@ th.sticky {
 td.sticky {
     @apply bg-white border-b dark:bg-gray-800 dark:border-gray-700;
 }
+
+.full-w-margin {
+    margin-left: -1rem;
+    margin-right: -1rem;
+}

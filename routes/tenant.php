@@ -90,6 +90,8 @@ Route::middleware([
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {
             Route::get('/location-tax-rate', [ServiceTicketController::class, 'getLocationTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [ServiceTicketController::class, 'lookupServiceItems'])->name('service-items.lookup');
+            Route::post('/service-tickets/{serviceTicket}/send-email', [ServiceTicketController::class, 'sendEmail'])
+                ->name('servicetickets.send-email');
             Route::resource('/', ServiceTicketController::class)->parameters(['' => 'serviceticket']);
         });
 

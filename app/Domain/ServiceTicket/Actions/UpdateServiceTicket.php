@@ -11,13 +11,16 @@ class UpdateServiceTicket
 {
     public function __invoke(int $id, array $data): array
     {
-        $validated = Validator::make($data, [
-            // Add validation rules here
+        // Validate required fields
+        Validator::make($data, [
+            'customer_id' => 'sometimes|exists:customers,id',
+            'subsidiary_id' => 'sometimes|exists:subsidiaries,id',
+            'location_id' => 'sometimes|exists:locations,id',
         ])->validate();
 
         try {
             $record = RecordModel::findOrFail($id);
-            $record->update($validated);
+            $record->update($data);
 
             return [
                 'success' => true,

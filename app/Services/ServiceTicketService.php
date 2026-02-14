@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
+use App\Domain\ServiceTicket\Actions\CreateServiceTicket;
+use App\Domain\ServiceTicket\Actions\UpdateServiceTicket;
+use App\Domain\ServiceTicket\Actions\DeleteServiceTicket;
 use Illuminate\Support\Str;
 
 class ServiceTicketService
@@ -16,11 +19,13 @@ class ServiceTicketService
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
-        if (empty($data['uuid'])) {
-            $data['uuid'] = (string) Str::uuid();
+        $result = (new CreateServiceTicket())($data);
+
+        if (!$result['success']) {
+            throw new \Exception($result['message'] ?? 'Failed to create service ticket');
         }
 
-        $ticket = ServiceTicket::create($data);
+        $ticket = $result['record'];
 
         if (!empty($serviceItems)) {
             $this->syncServiceItems($ticket, $serviceItems);
@@ -39,7 +44,13 @@ class ServiceTicketService
         $serviceItems = $data['service_items'] ?? null;
         unset($data['service_items']);
 
-        $ticket->update($data);
+        $result = (new UpdateServiceTicket())($ticket->id, $data);
+
+        if (!$result['success']) {
+            throw new \Exception($result['message'] ?? 'Failed to update service ticket');
+        }
+
+        $ticket = $result['record'];
 
         if ($serviceItems !== null) {
             $this->syncServiceItems($ticket, $serviceItems);
@@ -47,7 +58,7 @@ class ServiceTicketService
 
         $ticket->recalculateEstimates();
 
-        return $ticket->fresh();
+        return $ticket;
     }
 
     /**
@@ -55,14 +66,17 @@ class ServiceTicketService
      */
     public function delete(ServiceTicket $ticket): void
     {
-        $ticket->serviceItems()->delete();
-        $ticket->delete();
+        $result = (new DeleteServiceTicket())($ticket->id);
+
+        if (!$result['success']) {
+            throw new \Exception($result['message'] ?? 'Failed to delete service ticket');
+        }
     }
 
     /**
      * Sync service items for a ticket (delete + recreate).
      */
-    public function syncServiceItems(ServiceTicket $ticket, array $items): void
+    protected function syncServiceItems(ServiceTicket $ticket, array $items): void
     {
         // Delete existing items
         $ticket->serviceItems()->delete();
@@ -78,7 +92,6 @@ class ServiceTicketService
                 'unit_price' => $itemData['unit_price'] ?? 0,
                 'unit_cost' => $itemData['unit_cost'] ?? 0,
                 'estimated_hours' => $itemData['estimated_hours'] ?? 0,
-                'actual_hours' => $itemData['actual_hours'] ?? 0,
                 'billable' => $itemData['billable'] ?? true,
                 'warranty' => $itemData['warranty'] ?? false,
                 'billing_type' => $itemData['billing_type'] ?? null,

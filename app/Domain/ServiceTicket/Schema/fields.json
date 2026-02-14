@@ -1,7 +1,8 @@
 {
   "display_name": {
     "label": "Name",
-    "type": "text"
+    "type": "text",
+    "hidden": true
   },
   "customer_id": {
     "label": "Customer",
@@ -44,7 +45,7 @@
   },
 
   "pickup_delivery_requested_at": {
-    "label": "Pickup/Delivery Requested",
+    "label": "Requested Pickup/Delivery Date (optional)",
     "type": "date",
     "nullable": true,
     "help": "When customer wants pickup/delivery"

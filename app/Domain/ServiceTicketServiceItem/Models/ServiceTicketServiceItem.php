@@ -12,7 +12,7 @@ class ServiceTicketServiceItem extends Model
     protected $fillable = [
         'service_ticket_id', 'service_item_id', 'display_name', 'description',
         'quantity', 'unit_price', 'unit_cost', 'total_price', 'total_cost',
-        'estimated_hours', 'actual_hours', 'billable', 'warranty',
+        'estimated_hours', 'billable', 'warranty',
         'inactive', 'sort_order', 'attributes', 'billing_type',
     ];
 
@@ -24,7 +24,6 @@ class ServiceTicketServiceItem extends Model
         'total_price' => 'decimal:2',
         'total_cost' => 'decimal:2',
         'estimated_hours' => 'decimal:2',
-        'actual_hours' => 'decimal:2',
         'billable' => 'boolean',
         'warranty' => 'boolean',
         'inactive' => 'boolean',
@@ -59,7 +58,6 @@ class ServiceTicketServiceItem extends Model
         $unitPrice = (float) ($this->unit_price ?? 0);
         $unitCost = (float) ($this->unit_cost ?? 0);
         $estimatedHours = (float) ($this->estimated_hours ?? 0);
-        $actualHours = (float) ($this->actual_hours ?? 0);
 
         $totalPrice = 0;
         $totalCost = 0;
@@ -67,7 +65,7 @@ class ServiceTicketServiceItem extends Model
         switch ($this->billing_type) {
             case 1: // Hourly
                 $totalPrice = $estimatedHours * $unitPrice;
-                $totalCost = $actualHours * $unitCost;
+                $totalCost = $estimatedHours * $unitCost;
                 break;
             case 2: // Flat
                 $totalPrice = $unitPrice;

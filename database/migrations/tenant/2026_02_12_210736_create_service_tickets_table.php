@@ -16,7 +16,8 @@ return new class extends Migration
         Schema::create('service_tickets', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->string('display_name');
+            $table->string('service_ticket_number')->unique();
+            $table->string('display_name')->nullable();
 
             // Relationships
             $table->foreignId('subsidiary_id')->constrained()->cascadeOnDelete();
@@ -86,13 +87,12 @@ return new class extends Migration
             $table->foreignId('service_item_id')->nullable()->constrained()->nullOnDelete();
 
             // Snapshot fields
-            $table->string('display_name');
+            $table->string('display_name')->nullable();
             $table->text('description')->nullable();
 
             // Quantity & Time
             $table->decimal('quantity', 8, 2)->default(1);
             $table->decimal('estimated_hours', 8, 2)->nullable();
-            $table->decimal('actual_hours', 8, 2)->nullable();
 
             // Pricing
             $table->decimal('unit_price', 12, 2)->default(0);

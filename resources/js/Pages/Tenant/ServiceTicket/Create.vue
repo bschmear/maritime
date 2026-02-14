@@ -124,7 +124,10 @@ const searchCustomers = () => {
 
 const selectCustomer = (customer) => {
     selectedCustomer.value = customer;
-    goToAssetStep();
+    // Also load full customer record with relationships for form initialization
+    fetchCustomerDetails(customer.id).then(() => {
+        goToAssetStep();
+    });
 };
 
 const goToAssetStep = () => {
@@ -172,7 +175,8 @@ const createCustomer = async () => {
         const newCustomer = data.record || data;
 
         if (newCustomer && newCustomer.id) {
-            selectedCustomer.value = newCustomer;
+            // Load full customer details for proper form initialization
+            await fetchCustomerDetails(newCustomer.id);
             showCreateCustomerForm.value = false;
             goToAssetStep();
         } else {
@@ -216,10 +220,15 @@ const fetchAssets = async () => {
     assetIsLoading.value = true;
     try {
         const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('type', 'AssetUnit');
+        url.searchParams.append('type', 'assetunit');
         url.searchParams.append('per_page', '50');
-        url.searchParams.append('filter_field', 'customer_id');
-        url.searchParams.append('filter_value', selectedCustomer.value.id);
+        url.searchParams.append('filters', JSON.stringify([
+            {
+                'field': 'customer_id',
+                'operator': 'equals',
+                'value': selectedCustomer.value.id
+            }
+        ]));
         if (assetSearchQuery.value.trim()) {
             url.searchParams.append('search', assetSearchQuery.value.trim());
         }
@@ -251,7 +260,10 @@ const searchAssets = () => {
 
 const selectAsset = (asset) => {
     selectedAssetUnit.value = asset;
-    proceedToTicketForm();
+    // Also load full asset record with relationships for form initialization
+    fetchAssetDetails(asset.id).then(() => {
+        proceedToTicketForm();
+    });
 };
 
 const skipAssetStep = () => {
@@ -260,15 +272,62 @@ const skipAssetStep = () => {
 };
 
 // ==============================
+// Fetch Full Record Details
+// ==============================
+const fetchCustomerDetails = async (customerId) => {
+    try {
+        const response = await fetch(route('customers.show', customerId), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            selectedCustomer.value = data.record || data;
+        }
+    } catch (error) {
+        console.error('Error fetching customer details:', error);
+    }
+};
+
+const fetchAssetDetails = async (assetId) => {
+    try {
+        const response = await fetch(route('assetunits.show', assetId), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            selectedAssetUnit.value = data.record || data;
+        }
+    } catch (error) {
+        console.error('Error fetching asset details:', error);
+    }
+};
+
+// ==============================
 // Proceed to Ticket Form (Step 3)
 // ==============================
 const proceedToTicketForm = () => {
     const data = {
         customer_id: selectedCustomer.value.id,
+        customer: selectedCustomer.value, // Include full customer record
     };
 
     if (selectedAssetUnit.value) {
         data.asset_unit_id = selectedAssetUnit.value.id;
+        data.asset_unit = selectedAssetUnit.value; // Include full asset record
     }
 
     initialFormData.value = data;

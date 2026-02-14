@@ -64,6 +64,8 @@ class AccountController extends Controller
             'logo' => 'nullable|image|max:2048',
             'default_timezone' => 'required|string',
             'brand_color' => 'nullable|string|max:7',
+            'estimate_threshold_percent' => 'required|integer|min:0|max:100',
+            'service_ticket_ack_text' => 'required|string|max:1000',
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -71,10 +73,8 @@ class AccountController extends Controller
         // Handle logo upload
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
-
             // Upload new logo (store method handles deleting old file if it exists)
             $result = $publicStorage->store($file, 'logos', null, $account->logo_file);
-
             // Update logo fields
             $account->logo_file = $result['key'];
             $account->logo_file_extension = $result['file_extension'];
@@ -84,6 +84,9 @@ class AccountController extends Controller
         // Update settings
         $account->timezone = $validated['default_timezone'];
         $account->brand_color = $validated['brand_color'] ?? $account->brand_color;
+        $account->estimate_threshold_percent = $validated['estimate_threshold_percent'];
+        $account->service_ticket_ack_text = $validated['service_ticket_ack_text'];
+
         $account->save();
 
         return back()->with('success', 'Account settings updated successfully.');

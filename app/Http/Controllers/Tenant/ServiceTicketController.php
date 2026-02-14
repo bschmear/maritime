@@ -11,7 +11,6 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Support\Facades\Auth;
 
 class ServiceTicketController extends BaseController
 {
@@ -39,21 +38,26 @@ class ServiceTicketController extends BaseController
 
         // Ensure asset unit relationship is loaded for display
         $relationships['assetUnit'] = function ($query) {
-            $query->select(['id', 'display_name', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
+            $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                   ->with(['asset' => function ($q) {
                       $q->select(['id', 'display_name']);
                   }]);
         };
-
         $query = ServiceTicket::with($relationships);
 
         // Apply search
         $searchQuery = $request->get('search');
         if ($searchQuery && !empty(trim($searchQuery))) {
-            $query->where(function ($q) use ($searchQuery) {
-                $q->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%'])
-                  ->orWhereRaw('LOWER(repair_description) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%'])
-                  ->orWhere('uuid', 'like', '%' . trim($searchQuery) . '%');
+            $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+            $query->where(function ($q) use ($searchTerm) {
+                $q->whereRaw('LOWER(service_tickets.service_ticket_number) LIKE ?', [$searchTerm])
+                  ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
+                      $customerQuery->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
+                  })
+                  ->orWhereHas('assetUnit', function ($assetQuery) use ($searchTerm) {
+                      $assetQuery->whereRaw('LOWER(hin) LIKE ?', [$searchTerm])
+                                ->orWhereRaw('LOWER(serial_number) LIKE ?', [$searchTerm]);
+                  });
             });
         }
 
@@ -106,7 +110,7 @@ class ServiceTicketController extends BaseController
     /**
      * Show the form for creating a new service ticket.
      */
-    public function create(Request $request)
+    public function create()
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
@@ -139,6 +143,14 @@ class ServiceTicketController extends BaseController
         return redirect()->route('servicetickets.show', $ticket->id);
     }
 
+    public function destroy($id)
+    {
+        $ticket = ServiceTicket::findOrFail($id);
+        $this->service->delete($ticket);
+
+        return redirect()->route('servicetickets.index');
+    }
+
     /**
      * Display the specified service ticket.
      */
@@ -148,7 +160,7 @@ class ServiceTicketController extends BaseController
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
         $relationships['assetUnit'] = function ($query) {
-            $query->select(['id', 'display_name', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
+            $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                   ->with(['asset' => function ($q) {
                       $q->select(['id', 'display_name']);
                   }]);
@@ -211,7 +223,7 @@ class ServiceTicketController extends BaseController
 
                 if ($fieldDef['typeDomain'] === 'AssetUnit') {
                     $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'display_name', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
+                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                               ->with(['asset' => function ($q) {
                                   $q->select(['id', 'display_name']);
                               }]);
@@ -268,22 +280,11 @@ class ServiceTicketController extends BaseController
      */
     public function update(Request $request, $id)
     {
-        $ticket = ServiceTicket::findOrFail($id);
-        $this->service->update($ticket, $request->all());
+        $ticket = $this->service->update(ServiceTicket::findOrFail($id), $request->all());
 
-        return redirect()->route('servicetickets.show', $id);
+        return redirect()->route('servicetickets.show', $ticket->id);
     }
 
-    /**
-     * Remove the specified service ticket.
-     */
-    public function destroy($id)
-    {
-        $ticket = ServiceTicket::findOrFail($id);
-        $this->service->delete($ticket);
-
-        return redirect()->route('servicetickets.index');
-    }
 
     /**
      * Lookup service items for the modal picker.
@@ -362,6 +363,7 @@ class ServiceTicketController extends BaseController
     /**
      * Helper: get enum options from fields schema.
      */
+
     protected function getEnumOptions(): array
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();

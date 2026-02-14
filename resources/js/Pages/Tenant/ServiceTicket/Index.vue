@@ -49,6 +49,9 @@ const selectedApproved = ref(urlParams.get('approved') || 'all');
 const searchQuery = ref(urlParams.get('search') || '');
 const viewMode = ref('cards');
 
+// Debounce search
+let searchTimeout = null;
+
 const filterTickets = () => {
     const params = {};
     if (selectedStatus.value !== 'all') params.status = selectedStatus.value;
@@ -59,6 +62,15 @@ const filterTickets = () => {
         preserveState: true,
         preserveScroll: true,
     });
+};
+
+const debouncedSearch = () => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+    searchTimeout = setTimeout(() => {
+        filterTickets();
+    }, 300); // 300ms debounce
 };
 
 const getStatusLabel = (statusId) => {
@@ -169,6 +181,7 @@ const formatCurrency = (value) => {
                                 </div>
                                 <input
                                     v-model="searchQuery"
+                                    @input="debouncedSearch"
                                     @keyup.enter="filterTickets"
                                     type="text"
                                     placeholder="Search tickets..."
@@ -265,7 +278,7 @@ const formatCurrency = (value) => {
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2 mb-1">
                                     <span class="text-xs font-mono text-gray-500 dark:text-gray-400">
-                                        {{ ticket.uuid ? ticket.uuid.substring(0, 8) : ticket.id }}
+                                        {{ ticket.service_ticket_number || '—' }}
                                     </span>
                                     <span
                                         v-if="ticket.expedite"
@@ -276,7 +289,7 @@ const formatCurrency = (value) => {
                                     </span>
                                 </div>
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    {{ ticket.display_name }}
+                                    {{ ticket.service_ticket_number }}
                                 </h3>
                             </div>
                             <span class="material-icons text-gray-400 group-hover:translate-x-1 transition-transform">
@@ -409,10 +422,10 @@ const formatCurrency = (value) => {
                                 class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white">
-                                    {{ ticket.uuid ? ticket.uuid.substring(0, 8) : ticket.id }}
+                                    {{ ticket.service_ticket_number || '—' }}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
-                                    {{ ticket.display_name }}
+                                    {{ ticket.service_ticket_number }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                     {{ ticket.customer?.display_name || '—' }}

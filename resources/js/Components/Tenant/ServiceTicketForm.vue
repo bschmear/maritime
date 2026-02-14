@@ -106,13 +106,13 @@ const calculateLineItemPrice = (item) => {
 const calculateLineItemCost = (item) => {
     const cost = Number(item.unit_cost) || 0;
     const quantity = Number(item.quantity) || 1;
-    const actualHours = Number(item.actual_hours) || 0;
+    const estimatedHours = Number(item.estimated_hours) || 0;
 
     let total = 0;
 
     switch (item.billing_type) {
         case 1: // Hourly
-            total = actualHours * cost;
+            total = estimatedHours * cost;
             break;
         case 2: // Flat
             total = cost;
@@ -135,7 +135,6 @@ const lineItemForm = ref({
     unit_price: 0,
     unit_cost: 0,
     estimated_hours: 1,
-    actual_hours: null,
     billable: true,
     warranty: false,
     billing_type: null
@@ -151,7 +150,6 @@ const addServiceItemLine = () => {
         unit_price: 0,
         unit_cost: 0,
         estimated_hours: 1,
-        actual_hours: 0,
         billable: true,
         warranty: false,
         billing_type: null
@@ -174,7 +172,6 @@ const editServiceItemLine = (index) => {
         unit_price: item.unit_price ?? 0,
         unit_cost: item.unit_cost ?? 0,
         estimated_hours: item.estimated_hours ?? 1,
-        actual_hours: item.actual_hours ?? 0,
         billable: item.billable ?? true,
         warranty: item.warranty ?? false,
         billing_type: item.billing_type ?? null
@@ -205,10 +202,14 @@ const selectServiceItem = (item) => {
     lineItemForm.value.unit_price = Number(item.default_rate) ?? 0;
     lineItemForm.value.unit_cost = Number(item.default_cost) ?? 0;
     lineItemForm.value.estimated_hours = Number(item.default_hours) ?? 1;
-    lineItemForm.value.actual_hours = 0;
     lineItemForm.value.billable = item.billable ?? true;
     lineItemForm.value.warranty = item.warranty_eligible ?? false;
     lineItemForm.value.billing_type = item.billing_type ?? null;
+
+    // Set quantity based on billing type
+    if (item.billing_type !== 3) {
+        lineItemForm.value.quantity = 1;
+    }
 };
 
 const saveLineItem = () => {
@@ -296,12 +297,6 @@ const lineItemsEstimatedHours = computed(() =>
     )
 );
 
-const lineItemsActualHours = computed(() =>
-    lineItems.value.reduce(
-        (sum, item) => sum + (Number(item.actual_hours) || 0),
-        0
-    )
-);
 
 const lineItemsLaborCost = computed(() =>
     lineItems.value.reduce((sum, item) => {
@@ -428,7 +423,24 @@ const formatDate = (value) => {
     if (!value) return '—';
 
     try {
-        const date = new Date(value + 'T00:00:00');
+        let date;
+        if (value instanceof Date) {
+            date = value;
+        } else if (typeof value === 'string') {
+            // Handle both YYYY-MM-DD and full datetime strings
+            if (value.includes('T') || value.includes(' ')) {
+                date = new Date(value);
+            } else {
+                date = new Date(value + 'T00:00:00');
+            }
+        } else {
+            date = new Date(value);
+        }
+
+        if (isNaN(date.getTime())) {
+            return '—';
+        }
+
         return date.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
@@ -541,7 +553,6 @@ watch(() => props.record?.service_items, (items) => {
             unit_price: li.unit_price ?? 0,
             unit_cost: li.unit_cost ?? 0,
             estimated_hours: li.estimated_hours ?? 1,
-            actual_hours: li.actual_hours ?? 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
             billing_type: li.billing_type ?? null
@@ -591,6 +602,14 @@ watch(() => form.location_id, async (newValue, oldValue) => {
     }
 });
 
+// Watch for billing type changes to set quantity appropriately
+watch(() => lineItemForm.value.billing_type, (newBillingType) => {
+    if (newBillingType !== 3) {
+        // For Hourly (1) and Flat (2), set quantity to 1
+        lineItemForm.value.quantity = 1;
+    }
+});
+
 // ==============================
 // Submit Logic
 // ==============================
@@ -617,7 +636,6 @@ const submit = () => {
             unit_price: Number(li.unit_price) || 0,
             unit_cost: Number(li.unit_cost) || 0,
             estimated_hours: Number(li.estimated_hours) || 0,
-            actual_hours: Number(li.actual_hours) || 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
             billing_type: li.billing_type ? Number(li.billing_type) : null,
@@ -671,11 +689,6 @@ const saveTicket = () => {
     submit();
 };
 
-const saveAndApprove = () => {
-    form.status = 4; // Approved status ID
-    form.approved = true;
-    submit();
-};
 
 const handleCancel = () => {
     emit('cancelled');
@@ -706,7 +719,7 @@ const handleCancel = () => {
                                     </div>
                                     <div class="text-right">
                                         <div class="text-white text-sm font-medium">Ticket #</div>
-                                        <div class="text-white text-lg font-mono">{{ record?.uuid || 'Auto-generated' }}</div>
+                                        <div class="text-white text-lg font-mono">{{ record?.service_ticket_number || 'Auto-generated' }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -822,25 +835,6 @@ const handleCancel = () => {
                                             Ticket Details
                                         </h3>
 
-                                        <!-- Display Name -->
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.display_name?.label || 'Name / Summary' }} {{ isFieldRequired('display_name') ? '*' : '' }}
-                                            </label>
-                                            <input
-                                                v-if="mode !== 'show'"
-                                                v-model="form.display_name"
-                                                type="text"
-                                                :placeholder="fieldsSchema.display_name?.placeholder || 'Brief description of the service ticket'"
-                                                :readonly="isFieldReadonly('display_name')"
-                                                class="input-style"
-                                                :required="isFieldRequired('display_name')"
-                                            />
-                                            <p v-else class="text-sm text-gray-900 dark:text-white">
-                                                {{ record?.display_name || '—' }}
-                                            </p>
-                                            <p v-if="form.errors.display_name" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.display_name }}</p>
-                                        </div>
 
                                         <!-- Status (show mode only, edit/create uses sidebar) -->
                                         <div v-if="mode === 'show'">
@@ -880,7 +874,7 @@ const handleCancel = () => {
                                         <!-- Pickup/Delivery Date -->
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.pickup_delivery_requested_at?.label || 'Pickup/Delivery Requested' }}
+                                                {{ fieldsSchema.pickup_delivery_requested_at?.label || 'Requested Pickup/Delivery Date (optional)' }}
                                             </label>
                                             <input
                                                 v-if="mode !== 'show'"
@@ -981,9 +975,6 @@ const handleCancel = () => {
                                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                             Est Hrs
                                                         </th>
-                                                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                            Act Hrs
-                                                        </th>
                                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                                             Type
                                                         </th>
@@ -1018,12 +1009,6 @@ const handleCancel = () => {
                                                         </td>
                                                         <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
                                                             {{ item.estimated_hours ?? 0 }}
-                                                        </td>
-                                                        <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
-                                                            <span v-if="item.actual_hours > 0" class="text-blue-600 dark:text-blue-400">
-                                                                {{ item.actual_hours }}
-                                                            </span>
-                                                            <span v-else>{{ item.actual_hours }}</span>
                                                         </td>
                                                         <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
@@ -1103,18 +1088,14 @@ const handleCancel = () => {
                                                     <span class="font-medium">{{ lineItemsEstimatedHours.toFixed(2) }}</span>
                                                 </div>
 
-                                                <div class="flex justify-between">
-                                                    <span>Actual Hours</span>
-                                                    <span class="font-medium">{{ lineItemsActualHours.toFixed(2) }}</span>
-                                                </div>
 
                                                 <div class="flex justify-between">
-                                                    <span>Labor Cost</span>
+                                                    <span>Estimated Labor Cost</span>
                                                     <span class="font-medium">{{ formatCurrency(lineItemsLaborCost) }}</span>
                                                 </div>
 
                                                 <div class="flex justify-between">
-                                                    <span>Parts & Materials</span>
+                                                    <span>Estimated Parts & Materials</span>
                                                     <span class="font-medium">{{ formatCurrency(lineItemsPartsCost) }}</span>
                                                 </div>
 
@@ -1157,7 +1138,7 @@ const handleCancel = () => {
                                                     <span class="font-medium">{{ formatCurrency(lineItemsEstimatedTax) }}</span>
                                                 </div>
 
-                                                <div class="spacer-10 lg:h-6"></div>
+                                                <!-- <div class="spacer-10 lg:h-6"></div> -->
 
                                                 <div class="flex justify-between text-2xl font-bold border-t pt-4">
                                                     <span>Total Due</span>
@@ -1280,6 +1261,22 @@ const handleCancel = () => {
                                             <span class="text-sm text-gray-700 dark:text-gray-300">Rush / Priority</span>
                                         </label>
                                     </div>
+
+                                    <!-- Approval Toggle -->
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                            Approval
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                v-model="form.approved"
+                                                type="checkbox"
+                                                :disabled="isFieldReadonly('approved')"
+                                                class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-900"
+                                            />
+                                            <span class="text-sm text-gray-700 dark:text-gray-300">Approved</span>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <!-- Validation Errors -->
@@ -1306,15 +1303,6 @@ const handleCancel = () => {
                                         {{ mode === 'edit' ? (form.processing ? 'Updating...' : 'Save & Continue') : (form.processing ? 'Creating...' : 'Save') }}
                                     </button>
 
-                                    <button
-                                        @click="saveAndApprove"
-                                        type="button"
-                                        :disabled="form.processing"
-                                        class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <span class="material-icons text-sm mr-2">verified</span>
-                                        Save & Approve
-                                    </button>
 
                                     <button
                                         @click="handleCancel"
@@ -1460,17 +1448,24 @@ const handleCancel = () => {
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
+
+
+
+
+
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Quantity
+                                        Billing Type
                                     </label>
-                                    <input
-                                        v-model.number="lineItemForm.quantity"
-                                        type="number"
-                                        min="0"
-                                        step="1"
+                                    <select
+                                        v-model.number="lineItemForm.billing_type"
                                         class="input-style"
-                                    />
+                                    >
+                                        <option :value="null">-- Select --</option>
+                                        <option v-for="option in billingTypeOptions" :key="option.id" :value="option.value">
+                                            {{ option.name }}
+                                        </option>
+                                    </select>
                                 </div>
 
                                 <div>
@@ -1486,32 +1481,17 @@ const handleCancel = () => {
                                     />
                                 </div>
 
-                                <div>
+                                <div v-if="lineItemForm.billing_type === 3">
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Actual Hours
+                                        Quantity
                                     </label>
                                     <input
-                                        v-model.number="lineItemForm.actual_hours"
+                                        v-model.number="lineItemForm.quantity"
                                         type="number"
                                         min="0"
-                                        step="0.25"
+                                        step="1"
                                         class="input-style"
                                     />
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Billing Type
-                                    </label>
-                                    <select
-                                        v-model.number="lineItemForm.billing_type"
-                                        class="input-style"
-                                    >
-                                        <option :value="null">-- Select --</option>
-                                        <option v-for="option in billingTypeOptions" :key="option.id" :value="option.value">
-                                            {{ option.name }}
-                                        </option>
-                                    </select>
                                 </div>
                             </div>
 
@@ -1530,7 +1510,7 @@ const handleCancel = () => {
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Unit Price
+                                        Unit Price/Hourly Rate
                                     </label>
                                     <div class="relative">
                                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>

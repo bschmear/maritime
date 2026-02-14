@@ -20,6 +20,8 @@ class AccountSettings extends Model
         'week_starts_on_monday',
         'auto_assign_work_orders',
         'settings',
+        'service_ticket_ack_text',
+        'estimate_threshold_percent'
     ];
 
     protected $casts = [

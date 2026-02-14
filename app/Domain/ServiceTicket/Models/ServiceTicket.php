@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
+use Illuminate\Support\Str;
 
 class ServiceTicket extends Model
 {
@@ -37,6 +38,40 @@ class ServiceTicket extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->service_ticket_number)) {
+                $model->service_ticket_number = static::generateNextTicketNumber();
+            }
+        });
+    }
+
+    /**
+     * Generate the next service ticket number.
+     */
+    protected static function generateNextTicketNumber(): string
+    {
+        $lastTicket = static::orderBy('id', 'desc')->first();
+
+        if ($lastTicket && $lastTicket->service_ticket_number) {
+            // Extract the number from ST-XXXX format
+            if (preg_match('/ST-(\d+)/', $lastTicket->service_ticket_number, $matches)) {
+                $nextNumber = (int) $matches[1] + 1;
+            } else {
+                // Fallback if format is different
+                $nextNumber = (int) $lastTicket->id + 1000;
+            }
+        } else {
+            // Start with ST-1000
+            $nextNumber = 1000;
+        }
+
+        return 'ST-' . $nextNumber;
+    }
 
     /*
     |--------------------------------------------------------------------------

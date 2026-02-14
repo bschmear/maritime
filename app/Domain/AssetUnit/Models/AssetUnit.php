@@ -62,9 +62,6 @@ class AssetUnit extends Model
         'attributes' => 'array',
     ];
 
-    /**
-     * Attributes to append to model's array/JSON form
-     */
     protected $appends = ['display_name'];
 
     /**
