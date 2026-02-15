@@ -1,4 +1,14 @@
 {
+  "service_ticket_id": {
+    "label": "Service Ticket",
+    "type": "record",
+    "typeDomain": "ServiceTicket",
+    "nullable": true,
+    "readOnly": true,
+    "hidden": true,
+    "help": "Linked service ticket (set automatically, cannot be changed)"
+  },
+
   "work_order_number": {
     "label": "Work Order #",
     "type": "number",

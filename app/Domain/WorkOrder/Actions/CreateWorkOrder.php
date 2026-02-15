@@ -5,6 +5,7 @@ use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Database\QueryException;
 use Throwable;
 
@@ -22,6 +23,11 @@ class CreateWorkOrder
             // Extract service_items before creating WorkOrder
             $serviceItems = $validated['service_items'] ?? [];
             unset($validated['service_items']);
+
+            // Generate UUID if not provided
+            if (empty($validated['uuid'])) {
+                $validated['uuid'] = (string) Str::uuid();
+            }
 
             // Ensure cost fields have default values
             $validated['labor_cost'] = $validated['labor_cost'] ?? 0;

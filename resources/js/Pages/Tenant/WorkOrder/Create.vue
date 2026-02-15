@@ -38,14 +38,32 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    serviceTicket: {
+        type: Object,
+        default: null,
+    },
+    serviceTicketItems: {
+        type: Array,
+        default: () => [],
+    },
+    estimateThreshold: {
+        type: Number,
+        default: 20,
+    },
 });
 
 const breadcrumbItems = computed(() => {
-    return [
+    const items = [
         { label: 'Home', href: route('dashboard') },
         { label: 'Work Orders', href: route('workorders.index') },
-        { label: 'Create Work Order' },
     ];
+    if (props.serviceTicket) {
+        items.push({ label: props.serviceTicket.service_ticket_number, href: route('servicetickets.show', props.serviceTicket.id) });
+        items.push({ label: 'Create Work Order' });
+    } else {
+        items.push({ label: 'Create Work Order' });
+    }
+    return items;
 });
 </script>
 
@@ -68,6 +86,9 @@ const breadcrumbItems = computed(() => {
             :account="account"
             :timezones="timezones"
             :service-items="serviceItems"
+            :service-ticket="serviceTicket"
+            :service-ticket-items="serviceTicketItems"
+            :estimate-threshold="estimateThreshold"
             mode="create"
         />
     </TenantLayout>

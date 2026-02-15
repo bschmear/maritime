@@ -34,6 +34,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    serviceTicket: {
+        type: Object,
+        default: null,
+    },
+    estimateThreshold: {
+        type: Number,
+        default: 20,
+    },
 });
 
 const pluralTitle = computed(() => {
@@ -157,6 +165,8 @@ const deleteWorkOrder = () => {
                         :enum-options="enumOptions"
                         :account="account"
                         :timezones="timezones"
+                        :service-ticket="serviceTicket"
+                        :estimate-threshold="estimateThreshold"
                         mode="show"
                     />
                 </div>

@@ -170,6 +170,10 @@ class ServiceTicketController extends BaseController
             $query->where('inactive', false)->orderBy('sort_order')->orderBy('id');
         };
 
+        $relationships['workOrders'] = function ($query) {
+            $query->select(['id', 'service_ticket_id', 'display_name', 'work_order_number', 'status']);
+        };
+
         $record = ServiceTicket::with($relationships)->findOrFail($id);
 
         $recordArray = $record->toArray();
@@ -205,6 +209,12 @@ class ServiceTicketController extends BaseController
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
+            'workOrders' => $record->workOrders->map(fn ($wo) => [
+                'id' => $wo->id,
+                'display_name' => $wo->display_name,
+                'work_order_number' => $wo->work_order_number,
+                'status' => $wo->status,
+            ])->values()->all(),
         ]);
     }
 
@@ -397,5 +407,44 @@ class ServiceTicketController extends BaseController
         }
 
         return $enumOptions;
+    }
+
+       /**
+     * Send service ticket to customer via email
+     */
+    public function sendEmail(ServiceTicket $serviceTicket)
+    {
+        try {
+            // Get customer email
+            $customerEmail = $serviceTicket->customer->email ?? null;
+            
+            if (!$customerEmail) {
+                return back()->with('error', 'Customer does not have an email address on file.');
+            }
+
+            // Get account settings for company info
+            $account = AccountSettings::getCurrent();
+            
+            // Prepare email data
+            $emailData = [
+                'service_ticket' => $serviceTicket->load([
+                    'customer',
+                    'subsidiary',
+                    'location',
+                    'assetUnit',
+                    'serviceItems'
+                ]),
+                'account' => $account,
+            ];
+
+            // Send email with service ticket details
+            Mail::to($customerEmail)->send(new ServiceTicketEmail($emailData));
+
+            return back()->with('success', 'Service ticket sent successfully to ' . $customerEmail);
+            
+        } catch (\Exception $e) {
+            \Log::error('Failed to send service ticket email: ' . $e->getMessage());
+            return back()->with('error', 'Failed to send email. Please try again.');
+        }
     }
 }

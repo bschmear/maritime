@@ -31,6 +31,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    workOrders: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -168,6 +172,19 @@ const closePreview = () => {
                                 Back to List
                             </button>
                         </Link>
+                        <!-- Work Order Button -->
+                        <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)">
+                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
+                                <span class="material-icons text-sm mr-1">assignment</span>
+                                View Work Order
+                            </button>
+                        </Link>
+                        <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id">
+                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
+                                <span class="material-icons text-sm mr-1">add_circle</span>
+                                Create Work Order
+                            </button>
+                        </Link>
                         <button
                             @click="openPreview"
                             class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
@@ -227,9 +244,17 @@ const closePreview = () => {
                                 class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                             >
                                 <div class="py-1">
+                                    <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <span class="material-icons text-base text-amber-600 dark:text-amber-400">assignment</span>
+                                        <span>View Work Order</span>
+                                    </Link>
+                                    <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <span class="material-icons text-base text-amber-600 dark:text-amber-400">add_circle</span>
+                                        <span>Create Work Order</span>
+                                    </Link>
                                     <button
                                         @click="openPreview(); showActionsMenu = false"
-                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
                                     >
                                         <span class="material-icons text-base text-purple-600 dark:text-purple-400">visibility</span>
                                         <span>Customer Preview</span>

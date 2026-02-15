@@ -50,6 +50,20 @@ class WorkOrder extends Model
     |--------------------------------------------------------------------------
     */
 
+    public function serviceTicket(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Domain\ServiceTicket\Models\ServiceTicket::class
+        );
+    }
+
+    public function service_ticket(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Domain\ServiceTicket\Models\ServiceTicket::class
+        );
+    }
+
     public function subsidiary(): BelongsTo
     {
         return $this->belongsTo(

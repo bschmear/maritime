@@ -234,6 +234,24 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
+        // Load service ticket data if linked
+        $serviceTicket = null;
+        if ($record->service_ticket_id) {
+            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($record->service_ticket_id);
+            if ($ticket) {
+                $serviceTicket = [
+                    'id' => $ticket->id,
+                    'service_ticket_number' => $ticket->service_ticket_number,
+                    'estimated_total' => (float) ($ticket->estimated_total ?? 0),
+                    'estimated_subtotal' => (float) ($ticket->estimated_subtotal ?? 0),
+                    'estimated_tax' => (float) ($ticket->estimated_tax ?? 0),
+                    'tax_rate' => (float) ($ticket->tax_rate ?? 0),
+                ];
+            }
+        }
+
+        $account = \App\Models\AccountSettings::getCurrent();
+
         return inertia('Tenant/' . $this->domainName . '/Edit', [
             'record' => $record,
             'recordType' => $this->recordType,
@@ -241,9 +259,11 @@ class WorkOrderController extends RecordController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
-            'account' => \App\Models\AccountSettings::getCurrent(),
+            'account' => $account,
             'timezones' => Timezone::options(),
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
+            'serviceTicket' => $serviceTicket,
+            'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
         ]);
     }
 
@@ -271,6 +291,62 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
+        // Check if creating from a service ticket
+        $serviceTicket = null;
+        $serviceTicketItems = [];
+        $serviceTicketId = request()->get('service_ticket_id');
+
+        if ($serviceTicketId) {
+            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::with([
+                'serviceItems' => function ($query) {
+                    $query->where('inactive', false)->orderBy('sort_order')->orderBy('id');
+                },
+                'customer',
+                'subsidiary',
+                'location',
+                'assetUnit' => function ($query) {
+                    $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
+                          ->with(['asset' => function ($q) {
+                              $q->select(['id', 'display_name']);
+                          }]);
+                },
+            ])->find($serviceTicketId);
+
+            if ($ticket) {
+                $serviceTicket = [
+                    'id' => $ticket->id,
+                    'service_ticket_number' => $ticket->service_ticket_number,
+                    'customer_id' => $ticket->customer_id,
+                    'subsidiary_id' => $ticket->subsidiary_id,
+                    'location_id' => $ticket->location_id,
+                    'asset_unit_id' => $ticket->asset_unit_id,
+                    'estimated_total' => (float) ($ticket->estimated_total ?? 0),
+                    'estimated_subtotal' => (float) ($ticket->estimated_subtotal ?? 0),
+                    'estimated_tax' => (float) ($ticket->estimated_tax ?? 0),
+                    'tax_rate' => (float) ($ticket->tax_rate ?? 0),
+                    'repair_description' => $ticket->repair_description,
+                    'customer' => $ticket->customer,
+                    'subsidiary' => $ticket->subsidiary,
+                    'location' => $ticket->location,
+                    'asset_unit' => $ticket->assetUnit,
+                ];
+
+                $serviceTicketItems = $ticket->serviceItems->map(fn ($li) => [
+                    'service_item_id' => $li->service_item_id,
+                    'display_name' => $li->display_name,
+                    'description' => $li->description,
+                    'quantity' => (float) $li->quantity,
+                    'unit_price' => (float) $li->unit_price,
+                    'unit_cost' => (float) $li->unit_cost,
+                    'estimated_hours' => (float) ($li->estimated_hours ?? 0),
+                    'actual_hours' => 0,
+                    'billable' => $li->billable,
+                    'warranty' => $li->warranty,
+                    'billing_type' => $li->billing_type,
+                ])->values()->all();
+            }
+        }
+
         return inertia('Tenant/' . $this->domainName . '/Create', [
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
@@ -281,6 +357,9 @@ class WorkOrderController extends RecordController
             'account' => $account,
             'timezones' => Timezone::options(),
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
+            'serviceTicket' => $serviceTicket,
+            'serviceTicketItems' => $serviceTicketItems,
+            'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
         ]);
     }
 
@@ -338,6 +417,22 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
+        // Load service ticket data if linked
+        $serviceTicket = null;
+        if ($record->service_ticket_id) {
+            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($record->service_ticket_id);
+            if ($ticket) {
+                $serviceTicket = [
+                    'id' => $ticket->id,
+                    'service_ticket_number' => $ticket->service_ticket_number,
+                    'estimated_total' => (float) ($ticket->estimated_total ?? 0),
+                    'estimated_subtotal' => (float) ($ticket->estimated_subtotal ?? 0),
+                    'estimated_tax' => (float) ($ticket->estimated_tax ?? 0),
+                    'tax_rate' => (float) ($ticket->tax_rate ?? 0),
+                ];
+            }
+        }
+
         return inertia('Tenant/' . $this->domainName . '/Show', [
             'record' => $recordArray,
             'recordType' => $this->recordType,
@@ -349,6 +444,8 @@ class WorkOrderController extends RecordController
             'account' => $account,
             'timezones' => Timezone::options(),
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
+            'serviceTicket' => $serviceTicket,
+            'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
         ]);
     }
 
@@ -361,6 +458,15 @@ class WorkOrderController extends RecordController
         $data = $request->all();
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
+
+        // Validate threshold if linked to a service ticket
+        $serviceTicketId = $data['service_ticket_id'] ?? null;
+        if ($serviceTicketId) {
+            $thresholdError = $this->validateThreshold($serviceTicketId, $serviceItems, $data['tax_rate'] ?? 0);
+            if ($thresholdError) {
+                return back()->withErrors(['threshold' => $thresholdError]);
+            }
+        }
 
         // Create the work order first
         $request->merge($data);
@@ -397,6 +503,16 @@ class WorkOrderController extends RecordController
         $data = $request->all();
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
+
+        // Validate threshold if linked to a service ticket
+        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
+        $serviceTicketId = $data['service_ticket_id'] ?? $workOrder->service_ticket_id ?? null;
+        if ($serviceTicketId) {
+            $thresholdError = $this->validateThreshold($serviceTicketId, $serviceItems, $data['tax_rate'] ?? 0);
+            if ($thresholdError) {
+                return back()->withErrors(['threshold' => $thresholdError]);
+            }
+        }
 
         $request->merge($data);
         $response = parent::update($request, $id, $publicStorage);
@@ -482,6 +598,67 @@ class WorkOrderController extends RecordController
         return response()->json([
             'tax_rate' => $taxRate ? $taxRate * 100 : null
         ]);
+    }
+
+    /**
+     * Validate that the work order total does not exceed the service ticket estimate threshold.
+     * Returns an error message string if over threshold, null if OK.
+     */
+    protected function validateThreshold(int $serviceTicketId, array $serviceItems, float $taxRate): ?string
+    {
+        $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($serviceTicketId);
+        if (!$ticket) {
+            return null; // No ticket to validate against
+        }
+
+        $account = \App\Models\AccountSettings::getCurrent();
+        $thresholdPercent = (float) ($account->estimate_threshold_percent ?? 20);
+        $estimatedTotal = (float) ($ticket->estimated_total ?? 0);
+
+        if ($estimatedTotal <= 0) {
+            return null; // No estimate to compare against
+        }
+
+        // Calculate the WO total from the submitted service items
+        $subtotal = 0;
+        foreach ($serviceItems as $item) {
+            $unitPrice = (float) ($item['unit_price'] ?? 0);
+            $quantity = (float) ($item['quantity'] ?? 1);
+            $estimatedHours = (float) ($item['estimated_hours'] ?? 0);
+            $billingType = (int) ($item['billing_type'] ?? 3);
+            $billable = $item['billable'] ?? true;
+            $warranty = $item['warranty'] ?? false;
+
+            if (!$billable || $warranty) {
+                continue;
+            }
+
+            $lineTotal = 0;
+            switch ($billingType) {
+                case 1: // Hourly
+                    $lineTotal = $estimatedHours * $unitPrice;
+                    break;
+                case 2: // Flat
+                    $lineTotal = $unitPrice;
+                    break;
+                case 3: // Quantity
+                default:
+                    $lineTotal = $quantity * $unitPrice;
+                    break;
+            }
+
+            $subtotal += $lineTotal;
+        }
+
+        $tax = $subtotal * ($taxRate / 100);
+        $woTotal = $subtotal + $tax;
+        $thresholdLimit = $estimatedTotal * (1 + ($thresholdPercent / 100));
+
+        if ($woTotal > $thresholdLimit) {
+            return "Work order total (\${$woTotal}) exceeds the service ticket estimate threshold of \${$thresholdLimit} ({$thresholdPercent}% over \${$estimatedTotal}). A service ticket revision must be created before saving.";
+        }
+
+        return null;
     }
 
     /**

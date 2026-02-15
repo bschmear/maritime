@@ -41,6 +41,23 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 ||| These routes are loaded by the TenantRouteServiceProvider.
 |||
 */
+
+
+// Route::middleware(['auth:client'])->group(function () {
+//     // Route::get('/portal', ...);
+//     // /portal/serviceticket/{ticket}
+    // Route::get('/', PortalDashboardController::class);
+
+    // Route::get('/tickets', TicketController::class);
+    // Route::get('/tickets/{uuid}', ShowTicketController::class);
+
+    // Route::get('/documents', DocumentController::class);
+    // Route::get('/documents/{document}', DownloadDocumentController::class);
+
+    // Route::get('/invoices', InvoiceController::class);
+// });
+
+
 Route::middleware([
     'web',
     PreventAccessFromCentralDomains::class,

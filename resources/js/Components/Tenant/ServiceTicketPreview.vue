@@ -294,6 +294,7 @@ const handleSendEmail = () => {
                                 <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
                                 <th class="text-center py-3 text-sm font-semibold text-gray-900">Qty</th>
                                 <th class="text-center py-3 text-sm font-semibold text-gray-900">Type</th>
+                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Est Hrs</th>
                                 <th class="text-right py-3 text-sm font-semibold text-gray-900">Rate</th>
                                 <th class="text-right py-3 text-sm font-semibold text-gray-900">Amount</th>
                             </tr>
@@ -318,6 +319,9 @@ const handleSendEmail = () => {
                                         {{ getBillingTypeLabel(item.billing_type) }}
                                     </span>
                                 </td>
+                                <td class="py-3 text-center text-gray-900">
+                                    {{ item.estimated_hours ?? 0 }}
+                                </td>
                                 <td class="py-3 text-right text-gray-900">
                                     {{ formatCurrency(item.unit_price) }}
                                 </td>
@@ -333,9 +337,22 @@ const handleSendEmail = () => {
                         No billable items
                     </div>
                 </div>
-
+                    <!-- Estimate Variance Notice -->
+                    <div v-if="account.estimate_threshold_percent" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="flex items-start gap-3">
+                            <span class="material-icons text-blue-600 text-xl flex-shrink-0">info</span>
+                            <div class="text-sm text-blue-900">
+                                <p class="font-semibold mb-1">Estimate Variance Notice</p>
+                                <p>
+                                    Our estimate may vary by {{ account.estimate_threshold_percent }}% (up to {{ formatCurrency(estimateVariance) }}). 
+                                    If the final cost exceeds this threshold, customer verification will be required before proceeding with additional work.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 <!-- Totals -->
                 <div class="px-8 py-6 bg-gray-50 border-t border-gray-200">
+                    
                     <div class="flex justify-end">
                         <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
                             <div class="flex justify-between text-sm">
@@ -353,19 +370,7 @@ const handleSendEmail = () => {
                         </div>
                     </div>
 
-                    <!-- Estimate Variance Notice -->
-                    <div v-if="account.estimate_threshold_percent" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div class="flex items-start gap-3">
-                            <span class="material-icons text-blue-600 text-xl flex-shrink-0">info</span>
-                            <div class="text-sm text-blue-900">
-                                <p class="font-semibold mb-1">Estimate Variance Notice</p>
-                                <p>
-                                    Our estimate may vary by {{ account.estimate_threshold_percent }}% (up to {{ formatCurrency(estimateVariance) }}). 
-                                    If the final cost exceeds this threshold, customer verification will be required before proceeding with additional work.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
 
                 <!-- Customer Acknowledgment & Signature -->

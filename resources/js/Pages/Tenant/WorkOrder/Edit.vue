@@ -42,6 +42,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    serviceTicket: {
+        type: Object,
+        default: null,
+    },
+    estimateThreshold: {
+        type: Number,
+        default: 20,
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -76,6 +84,8 @@ const handleCancelled = () => {
             :account="account"
             :timezones="timezones"
             :service-items="serviceItems"
+            :service-ticket="serviceTicket"
+            :estimate-threshold="estimateThreshold"
             mode="edit"
             @cancelled="handleCancelled"
         />

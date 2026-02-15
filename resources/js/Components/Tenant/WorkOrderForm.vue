@@ -41,7 +41,19 @@ const props = defineProps({
     serviceItems: {
         type: Array,
         default: () => [] // From ServiceItem table, with toWorkOrderDefaults()
-    }
+    },
+    serviceTicket: {
+        type: Object,
+        default: null, // Pre-populated service ticket data when creating WO from a ticket
+    },
+    serviceTicketItems: {
+        type: Array,
+        default: () => [], // Pre-populated line items from the service ticket
+    },
+    estimateThreshold: {
+        type: Number,
+        default: 20, // Percentage threshold from account_settings
+    },
 });
 
 const emit = defineEmits(['saved', 'cancelled']);
@@ -415,8 +427,33 @@ const isFieldDisabled = (fieldKey) => {
     return props.fieldsSchema[fieldKey]?.disabled === true;
 };
 
+// Whether this WO is linked to a service ticket (used for field locking and threshold)
+const isLinkedToServiceTicket = computed(() => {
+    return !!(props.serviceTicket || props.record?.service_ticket_id);
+});
+
+// Create a pseudo-record for RecordSelect components when creating from service ticket
+const pseudoRecord = computed(() => {
+    if (props.mode === 'create' && props.serviceTicket) {
+        return {
+            customer: props.serviceTicket.customer,
+            subsidiary: props.serviceTicket.subsidiary,
+            location: props.serviceTicket.location,
+            assetUnit: props.serviceTicket.asset_unit,
+            asset_unit: props.serviceTicket.asset_unit, // Also provide both naming conventions
+        };
+    }
+    return props.record;
+});
+
 const isFieldReadonly = (fieldKey) => {
-    return props.fieldsSchema[fieldKey]?.readOnly === true || props.mode === 'show';
+    if (props.fieldsSchema[fieldKey]?.readOnly === true || props.mode === 'show') return true;
+    // Lock service-ticket-sourced fields when linked to a service ticket
+    if (isLinkedToServiceTicket.value) {
+        const lockedFields = ['customer_id', 'subsidiary_id', 'location_id', 'asset_unit_id'];
+        if (lockedFields.includes(fieldKey)) return true;
+    }
+    return false;
 };
 
 // Use global timezone composable
@@ -584,7 +621,40 @@ if (!formData.hasOwnProperty('tax_rate')) {
     formData.tax_rate = props.record?.tax_rate ?? 0;
 }
 
+// Pre-populate from service ticket when creating WO from a ticket
+if (props.serviceTicket && props.mode === 'create') {
+    formData.service_ticket_id = props.serviceTicket.id;
+    if (props.serviceTicket.customer_id) formData.customer_id = props.serviceTicket.customer_id;
+    if (props.serviceTicket.subsidiary_id) formData.subsidiary_id = props.serviceTicket.subsidiary_id;
+    if (props.serviceTicket.location_id) formData.location_id = props.serviceTicket.location_id;
+    if (props.serviceTicket.asset_unit_id) formData.asset_unit_id = props.serviceTicket.asset_unit_id;
+    if (props.serviceTicket.tax_rate) formData.tax_rate = props.serviceTicket.tax_rate;
+    if (props.serviceTicket.repair_description) formData.description = props.serviceTicket.repair_description;
+}
+
 const form = useForm(formData);
+
+// ==============================
+// Service Ticket Threshold Logic
+// ==============================
+const serviceTicketEstimatedTotal = computed(() => {
+    return props.serviceTicket?.estimated_total ?? 0;
+});
+
+const thresholdLimit = computed(() => {
+    if (!isLinkedToServiceTicket.value || serviceTicketEstimatedTotal.value === 0) return Infinity;
+    return serviceTicketEstimatedTotal.value * (1 + (props.estimateThreshold / 100));
+});
+
+const isOverThreshold = computed(() => {
+    if (!isLinkedToServiceTicket.value || serviceTicketEstimatedTotal.value === 0) return false;
+    return lineItemsGrandTotal.value > thresholdLimit.value;
+});
+
+const thresholdPercentUsed = computed(() => {
+    if (!isLinkedToServiceTicket.value || serviceTicketEstimatedTotal.value === 0) return 0;
+    return (lineItemsGrandTotal.value / serviceTicketEstimatedTotal.value) * 100;
+});
 
 // Initialize line items from record.service_items when editing
 watch(() => props.record?.service_items, (items) => {
@@ -604,6 +674,23 @@ watch(() => props.record?.service_items, (items) => {
         }));
     }
 }, { immediate: true });
+
+// Pre-populate line items from service ticket when creating
+if (props.serviceTicketItems && props.serviceTicketItems.length > 0 && props.mode === 'create') {
+    lineItems.value = props.serviceTicketItems.map(li => ({
+        service_item_id: li.service_item_id,
+        display_name: li.display_name,
+        description: li.description,
+        quantity: li.quantity ?? 1,
+        unit_price: li.unit_price ?? 0,
+        unit_cost: li.unit_cost ?? 0,
+        estimated_hours: li.estimated_hours ?? 1,
+        actual_hours: li.actual_hours ?? 0,
+        billable: li.billable ?? true,
+        warranty: li.warranty ?? false,
+        billing_type: li.billing_type ?? null,
+    }));
+}
 
 // Track if form has been initialized (to prevent watchers from clearing values on load)
 const formInitialized = ref(false);
@@ -671,6 +758,12 @@ if (props.record && props.record.asset_unit_id !== undefined) {
 }
 
 const submit = () => {
+    // Block save if over threshold (requires service ticket revision)
+    if (isOverThreshold.value) {
+        alert('Work order total exceeds the service ticket estimate threshold (' + props.estimateThreshold + '%). A service ticket revision must be created before this work order can be saved.');
+        return;
+    }
+
     // Ensure all form data is sent by using transform
     form.transform((data) => {
         const allData = { ...form.data() };
@@ -685,6 +778,11 @@ const submit = () => {
         // Explicitly ensure tax_rate and status are included
         allData.tax_rate = form.tax_rate;
         allData.status = form.status;
+
+        // Include service_ticket_id if linked
+        if (props.serviceTicket) {
+            allData.service_ticket_id = props.serviceTicket.id;
+        }
 
         // Add service items in WorkOrderServiceItem format
         allData.service_items = lineItems.value.map((li, idx) => ({
@@ -800,6 +898,25 @@ const handleCancel = () => {
                     </div>
 
                     <div class="p-6 space-y-6">
+                        <!-- Service Ticket Link Banner -->
+                        <div v-if="isLinkedToServiceTicket" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                            <div class="flex items-center gap-3">
+                                <span class="material-icons text-amber-600 dark:text-amber-400">link</span>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                        Linked to Service Ticket {{ serviceTicket?.service_ticket_number || record?.service_ticket_id }}
+                                    </p>
+                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                        Customer, location, and asset are sourced from the service ticket.
+                                    </p>
+                                </div>
+                                <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-md text-xs font-medium hover:bg-amber-700 transition-colors whitespace-nowrap">
+                                    <span class="material-icons text-sm">open_in_new</span>
+                                    View Ticket
+                                </a>
+                            </div>
+                        </div>
+
                         <!-- Customer & Unit Information -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-4">
@@ -819,7 +936,7 @@ const handleCancel = () => {
                                         v-model="form.customer_id"
                                         :disabled="isFieldReadonly('customer_id')"
                                         :enum-options="getEnumOptions('customer_id')"
-                                        :record="record"
+                                        :record="pseudoRecord"
                                         field-key="customer_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
@@ -840,7 +957,7 @@ const handleCancel = () => {
                                         v-model="form.asset_unit_id"
                                         :disabled="isFieldReadonly('asset_unit_id') || isFieldDisabledByFilter('asset_unit_id')"
                                         :enum-options="getEnumOptions('asset_unit_id')"
-                                        :record="record"
+                                        :record="pseudoRecord"
                                         field-key="asset_unit_id"
                                         filter-by="customer_id"
                                         :filter-value="form.customer_id"
@@ -863,7 +980,7 @@ const handleCancel = () => {
                                         v-model="form.subsidiary_id"
                                         :disabled="isFieldReadonly('subsidiary_id')"
                                         :enum-options="getEnumOptions('subsidiary_id')"
-                                        :record="record"
+                                        :record="pseudoRecord"
                                         field-key="subsidiary_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
@@ -884,7 +1001,7 @@ const handleCancel = () => {
                                         v-model="form.location_id"
                                         :disabled="isFieldReadonly('location_id') || isFieldDisabledByFilter('location_id')"
                                         :enum-options="getEnumOptions('location_id')"
-                                        :record="record"
+                                        :record="pseudoRecord"
                                         field-key="location_id"
                                         :filter-by="fieldsSchema.location_id.filterby || null"
                                         :filter-value="getFieldFilterValue('location_id')"
@@ -913,7 +1030,7 @@ const handleCancel = () => {
                                         v-model="form.assigned_user_id"
                                         :disabled="isFieldReadonly('assigned_user_id')"
                                         :enum-options="getEnumOptions('assigned_user_id')"
-                                        :record="record"
+                                        :record="pseudoRecord"
                                         field-key="assigned_user_id"
                                     />
                                     <p v-else class="text-sm text-gray-900 dark:text-white">
@@ -1254,6 +1371,75 @@ const handleCancel = () => {
                             </div>
                             </div>
                         </div>
+
+                        <!-- Service Ticket Threshold Warning -->
+                        <div v-if="isLinkedToServiceTicket && serviceTicketEstimatedTotal > 0" class="mt-6">
+                            <!-- Info banner -->
+                            <div class="rounded-lg border p-4 mb-3"
+                                :class="isOverThreshold
+                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+                                    : thresholdPercentUsed > 90
+                                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700'
+                                        : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'"
+                            >
+                                <div class="flex items-start gap-3">
+                                    <span class="material-icons text-lg mt-0.5"
+                                        :class="isOverThreshold
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : thresholdPercentUsed > 90
+                                                ? 'text-amber-600 dark:text-amber-400'
+                                                : 'text-blue-600 dark:text-blue-400'"
+                                    >
+                                        {{ isOverThreshold ? 'error' : thresholdPercentUsed > 90 ? 'warning' : 'info' }}
+                                    </span>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold"
+                                            :class="isOverThreshold
+                                                ? 'text-red-800 dark:text-red-200'
+                                                : thresholdPercentUsed > 90
+                                                    ? 'text-amber-800 dark:text-amber-200'
+                                                    : 'text-blue-800 dark:text-blue-200'"
+                                        >
+                                            <template v-if="isOverThreshold">
+                                                Exceeds Service Ticket Estimate — Revision Required
+                                            </template>
+                                            <template v-else-if="thresholdPercentUsed > 90">
+                                                Approaching Service Ticket Estimate Threshold
+                                            </template>
+                                            <template v-else>
+                                                Linked to Service Ticket {{ serviceTicket?.service_ticket_number }}
+                                            </template>
+                                        </p>
+                                        <div class="mt-2 text-sm space-y-1"
+                                            :class="isOverThreshold
+                                                ? 'text-red-700 dark:text-red-300'
+                                                : thresholdPercentUsed > 90
+                                                    ? 'text-amber-700 dark:text-amber-300'
+                                                    : 'text-blue-700 dark:text-blue-300'"
+                                        >
+                                            <div class="flex justify-between">
+                                                <span>Service Ticket Estimate:</span>
+                                                <span class="font-medium">{{ formatCurrency(serviceTicketEstimatedTotal) }}</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>Threshold ({{ estimateThreshold }}%):</span>
+                                                <span class="font-medium">{{ formatCurrency(thresholdLimit) }}</span>
+                                            </div>
+                                            <div class="flex justify-between font-semibold">
+                                                <span>Work Order Total:</span>
+                                                <span>{{ formatCurrency(lineItemsGrandTotal) }}</span>
+                                            </div>
+                                        </div>
+                                        <p v-if="isOverThreshold" class="mt-3 text-sm font-medium text-red-800 dark:text-red-200">
+                                            You cannot save this work order until a service ticket revision is created and approved.
+                                            <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="underline hover:no-underline ml-1">
+                                                Go to Service Ticket
+                                            </a>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         </div>
 
 
@@ -1385,12 +1571,23 @@ const handleCancel = () => {
                                 </div>
                             </div>
 
+                            <!-- Threshold Block Warning -->
+                            <div v-if="isOverThreshold" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mt-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="material-icons text-red-600 dark:text-red-400 text-sm">block</span>
+                                    <span class="text-xs font-semibold text-red-800 dark:text-red-200">Save Blocked</span>
+                                </div>
+                                <p class="text-xs text-red-700 dark:text-red-300">
+                                    WO total exceeds estimate threshold. Create a revision on the service ticket first.
+                                </p>
+                            </div>
+
                             <!-- Save Actions -->
                             <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700" v-if="mode !== 'show'">
                                 <button
                                     @click="saveAndOpen"
                                     type="button"
-                                    :disabled="form.processing"
+                                    :disabled="form.processing || isOverThreshold"
                                     class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     <span v-if="form.processing" class="material-icons text-sm mr-2 animate-spin">refresh</span>
@@ -1401,7 +1598,7 @@ const handleCancel = () => {
                                 <button
                                     @click="saveDraft"
                                     type="button"
-                                    :disabled="form.processing"
+                                    :disabled="form.processing || isOverThreshold"
                                     class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     <span class="material-icons text-sm mr-2">save</span>
