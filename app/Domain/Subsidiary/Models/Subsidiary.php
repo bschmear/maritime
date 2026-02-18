@@ -4,6 +4,8 @@ namespace App\Domain\Subsidiary\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Concerns\HasDocuments;
+use App\Domain\Document\Models\Document;
+use Illuminate\Support\Facades\Storage;
 use App\Enums\Timezone;
 
 class Subsidiary extends Model
@@ -34,6 +36,13 @@ class Subsidiary extends Model
         'settings'                 => 'array',
     ];
 
+    /**
+     * The attributes that should be appended to the model's array form.
+     *
+     * @var array<string>
+     */
+    protected $appends = ['logo_url', 'full_address'];
+
     public function locations()
     {
         return $this->belongsToMany(
@@ -49,6 +58,31 @@ class Subsidiary extends Model
             'subsidiary_user'
         )->withPivot(['primary'])
         ->withTimestamps();
+    }
+
+    /**
+     * Accessor for logo URL. Resolves through the Document record.
+     */
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (!$this->logo) {
+            return null;
+        }
+
+        $document = Document::find($this->logo);
+        if (!$document || !$document->file) {
+            return null;
+        }
+
+        $cdnUrl = config('filesystems.disks.s3.cdn_url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/') . '/' . $document->file;
+        }
+
+        return Storage::disk('s3')->temporaryUrl(
+            $document->file,
+            now()->addDays(7)
+        );
     }
 
     /**

@@ -6,6 +6,9 @@ use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 use App\Services\ServiceTicketService;
+use App\Models\AccountSettings;
+use App\Mail\ServiceTicketApprovalRequest;
+use Illuminate\Support\Facades\Mail;
 use App\Enums\Timezone;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -181,6 +184,7 @@ class ServiceTicketController extends BaseController
         $recordArray['updated_at'] = $record->updated_at?->toISOString();
         $recordArray['signed_at'] = $record->signed_at?->toISOString();
         $recordArray['reauthorized_at'] = $record->reauthorized_at?->toISOString();
+        $recordArray['signature_url'] = $record->signature_url;
 
         $recordArray['service_items'] = $record->serviceItems->map(fn ($li) => [
             'id' => $li->id,
@@ -410,22 +414,23 @@ class ServiceTicketController extends BaseController
     }
 
        /**
-     * Send service ticket to customer via email
+     * Send service ticket approval request to customer via email
      */
-    public function sendEmail(ServiceTicket $serviceTicket)
+    public function sendApprovalRequest($id)
     {
         try {
-            // Get customer email
+            $serviceTicket = ServiceTicket::findOrFail($id);
+
             $customerEmail = $serviceTicket->customer->email ?? null;
-            
+
             if (!$customerEmail) {
                 return back()->with('error', 'Customer does not have an email address on file.');
             }
 
-            // Get account settings for company info
             $account = AccountSettings::getCurrent();
-            
-            // Prepare email data
+
+            $approvalUrl = route('service-tickets.review', $serviceTicket->uuid);
+
             $emailData = [
                 'service_ticket' => $serviceTicket->load([
                     'customer',
@@ -435,16 +440,28 @@ class ServiceTicketController extends BaseController
                     'serviceItems'
                 ]),
                 'account' => $account,
+                'approval_url' => $approvalUrl,
             ];
 
-            // Send email with service ticket details
-            Mail::to($customerEmail)->send(new ServiceTicketEmail($emailData));
+            Mail::to($customerEmail)->send(new ServiceTicketApprovalRequest($emailData));
 
-            return back()->with('success', 'Service ticket sent successfully to ' . $customerEmail);
-            
+            return back()->with('success', 'Approval request sent successfully to ' . $customerEmail);
+
         } catch (\Exception $e) {
-            \Log::error('Failed to send service ticket email: ' . $e->getMessage());
+            \Log::error('Failed to send approval request email: ' . $e->getMessage());
             return back()->with('error', 'Failed to send email. Please try again.');
         }
+    }
+
+    /**
+     * Get approval URL for preview
+     */
+    public function getApprovalUrl($id)
+    {
+        $serviceTicket = ServiceTicket::findOrFail($id);
+
+        return response()->json([
+            'approval_url' => route('service-tickets.review', $serviceTicket->uuid)
+        ]);
     }
 }

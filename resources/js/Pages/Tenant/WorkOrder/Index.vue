@@ -375,21 +375,21 @@ const isOverdue = (dueDate) => {
 
                         <!-- Footer Info -->
                         <div class="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
                                 <div class="flex items-center gap-1">
                                     <span class="material-icons text-sm">schedule</span>
                                     <span class="font-medium">Scheduled:</span>
                                 </div>
                                 <span>{{ formatDate(workOrder.scheduled_start_at) }}</span>
                             </div>
-                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
                                 <div class="flex items-center gap-1">
                                     <span class="material-icons text-sm">event</span>
                                     <span class="font-medium">Due:</span>
                                 </div>
                                 <span>{{ formatDate(workOrder.due_at) }}</span>
                             </div>
-                            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                            <div class="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
                                 <div class="flex items-center gap-1">
                                     <span class="material-icons text-sm">person</span>
                                     <span class="font-medium">Assigned:</span>

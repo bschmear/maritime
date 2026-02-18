@@ -5,6 +5,7 @@ namespace App\Enums\ServiceTicket;
 enum SignatureMethod: int
 {
     case Digital      = 1;
+    case DigitalTyped = 5;
     case Paper        = 2;
     case Verbal       = 3;
     case EmailApproval = 4;
@@ -12,7 +13,8 @@ enum SignatureMethod: int
     public function label(): string
     {
         return match ($this) {
-            self::Digital       => 'Digital',
+            self::Digital       => 'Digital (Drawn)',
+            self::DigitalTyped  => 'Digital (Typed)',
             self::Paper         => 'Paper',
             self::Verbal        => 'Verbal',
             self::EmailApproval => 'Email Approval',

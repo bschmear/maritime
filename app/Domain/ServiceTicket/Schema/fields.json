@@ -145,7 +145,8 @@
     "enum": "App\\Enums\\ServiceTicket\\SignatureMethod",
     "nullable": true,
     "options": [
-      {"id": 1, "name": "Digital"},
+      {"id": 1, "name": "Digital (Drawn)"},
+      {"id": 5, "name": "Digital (Typed)"},
       {"id": 2, "name": "Paper"},
       {"id": 3, "name": "Verbal"},
       {"id": 4, "name": "Email Approval"}

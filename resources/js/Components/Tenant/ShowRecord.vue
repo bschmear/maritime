@@ -77,6 +77,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    imageUrls: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const isEditMode = ref(false);
@@ -261,6 +265,7 @@ const breadcrumbItems = computed(() => {
                             :form-id="`form-${recordType}-${record.id}`"
                             :account="account"
                             :timezones="timezones"
+                            :image-urls="imageUrls"
                             @submit="handleSubmit"
                             @updated="handleUpdated"
                             @cancel="handleCancel"

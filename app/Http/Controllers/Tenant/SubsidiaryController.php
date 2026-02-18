@@ -1,5 +1,7 @@
 <?php
+
 namespace App\Http\Controllers\Tenant;
+
 use App\Http\Controllers\Tenant\RecordController;
 use App\Domain\Subsidiary\Models\Subsidiary as RecordModel;
 use App\Domain\Subsidiary\Actions\CreateSubsidiary as CreateAction;

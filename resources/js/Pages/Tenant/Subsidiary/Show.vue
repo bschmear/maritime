@@ -30,6 +30,10 @@ const props = defineProps({
         type: String,
         default: 'Subsidiary',
     },
+    imageUrls: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 </script>
 
@@ -42,6 +46,7 @@ const props = defineProps({
         :fields-schema="fieldsSchema"
         :enum-options="enumOptions"
         :domain-name="domainName"
+        :image-urls="imageUrls"
         :show-sublists="true"
         :breadcrumb-parent-label="'Subsidiaries'"
         :breadcrumb-parent-href="route(`${recordType}.index`)"

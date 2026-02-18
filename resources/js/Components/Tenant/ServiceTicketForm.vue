@@ -290,6 +290,12 @@ const prevServiceItemPage = () => {
 // Aggregated Totals
 // ==============================
 
+// Computed property for approved checkbox to ensure reactivity
+const approvedValue = computed({
+    get: () => form.approved,
+    set: (value) => form.approved = value
+});
+
 const lineItemsEstimatedHours = computed(() =>
     lineItems.value.reduce(
         (sum, item) => sum + (Number(item.estimated_hours) || 0),
@@ -689,6 +695,63 @@ const saveTicket = () => {
     submit();
 };
 
+
+// ==============================
+// Client Approval Actions
+// ==============================
+
+const sendApprovalRequest = async () => {
+    if (!confirm('Send approval request email to customer?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(route('servicetickets.send-approval-request', props.record.id), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            credentials: 'same-origin',
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            alert('Approval request sent successfully!');
+        } else {
+            alert(data.message || 'Failed to send approval request');
+        }
+    } catch (error) {
+        console.error('Error sending approval request:', error);
+        alert('Failed to send approval request. Please try again.');
+    }
+};
+
+const previewApprovalForm = async () => {
+    try {
+        const response = await fetch(route('servicetickets.approval-url', props.record.id), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.approval_url) {
+            window.open(data.approval_url, '_blank');
+        } else {
+            alert('Failed to get approval URL');
+        }
+    } catch (error) {
+        console.error('Error getting approval URL:', error);
+        alert('Failed to open approval form. Please try again.');
+    }
+};
 
 const handleCancel = () => {
     emit('cancelled');
@@ -1168,6 +1231,11 @@ const handleCancel = () => {
                                                 </span>
                                             </div>
 
+                                            <div v-if="record?.signed_name">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signed By</label>
+                                                <p class="text-sm text-gray-900 dark:text-white">{{ record.signed_name }}</p>
+                                            </div>
+
                                             <div v-if="record?.signature_method">
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signature Method</label>
                                                 <p class="text-sm text-gray-900 dark:text-white">
@@ -1181,20 +1249,46 @@ const handleCancel = () => {
                                                     {{ formatDateTime(record.signed_at) }}
                                                 </p>
                                             </div>
+
+                                            <div v-if="record?.signed_ip">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signed IP</label>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ record.signed_ip }}</p>
+                                            </div>
                                         </div>
 
-                                        <div v-if="record?.requires_reauthorization" class="space-y-3">
-                                            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                                                <div class="flex items-center gap-2 mb-2">
-                                                    <span class="material-icons text-amber-600 dark:text-amber-400">warning</span>
-                                                    <span class="text-sm font-semibold text-amber-800 dark:text-amber-200">Requires Reauthorization</span>
+                                        <div class="space-y-3">
+                                            <!-- Signature Image (drawn) -->
+                                            <div v-if="record?.signature_url">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signature</label>
+                                                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                                    <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
                                                 </div>
-                                                <p v-if="record?.revised_estimated_total" class="text-sm text-amber-700 dark:text-amber-300">
-                                                    Revised Estimated Total: {{ formatCurrency(record.revised_estimated_total) }}
-                                                </p>
-                                                <p v-if="record?.reauthorized_at" class="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                                                    Reauthorized: {{ formatDateTime(record.reauthorized_at) }}
-                                                </p>
+                                            </div>
+
+                                            <!-- Typed signature (no image file) -->
+                                            <div v-else-if="record?.signature_method === 5 && record?.customer_signature">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signature</label>
+                                                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                                    <p class="text-2xl text-gray-900 dark:text-white" style="font-family: 'Dancing Script', cursive;">
+                                                        {{ record.customer_signature }}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Reauthorization Warning -->
+                                            <div v-if="record?.requires_reauthorization">
+                                                <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <span class="material-icons text-amber-600 dark:text-amber-400">warning</span>
+                                                        <span class="text-sm font-semibold text-amber-800 dark:text-amber-200">Requires Reauthorization</span>
+                                                    </div>
+                                                    <p v-if="record?.revised_estimated_total" class="text-sm text-amber-700 dark:text-amber-300">
+                                                        Revised Estimated Total: {{ formatCurrency(record.revised_estimated_total) }}
+                                                    </p>
+                                                    <p v-if="record?.reauthorized_at" class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                                        Reauthorized: {{ formatDateTime(record.reauthorized_at) }}
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1262,21 +1356,48 @@ const handleCancel = () => {
                                         </label>
                                     </div>
 
-                                    <!-- Approval Toggle -->
-                                    <div>
-                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                                            Approval
-                                        </label>
-                                        <label class="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                v-model="form.approved"
-                                                type="checkbox"
-                                                :disabled="isFieldReadonly('approved')"
-                                                class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-900"
-                                            />
-                                            <span class="text-sm text-gray-700 dark:text-gray-300">Approved</span>
-                                        </label>
-                                    </div>
+                                <!-- Approval Toggle -->
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                        Approval
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            v-model="approvedValue"
+                                            type="checkbox"
+                                            :disabled="isFieldReadonly('approved')"
+                                            class="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 dark:border-gray-600 dark:bg-gray-900"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">Approved</span>
+                                    </label>
+                                </div>
+
+                                <!-- Approval Actions -->
+                                <div v-if="mode === 'show' && record?.customer?.email" class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                        Client Actions
+                                    </label>
+
+                                    <!-- Send Approval Request -->
+                                    <button
+                                        @click="sendApprovalRequest"
+                                        type="button"
+                                        class="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <span class="material-icons text-sm mr-2">email</span>
+                                        Send Approval Request
+                                    </button>
+
+                                    <!-- Preview Approval Form -->
+                                    <button
+                                        @click="previewApprovalForm"
+                                        type="button"
+                                        class="w-full inline-flex items-center justify-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                                    >
+                                        <span class="material-icons text-sm mr-2">visibility</span>
+                                        Preview Approval Form
+                                    </button>
+                                </div>
                                 </div>
 
                                 <!-- Validation Errors -->

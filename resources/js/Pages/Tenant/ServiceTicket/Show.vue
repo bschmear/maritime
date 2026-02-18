@@ -200,7 +200,7 @@ const closePreview = () => {
                         </Link>
                         <button
                             @click="deleteTicket"
-                            class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            class="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                         >
                             <span class="material-icons">delete_forever</span>
                         </button>
@@ -272,15 +272,12 @@ const closePreview = () => {
                     </div>
                 </div>
             </div>
-        
         </template>
 
-        <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin">
-            <div class="w-full px-4 sm:px-6 py-4 sm:py-5">
+        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin">
+            <div class="w-full px-4 py-4 sm:py-5">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-                    <!-- Left side: Status, Expedite, Approval -->
                     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
-                        <!-- Status Section -->
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</span>
                             <div class="flex items-center gap-2">
@@ -305,8 +302,6 @@ const closePreview = () => {
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Expedite Section -->
                         <div class="flex items-center justify-between sm:justify-start gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Expedite:</span>
                             <span v-if="record.expedite" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-md text-sm font-semibold shadow-sm whitespace-nowrap">
@@ -317,8 +312,6 @@ const closePreview = () => {
                                 No
                             </span>
                         </div>
-
-                        <!-- Approval Section -->
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
                             <div class="flex items-center gap-2">
@@ -339,8 +332,6 @@ const closePreview = () => {
                             </div>
                         </div>
                     </div>
-
-                    <!-- Right side: Timestamps -->
                     <div class="flex flex-row sm:gap-4 lg:gap-6 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                         <div class="flex flex-col flex-1 sm:flex-none">
                             <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Created</span>
@@ -357,7 +348,7 @@ const closePreview = () => {
         </div>
 
         <!-- Main Content -->
-        <div class="w-full space-y-4 md:space-y-6">
+        <div class="w-full space-y-4 md:space-y-6 !pt-0 !mt-0">
             <ServiceTicketForm
                 :record="record"
                 :form-schema="formSchema"

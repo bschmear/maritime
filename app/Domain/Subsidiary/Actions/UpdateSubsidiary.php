@@ -33,7 +33,6 @@ class UpdateSubsidiary
             'default_labor_rate'  => ['nullable', 'numeric', 'min:0'],
             'work_order_prefix'   => ['nullable', 'string', 'max:10'],
             'next_work_order_number' => ['nullable', 'integer', 'min:1000'],
-            'logo'                => ['nullable', 'string', 'max:255'],
             'settings'            => ['nullable', 'array'],
             'notes'               => ['nullable', 'string'],
         ];

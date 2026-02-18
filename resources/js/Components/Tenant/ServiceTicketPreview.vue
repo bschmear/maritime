@@ -105,16 +105,20 @@ const handlePrint = () => {
 };
 
 const handleSendEmail = () => {
-    if (confirm('Send this service ticket to the customer via email?')) {
+    if (confirm('Send approval request to the customer via email? This will allow them to review and approve the service ticket online.')) {
         sending.value = true;
-        router.post(route('servicetickets.send-email', props.record.id), {}, {
+        router.post(route('servicetickets.send-approval-request', props.record.id), {}, {
             preserveState: true,
             onSuccess: () => {
-                alert('Service ticket sent successfully!');
+                alert('Approval request sent successfully!');
                 sending.value = false;
             },
-            onError: () => {
-                alert('Failed to send service ticket. Please try again.');
+            onError: (errors) => {
+                let message = 'Failed to send approval request.';
+                if (errors && errors.message) {
+                    message += ' ' + errors.message;
+                }
+                alert(message + ' Please try again.');
                 sending.value = false;
             }
         });
@@ -147,11 +151,11 @@ const handleSendEmail = () => {
                         <button
                             @click="handleSendEmail"
                             :disabled="sending"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                         >
                             <span v-if="sending" class="material-icons text-sm animate-spin">refresh</span>
-                            <span v-else class="material-icons text-sm">email</span>
-                            {{ sending ? 'Sending...' : 'Send Email' }}
+                            <span v-else class="material-icons text-sm">send</span>
+                            {{ sending ? 'Sending...' : 'Send Approval Request' }}
                         </button>
                         <button
                             @click="handlePrint"

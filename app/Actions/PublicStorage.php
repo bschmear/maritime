@@ -20,7 +20,8 @@ class PublicStorage
 
         $filename = Str::uuid() . '.' . $extension;
         $prefix = $isPrivate ? 'private' : 'public';
-        $key = "{$prefix}/{$directory}/{$filename}";
+        $tenantPrefix = tenant() ? tenant()->id . '/' : '';
+        $key = "{$prefix}/{$tenantPrefix}{$directory}/{$filename}";
 
         if (Str::startsWith($file->getMimeType(), 'image/') && $resizeWidth) {
             // Resize the image if needed using Intervention Image
@@ -64,12 +65,11 @@ class PublicStorage
                 $s3Client = Storage::disk('s3')->getClient();
                 $uploadedImage = $s3Client->putObject([
                     'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
-                    'Key' => "{$prefix}/{$directory}/{$filename}",
+                    'Key' => $key,
                     'SourceFile' => $tempPath,
                     'CacheControl' => $cacheControl,
-                    // Don't set ACL to avoid AccessControlListNotSupported error
                 ]);
-                $uploadedImage = "{$prefix}/{$directory}/{$filename}";
+                $uploadedImage = $key;
             } catch (Exception $e) {
                 dd($e);
             }

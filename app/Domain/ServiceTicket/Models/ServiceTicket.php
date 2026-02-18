@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ServiceTicket extends Model
@@ -34,6 +35,7 @@ class ServiceTicket extends Model
         'signature_method' => 'integer',
 
         'signed_at' => 'datetime',
+        'declined_at' => 'datetime',
         'reauthorized_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -122,6 +124,29 @@ class ServiceTicket extends Model
     public function workOrders(): HasMany
     {
         return $this->hasMany(\App\Domain\WorkOrder\Models\WorkOrder::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (!$this->signature_file) {
+            return null;
+        }
+
+        $cdnUrl = config('filesystems.disks.s3.cdn_url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/') . '/' . $this->signature_file;
+        }
+
+        return Storage::disk('s3')->temporaryUrl(
+            $this->signature_file,
+            now()->addDays(1)
+        );
     }
 
     /*

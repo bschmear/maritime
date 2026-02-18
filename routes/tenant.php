@@ -31,6 +31,8 @@ use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
+// use App\Http\Controllers\Tenant\PortalController;
+use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
@@ -43,19 +45,12 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 */
 
 
-// Route::middleware(['auth:client'])->group(function () {
-//     // Route::get('/portal', ...);
-//     // /portal/serviceticket/{ticket}
-    // Route::get('/', PortalDashboardController::class);
-
-    // Route::get('/tickets', TicketController::class);
-    // Route::get('/tickets/{uuid}', ShowTicketController::class);
-
+Route::middleware(['auth:client'])->group(function () {
+    // Route::get('/portal', ...);
+    // Route::get('/', [PortalController::class, 'index'])->name('portal');
     // Route::get('/documents', DocumentController::class);
-    // Route::get('/documents/{document}', DownloadDocumentController::class);
-
     // Route::get('/invoices', InvoiceController::class);
-// });
+});
 
 
 Route::middleware([
@@ -63,6 +58,12 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
     InitializeTenancyByDomain::class,
 ])->group(function () {
+
+    // Public routes — UUID-secured, no auth required
+    Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
+    Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])->name('service-tickets.approve');
+    Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])->name('service-tickets.decline');
+
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -107,8 +108,8 @@ Route::middleware([
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {
             Route::get('/location-tax-rate', [ServiceTicketController::class, 'getLocationTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [ServiceTicketController::class, 'lookupServiceItems'])->name('service-items.lookup');
-            Route::post('/service-tickets/{serviceTicket}/send-email', [ServiceTicketController::class, 'sendEmail'])
-                ->name('servicetickets.send-email');
+            Route::post('/{id}/send-approval-request', [ServiceTicketController::class, 'sendApprovalRequest'])->name('send-approval-request');
+            Route::get('/{id}/approval-url', [ServiceTicketController::class, 'getApprovalUrl'])->name('approval-url');
             Route::resource('/', ServiceTicketController::class)->parameters(['' => 'serviceticket']);
         });
 

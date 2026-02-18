@@ -21,6 +21,8 @@ return [
     'app_url' => env('APP_TENANT'),
     'api_url' => env('APP_API'),
     'admin_url' => env('APP_ADMIN'),
+    'documents_url' => env('APP_DOCUMENTS'),
+    'client_url' => env('APP_CLIENT'),
     'aws_url' => env('AWS_PUBLIC_URL', null),
 
     'timezone' => 'UTC',
