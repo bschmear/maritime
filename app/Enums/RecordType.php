@@ -24,6 +24,7 @@ enum RecordType: string
     case WorkOrder       = 'workorder';
     case ServiceItem     = 'serviceitem';
     case ServiceTicket   = 'serviceticket';
+    case Notification    = 'notification';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -51,6 +52,7 @@ enum RecordType: string
             self::WorkOrder       => 'WorkOrder',
             self::ServiceItem     => 'ServiceItem',
             self::ServiceTicket   => 'ServiceTicket',
+            self::Notification    => 'Notification',
         };
     }
 
@@ -80,6 +82,7 @@ enum RecordType: string
             self::WorkOrder       => 'App\\Domain\\WorkOrder',
             self::ServiceItem     => 'App\\Domain\\ServiceItem',
             self::ServiceTicket   => 'App\\Domain\\ServiceTicket',
+            self::Notification    => 'App\\Domain\\Notification',
         };
     }
 
@@ -109,6 +112,7 @@ enum RecordType: string
             self::WorkOrder       => 'Work Order',
             self::ServiceItem     => 'Service Item',
             self::ServiceTicket   => 'Service Ticket',
+            self::Notification    => 'Notification',
         };
     }
 
@@ -138,6 +142,7 @@ enum RecordType: string
             self::WorkOrder       => 'workorders',
             self::ServiceItem     => 'serviceitems',
             self::ServiceTicket   => 'servicetickets',
+            self::Notification    => 'notifications',
         };
     }
 

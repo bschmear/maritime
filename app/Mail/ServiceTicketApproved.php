@@ -26,8 +26,6 @@ class ServiceTicketApproved extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
-        $companyName = $this->serviceTicket->subsidiary->display_name ?? 'Service Provider';
-
         return new Envelope(
             subject: "Service Ticket #{$this->serviceTicket->service_ticket_number} — Approval Confirmation",
         );

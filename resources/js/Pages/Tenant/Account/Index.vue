@@ -1,7 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     accountSections: {
@@ -16,19 +16,35 @@ const props = defineProps({
         type: Array,
         required: true,
     },
+    users: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const form = useForm({
     logo: null,
     default_timezone: props.account?.timezone || 'America/Chicago',
     brand_color: props.account?.brand_color || '#3B82F6',
-    estimate_threshold_percent: props.account?.estimate_threshold_percent || 20,
+    estimate_threshold_percent: parseInt(props.account?.estimate_threshold_percent, 10) || 20,
     service_ticket_ack_text: props.account?.service_ticket_ack_text || 'I acknowledge that all charges for services, labor, parts, materials, and applicable fees are due upon release of the property. I understand that I will be notified when work is complete. Storage fees may apply if the property is not picked up within 14 days from notification. Unclaimed property after 60 days may be subject to sale or disposal as permitted by law. I have reviewed and approved the estimate or scope of work and accept the associated charges.',
+    service_ticket_signed_notify_user_id: props.account?.service_ticket_signed_notify_user_id || (props.users?.length > 0 ? props.users[0].id : null),
 });
 
 const logoPreview = ref(props.account?.logo_url || null);
 const fileInput = ref(null);
 const characterCount = ref(form.service_ticket_ack_text.length);
+
+// Computed property for selected notification user
+const selectedNotificationUser = computed(() => {
+    if (!form.service_ticket_signed_notify_user_id) return null;
+    return props.users.find(user => user.id === form.service_ticket_signed_notify_user_id);
+});
+
+// Check if the first user is selected (default behavior)
+const isFirstUserSelected = computed(() => {
+    return props.users.length > 0 && form.service_ticket_signed_notify_user_id === props.users[0].id;
+});
 
 const handleLogoChange = (event) => {
     const file = event.target.files[0];
@@ -55,7 +71,10 @@ const updateCharacterCount = () => {
 };
 
 const submit = () => {
-    form.post(route('account.update'), {
+    form.transform((data) => ({
+        ...data,
+        estimate_threshold_percent: parseInt(data.estimate_threshold_percent, 10),
+    })).post(route('account.update'), {
         preserveScroll: true,
     });
 };
@@ -286,7 +305,7 @@ const submit = () => {
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 gap-6 md:grid-cols-2 ">
+                            <div class="grid grid-cols-1 gap-6 md:grid-cols-3 ">
                                 <!-- Estimate Threshold -->
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
                                     <label for="estimate_threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -382,6 +401,48 @@ const submit = () => {
 
                                     <p v-if="form.errors.service_ticket_ack_text" class="mt-2 text-xs text-red-600 dark:text-red-400">
                                         {{ form.errors.service_ticket_ack_text }}
+                                    </p>
+                                </div>
+
+                                <!-- Service Ticket Signed Notification -->
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
+                                    <label for="service_ticket_signed_notify_user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Service Ticket Signed Notification
+                                    </label>
+
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                        Select who should receive notifications when service tickets are signed or approved by customers. The first user is selected by default. If no users are available, notifications will be sent to the account owner.
+                                    </p>
+
+                                    <select
+                                        id="service_ticket_signed_notify_user_id"
+                                        v-model="form.service_ticket_signed_notify_user_id"
+                                        class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                    >
+                                        <option v-if="users.length > 0" :value="users[0].id">
+                                            {{ users[0].name }} ({{ users[0].email }}) - Default
+                                        </option>
+                                        <option v-for="user in users.slice(1)" :key="user.id" :value="user.id">
+                                            {{ user.name }} ({{ user.email }})
+                                        </option>
+                                        <option value="">Account Owner (if no users available)</option>
+                                    </select>
+
+                                    <div class="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                        <p class="text-sm text-amber-800 dark:text-amber-300">
+                                            <span class="material-icons text-base align-middle mr-1">notifications</span>
+                                            <strong>Notification Recipients:</strong>
+                                            <span v-if="selectedNotificationUser">
+                                                {{ selectedNotificationUser.name }} ({{ selectedNotificationUser.email }})
+                                                <em v-if="isFirstUserSelected" class="text-xs">(Default)</em>
+                                            </span>
+                                            <span v-else-if="users.length === 0">Account Owner</span>
+                                            <span v-else>{{ users[0].name }} ({{ users[0].email }}) - Default</span>
+                                        </p>
+                                    </div>
+
+                                    <p v-if="form.errors.service_ticket_signed_notify_user_id" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        {{ form.errors.service_ticket_signed_notify_user_id }}
                                     </p>
                                 </div>
                             </div>

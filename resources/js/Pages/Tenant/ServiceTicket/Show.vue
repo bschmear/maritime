@@ -150,6 +150,11 @@ const openPreview = () => {
 const closePreview = () => {
     showPreview.value = false;
 };
+
+// Check if the service ticket has been approved/signed and cannot be edited
+const isLocked = computed(() => {
+    return props.record.approved || props.record.signed_at || props.record.customer_signature;
+});
 </script>
 
 <template>
@@ -192,12 +197,16 @@ const closePreview = () => {
                             <span class="material-icons text-sm mr-1">visibility</span>
                             Customer Preview
                         </button>
-                        <Link :href="route('servicetickets.edit', record.id)">
+                        <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)">
                             <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
                                 <span class="material-icons text-sm mr-1">edit</span>
                                 Edit
                             </button>
                         </Link>
+                        <button v-else disabled class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
+                            <span class="material-icons text-sm mr-1">lock</span>
+                            Locked
+                        </button>
                         <button
                             @click="deleteTicket"
                             class="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
@@ -215,12 +224,16 @@ const closePreview = () => {
                             </button>
                         </Link>
                         
-                        <Link :href="route('servicetickets.edit', record.id)" class="flex-1">
+                        <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)" class="flex-1">
                             <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
                                 <span class="material-icons text-sm mr-1">edit</span>
                                 Edit
                             </button>
                         </Link>
+                        <button v-else disabled class="flex-1 w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
+                            <span class="material-icons text-sm mr-1">lock</span>
+                            Locked
+                        </button>
 
                         <!-- Dropdown Menu -->
                         <div class="relative">
@@ -274,7 +287,7 @@ const closePreview = () => {
             </div>
         </template>
 
-        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin">
+        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900">
             <div class="w-full px-4 py-4 sm:py-5">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">

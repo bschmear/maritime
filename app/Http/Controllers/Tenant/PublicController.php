@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Mail\ServiceTicketApproved;
 use App\Models\AccountSettings;
+use App\Domain\Notification\Models\Notification;
+use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Inertia\Inertia;
 
 class PublicController extends Controller
@@ -21,7 +24,14 @@ class PublicController extends Controller
                 'customer',
                 'subsidiary',
                 'location',
-                'assetUnit',
+                'assetUnit' => function ($query) {
+                    $query->with(['asset' => function ($q) {
+                        $q->select(['id', 'display_name', 'year', 'make_id'])
+                          ->with(['make' => function ($mq) {
+                              $mq->select(['id', 'display_name']);
+                          }]);
+                    }]);
+                },
                 'serviceItems' => fn ($q) => $q->where('inactive', false)->orderBy('sort_order')->orderBy('id'),
             ])
             ->firstOrFail();
@@ -117,7 +127,12 @@ class PublicController extends Controller
             'signature_file' => $signatureFile,
         ]);
 
+        $ticket->refresh();
+
         $this->sendApprovalConfirmation($ticket, $account);
+
+        // Create notification and send email to designated user
+        $this->notifyApproval($ticket, $account);
 
         return back();
     }
@@ -143,11 +158,149 @@ class PublicController extends Controller
     }
 
     /**
+     * Create notification and send email to designated user when service ticket is approved.
+     */
+    private function notifyApproval(ServiceTicket $ticket, AccountSettings $account): void
+    {
+        try {
+            // Get the user to notify
+            $notifyUser = $this->getNotificationUser($account);
+
+            if (!$notifyUser) {
+                \Log::warning('No user found to notify for service ticket approval', [
+                    'ticket_id' => $ticket->id,
+                    'account_id' => $account->id ?? null
+                ]);
+                return;
+            }
+
+            // Generate PDF
+            $pdfPath = $this->generateServiceTicketPdf($ticket, $account);
+
+            // Create notification record
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type' => 'service_ticket_approved',
+                'title' => 'Service Ticket Approved',
+                'message' => "Service ticket #{$ticket->service_ticket_number} has been approved by {$ticket->customer->display_name}.",
+                'route' => 'servicetickets.show',
+                'route_params' => $ticket->id,
+            ]);
+
+            // Send email notification
+            $this->sendApprovalNotificationEmail($ticket, $account, $notifyUser, $pdfPath);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to create approval notification', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Get the user to notify for service ticket approvals.
+     */
+    private function getNotificationUser(AccountSettings $account)
+    {
+        // If a specific user is set, use them
+        if ($account->service_ticket_signed_notify_user_id) {
+            return \App\Domain\User\Models\User::find($account->service_ticket_signed_notify_user_id);
+        }
+
+        // Default to account owner
+        $tenant = tenant();
+        if ($tenant) {
+            $accountModel = Account::where('tenant_id', $tenant->id)->first();
+            if ($accountModel && $accountModel->owner) {
+                return $accountModel->owner;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate PDF of the service ticket.
+     */
+    private function generateServiceTicketPdf(ServiceTicket $ticket, AccountSettings $account): ?string
+    {
+        try {
+            // Load all necessary relationships
+            $ticket->load([
+                'customer',
+                'subsidiary',
+                'location',
+                'assetUnit.asset',
+                'serviceItems' => function ($query) {
+                    $query->where('inactive', false)->orderBy('sort_order');
+                }
+            ]);
+
+            // Prepare data for PDF
+            $pdfData = [
+                'ticket' => $ticket,
+                'account' => $account,
+                'subsidiary' => $ticket->subsidiary,
+                'logoUrl' => $this->resolveLogoUrl($ticket, $account),
+            ];
+
+            // Generate PDF
+            $pdf = Pdf::loadView('pdfs.service-ticket', $pdfData);
+
+            // Generate filename
+            $filename = 'service-ticket-' . $ticket->service_ticket_number . '-' . now()->format('Y-m-d-H-i-s') . '.pdf';
+            $path = 'pdfs/' . $filename;
+
+            // Save PDF to storage
+            Storage::disk('s3')->put($path, $pdf->output());
+
+            // Create document record
+            $document = \App\Domain\Document\Models\Document::create([
+                'display_name' => "Service Ticket #{$ticket->service_ticket_number} - Signed",
+                'file' => $path,
+                'file_extension' => 'pdf',
+                'file_size' => strlen($pdf->output()),
+                'created_by_id' => null, // System generated
+                'ai_status' => 'completed', // PDF doesn't need AI processing
+            ]);
+
+            return $path;
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to generate service ticket PDF', [
+                'ticket_id' => $ticket->id,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Send approval notification email to designated user.
+     */
+    private function sendApprovalNotificationEmail(ServiceTicket $ticket, AccountSettings $account, $notifyUser, ?string $pdfPath): void
+    {
+        try {
+            Mail::to($notifyUser->email)->send(
+                new \App\Mail\ServiceTicketApprovalNotification($ticket, $account, $notifyUser, $pdfPath)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Failed to send approval notification email', [
+                'ticket_id' => $ticket->id,
+                'user_id' => $notifyUser->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Send approval confirmation email to the customer.
      */
     private function sendApprovalConfirmation(ServiceTicket $ticket, AccountSettings $account): void
     {
-        $ticket->load(['customer', 'subsidiary', 'location', 'assetUnit', 'serviceItems']);
+        $ticket->load(['customer']);
 
         $customerEmail = $ticket->customer->email ?? null;
         if (!$customerEmail) {

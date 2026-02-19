@@ -43,7 +43,10 @@ class ServiceTicketController extends BaseController
         $relationships['assetUnit'] = function ($query) {
             $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                   ->with(['asset' => function ($q) {
-                      $q->select(['id', 'display_name']);
+                      $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                        ->with(['make' => function ($mq) {
+                            $mq->select(['id', 'display_name']);
+                        }]);
                   }]);
         };
         $query = ServiceTicket::with($relationships);
@@ -165,7 +168,10 @@ class ServiceTicketController extends BaseController
         $relationships['assetUnit'] = function ($query) {
             $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                   ->with(['asset' => function ($q) {
-                      $q->select(['id', 'display_name']);
+                      $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                        ->with(['make' => function ($mq) {
+                            $mq->select(['id', 'display_name']);
+                        }]);
                   }]);
         };
 
@@ -227,6 +233,14 @@ class ServiceTicketController extends BaseController
      */
     public function edit($id)
     {
+        $record = ServiceTicket::findOrFail($id);
+
+        // Prevent editing if the service ticket has been approved/signed
+        if ($record->approved || $record->signed_at || $record->customer_signature) {
+            return redirect()->route('servicetickets.show', $id)
+                ->with('error', 'This service ticket cannot be edited because it has already been approved and/or signed by the customer.');
+        }
+
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
@@ -239,7 +253,10 @@ class ServiceTicketController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                               ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name']);
+                                  $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                                    ->with(['make' => function ($mq) {
+                                        $mq->select(['id', 'display_name']);
+                                    }]);
                               }]);
                     };
                 } else {
@@ -294,7 +311,15 @@ class ServiceTicketController extends BaseController
      */
     public function update(Request $request, $id)
     {
-        $ticket = $this->service->update(ServiceTicket::findOrFail($id), $request->all());
+        $ticket = ServiceTicket::findOrFail($id);
+
+        // Prevent updating if the service ticket has been approved/signed
+        if ($ticket->approved || $ticket->signed_at || $ticket->customer_signature) {
+            return redirect()->route('servicetickets.show', $id)
+                ->with('error', 'This service ticket cannot be updated because it has already been approved and/or signed by the customer.');
+        }
+
+        $ticket = $this->service->update($ticket, $request->all());
 
         return redirect()->route('servicetickets.show', $ticket->id);
     }

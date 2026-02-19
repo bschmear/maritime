@@ -17,6 +17,18 @@ class AccountController extends Controller
         // Get current tenant's account settings (cached)
         $account = AccountSettings::getCurrent();
 
+        // Get users for the notification dropdown
+        $users = \App\Domain\User\Models\User::select('id', 'display_name', 'email')
+            ->orderBy('display_name')
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->display_name ?: $user->email,
+                    'email' => $user->email,
+                ];
+            });
+
         $accountSections = [
             [
                 'title' => 'Users',
@@ -52,6 +64,7 @@ class AccountController extends Controller
             'accountSections' => $accountSections,
             'account' => $account,
             'timezones' => Timezone::options(),
+            'users' => $users,
         ]);
     }
 
@@ -66,6 +79,7 @@ class AccountController extends Controller
             'brand_color' => 'nullable|string|max:7',
             'estimate_threshold_percent' => 'required|integer|min:0|max:100',
             'service_ticket_ack_text' => 'required|string|max:1000',
+            'service_ticket_signed_notify_user_id' => 'nullable|exists:users,id',
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -86,6 +100,7 @@ class AccountController extends Controller
         $account->brand_color = $validated['brand_color'] ?? $account->brand_color;
         $account->estimate_threshold_percent = $validated['estimate_threshold_percent'];
         $account->service_ticket_ack_text = $validated['service_ticket_ack_text'];
+        $account->service_ticket_signed_notify_user_id = $validated['service_ticket_signed_notify_user_id'] ?? null;
 
         $account->save();
 

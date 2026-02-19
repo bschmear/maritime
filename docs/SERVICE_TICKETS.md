@@ -64,7 +64,8 @@ Client sees:
 ## Step 3: Capture Approval
 
 When client approves, store:
-USing npm i vue-signature-pad;
+
+Using npm i vue-signature-pad;
 https://www.npmjs.com/package/vue-signature-pad
 
 approved_at (timestamp)

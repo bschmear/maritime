@@ -31,6 +31,8 @@ use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
+use App\Http\Controllers\Tenant\NotificationController;
+
 // use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -186,6 +188,31 @@ Route::middleware([
         
         Route::post('/subsidiaries/{subsidiary}/attach', [SubsidiaryController::class, 'attachRelationship'])->name('subsidiaries.attach');
         Route::post('/subsidiaries/{subsidiary}/detach', [SubsidiaryController::class, 'detachRelationship'])->name('subsidiaries.detach');
+
+        Route::prefix('notifications')
+        ->name('notifications.')
+        ->group(function () {
+    
+            // List notifications (API or page)
+            Route::get('/', [NotificationController::class, 'index'])
+                ->name('index');
+     
+            // Redirect + mark as read
+            Route::get('/{id}', [NotificationController::class, 'redirect'])
+                ->name('redirect');
+
+            // Mark single as read (AJAX)
+            Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])
+                ->name('read');
+
+            // Mark all as read
+            Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])
+                ->name('markAllRead');
+
+            // Optional: delete notification
+            Route::delete('/{id}', [NotificationController::class, 'destroy'])
+                ->name('destroy');
+        });
 
 
         // Profile routes

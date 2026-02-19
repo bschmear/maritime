@@ -38,6 +38,11 @@ const props = defineProps({
 
 const emit = defineEmits(['saved', 'cancelled']);
 
+// Check if the service ticket has been approved/signed and cannot be edited
+const isLocked = computed(() => {
+    return props.record && (props.record.approved || props.record.signed_at || props.record.customer_signature);
+});
+
 /**
  * Convert a datetime string that represents a time in the account timezone to a UTC Date.
  */
@@ -378,7 +383,7 @@ const isFieldDisabled = (fieldKey) => {
 };
 
 const isFieldReadonly = (fieldKey) => {
-    return props.fieldsSchema[fieldKey]?.readOnly === true || props.mode === 'show';
+    return props.fieldsSchema[fieldKey]?.readOnly === true || props.mode === 'show' || isLocked.value;
 };
 
 // Use global timezone composable
@@ -1260,7 +1265,7 @@ const handleCancel = () => {
                                             <!-- Signature Image (drawn) -->
                                             <div v-if="record?.signature_url">
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Signature</label>
-                                                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                                <div class="bg-white  border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                                                     <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
                                                 </div>
                                             </div>
@@ -1416,12 +1421,14 @@ const handleCancel = () => {
                                     <button
                                         @click="saveTicket"
                                         type="button"
-                                        :disabled="form.processing"
+                                        :disabled="form.processing || isLocked"
                                         class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         <span v-if="form.processing" class="material-icons text-sm mr-2 animate-spin">refresh</span>
+                                        <span v-else-if="isLocked" class="material-icons text-sm mr-2">lock</span>
                                         <span v-else class="material-icons text-sm mr-2">check_circle</span>
-                                        {{ mode === 'edit' ? (form.processing ? 'Updating...' : 'Save & Continue') : (form.processing ? 'Creating...' : 'Save') }}
+                                        <span v-if="isLocked">Ticket Locked</span>
+                                        <span v-else>{{ mode === 'edit' ? (form.processing ? 'Updating...' : 'Save & Continue') : (form.processing ? 'Creating...' : 'Save') }}</span>
                                     </button>
 
 

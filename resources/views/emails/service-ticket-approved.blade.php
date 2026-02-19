@@ -169,7 +169,7 @@
 
                 <div class="detail-row">
                     <span class="detail-label">Date Created</span>
-                    <span class="detail-value">{{ $serviceTicket->created_at->format('F j, Y') }}</span>
+                    <span class="detail-value">{{ $serviceTicket->created_at?->format('F j, Y') ?? 'N/A' }}</span>
                 </div>
 
                 @if($serviceTicket->assetUnit)

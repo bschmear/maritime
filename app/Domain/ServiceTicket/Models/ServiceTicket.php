@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ServiceTicket extends Model
 {
+    use SoftDeletes;
     protected $table = 'service_tickets';
 
     protected $guarded = ['id'];

@@ -4,8 +4,10 @@ namespace App\Domain\User\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Domain\Task\Models\Task;
 use App\Domain\Role\Models\Role;
+use App\Domain\Notification\Models\Notification;
 use App\Models\Concerns\HasDocuments;
 
 class User extends Model
@@ -62,6 +64,14 @@ class User extends Model
             'subsidiary_user'
         )->withPivot(['primary'])
         ->withTimestamps();
+    }
+
+    /**
+     * Get the notifications assigned to this user.
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class, 'assigned_to_user_id');
     }
 
 }

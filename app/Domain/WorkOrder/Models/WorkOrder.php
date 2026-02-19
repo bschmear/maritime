@@ -5,12 +5,14 @@ namespace App\Domain\WorkOrder\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Domain\WorkOrder\Models\WorkOrderLineItem;
+// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WorkOrder extends Model
 {
+    use SoftDeletes;
     protected $table = 'work_orders';
 
     /**

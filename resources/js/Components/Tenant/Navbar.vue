@@ -1,13 +1,17 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, router } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
+import NotificationDropdown from '@/Components/Tenant/NotificationDropdown.vue';
+import axios from 'axios';
 
 const page = usePage();
 const showingNavigationDropdown = ref(false);
 const userDropdownOpen = ref(false);
 const notificationDropdownOpen = ref(false);
+const notifications = ref([]);
+
 const { theme, setTheme, initTheme } = useTheme();
 
 const cycleTheme = () => {
@@ -17,8 +21,156 @@ const cycleTheme = () => {
     setTheme(themes[nextIndex]);
 };
 
+// Cache key for notifications
+const NOTIFICATIONS_CACHE_KEY = 'tenant_notifications';
+const NOTIFICATIONS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+const fetchNotifications = async () => {
+    try {
+        // Check cache first
+        const cached = getCachedNotifications();
+        if (cached) {
+            notifications.value = cached;
+            return;
+        }
+
+        // Clear any potentially corrupted cache
+        localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+
+        const response = await axios.get(route('notifications.index'));
+
+        notifications.value = response.data.data;
+
+        // Cache the results
+        cacheNotifications(response.data.data);
+    } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+        notifications.value = [];
+    }
+};
+
+const getCachedNotifications = () => {
+    try {
+        const cached = localStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+        if (!cached) return null;
+
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+
+        // Check if cache is still valid
+        if (now - parsed.timestamp > NOTIFICATIONS_CACHE_DURATION) {
+            localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+            return null;
+        }
+
+        // Handle both old format (paginated object) and new format (array)
+        if (Array.isArray(parsed.data)) {
+            return parsed.data; // New format - already an array
+        } else if (parsed.data && typeof parsed.data === 'object' && parsed.data.data) {
+            return parsed.data.data; // Old format - extract array from paginated response
+        }
+
+        return null;
+    } catch (error) {
+        localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+        return null;
+    }
+};
+
+const cacheNotifications = (data) => {
+    try {
+        const cacheData = {
+            data,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+        // Ignore localStorage errors
+    }
+};
+
+const handleMarkAsRead = async (id) => {
+    try {
+        await axios.post(route('notifications.read', id));
+
+        // Update local state
+        const notification = notifications.value.find(n => n.id === id);
+        if (notification) {
+            notification.read_at = new Date().toISOString();
+        }
+
+        // Update cache
+        cacheNotifications(notifications.value);
+    } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+    }
+};
+
+const handleMarkAllRead = async () => {
+    try {
+        await axios.post(route('notifications.markAllRead'));
+
+        // Update local state
+        notifications.value.forEach(n => {
+            n.read_at = new Date().toISOString();
+        });
+
+        // Update cache
+        cacheNotifications(notifications.value);
+    } catch (error) {
+        console.error('Failed to mark all notifications as read:', error);
+    }
+};
+
+const handleDismiss = async (id) => {
+    try {
+        await axios.delete(route('notifications.destroy', id));
+
+        // Update local state
+        notifications.value = notifications.value.filter(n => n.id !== id);
+
+        // Update cache
+        cacheNotifications(notifications.value);
+    } catch (error) {
+        console.error('Failed to dismiss notification:', error);
+    }
+};
+
+const handleNotificationClick = (notification) => {
+    // Close the dropdown
+    notificationDropdownOpen.value = false;
+
+    // Redirect to the notification's route
+    if (notification.route && notification.route_params) {
+        router.visit(route(notification.route, notification.route_params));
+    } else if (notification.route) {
+        router.visit(route(notification.route));
+    }
+};
+
+// Method to refresh notifications (can be called externally if needed)
+const refreshNotifications = () => {
+    // Clear cache to force fresh fetch
+    localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+    fetchNotifications();
+};
+
+// Watch for notification dropdown opening to refresh if cache is old
+const openNotificationDropdown = () => {
+    notificationDropdownOpen.value = true;
+    // Refresh notifications when opening dropdown if cache is older than 1 minute
+    const cached = getCachedNotifications();
+    if (!cached || (Date.now() - JSON.parse(localStorage.getItem(NOTIFICATIONS_CACHE_KEY)).timestamp > 60 * 1000)) {
+        refreshNotifications();
+    }
+};
+
 onMounted(() => {
+    // Clear old notification cache format
+    localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+
     initTheme();
+    fetchNotifications();
 });
 </script>
 
@@ -87,60 +239,39 @@ onMounted(() => {
                     </button>
 
                     <!-- Notifications -->
-                    <button
-                        type="button"
-                        @click="notificationDropdownOpen = !notificationDropdownOpen"
-                        class="p-2 mr-1 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+                    <NotificationDropdown
+                        :open="notificationDropdownOpen"
+                        :notifications="notifications"
+                        @close="notificationDropdownOpen = false"
+                        @mark-as-read="handleMarkAsRead"
+                        @mark-all-read="handleMarkAllRead"
+                        @dismiss="handleDismiss"
+                        @notification-click="handleNotificationClick"
                     >
-                        <span class="sr-only">View notifications</span>
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                        </svg>
-                    </button>
-
-                    <span class="hidden mx-2 w-px h-5 bg-gray-200 dark:bg-gray-600 lg:inline lg:mx-2"></span>
-
-                    <!-- Notification Dropdown -->
-                    <div
-                        v-show="notificationDropdownOpen"
-                        class="absolute right-0 top-16 z-50 my-4 max-w-sm text-base list-none bg-white rounded-lg divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700"
-                    >
-                        <div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
-                            Notifications
-                        </div>
-                        <div>
-                            <a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
-                                <div class="flex-shrink-0">
-                                    <div class="w-11 h-11 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
-                                        JD
-                                    </div>
-                                </div>
-                                <div class="pl-3 w-full">
-                                    <div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
-                                        New message from <span class="font-semibold text-gray-900 dark:text-white">John Doe</span>
-                                    </div>
-                                    <div class="text-xs font-medium text-blue-600 dark:text-blue-500">
-                                        a few moments ago
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        <a href="#" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
-                            <div class="inline-flex items-center">
-                                <svg class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-                                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-                                </svg>
-                                View all
-                            </div>
-                        </a>
-                    </div>
-
+                        <template #trigger="{ unreadCount }">
+                            <button
+                                type="button"
+                                @click="notificationDropdownOpen ? (notificationDropdownOpen = false) : openNotificationDropdown()"
+                                class="relative p-2 mr-1 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100
+                                    dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700
+                                    focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+                            >
+                                <span class="sr-only">View notifications</span>
+                                <span class="material-icons text-2xl text-gray-500 dark:text-gray-400">notifications</span>
+                                <!-- Badge -->
+                                <span
+                                    v-if="unreadCount > 0"
+                                    class="absolute top-1 right-1 flex h-4 w-4 items-center justify-center
+                                        rounded-full bg-indigo-500 text-[10px] font-bold text-white"
+                                >{{ unreadCount }}</span>
+                            </button>
+                        </template>
+                    </NotificationDropdown>
                     <!-- User Dropdown Button -->
                     <button
                         type="button"
                         @click="userDropdownOpen = !userDropdownOpen"
-                        class="flex text-sm bg-gray-800 rounded-full md:me-0 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+                        class="flex text-sm bg-gray-800 rounded-full md:me-0 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 ml-2"
                     >
                         <span class="sr-only">Open user menu</span>
                         <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium">
@@ -151,7 +282,7 @@ onMounted(() => {
                     <!-- User Dropdown Menu -->
                     <div
                         v-show="userDropdownOpen"
-                        class="absolute right-0 top-16 z-50 my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600"
+                        class="absolute right-0  top-16 z-50 my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600"
                     >
                         <div class="px-4 py-3">
                             <span class="block text-sm text-gray-900 dark:text-white">{{ $page.props.auth.user.name }}</span>

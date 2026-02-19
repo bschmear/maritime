@@ -265,11 +265,11 @@ const handleSendEmail = () => {
                                     <div class="font-semibold text-gray-900 text-lg">
                                         {{ record.asset_unit?.display_name || '—' }}
                                     </div>
-                                    <div v-if="record.asset_unit?.model" class="text-sm text-gray-600">
-                                        <span class="font-medium">Model:</span> {{ record.asset_unit.model }}
+                                    <div v-if="record.asset_unit?.asset?.make?.display_name" class="text-sm text-gray-600">
+                                        <span class="font-medium">Make:</span> {{ record.asset_unit.asset.make.display_name }}
                                     </div>
-                                    <div v-if="record.asset_unit?.year" class="text-sm text-gray-600">
-                                        <span class="font-medium">Year:</span> {{ record.asset_unit.year }}
+                                    <div v-if="record.asset_unit?.asset?.year" class="text-sm text-gray-600">
+                                        <span class="font-medium">Year:</span> {{ record.asset_unit.asset.year }}
                                     </div>
                                     <div v-if="record.asset_unit?.serial_number" class="text-sm text-gray-600">
                                         <span class="font-medium">Serial:</span> {{ record.asset_unit.serial_number }}

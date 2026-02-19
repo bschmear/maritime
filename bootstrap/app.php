@@ -2,6 +2,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -38,7 +39,22 @@ return Application::configure(basePath: dirname(__DIR__))
             'kiosk.domain' => \App\Http\Middleware\EnsureKioskDomain::class,
             'kiosk.admin' => \App\Http\Middleware\EnsureKioskAdmin::class,
             'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
+            'redirect.unauthenticated' => \App\Http\Middleware\RedirectUnauthenticatedFromTenant::class,
         ]);
+
+        // When an unauthenticated user hits a tenant subdomain, send them to the
+        // main domain instead of trying to generate route('login') which doesn't
+        // exist in the tenant routing context.
+        $middleware->redirectGuestsTo(function (Request $request) {
+            $host = $request->getHost();
+            $parts = explode('.', $host);
+
+            if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
+                return config('app.url') . '/login';
+            }
+
+            return route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

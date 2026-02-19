@@ -7,22 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class Document extends Model
 {
     protected $table = 'documents';
-    protected $guarded = ['id', 'created_at', 'updated_at'];
     protected $fillable = [
         'display_name',
         'description',
         'file',
-        'user_id',
-        'assigned_id',
-        'user_name',
         'file_extension',
-        'team_id',
         'file_size',
+        'created_by_id',
+        'updated_by_id',
+        'assigned_id',
         'extracted_text',
         'ai_summary',
         'key_points',
         'ai_status',
-        'ai_processed_at'
+        'ai_processed_at',
     ];
 
     protected $casts = [

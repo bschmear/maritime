@@ -49,6 +49,18 @@ const formatDate = (value) => {
     } catch { return '—'; }
 };
 
+const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+    // Remove all non-numeric characters
+    const cleaned = phone.replace(/\D/g, '');
+    // Format as (XXX) XXX-XXXX
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+        return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return phone; // Return original if it doesn't match expected format
+};
+
 const formatDateTime = (value) => {
     if (!value) return '—';
     try {
@@ -328,6 +340,7 @@ const signaturePadOptions = {
                                     </div>
                                 </div>
                             </div>
+                            <!-- Asset Information -->
                             <div v-if="record.asset_unit">
                                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Asset Information</h2>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
@@ -335,11 +348,11 @@ const signaturePadOptions = {
                                         <div class="font-semibold text-gray-900 text-lg">
                                             {{ record.asset_unit?.display_name || '—' }}
                                         </div>
-                                        <div v-if="record.asset_unit?.model" class="text-sm text-gray-600">
-                                            <span class="font-medium">Model:</span> {{ record.asset_unit.model }}
+                                        <div v-if="record.asset_unit?.asset?.make?.display_name" class="text-sm text-gray-600">
+                                            <span class="font-medium">Make:</span> {{ record.asset_unit.asset.make.display_name }}
                                         </div>
-                                        <div v-if="record.asset_unit?.year" class="text-sm text-gray-600">
-                                            <span class="font-medium">Year:</span> {{ record.asset_unit.year }}
+                                        <div v-if="record.asset_unit?.asset?.year" class="text-sm text-gray-600">
+                                            <span class="font-medium">Year:</span> {{ record.asset_unit.asset.year }}
                                         </div>
                                         <div v-if="record.asset_unit?.serial_number" class="text-sm text-gray-600">
                                             <span class="font-medium">Serial:</span> {{ record.asset_unit.serial_number }}
@@ -642,7 +655,7 @@ const signaturePadOptions = {
                     <div class="px-8 py-4 bg-gray-900 text-white text-center text-xs">
                         <p>Thank you for your business!</p>
                         <p v-if="record.location?.phone" class="mt-1">
-                            Questions? Call us at {{ record.location.phone }}
+                            Questions? Call us at {{ formatPhoneNumber(record.location.phone) }}
                         </p>
                     </div>
                 </div>
