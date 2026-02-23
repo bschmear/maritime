@@ -1,0 +1,62 @@
+{
+    "columns": [
+      {
+        "key": "id",
+        "label": "Delivery #",
+        "sortable": true
+      },
+      {
+        "key": "customer_id",
+        "label": "Customer",
+        "sortable": false
+      },
+      {
+        "key": "asset_unit_id",
+        "label": "Asset",
+        "sortable": false
+      },
+      {
+        "key": "status",
+        "label": "Status",
+        "sortable": true
+      },
+      {
+        "key": "technician_id",
+        "label": "Technician",
+        "sortable": false
+      },
+      {
+        "key": "scheduled_at",
+        "label": "Scheduled",
+        "sortable": true
+      },
+      {
+        "key": "estimated_arrival_at",
+        "label": "ETA",
+        "sortable": true
+      },
+      {
+        "key": "delivered_at",
+        "label": "Delivered",
+        "sortable": true
+      },
+      {
+        "key": "signed_at",
+        "label": "Signed",
+        "sortable": true
+      },
+      {
+        "key": "created_at",
+        "label": "Created",
+        "sortable": true
+      }
+    ],
+  
+    "filters": [
+      {
+        "field": "deleted_at",
+        "operator": "is_null"
+      }
+    ]
+  }
+  

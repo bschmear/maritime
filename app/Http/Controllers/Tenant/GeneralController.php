@@ -18,9 +18,18 @@ class GeneralController extends BaseController
     {
         // Simple lookup - just return id and display_name
         $type = $request->get('type');
-        // dd($type);
 
-        $recordModel = 'App\Domain\\' . ucfirst($type) . '\Models\\' . ucfirst($type);
+        // Map lowercase types to correct domain class names (e.g. workorder -> WorkOrder)
+        $typeToDomain = [
+            'workorder' => 'WorkOrder',
+            'serviceticket' => 'ServiceTicket',
+            'serviceitem' => 'ServiceItem',
+            'assetunit' => 'AssetUnit',
+            'inventoryunit' => 'InventoryUnit',
+        ];
+        $domainName = $typeToDomain[$type] ?? \Illuminate\Support\Str::studly($type);
+
+        $recordModel = 'App\Domain\\' . $domainName . '\Models\\' . $domainName;
         $recordModel = new $recordModel();
 
         // Check if display_name column exists, otherwise just select id
@@ -61,7 +70,7 @@ class GeneralController extends BaseController
             $filtersArray = is_string($filters) ? json_decode($filters, true) : $filters;
             if (is_array($filtersArray) && !empty($filtersArray)) {
                 // Set domain name for HasSchemaSupport trait
-                $this->domainName = ucfirst($type);
+                $this->domainName = $domainName;
                 $this->recordModel = $recordModel;
 
                 // Load fields schema for the domain

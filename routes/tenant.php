@@ -29,6 +29,7 @@ use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
+use App\Http\Controllers\Tenant\DeliveryController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\NotificationController;
@@ -105,6 +106,12 @@ Route::middleware([
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
+        });
+     
+        Route::prefix('deliveries')->name('deliveries.')->group(function () {
+            Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
+            Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
+            Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);
         });
 
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {

@@ -1,0 +1,172 @@
+{
+    "customer_id": {
+      "label": "Customer",
+      "type": "record",
+      "typeDomain": "Customer",
+      "required": true,
+      "create": true
+    },
+  
+    "asset_unit_id": {
+      "label": "Asset",
+      "type": "record",
+      "typeDomain": "AssetUnit",
+      "filterby": "customer_id",
+      "required": true,
+      "create": false,
+      "help": "Boat, engine, or trailer being delivered"
+    },
+  
+    "work_order_id": {
+      "label": "Work Order",
+      "type": "record",
+      "typeDomain": "WorkOrder",
+      "nullable": true,
+      "relationship": "workOrder"
+    },
+  
+    "technician_id": {
+      "label": "Assigned Technician",
+      "type": "record",
+      "typeDomain": "User",
+      "nullable": true,
+      "relationship": "technician"
+    },
+  
+    "scheduled_at": {
+      "label": "Scheduled Delivery Date & Time",
+      "type": "datetime",
+      "required": true,
+      "default_now": true
+    },
+  
+    "estimated_arrival_at": {
+      "label": "Estimated Arrival Time",
+      "type": "datetime",
+      "nullable": true,
+      "help": "Optional ETA provided by technician"
+    },
+  
+    "delivered_at": {
+      "label": "Delivered At",
+      "type": "datetime",
+      "readOnly": true,
+      "help": "Automatically set when marked delivered"
+    },
+
+    "address_line_1": {
+      "label": "Street Address",
+      "type": "text"
+  },
+  "address_line_2": {
+      "label": "Address Line 2",
+      "type": "text"
+  },
+  "city": {
+      "label": "City",
+      "type": "text"
+  },
+  "state": {
+      "label": "State or Province",
+      "type": "text"
+  },
+  "postal_code": {
+      "label": "Postal Code",
+      "type": "text"
+  },
+  "country": {
+      "label": "Country",
+      "type": "text"
+  },
+  "latitude": {
+      "label": "Latitude",
+      "type": "number"
+  },
+  "longitude": {
+      "label": "Longitude",
+      "type": "number"
+  },
+  
+    "status": {
+      "label": "Status",
+      "type": "select",
+      "enum": "App\\Enums\\Deliveries\\Status",
+      "required": true,
+      "default": "scheduled"
+    },
+  
+    "recipient_name": {
+      "label": "Recipient Name",
+      "type": "text",
+      "nullable": true,
+      "help": "Person receiving the asset"
+    },
+  
+    "signature_path": {
+      "label": "Recipient Signature",
+      "type": "signature",
+      "nullable": true
+    },
+  
+    "signed_at": {
+      "label": "Signed At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "signed_ip": {
+      "label": "Signed IP",
+      "type": "text",
+      "readOnly": true,
+      "hidden": true
+    },
+  
+    "signed_user_agent": {
+      "label": "Signed User Agent",
+      "type": "text",
+      "readOnly": true,
+      "hidden": true
+    },
+  
+    "signature_file": {
+      "label": "Signature File",
+      "type": "text",
+      "readOnly": true,
+      "hidden": true
+    },
+  
+    "signature_hash": {
+      "label": "Signature Hash",
+      "type": "text",
+      "readOnly": true,
+      "hidden": true,
+      "help": "Hash of delivery data at time of signing"
+    },
+  
+    "internal_notes": {
+      "label": "Internal Notes",
+      "type": "textarea",
+      "nullable": true,
+      "help": "Visible only to staff"
+    },
+  
+    "customer_notes": {
+      "label": "Customer Notes",
+      "type": "textarea",
+      "nullable": true,
+      "help": "Visible to customer"
+    },
+  
+    "created_at": {
+      "label": "Created At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "updated_at": {
+      "label": "Updated At",
+      "type": "datetime",
+      "readOnly": true
+    }
+  }
+  

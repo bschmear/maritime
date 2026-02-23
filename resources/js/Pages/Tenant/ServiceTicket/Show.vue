@@ -287,7 +287,7 @@ const isLocked = computed(() => {
             </div>
         </template>
 
-        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900">
+        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900 mb-4 dark:mb-0">
             <div class="w-full px-4 py-4 sm:py-5">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">

@@ -64,6 +64,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    recordIdentifier: {
+        type: [String, Number],
+        default: null,
+    },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -73,6 +77,7 @@ const { convertUTCToTimezone, convertTimezoneToUTC, timezoneLabels, accountTimez
 
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
+const updateRecordId = computed(() => props.recordIdentifier ?? props.record?.id);
 
 // Handle both old schema format and new nested format (with settings)
 const normalizedSchema = computed(() => {
@@ -917,7 +922,7 @@ const handleSubmit = () => {
             
             let submissionData = rawData;
             let method = 'put';
-            let url = route(`${props.recordType}.update`, props.record.id);
+            let url = route(`${props.recordType}.update`, updateRecordId.value);
             
             if (hasFiles) {
                 const formData = new FormData();
@@ -975,7 +980,7 @@ const handleSubmit = () => {
                     });
                 }
                 return transformed;
-            }).put(route(`${props.recordType}.update`, props.record.id), {
+            }).put(route(`${props.recordType}.update`, updateRecordId.value), {
                 preserveScroll: true,
                 onSuccess: (page) => {
                     emit('submit');
