@@ -131,7 +131,13 @@ const secondaryNavItems = ref([
             { name: 'Invoices', href: 'invoices.index' },
             { name: 'Service Tickets', href: 'servicetickets.index' },
             { name: 'Work Orders', href: 'workorders.index' },
-            { name: 'Deliveries', href: 'deliveries.index' }
+            {
+                name: 'Deliveries',
+                children: [
+                    { name: 'All Deliveries', href: 'deliveries.index' },
+                    { name: 'Templates', href: 'delivery-checklist-templates.index' }
+                ]
+            }
         ]
     },
     { name: 'Leads', href: 'leads.index' },

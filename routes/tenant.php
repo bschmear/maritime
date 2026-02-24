@@ -30,6 +30,8 @@ use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\DeliveryController;
+use App\Http\Controllers\Tenant\DeliveryChecklistController;
+use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\NotificationController;
@@ -66,6 +68,9 @@ Route::middleware([
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
     Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])->name('service-tickets.approve');
     Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])->name('service-tickets.decline');
+
+    Route::get('/deliveries/{uuid}/review', [PublicController::class, 'reviewDelivery'])->name('deliveries.review');
+    Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])->name('deliveries.sign');
 
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
@@ -111,7 +116,38 @@ Route::middleware([
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
+            Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
+            Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
             Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);
+        });
+
+        // Delivery Checklists
+        Route::prefix('deliveries/{delivery}/checklist')->name('deliveries.checklist.')->group(function () {
+            Route::get('/', [DeliveryChecklistController::class, 'index'])->name('index');
+            Route::post('/', [DeliveryChecklistController::class, 'store'])->name('store');
+            Route::post('/items', [DeliveryChecklistController::class, 'addItem'])->name('add-item');
+            Route::put('/items/{item}', [DeliveryChecklistController::class, 'updateItem'])->name('update-item');
+            Route::delete('/items/{item}', [DeliveryChecklistController::class, 'removeItem'])->name('remove-item');
+        });
+
+        // Delivery Checklist Templates
+        Route::prefix('delivery-checklist-templates')->name('delivery-checklist-templates.')->group(function () {
+            Route::get('/', [DeliveryChecklistTemplateController::class, 'index'])->name('index');
+            Route::post('/', [DeliveryChecklistTemplateController::class, 'store'])->name('store');
+            Route::get('/{template}', [DeliveryChecklistTemplateController::class, 'show'])->name('show');
+            Route::put('/{template}', [DeliveryChecklistTemplateController::class, 'update'])->name('update');
+            Route::delete('/{template}', [DeliveryChecklistTemplateController::class, 'destroy'])->name('destroy');
+
+            // Template Items
+            Route::post('/{template}/items', [DeliveryChecklistTemplateController::class, 'addItem'])->name('add-item');
+            Route::put('/items/{item}', [DeliveryChecklistTemplateController::class, 'updateItem'])->name('update-item');
+            Route::delete('/items/{item}', [DeliveryChecklistTemplateController::class, 'deleteItem'])->name('delete-item');
+
+            // Categories
+            Route::get('/categories', [DeliveryChecklistTemplateController::class, 'getCategories'])->name('categories.index');
+            Route::post('/categories', [DeliveryChecklistTemplateController::class, 'createCategory'])->name('categories.store');
+            Route::put('/categories/{category}', [DeliveryChecklistTemplateController::class, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{category}', [DeliveryChecklistTemplateController::class, 'deleteCategory'])->name('categories.destroy');
         });
 
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {

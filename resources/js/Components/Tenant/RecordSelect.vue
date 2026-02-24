@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, computed, watch } from 'vue';
+    import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
     
@@ -39,6 +39,10 @@
         filterValue: {
             type: [String, Number, null],
             default: null
+        },
+        modalContext: {
+            type: Boolean,
+            default: false
         }
     });
     
@@ -46,6 +50,7 @@
     
     const showModal = ref(false);
     const showCreateModal = ref(false);
+    const showDropdown = ref(false);
     const selectedRecordId = ref(props.modelValue || null);
     const selectedRecordName = ref('');
     const records = ref([]);
@@ -110,29 +115,38 @@
         return '';
     });
     
-    // Open modal
+    // Open modal or dropdown
     const openModal = () => {
         if (!props.disabled) {
-            if (props.field.create) {
-                showEnhancedModal.value = true;
-                enhancedModalTab.value = 'existing';
-                // Load first 10 records ordered by display_name
-                if (records.value.length === 0) {
-                    fetchRecords(true);
+            if (props.modalContext) {
+                // Use dropdown instead of modal when in modal context
+                showDropdown.value = !showDropdown.value;
+                if (showDropdown.value && records.value.length === 0) {
+                    fetchRecords();
                 }
             } else {
-                showModal.value = true;
-                // If modal is opened and we don't have records yet, fetch them
-                if (records.value.length === 0) {
-                    fetchRecords();
+                if (props.field.create) {
+                    showEnhancedModal.value = true;
+                    enhancedModalTab.value = 'existing';
+                    // Load first 10 records ordered by display_name
+                    if (records.value.length === 0) {
+                        fetchRecords(true);
+                    }
+                } else {
+                    showModal.value = true;
+                    // If modal is opened and we don't have records yet, fetch them
+                    if (records.value.length === 0) {
+                        fetchRecords();
+                    }
                 }
             }
         }
     };
     
-    // Close modal
+    // Close modal or dropdown
     const closeModal = () => {
         showModal.value = false;
+        showDropdown.value = false;
         searchQuery.value = '';
         currentPage.value = 1;
     };
@@ -194,6 +208,21 @@
         selectedRecordName.value = '';
         emit('update:modelValue', null);
     };
+
+    // Handle clicks outside dropdown
+    const handleClickOutside = (event) => {
+        if (showDropdown.value && !event.target.closest('.relative')) {
+            showDropdown.value = false;
+        }
+    };
+
+    onMounted(() => {
+        document.addEventListener('click', handleClickOutside);
+    });
+
+    onUnmounted(() => {
+        document.removeEventListener('click', handleClickOutside);
+    });
     
     // Watch for search query changes
     watch(searchQuery, async () => {
@@ -286,6 +315,7 @@
         selectedRecordName.value = getRecordDisplayName(record);
         emit('update:modelValue', record.id);
         closeModal();
+        showDropdown.value = false; // Ensure dropdown closes
     };
 
     const openCreateModal = async () => {
@@ -374,7 +404,7 @@
     </script>
     
     <template>
-        <div class="relative">
+        <div class="relative" @click.stop>
             <!-- Input Field -->
             <div class="relative">
                 <input
@@ -413,7 +443,51 @@
                     </button>
                 </div>
             </div>
-    
+
+            <!-- Dropdown (when in modal context) -->
+            <div v-if="showDropdown && modalContext && !disabled" class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                <!-- Search Input -->
+                <div class="p-2 border-b border-gray-200 dark:border-gray-700">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="Search..."
+                            class="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                            @keydown.stop
+                        />
+                    </div>
+                </div>
+
+                <!-- Records List -->
+                <div class="py-1">
+                    <div v-if="isLoading" class="flex justify-center py-4">
+                        <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div v-else-if="records.length === 0" class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        No records found
+                    </div>
+                    <div v-else>
+                        <button
+                            v-for="record in records"
+                            :key="record.id"
+                            @click="selectRecord(record)"
+                            class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
+                        >
+                            {{ getRecordDisplayName(record) }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Modal Overlay -->
             <div v-if="showModal && !disabled" @click="closeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50">
                 <div @click.stop class="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-lg shadow-xl dark:bg-gray-800 flex flex-col">

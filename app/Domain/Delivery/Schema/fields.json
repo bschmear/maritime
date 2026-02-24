@@ -167,6 +167,21 @@
       "label": "Updated At",
       "type": "datetime",
       "readOnly": true
+    },
+    "subsidiary_id": {
+      "label": "Subsidiary",
+      "type": "record",
+      "typeDomain": "Subsidiary",
+      "nullable": true
+    },
+  
+    "location_id": {
+      "label": "Location",
+      "type": "record",
+      "typeDomain": "Location",
+      "relationship": "location",
+      "nullable": true,
+      "filterby": "subsidiary_id"
     }
   }
   

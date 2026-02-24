@@ -38,6 +38,8 @@ class Delivery extends Model
         'country',
         'latitude',
         'longitude',
+        'subsidiary_id',
+        'location_id',
     ];
 
     protected $casts = [
@@ -47,17 +49,14 @@ class Delivery extends Model
         'signed_at' => 'datetime',
     ];
 
+    protected $appends = ['display_name'];
+
 
     protected static function booted()
     {
         static::creating(function ($delivery) {
-            DB::transaction(function () use ($delivery) {
-                // Advisory lock keyed on the deliveries table OID to serialise sequence generation
-                DB::statement("SELECT pg_advisory_xact_lock('deliveries'::regclass::int)");
-
-                $next = (int) (DB::table('deliveries')->max('sequence') ?? 999);
-                $delivery->sequence = $next + 1;
-            });
+            $next = (int) (DB::table('deliveries')->max('sequence') ?? 999);
+            $delivery->sequence = $next + 1;
         });
     } 
 
@@ -67,12 +66,27 @@ class Delivery extends Model
     |--------------------------------------------------------------------------
     */
 
+    public function subsidiary()
+    {
+        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+    }
+
     public function customer()
     {
         return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
     }
 
     public function assetUnit()
+    {
+        return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
+    }
+
+    public function asset_unit()
     {
         return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
     }
@@ -85,6 +99,11 @@ class Delivery extends Model
     public function technician()
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'technician_id');
+    }
+
+    public function checklistItems()
+    {
+        return $this->hasMany(\App\Domain\DeliveryChecklistItem\Models\DeliveryChecklistItem::class);
     }
 
     /*
@@ -125,11 +144,20 @@ class Delivery extends Model
 
     public function getDisplayNameAttribute()
     {
-        return 'DLV-' . $this->sequence;
+        return 'DLV-' . ($this->sequence ?: $this->id ?: '???');
+    }
+
+    public function getSignatureUrlAttribute()
+    {
+        if (!$this->signature_file) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->signature_file);
     }
 
     public function getRouteKeyName(): string
     {
-        return 'uuid';
+        return 'id';
     }
 }

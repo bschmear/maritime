@@ -12,6 +12,14 @@
           "addNew": true
         },
         {
+          "key": "subsidiary_id",
+          "required": false
+        },
+        {
+          "key": "location_id",
+          "required": false
+        },
+        {
           "key": "asset_unit_id",
           "required": true
         },

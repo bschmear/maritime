@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Delivery\Models\Delivery;
 use App\Mail\ServiceTicketApproved;
 use App\Models\AccountSettings;
 use App\Domain\Notification\Models\Notification;
@@ -351,12 +352,139 @@ class PublicController extends Controller
     /**
      * Resolve the logo URL: subsidiary logo > account logo.
      */
-    private function resolveLogoUrl(ServiceTicket $ticket, AccountSettings $account): ?string
+    private function resolveLogoUrl($record, AccountSettings $account): ?string
     {
-        if ($ticket->subsidiary && $ticket->subsidiary->logo_url) {
-            return $ticket->subsidiary->logo_url;
+        if ($record->subsidiary && $record->subsidiary->logo_url) {
+            return $record->subsidiary->logo_url;
         }
 
         return $account->logo_url;
+    }
+
+    public function reviewDelivery(Request $request, $uuid)
+    {
+        $delivery = Delivery::where('uuid', $uuid)->firstOrFail();
+
+        // Load relationships separately to ensure they're fresh
+        $delivery->load([
+            'customer',
+            'subsidiary',
+            'location',
+            'assetUnit.asset.make',
+            'checklistItems' => function ($q) {
+                $q->with('category')->orderBy('category_id')->orderBy('sort_order');
+            }
+        ]);
+// dd($delivery);
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $this->resolveLogoUrl($delivery, $account);
+
+        // Ensure all relationships are properly loaded and included in the response
+        $delivery->load([
+            'customer',
+            'subsidiary',
+            'location',
+            'assetUnit.asset.make',
+            'checklistItems.category'
+        ]);
+
+        // Manually build the record array to ensure all data is included
+        $recordArray = [
+            'id' => $delivery->id,
+            'uuid' => $delivery->uuid,
+            'customer_id' => $delivery->customer_id,
+            'asset_unit_id' => $delivery->asset_unit_id,
+            'work_order_id' => $delivery->work_order_id,
+            'scheduled_at' => $delivery->scheduled_at?->toISOString(),
+            'estimated_arrival_at' => $delivery->estimated_arrival_at?->toISOString(),
+            'delivered_at' => $delivery->delivered_at?->toISOString(),
+            'status' => $delivery->status,
+            'technician_id' => $delivery->technician_id,
+            'recipient_name' => $delivery->recipient_name,
+            'signature_path' => $delivery->signature_path,
+            'signed_at' => $delivery->signed_at?->toISOString(),
+            'signed_ip' => $delivery->signed_ip,
+            'signed_user_agent' => $delivery->signed_user_agent,
+            'signature_file' => $delivery->signature_file,
+            'signature_hash' => $delivery->signature_hash,
+            'internal_notes' => $delivery->internal_notes,
+            'customer_notes' => $delivery->customer_notes,
+            'address_line_1' => $delivery->address_line_1,
+            'address_line_2' => $delivery->address_line_2,
+            'city' => $delivery->city,
+            'state' => $delivery->state,
+            'postal_code' => $delivery->postal_code,
+            'country' => $delivery->country,
+            'latitude' => $delivery->latitude,
+            'longitude' => $delivery->longitude,
+            'subsidiary_id' => $delivery->subsidiary_id,
+            'location_id' => $delivery->location_id,
+            'created_at' => $delivery->created_at?->toISOString(),
+            'updated_at' => $delivery->updated_at?->toISOString(),
+            'customer' => $delivery->customer?->toArray(),
+            'subsidiary' => $delivery->subsidiary?->toArray(),
+            'location' => $delivery->location?->toArray(),
+            'assetUnit' => $delivery->assetUnit?->toArray(),
+            'checklistItems' => $delivery->checklistItems->map(function ($item) {
+                return $item->toArray();
+            })->toArray(),
+            'signature_url' => $delivery->signature_url,
+        ];
+
+        return Inertia::render('Tenant/Public/DeliveryReview', [
+            'record' => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'enumOptions' => [],
+        ]);
+    }
+
+    public function signDelivery(Request $request, $uuid)
+    {
+        $delivery = Delivery::where('uuid', $uuid)->firstOrFail();
+
+        if ($delivery->signed_at) {
+            return back();
+        }
+
+        $request->validate([
+            'signature_method' => 'required|in:draw,type',
+            'signature_data' => 'required|string',
+            'signed_name' => 'required|string|max:255',
+            'recipient_name' => 'nullable|string|max:255',
+            'consent' => 'required|accepted',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        $signatureFile = null;
+        if ($request->signature_method === 'draw') {
+            $signatureFile = $this->storeSignatureImage($request->signature_data, $delivery->uuid);
+        }
+
+        $delivery->update([
+            'signed_at' => now(),
+            'signed_ip' => $request->ip(),
+            'signed_user_agent' => $request->userAgent(),
+            'recipient_name' => $request->recipient_name,
+            'signature_file' => $signatureFile,
+            'signature_hash' => hash('sha256', json_encode([
+                'delivery_id' => $delivery->id,
+                'uuid' => $delivery->uuid,
+                'signed_name' => $request->signed_name,
+                'recipient_name' => $request->recipient_name,
+                'timestamp' => now()->toISOString(),
+                'ip' => $request->ip(),
+            ])),
+        ]);
+
+        // Mark delivery as delivered if not already
+        if (!$delivery->delivered_at) {
+            $delivery->update(['delivered_at' => now()]);
+        }
+
+        $delivery->refresh();
+
+        return back();
     }
 }

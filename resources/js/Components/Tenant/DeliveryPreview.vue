@@ -15,16 +15,16 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    checklistItems: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const emit = defineEmits(['close']);
 
 const sending = ref(false);
 const printing = ref(false);
-
-const formatCurrency = (value) => {
-    return value != null ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
-};
 
 const formatDate = (value) => {
     if (!value) return '—';
@@ -41,60 +41,22 @@ const formatDate = (value) => {
     }
 };
 
-const getBillingTypeLabel = (billingType) => {
-    const options = props.enumOptions?.billing_type || [];
-    const option = options.find(opt => opt.value === billingType);
-    return option?.name || 'Unknown';
-};
-
-const calculateLineItemPrice = (item) => {
-    const rate = Number(item.unit_price) || 0;
-    const quantity = Number(item.quantity) || 1;
-    const estimatedHours = Number(item.estimated_hours) || 0;
-
-    let total = 0;
-
-    switch (item.billing_type) {
-        case 1: // Hourly
-            total = estimatedHours * rate;
-            break;
-        case 2: // Flat
-            total = rate;
-            break;
-        case 3: // Quantity
-        default:
-            total = quantity * rate;
-            break;
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    } catch (e) {
+        return '—';
     }
-
-    if (item.warranty) {
-        total = 0;
-    }
-
-    return total;
 };
-
-const billableLineItems = computed(() => {
-    return props.record.service_items?.filter(item => item.billable !== false) || [];
-});
-
-const subtotal = computed(() => {
-    return billableLineItems.value.reduce((sum, item) => sum + calculateLineItemPrice(item), 0);
-});
-
-const taxAmount = computed(() => {
-    const rate = Number(props.record.tax_rate) || 0;
-    return subtotal.value * (rate / 100);
-});
-
-const grandTotal = computed(() => {
-    return subtotal.value + taxAmount.value;
-});
-
-const estimateVariance = computed(() => {
-    const threshold = Number(props.account.estimate_threshold_percent) || 20;
-    return (grandTotal.value * threshold) / 100;
-});
 
 const handlePrint = () => {
     printing.value = true;
@@ -104,17 +66,17 @@ const handlePrint = () => {
     }, 100);
 };
 
-const handleSendEmail = () => {
-    if (confirm('Send approval request to the customer via email? This will allow them to review and approve the service ticket online.')) {
+const handleSendSignatureRequest = () => {
+    if (confirm('Send signature request to the customer? This will allow them to review and sign the delivery document online.')) {
         sending.value = true;
-        router.post(route('servicetickets.send-approval-request', props.record.id), {}, {
+        router.post(route('deliveries.send-signature-request', props.record.id), {}, {
             preserveState: true,
             onSuccess: () => {
-                alert('Approval request sent successfully!');
+                alert('Signature request sent successfully!');
                 sending.value = false;
             },
             onError: (errors) => {
-                let message = 'Failed to send approval request.';
+                let message = 'Failed to send signature request.';
                 if (errors && errors.message) {
                     message += ' ' + errors.message;
                 }
@@ -124,6 +86,20 @@ const handleSendEmail = () => {
         });
     }
 };
+
+// Group checklist items by category for display
+const itemsByCategory = computed(() => {
+    const grouped = {};
+    (props.checklistItems || []).forEach(item => {
+        const catId = item.category_id ?? item.category?.id ?? 'uncategorized';
+        const catName = item.category?.name ?? 'Other';
+        if (!grouped[catId]) {
+            grouped[catId] = { id: catId, name: catName, items: [] };
+        }
+        grouped[catId].items.push(item);
+    });
+    return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
+});
 </script>
 
 <template>
@@ -137,7 +113,7 @@ const handleSendEmail = () => {
                             Customer Preview
                         </h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            This is how the service ticket will appear to the customer
+                            This is how the delivery document will appear to the customer
                         </p>
                     </div>
                     <div class="flex items-center gap-3">
@@ -149,13 +125,14 @@ const handleSendEmail = () => {
                             Close
                         </button>
                         <button
-                            @click="handleSendEmail"
+                            v-if="!record.signed_at"
+                            @click="handleSendSignatureRequest"
                             :disabled="sending"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                         >
                             <span v-if="sending" class="material-icons text-sm animate-spin">refresh</span>
                             <span v-else class="material-icons text-sm">send</span>
-                            {{ sending ? 'Sending...' : 'Send Approval Request' }}
+                            {{ sending ? 'Sending...' : 'Send Signature Request' }}
                         </button>
                         <button
                             @click="handlePrint"
@@ -189,7 +166,7 @@ const handleSendEmail = () => {
                             <!-- Company Info -->
                             <div>
                                 <h1 class="text-2xl font-bold text-gray-900">
-                                    {{ record.subsidiary?.display_name || 'Company Name' }}
+                                    {{ record.subsidiary?.display_name || account.name || 'Company Name' }}
                                 </h1>
                                 <div class="mt-2 text-sm text-gray-600 space-y-1">
                                     <p v-if="record.location?.address_line1">
@@ -211,11 +188,11 @@ const handleSendEmail = () => {
                             </div>
                         </div>
 
-                        <!-- Service Ticket Number -->
+                        <!-- Delivery Number -->
                         <div class="text-right">
-                            <div class="text-sm font-medium text-gray-600 uppercase">Service Ticket</div>
+                            <div class="text-sm font-medium text-gray-600 uppercase">Delivery</div>
                             <div class="text-3xl font-bold text-gray-900 font-mono">
-                                #{{ record.service_ticket_number }}
+                                {{ record.display_name }}
                             </div>
                             <div class="text-sm text-gray-600 mt-1">
                                 {{ formatDate(record.created_at) }}
@@ -280,111 +257,70 @@ const handleSendEmail = () => {
                     </div>
                 </div>
 
-                <!-- Repair Description -->
+                <!-- Delivery Information -->
                 <div class="px-8 py-6 border-t border-gray-200">
-                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Repair Description</h2>
-                    <div class="prose prose-sm max-w-none">
-                        <p class="text-gray-900 whitespace-pre-line">{{ record.repair_description || '—' }}</p>
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Delivery Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Scheduled:</span>
+                            <div class="text-sm text-gray-900">{{ formatDateTime(record.scheduled_at) }}</div>
+                        </div>
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Estimated Arrival:</span>
+                            <div class="text-sm text-gray-900">{{ formatDateTime(record.estimated_arrival_at) }}</div>
+                        </div>
+                        <div>
+                            <span class="text-sm font-medium text-gray-600">Delivered:</span>
+                            <div class="text-sm text-gray-900">{{ record.delivered_at ? formatDateTime(record.delivered_at) : '—' }}</div>
+                        </div>
+                    </div>
+                    <div v-if="record.address_line_1" class="mt-4">
+                        <span class="text-sm font-medium text-gray-600">Delivery Address:</span>
+                        <div class="text-sm text-gray-900 mt-1">
+                            <div>{{ record.address_line_1 }}</div>
+                            <div v-if="record.address_line_2">{{ record.address_line_2 }}</div>
+                            <div>{{ record.city }}, {{ record.state }} {{ record.postal_code }}</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Service Items -->
+                <!-- Delivery Checklist -->
                 <div class="px-8 py-6 border-t border-gray-200">
-                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Service Items</h2>
-                    
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-b-2 border-gray-900">
-                                <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Qty</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Type</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Est Hrs</th>
-                                <th class="text-right py-3 text-sm font-semibold text-gray-900">Rate</th>
-                                <th class="text-right py-3 text-sm font-semibold text-gray-900">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <tr v-for="(item, index) in billableLineItems" :key="index" class="hover:bg-gray-50">
-                                <td class="py-3 pr-4">
-                                    <div class="font-medium text-gray-900">{{ item.display_name }}</div>
-                                    <div v-if="item.description && item.description !== item.display_name" class="text-sm text-gray-600 mt-1">
-                                        {{ item.description }}
-                                    </div>
-                                    <div v-if="item.warranty" class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium mt-1">
-                                        <span class="material-icons text-xs">verified_user</span>
-                                        Warranty
-                                    </div>
-                                </td>
-                                <td class="py-3 text-center text-gray-900">
-                                    {{ item.quantity }}
-                                </td>
-                                <td class="py-3 text-center">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                        {{ getBillingTypeLabel(item.billing_type) }}
-                                    </span>
-                                </td>
-                                <td class="py-3 text-center text-gray-900">
-                                    {{ item.estimated_hours ?? 0 }}
-                                </td>
-                                <td class="py-3 text-right text-gray-900">
-                                    {{ formatCurrency(item.unit_price) }}
-                                </td>
-                                <td class="py-3 text-right font-medium text-gray-900">
-                                    {{ formatCurrency(calculateLineItemPrice(item)) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Delivery Checklist</h2>
 
-                    <!-- Empty State -->
-                    <div v-if="billableLineItems.length === 0" class="text-center py-8 text-gray-500">
-                        No billable items
-                    </div>
-                </div>
-                    <!-- Estimate Variance Notice -->
-                    <div v-if="account.estimate_threshold_percent" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div class="flex items-start gap-3">
-                            <span class="material-icons text-blue-600 text-xl flex-shrink-0">info</span>
-                            <div class="text-sm text-blue-900">
-                                <p class="font-semibold mb-1">Estimate Variance Notice</p>
-                                <p>
-                                    Our estimate may vary by {{ account.estimate_threshold_percent }}% (up to {{ formatCurrency(estimateVariance) }}). 
-                                    If the final cost exceeds this threshold, customer verification will be required before proceeding with additional work.
-                                </p>
+                    <div class="space-y-6">
+                        <div
+                            v-for="category in itemsByCategory"
+                            :key="category.id"
+                            class="border border-gray-200 rounded-lg p-4"
+                        >
+                            <h3 class="font-semibold text-gray-900 mb-3">{{ category.name }}</h3>
+                            <div class="space-y-2">
+                                <div
+                                    v-for="item in category.items"
+                                    :key="item.id"
+                                    class="flex items-center gap-3"
+                                >
+                                    <div class="flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center" :class="item.completed ? 'bg-green-600 border-green-600' : 'bg-red-600 border-red-600'">
+                                        <span v-if="item.completed" class="material-icons text-xs text-white">check</span>
+                                        <span v-else class="material-icons text-xs text-white">close</span>
+                                    </div>
+                                    <span class="text-sm text-gray-900">{{ item.label }}</span>
+                                    <span v-if="item.is_required" class="text-red-500 text-xs">*</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                <!-- Totals -->
-                <div class="px-8 py-6 bg-gray-50 border-t border-gray-200">
-                    
-                    <div class="flex justify-end">
-                        <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Subtotal:</span>
-                                <span class="font-medium text-gray-900">{{ formatCurrency(subtotal) }}</span>
-                            </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Tax ({{ record.tax_rate }}%):</span>
-                                <span class="font-medium text-gray-900">{{ formatCurrency(taxAmount) }}</span>
-                            </div>
-                            <div class="flex justify-between text-xl font-bold border-t-2 border-gray-900 pt-3">
-                                <span class="text-gray-900">Total:</span>
-                                <span class="text-gray-900">{{ formatCurrency(grandTotal) }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-
                 </div>
 
                 <!-- Customer Acknowledgment & Signature -->
                 <div class="px-8 py-6 border-t-2 border-gray-900">
                     <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Customer Authorization</h2>
-                    
+
                     <!-- Acknowledgment Text -->
-                    <div v-if="account.service_ticket_ack_text" class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div v-if="account.delivery_ack_text" class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                         <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-line">
-                            {{ account.service_ticket_ack_text.replace('[COMPANY NAME]', record.subsidiary?.display_name || 'Company Name') }}
+                            {{ account.delivery_ack_text.replace('[COMPANY NAME]', record.subsidiary?.display_name || account.name || 'Company Name') }}
                         </p>
                     </div>
 
@@ -412,6 +348,9 @@ const handleSendEmail = () => {
                     <p>Thank you for your business!</p>
                     <p v-if="record.location?.phone" class="mt-1">
                         Questions? Call us at {{ record.location.phone }}
+                    </p>
+                    <p v-else-if="account.phone" class="mt-1">
+                        Questions? Call us at {{ account.phone }}
                     </p>
                 </div>
             </div>

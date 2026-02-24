@@ -1,7 +1,9 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
+import DeliveryForm from '@/Components/Tenant/DeliveryForm.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -10,7 +12,35 @@ const props = defineProps({
     upcomingDeliveries: { type: Array, default: () => [] },
     stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     filters: { type: Object, default: () => ({}) },
+    fieldsSchema: { type: Object, default: () => ({}) },
+    enumOptions:  { type: Object, default: () => ({}) },
 });
+
+const showCreateModal  = ref(false);
+const showSuccessModal = ref(false);
+const createdRecordId = ref(null);
+
+const openCreateModal = () => {
+    showCreateModal.value = true;
+};
+
+const onDeliverySaved = (id) => {
+    showCreateModal.value = false;
+    createdRecordId.value = id;
+    showSuccessModal.value = true;
+};
+
+const viewCreatedRecord = () => {
+    if (createdRecordId.value) {
+        router.visit(route('deliveries.show', createdRecordId.value));
+    }
+};
+
+const closeSuccessModal = () => {
+    showSuccessModal.value = false;
+    createdRecordId.value = null;
+    router.reload();
+};
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -202,7 +232,7 @@ const viewMode = ref('timeline');
 
                             <!-- Card -->
                             <Link
-                                :href="route('deliveries.show', delivery.uuid)"
+                                :href="route('deliveries.show', delivery.id)"
                                 class="flex-1 mb-4 group rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md block"
                                 :class="delivery.status === 'delivered'
                                     ? 'border-green-200 dark:border-green-900/50 bg-green-50/40 dark:bg-green-900/10'
@@ -329,7 +359,7 @@ const viewMode = ref('timeline');
                             <Link
                                 v-for="delivery in upcomingDeliveries"
                                 :key="delivery.id"
-                                :href="route('deliveries.show', delivery.uuid)"
+                                :href="route('deliveries.show', delivery.id)"
                                 class="flex items-start gap-3 px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                             >
                                 <div :class="['w-2 h-2 rounded-full mt-1.5 flex-shrink-0', getStatus(delivery.status).dot]" />
@@ -385,13 +415,13 @@ const viewMode = ref('timeline');
                     </div>
 
                     <!-- New Delivery -->
-                    <Link
-                        :href="route('deliveries.create')"
+                    <button
+                        @click="openCreateModal"
                         class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex-shrink-0"
                     >
                         <span class="material-icons text-base">add</span>
                         <span>New Delivery</span>
-                    </Link>
+                    </button>
                 </div>
 
                 <!-- Table -->
@@ -427,7 +457,7 @@ const viewMode = ref('timeline');
                                     <span v-else class="text-gray-300 dark:text-gray-600">—</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
-                                    <Link :href="route('deliveries.show', delivery.uuid)" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">View</Link>
+                                    <Link :href="route('deliveries.show', delivery.id)" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">View</Link>
                                 </td>
                             </tr>
                         </tbody>
@@ -461,5 +491,56 @@ const viewMode = ref('timeline');
             </div>
 
         </div>
+
+        <!-- ── Create Delivery Modal ───────────────────────────── -->
+        <Modal :show="showCreateModal" @close="showCreateModal = false" max-width="4xl">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <div class="flex items-center gap-3">
+                        <div class="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                            <span class="material-icons text-blue-600 dark:text-blue-400">add_location_alt</span>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white">New Delivery</h2>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Schedule a vessel delivery</p>
+                        </div>
+                    </div>
+                    <button @click="showCreateModal = false"
+                        class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+
+                <DeliveryForm
+                    v-if="showCreateModal"
+                    :fields-schema="fieldsSchema"
+                    :enum-options="enumOptions"
+                    @saved="onDeliverySaved"
+                    @cancelled="showCreateModal = false"
+                />
+            </div>
+        </Modal>
+
+        <!-- ── Success Modal ───────────────────────────────────── -->
+        <Modal :show="showSuccessModal" @close="closeSuccessModal" max-width="sm">
+            <div class="p-6 text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                    <span class="material-icons text-3xl text-green-600 dark:text-green-400">check_circle</span>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Delivery Created</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">The delivery has been scheduled successfully.</p>
+                <div class="flex justify-center gap-3">
+                    <button @click="closeSuccessModal"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Back to List
+                    </button>
+                    <button @click="viewCreatedRecord"
+                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                        View Delivery
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
     </TenantLayout>
 </template>

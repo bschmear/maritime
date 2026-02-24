@@ -18,11 +18,15 @@ return new class extends Migration
             $table->unsignedBigInteger('sequence')->unique();
 
             // Ownership
-            $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('asset_unit_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('customer_id'); // ->constrained()->cascadeOnDelete();
+            $table->foreignId('asset_unit_id'); // ->constrained()->cascadeOnDelete();
 
             // Optional relationships
-            $table->foreignId('work_order_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('work_order_id')->nullable(); // ->constrained()->nullOnDelete();
+
+            // Relationships
+            $table->unsignedBigInteger('subsidiary_id')->nullable();
+            $table->unsignedBigInteger('location_id')->nullable();
 
             // Scheduling
             $table->dateTime('scheduled_at')->index();
@@ -34,7 +38,7 @@ return new class extends Migration
             // scheduled, en_route, delivered, cancelled, rescheduled
 
             // Personnel
-            $table->foreignId('technician_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('technician_id')->nullable(); // ->constrained('users')->nullOnDelete();
 
             // Delivery receipt fields
             $table->string('recipient_name')->nullable();

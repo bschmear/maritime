@@ -16,6 +16,8 @@ class UpdateDelivery
             'asset_unit_id'        => 'required|exists:asset_units,id',
             'work_order_id'        => 'nullable|exists:work_orders,id',
             'technician_id'        => 'nullable|exists:users,id',
+            'subsidiary_id'        => 'nullable|exists:subsidiaries,id',
+            'location_id'          => 'nullable|exists:locations,id',
             'scheduled_at'         => 'required|date',
             'estimated_arrival_at' => 'nullable|date|after:scheduled_at',
             'status'               => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',

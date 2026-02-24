@@ -17,6 +17,8 @@ class CreateDelivery
             'customer_id'          => 'required|exists:customers,id',
             'asset_unit_id'        => 'required|exists:asset_units,id',
             'work_order_id'        => 'nullable|exists:work_orders,id',
+            'subsidiary_id'        => 'nullable|exists:subsidiaries,id',
+            'location_id'          => 'nullable|exists:locations,id',
             'technician_id'        => 'nullable|exists:users,id',
             'scheduled_at'         => 'required|date',
             'estimated_arrival_at' => 'nullable|date|after:scheduled_at',

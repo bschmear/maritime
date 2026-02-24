@@ -6,6 +6,7 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
+use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\Customer\Models\Customer;
 use App\Actions\PublicStorage;
@@ -69,17 +70,57 @@ class DeliveryController extends RecordController
             'upcomingDeliveries' => $upcomingDeliveries,
             'stats'              => $stats,
             'filters'            => $request->only(['search', 'status']),
+            'fieldsSchema'       => $this->getUnwrappedFieldsSchema(),
+            'enumOptions'        => $this->getEnumOptions(),
         ]);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Show (delegate to RecordController with id for uuid route binding)
+    | Show (delegate to RecordController with id for route binding)
     |--------------------------------------------------------------------------
     */
     public function show(Request $request, $delivery)
     {
-        return parent::show($request, $delivery->id);
+        // Get the delivery ID regardless of whether it's a model or string
+        $deliveryId = $delivery instanceof \App\Domain\Delivery\Models\Delivery ? $delivery->id : $delivery;
+
+        // Load delivery model for checklist data
+        $deliveryModel = \App\Domain\Delivery\Models\Delivery::findOrFail($deliveryId);
+
+        // Add checklist data
+        $checklistItems = $deliveryModel->checklistItems()
+            ->with(['completedBy', 'category'])
+            ->orderBy('category_id')
+            ->orderBy('sort_order')
+            ->get();
+
+        $checklistTemplates = \App\Domain\DeliveryChecklistTemplate\Models\DeliveryChecklistTemplate::with('items')
+            ->where('is_default', true)
+            ->get();
+
+        $categories = DeliveryChecklistCategory::orderBy('name')->get();
+
+        // Call parent show to get base data, then add our checklist data
+        return parent::show($request, $deliveryId)->with([
+            'checklistItems' => $checklistItems,
+            'checklistTemplates' => $checklistTemplates,
+            'categories' => $categories,
+        ]);
+    }
+
+    public function sendSignatureRequest(Request $request, Delivery $delivery)
+    {
+        // Generate or get the signature URL
+        $signatureUrl = url("/deliveries/{$delivery->uuid}/review");
+
+        // TODO: Send email to customer with signature request
+        // For now, just return success
+
+        return response()->json([
+            'message' => 'Signature request sent successfully',
+            'signature_url' => $signatureUrl
+        ]);
     }
 
     /*
@@ -89,7 +130,7 @@ class DeliveryController extends RecordController
     */
     public function workOrderDetails($workorderId)
     {
-        $workorder = WorkOrder::with(['customer', 'assetUnit.asset'])->findOrFail($workorderId);
+        $workorder = WorkOrder::with(['customer', 'assetUnit.asset', 'subsidiary', 'location'])->findOrFail($workorderId);
 
         return response()->json([
             'work_order_id'     => $workorder->id,
@@ -98,7 +139,20 @@ class DeliveryController extends RecordController
             'customer_name'     => $workorder->customer?->display_name,
             'asset_unit_id'     => $workorder->asset_unit_id,
             'asset_name'        => $workorder->assetUnit?->display_name,
-            'address'           => $workorder->customer ? [
+            'subsidiary_id'     => $workorder->subsidiary_id,
+            'subsidiary_name'   => $workorder->subsidiary?->display_name,
+            'location_id'       => $workorder->location_id,
+            'location_name'     => $workorder->location?->display_name,
+            'address'           => $workorder->location ? [
+                'address_line_1' => $workorder->location->address_line_1,
+                'address_line_2' => $workorder->location->address_line_2,
+                'city'           => $workorder->location->city,
+                'state'          => $workorder->location->state,
+                'postal_code'    => $workorder->location->postal_code,
+                'country'        => $workorder->location->country,
+                'latitude'       => $workorder->location->latitude,
+                'longitude'      => $workorder->location->longitude,
+            ] : ($workorder->customer ? [
                 'address_line_1' => $workorder->customer->address_line_1,
                 'address_line_2' => $workorder->customer->address_line_2,
                 'city'           => $workorder->customer->city,
@@ -107,7 +161,7 @@ class DeliveryController extends RecordController
                 'country'        => $workorder->customer->country,
                 'latitude'       => $workorder->customer->latitude,
                 'longitude'      => $workorder->customer->longitude,
-            ] : null,
+            ] : null),
         ]);
     }
 
@@ -158,16 +212,28 @@ class DeliveryController extends RecordController
             'longitude'            => 'nullable|numeric',
         ]);
 
-        $result = app(CreateAction::class)($validated);
+        $result = (new CreateAction())($validated);
 
         if (! ($result['success'] ?? true)) {
-            return back()->withErrors(['general' => $result['message'] ?? 'Failed to create delivery'])->withInput();
+            $errorMsg = $result['message'] ?? 'Failed to create delivery';
+            if ($request->wantsJson() || $request->header('X-Modal-Request')) {
+                return response()->json(['message' => $errorMsg, 'errors' => ['general' => [$errorMsg]]], 422);
+            }
+            return back()->withErrors(['general' => $errorMsg])->withInput();
         }
 
         $delivery = $result['record'];
 
+        if ($request->wantsJson() || $request->header('X-Modal-Request')) {
+            return response()->json([
+                'success'   => true,
+                'recordId'  => $delivery->id,
+                'message'   => "Delivery {$delivery->display_name} created.",
+            ]);
+        }
+
         return redirect()
-            ->route('deliveries.show', $delivery->uuid)
+            ->route('deliveries.show', $delivery->id)
             ->with('success', "Delivery {$delivery->display_name} created.");
     }
 
@@ -183,13 +249,18 @@ class DeliveryController extends RecordController
 
     public function update(Request $request, $delivery, PublicStorage $publicStorage)
     {
+        // Handle case where route model binding failed and $delivery is a string ID
+        if (is_string($delivery)) {
+            $delivery = RecordModel::findOrFail($delivery);
+        }
+
         // Allow quick status-only PATCH (e.g. "Mark En Route" from show page)
         if ($request->has('status') && count($request->keys()) === 1) {
             $request->validate([
                 'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled',
             ]);
 
-            app(UpdateAction::class)($delivery->id, ['status' => $request->status]);
+            (new UpdateAction())($delivery->id, ['status' => $request->status]);
 
             return back()->with('success', 'Status updated.');
         }
@@ -197,8 +268,32 @@ class DeliveryController extends RecordController
         return parent::update($request, $delivery->id, $publicStorage);
     }
 
+    public function markAsDelivered(Request $request, $delivery)
+    {
+        // Handle case where route model binding failed
+        if (is_string($delivery)) {
+            $delivery = RecordModel::findOrFail($delivery);
+        }
+
+        if ($delivery->delivered_at) {
+            return response()->json(['message' => 'Delivery is already marked as delivered'], 400);
+        }
+
+        $delivery->update([
+            'delivered_at' => now(),
+            'status' => 'delivered',
+        ]);
+
+        return response()->json(['message' => 'Delivery marked as completed']);
+    }
+
     public function destroy($delivery)
     {
+        // Handle case where route model binding failed
+        if (is_string($delivery)) {
+            $delivery = Delivery::findOrFail($delivery);
+        }
+
         return parent::destroy($delivery->id);
     }
 }
