@@ -57,14 +57,7 @@
     "lead_details": {
       "label": "Lead Details",
       "fields": [
-        {
-          "key": "budget_min",
-          "required": false
-        },
-        {
-          "key": "budget_max",
-          "required": false
-        },
+        { "key": "budget_range", "required": false },
         {
           "key": "preferred_contact_method",
           "required": false
@@ -171,5 +164,12 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Qualifications",
+      "domain": "Qualification",
+      "modelRelationship": "qualitifications"
+    }
+  ]
 }

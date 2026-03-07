@@ -719,8 +719,8 @@ const loadSublistSchema = async (sublist) => {
     
     const domain = sublist.domain;
     
-    // Check cache first
-    if (sublistSchemaCache.value[domain]) {
+    // Check cache first (skip for Qualification to ensure enum options load)
+    if (sublistSchemaCache.value[domain] && domain !== 'Qualification') {
         sublistCreateFormData.value = sublistSchemaCache.value[domain];
         return;
     }

@@ -35,6 +35,8 @@ use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\NotificationController;
+use App\Http\Controllers\Tenant\QualificationController;
+use App\Http\Controllers\Tenant\ScoreController;
 
 // use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Controllers\Tenant\PublicController;
@@ -85,6 +87,18 @@ Route::middleware([
 
         Route::prefix('leads')->name('leads.')->group(function () {
             Route::resource('/', LeadController::class)->parameters(['' => 'lead']);
+            Route::prefix('scores')->group(function () {
+                Route::get('/', [ScoreController::class, 'index'])->name('scoresIndex');
+                Route::post('/store', [ScoreController::class, 'store'])->name('scoresStore');
+                Route::post('/calculate', [ScoreController::class, 'calculate'])->name('scoresCalculate');
+                Route::get('/{id}', [ScoreController::class, 'show'])->name('scoresShow');
+                Route::put('/{id}', [ScoreController::class, 'update'])->name('scoresUpdate');
+                Route::delete('/{id}', [ScoreController::class, 'destroy'])->name('scoresDestroy');
+            });
+        });
+
+        Route::prefix('qualifications')->name('qualifications.')->group(function () {
+            Route::resource('/', QualificationController::class)->parameters(['' => 'qualification']);
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {

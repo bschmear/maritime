@@ -213,6 +213,16 @@ class GeneralController extends BaseController
                     'App\Enums\Inventory\UnitStatus' => \App\Enums\Inventory\UnitStatus::options(),
                 ];
             }
+            // Fallback: manually load the enum options for Qualification
+            elseif ($domainName === 'Qualification') {
+                $enumOptions = [
+                    'App\Enums\Leads\Status' => \App\Enums\Leads\Status::options(),
+                    'App\Enums\Entity\IntendedUse' => \App\Enums\Entity\IntendedUse::options(),
+                    'App\Enums\Entity\OwnershipType' => \App\Enums\Entity\OwnershipType::options(),
+                    'App\Enums\Entity\PurchaseTimeline' => \App\Enums\Entity\PurchaseTimeline::options(),
+                    'App\Enums\Entity\Source' => \App\Enums\Entity\Source::options(),
+                ];
+            }
         }
 
         // If it's an AJAX request, return JSON

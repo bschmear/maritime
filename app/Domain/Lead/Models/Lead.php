@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Qualification\Models\Qualification;
 use App\Models\Concerns\HasDocuments;
 
 class Lead extends Model
@@ -56,6 +57,11 @@ class Lead extends Model
         return $this->morphMany(Task::class, 'relatable');
     }
 
+    public function qualitifications()
+    {
+        return $this->hasMany(related: Qualification::class);
+    }
+
     public function assigned_user()
     {
         return $this->belongsTo(User::class, 'assigned_user_id')
@@ -78,5 +84,20 @@ class Lead extends Model
     {
         return $this->belongsTo(Customer::class, 'converted_customer_id')
             ->select('id', 'display_name');
+    }
+
+    public function scores()
+    {
+        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable');
+    }
+
+    public function currentScores()
+    {
+        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable')->where('is_current', true);
+    }
+
+    public function latestScore()
+    {
+        return $this->belongsTo(\App\DomainScore\Models\Score::class, 'latest_score_id');
     }
 }

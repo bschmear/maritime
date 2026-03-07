@@ -100,7 +100,6 @@ onMounted(() => {
     // You might want to add a route change listener here
 });
 
-// Secondary navigation items
 const secondaryNavItems = ref([
     { name: 'Overview', href: 'dashboard'},
     {
@@ -140,9 +139,20 @@ const secondaryNavItems = ref([
             }
         ]
     },
-    { name: 'Leads', href: 'leads.index' },
-    { name: 'Customers', href: 'customers.index' },
-    { name: 'Vendors', href: 'vendors.index'},
+    {
+        name: 'Relationships',
+        children: [
+            {
+                name: 'Leads',
+                children: [
+                    { name: 'All Leads', href: 'leads.index' },
+                    { name: 'Qualifications', href: 'qualifications.index' }
+                ]
+            },
+            { name: 'Customers', href: 'customers.index' },
+            { name: 'Vendors', href: 'vendors.index' }
+        ]
+    },
     { name: 'Tasks', href: 'tasks.index' },
     { name: 'Documents', href: 'documents.index' }
 ]);

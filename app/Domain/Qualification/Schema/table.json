@@ -1,0 +1,20 @@
+{
+    "columns": [
+      {
+        "key": "id",
+        "label": "Delivery #",
+        "sortable": true
+      },
+      { "key": "lead_id", "label": "Lead", "sortable": false },
+      { "key": "user_id", "label": "Salesperson", "sortable": false },
+      { "key": "status", "label": "Status", "sortable": true },
+      { "key": "intended_use", "label": "Intended Use", "sortable": true },
+      { "key": "purchase_timeline", "label": "Timeline", "sortable": true },
+      { "key": "budget_range", "label": "Budget Range", "sortable": true },
+      { "key": "lead_source", "label": "Lead Source", "sortable": true },
+      { "key": "qualified_at", "label": "Qualified At", "sortable": true },
+      { "key": "converted_at", "label": "Converted At", "sortable": true },
+      { "key": "created_at", "label": "Created", "sortable": true }
+    ],
+    "filters": []
+  }

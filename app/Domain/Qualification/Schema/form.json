@@ -1,0 +1,47 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Qualification Details",
+      "fields": [
+        { "key": "lead_id", "required": true },
+        { "key": "user_id", "required": true },
+        { "key": "status", "required": true },
+        { "key": "intended_use", "required": false },
+        { "key": "ownership_type", "required": false },
+        { "key": "purchase_timeline", "required": false }
+      ]
+    },
+
+    "product_requirements": {
+      "label": "Product Requirements",
+      "fields": [
+        { "key": "desired_brand", "required": false },
+        { "key": "desired_model", "required": false },
+        { "key": "preferred_length", "required": false },
+        { "key": "max_weight", "required": false },
+        { "key": "needs_engine", "required": false },
+        { "key": "needs_trailer", "required": false },
+        { "key": "budget_range", "required": false },
+        { "key": "requires_delivery", "required": false },
+        { "key": "delivery_location", "required": false },
+        { "key": "delivery_state", "required": false },
+        { "key": "delivery_country", "required": false }
+      ]
+    },
+
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        { "key": "internal_notes", "required": false },
+        { "key": "customer_notes", "required": false }
+      ]
+    }
+  },
+
+  "sublists": [
+
+  ]
+}

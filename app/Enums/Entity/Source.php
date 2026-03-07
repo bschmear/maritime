@@ -4,20 +4,24 @@ namespace App\Enums\Entity;
 
 enum Source: string
 {
-    case Referral = 'referral';
-    case Website  = 'website';
-    case WalkIn   = 'walk-in';
-    case Ad       = 'ad';
-    case Other    = 'other';
+    case Referral       = 'referral';
+    case Website        = 'website';
+    case WalkIn         = 'walk-in';
+    case Ad             = 'ad';
+    case BoatShow       = 'boat_show';
+    case Manufacturer   = 'manufacturer';
+    case Other          = 'other';
 
     public function id(): int
     {
         return match ($this) {
-            self::Referral => 1,
-            self::Website  => 2,
-            self::WalkIn   => 3,
-            self::Ad       => 4,
-            self::Other    => 5,
+            self::Referral      => 1,
+            self::Website       => 2,
+            self::WalkIn        => 3,
+            self::Ad            => 4,
+            self::BoatShow      => 5,
+            self::Manufacturer  => 6,
+            self::Other         => 7,
         };
     }
 
@@ -28,6 +32,8 @@ enum Source: string
             self::Website  => 'Website',
             self::WalkIn   => 'Walk-In',
             self::Ad       => 'Ad',
+            self::BoatShow       => 'Boat Show',
+            self::Manufacturer       => 'Manufacturer',
             self::Other    => 'Other',
         };
     }

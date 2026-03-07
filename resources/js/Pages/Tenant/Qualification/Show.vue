@@ -8,15 +8,15 @@ const props = defineProps({
     },
     recordType: {
         type: String,
-        default: 'leads',
+        default: 'qualifications',
     },
     recordTitle: {
         type: String,
-        default: 'Leads',
+        default: 'Qualifications',
     },
     pluralTitle: {
         type: String,
-        default: 'Lead',
+        default: 'Qualification',
     },
     formSchema: {
         type: Object,
@@ -48,7 +48,7 @@ const props = defineProps({
         :enum-options="enumOptions"
         :domain-name="domainName"
         :show-sublists="true"
-        :breadcrumb-parent-label="'Lead'"
+        :breadcrumb-parent-label="'Qualification'"
         :breadcrumb-parent-href="route(`${recordType}.index`)"
     />
 </template>

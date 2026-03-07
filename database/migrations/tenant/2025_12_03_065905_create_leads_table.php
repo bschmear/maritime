@@ -70,6 +70,7 @@ return new class extends Migration {
             $table->string('purchase_timeline')->nullable();
 
             // Budget / Intent
+            $table->unsignedTinyInteger('budget_range')->default(1);
             $table->decimal('budget_min', 12, 2)->nullable();
             $table->decimal('budget_max', 12, 2)->nullable();
             $table->string('interested_model')->nullable();

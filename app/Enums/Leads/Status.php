@@ -4,19 +4,19 @@ namespace App\Enums\Leads;
 
 enum Status: string
 {
-    case New           = 'new';
+    case Open          = 'open';
     case Contacted     = 'contacted';
     case Qualified     = 'qualified';
-    case Nurturing     = 'nurturing';
+    case Converted     = 'converted';
     case Disqualified  = 'disqualified';
 
     public function id(): int
     {
         return match ($this) {
-            self::New          => 1,
+            self::Open         => 1,
             self::Contacted    => 2,
             self::Qualified    => 3,
-            self::Nurturing    => 4,
+            self::Converted    => 4,
             self::Disqualified => 5,
         };
     }
@@ -24,10 +24,10 @@ enum Status: string
     public function label(): string
     {
         return match ($this) {
-            self::New          => 'New',
+            self::Open         => 'Open',
             self::Contacted    => 'Contacted',
             self::Qualified    => 'Qualified',
-            self::Nurturing    => 'Nurturing',
+            self::Converted    => 'Converted',
             self::Disqualified => 'Disqualified',
         };
     }
@@ -35,10 +35,10 @@ enum Status: string
     public function color(): string
     {
         return match ($this) {
-            self::New          => 'blue',
+            self::Open         => 'blue',
             self::Contacted    => 'teal',
             self::Qualified    => 'green',
-            self::Nurturing    => 'orange',
+            self::Converted    => 'purple',
             self::Disqualified => 'gray',
         };
     }
@@ -46,10 +46,10 @@ enum Status: string
     public function bgClass(): string
     {
         return match ($this) {
-            self::New          => 'bg-blue-200 dark:text-white dark:bg-blue-900',
+            self::Open         => 'bg-blue-200 dark:text-white dark:bg-blue-900',
             self::Contacted    => 'bg-teal-200 dark:text-white dark:bg-teal-900',
             self::Qualified    => 'bg-green-200 dark:text-white dark:bg-green-900',
-            self::Nurturing    => 'bg-orange-200 dark:text-white dark:bg-orange-900',
+            self::Converted    => 'bg-purple-200 dark:text-white dark:bg-purple-900',
             self::Disqualified => 'bg-gray-200 dark:text-white dark:bg-gray-900',
         };
     }

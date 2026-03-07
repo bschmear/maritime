@@ -1,0 +1,174 @@
+{
+    "fields": {
+        "lead_id": {
+            "label": "Lead",
+            "type": "record",
+            "typeDomain": "Lead",
+            "relationship": "lead",
+            "required": true
+        },
+
+        "user_id": {
+          "label": "Salesperson",
+          "type": "record",
+          "typeDomain": "User",
+          "required": true
+        },
+
+        "createdby_id": {
+          "label": "Created By",
+          "type": "record",
+          "typeDomain": "User"
+        },
+
+        "status": {
+          "label": "Status",
+          "type": "select",
+          "enum": "App\\Enums\\Leads\\Status",
+          "required": true,
+          "default": "1"
+        },
+
+        "intended_use": {
+          "label": "Intended Use",
+          "type": "select",
+          "enum": "App\\Enums\\Entity\\IntendedUse",
+          "required": true,
+          "default": "1"
+        },
+
+        "ownership_type": {
+          "label": "Ownership Type",
+          "type": "select",
+          "enum": "App\\Enums\\Entity\\OwnershipType",
+          "nullable": true,
+          "default": "1"
+        },
+
+        "desired_brand": {
+          "label": "Desired Brand",
+          "type": "record",
+          "typeDomain": "BoatMake",
+          "required": true
+        },
+
+        "desired_model": {
+          "label": "Desired Model",
+          "type": "text",
+          "nullable": true
+        },
+
+        "preferred_length": {
+          "label": "Preferred Length (ft)",
+          "type": "number",
+          "nullable": true
+        },
+
+        "max_weight": {
+          "label": "Max Weight (lbs)",
+          "type": "number",
+          "nullable": true
+        },
+
+        "needs_engine": {
+          "label": "Needs Engine",
+          "type": "boolean",
+          "default": false
+        },
+
+        "needs_trailer": {
+          "label": "Needs Trailer",
+          "type": "boolean",
+          "default": false
+        },
+
+        "budget_range": {
+          "label": "Budget Range",
+          "type": "select",
+          "enum": "App\\Enums\\Entity\\BudgetRange",
+          "required": true,
+          "sourced_default": "lead_id.budget_range",
+          "default": "1"
+        },
+
+        "purchase_timeline": {
+          "label": "Purchase Timeline",
+          "type": "select",
+          "enum": "App\\Enums\\Entity\\PurchaseTimeline",
+          "nullable": true,
+          "sourced_default": "lead_id.purchase_timeline",
+          "default": "1"
+        },
+
+        "delivery_location": {
+          "label": "Delivery Location",
+          "type": "text",
+          "nullable": true
+        },
+
+        "delivery_state": {
+          "label": "Delivery State",
+          "type": "text",
+          "nullable": true
+        },
+
+        "delivery_country": {
+          "label": "Delivery Country",
+          "type": "text",
+          "nullable": true
+        },
+
+        "requires_delivery": {
+          "label": "Requires Delivery",
+          "type": "boolean",
+          "default": false
+        },
+
+        "lead_source": {
+          "label": "Lead Source",
+          "type": "select",
+          "enum": "App\\Enums\\Entity\\Source",
+          "nullable": true
+        },
+
+        "customer_notes": {
+          "label": "Customer Notes",
+          "type": "textarea",
+          "help": "Visible to the customer",
+          "nullable": true
+        },
+
+        "internal_notes": {
+          "label": "Internal Notes",
+          "type": "textarea",
+          "help": "Visible only to staff",
+          "nullable": true
+        },
+
+        "qualified_at": {
+          "label": "Qualified At",
+          "type": "datetime",
+          "disabled": true,
+          "nullable": true
+        },
+
+        "converted_at": {
+          "label": "Converted At",
+          "type": "datetime",
+          "disabled": true,
+          "nullable": true
+        },
+
+        "created_at": {
+          "label": "Created At",
+          "type": "datetime",
+          "disabled": true
+        },
+
+        "updated_at": {
+          "label": "Updated At",
+          "type": "datetime",
+          "disabled": true
+        }
+    }
+  }

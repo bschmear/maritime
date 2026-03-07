@@ -139,14 +139,13 @@
     "type": "select",
     "enum": "App\\Enums\\Entity\\PurchaseTimeline"
   },
-  "budget_min": {
-    "label": "Minimum Budget",
-    "type": "number"
-  },
-  "budget_max": {
-    "label": "Maximum Budget",
-    "type": "number"
-  },
+    "budget_range": {
+      "label": "Budget Range",
+      "type": "select",
+      "enum": "App\\Enums\\Entity\\BudgetRange",
+      "required": true,
+      "default": "1"
+    },
   "interested_model": {
     "label": "Interested Model",
     "type": "text"

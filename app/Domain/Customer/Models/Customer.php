@@ -76,4 +76,19 @@ class Customer extends Model
         return $this->morphToMany(Document::class, 'documentable')
             ->withTimestamps();
     }
+
+    public function scores()
+    {
+        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable');
+    }
+
+    public function currentScores()
+    {
+        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable')->where('is_current', true);
+    }
+
+    public function latestScore()
+    {
+        return $this->belongsTo(\App\DomainScore\Models\Score::class, 'latest_score_id');
+    }
 }
