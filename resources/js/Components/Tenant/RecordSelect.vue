@@ -46,7 +46,7 @@
         }
     });
     
-    const emit = defineEmits(['update:modelValue']);
+    const emit = defineEmits(['update:modelValue', 'record-selected']);
     
     const showModal = ref(false);
     const showCreateModal = ref(false);
@@ -164,6 +164,7 @@
         selectedRecordId.value = record.id;
         selectedRecordName.value = getRecordDisplayName(record);
         emit('update:modelValue', record.id);
+        emit('record-selected', record);
         closeEnhancedModal();
     };
 
@@ -314,6 +315,7 @@
         selectedRecordId.value = record.id;
         selectedRecordName.value = getRecordDisplayName(record);
         emit('update:modelValue', record.id);
+        emit('record-selected', record);
         closeModal();
         showDropdown.value = false; // Ensure dropdown closes
     };

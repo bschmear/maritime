@@ -462,11 +462,12 @@ export default {
             return this.historicalScores.find(s => s.id === this.selectedHistoricalId) || null;
         },
         canAddScore() {
-            if (this.subscriptionLevel === 1) return false;
-            if (this.subscriptionLevel === 2) {
-                // Level 2: can only have 1 manual score, no behavioral
-                return !this.scores.some(s => s.is_current);
-            }
+            // console.log(this.subscriptionLevel);
+            // if (this.subscriptionLevel === 1) return false;
+            // if (this.subscriptionLevel === 2) {
+            //     // Level 2: can only have 1 manual score, no behavioral
+            //     return !this.scores.some(s => s.is_current);
+            // }
             return true; // Level 3+: multiple scores allowed
         }
     },
@@ -495,7 +496,7 @@ export default {
             this.submitting = true;
 
             try {
-                const response = await axios.post('/scores/calculate', {
+                const response = await axios.post(route('scoresCalculate'), {
                     scorable_type: this.scorableType,
                     scorable_id: this.scorableId,
                     update_current: updateCurrent
@@ -536,7 +537,7 @@ export default {
 
             this.submitting = true;
             try {
-                await axios.delete(`/scores/${this.currentScore.id}`);
+                await axios.delete(route('scoresDestroy', this.currentScore.id));
 
                 // Remove the score from the list
                 this.scores = this.scores.filter(s => s.id !== this.currentScore.id);
@@ -579,7 +580,7 @@ export default {
 
                 if (this.newScore.score_type === 'behavior') {
                     // Behavioral score - trigger automatic calculation (for both new and edit)
-                    response = await axios.post('/scores/calculate', {
+                    response = await axios.post(route('scoresCalculate'), {
                         scorable_type: this.scorableType,
                         scorable_id: this.scorableId
                     });
@@ -600,7 +601,7 @@ export default {
                     this.showNotification(isEditing ? 'Score recalculated successfully' : 'Behavioral score calculated successfully', 'success');
                 } else if (isEditing) {
                     // Manual score - update existing
-                    response = await axios.put(`/scores/${this.editingScore}`, {
+                    response = await axios.put(route('scoresUpdate', this.editingScore), {
                         score_value: this.newScore.score_value,
                         meta: {
                             reason: this.newScore.reason,
@@ -622,7 +623,7 @@ export default {
                     this.showNotification('Score updated successfully', 'success');
                 } else {
                     // Manual score - create new
-                    response = await axios.post('/scores/store', {
+                    response = await axios.post(route('scoresStore'), {
                         scorable_type: this.scorableType,
                         scorable_id: this.scorableId,
                         score_type: this.newScore.score_type,
@@ -702,7 +703,7 @@ export default {
             return Math.round(percentage);
         },
         showNotification(message, type = 'success') {
-            this.$root.createToast('success', message || 'Success');
+            this.$root.createToast(type, message || 'Success');
         },
         getSubmitButtonText() {
             if (this.newScore.score_type === 'behavior') {

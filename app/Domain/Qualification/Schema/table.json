@@ -2,7 +2,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "Delivery #",
+        "label": "#",
         "sortable": true
       },
       { "key": "lead_id", "label": "Lead", "sortable": false },

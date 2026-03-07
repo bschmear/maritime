@@ -86,15 +86,18 @@ Route::middleware([
         });
 
         Route::prefix('leads')->name('leads.')->group(function () {
+            Route::post('/{lead}/convert', [LeadController::class, 'convert'])->name('convert');
             Route::resource('/', LeadController::class)->parameters(['' => 'lead']);
-            Route::prefix('scores')->group(function () {
-                Route::get('/', [ScoreController::class, 'index'])->name('scoresIndex');
-                Route::post('/store', [ScoreController::class, 'store'])->name('scoresStore');
-                Route::post('/calculate', [ScoreController::class, 'calculate'])->name('scoresCalculate');
-                Route::get('/{id}', [ScoreController::class, 'show'])->name('scoresShow');
-                Route::put('/{id}', [ScoreController::class, 'update'])->name('scoresUpdate');
-                Route::delete('/{id}', [ScoreController::class, 'destroy'])->name('scoresDestroy');
-            });
+
+        });
+
+        Route::prefix('scores')->group(function () {
+            Route::get('/', [ScoreController::class, 'index'])->name('scoresIndex');
+            Route::post('/store', [ScoreController::class, 'store'])->name('scoresStore');
+            Route::post('/calculate', [ScoreController::class, 'calculate'])->name('scoresCalculate');
+            Route::get('/{id}', [ScoreController::class, 'show'])->name('scoresShow');
+            Route::put('/{id}', [ScoreController::class, 'update'])->name('scoresUpdate');
+            Route::delete('/{id}', [ScoreController::class, 'destroy'])->name('scoresDestroy');
         });
 
         Route::prefix('qualifications')->name('qualifications.')->group(function () {

@@ -18,7 +18,6 @@ return new class extends Migration
             $table->morphs('scorable');
 
             // Ownership & responsibility
-            $table->foreignId('team_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('assigned_id')->nullable()->constrained('users')->nullOnDelete();
 
@@ -33,7 +32,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Indexes for performance
-            $table->index(['team_id', 'user_id']);
+            $table->index(['user_id']);
         });
     }
 

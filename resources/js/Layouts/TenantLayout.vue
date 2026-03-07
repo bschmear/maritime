@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
+import Toast from '@/Components/Toast.vue';
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
@@ -434,5 +435,8 @@ const secondaryNavItems = ref([
         <main class="mx-auto flex w-full h-full relative p-4 grow flex-col space-y-4 md:space-y-6">
             <slot />
         </main>
+
+        <!-- Global Toast Notifications -->
+        <Toast />
     </div>
 </template>

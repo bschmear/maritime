@@ -405,6 +405,30 @@ const toggleSection = (key) => {
 };
 
 const getFieldValue = (fieldKey) => form[fieldKey] ?? '';
+
+/**
+ * When a record field is selected, check all other fields for `sourced_default`
+ * that reference this field, and populate them from the selected record's data.
+ * Format: "sourced_default": "lead_id.budget_range"
+ * Means: populate this field from the record selected in `lead_id`, using the `budget_range` property.
+ */
+const applySourcedDefaults = (changedFieldKey, selectedRecord) => {
+    if (!selectedRecord || !props.fieldsSchema) return;
+
+    const fieldsSchema = props.fieldsSchema.fields || props.fieldsSchema;
+
+    for (const [fieldKey, fieldDef] of Object.entries(fieldsSchema)) {
+        if (!fieldDef?.sourced_default) continue;
+
+        const [sourceFieldKey, sourceProperty] = fieldDef.sourced_default.split('.');
+        if (sourceFieldKey !== changedFieldKey) continue;
+
+        const value = selectedRecord[sourceProperty];
+        if (value !== undefined && value !== null && value !== '') {
+            form[fieldKey] = value;
+        }
+    }
+};
 const getEnumOptions = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     if (fieldDef.enum) {
@@ -1258,6 +1282,7 @@ defineExpose({
                                             :field-key="field.key"
                                             :filter-by="getFieldDefinition(field.key).filterby || null"
                                             :filter-value="getFieldFilterValue(field.key)"
+                                            @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)"
                                         />
 
                                         <!-- Select (enum dropdown) -->

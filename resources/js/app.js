@@ -15,7 +15,30 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        const app = createApp({ render: () => h(App, props) })
+        const app = createApp({
+            render: () => h(App, props),
+            data() {
+                return {
+                    toasts: [],
+                };
+            },
+            methods: {
+                createToast(type, message) {
+                    const toast = {
+                        type: type,
+                        message: message,
+                    };
+                    this.toasts.push(toast);
+
+                    setTimeout(() => {
+                        this.dismissToast(this.toasts.indexOf(toast));
+                    }, 5000);
+                },
+                dismissToast(index) {
+                    this.toasts.splice(index, 1);
+                }
+            }
+        })
             .use(plugin)
             .use(ZiggyVue);
 

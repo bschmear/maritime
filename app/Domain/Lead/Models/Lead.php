@@ -88,16 +88,16 @@ class Lead extends Model
 
     public function scores()
     {
-        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable');
+        return $this->morphMany(\App\Domain\Score\Models\Score::class, 'scorable');
     }
 
     public function currentScores()
     {
-        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable')->where('is_current', true);
+        return $this->morphMany(\App\Domain\Score\Models\Score::class, 'scorable')->where('is_current', true);
     }
 
     public function latestScore()
     {
-        return $this->belongsTo(\App\DomainScore\Models\Score::class, 'latest_score_id');
+        return $this->belongsTo(\App\Domain\Score\Models\Score::class, 'latest_score_id');
     }
 }

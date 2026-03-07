@@ -539,6 +539,7 @@ const getParentReferenceFields = () => {
             parentReferenceFields.push({
                 key: fieldKey,
                 definition: fieldDef,
+                typeDomain: fieldDef.typeDomain,
                 relationshipName: fieldDef.relationship || fieldKey.replace('_id', '')
             });
         }
@@ -585,8 +586,39 @@ const getSublistInitialData = () => {
             ...props.parentRecord
         };
     }
+
+    // 2. Handle sourced_default fields from fieldsSchema
+    // Format: "sourced_default": "lead_id.budget_range"
+    // Means: populate from the record in `lead_id` field, reading property `budget_range`
+    const fieldsSchema = sublistCreateFormData.value?.fieldsSchema;
+    if (fieldsSchema) {
+        const fields = fieldsSchema.fields || fieldsSchema;
+
+        // Build a map of parent-reference field keys -> their typeDomain
+        const parentRefMap = {};
+        for (const field of parentReferenceFields) {
+            parentRefMap[field.key] = field.typeDomain;
+        }
+
+        for (const [fieldKey, fieldDef] of Object.entries(fields)) {
+            if (!fieldDef?.sourced_default) continue;
+
+            const parts = fieldDef.sourced_default.split('.');
+            if (parts.length !== 2) continue;
+
+            const [sourceFieldKey, sourceProperty] = parts;
+
+            // Only apply if the source field is one of the parent reference fields
+            if (!parentRefMap[sourceFieldKey]) continue;
+
+            const value = props.parentRecord[sourceProperty];
+            if (value !== undefined && value !== null && value !== '') {
+                initialData[fieldKey] = value;
+            }
+        }
+    }
     
-    // 2. Handle auto_fill configuration from sublistConditions
+    // 3. Handle auto_fill configuration from sublistConditions (legacy)
     const formSchema = sublistCreateFormData.value?.formSchema;
     if (formSchema?.sublistConditions?.auto_fill) {
         const autoFillConfig = formSchema.sublistConditions.auto_fill;
