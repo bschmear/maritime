@@ -130,6 +130,7 @@ const secondaryNavItems = ref([
                 ]
             },
             { name: 'Invoices', href: 'invoices.index' },
+            { name: 'Opportunities', href: 'opportunities.index' },
             { name: 'Service Tickets', href: 'servicetickets.index' },
             { name: 'Work Orders', href: 'workorders.index' },
             {
@@ -138,27 +139,16 @@ const secondaryNavItems = ref([
                     { name: 'All Deliveries', href: 'deliveries.index' },
                     { name: 'Templates', href: 'delivery-checklist-templates.index' }
                 ]
-            }
+            },
+            { name: 'Qualifications', href: 'qualifications.index' }
         ]
     },
     {
         name: 'Relationships',
         children: [
-            {
-                name: 'Leads',
-                children: [
-                    { name: 'All Leads', href: 'leads.index' },
-                    { name: 'Qualifications', href: 'qualifications.index' }
-                ]
-            },
-            {
-                name: 'Customers',
-                children: [
-                    { name: 'All Customers', href: 'customers.index' },
-                    { name: 'Opportunities', href: 'opportunities.index' }
-                ]
-            },
-            { name: 'Vendors', href: 'vendors.index' }
+            { name: 'Leads', href: 'leads.index' },
+            { name: 'Customers', href: 'customers.index' },
+            { name: 'Vendors', href: 'vendors.index' },
         ]
     },
     { name: 'Tasks', href: 'tasks.index' },

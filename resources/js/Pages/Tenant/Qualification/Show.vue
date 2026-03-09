@@ -54,6 +54,14 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    opportunityStageOptions: {
+        type: Array,
+        default: () => [],
+    },
+    opportunityStatusOptions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isEditMode = ref(false);
@@ -65,7 +73,18 @@ const formRef = ref(null);
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
 const sublists = computed(() => props.formSchema?.sublists || []);
-const isConverted = computed(() => !!props.record?.converted_at);
+const linkedOpportunities = computed(() => props.record?.opportunities ?? []);
+const isConverted = computed(() => linkedOpportunities.value.length > 0);
+
+const getStageLabel = (id) => props.opportunityStageOptions.find(o => o.id === id)?.name ?? `Stage ${id}`;
+const getStageBg = (id) => props.opportunityStageOptions.find(o => o.id === id)?.bgClass ?? 'bg-gray-200';
+const getStatusLabel = (id) => props.opportunityStatusOptions.find(o => o.id === id)?.name ?? `Status ${id}`;
+const getStatusBg = (id) => props.opportunityStatusOptions.find(o => o.id === id)?.bgClass ?? 'bg-gray-200';
+
+const formatCurrency = (val) => {
+    if (val == null) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+};
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -154,7 +173,7 @@ const convertLeadAndCreateOpportunity = () => {
                         </h2>
                         <span
                             v-if="isConverted"
-                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300"
                         >
                             Opportunity Created
                         </span>
@@ -165,7 +184,7 @@ const convertLeadAndCreateOpportunity = () => {
                         <button
                             v-if="!isConverted"
                             @click="handleCreateOpportunity"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                         >
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -275,7 +294,7 @@ const convertLeadAndCreateOpportunity = () => {
                         <!-- Converted at -->
                         <div v-if="record?.converted_at" class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Opportunity Created</span>
-                            <span class="font-medium text-purple-600 dark:text-purple-400">
+                            <span class="font-medium text-primary-600 dark:text-primary-400">
                                 {{ new Date(record.converted_at).toLocaleDateString() }}
                             </span>
                         </div>
@@ -289,10 +308,10 @@ const convertLeadAndCreateOpportunity = () => {
                         </div>
 
                         <!-- Create Opportunity Action -->
-                        <div v-if="!isConverted" class="pt-2">
+                        <div class="pt-2">
                             <button
                                 @click="handleCreateOpportunity"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -300,20 +319,46 @@ const convertLeadAndCreateOpportunity = () => {
                                 Create Opportunity
                             </button>
                         </div>
+                    </div>
+                </div>
 
-                        <!-- View Opportunity (once converted) -->
-                        <div v-if="isConverted && record?.opportunities?.length > 0" class="pt-2">
-                            <Link
-                                :href="route('opportunities.show', record.opportunities[0].id)"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-purple-500 hover:bg-purple-600 rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                View Opportunity
-                            </Link>
-                        </div>
+                <!-- Linked Opportunities -->
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
+                    <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Opportunities</h3>
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+                            {{ linkedOpportunities.length }}
+                        </span>
+                    </div>
+
+                    <div v-if="linkedOpportunities.length === 0" class="px-5 py-4">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 text-center">No opportunities yet</p>
+                    </div>
+
+                    <div v-else class="divide-y divide-gray-100 dark:divide-gray-700">
+                        <Link
+                            v-for="opp in linkedOpportunities"
+                            :key="opp.id"
+                            :href="route('opportunities.show', opp.id)"
+                            class="flex items-start justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                        >
+                            <div class="flex flex-col gap-1 min-w-0">
+                                <span class="text-sm font-medium text-primary-600 dark:text-primary-400 group-hover:underline">
+                                    OPP-{{ opp.sequence ?? opp.id }}
+                                </span>
+                                <div class="flex flex-wrap gap-1 mt-0.5">
+                                    <span :class="['inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium', getStageBg(opp.stage)]">
+                                        {{ getStageLabel(opp.stage) }}
+                                    </span>
+                                    <span :class="['inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium', getStatusBg(opp.status)]">
+                                        {{ getStatusLabel(opp.status) }}
+                                    </span>
+                                </div>
+                            </div>
+                            <span v-if="opp.estimated_value" class="text-xs font-semibold text-gray-700 dark:text-gray-300 ml-2 mt-0.5 flex-shrink-0">
+                                {{ formatCurrency(opp.estimated_value) }}
+                            </span>
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -410,7 +455,7 @@ const convertLeadAndCreateOpportunity = () => {
                         @click="convertLeadAndCreateOpportunity"
                         :disabled="isConverting"
                         type="button"
-                        class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <svg v-if="isConverting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

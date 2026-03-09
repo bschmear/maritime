@@ -42,6 +42,10 @@
   },
 
   "sublists": [
-
+    {
+      "label": "Opportunities",
+      "domain": "Opportunity",
+      "modelRelationship": "opportunities"
+    }
   ]
 }

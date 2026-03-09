@@ -1,5 +1,15 @@
 {
     "columns": [
-
-    ]
-}
+      {
+        "key": "id",
+        "label": "#",
+        "sortable": true
+      },
+      { "key": "user_id", "label": "Salesperson", "sortable": false },
+      { "key": "customer_id", "label": "Customer", "sortable": false },
+      { "key": "status", "label": "Status", "sortable": true },
+      { "key": "stage", "label": "Stage", "sortable": true },
+      { "key": "created_at", "label": "Created", "sortable": true }
+    ],
+    "filters": []
+  }

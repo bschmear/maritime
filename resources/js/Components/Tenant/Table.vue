@@ -247,40 +247,36 @@ const getRecordValue = (record, column) => {
 
         // Handle record relationships
         if (fieldType === 'record' && fieldDef.typeDomain) {
-            // Try to infer the relationship name from the field key
-            let relationshipKey = key;
+            // Build candidate keys in priority order:
+            // (same logic used in getRelationshipLink)
+            // 1. Explicit relationship name from schema (e.g. "salesperson" for user_id)
+            // 2. Key with _id stripped (e.g. "user" from "user_id")
+            // 3. Key with current_ stripped
+            // 4. Domain name lowercase
+            // 5. Original key as-is
+            const candidateKeys = [];
 
-            // Remove common suffixes and prefixes
-            if (relationshipKey.endsWith('_id')) {
-                relationshipKey = relationshipKey.slice(0, -3); // Remove '_id'
-            }
-            if (relationshipKey.startsWith('current_')) {
-                relationshipKey = relationshipKey.slice(8); // Remove 'current_' prefix
-            }
-
-            // Try singular version if it ends with 's'
-            if (relationshipKey.endsWith('s')) {
-                relationshipKey = relationshipKey.slice(0, -1);
+            if (fieldDef.relationship) {
+                candidateKeys.push(fieldDef.relationship);
             }
 
-            // Look for the relationship data in the record
-            const relatedRecord = record[relationshipKey];
+            let inferredKey = key;
+            if (inferredKey.endsWith('_id')) inferredKey = inferredKey.slice(0, -3);
+            if (inferredKey.startsWith('current_')) inferredKey = inferredKey.slice(8);
+            if (inferredKey.endsWith('s')) inferredKey = inferredKey.slice(0, -1);
+            candidateKeys.push(inferredKey);
 
-            if (relatedRecord && typeof relatedRecord === 'object' && relatedRecord.display_name) {
-                return relatedRecord.display_name;
-            }
+            candidateKeys.push(
+                key.replace('_id', ''),
+                key.replace('current_', ''),
+                fieldDef.typeDomain.toLowerCase(),
+                key,
+            );
 
-            // If relationship not loaded, try alternative keys
-            const alternativeKeys = [
-                key, // Original key
-                key.replace('_id', ''), // Remove _id
-                key.replace('current_', ''), // Remove current_ prefix
-                fieldDef.typeDomain.toLowerCase(), // Domain name lowercase
-            ];
-
-            for (const altKey of alternativeKeys) {
-                if (record[altKey] && typeof record[altKey] === 'object' && record[altKey].display_name) {
-                    return record[altKey].display_name;
+            for (const candidate of candidateKeys) {
+                const rel = record[candidate];
+                if (rel && typeof rel === 'object' && rel.display_name) {
+                    return rel.display_name;
                 }
             }
 
@@ -309,6 +305,43 @@ const getRecordValue = (record, column) => {
     }
     
     return rawValue;
+};
+
+// Returns an href string if the cell is a loaded record relationship, null otherwise.
+const getRelationshipLink = (record, column) => {
+    const fieldDef = props.fieldsSchema[column.key];
+    if (!fieldDef || fieldDef.type !== 'record' || !fieldDef.typeDomain) return null;
+
+    // Resolve the loaded relationship object using the same candidate key logic
+    const candidateKeys = [];
+    if (fieldDef.relationship) candidateKeys.push(fieldDef.relationship);
+
+    let inferred = column.key;
+    if (inferred.endsWith('_id')) inferred = inferred.slice(0, -3);
+    if (inferred.startsWith('current_')) inferred = inferred.slice(8);
+    if (inferred.endsWith('s')) inferred = inferred.slice(0, -1);
+    candidateKeys.push(inferred, column.key.replace('_id', ''), fieldDef.typeDomain.toLowerCase(), column.key);
+
+    let relatedRecord = null;
+    for (const k of candidateKeys) {
+        if (record[k] && typeof record[k] === 'object' && record[k].id) {
+            relatedRecord = record[k];
+            break;
+        }
+    }
+    if (!relatedRecord?.id) return null;
+
+    // Convert PascalCase typeDomain to kebab-plural route prefix:
+    // Customer -> customers, WorkOrder -> work-orders, AssetUnit -> asset-units
+    const routePrefix = fieldDef.typeDomain
+        .replace(/([A-Z])/g, (m, l, offset) => offset === 0 ? l.toLowerCase() : '-' + l.toLowerCase())
+        + 's';
+
+    try {
+        return route(`${routePrefix}.show`, relatedRecord.id);
+    } catch {
+        return null;
+    }
 };
 
 const hasEnumColor = (column, record) => {
@@ -873,7 +906,13 @@ onMounted(() => {
                                 </td>
                                 <td v-for="column in columns" :key="column.key" class="px-4 py-2 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                     <template v-if="column.key === 'id'">
-                                        {{ getRecordValue(record, column) }}
+                                        <Link
+                                            :href="route(`${recordType}.show`, record.id)"
+                                            class="font-mono text-primary-600 dark:text-primary-400 hover:underline"
+                                            @click.stop
+                                        >
+                                            {{ getRecordValue(record, column) }}
+                                        </Link>
                                     </template>
                                     <template v-else-if="hasEnumColor(column, record)">
                                         <div class="flex items-center">
@@ -899,6 +938,15 @@ onMounted(() => {
                                                 {{ record[column.key] || 0 }}/5
                                             </span> -->
                                         </div>
+                                    </template>
+                                    <template v-else-if="props.fieldsSchema[column.key]?.type === 'record' && getRelationshipLink(record, column)">
+                                        <Link
+                                            :href="getRelationshipLink(record, column)"
+                                            class="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                                            @click.stop
+                                        >
+                                            {{ getRecordValue(record, column) }}
+                                        </Link>
                                     </template>
                                     <template v-else>
                                         {{ getRecordValue(record, column) }}

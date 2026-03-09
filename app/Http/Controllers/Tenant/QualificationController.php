@@ -6,6 +6,8 @@ use App\Domain\Qualification\Actions\CreateQualification as CreateAction;
 use App\Domain\Qualification\Actions\UpdateQualification as UpdateAction;
 use App\Domain\Qualification\Actions\DeleteQualification as DeleteAction;
 use App\Enums\Timezone;
+use App\Enums\Opportunity\Stage as OpportunityStage;
+use App\Enums\Opportunity\Status as OpportunityStatus;
 use Illuminate\Http\Request;
 
 class QualificationController extends RecordController
@@ -45,6 +47,7 @@ class QualificationController extends RecordController
 
         $formSchema = $this->getFormSchema();
 
+        // Load sublist relationships the same way RecordController does
         if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
                 if (isset($sublist['modelRelationship'])) {
@@ -67,6 +70,9 @@ class QualificationController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $account = \App\Models\AccountSettings::getCurrent();
 
+        $opportunityStageOptions  = OpportunityStage::options();
+        $opportunityStatusOptions = OpportunityStatus::options();
+
         // Build leadData for the frontend conversion flow
         $leadData = null;
         if ($record->lead) {
@@ -80,32 +86,36 @@ class QualificationController extends RecordController
 
         if ($request->ajax() && !$request->header('X-Inertia')) {
             return response()->json([
-                'record'       => $record,
-                'recordType'   => $this->recordType,
-                'recordTitle'  => $this->recordTitle,
-                'domainName'   => $this->domainName,
-                'formSchema'   => $formSchema,
-                'fieldsSchema' => $fieldsSchema,
-                'enumOptions'  => $enumOptions,
-                'imageUrls'    => $this->getImageUrls($record, $fieldsSchema),
-                'account'      => $account,
-                'timezones'    => Timezone::options(),
-                'leadData'     => $leadData,
+                'record'                   => $record,
+                'recordType'               => $this->recordType,
+                'recordTitle'              => $this->recordTitle,
+                'domainName'               => $this->domainName,
+                'formSchema'               => $formSchema,
+                'fieldsSchema'             => $fieldsSchema,
+                'enumOptions'              => $enumOptions,
+                'imageUrls'                => $this->getImageUrls($record, $fieldsSchema),
+                'account'                  => $account,
+                'timezones'                => Timezone::options(),
+                'leadData'                 => $leadData,
+                'opportunityStageOptions'  => $opportunityStageOptions,
+                'opportunityStatusOptions' => $opportunityStatusOptions,
             ]);
         }
 
         return inertia('Tenant/Qualification/Show', [
-            'record'       => $record,
-            'recordType'   => $this->recordType,
-            'recordTitle'  => $this->recordTitle,
-            'domainName'   => $this->domainName,
-            'formSchema'   => $formSchema,
-            'fieldsSchema' => $fieldsSchema,
-            'enumOptions'  => $enumOptions,
-            'imageUrls'    => $this->getImageUrls($record, $fieldsSchema),
-            'account'      => $account,
-            'timezones'    => Timezone::options(),
-            'leadData'     => $leadData,
+            'record'                   => $record,
+            'recordType'               => $this->recordType,
+            'recordTitle'              => $this->recordTitle,
+            'domainName'               => $this->domainName,
+            'formSchema'               => $formSchema,
+            'fieldsSchema'             => $fieldsSchema,
+            'enumOptions'              => $enumOptions,
+            'imageUrls'                => $this->getImageUrls($record, $fieldsSchema),
+            'account'                  => $account,
+            'timezones'                => Timezone::options(),
+            'leadData'                 => $leadData,
+            'opportunityStageOptions'  => $opportunityStageOptions,
+            'opportunityStatusOptions' => $opportunityStatusOptions,
         ]);
     }
 }

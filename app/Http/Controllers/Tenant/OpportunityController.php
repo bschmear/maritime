@@ -105,8 +105,9 @@ class OpportunityController extends RecordController
         $relationships['qualification'] = fn($q) => $q->select('*')
             ->with(['desired_brand' => fn($q2) => $q2->select(['id', 'display_name'])]);
 
-        // Load inventory items with pivot data
-        $relationships['inventoryItems'] = fn($q) => $q->withPivot('quantity', 'unit_price', 'notes');
+        // Load inventory items (Parts & Accessories) and assets with pivot data
+        $relationships['inventoryItems'] = fn($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes');
+        $relationships['assets']         = fn($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes');
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
@@ -154,8 +155,9 @@ class OpportunityController extends RecordController
             }
         }
 
-        // Load inventory items with pivot data for line items pre-fill
-        $relationships['inventoryItems'] = fn($q) => $q->withPivot('quantity', 'unit_price', 'notes');
+        // Load inventory items (Parts & Accessories) and assets with pivot data
+        $relationships['inventoryItems'] = fn($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes');
+        $relationships['assets']         = fn($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes');
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 

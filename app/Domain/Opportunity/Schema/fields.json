@@ -33,9 +33,9 @@
             "default": 1
         },
         "estimated_value": {
-            "label": "Estimated Value",
+            "label": "Estimated Revenue",
             "type": "currency",
-            "description": "Estimated deal value used for forecasting"
+            "description": "Estimated deal revenue used for forecasting"
         },
         "probability": {
             "label": "Probability %",

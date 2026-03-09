@@ -18,7 +18,7 @@ const props = defineProps({
 });
 
 const opportunityLabel = computed(() =>
-    props.record?.sequence ? `OPP-${props.record.sequence}` : `Opportunity #${props.record?.id}`
+    props.record?.display_name ? `${props.record.display_name}` : `Opportunity #${props.record?.id}`
 );
 
 const breadcrumbItems = computed(() => [
@@ -48,9 +48,21 @@ const statusLabel = computed(() =>
     getEnumLabel(props.enumOptions['App\\Enums\\Opportunity\\Status'], props.record?.status)
 );
 
+const assets = computed(() => props.record?.assets ?? []);
+const assetTotal = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+const assetCostItem = (item) => Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0);
+const assetSubtotal = computed(() => assets.value.reduce((sum, item) => sum + assetTotal(item), 0));
+const assetCostTotal = computed(() => assets.value.reduce((sum, item) => sum + assetCostItem(item), 0));
+
 const lineItems = computed(() => props.record?.inventory_items ?? []);
 const lineTotal = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+const lineCostItem = (item) => Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0);
 const lineItemsSubtotal = computed(() => lineItems.value.reduce((sum, item) => sum + lineTotal(item), 0));
+const lineItemsCostTotal = computed(() => lineItems.value.reduce((sum, item) => sum + lineCostItem(item), 0));
+
+const combinedSubtotal = computed(() => assetSubtotal.value + lineItemsSubtotal.value);
+const combinedCostTotal = computed(() => assetCostTotal.value + lineItemsCostTotal.value);
+const grossProfit = computed(() => combinedSubtotal.value - combinedCostTotal.value);
 
 const qualification = computed(() => props.record?.qualification ?? null);
 
@@ -116,7 +128,7 @@ const handleDelete = () => {
                             <div class="flex items-center justify-between">
                                 <div>
                                     <h1 class="text-2xl font-bold text-white">OPPORTUNITY</h1>
-                                    <p class="text-primary-100 text-sm mt-1">Sales opportunity details</p>
+                                    <p class="text-primary-100 text-base mt-1">Sales opportunity details</p>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-primary-200 text-xs font-medium">Reference</div>
@@ -288,11 +300,81 @@ const handleDelete = () => {
                     </div>
 
                     <!-- ============================
-                         Inventory Line Items
+                         Assets
                          ============================ -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Inventory Items</h2>
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
+                        </div>
+
+                        <div v-if="assets.length > 0" class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Year</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Estimated Cost</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <tr
+                                        v-for="item in assets"
+                                        :key="item.id"
+                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                                    >
+                                        <td class="px-4 py-3">
+                                            <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
+                                            <div v-if="item.make?.display_name" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make.display_name }}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetTotal(item)) }}</td>
+                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.pivot?.notes || '—' }}</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
+                                    <tr>
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal (Revenue)</td>
+                                        <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="border-t border-gray-200 dark:border-gray-600">
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Assets Total Cost</td>
+                                        <td class="px-4 py-3 text-right text-sm text-red-600 dark:text-red-400">{{ formatCurrency(assetCostTotal) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="border-t border-dashed border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Gross Profit</td>
+                                        <td class="px-4 py-3 text-right text-sm font-bold"
+                                            :class="(assetSubtotal - assetCostTotal) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
+                                            {{ formatCurrency(assetSubtotal - assetCostTotal) }}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div v-else class="flex flex-col items-center justify-center py-12 text-center px-6">
+                            <svg class="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            <p class="text-sm text-gray-400 dark:text-gray-500">No assets attached</p>
+                        </div>
+                    </div>
+
+                    <!-- ============================
+                         Parts & Accessories (Inventory Items)
+                         ============================ -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
                         </div>
 
                         <div v-if="lineItems.length > 0" class="overflow-x-auto">
@@ -301,6 +383,7 @@ const handleDelete = () => {
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Estimated Cost</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
@@ -315,6 +398,7 @@ const handleDelete = () => {
                                     >
                                         <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.display_name }}</td>
                                         <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
                                         <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
@@ -323,8 +407,21 @@ const handleDelete = () => {
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="4" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Items Subtotal</td>
-                                        <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</td>
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Acc. Subtotal (Revenue)</td>
+                                        <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="border-t border-gray-200 dark:border-gray-600">
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Parts &amp; Acc. Total Cost</td>
+                                        <td class="px-4 py-3 text-right text-sm text-red-600 dark:text-red-400">{{ formatCurrency(lineItemsCostTotal) }}</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr class="border-t border-dashed border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Acc. Gross Profit</td>
+                                        <td class="px-4 py-3 text-right text-sm font-bold"
+                                            :class="(lineItemsSubtotal - lineItemsCostTotal) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
+                                            {{ formatCurrency(lineItemsSubtotal - lineItemsCostTotal) }}
+                                        </td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -343,11 +440,11 @@ const handleDelete = () => {
                          Qualification Product Requirements
                          ============================ -->
                     <div v-if="qualification" class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-800 px-6 py-4">
+                        <div class="bg-gradient-to-r from-secondary-600 to-secondary-700 dark:from-secondary-700 dark:to-secondary-800 px-6 py-4">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h2 class="text-base font-bold text-white">Qualification Details</h2>
-                                    <p class="text-purple-100 text-xs mt-0.5">Product requirements from the linked qualification</p>
+                                    <h2 class="text-lg font-bold text-white">Qualification Details</h2>
+                                    <p class="text-secondary-100 text-base mt-0.5">Product requirements from the linked qualification</p>
                                 </div>
                                 <Link
                                     :href="route('qualifications.show', record.qualification_id)"
@@ -467,7 +564,7 @@ const handleDelete = () => {
                 <div class="lg:col-span-4 space-y-6">
 
                     <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
                         <div class="px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
@@ -490,32 +587,64 @@ const handleDelete = () => {
                         </div>
                     </div>
 
-                    <!-- Deal Value -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-gray-900 dark:text-white">Deal Value</span>
-                        </div>
-                        <div class="p-5 space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ fieldsSchema.estimated_value?.label || 'Estimated Value' }}
-                                </span>
-                                <span class="text-lg font-bold text-gray-900 dark:text-white">
-                                    {{ formatCurrency(record.estimated_value) }}
-                                </span>
-                            </div>
-                            <div v-if="lineItems.length > 0" class="pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-500 dark:text-gray-400">Items Subtotal</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-500 dark:text-gray-400">Item Count</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ lineItems.length }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<!-- Deal Value -->
+<div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600">
+        <span class="text-sm font-semibold text-gray-900 dark:text-white">Deal Value</span>
+    </div>
+    <div class="p-5 space-y-3">
+
+        <!-- Estimated Revenue (manual field) -->
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400">
+                {{ fieldsSchema.estimated_value?.label || 'Estimated Revenue' }}
+            </span>
+            <span class="text-lg font-bold text-gray-900 dark:text-white">
+                {{ formatCurrency(record.estimated_value) }}
+            </span>
+        </div>
+
+        <!-- Line item breakdown (only when assets or parts exist) -->
+        <div v-if="assets.length > 0 || lineItems.length > 0" class="pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
+
+            <!-- Revenue breakdown -->
+            <div v-if="assets.length > 0" class="flex justify-between items-center text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Assets Revenue</span>
+                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSubtotal) }}</span>
+            </div>
+            <div v-if="lineItems.length > 0" class="flex justify-between items-center text-sm">
+                <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc. Revenue</span>
+                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(lineItemsSubtotal) }}</span>
+            </div>
+            <div class="flex justify-between items-center text-sm pt-1 border-t border-gray-100 dark:border-gray-700">
+                <span class="font-medium text-gray-700 dark:text-gray-300">Total Revenue</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
+            </div>
+
+            <!-- Cost + Profit -->
+            <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700">
+                <span class="text-gray-500 dark:text-gray-400">Total Cost</span>
+                <span class="text-red-600 dark:text-red-400">{{ formatCurrency(combinedCostTotal) }}</span>
+            </div>
+            <div class="flex justify-between items-center text-sm pt-1 border-t border-dashed border-gray-200 dark:border-gray-600">
+                <span class="font-semibold text-gray-700 dark:text-gray-300">Estimated Profit</span>
+                <span :class="grossProfit >= 0
+                    ? 'font-bold text-green-600 dark:text-green-400'
+                    : 'font-bold text-red-600 dark:text-red-400'">
+                    {{ formatCurrency(grossProfit) }}
+                </span>
+            </div>
+
+            <!-- Margin % (bonus, only when revenue > 0) -->
+            <div v-if="combinedSubtotal > 0" class="flex justify-between items-center text-xs pt-1">
+                <span class="text-gray-400 dark:text-gray-500">Margin</span>
+                <span :class="grossProfit >= 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400'">
+                    {{ ((grossProfit / combinedSubtotal) * 100).toFixed(1) }}%
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
 
                     <!-- Opportunity Info -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">

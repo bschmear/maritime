@@ -55,13 +55,27 @@ class GeneralController extends BaseController
             }
         }
 
-        $query = $recordModel->select($columns);
+        // Include pricing and display fields for line item types
+        if (strtolower($type) === 'inventoryitem') {
+            $columns[] = 'sku';
+            $columns[] = 'default_price';
+            $columns[] = 'default_cost';
+        } elseif (strtolower($type) === 'asset') {
+            $columns[] = 'year';
+            $columns[] = 'make_id';
+            $columns[] = 'default_price';
+            $columns[] = 'default_cost';
+        }
+
+        $query = $recordModel->select(array_unique($columns));
 
         // Load relationships for models that need them for display names
         if ($type === 'assetunit') {
             $query->with('asset:id,display_name');
         } elseif ($type === 'inventoryunit') {
             $query->with('inventoryItem:id,display_name');
+        } elseif (strtolower($type) === 'asset') {
+            $query->with('make:id,display_name');
         }
 
         // Apply filters if provided
@@ -85,7 +99,15 @@ class GeneralController extends BaseController
         // Apply search query (fuzzy search on display_name or related fields, case-insensitive)
         $searchQuery = $request->get('search');
         if ($searchQuery && !empty(trim($searchQuery))) {
-            if ($hasDisplayNameColumn) {
+            if (strtolower($type) === 'asset') {
+                // Search assets by display_name, year, or make name (via join)
+                $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm])
+                      ->orWhereRaw('LOWER(CAST(year AS TEXT)) LIKE ?', [$searchTerm])
+                      ->orWhereHas('make', fn($q2) => $q2->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]));
+                });
+            } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
             } else {
                 // For models without display_name column, search in typical display name fields

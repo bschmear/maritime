@@ -13,19 +13,6 @@ class Opportunity extends Model
 {
     use SoftDeletes;
 
-    protected static function booted(): void
-    {
-        static::creating(function (self $record) {
-            if (empty($record->uuid)) {
-                $record->uuid = (string) Str::uuid();
-            }
-
-            if (empty($record->sequence)) {
-                $max = \Illuminate\Support\Facades\DB::table('opportunities')->max('sequence') ?? 0;
-                $record->sequence = (int) $max + 1;
-            }
-        });
-    }
 
     protected $table = 'opportunities';
 
@@ -43,10 +30,22 @@ class Opportunity extends Model
         'estimated_value' => 'decimal:2',
         'opened_at' => 'datetime',
         'won_at' => 'datetime',
-        'lost_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'lost_at' => 'datetime'
     ];
+    protected $appends = ['display_name'];
+
+    protected static function booted()
+    {
+        static::creating(function ($record) {
+            if (empty($record->uuid)) {
+                $record->uuid = (string) Str::uuid();
+            }
+            if (empty($record->sequence)) {
+                $next = (int) (DB::table('opportunities')->max('sequence') ?? 999);
+                $record->sequence = $next + 1;
+            }
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -79,23 +78,33 @@ class Opportunity extends Model
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'createdby_id');
     }
 
+    public function assets(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Domain\Asset\Models\Asset::class,
+            'asset_opportunity',
+            'opportunity_id',
+            'asset_id'
+        )->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes')->withTimestamps();
+    }
+
     public function inventoryItems(): BelongsToMany
     {
         return $this->belongsToMany(
             \App\Domain\InventoryItem\Models\InventoryItem::class,
-            'inventory_item_opportunity', // pivot table
+            'inventory_item_opportunity',
             'opportunity_id',
             'inventory_item_id'
-        )->withPivot('quantity', 'notes')->withTimestamps();
+        )->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes')->withTimestamps();
     }
 
     public function inventory_items(): BelongsToMany
     {
-        return $this->belongsToMany(
-            \App\Domain\InventoryItem\Models\InventoryItem::class,
-            'inventory_item_opportunity', // pivot table
-            'opportunity_id',
-            'inventory_item_id'
-        )->withPivot('quantity', 'notes')->withTimestamps();
+        return $this->inventoryItems();
+    }
+
+    public function getDisplayNameAttribute()
+    {
+        return 'OPP-' . ($this->sequence ?: $this->id ?: '???');
     }
 }

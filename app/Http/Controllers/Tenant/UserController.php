@@ -125,8 +125,8 @@ class UserController extends RecordController
 
         $imgUrls = $this->getImageUrls($record, $fieldsSchema);
 
-        // If it's an AJAX request, return JSON
-        if ($request->wantsJson() || $request->ajax()) {
+        // If it's a non-Inertia AJAX request, return JSON
+        if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
             return response()->json([
                 'record' => $record,
                 'recordType' => $this->recordType,

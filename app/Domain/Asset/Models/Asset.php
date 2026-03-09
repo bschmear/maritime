@@ -72,6 +72,11 @@ class Asset extends Model
         return $this->belongsTo(BoatMake::class, 'make_id', 'id');
     }
 
+    public function boat_makes()
+    {
+        return $this->belongsTo(BoatMake::class, 'make_id', 'id');
+    }
+
     public function images()
     {
         return $this->morphMany(InventoryImage::class, 'imageable');

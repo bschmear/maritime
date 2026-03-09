@@ -14,7 +14,7 @@ class UpdateQualification
         $validated = Validator::make($data, [
             'lead_id' => 'sometimes|required|exists:leads,id',
             'user_id' => 'sometimes|required|exists:users,id',
-            'status'  => 'sometimes|required|in:open,contacted,qualified,converted,disqualified',
+            'status'  => 'sometimes|required',
         ])->validate();
 
         try {
