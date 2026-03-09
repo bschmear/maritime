@@ -4,12 +4,17 @@ import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
     record: {
         type: Object,
         required: true,
+    },
+    domainName: {
+        type: String,
+        default: 'Customer',
     },
     recordType: {
         type: String,
@@ -37,6 +42,8 @@ const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 const formRef = ref(null);
+
+const sublists = computed(() => props.formSchema?.sublists || []);
 
 const handleEdit = () => {
     isEditMode.value = true;
@@ -170,25 +177,34 @@ const breadcrumbItems = computed(() => {
 
         <div class="w-full">
 
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
-                    <div class="">
-                        <Form
-                            ref="formRef"
-                            :schema="formSchema"
-                            :fields-schema="fieldsSchema"
-                            :record="record"
-                            :record-type="recordType"
-                            :enum-options="enumOptions"
-                            :mode="isEditMode ? 'edit' : 'view'"
-                            :prevent-redirect="true"
-                            :form-id="`form-${recordType}-${record.id}`"
-                            @submit="handleSubmit"
-                            @updated="handleUpdated"
-                            @cancel="handleCancel"
-                        />
-                    </div>
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
+                <div class="">
+                    <Form
+                        ref="formRef"
+                        :schema="formSchema"
+                        :fields-schema="fieldsSchema"
+                        :record="record"
+                        :record-type="recordType"
+                        :enum-options="enumOptions"
+                        :mode="isEditMode ? 'edit' : 'view'"
+                        :prevent-redirect="true"
+                        :form-id="`form-${recordType}-${record.id}`"
+                        @submit="handleSubmit"
+                        @updated="handleUpdated"
+                        @cancel="handleCancel"
+                    />
                 </div>
+            </div>
 
+        </div>
+
+                <!-- Sublists below the form -->
+        <div v-if="sublists.length > 0 && domainName" class="mt-6">
+            <Sublist
+                :parent-record="record"
+                :parent-domain="domainName"
+                :sublists="sublists"
+            />
         </div>
 
         <!-- Delete Confirmation Modal -->

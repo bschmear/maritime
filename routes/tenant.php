@@ -36,6 +36,7 @@ use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\QualificationController;
+use App\Http\Controllers\Tenant\OpportunityController;
 use App\Http\Controllers\Tenant\ScoreController;
 
 // use App\Http\Controllers\Tenant\PortalController;
@@ -102,6 +103,10 @@ Route::middleware([
 
         Route::prefix('qualifications')->name('qualifications.')->group(function () {
             Route::resource('/', QualificationController::class)->parameters(['' => 'qualification']);
+        });
+
+        Route::prefix('opportunities')->name('opportunities.')->group(function () {
+            Route::resource('/', OpportunityController::class)->parameters(['' => 'opportunity']);
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {

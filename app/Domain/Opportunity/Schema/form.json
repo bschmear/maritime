@@ -1,0 +1,46 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Opportunity Details",
+      "fields": [
+        { "key": "customer_id", "required": true },
+        { "key": "qualification_id", "required": false },
+        { "key": "user_id", "required": true },
+        { "key": "stage", "required": true },
+        { "key": "status", "required": true },
+        { "key": "estimated_value", "required": false },
+        { "key": "probability", "required": false },
+        { "key": "opened_at", "required": false, "readonly": true },
+        { "key": "won_at", "required": false, "readonly": true },
+        { "key": "lost_at", "required": false, "readonly": true }
+      ]
+    },
+
+    "product_requirements": {
+      "label": "Product Requirements",
+      "fields": [
+        { "key": "needs_engine", "required": false },
+        { "key": "needs_trailer", "required": false },
+        { "key": "customer_notes", "required": false },
+        { "key": "internal_notes", "required": false }
+      ]
+    }
+  },
+
+  "sublists": [
+    {
+      "key": "inventory_items",
+      "label": "Inventory Items",
+      "type": "pivot",
+      "relationship": "inventoryItems",
+      "fields": [
+        { "key": "inventory_item_id", "required": true },
+        { "key": "quantity", "required": true },
+        { "key": "notes", "required": false }
+      ]
+    }
+  ]
+}

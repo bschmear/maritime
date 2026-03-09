@@ -162,5 +162,12 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Leads",
+      "domain": "Lead",
+      "modelRelationship": "leads"
+    }
+  ]
 }

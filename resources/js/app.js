@@ -20,6 +20,7 @@ createInertiaApp({
             data() {
                 return {
                     toasts: [],
+                    loadingOverlay: { visible: false, message: '' },
                 };
             },
             methods: {
@@ -36,7 +37,13 @@ createInertiaApp({
                 },
                 dismissToast(index) {
                     this.toasts.splice(index, 1);
-                }
+                },
+                showLoading(message = 'Loading...') {
+                    this.loadingOverlay = { visible: true, message };
+                },
+                hideLoading() {
+                    this.loadingOverlay.visible = false;
+                },
             }
         })
             .use(plugin)

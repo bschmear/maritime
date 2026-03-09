@@ -1278,7 +1278,7 @@ defineExpose({
                                             v-model="form[field.key]"
                                             :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)"
                                             :enum-options="getEnumOptions(field.key)"
-                                            :record="record"
+                                            :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)"
                                             :field-key="field.key"
                                             :filter-by="getFieldDefinition(field.key).filterby || null"
                                             :filter-value="getFieldFilterValue(field.key)"

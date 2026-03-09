@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
 import Toast from '@/Components/Toast.vue';
+import LoadingOverlay from '@/Components/LoadingOverlay.vue';
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
@@ -150,7 +151,13 @@ const secondaryNavItems = ref([
                     { name: 'Qualifications', href: 'qualifications.index' }
                 ]
             },
-            { name: 'Customers', href: 'customers.index' },
+            {
+                name: 'Customers',
+                children: [
+                    { name: 'All Customers', href: 'customers.index' },
+                    { name: 'Opportunities', href: 'opportunities.index' }
+                ]
+            },
             { name: 'Vendors', href: 'vendors.index' }
         ]
     },
@@ -438,5 +445,8 @@ const secondaryNavItems = ref([
 
         <!-- Global Toast Notifications -->
         <Toast />
+
+        <!-- Global Loading Overlay -->
+        <LoadingOverlay />
     </div>
 </template>

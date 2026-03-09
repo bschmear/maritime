@@ -4,7 +4,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import ScorePanel from '@/Components/Tenant/ScorePanel.vue';
 import Modal from '@/Components/Modal.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, Link } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { ref, computed } from 'vue';
 
@@ -127,14 +127,37 @@ const closeConvertModal = () => {
 const confirmConvert = () => {
     isConverting.value = true;
     router.post(route('leads.convert', recordIdentifier.value), {}, {
-        onSuccess: () => {
+        onSuccess: (page) => {
             showConvertModal.value = false;
-            router.reload({ only: ['record'] });
+            // Check if conversion was successful and customer was created
+            if (page.props.flash?.converted_customer_id) {
+                // Show success message with navigation options
+                showConversionSuccessModal(page.props.flash.converted_customer_id, page.props.flash.converted_customer_name);
+            } else {
+                // Fallback: just reload the page
+                router.reload({ only: ['record'] });
+            }
+        },
+        onError: () => {
+            showConvertModal.value = false;
         },
         onFinish: () => {
             isConverting.value = false;
         },
     });
+};
+
+const showConversionSuccessModal = (customerId, customerName) => {
+    // Simple approach: show a confirmation dialog
+    const navigateToCustomer = confirm(`Lead successfully converted to customer "${customerName}".\n\nClick OK to view the customer record, or Cancel to stay on this page.`);
+
+    if (navigateToCustomer) {
+        // Navigate to the customer
+        router.visit(route('customers.show', customerId));
+    } else {
+        // Just reload the current page
+        router.reload({ only: ['record'] });
+    }
 };
 </script>
 
@@ -168,9 +191,10 @@ const confirmConvert = () => {
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            Convert to Contact
+                            Convert to Customer
                         </button>
                         <button
+                            v-if="!record?.converted"
                             @click="handleEdit"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                         >
@@ -250,7 +274,7 @@ const confirmConvert = () => {
             <div class="w-80 flex-shrink-0 space-y-6">
                 <!-- Score Panel -->
                 <ScorePanel
-                    scorable-type="Lead"
+                    scorable-type="App\\Domain\\Lead\\Models\\Lead"
                     :scorable-id="record.id"
                     :subscription-level="3"
                     :initial-scores="scores"
@@ -280,16 +304,25 @@ const confirmConvert = () => {
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
-                                Convert to Contact
+                                Convert to Customer
                             </button>
                         </div>
                         <div v-else class="pt-2">
-                            <div class="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                                <svg class="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <Link class="flex items-center gap-2 px-3 py-2 bg-green-500 dark:bg-green-500 rounded-lg" :href="route('customers.show', record.converted_customer.id)">
+                                <svg class="w-4 h-4 text-white dark:text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span class="text-sm text-green-700 dark:text-green-300 font-medium">Converted to Contact</span>
-                            </div>
+                                <div class="flex-1">
+                                    <!-- <span class="text-sm text-green-700 dark:text-green-300 font-medium">Converted to Customer</span> -->
+                                    <div v-if="record?.converted_customer" class="">
+                                        <div
+                                            class="inline-flex items-center gap-1  text-white dark:text-white hover:text-green-700 dark:hover:text-green-300 font-medium"
+                                        >
+                                            View Customer
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -344,7 +377,7 @@ const confirmConvert = () => {
         <Modal :show="showConvertModal" @close="closeConvertModal" max-width="md">
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Convert to Contact</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Convert to Customer</h3>
                     <button @click="closeConvertModal" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -381,7 +414,7 @@ const confirmConvert = () => {
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        {{ isConverting ? 'Converting...' : 'Convert to Contact' }}
+                        {{ isConverting ? 'Converting...' : 'Convert to Customer' }}
                     </button>
                 </div>
             </div>

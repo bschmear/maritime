@@ -1,0 +1,96 @@
+{
+    "fields": {
+        "customer_id": {
+            "label": "Customer",
+            "type": "record",
+            "typeDomain": "Customer",
+            "relationship": "customer",
+            "required": true
+        },
+        "qualification_id": {
+            "label": "Qualification",
+            "type": "record",
+            "typeDomain": "Qualification",
+            "relationship": "qualification"
+        },
+        "user_id": {
+            "label": "Salesperson",
+            "type": "record",
+            "typeDomain": "User",
+            "relationship": "salesperson",
+            "required": true
+        },
+        "stage": {
+            "label": "Stage",
+            "type": "select",
+            "enum": "App\\Enums\\Opportunity\\Stage",
+            "default": 1
+        },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Opportunity\\Status",
+            "default": 1
+        },
+        "estimated_value": {
+            "label": "Estimated Value",
+            "type": "currency",
+            "description": "Estimated deal value used for forecasting"
+        },
+        "probability": {
+            "label": "Probability %",
+            "type": "number",
+            "min": 0,
+            "max": 100,
+            "default": 80,
+            "description": "Likelihood of closing this opportunity"
+        },
+        "expected_close_date": {
+            "label": "Expected Close Date",
+            "type": "date"
+        },
+        "needs_engine": {
+            "label": "Needs Engine",
+            "type": "boolean"
+        },
+        "needs_trailer": {
+            "label": "Needs Trailer",
+            "type": "boolean"
+        },
+        "customer_notes": {
+            "label": "Customer Notes",
+            "type": "textarea",
+            "description": "Notes visible when discussing the deal with the customer"
+        },
+        "internal_notes": {
+            "label": "Internal Notes",
+            "type": "textarea",
+            "description": "Internal team notes not visible to customers"
+        },
+        "opened_at": {
+            "label": "Opened At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "won_at": {
+            "label": "Won At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "lost_at": {
+            "label": "Lost At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "created_at": {
+            "label": "Created At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "updated_at": {
+            "label": "Updated At",
+            "type": "datetime",
+            "readOnly": true
+        }
+    }
+}

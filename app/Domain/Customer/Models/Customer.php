@@ -50,9 +50,24 @@ class Customer extends Model
         return $this->morphMany(Task::class, 'relatable');
     }
 
+    public function leads()
+    {
+        return $this->hasMany(\App\Domain\Lead\Models\Lead::class, 'converted_customer_id');
+    }
+
+    public function asset_units()
+    {
+        return $this->hasMany(AssetUnit::class, 'customer_id');
+    }
+
     public function assetUnits()
     {
         return $this->hasMany(AssetUnit::class, 'customer_id');
+    }
+
+    public function opportunities()
+    {
+        return $this->hasMany(\App\Domain\Opportunity\Models\Opportunity::class);
     }
 
     public function assigned_user()

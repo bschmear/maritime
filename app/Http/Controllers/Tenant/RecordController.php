@@ -112,6 +112,12 @@ class RecordController extends BaseController
                                   $q->select(['id', 'display_name']);
                               }]);
                     };
+                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                    $selectFields = ['id', 'sequence'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'sequence']);
+                    };
                 } else {
                     $selectFields[] = 'display_name';
                 }
@@ -360,6 +366,12 @@ class RecordController extends BaseController
                                               $q->select(['id', 'display_name']);
                                           }]);
                                 };
+                            } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                                // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                                $selectFields = ['id', 'sequence'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'sequence']);
+                                };
                             } else {
                                 $selectFields[] = 'display_name';
                             }
@@ -451,6 +463,12 @@ class RecordController extends BaseController
                               ->with(['asset' => function ($q) {
                                   $q->select(['id', 'display_name']);
                               }]);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                    $selectFields = ['id', 'sequence'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'sequence']);
                     };
                 } else {
                     $selectFields[] = 'display_name';
@@ -554,6 +572,12 @@ class RecordController extends BaseController
                               ->with(['asset' => function ($q) {
                                   $q->select(['id', 'display_name']);
                               }]);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                    $selectFields = ['id', 'sequence'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'sequence']);
                     };
                 } else {
                     $selectFields[] = 'display_name';
@@ -687,6 +711,12 @@ class RecordController extends BaseController
                                           ->with(['asset' => function ($q) {
                                               $q->select(['id', 'display_name']);
                                           }]);
+                                };
+                            } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                                // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                                $selectFields = ['id', 'sequence'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'sequence']);
                                 };
                             } else {
                                 $selectFields[] = 'display_name';
