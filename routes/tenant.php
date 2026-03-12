@@ -37,6 +37,8 @@ use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\OpportunityController;
+use App\Http\Controllers\Tenant\EstimateController;
+use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\ScoreController;
 
 // use App\Http\Controllers\Tenant\PortalController;
@@ -79,7 +81,7 @@ Route::middleware([
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-        
+
         Route::resource('subsidiaries', SubsidiaryController::class);
 
         Route::prefix('customers')->name('customers.')->group(function () {
@@ -109,6 +111,15 @@ Route::middleware([
             Route::resource('/', OpportunityController::class)->parameters(['' => 'opportunity']);
         });
 
+        Route::prefix('estimates')->name('estimates.')->group(function () {
+            Route::resource('/', EstimateController::class)->parameters(['' => 'estimate']);
+        });
+
+        Route::prefix('addons')->name('addons.')->group(function () {
+            Route::resource('/', AddOnController::class)->parameters(['' => 'addon']);
+        });
+
+
         Route::prefix('vendors')->name('vendors.')->group(function () {
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
         });
@@ -134,7 +145,7 @@ Route::middleware([
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
-     
+
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
@@ -250,34 +261,34 @@ Route::middleware([
         // These need to be registered for each resource that supports many-to-many relationships
         Route::post('/locations/{location}/attach', [LocationController::class, 'attachRelationship'])->name('locations.attach');
         Route::post('/locations/{location}/detach', [LocationController::class, 'detachRelationship'])->name('locations.detach');
-        
+
         Route::post('/subsidiaries/{subsidiary}/attach', [SubsidiaryController::class, 'attachRelationship'])->name('subsidiaries.attach');
         Route::post('/subsidiaries/{subsidiary}/detach', [SubsidiaryController::class, 'detachRelationship'])->name('subsidiaries.detach');
 
         Route::prefix('notifications')
-        ->name('notifications.')
-        ->group(function () {
-    
-            // List notifications (API or page)
-            Route::get('/', [NotificationController::class, 'index'])
-                ->name('index');
-     
-            // Redirect + mark as read
-            Route::get('/{id}', [NotificationController::class, 'redirect'])
-                ->name('redirect');
+            ->name('notifications.')
+            ->group(function () {
 
-            // Mark single as read (AJAX)
-            Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])
-                ->name('read');
+                // List notifications (API or page)
+                Route::get('/', [NotificationController::class, 'index'])
+                    ->name('index');
 
-            // Mark all as read
-            Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])
-                ->name('markAllRead');
+                // Redirect + mark as read
+                Route::get('/{id}', [NotificationController::class, 'redirect'])
+                    ->name('redirect');
 
-            // Optional: delete notification
-            Route::delete('/{id}', [NotificationController::class, 'destroy'])
-                ->name('destroy');
-        });
+                // Mark single as read (AJAX)
+                Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])
+                    ->name('read');
+
+                // Mark all as read
+                Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])
+                    ->name('markAllRead');
+
+                // Optional: delete notification
+                Route::delete('/{id}', [NotificationController::class, 'destroy'])
+                    ->name('destroy');
+            });
 
 
         // Profile routes

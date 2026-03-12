@@ -1,0 +1,35 @@
+{
+    "columns": [
+        {
+            "key": "id",
+            "label": "#",
+            "sortable": true
+        },
+        {
+            "key": "sequence",
+            "label": "Estimate #",
+            "sortable": true
+        },
+        {
+            "key": "customer_id",
+            "label": "Customer",
+            "sortable": false
+        },
+        {
+            "key": "user_id",
+            "label": "Salesperson",
+            "sortable": false
+        },
+        {
+            "key": "issue_date",
+            "label": "Date",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ],
+    "filters": []
+}

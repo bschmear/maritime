@@ -1,0 +1,94 @@
+{
+  "settings": {
+    "max_width": "5xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Estimate Details",
+      "fields": [
+        {
+          "key": "customer_id",
+          "required": true
+        },
+        {
+          "key": "opportunity_id",
+          "required": false
+        },
+        {
+          "key": "user_id",
+          "required": true
+        },
+        {
+          "key": "issue_date",
+          "required": false
+        },
+        {
+          "key": "expiration_date",
+          "required": false
+        },
+        {
+          "key": "tax_rate",
+          "required": false
+        }
+      ]
+    },
+    "notes_section": {
+      "label": "Notes & Terms",
+      "fields": [
+        {
+          "key": "notes",
+          "required": false
+        },
+        {
+          "key": "terms",
+          "required": false
+        }
+      ]
+    }
+  },
+  "sublists": [
+    {
+      "key": "line_items",
+      "label": "Line Items",
+      "type": "hasMany",
+      "relationship": "primaryVersion.lineItems",
+      "fields": [
+        {
+          "key": "itemable_type",
+          "label": "Type",
+          "required": true
+        },
+        {
+          "key": "itemable_id",
+          "label": "Item",
+          "required": true
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "required": true
+        },
+        {
+          "key": "quantity",
+          "label": "Qty",
+          "required": true
+        },
+        {
+          "key": "unit_price",
+          "label": "Price",
+          "required": true
+        },
+        {
+          "key": "discount",
+          "label": "Discount",
+          "required": false
+        },
+        {
+          "key": "line_total",
+          "label": "Total",
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}

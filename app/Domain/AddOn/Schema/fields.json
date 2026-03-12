@@ -1,0 +1,47 @@
+{
+    "fields": {
+        "name": {
+            "label": "Name",
+            "type": "text",
+            "required": true
+        },
+        "default_price": {
+            "label": "Default Price",
+            "type": "currency",
+            "required": true
+        },
+        "description": {
+            "label": "Description",
+            "type": "textarea"
+        },
+        "type": {
+            "label": "Product Type",
+            "type": "select",
+            "options": [
+                {
+                    "label": "Universal",
+                    "value": null
+                },
+                {
+                    "label": "Asset",
+                    "value": "Asset"
+                },
+                {
+                    "label": "Inventory Item",
+                    "value": "InventoryItem"
+                }
+            ],
+            "description": "Restrict this add-on to a specific product type"
+        },
+        "created_at": {
+            "label": "Created At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "updated_at": {
+            "label": "Updated At",
+            "type": "datetime",
+            "readOnly": true
+        }
+    }
+}

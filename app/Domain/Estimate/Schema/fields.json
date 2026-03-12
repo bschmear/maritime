@@ -1,0 +1,55 @@
+{
+    "fields": {
+        "opportunity_id": {
+            "label": "Opportunity",
+            "type": "record",
+            "typeDomain": "Opportunity",
+            "relationship": "opportunity"
+        },
+        "customer_id": {
+            "label": "Customer",
+            "type": "record",
+            "typeDomain": "Customer",
+            "relationship": "customer",
+            "required": true
+        },
+        "user_id": {
+            "label": "Salesperson",
+            "type": "record",
+            "typeDomain": "User",
+            "relationship": "salesperson",
+            "required": true
+        },
+        "issue_date": {
+            "label": "Issue Date",
+            "type": "date"
+        },
+        "expiration_date": {
+            "label": "Expiration Date",
+            "type": "date"
+        },
+        "tax_rate": {
+            "label": "Tax Rate %",
+            "type": "number",
+            "step": 0.001
+        },
+        "notes": {
+            "label": "Notes",
+            "type": "textarea"
+        },
+        "terms": {
+            "label": "Terms & Conditions",
+            "type": "textarea"
+        },
+        "created_at": {
+            "label": "Created At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "updated_at": {
+            "label": "Updated At",
+            "type": "datetime",
+            "readOnly": true
+        }
+    }
+}

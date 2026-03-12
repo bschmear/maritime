@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "max_width": "2xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Add-on Details",
+      "fields": [
+        {
+          "key": "name",
+          "required": true
+        },
+        {
+          "key": "default_price",
+          "required": true
+        },
+        {
+          "key": "type",
+          "required": false
+        },
+        {
+          "key": "description",
+          "required": false
+        }
+      ]
+    }
+  }
+}

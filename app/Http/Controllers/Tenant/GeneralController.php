@@ -65,6 +65,11 @@ class GeneralController extends BaseController
             $columns[] = 'make_id';
             $columns[] = 'default_price';
             $columns[] = 'default_cost';
+        } elseif (strtolower($type) === 'addon') {
+            $columns[] = 'name';
+            $columns[] = 'default_price';
+            $columns[] = 'description';
+            $columns[] = 'type';
         }
 
         $query = $recordModel->select(array_unique($columns));
@@ -107,6 +112,10 @@ class GeneralController extends BaseController
                       ->orWhereRaw('LOWER(CAST(year AS TEXT)) LIKE ?', [$searchTerm])
                       ->orWhereHas('make', fn($q2) => $q2->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]));
                 });
+            } elseif (strtolower($type) === 'addon') {
+                // Search add-ons by name
+                $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+                $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
             } else {
