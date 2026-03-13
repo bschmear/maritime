@@ -1,421 +1,394 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import Navbar from '@/Components/Tenant/Navbar.vue';
+import { ref, computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
-    title: {
-        type: String,
-        required: false
-    }
+    title: { type: String, required: false },
+    companyName: { type: String, default: 'Acme Corp' },
+    companyLogo: { type: String, default: null },
 });
 
-const showDropdown = ref(null);
-const showNestedDropdown = ref(null);
-const hideTimeout = ref(null);
 const mobileMenuOpen = ref(false);
-const mobileExpandedItems = ref([]);
 
-// Helper functions for navigation state
-const isCurrentRoute = (item) => {
-    if (!item.href) return false;
-    return route().current(item.href) || route().current(item.href + '.*');
-};
-
-const hasActiveChild = (item) => {
-    if (!item.children) return false;
-    return item.children.some(child => {
-        if (child.href && route().current(child.href)) return true;
-        if (child.children) {
-            return child.children.some(grandChild => route().current(grandChild.href));
-        }
-        return false;
-    });
-};
-
-const hasActiveGrandChild = (child) => {
-    if (!child.children) return false;
-    return child.children.some(grandChild => route().current(grandChild.href));
-};
-
-// Desktop dropdown management - simplified
-const openDropdown = (itemName, isNested = false) => {
-    if (hideTimeout.value) {
-        clearTimeout(hideTimeout.value);
-        hideTimeout.value = null;
-    }
-
-    if (isNested) {
-        showNestedDropdown.value = itemName;
-    } else {
-        showDropdown.value = itemName;
-        showNestedDropdown.value = null; // Clear nested when opening new parent
-    }
-};
-
-const closeDropdown = (itemName, isNested = false) => {
-    if (hideTimeout.value) {
-        clearTimeout(hideTimeout.value);
-    }
-
-    hideTimeout.value = setTimeout(() => {
-        if (isNested && showNestedDropdown.value === itemName) {
-            showNestedDropdown.value = null;
-        } else if (!isNested && showDropdown.value === itemName) {
-            showDropdown.value = null;
-            showNestedDropdown.value = null;
-        }
-        hideTimeout.value = null;
-    }, 200);
-};
-
-// Mobile menu functions
-const toggleMobileMenu = () => {
-    mobileMenuOpen.value = !mobileMenuOpen.value;
-    if (!mobileMenuOpen.value) {
-        mobileExpandedItems.value = [];
-    }
-};
-
-const toggleMobileItem = (itemName) => {
-    const index = mobileExpandedItems.value.indexOf(itemName);
-    if (index > -1) {
-        mobileExpandedItems.value.splice(index, 1);
-    } else {
-        mobileExpandedItems.value.push(itemName);
-    }
-};
-
-const isMobileExpanded = (itemName) => {
-    return mobileExpandedItems.value.includes(itemName);
-};
-
-const closeMobileMenu = () => {
-    mobileMenuOpen.value = false;
-    mobileExpandedItems.value = [];
-};
-
-// Close mobile menu on route change
-onMounted(() => {
-    // You might want to add a route change listener here
-});
-
-// Secondary navigation items
-const secondaryNavItems = ref([
-    { name: 'Overview', href: 'dashboard'},
-    {
-        name: 'Account',
-        href: 'account.index',
-        children: [
-            { name: 'Overview', href: 'account.index' },
-            { name: 'Locations', href: 'locations.index' },
-            { name: 'Users', href: 'users.index' },
-            { name: 'Roles', href: 'roles.index' },
-            { name: 'Subsidiaries', href: 'subsidiaries.index' }
-        ]
-    },
-    {
-        name: 'Operations',
-        href: 'operations.index',
-        children: [
-            { name: 'Overview', href: 'operations.index' },
-            { name: 'Transactions', href: 'transactions.index' },
-            {
-                name: 'Items',
-                children: [
-                    { name: 'Assets', href: 'assets.index' },
-                    { name: 'Parts & Accessories', href: 'inventoryitems.index' },
-                    { name: 'Service Items', href: 'serviceitems.index' }
-                ]
-            },
-            { name: 'Invoices', href: 'invoices.index' },
-            { name: 'Service Tickets', href: 'servicetickets.index' },
-            { name: 'Work Orders', href: 'workorders.index' }
-        ]
-    },
-    { name: 'Leads', href: 'leads.index' },
-    { name: 'Customers', href: 'customers.index' },
-    { name: 'Vendors', href: 'vendors.index'},
-    { name: 'Tasks', href: 'tasks.index' },
-    { name: 'Documents', href: 'documents.index' }
+const navItems = ref([
+    { name: 'Overview', href: 'portal', icon: 'dashboard' },
+    { name: 'Invoices', href: 'portal.invoices', icon: 'receipt_long' },
+    { name: 'Estimates', href: 'portal.estimates', icon: 'request_quote' },
+    { name: 'Service Tickets', href: 'portal.servicetickets', icon: 'build_circle' },
+    { name: 'Documents', href: 'portal.documents', icon: 'folder_open' },
 ]);
+
+const isActive = (href) => {
+    try {
+        return route().current(href) || route().current(href + '.*');
+    } catch {
+        return false;
+    }
+};
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-        <!-- Global Navbar -->
-        <Navbar />
-
-        <!-- Desktop Secondary Navigation -->
-        <nav class="hidden lg:block bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800">
-            <div class="px-4 py-2">
-                <div class="flex items-center">
-                    <ul class="flex items-center text-sm text-gray-900 font-medium space-x-1">
-                        <li v-for="item in secondaryNavItems" :key="item.name || item.href" class="relative">
-                            <!-- Item with children (dropdown) -->
-                            <div
-                                v-if="item.children"
-                                class="relative"
-                                @mouseenter="openDropdown(item.name)"
-                                @mouseleave="closeDropdown(item.name)"
-                            >
-                                <button
-                                    :class="[
-                                        'inline-flex items-center px-3 py-2 rounded-lg transition-colors',
-                                        isCurrentRoute(item) || hasActiveChild(item)
-                                            ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white'
-                                            : 'hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white'
-                                    ]"
-                                >
-                                    {{ item.name }}
-                                    <span class="material-icons text-sm ml-1 transition-transform" :class="showDropdown === item.name ? 'rotate-180' : ''">
-                                        expand_more
-                                    </span>
-                                </button>
-
-                                <!-- Dropdown Menu -->
-                                <div
-                                    v-show="showDropdown === item.name"
-                                    class="absolute left-0 mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50"
-                                    @mouseenter="openDropdown(item.name)"
-                                    @mouseleave="closeDropdown(item.name)"
-                                >
-                                    <div class="py-1">
-                                        <template v-for="child in item.children" :key="child.name || child.href">
-                                            <!-- Child without nested children -->
-                                            <Link
-                                                v-if="!child.children"
-                                                :href="route(child.href)"
-                                                :class="[
-                                                    'block px-4 py-2 text-sm transition-colors',
-                                                    route().current(child.href)
-                                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                                ]"
-                                            >
-                                                {{ child.name }}
-                                            </Link>
-
-                                            <!-- Child with nested children (flyout) -->
-                                            <div
-                                                v-else
-                                                class="relative"
-                                                @mouseenter="openDropdown(child.name, true)"
-                                                @mouseleave="closeDropdown(child.name, true)"
-                                            >
-                                                <div
-                                                    :class="[
-                                                        'flex items-center justify-between px-4 py-2 text-sm cursor-pointer transition-colors',
-                                                        hasActiveGrandChild(child)
-                                                            ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                                    ]"
-                                                >
-                                                    <span>{{ child.name }}</span>
-                                                    <span class="material-icons text-sm">chevron_right</span>
-                                                </div>
-
-                                                <!-- Nested Submenu (flyout to the right) -->
-                                                <div
-                                                    v-show="showNestedDropdown === child.name"
-                                                    class="absolute left-full top-0 ml-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50"
-                                                    @mouseenter="openDropdown(child.name, true)"
-                                                    @mouseleave="closeDropdown(child.name, true)"
-                                                >
-                                                    <div class="py-1">
-                                                        <Link
-                                                            v-for="grandChild in child.children"
-                                                            :key="grandChild.href"
-                                                            :href="route(grandChild.href)"
-                                                            :class="[
-                                                                'block px-4 py-2 text-sm transition-colors',
-                                                                route().current(grandChild.href)
-                                                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                                            ]"
-                                                        >
-                                                            {{ grandChild.name }}
-                                                        </Link>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Regular item without children -->
-                            <Link
-                                v-else
-                                :href="route(item.href)"
-                                :class="[
-                                    'inline-block px-3 py-2 rounded-lg transition-colors',
-                                    route().current(item.href) || route().current(item.href + '.*')
-                                        ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white'
-                                        : 'hover:text-gray-900 hover:bg-gray-200 dark:hover:bg-gray-600 dark:text-white'
-                                ]"
-                            >
-                                {{ item.name }}
-                            </Link>
-                        </li>
-                    </ul>
+    <div class="portal-root">
+        <!-- Sidebar -->
+        <aside class="portal-sidebar" :class="{ 'sidebar-open': mobileMenuOpen }">
+            <!-- Logo / Brand -->
+            <div class="sidebar-brand">
+                <div class="brand-logo">
+                    <img v-if="companyLogo" :src="companyLogo" :alt="companyName" class="logo-img" />
+                    <div v-else class="logo-placeholder">
+                        <span class="logo-initial">{{ companyName?.charAt(0) ?? 'C' }}</span>
+                    </div>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">{{ companyName }}</span>
+                    <span class="brand-label">Client Portal</span>
                 </div>
             </div>
-        </nav>
 
-        <!-- Mobile Navigation Button -->
-        <div class="lg:hidden bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800 px-4 py-2">
-            <button
-                @click="toggleMobileMenu"
-                class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-900 dark:text-white bg-white dark:bg-gray-600 rounded-lg"
-            >
-                <span>Menu</span>
-                <span class="material-icons text-sm transition-transform" :class="mobileMenuOpen ? 'rotate-180' : ''">
-                    expand_more
-                </span>
-            </button>
-        </div>
+            <!-- Divider -->
+            <div class="sidebar-divider"></div>
 
-        <!-- Mobile Navigation Menu -->
-        <Transition
-            enter-active-class="transition-all duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-2"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-2"
-        >
-            <div v-show="mobileMenuOpen" class="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-lg">
-                <nav class="px-2 py-3 space-y-1 max-h-[70vh] overflow-y-auto">
-                    <template v-for="item in secondaryNavItems" :key="item.name || item.href">
-                        <!-- Item without children -->
-                        <Link
-                            v-if="!item.children"
-                            :href="route(item.href)"
-                            @click="closeMobileMenu"
-                            :class="[
-                                'block px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                                route().current(item.href) || route().current(item.href + '.*')
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            ]"
-                        >
-                            {{ item.name }}
-                        </Link>
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <Link
+                    v-for="item in navItems"
+                    :key="item.href"
+                    :href="route(item.href)"
+                    @click="mobileMenuOpen = false"
+                    :class="['nav-item', { 'nav-item--active': isActive(item.href) }]"
+                >
+                    <span class="material-icons nav-icon">{{ item.icon }}</span>
+                    <span class="nav-label">{{ item.name }}</span>
+                    <span v-if="isActive(item.href)" class="nav-pip"></span>
+                </Link>
+            </nav>
 
-                        <!-- Item with children -->
-                        <div v-else class="space-y-1">
-                            <button
-                                @click="toggleMobileItem(item.name)"
-                                :class="[
-                                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                                    hasActiveChild(item)
-                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                ]"
-                            >
-                                <span>{{ item.name }}</span>
-                                <span class="material-icons text-sm transition-transform" :class="isMobileExpanded(item.name) ? 'rotate-180' : ''">
-                                    expand_more
-                                </span>
-                            </button>
-
-                            <!-- Children (collapsible) -->
-                            <Transition
-                                enter-active-class="transition-all duration-200 ease-out"
-                                enter-from-class="opacity-0 max-h-0"
-                                enter-to-class="opacity-100 max-h-96"
-                                leave-active-class="transition-all duration-150 ease-in"
-                                leave-from-class="opacity-100 max-h-96"
-                                leave-to-class="opacity-0 max-h-0"
-                            >
-                                <div v-show="isMobileExpanded(item.name)" class="ml-4 mt-1 space-y-1 overflow-hidden">
-                                    <template v-for="child in item.children" :key="child.name || child.href">
-                                        <!-- Child without nested children -->
-                                        <Link
-                                            v-if="!child.children"
-                                            :href="route(child.href)"
-                                            @click="closeMobileMenu"
-                                            :class="[
-                                                'block px-3 py-2 rounded-lg text-sm transition-colors',
-                                                route().current(child.href)
-                                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            ]"
-                                        >
-                                            {{ child.name }}
-                                        </Link>
-
-                                        <!-- Child with nested children -->
-                                        <div v-else class="space-y-1">
-                                            <button
-                                                @click="toggleMobileItem(child.name)"
-                                                :class="[
-                                                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                                                    hasActiveGrandChild(child)
-                                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                ]"
-                                            >
-                                                <span>{{ child.name }}</span>
-                                                <span class="material-icons text-sm transition-transform" :class="isMobileExpanded(child.name) ? 'rotate-180' : ''">
-                                                    expand_more
-                                                </span>
-                                            </button>
-
-                                            <!-- Grandchildren -->
-                                            <Transition
-                                                enter-active-class="transition-all duration-200 ease-out"
-                                                enter-from-class="opacity-0 max-h-0"
-                                                enter-to-class="opacity-100 max-h-96"
-                                                leave-active-class="transition-all duration-150 ease-in"
-                                                leave-from-class="opacity-100 max-h-96"
-                                                leave-to-class="opacity-0 max-h-0"
-                                            >
-                                                <div v-show="isMobileExpanded(child.name)" class="ml-4 mt-1 space-y-1 overflow-hidden">
-                                                    <Link
-                                                        v-for="grandChild in child.children"
-                                                        :key="grandChild.href"
-                                                        :href="route(grandChild.href)"
-                                                        @click="closeMobileMenu"
-                                                        :class="[
-                                                            'block px-3 py-2 rounded-lg text-sm transition-colors',
-                                                            route().current(grandChild.href)
-                                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                        ]"
-                                                    >
-                                                        {{ grandChild.name }}
-                                                    </Link>
-                                                </div>
-                                            </Transition>
-                                        </div>
-                                    </template>
-                                </div>
-                            </Transition>
-                        </div>
-                    </template>
-                </nav>
+            <!-- Bottom: Sign out -->
+            <div class="sidebar-footer">
+                <div class="sidebar-divider"></div>
+                <Link :href="route('logout')" method="post" as="button" class="nav-item nav-item--muted">
+                    <span class="material-icons nav-icon">logout</span>
+                    <span class="nav-label">Sign Out</span>
+                </Link>
             </div>
-        </Transition>
+        </aside>
 
-        <!-- Page Header (Optional) -->
-        <header v-if="$slots.header" class="">
-            <div class="w-full px-4 pt-6 sm:px-6">
+        <!-- Mobile overlay -->
+        <div
+            v-if="mobileMenuOpen"
+            class="mobile-overlay"
+            @click="mobileMenuOpen = false"
+        ></div>
+
+        <!-- Main content area -->
+        <div class="portal-body">
+            <!-- Top bar (mobile + page title) -->
+            <header class="portal-topbar">
+                <button class="mobile-toggle lg:hidden" @click="mobileMenuOpen = !mobileMenuOpen">
+                    <span class="material-icons">{{ mobileMenuOpen ? 'close' : 'menu' }}</span>
+                </button>
+                <div class="topbar-title">
+                    <slot name="title">
+                        <span v-if="title">{{ title }}</span>
+                    </slot>
+                </div>
+                <div class="topbar-actions">
+                    <slot name="actions" />
+                </div>
+            </header>
+
+            <!-- Optional page header slot -->
+            <div v-if="$slots.header" class="portal-page-header">
                 <slot name="header" />
             </div>
-        </header>
 
-        <!-- Sticky Header (Optional) -->
-        <header v-if="$slots.stickyheader" class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
-            <div class="w-full px-4 py-6 sm:px-6">
-                <slot name="stickyheader" />
-            </div>
-        </header>
-
-        <!-- Page Content -->
-        <main class="mx-auto flex w-full h-full relative p-4 grow flex-col space-y-4 md:space-y-6">
-            <slot />
-        </main>
+            <!-- Page content -->
+            <main class="portal-main">
+                <slot />
+            </main>
+        </div>
     </div>
 </template>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+/* ── Tokens ─────────────────────────────────────────── */
+:root {
+    --sidebar-w: 248px;
+    --topbar-h: 60px;
+
+    --c-bg: #f4f3ef;
+    --c-sidebar: #1a1a2e;
+    --c-sidebar-hover: rgba(255,255,255,0.06);
+    --c-sidebar-active: rgba(255,255,255,0.10);
+    --c-active-pip: #e8c87a;
+    --c-accent: #c9a84c;
+    --c-text: #1a1a2e;
+    --c-text-muted: #6b6b80;
+    --c-border: #e2e0d8;
+    --c-white: #ffffff;
+
+    --radius: 10px;
+    --font-body: 'DM Sans', sans-serif;
+    --font-display: 'DM Serif Display', serif;
+}
+
+/* ── Root layout ─────────────────────────────────────── */
+.portal-root {
+    display: flex;
+    min-height: 100vh;
+    background: var(--c-bg);
+    font-family: var(--font-body);
+    color: var(--c-text);
+}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.portal-sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+    background: var(--c-sidebar);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+}
+
+/* ── Brand ───────────────────────────────────────────── */
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 20px 20px;
+}
+
+.brand-logo {
+    flex-shrink: 0;
+}
+
+.logo-img {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    object-fit: contain;
+    background: var(--c-white);
+    padding: 2px;
+}
+
+.logo-placeholder {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--c-accent), #b8860b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-initial {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: #fff;
+    line-height: 1;
+}
+
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+}
+
+.brand-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+}
+
+.brand-label {
+    font-size: 10px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* ── Divider ─────────────────────────────────────────── */
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    margin: 0 20px;
+}
+
+/* ── Nav ─────────────────────────────────────────────── */
+.sidebar-nav {
+    flex: 1;
+    padding: 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.65);
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.nav-item:hover {
+    background: var(--c-sidebar-hover);
+    color: rgba(255,255,255,0.9);
+}
+
+.nav-item--active {
+    background: var(--c-sidebar-active) !important;
+    color: #fff !important;
+}
+
+.nav-item--muted {
+    color: rgba(255,255,255,0.35);
+}
+
+.nav-item--muted:hover {
+    color: rgba(255,255,255,0.65);
+}
+
+.nav-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.nav-label {
+    flex: 1;
+}
+
+.nav-pip {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--c-active-pip);
+    flex-shrink: 0;
+}
+
+/* ── Sidebar footer ──────────────────────────────────── */
+.sidebar-footer {
+    padding: 12px 12px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-footer .sidebar-divider {
+    margin: 0 0 8px;
+}
+
+/* ── Body ─────────────────────────────────────────────── */
+.portal-body {
+    flex: 1;
+    margin-left: var(--sidebar-w);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* ── Topbar ──────────────────────────────────────────── */
+.portal-topbar {
+    height: var(--topbar-h);
+    background: var(--c-white);
+    border-bottom: 1px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+}
+
+.mobile-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--c-text-muted);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border-radius: 6px;
+}
+
+.mobile-toggle:hover {
+    background: var(--c-bg);
+    color: var(--c-text);
+}
+
+.topbar-title {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--c-text);
+    letter-spacing: -0.01em;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Page header ─────────────────────────────────────── */
+.portal-page-header {
+    padding: 24px 24px 0;
+}
+
+/* ── Main ────────────────────────────────────────────── */
+.portal-main {
+    flex: 1;
+    padding: 24px;
+}
+
+/* ── Mobile overlay ──────────────────────────────────── */
+.mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 45;
+    backdrop-filter: blur(2px);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 1023px) {
+    .portal-sidebar {
+        transform: translateX(-100%);
+    }
+
+    .portal-sidebar.sidebar-open {
+        transform: translateX(0);
+    }
+
+    .portal-body {
+        margin-left: 0;
+    }
+}
+</style>

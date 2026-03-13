@@ -40,6 +40,7 @@ use App\Http\Controllers\Tenant\OpportunityController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\ScoreController;
+use App\Http\Controllers\Tenant\PortalAccessController;
 
 // use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Controllers\Tenant\PublicController;
@@ -62,12 +63,28 @@ Route::middleware(['auth:client'])->group(function () {
     // Route::get('/invoices', InvoiceController::class);
 });
 
+// Route::get('/portal/{token}', [PortalController::class, 'show'])->name('portal.show');
+// Route::post('/portal/{token}/action', [PortalController::class, 'performAction'])->name('portal.action');
+// Route::get('/portal/{token}/estimates', [PortalController::class, 'viewEstimates'])->name('portal.estimates');
+// Route::get('/portal/{token}/service-tickets', [PortalController::class, 'viewEServiceTickets'])->name('portal.servicetickets');
+// Route::get('/portal/{token}/invoices', [PortalController::class, 'viewInvoices'])->name('portal.invoices');
+// Route::get('/portal/{token}/documents', [PortalController::class, 'viewDocuments'])->name('portal.documents');
 
 Route::middleware([
     'web',
     PreventAccessFromCentralDomains::class,
     InitializeTenancyByDomain::class,
 ])->group(function () {
+
+    Route::prefix('portal-accesses')->name('portal-accesses.')->middleware(['auth', 'tenant.access'])->group(function () {
+        Route::get('/', [PortalAccessController::class, 'index'])->name('index');
+        Route::post('/', [PortalAccessController::class, 'store'])->name('store');
+        Route::get('/{portalAccess}', [PortalAccessController::class, 'show'])->name('show');
+        Route::put('/{portalAccess}', [PortalAccessController::class, 'update'])->name('update');
+        Route::delete('/{portalAccess}', [PortalAccessController::class, 'destroy'])->name('destroy');
+    });
+
+
 
     // Public routes — UUID-secured, no auth required
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
