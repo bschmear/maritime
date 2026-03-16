@@ -425,12 +425,11 @@ const backToPage = () => {
 };
 
 const handleCreateClick = () => {
-    if (props.createModal === false) {
-        // Redirect to the create page instead of opening modal
+    console.log(props.schema?.allow_create_modal);
+    if (props.createModal === false || props.schema?.allow_create_modal === false) {
         const createRoute = route(`${props.recordType}.create`);
         window.location.href = createRoute;
     } else {
-        // Open the create modal
         showCreateModal.value = true;
     }
 };
@@ -913,6 +912,15 @@ onMounted(() => {
                                         >
                                             {{ getRecordValue(record, column) }}
                                         </Link>
+                                    </template>
+                                    <template v-else-if="column.key === 'display_name'">
+                                        <a
+                                            :href="route(`${recordType}.show`, record.id)"
+                                            target="_blank"
+                                            class="font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
+                                        >
+                                            {{ getRecordValue(record, column) || '—' }}
+                                        </a>
                                     </template>
                                     <template v-else-if="hasEnumColor(column, record)">
                                         <div class="flex items-center">

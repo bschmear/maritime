@@ -5,6 +5,12 @@
         "label": "#",
         "sortable": true
       },
+      {
+          "key": "display_name",
+          "label": "Opportunity #",
+          "sortable": true,
+          "isKey": true
+      },
       { "key": "user_id", "label": "Salesperson", "sortable": false },
       { "key": "customer_id", "label": "Customer", "sortable": false },
       { "key": "status", "label": "Status", "sortable": true },

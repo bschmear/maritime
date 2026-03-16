@@ -92,7 +92,7 @@ const handleCancel = () => {
             </div>
         </template>
 
-        <div class="w-full flex flex-col space-y-6 max-w-7xl mx-auto">
+        <div class="w-full flex flex-col space-y-6 mx-auto">
             <EstimateForm
                 :record="null"
                 :form-schema="formSchema"

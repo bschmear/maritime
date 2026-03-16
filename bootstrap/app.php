@@ -19,7 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Tenant subdomain (6-digit)
             if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
-                require base_path('routes/tenant.php');
+                $path = request()->path();
+
+                // Portal routes (customer-facing) get their own isolated route file
+                if ($path === 'portal' || str_starts_with($path, 'portal/')) {
+                    require base_path('routes/portal.php');
+                } else {
+                    require base_path('routes/tenant.php');
+                }
+
                 return;
             }
 
@@ -40,20 +48,30 @@ return Application::configure(basePath: dirname(__DIR__))
             'kiosk.admin' => \App\Http\Middleware\EnsureKioskAdmin::class,
             'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
             'redirect.unauthenticated' => \App\Http\Middleware\RedirectUnauthenticatedFromTenant::class,
+            'portal.token' => \App\Http\Middleware\ValidatePortalToken::class,
         ]);
 
-        // When an unauthenticated user hits a tenant subdomain, send them to the
-        // main domain instead of trying to generate route('login') which doesn't
-        // exist in the tenant routing context.
         $middleware->redirectGuestsTo(function (Request $request) {
             $host = $request->getHost();
             $parts = explode('.', $host);
+            $isTenant = count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
 
-            if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
+            if ($isTenant && str_starts_with($request->path(), 'portal')) {
+                return '/portal/login';
+            }
+
+            if ($isTenant) {
                 return config('app.url') . '/login';
             }
 
             return route('login');
+        });
+
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->user('customer')) {
+                return '/portal';
+            }
+            return '/';
         });
     })
     ->withExceptions(function (Exceptions $exceptions): void {

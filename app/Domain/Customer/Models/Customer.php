@@ -4,28 +4,26 @@ namespace App\Domain\Customer\Models;
 
 use App\Domain\Task\Models\Task;
 use App\Domain\AssetUnit\Models\AssetUnit;
-use Illuminate\Database\Eloquent\Model;
+use App\Domain\PortalAccess\Models\PortalAccess;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use App\Models\Concerns\HasDocuments;
 
-class Customer extends Model
+class Customer extends Authenticatable
 {
-    use HasDocuments;
-    /**
-     * The attributes that aren't mass assignable.
-     *
-     * @var array<int, string>
-     */
+    use HasDocuments, Notifiable;
+
     protected $guarded = [
         'id',
         'created_at',
         'updated_at',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected $casts = [
         'status_id' => 'integer',
         'source_id' => 'integer',
@@ -33,17 +31,18 @@ class Customer extends Model
         'purchase_timeline' => 'integer',
         'preferred_contact_time' => 'integer',
         'preferred_contact_method' => 'integer',
+        'email_verified_at' => 'datetime',
     ];
 
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @var array<string, string>
-     */
     protected $dates = [
         'last_contacted_at',
         'next_followup_at',
     ];
+
+    public function hasPortalAccount(): bool
+    {
+        return !is_null($this->password);
+    }
 
     public function tasks()
     {
@@ -70,6 +69,11 @@ class Customer extends Model
         return $this->hasMany(\App\Domain\Opportunity\Models\Opportunity::class);
     }
 
+    public function estimates()
+    {
+        return $this->hasMany(\App\Domain\Estimate\Models\Estimate::class);
+    }
+
     public function assigned_user()
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
@@ -88,13 +92,13 @@ class Customer extends Model
 
     public function documents()
     {
-        return $this->morphToMany(Document::class, 'documentable')
+        return $this->morphToMany(\App\Domain\Document\Models\Document::class, 'documentable')
             ->withTimestamps();
     }
 
     public function scores()
     {
-        return $this->morphMany(\App\DomainScore\Models\Score::class, 'scorable');
+        return $this->morphMany(\App\Domain\Score\Models\Score::class, 'scorable');
     }
 
     public function currentScores()
@@ -105,5 +109,10 @@ class Customer extends Model
     public function latestScore()
     {
         return $this->belongsTo(\App\DomainScore\Models\Score::class, 'latest_score_id');
+    }
+
+    public function portalAccesses()
+    {
+        return $this->hasMany(PortalAccess::class);
     }
 }

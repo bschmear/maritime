@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\Estimate\Models\Estimate;
+use App\Enums\Estimate\EstimateStatus;
 use App\Mail\ServiceTicketApproved;
+use App\Mail\EstimateApprovalNotification;
 use App\Models\AccountSettings;
 use App\Domain\Notification\Models\Notification;
 use App\Models\Account;
@@ -354,11 +357,179 @@ class PublicController extends Controller
      */
     private function resolveLogoUrl($record, AccountSettings $account): ?string
     {
-        if ($record->subsidiary && $record->subsidiary->logo_url) {
+        if (isset($record->subsidiary) && $record->subsidiary && $record->subsidiary->logo_url) {
             return $record->subsidiary->logo_url;
         }
 
         return $account->logo_url;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Estimate Review / Approve / Decline
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function reviewEstimate(Request $request, string $uuid)
+    {
+        $estimate = Estimate::where('uuid', $uuid)
+            ->with([
+                'customer',
+                'user',
+                'opportunity',
+                'primaryVersion.lineItems.addons',
+            ])
+            ->firstOrFail();
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $account->logo_url ?? null;
+
+        $recordArray = $estimate->toArray();
+        $recordArray['signature_url'] = $estimate->signature_url;
+        $recordArray['signed_at']     = $estimate->signed_at?->toISOString();
+        $recordArray['declined_at']   = $estimate->declined_at?->toISOString();
+        $recordArray['issue_date']    = $estimate->issue_date?->toISOString();
+        $recordArray['expiration_date'] = $estimate->expiration_date?->toISOString();
+
+        $lineItems = [];
+        if ($estimate->primaryVersion) {
+            $lineItems = $estimate->primaryVersion->lineItems->map(fn ($li) => [
+                'id'          => $li->id,
+                'name'        => $li->name,
+                'description' => $li->description,
+                'quantity'    => (float) $li->quantity,
+                'unit_price'  => (float) $li->unit_price,
+                'discount'    => (float) ($li->discount ?? 0),
+                'line_total'  => (float) $li->line_total,
+                'addons'      => $li->addons->map(fn ($a) => [
+                    'id'       => $a->id,
+                    'name'     => $a->name,
+                    'price'    => (float) $a->price,
+                    'quantity' => (int) $a->quantity,
+                ])->values()->all(),
+            ])->values()->all();
+        }
+
+        $recordArray['line_items'] = $lineItems;
+        $recordArray['subtotal']   = (float) ($estimate->primaryVersion?->subtotal ?? 0);
+        $recordArray['tax']        = (float) ($estimate->primaryVersion?->tax ?? 0);
+        $recordArray['total']      = (float) ($estimate->primaryVersion?->total ?? 0);
+
+        return Inertia::render('Tenant/Public/EstimateReview', [
+            'record'  => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+        ]);
+    }
+
+    public function approveEstimate(Request $request, string $uuid)
+    {
+        $estimate = Estimate::where('uuid', $uuid)->firstOrFail();
+
+        if ($estimate->status == EstimateStatus::Approved->id() || $estimate->signed_at) {
+            return back();
+        }
+
+        $request->validate([
+            'signature_method' => 'required|in:draw,type',
+            'signature_data'   => 'required|string',
+            'signed_name'      => 'required|string|max:255',
+            'consent'          => 'required|accepted',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        $signatureFile = null;
+        if ($request->signature_method === 'draw') {
+            $signatureFile = $this->storeSignatureImage($request->signature_data, $estimate->uuid);
+        }
+
+        $approvalHash = hash('sha256', json_encode([
+            'estimate_id' => $estimate->id,
+            'uuid'        => $estimate->uuid,
+            'total'       => (string) ($estimate->primaryVersion?->total ?? '0'),
+            'timestamp'   => now()->toISOString(),
+            'ip'          => $request->ip(),
+        ]));
+
+        $estimate->update([
+            'status'            => EstimateStatus::Approved->id(),
+            'signed_at'         => now(),
+            'signed_ip'         => $request->ip(),
+            'signed_user_agent' => $request->userAgent(),
+            'signed_name'       => $request->signed_name,
+            'signed_email'      => $estimate->customer?->email,
+            'signature_hash'    => $approvalHash,
+            'signature_file'    => $signatureFile,
+        ]);
+
+        $estimate->refresh();
+
+        $this->notifyEstimateAction($estimate, $account, 'approved');
+
+        return back();
+    }
+
+    public function declineEstimate(Request $request, string $uuid)
+    {
+        $estimate = Estimate::where('uuid', $uuid)->firstOrFail();
+
+        if ($estimate->status == EstimateStatus::Declined->id() || $estimate->declined_at) {
+            return back();
+        }
+
+        $request->validate([
+            'decline_reason' => 'required|string|max:1000',
+        ]);
+
+        $estimate->update([
+            'status'         => EstimateStatus::Declined->id(),
+            'declined_at'    => now(),
+            'decline_reason' => $request->decline_reason,
+        ]);
+
+        $estimate->refresh();
+
+        $this->notifyEstimateAction($estimate, AccountSettings::getCurrent(), 'declined');
+
+        return back();
+    }
+
+    private function notifyEstimateAction(Estimate $estimate, AccountSettings $account, string $action): void
+    {
+        try {
+            $estimate->load(['user', 'customer', 'primaryVersion']);
+
+            $salesperson = $estimate->user;
+            if (!$salesperson) {
+                \Log::warning('No salesperson found to notify for estimate action', [
+                    'estimate_id' => $estimate->id,
+                    'action'      => $action,
+                ]);
+                return;
+            }
+
+            $isApproved = $action === 'approved';
+
+            Notification::create([
+                'assigned_to_user_id' => $salesperson->id,
+                'type'                => "estimate_{$action}",
+                'title'               => $isApproved ? 'Estimate Approved' : 'Estimate Declined',
+                'message'             => $isApproved
+                    ? "Estimate {$estimate->display_name} has been approved by {$estimate->customer?->display_name}."
+                    : "Estimate {$estimate->display_name} was declined by {$estimate->customer?->display_name}.",
+                'route'               => 'estimates.show',
+                'route_params'        => $estimate->id,
+            ]);
+
+            Mail::to($salesperson->email)->send(
+                new EstimateApprovalNotification($estimate, $account, $salesperson, $action)
+            );
+        } catch (\Exception $e) {
+            \Log::error('Failed to notify estimate action', [
+                'estimate_id' => $estimate->id,
+                'action'      => $action,
+                'error'       => $e->getMessage(),
+            ]);
+        }
     }
 
     public function reviewDelivery(Request $request, $uuid)

@@ -108,6 +108,6 @@ class PortalAccess extends Model
 
     public function url(): string
     {
-        return url('/portal/' . $this->token);
+        return url('/portal/view/' . $this->token);
     }
 }

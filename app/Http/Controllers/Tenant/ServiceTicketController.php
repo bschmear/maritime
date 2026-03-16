@@ -363,31 +363,6 @@ class ServiceTicketController extends BaseController
     }
 
     /**
-     * Get tax rate for a location.
-     */
-    public function getLocationTaxRate(Request $request)
-    {
-        $locationId = $request->get('location_id');
-
-        if (!$locationId) {
-            return response()->json(['tax_rate' => null]);
-        }
-
-        $location = \App\Domain\Location\Models\Location::find($locationId);
-
-        if (!$location) {
-            return response()->json(['tax_rate' => null]);
-        }
-
-        $taxRateService = app(\App\Services\TaxRateService::class);
-        $taxRate = $taxRateService->getTaxRate($location);
-
-        return response()->json([
-            'tax_rate' => $taxRate ? $taxRate * 100 : null
-        ]);
-    }
-
-    /**
      * Helper: get unwrapped fields schema.
      */
     protected function getUnwrappedFieldsSchema()

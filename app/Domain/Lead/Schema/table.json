@@ -1,14 +1,15 @@
 {
     "columns": [
       {
-        "key": "first_name",
-        "label": "First Name",
+        "key": "id",
+        "label": "#",
         "sortable": true
       },
       {
-        "key": "last_name",
-        "label": "Last Name",
-        "sortable": true
+        "key": "display_name",
+        "label": "Name",
+        "sortable": true,
+        "isKey": true
       },
       {
         "key": "email",

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Services\TaxRateService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -53,6 +55,20 @@ class GeneralController extends BaseController
                 $columns[] = 'hin';
                 $columns[] = 'sku';
             }
+        }
+
+        // Include address fields for customers so the frontend can auto-fill billing address
+        if (strtolower($type) === 'customer') {
+            $columns = array_merge($columns, [
+                'address_line_1',
+                'address_line_2',
+                'city',
+                'state',
+                'postal_code',
+                'country',
+                'latitude',
+                'longitude',
+            ]);
         }
 
         // Include pricing and display fields for line item types
@@ -268,5 +284,46 @@ class GeneralController extends BaseController
         }
 
         return response()->json(['error' => 'Invalid request'], 400);
+    }
+
+    /**
+     * Unified tax-rate lookup used by service tickets, work orders, and estimates.
+     *
+     * Accepts either:
+     *   ?location_id=<id>                  — looks up a saved Location model (most accurate)
+     *   ?state=FL&city=Miami&postal_code=33101  — falls back to address fields
+     */
+    public function getTaxRate(Request $request): JsonResponse
+    {
+        $service = app(TaxRateService::class);
+
+        // ── Location-based lookup (service ticket / work order) ────────────────
+        $locationId = $request->get('location_id');
+        if ($locationId) {
+            $location = \App\Domain\Location\Models\Location::find($locationId);
+
+            if (!$location) {
+                return response()->json(['tax_rate' => null]);
+            }
+
+            $rate = $service->getTaxRate($location);
+            return response()->json(['tax_rate' => $rate ? $rate * 100 : null]);
+        }
+
+        // ── Address-based lookup (estimates / any record with a billing address) ─
+        $state = trim($request->get('state', ''));
+        if (!$state) {
+            return response()->json(['tax_rate' => null]);
+        }
+
+        $rate = $service->getTaxRateByAddress(
+            state:       $state,
+            city:        $request->get('city')        ?: null,
+            postalCode:  $request->get('postal_code') ?: null,
+            country:     $request->get('country')     ?: 'US',
+            line1:       $request->get('line1')       ?: '',
+        );
+
+        return response()->json(['tax_rate' => $rate]);
     }
 }

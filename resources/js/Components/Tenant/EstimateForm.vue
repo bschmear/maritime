@@ -1,6 +1,8 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
 
 const debounce = (fn, delay) => {
@@ -38,6 +40,23 @@ const extractDate = (dateString) => {
     return dateString.split('T')[0];
 };
 
+// Returns a YYYY-MM-DD string offset by `defaultDay` days from today.
+// Reads the offset from formSchema.form sections when mode is 'create' and the field has no existing value.
+const getDefaultDateFromSchema = (key) => {
+    if (props.mode !== 'create') return null;
+    const sections = props.formSchema?.form ?? props.formSchema ?? {};
+    for (const section of Object.values(sections)) {
+        if (!section || typeof section !== 'object') continue;
+        const field = (section.fields ?? []).find(f => f?.key === key);
+        if (field?.defaultDay !== undefined) {
+            const d = new Date();
+            d.setDate(d.getDate() + Number(field.defaultDay));
+            return d.toISOString().split('T')[0];
+        }
+    }
+    return null;
+};
+
 // ==============================
 // Main Form
 // ==============================
@@ -46,10 +65,81 @@ const form = useForm({
     opportunity_id: props.record?.opportunity_id || props.initialData?.opportunity_id || null,
     user_id: props.record?.user_id || props.initialData?.user_id || null,
     tax_rate: props.record?.tax_rate ?? props.initialData?.tax_rate ?? 0,
-    issue_date: extractDate(props.record?.issue_date || props.initialData?.issue_date) || null,
-    expiration_date: extractDate(props.record?.expiration_date || props.initialData?.expiration_date) || null,
+    issue_date: extractDate(props.record?.issue_date || props.initialData?.issue_date) || getDefaultDateFromSchema('issue_date'),
+    expiration_date: extractDate(props.record?.expiration_date || props.initialData?.expiration_date) || getDefaultDateFromSchema('expiration_date'),
     notes: props.record?.notes || props.initialData?.notes || '',
     terms: props.record?.terms || props.initialData?.terms || '',
+    billing_address_line1: props.record?.billing_address_line1 || props.initialData?.billing_address_line1 || '',
+    billing_address_line2: props.record?.billing_address_line2 || props.initialData?.billing_address_line2 || '',
+    billing_city:          props.record?.billing_city          || props.initialData?.billing_city          || '',
+    billing_state:         props.record?.billing_state         || props.initialData?.billing_state         || '',
+    billing_postal:        props.record?.billing_postal        || props.initialData?.billing_postal        || '',
+    billing_country:       props.record?.billing_country       || props.initialData?.billing_country       || '',
+    billing_latitude:      props.record?.billing_latitude      ?? props.initialData?.billing_latitude      ?? null,
+    billing_longitude:     props.record?.billing_longitude     ?? props.initialData?.billing_longitude     ?? null,
+});
+
+// ── Billing Address ──────────────────────────────────────────────────────────
+const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
+
+const applyAddressToForm = (src) => {
+    form.billing_address_line1 = src.billing_address_line1 || src.address_line_1 || '';
+    form.billing_address_line2 = src.billing_address_line2 || src.address_line_2 || '';
+    form.billing_city          = src.billing_city          || src.city           || '';
+    form.billing_state         = src.billing_state         || src.state          || '';
+    form.billing_postal        = src.billing_postal        || src.postal_code    || '';
+    form.billing_country       = src.billing_country       || src.country        || '';
+    form.billing_latitude      = src.billing_latitude      ?? src.latitude       ?? null;
+    form.billing_longitude     = src.billing_longitude     ?? src.longitude      ?? null;
+};
+
+// Confirmation modal for billing address auto-fill
+const showAddressConfirm = ref(false);
+const pendingCustomerAddress = ref(null);
+
+const handleCustomerSelected = (customer) => {
+    const street = customer.address_line_1 || customer.billing_address_line1 || '';
+    if (!street) return; // customer has no address on file — nothing to offer
+
+    pendingCustomerAddress.value = customer;
+    showAddressConfirm.value = true;
+};
+
+const confirmUseBillingAddress = () => {
+    applyAddressToForm(pendingCustomerAddress.value);
+    showAddressConfirm.value = false;
+    pendingCustomerAddress.value = null;
+};
+
+const dismissAddressConfirm = () => {
+    showAddressConfirm.value = false;
+    pendingCustomerAddress.value = null;
+};
+
+const handleAddressUpdate = (data) => {
+    form.billing_address_line1 = data.street      ?? '';
+    form.billing_address_line2 = data.unit        ?? '';
+    form.billing_city          = data.city        ?? '';
+    form.billing_state         = data.stateCode   || data.state || '';
+    form.billing_postal        = data.postalCode  ?? '';
+    form.billing_country       = data.countryCode || data.country || '';
+    form.billing_latitude      = data.latitude    ?? null;
+    form.billing_longitude     = data.longitude   ?? null;
+};
+
+watch(() => form.billing_state, async (newState) => {
+    if (newState) {
+        const rate = await fetchTaxRate({
+            state:       newState,
+            city:        form.billing_city             || undefined,
+            postal_code: form.billing_postal           || undefined,
+            line1:       form.billing_address_line1    || undefined,
+            country:     form.billing_country          || undefined,
+            latitude:    form.billing_latitude         ?? undefined,
+            longitude:   form.billing_longitude        ?? undefined,
+        });
+        if (rate !== null) form.tax_rate = rate;
+    }
 });
 
 const formatCurrency = (value) =>
@@ -83,13 +173,15 @@ const lineItemForm = ref({
     addons: [],
 });
 
+const lineBaseTotal = (item) =>
+    Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
+
 const lineTotal = (item) => {
-    const base = Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0);
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0
     );
-    return base + addonsTotal;
+    return lineBaseTotal(item) + addonsTotal;
 };
 
 const inventorySubtotal = computed(() =>
@@ -201,13 +293,15 @@ const assetForm = ref({
     addons: [],
 });
 
+const assetBaseLineTotal = (item) =>
+    Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
+
 const assetLineTotal = (item) => {
-    const base = Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0);
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0
     );
-    return base + addonsTotal;
+    return assetBaseLineTotal(item) + addonsTotal;
 };
 
 const assetSubtotal = computed(() =>
@@ -381,6 +475,20 @@ const removeAddon = (lineItem, addonIndex) => {
 // ==============================
 // Totals
 // ==============================
+const addonSubtotalForItems = (items) =>
+    items.reduce((sum, item) =>
+        sum + (item.addons ?? []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0), 0);
+
+const assetBaseSubtotal = computed(() =>
+    assetItems.value.reduce((sum, item) => sum + assetBaseLineTotal(item), 0));
+
+const assetAddonSubtotal = computed(() => addonSubtotalForItems(assetItems.value));
+
+const inventoryBaseSubtotal = computed(() =>
+    inventoryItems.value.reduce((sum, item) => sum + lineBaseTotal(item), 0));
+
+const inventoryAddonSubtotal = computed(() => addonSubtotalForItems(inventoryItems.value));
+
 const combinedSubtotal = computed(() => assetSubtotal.value + inventorySubtotal.value);
 const taxAmount = computed(() => combinedSubtotal.value * (Number(form.tax_rate) / 100));
 const grandTotal = computed(() => combinedSubtotal.value + taxAmount.value);
@@ -503,20 +611,14 @@ const submit = () => {
         });
     });
 
-    console.log('Line items data being submitted:', lineItemsData);
-    console.log('Asset items count:', assetItems.value.length);
-    console.log('Inventory items count:', inventoryItems.value.length);
-
     form.transform((data) => {
         const transformed = { ...data, line_items: lineItemsData };
-        console.log('Transformed form data:', transformed);
         return transformed;
     });
 
     if (props.mode === 'edit') {
         form.put(route('estimates.update', props.record.id), {
             onSuccess: (response) => {
-                console.log('Update success!', response);
                 emit('saved');
             },
             onError: (errors) => {
@@ -527,7 +629,6 @@ const submit = () => {
     } else {
         form.post(route('estimates.store'), {
             onSuccess: (response) => {
-                console.log('Create success!', response);
                 emit('saved');
             },
             onError: (errors) => {
@@ -592,6 +693,7 @@ const handleCancel = () => emit('cancelled');
                                             :record="pseudoRecord"
                                             field-key="customer_id"
                                             :disabled="mode === 'view' || (initialData?.opportunity_id && initialData?.customer_id)"
+                                            @record-selected="handleCustomerSelected"
                                         />
                                         <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
                                     </div>
@@ -706,6 +808,31 @@ const handleCancel = () => emit('cancelled');
                                     />
                                 </div>
                             </div>
+
+                            <!-- Billing Address -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                        Billing Address
+                                    </h3>
+                                    <span v-if="isFetchingTaxRate" class="text-xs text-primary-600 dark:text-primary-400 animate-pulse">
+                                        Fetching tax rate…
+                                    </span>
+                                </div>
+                                <AddressAutocomplete
+                                    :street="form.billing_address_line1"
+                                    :unit="form.billing_address_line2"
+                                    :city="form.billing_city"
+                                    :state="form.billing_state"
+                                    :stateCode="form.billing_state"
+                                    :postalCode="form.billing_postal"
+                                    :country="form.billing_country"
+                                    :latitude="form.billing_latitude"
+                                    :longitude="form.billing_longitude"
+                                    :disabled="mode === 'view'"
+                                    @update="handleAddressUpdate"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -755,7 +882,7 @@ const handleCancel = () => emit('cancelled');
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetBaseLineTotal(item)) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -867,7 +994,7 @@ const handleCancel = () => emit('cancelled');
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -944,8 +1071,8 @@ const handleCancel = () => emit('cancelled');
 
                     <!-- Actions -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
-                        <div class="flex justify-between items-center px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
+                        <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <span class="text-sm font-semibold text-white">Actions</span>
                         </div>
 
                         <div class="p-5 space-y-3">
@@ -977,18 +1104,34 @@ const handleCancel = () => emit('cancelled');
 
                     <!-- Estimate Totals -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-gray-900 dark:text-white">Estimate Total</span>
+                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
+                            <span class="text-sm font-semibold text-white">Estimate Total</span>
                         </div>
-                        <div class="p-5 space-y-3">
-                            <div v-if="assetItems.length > 0" class="flex justify-between items-center text-sm">
-                                <span class="text-gray-500 dark:text-gray-400">Assets</span>
-                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSubtotal) }}</span>
-                            </div>
-                            <div v-if="inventoryItems.length > 0" class="flex justify-between items-center text-sm">
-                                <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
-                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySubtotal) }}</span>
-                            </div>
+                        <div class="p-5 space-y-2.5">
+                            <!-- Assets -->
+                            <template v-if="assetItems.length > 0">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Assets</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
+                                </div>
+                            </template>
+
+                            <!-- Parts & Accessories -->
+                            <template v-if="inventoryItems.length > 0">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
+                                </div>
+                            </template>
+
                             <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700">
                                 <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
                                 <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
@@ -1442,6 +1585,73 @@ const handleCancel = () => emit('cancelled');
                     </div>
                 </div>
             </div>
+        </Teleport>
+
+        <!-- ============================
+             Billing Address Confirm Modal
+             ============================ -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition ease-out duration-150"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition ease-in duration-100"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="showAddressConfirm && pendingCustomerAddress"
+                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+                    @click.self="dismissAddressConfirm"
+                >
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+
+                        <!-- Header -->
+                        <div class="flex items-start gap-3 px-6 pt-6 pb-4">
+                            <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use customer's address?</h3>
+                                <p class="text-md text-gray-500 dark:text-gray-400 mt-0.5">Set this as the billing address for the estimate</p>
+                            </div>
+                        </div>
+
+                        <!-- Address preview -->
+                        <div class="mx-6 mb-5 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
+                            <p v-if="pendingCustomerAddress.address_line_1" class="font-medium">{{ pendingCustomerAddress.address_line_1 }}</p>
+                            <p v-if="pendingCustomerAddress.address_line_2" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.address_line_2 }}</p>
+                            <p>
+                                <span v-if="pendingCustomerAddress.city">{{ pendingCustomerAddress.city }}, </span>
+                                <span v-if="pendingCustomerAddress.state">{{ pendingCustomerAddress.state }} </span>
+                                <span v-if="pendingCustomerAddress.postal_code">{{ pendingCustomerAddress.postal_code }}</span>
+                            </p>
+                            <p v-if="pendingCustomerAddress.country" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.country }}</p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                            <button
+                                type="button"
+                                @click="dismissAddressConfirm"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                            >
+                                No, keep blank
+                            </button>
+                            <button
+                                type="button"
+                                @click="confirmUseBillingAddress"
+                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            >
+                                Yes, use this address
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </Transition>
         </Teleport>
     </div>
 </template>

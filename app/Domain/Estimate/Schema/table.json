@@ -1,4 +1,5 @@
 {
+    "allow_create_modal": false,
     "columns": [
         {
             "key": "id",
@@ -6,9 +7,10 @@
             "sortable": true
         },
         {
-            "key": "sequence",
+            "key": "display_name",
             "label": "Estimate #",
-            "sortable": true
+            "sortable": true,
+            "isKey": true
         },
         {
             "key": "customer_id",

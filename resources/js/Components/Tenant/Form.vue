@@ -174,6 +174,12 @@ const initializeFormData = () => {
                         else if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
                             formData[field.key] = fieldDef.default_value;
                         }
+                        // Check for defaultDay: N days offset from today (0 = today, 30 = 30 days out)
+                        else if (fieldType === 'date' && field.defaultDay !== undefined) {
+                            const d = new Date();
+                            d.setDate(d.getDate() + Number(field.defaultDay));
+                            formData[field.key] = d.toISOString().split('T')[0];
+                        }
                         // Check for default_today for date fields
                         else if (fieldType === 'date' && fieldDef.default_today === true) {
                             // Get current date in account timezone

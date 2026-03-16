@@ -64,18 +64,29 @@ class RecordController extends BaseController
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
 
-        // Separate actual database columns from relationship columns
+        // Separate actual database columns from relationship columns,
+        // filtering out virtual $appends attributes that don't exist in the DB.
         $actualColumns = [];
         $relationshipColumns = [];
 
+        $dbColumns = \Schema::connection($this->recordModel->getConnectionName())
+            ->getColumnListing($this->recordModel->getTable());
+
         foreach ($columns as $column) {
             if (strpos($column, '.') !== false) {
-                // This is a relationship column like "asset.display_name"
+                // Relationship column like "asset.display_name"
                 $relationshipColumns[] = $column;
-            } else {
-                // This is an actual database column
+            } elseif (in_array($column, $dbColumns)) {
+                // Only SELECT columns that actually exist in the database.
+                // Virtual $appends attributes are automatically included by Eloquent.
                 $actualColumns[] = $column;
             }
+        }
+
+        // If the model uses $appends (virtual accessors), include all real DB columns
+        // so that accessor dependencies (e.g. `sequence` for display_name) are always loaded.
+        if (!empty($this->recordModel->getAppends())) {
+            $actualColumns = array_values(array_unique(array_merge($actualColumns, $dbColumns)));
         }
 
         if (!in_array('id', $actualColumns)) {

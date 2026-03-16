@@ -168,6 +168,16 @@
       "label": "Leads",
       "domain": "Lead",
       "modelRelationship": "leads"
+    },
+    {
+      "label": "Opportunities",
+      "domain": "Opportunity",
+      "modelRelationship": "opportunities"
+    },
+    {
+      "label": "Estimates",
+      "domain": "Estimate",
+      "modelRelationship": "estimates"
     }
   ]
 }

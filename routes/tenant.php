@@ -42,7 +42,7 @@ use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\PortalAccessController;
 
-// use App\Http\Controllers\Tenant\PortalController;
+use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
@@ -56,25 +56,13 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 */
 
 
-Route::middleware(['auth:client'])->group(function () {
-    // Route::get('/portal', ...);
-    // Route::get('/', [PortalController::class, 'index'])->name('portal');
-    // Route::get('/documents', DocumentController::class);
-    // Route::get('/invoices', InvoiceController::class);
-});
-
-// Route::get('/portal/{token}', [PortalController::class, 'show'])->name('portal.show');
-// Route::post('/portal/{token}/action', [PortalController::class, 'performAction'])->name('portal.action');
-// Route::get('/portal/{token}/estimates', [PortalController::class, 'viewEstimates'])->name('portal.estimates');
-// Route::get('/portal/{token}/service-tickets', [PortalController::class, 'viewEServiceTickets'])->name('portal.servicetickets');
-// Route::get('/portal/{token}/invoices', [PortalController::class, 'viewInvoices'])->name('portal.invoices');
-// Route::get('/portal/{token}/documents', [PortalController::class, 'viewDocuments'])->name('portal.documents');
-
 Route::middleware([
     'web',
     PreventAccessFromCentralDomains::class,
     InitializeTenancyByDomain::class,
 ])->group(function () {
+
+    // ── Admin Portal Access Management ───────────────────────────────────
 
     Route::prefix('portal-accesses')->name('portal-accesses.')->middleware(['auth', 'tenant.access'])->group(function () {
         Route::get('/', [PortalAccessController::class, 'index'])->name('index');
@@ -90,6 +78,10 @@ Route::middleware([
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
     Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])->name('service-tickets.approve');
     Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])->name('service-tickets.decline');
+
+    Route::get('/estimates/{uuid}/review', [PublicController::class, 'reviewEstimate'])->name('estimates.review');
+    Route::post('/estimates/{uuid}/approve', [PublicController::class, 'approveEstimate'])->name('estimates.approve');
+    Route::post('/estimates/{uuid}/decline', [PublicController::class, 'declineEstimate'])->name('estimates.decline');
 
     Route::get('/deliveries/{uuid}/review', [PublicController::class, 'reviewDelivery'])->name('deliveries.review');
     Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])->name('deliveries.sign');
@@ -129,7 +121,11 @@ Route::middleware([
         });
 
         Route::prefix('estimates')->name('estimates.')->group(function () {
+            // Static routes must come before the resource wildcard {estimate}
+            Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
             Route::resource('/', EstimateController::class)->parameters(['' => 'estimate']);
+            Route::post('/{estimate}/send-approval', [EstimateController::class, 'sendApprovalRequest'])->name('send-approval');
+            Route::post('/{estimate}/revision',      [EstimateController::class, 'createRevision'])->name('revision');
         });
 
         Route::prefix('addons')->name('addons.')->group(function () {
@@ -154,7 +150,7 @@ Route::middleware([
         });
 
         Route::prefix('workorders')->name('workorders.')->group(function () {
-            Route::get('/location-tax-rate', [WorkOrderController::class, 'getLocationTaxRate'])->name('location-tax-rate');
+            Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
             Route::get('/{id}/preview', [WorkOrderController::class, 'preview'])->name('preview.view');
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
@@ -201,7 +197,7 @@ Route::middleware([
         });
 
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {
-            Route::get('/location-tax-rate', [ServiceTicketController::class, 'getLocationTaxRate'])->name('location-tax-rate');
+            Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [ServiceTicketController::class, 'lookupServiceItems'])->name('service-items.lookup');
             Route::post('/{id}/send-approval-request', [ServiceTicketController::class, 'sendApprovalRequest'])->name('send-approval-request');
             Route::get('/{id}/approval-url', [ServiceTicketController::class, 'getApprovalUrl'])->name('approval-url');

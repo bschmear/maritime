@@ -20,15 +20,63 @@
         },
         {
           "key": "issue_date",
-          "required": false
+          "required": false,
+          "defaultDay": 0
         },
         {
           "key": "expiration_date",
-          "required": false
+          "required": false,
+          "defaultDay": 30
         },
         {
           "key": "tax_rate",
           "required": false
+        }
+      ]
+    },
+    "address": {
+      "label": "Billing Address",
+      "is_address": true,
+      "fields": [
+        {
+          "key": "billing_address_line1",
+          "required": false,
+          "tag": "street"
+        },
+        {
+          "key": "billing_address_line2",
+          "required": false,
+          "tag": "unit"
+        },
+        {
+          "key": "billing_city",
+          "required": false,
+          "tag": "city"
+        },
+        {
+          "key": "billing_state",
+          "required": false,
+          "tag": "state"
+        },
+        {
+          "key": "billing_postal",
+          "required": false,
+          "tag": "postal_code"
+        },
+        {
+          "key": "billing_country",
+          "required": false,
+          "tag": "country"
+        },
+        {
+          "key": "billing_latitude",
+          "hidden": true,
+          "tag": "latitude"
+        },
+        {
+          "key": "billing_longitude",
+          "hidden": true,
+          "tag": "longitude"
         }
       ]
     },

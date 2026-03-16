@@ -116,26 +116,27 @@ class TenancyServiceProvider extends ServiceProvider
 
     protected function mapRoutes()
     {
-        $this->app->booted(function () {
-            if (file_exists(base_path('routes/tenant.php'))) {
-                // Load tenant routes with domain constraint
-                // This ensures routes only match on tenant subdomains (e.g., 123456.maritime.test)
-                // and NOT on central domains (e.g., maritime.test)
-                $centralDomain = config('app.domain', 'localhost');
-
-                // Register routes for any subdomain pattern
-                // The PreventAccessFromCentralDomains middleware will block central domains
-                Route::domain('{subdomain}.' . $centralDomain)
-                    ->namespace(static::$controllerNamespace)
-                    ->group(base_path('routes/tenant.php'));
-            }
-        });
+        // Route loading is handled by bootstrap/app.php's `withRouting` callback.
+        // That callback detects tenant subdomains (6-digit) and loads routes/tenant.php
+        // with the correct middleware (web + tenancy). Loading here would double-register
+        // routes and cause middleware conflicts.
     }
 
-    protected function makeTenancyMiddlewareHighestPriority()
+    protected function makeTenancyMiddlewareHighestPriority(): void
     {
-        // Don't register tenancy initialization middlewares globally
-        // They should only be applied to tenant routes (already in routes/tenant.php)
-        // This prevents them from running on central domain requests
+        $tenancyMiddleware = [
+            Middleware\InitializeTenancyByDomain::class,
+            Middleware\InitializeTenancyByDomainOrSubdomain::class,
+            Middleware\InitializeTenancyBySubdomain::class,
+            Middleware\InitializeTenancyByPath::class,
+            Middleware\InitializeTenancyByRequestData::class,
+        ];
+
+        foreach (array_reverse($tenancyMiddleware) as $middleware) {
+            if (class_exists($middleware)) {
+                app(\Illuminate\Foundation\Http\Kernel::class)
+                    ->prependToMiddlewarePriority($middleware);
+            }
+        }
     }
 }

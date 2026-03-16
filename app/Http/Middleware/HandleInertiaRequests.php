@@ -19,10 +19,10 @@ class HandleInertiaRequests extends Middleware
      */
     public function rootView(Request $request): string
     {
-        // Use tenant.blade.php for tenant subdomains
-        // Check if tenant() is available (after tenancy initialization)
-        // OR check the host directly (before tenancy initialization)
         if (tenant() || $this->isTenantSubdomain($request)) {
+            if (str_starts_with($request->path(), 'portal')) {
+                return 'portal';
+            }
             return 'tenant';
         }
 
@@ -56,12 +56,15 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        // Explicitly use the web guard so auth:customer never bleeds over.
+        // onTrial/trialEndsAt are tenant account (Cashier) concerns, not customer portal concerns.
+        $user = $request->user('web');
 
         return [
             ...parent::share($request),
             'auth' => [
                 'user' => $user,
+                'customer' => fn () => $this->resolveCustomer($request),
                 'onTrial' => $user ? $user->onTrial() : false,
                 'trialEndsAt' => $user && $user->onTrial()
                     ? $user->subscription('default')?->trial_ends_at?->format('M j, Y')
@@ -71,5 +74,16 @@ class HandleInertiaRequests extends Middleware
                 'publishable' => config('services.radar.publishable'),
             ],
         ];
+    }
+
+    protected function resolveCustomer(Request $request): ?array
+    {
+        if (!tenant()) {
+            return null;
+        }
+
+        $customer = $request->user('customer');
+
+        return $customer ? $customer->only('id', 'display_name', 'first_name', 'last_name', 'email') : null;
     }
 }

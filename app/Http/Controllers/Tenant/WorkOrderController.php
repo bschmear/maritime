@@ -575,32 +575,6 @@ class WorkOrderController extends RecordController
     }
 
     /**
-     * Get tax rate for a location
-     */
-    public function getLocationTaxRate(Request $request)
-    {
-        $locationId = $request->get('location_id');
-
-        if (!$locationId) {
-            return response()->json(['tax_rate' => null]);
-        }
-
-        $location = \App\Domain\Location\Models\Location::find($locationId);
-
-        if (!$location) {
-            return response()->json(['tax_rate' => null]);
-        }
-
-        $taxRateService = app(\App\Services\TaxRateService::class);
-        $taxRate = $taxRateService->getTaxRate($location);
-
-        // Return as percentage for the frontend
-        return response()->json([
-            'tax_rate' => $taxRate ? $taxRate * 100 : null
-        ]);
-    }
-
-    /**
      * Validate that the work order total does not exceed the service ticket estimate threshold.
      * Returns an error message string if over threshold, null if OK.
      */

@@ -20,6 +20,12 @@
             "relationship": "salesperson",
             "required": true
         },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Estimate\\EstimateStatus",
+            "default": 1
+        },
         "issue_date": {
             "label": "Issue Date",
             "type": "date"

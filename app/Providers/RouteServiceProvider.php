@@ -16,18 +16,8 @@ class RouteServiceProvider extends ServiceProvider
     {
         parent::boot();
 
-        $this->routes(function (Request $request) {
-            $domainType = $this->getSubDomainType($request);
-
-            if($domainType == 'kiosk') {
-                $this->mapAdminRoutes();
-            } else if($domainType == 'tenant') {
-                $this->mapTenantRoutes();
-            } else {
-                $this->mapWebRoutes();
-            }
-            
-        });
+        // Route loading is handled by bootstrap/app.php's `withRouting` callback.
+        // This provider is kept for the HOME constant only.
     }
 
 

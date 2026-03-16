@@ -1,0 +1,162 @@
+<?php
+
+namespace App\Http\Controllers\Portal;
+
+use App\Http\Controllers\Controller;
+use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Document\Models\Document;
+use App\Domain\PortalAccess\Models\PortalAccess;
+use App\Enums\Estimate\EstimateStatus;
+use App\Models\AccountSettings;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class CustomerPortalController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $estimates = Estimate::where('customer_id', $customer->id)
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $invoices = Invoice::where('customer_id', $customer->id)
+            ->latest()
+            ->take(5)
+            ->get();
+
+        $serviceTickets = ServiceTicket::where('customer_id', $customer->id)
+            ->latest()
+            ->take(5)
+            ->get();
+
+        return Inertia::render('Portal/Overview', [
+            'customer' => $customer->only('id', 'display_name', 'first_name', 'last_name', 'email'),
+            'recentEstimates' => $estimates,
+            'recentInvoices' => $invoices,
+            'recentServiceTickets' => $serviceTickets,
+            'counts' => [
+                'estimates' => Estimate::where('customer_id', $customer->id)->count(),
+                'invoices' => Invoice::where('customer_id', $customer->id)->count(),
+                'serviceTickets' => ServiceTicket::where('customer_id', $customer->id)->count(),
+                'documents' => $customer->documents()->count(),
+            ],
+        ]);
+    }
+
+    public function estimates(Request $request): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $estimates = Estimate::where('customer_id', $customer->id)
+            ->with(['primaryVersion:id,estimate_id,subtotal,tax,total'])
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('Portal/Estimates', [
+            'estimates' => $estimates,
+            'statuses'  => EstimateStatus::options(),
+        ]);
+    }
+
+    public function estimateShow(Request $request, int $id): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $estimate = Estimate::where('id', $id)
+            ->where('customer_id', $customer->id)
+            ->with(['primaryVersion.lineItems.addons', 'user', 'customer', 'opportunity'])
+            ->firstOrFail();
+
+        $account = AccountSettings::getCurrent();
+
+        $tenant = tenant();
+        $domain = $tenant?->domains->first()?->domain;
+
+        $reviewUrl = $domain
+            ? "https://{$domain}/estimates/{$estimate->uuid}/review"
+            : null;
+
+        $recordArray = $estimate->toArray();
+        $recordArray['signature_url'] = $estimate->signature_url;
+        $recordArray['signed_at']     = $estimate->signed_at?->toISOString();
+        $recordArray['declined_at']   = $estimate->declined_at?->toISOString();
+
+        $lineItems = [];
+        if ($estimate->primaryVersion) {
+            $lineItems = $estimate->primaryVersion->lineItems->map(fn ($li) => [
+                'id'          => $li->id,
+                'name'        => $li->name,
+                'description' => $li->description,
+                'quantity'    => (float) $li->quantity,
+                'unit_price'  => (float) $li->unit_price,
+                'discount'    => (float) ($li->discount ?? 0),
+                'line_total'  => (float) $li->line_total,
+                'addons'      => $li->addons->map(fn ($a) => [
+                    'id'       => $a->id,
+                    'name'     => $a->name,
+                    'price'    => (float) $a->price,
+                    'quantity' => (int) $a->quantity,
+                ])->values()->all(),
+            ])->values()->all();
+        }
+
+        $recordArray['line_items'] = $lineItems;
+        $recordArray['subtotal']   = (float) ($estimate->primaryVersion?->subtotal ?? 0);
+        $recordArray['tax']        = (float) ($estimate->primaryVersion?->tax ?? 0);
+        $recordArray['total']      = (float) ($estimate->primaryVersion?->total ?? 0);
+
+        return Inertia::render('Portal/EstimateShow', [
+            'estimate'   => $recordArray,
+            'account'    => $account,
+            'logoUrl'    => $account->logo_url ?? null,
+            'reviewUrl'  => $reviewUrl,
+            'statuses'   => EstimateStatus::options(),
+        ]);
+    }
+
+    public function invoices(Request $request): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $invoices = Invoice::where('customer_id', $customer->id)
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('Portal/Invoices', [
+            'invoices' => $invoices,
+        ]);
+    }
+
+    public function serviceTickets(Request $request): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $serviceTickets = ServiceTicket::where('customer_id', $customer->id)
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('Portal/ServiceTickets', [
+            'serviceTickets' => $serviceTickets,
+        ]);
+    }
+
+    public function documents(Request $request): Response
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $documents = $customer->documents()
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('Portal/Documents', [
+            'documents' => $documents,
+        ]);
+    }
+}

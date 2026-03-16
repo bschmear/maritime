@@ -69,31 +69,41 @@ const { $formatCurrency } = getCurrentInstance().appContext.config.globalPropert
 
 // Helper functions for pluralization/singularization
 const getDomainPlural = (domain) => {
-    // Handle irregular plurals
     const irregularPlurals = {
         'Subsidiary': 'subsidiaries',
-        'subsidiary': 'subsidiaries'
+        'subsidiary': 'subsidiaries',
     };
-    
+
     if (irregularPlurals[domain]) {
         return irregularPlurals[domain];
     }
-    
-    // Default: lowercase and add 's'
+
     const lowercase = domain.toLowerCase();
+
+    // Words ending in consonant + y → replace y with ies (e.g. opportunity → opportunities)
+    if (/[^aeiou]y$/.test(lowercase)) {
+        return lowercase.slice(0, -1) + 'ies';
+    }
+
+    // Default: already ends in s, or just append s
     return lowercase.endsWith('s') ? lowercase : lowercase + 's';
 };
 
 const getDomainSingular = (pluralDomain) => {
-    // Handle irregular plurals
     const irregularSingulars = {
-        'subsidiaries': 'subsidiary'
+        'subsidiaries': 'subsidiary',
+        'opportunities': 'opportunity',
     };
-    
+
     if (irregularSingulars[pluralDomain]) {
         return irregularSingulars[pluralDomain];
     }
-    
+
+    // Words ending in ies → replace with y
+    if (pluralDomain.endsWith('ies')) {
+        return pluralDomain.slice(0, -3) + 'y';
+    }
+
     // Default: remove trailing 's'
     return pluralDomain.replace(/s$/, '');
 };
@@ -1009,20 +1019,24 @@ const handleSublistItemUpdated = () => {
 };
 
 // Navigate to record in new window
-const navigateToRecord = (item) => {
-    if (!activeTab.value) return;
-    
+const getItemUrl = (item) => {
+    if (!activeTab.value) return null;
+
     const domain = activeTab.value.domain;
     const routePlural = getDomainPlural(domain);
     const routeName = `${routePlural}.show`;
     const paramName = getDomainSingular(routePlural);
-    
+
     try {
-        const url = route(routeName, { [paramName]: item.id });
-        window.open(url, '_blank');
+        return route(routeName, { [paramName]: item.id });
     } catch (error) {
-        console.error('[Sublist] Error generating route:', error);
+        return null;
     }
+};
+
+const navigateToRecord = (item) => {
+    const url = getItemUrl(item);
+    if (url) window.open(url, '_blank');
 };
 
 // Inline editing for select fields
@@ -1328,6 +1342,17 @@ onMounted(() => {
                                     </template>
                                     <template v-else-if="getFieldType(column.key) === 'tel'">
                                         {{ formatPhone(item[column.key]) }}
+                                    </template>
+                                    <template v-else-if="column.isKey">
+                                        <a
+                                            v-if="getItemUrl(item)"
+                                            :href="getItemUrl(item)"
+                                            target="_blank"
+                                            class="font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
+                                        >
+                                            {{ item[column.key] || '—' }}
+                                        </a>
+                                        <span v-else>{{ item[column.key] || '—' }}</span>
                                     </template>
                                     <template v-else>
                                         {{ item[column.key] || '—' }}

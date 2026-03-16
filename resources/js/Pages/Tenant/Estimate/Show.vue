@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -19,6 +19,26 @@ const props = defineProps({
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
+
+const sendApprovalForm = useForm({});
+const sendApprovalRequest = () => {
+    sendApprovalForm.post(route('estimates.send-approval', props.record.id), {
+        preserveScroll: true,
+    });
+};
+
+const revisionForm = useForm({});
+const createRevision = () => {
+    revisionForm.post(route('estimates.revision', props.record.id));
+};
+
+const isLocked    = computed(() => !!props.record?.is_locked);
+const hasRevision = computed(() => !!props.record?.revision);
+
+const canSendApproval = computed(() => {
+    const v = statusInfo.value?.value;
+    return (v === 'draft' || v === 'sent') && !hasRevision.value;
+});
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
 
@@ -50,14 +70,30 @@ const inventoryLines = computed(() =>
     )
 );
 
+const lineBaseTotal = (item) =>
+    Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
+
 const lineTotal = (item) => {
-    const base = Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0);
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0
     );
-    return base + addonsTotal;
+    return lineBaseTotal(item) + addonsTotal;
 };
+
+const addonSubtotalForItems = (items) =>
+    items.reduce((sum, item) =>
+        sum + (item.addons ?? []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0), 0);
+
+const assetBaseSubtotal = computed(() =>
+    assetLines.value.reduce((sum, item) => sum + lineBaseTotal(item), 0));
+
+const assetAddonSubtotal = computed(() => addonSubtotalForItems(assetLines.value));
+
+const inventoryBaseSubtotal = computed(() =>
+    inventoryLines.value.reduce((sum, item) => sum + lineBaseTotal(item), 0));
+
+const inventoryAddonSubtotal = computed(() => addonSubtotalForItems(inventoryLines.value));
 
 const assetSubtotal = computed(() =>
     assetLines.value.reduce((sum, item) => sum + lineTotal(item), 0)
@@ -95,6 +131,48 @@ const isExpired = computed(() => {
     return new Date(props.record.expiration_date) < new Date();
 });
 
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    try {
+        return new Date(value).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit',
+        });
+    } catch { return '—'; }
+};
+
+// Tailwind-safe text classes keyed by the color name from EstimateStatus::color()
+const STATUS_TEXT = {
+    gray:   'text-gray-700 dark:text-gray-300',
+    blue:   'text-blue-700 dark:text-blue-300',
+    yellow: 'text-yellow-700 dark:text-yellow-300',
+    green:  'text-green-700 dark:text-green-300',
+    red:    'text-red-700 dark:text-red-300',
+    orange: 'text-orange-700 dark:text-orange-300',
+    purple: 'text-purple-700 dark:text-purple-300',
+    slate:  'text-slate-700 dark:text-slate-300',
+};
+
+const STATUS_ENUM_KEY = 'App\\Enums\\Estimate\\EstimateStatus';
+
+const statusOptions = computed(() =>
+    props.enumOptions?.[STATUS_ENUM_KEY] ?? []
+);
+
+// Matches by integer id OR string value so it works regardless of what the DB stores
+const statusInfo = computed(() => {
+    const s = props.record?.status;
+    return statusOptions.value.find(o => o.id == s || o.value == s)
+        ?? { id: 0, value: '', name: s ?? 'Unknown', color: 'gray', bgClass: 'bg-gray-100 dark:bg-gray-700' };
+});
+
+const statusTextClass = computed(() =>
+    STATUS_TEXT[statusInfo.value?.color] ?? 'text-gray-700 dark:text-gray-300'
+);
+
+const isApproved = computed(() => statusInfo.value?.value === 'approved' || !!props.record?.signed_at);
+const isDeclined = computed(() => statusInfo.value?.value === 'declined' || !!props.record?.declined_at);
+
 const handleDelete = () => { showDeleteModal.value = true; };
 const cancelDelete = () => { showDeleteModal.value = false; };
 
@@ -122,7 +200,34 @@ const confirmDelete = () => {
                         {{ estimateLabel }}
             </h2>
                     <div class="flex items-center gap-2">
+                        <!-- Send for Approval -->
+                        <button
+                            v-if="canSendApproval"
+                            @click="sendApprovalRequest"
+                            :disabled="sendApprovalForm.processing"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
+                            :title="record.sent_at ? `Resend (last sent ${new Date(record.sent_at).toLocaleDateString()})` : 'Send estimate to customer for approval'"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
+                        </button>
+
+                        <!-- Create Revision (locked) -->
+                        <button
+                            v-if="isLocked && !hasRevision"
+                            @click="createRevision"
+                            :disabled="revisionForm.processing"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors"
+                        >
+                            <span class="material-icons text-base">content_copy</span>
+                            {{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}
+                        </button>
+
+                        <!-- Edit (unlocked only) -->
                         <Link
+                            v-if="!isLocked"
                             :href="route('estimates.edit', record.id)"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
@@ -146,6 +251,67 @@ const confirmDelete = () => {
         </template>
 
         <div class="w-full flex flex-col space-y-6">
+
+            <!-- ── "Newer version exists" banner ── -->
+            <div
+                v-if="hasRevision"
+                class="flex items-center justify-between gap-4 px-5 py-3.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-icons text-amber-500 dark:text-amber-400">new_releases</span>
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <span class="font-semibold">This estimate has been superseded.</span>
+                        A newer revision was created.
+                    </p>
+                </div>
+                <Link
+                    :href="route('estimates.show', record.revision.id)"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors whitespace-nowrap"
+                >
+                    View Latest Version
+                    <span class="material-icons text-base">arrow_forward</span>
+                </Link>
+            </div>
+
+            <!-- ── "This is a revision of…" banner ── -->
+            <div
+                v-if="record.revised_from_id"
+                class="flex items-center gap-3 px-5 py-3.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg"
+            >
+                <span class="material-icons text-blue-500 dark:text-blue-400 text-base">history</span>
+                <p class="text-sm text-blue-800 dark:text-blue-200">
+                    This is a revision of
+                    <Link
+                        :href="route('estimates.show', record.revised_from_id)"
+                        class="font-semibold underline hover:no-underline"
+                    >
+                        EST-{{ record.revisedFrom?.sequence ?? record.revised_from_id }}
+                    </Link>.
+                </p>
+            </div>
+
+            <!-- ── Locked banner ── -->
+            <div
+                v-if="isLocked && !hasRevision"
+                class="flex items-center justify-between gap-4 px-5 py-3.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-icons text-yellow-600 dark:text-yellow-400">lock</span>
+                    <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                        <span class="font-semibold">This estimate is locked</span> — it has been sent for approval and cannot be edited.
+                        Create a revision to make changes.
+                    </p>
+                </div>
+                <button
+                    @click="createRevision"
+                    :disabled="revisionForm.processing"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap"
+                >
+                    <span class="material-icons text-base">content_copy</span>
+                    {{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}
+                </button>
+            </div>
+
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <!-- ============================
@@ -158,8 +324,16 @@ const confirmDelete = () => {
                         <div class="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 px-6 py-4">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h1 class="text-2xl font-bold text-white">ESTIMATE</h1>
-                                    <p class="text-primary-100 text-base mt-1">Customer estimate details</p>
+                                    <div class="flex items-center gap-3 mb-1">
+                                        <h1 class="text-2xl font-bold text-white">ESTIMATE</h1>
+                                        <span
+                                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                            :class="[statusInfo.bgClass, statusTextClass]"
+                                        >
+                                            {{ statusInfo.name }}
+                                        </span>
+                                    </div>
+                                    <p class="text-primary-100 text-base">Customer estimate details</p>
                                 </div>
                                 <div class="text-right">
                                     <div class="text-primary-200 text-xs font-medium">Reference</div>
@@ -305,7 +479,7 @@ const confirmDelete = () => {
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
@@ -380,7 +554,7 @@ const confirmDelete = () => {
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
@@ -423,6 +597,95 @@ const confirmDelete = () => {
                             <p class="text-sm text-gray-400 dark:text-gray-500">No parts or accessories on this estimate</p>
                         </div>
                     </div>
+
+                    <!-- ============================
+                         Authorization & Signature
+                         ============================ -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Authorization &amp; Signature</h2>
+                            <span
+                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                                :class="[statusInfo.bgClass, statusTextClass]"
+                            >
+                                <span v-if="isApproved" class="material-icons text-sm">check_circle</span>
+                                <span v-else-if="isDeclined" class="material-icons text-sm">cancel</span>
+                                {{ statusInfo.name }}
+                            </span>
+                        </div>
+
+                        <!-- Approved -->
+                        <div v-if="isApproved" class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</div>
+                                        <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ record.signed_name || '—' }}</div>
+                                    </div>
+                                    <div v-if="record.signed_email">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed Email</div>
+                                        <div class="text-sm text-gray-700 dark:text-gray-300">{{ record.signed_email }}</div>
+                                    </div>
+                                    <div v-if="record.signed_at">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</div>
+                                        <div class="text-sm text-gray-700 dark:text-gray-300">{{ formatDateTime(record.signed_at) }}</div>
+                                    </div>
+                                    <div v-if="record.signed_ip">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ record.signed_ip }}</div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Signature</div>
+                                    <!-- Drawn signature image -->
+                                    <div v-if="record.signature_url" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                        <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
+                                    </div>
+                                    <!-- Typed / name-only fallback -->
+                                    <div v-else-if="record.signed_name" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                        <p class="text-3xl text-gray-800 dark:text-gray-200 signature-cursive">{{ record.signed_name }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Declined -->
+                        <div v-else-if="isDeclined" class="p-6 space-y-4">
+                            <div>
+                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Declined At</div>
+                                <div class="text-sm text-gray-700 dark:text-gray-300">{{ formatDateTime(record.declined_at) }}</div>
+                            </div>
+                            <div v-if="record.decline_reason">
+                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reason</div>
+                                <div class="text-sm text-gray-700 dark:text-gray-300 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3">
+                                    {{ record.decline_reason }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Not yet actioned -->
+                        <div v-else class="p-6">
+                            <div class="flex flex-col items-center justify-center py-6 text-center">
+                                <span class="material-icons text-4xl text-gray-300 dark:text-gray-600 mb-3">draw</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    <span v-if="record.sent_at">Sent to customer on {{ formatDateTime(record.sent_at) }}. Awaiting signature.</span>
+                                    <span v-else>This estimate has not been sent for approval yet.</span>
+                                </p>
+                                <button
+                                    v-if="canSendApproval"
+                                    @click="sendApprovalRequest"
+                                    :disabled="sendApprovalForm.processing"
+                                    class="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- ============================
@@ -431,12 +694,59 @@ const confirmDelete = () => {
                 <div class="lg:col-span-4 space-y-6">
 
                     <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
                         <div class="px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
                         <div class="p-5 space-y-3">
+                            <!-- Status badge -->
+                            <div class="flex items-center justify-between py-2 px-3 rounded-lg" :class="[statusInfo.bgClass, statusTextClass]">
+                                <span class="text-xs font-medium uppercase tracking-wide">Status</span>
+                                <span class="text-sm font-semibold">{{ statusInfo.name }}</span>
+                            </div>
+
+                            <!-- Send for Approval -->
+                            <button
+                                v-if="canSendApproval"
+                                @click="sendApprovalRequest"
+                                :disabled="sendApprovalForm.processing"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
+                            </button>
+
+                            <!-- Sent at info -->
+                            <div v-if="record.sent_at" class="text-xs text-gray-500 dark:text-gray-400 text-center">
+                                Last sent {{ formatDateTime(record.sent_at) }}
+                            </div>
+
+                            <!-- Create Revision (locked) -->
+                            <button
+                                v-if="isLocked && !hasRevision"
+                                @click="createRevision"
+                                :disabled="revisionForm.processing"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors"
+                            >
+                                <span class="material-icons text-base text-sm">content_copy</span>
+                                {{ revisionForm.processing ? 'Creating Revision…' : 'Create Revision' }}
+                            </button>
+
+                            <!-- View Latest (superseded) -->
                             <Link
+                                v-if="hasRevision"
+                                :href="route('estimates.show', record.revision.id)"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
+                            >
+                                <span class="material-icons text-base text-sm">arrow_forward</span>
+                                View Latest Version
+                            </Link>
+
+                            <!-- Edit (unlocked) -->
+                            <Link
+                                v-if="!isLocked"
                                 :href="route('estimates.edit', record.id)"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
@@ -461,14 +771,26 @@ const confirmDelete = () => {
                         </div>
                         <div class="p-5 space-y-3">
 
-                            <div v-if="assetLines.length > 0" class="flex justify-between items-center text-sm">
-                                <span class="text-gray-500 dark:text-gray-400">Assets</span>
-                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSubtotal) }}</span>
-                            </div>
-                            <div v-if="inventoryLines.length > 0" class="flex justify-between items-center text-sm">
-                                <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
-                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySubtotal) }}</span>
-                            </div>
+                            <template v-if="assetLines.length > 0">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Assets</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
+                                </div>
+                            </template>
+                            <template v-if="inventoryLines.length > 0">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
+                                </div>
+                            </template>
 
                             <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700">
                                 <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
@@ -540,6 +862,18 @@ const confirmDelete = () => {
                                 <span class="text-gray-500 dark:text-gray-400">Last Updated</span>
                                 <span class="text-gray-900 dark:text-gray-100">{{ formatDate(record.updated_at) }}</span>
                             </div>
+                            <div v-if="record.sent_at" class="flex justify-between items-center">
+                                <span class="text-gray-500 dark:text-gray-400">Sent for Approval</span>
+                                <span class="text-gray-900 dark:text-gray-100">{{ formatDate(record.sent_at) }}</span>
+                            </div>
+                            <div v-if="record.signed_at" class="flex justify-between items-center">
+                                <span class="text-gray-500 dark:text-gray-400">Signed</span>
+                                <span class="text-green-600 dark:text-green-400 font-medium">{{ formatDate(record.signed_at) }}</span>
+                            </div>
+                            <div v-if="record.declined_at" class="flex justify-between items-center">
+                                <span class="text-gray-500 dark:text-gray-400">Declined</span>
+                                <span class="text-red-600 dark:text-red-400 font-medium">{{ formatDate(record.declined_at) }}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -584,3 +918,8 @@ const confirmDelete = () => {
         </Modal>
     </TenantLayout>
 </template>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
+.signature-cursive { font-family: 'Dancing Script', cursive; }
+</style>

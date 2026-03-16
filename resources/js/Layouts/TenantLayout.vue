@@ -103,35 +103,21 @@ onMounted(() => {
 });
 
 const secondaryNavItems = ref([
-    { name: 'Overview', href: 'dashboard'},
+    { name: 'Overview', href: 'dashboard' },
+
     {
-        name: 'Account',
-        href: 'account.index',
+        name: 'Sales',
         children: [
-            { name: 'Overview', href: 'account.index' },
-            { name: 'Locations', href: 'locations.index' },
-            { name: 'Users', href: 'users.index' },
-            { name: 'Roles', href: 'roles.index' },
-            { name: 'Subsidiaries', href: 'subsidiaries.index' }
-        ]
-    },
-    {
-        name: 'Operations',
-        href: 'operations.index',
-        children: [
-            { name: 'Overview', href: 'operations.index' },
-            { name: 'Transactions', href: 'transactions.index' },
-            { 
-                name: 'Items',
-                children: [
-                    { name: 'Assets', href: 'assets.index' },
-                    { name: 'Parts & Accessories', href: 'inventoryitems.index' },
-                    { name: 'Service Items', href: 'serviceitems.index' }
-                ]
-            },
-            { name: 'Invoices', href: 'invoices.index' },
             { name: 'Opportunities', href: 'opportunities.index' },
             { name: 'Estimates', href: 'estimates.index' },
+            { name: 'Transactions', href: 'transactions.index' },
+            { name: 'Invoices', href: 'invoices.index' }
+        ]
+    },
+
+    {
+        name: 'Operations',
+        children: [
             { name: 'Service Tickets', href: 'servicetickets.index' },
             { name: 'Work Orders', href: 'workorders.index' },
             {
@@ -144,16 +130,44 @@ const secondaryNavItems = ref([
             { name: 'Qualifications', href: 'qualifications.index' }
         ]
     },
+
+    {
+        name: 'Inventory',
+        children: [
+            { name: 'Assets', href: 'assets.index' },
+            { name: 'Parts & Accessories', href: 'inventoryitems.index' },
+            { name: 'Service Items', href: 'serviceitems.index' }
+        ]
+    },
+
     {
         name: 'Relationships',
         children: [
             { name: 'Leads', href: 'leads.index' },
             { name: 'Customers', href: 'customers.index' },
-            { name: 'Vendors', href: 'vendors.index' },
+            { name: 'Vendors', href: 'vendors.index' }
         ]
     },
-    { name: 'Tasks', href: 'tasks.index' },
-    { name: 'Documents', href: 'documents.index' }
+
+    {
+        name: 'Productivity',
+        children: [
+            { name: 'Tasks', href: 'tasks.index' },
+            { name: 'Documents', href: 'documents.index' }
+        ]
+    },
+
+    {
+        name: 'Account',
+        href: 'account.index',
+        children: [
+            { name: 'Overview', href: 'account.index' },
+            { name: 'Locations', href: 'locations.index' },
+            { name: 'Users', href: 'users.index' },
+            { name: 'Roles', href: 'roles.index' },
+            { name: 'Subsidiaries', href: 'subsidiaries.index' }
+        ]
+    }
 ]);
 </script>
 
