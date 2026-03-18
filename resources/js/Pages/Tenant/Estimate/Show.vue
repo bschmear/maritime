@@ -170,7 +170,7 @@ const statusTextClass = computed(() =>
     STATUS_TEXT[statusInfo.value?.color] ?? 'text-gray-700 dark:text-gray-300'
 );
 
-const isApproved = computed(() => statusInfo.value?.value === 'approved' || !!props.record?.signed_at);
+const isApproved = computed(() => statusInfo.value?.value === 'approved' || !!props.record?.approved_at);
 const isDeclined = computed(() => statusInfo.value?.value === 'declined' || !!props.record?.declined_at);
 
 const handleDelete = () => { showDeleteModal.value = true; };
@@ -196,9 +196,17 @@ const confirmDelete = () => {
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
                 <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                        {{ estimateLabel }}
-            </h2>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                            {{ estimateLabel }}
+                        </h2>
+                        <span
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                            :class="[statusInfo.bgClass, statusTextClass]"
+                        >
+                            {{ statusInfo.name }}
+                        </span>
+                    </div>
                     <div class="flex items-center gap-2">
                         <!-- Send for Approval -->
                         <button
@@ -225,9 +233,20 @@ const confirmDelete = () => {
                             {{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}
                         </button>
 
-                        <!-- Edit (unlocked only) -->
+                        <!-- Create Contract (approved) -->
+                        <button
+                            v-if="isApproved && !hasRevision"
+                            
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600  rounded-lg transition-colors"
+                            title="Contract creation coming soon"
+                        >
+                            <span class="material-icons text-base">description</span>
+                            Create Contract
+                        </button>
+
+                        <!-- Edit (unlocked and not approved) -->
                         <Link
-                            v-if="!isLocked"
+                            v-if="!isLocked && !isApproved"
                             :href="route('estimates.edit', record.id)"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
@@ -237,6 +256,7 @@ const confirmDelete = () => {
                             Edit
                         </Link>
                         <button
+                            v-if="!isApproved"
                             @click="handleDelete"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         >
@@ -382,6 +402,29 @@ const confirmDelete = () => {
                                         <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Salesperson</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">
                                             {{ record.salesperson?.display_name ?? record.user?.display_name ?? '—' }}
+                                        </div>
+                                    </div>
+
+                                    <!-- Customer Contact -->
+                                    <div v-if="record.customer_name || record.customer_email || record.customer_phone">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contact Info</div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
+                                            <div v-if="record.customer_name">{{ record.customer_name }}</div>
+                                            <div v-if="record.customer_email" class="text-gray-600 dark:text-gray-400">{{ record.customer_email }}</div>
+                                            <div v-if="record.customer_phone" class="text-gray-600 dark:text-gray-400">{{ record.customer_phone }}</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Billing Address -->
+                                    <div v-if="record.billing_address_line1 || record.billing_city">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
+                                            <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
+                                            <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
+                                            <div v-if="record.billing_city || record.billing_state || record.billing_postal">
+                                                {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                                            </div>
+                                            <div v-if="record.billing_country">{{ record.billing_country }}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -598,93 +641,6 @@ const confirmDelete = () => {
                         </div>
                     </div>
 
-                    <!-- ============================
-                         Authorization & Signature
-                         ============================ -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Authorization &amp; Signature</h2>
-                            <span
-                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                                :class="[statusInfo.bgClass, statusTextClass]"
-                            >
-                                <span v-if="isApproved" class="material-icons text-sm">check_circle</span>
-                                <span v-else-if="isDeclined" class="material-icons text-sm">cancel</span>
-                                {{ statusInfo.name }}
-                            </span>
-                        </div>
-
-                        <!-- Approved -->
-                        <div v-if="isApproved" class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="space-y-4">
-                                    <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</div>
-                                        <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ record.signed_name || '—' }}</div>
-                                    </div>
-                                    <div v-if="record.signed_email">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed Email</div>
-                                        <div class="text-sm text-gray-700 dark:text-gray-300">{{ record.signed_email }}</div>
-                                    </div>
-                                    <div v-if="record.signed_at">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</div>
-                                        <div class="text-sm text-gray-700 dark:text-gray-300">{{ formatDateTime(record.signed_at) }}</div>
-                                    </div>
-                                    <div v-if="record.signed_ip">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</div>
-                                        <div class="text-sm text-gray-500 dark:text-gray-400 font-mono">{{ record.signed_ip }}</div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Signature</div>
-                                    <!-- Drawn signature image -->
-                                    <div v-if="record.signature_url" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                        <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
-                                    </div>
-                                    <!-- Typed / name-only fallback -->
-                                    <div v-else-if="record.signed_name" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                        <p class="text-3xl text-gray-800 dark:text-gray-200 signature-cursive">{{ record.signed_name }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Declined -->
-                        <div v-else-if="isDeclined" class="p-6 space-y-4">
-                            <div>
-                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Declined At</div>
-                                <div class="text-sm text-gray-700 dark:text-gray-300">{{ formatDateTime(record.declined_at) }}</div>
-                            </div>
-                            <div v-if="record.decline_reason">
-                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reason</div>
-                                <div class="text-sm text-gray-700 dark:text-gray-300 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3">
-                                    {{ record.decline_reason }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Not yet actioned -->
-                        <div v-else class="p-6">
-                            <div class="flex flex-col items-center justify-center py-6 text-center">
-                                <span class="material-icons text-4xl text-gray-300 dark:text-gray-600 mb-3">draw</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    <span v-if="record.sent_at">Sent to customer on {{ formatDateTime(record.sent_at) }}. Awaiting signature.</span>
-                                    <span v-else>This estimate has not been sent for approval yet.</span>
-                                </p>
-                                <button
-                                    v-if="canSendApproval"
-                                    @click="sendApprovalRequest"
-                                    :disabled="sendApprovalForm.processing"
-                                    class="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                    {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
                 </div>
 
@@ -699,11 +655,7 @@ const confirmDelete = () => {
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
                         <div class="p-5 space-y-3">
-                            <!-- Status badge -->
-                            <div class="flex items-center justify-between py-2 px-3 rounded-lg" :class="[statusInfo.bgClass, statusTextClass]">
-                                <span class="text-xs font-medium uppercase tracking-wide">Status</span>
-                                <span class="text-sm font-semibold">{{ statusInfo.name }}</span>
-                            </div>
+
 
                             <!-- Send for Approval -->
                             <button
@@ -744,9 +696,20 @@ const confirmDelete = () => {
                                 View Latest Version
                             </Link>
 
-                            <!-- Edit (unlocked) -->
+                            <!-- Create Contract (approved) -->
+                            <button
+                                v-if="isApproved && !hasRevision"
+                                
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600  rounded-lg transition-colors"
+                                title="Contract creation coming soon"
+                            >
+                                <span class="material-icons text-base">description</span>
+                                Create Contract
+                            </button>
+
+                            <!-- Edit (unlocked and not approved) -->
                             <Link
-                                v-if="!isLocked"
+                                v-if="!isLocked && !isApproved"
                                 :href="route('estimates.edit', record.id)"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
@@ -756,6 +719,7 @@ const confirmDelete = () => {
                                 Edit Estimate
                             </Link>
                             <button
+                                v-if="!isApproved"
                                 @click="handleDelete"
                                 class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             >
@@ -866,9 +830,9 @@ const confirmDelete = () => {
                                 <span class="text-gray-500 dark:text-gray-400">Sent for Approval</span>
                                 <span class="text-gray-900 dark:text-gray-100">{{ formatDate(record.sent_at) }}</span>
                             </div>
-                            <div v-if="record.signed_at" class="flex justify-between items-center">
-                                <span class="text-gray-500 dark:text-gray-400">Signed</span>
-                                <span class="text-green-600 dark:text-green-400 font-medium">{{ formatDate(record.signed_at) }}</span>
+                            <div v-if="record.approved_at" class="flex justify-between items-center">
+                                <span class="text-gray-500 dark:text-gray-400">Approved</span>
+                                <span class="text-green-600 dark:text-green-400 font-medium">{{ formatDate(record.approved_at) }}</span>
                             </div>
                             <div v-if="record.declined_at" class="flex justify-between items-center">
                                 <span class="text-gray-500 dark:text-gray-400">Declined</span>
@@ -918,8 +882,3 @@ const confirmDelete = () => {
         </Modal>
     </TenantLayout>
 </template>
-
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
-.signature-cursive { font-family: 'Dancing Script', cursive; }
-</style>

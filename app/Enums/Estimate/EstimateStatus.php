@@ -9,7 +9,6 @@ enum EstimateStatus: string
     case Approved = 'approved';
     case Declined = 'declined';
     case Expired = 'expired';
-    case Converted = 'converted';
     case Cancelled = 'cancelled';
 
     public function id(): int
@@ -20,8 +19,7 @@ enum EstimateStatus: string
             self::Approved => 3,
             self::Declined => 4,
             self::Expired => 5,
-            self::Converted => 6,
-            self::Cancelled => 7,
+            self::Cancelled => 6,
         };
     }
 
@@ -33,7 +31,6 @@ enum EstimateStatus: string
             self::Approved => 'Approved',
             self::Declined => 'Declined',
             self::Expired => 'Expired',
-            self::Converted => 'Converted',
             self::Cancelled => 'Cancelled',
         };
     }
@@ -46,7 +43,6 @@ enum EstimateStatus: string
             self::Approved => 'green',
             self::Declined => 'red',
             self::Expired => 'orange',
-            self::Converted => 'purple',
             self::Cancelled => 'slate',
         };
     }
@@ -59,7 +55,6 @@ enum EstimateStatus: string
             self::Approved => 'bg-green-200 dark:text-white dark:bg-green-900',
             self::Declined => 'bg-red-200 dark:text-white dark:bg-red-900',
             self::Expired => 'bg-orange-200 dark:text-white dark:bg-orange-900',
-            self::Converted => 'bg-purple-200 dark:text-white dark:bg-purple-900',
             self::Cancelled => 'bg-slate-200 dark:text-white dark:bg-slate-900',
         };
     }

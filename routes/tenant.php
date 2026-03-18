@@ -41,6 +41,7 @@ use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\PortalAccessController;
+use App\Http\Controllers\Tenant\StripeController;
 
 use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Controllers\Tenant\PublicController;
@@ -72,6 +73,19 @@ Route::middleware([
         Route::delete('/{portalAccess}', [PortalAccessController::class, 'destroy'])->name('destroy');
     });
 
+    Route::post('/stripe/webhook', function (\Illuminate\Http\Request $request) {
+        $event = json_decode($request->getContent());
+        if ($event->type === 'account.updated') {
+            $account = $event->data->object;
+            \App\Models\PaymentAccount::where('external_account_id', $account->id)
+                ->update([
+                    'charges_enabled' => $account->charges_enabled,
+                    'payouts_enabled' => $account->payouts_enabled,
+                ]);
+        }
+        return response()->json(['status' => 'success']);
+    });
+
 
 
     // Public routes — UUID-secured, no auth required
@@ -89,6 +103,11 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+
+        Route::get('/stripe/connect', [StripeController::class, 'connect'])->name('stripe.connect');
+        Route::get('/stripe/return', [StripeController::class, 'return'])->name('stripe.return');
+        Route::get('/stripe/refresh', [StripeController::class, 'refresh'])->name('stripe.refresh');
 
 
         Route::resource('subsidiaries', SubsidiaryController::class);

@@ -9,18 +9,13 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
 });
 
-const signatureMode   = ref('draw');
-const signaturePadRef = ref(null);
-const typedSignature  = ref('');
 const consent         = ref(false);
 const showDeclineForm = ref(false);
 const approvalError   = ref('');
 
 const approveForm = useForm({
-    signature_method: 'draw',
-    signature_data:   '',
-    signed_name:      '',
-    consent:          false,
+    approval_note: '',
+    consent: false,
 });
 
 const declineForm = useForm({
@@ -29,7 +24,7 @@ const declineForm = useForm({
 
 // status may be stored as integer id (4) or string ('approved') depending on context
 const statusIs = (val, id) => props.record.status == id || props.record.status === val;
-const isApproved = computed(() => statusIs('approved', 4) || !!props.record.signed_at);
+const isApproved = computed(() => statusIs('approved', 4) || !!props.record.approved_at);
 const isDeclined = computed(() => statusIs('declined', 5) || !!props.record.declined_at);
 const canAct     = computed(() => !isApproved.value && !isDeclined.value);
 
@@ -81,29 +76,6 @@ const undoSignature  = () => signaturePadRef.value?.undoSignature();
 const submitApproval = () => {
     approvalError.value = '';
 
-    if (signatureMode.value === 'draw') {
-        if (!signaturePadRef.value) return;
-        const { isEmpty, data } = signaturePadRef.value.saveSignature();
-        if (isEmpty) {
-            approvalError.value = 'Please draw your signature before approving.';
-            return;
-        }
-        approveForm.signature_data   = data;
-        approveForm.signature_method = 'draw';
-    } else {
-        if (!typedSignature.value.trim()) {
-            approvalError.value = 'Please type your signature before approving.';
-            return;
-        }
-        approveForm.signature_data   = typedSignature.value.trim();
-        approveForm.signature_method = 'type';
-    }
-
-    if (!approveForm.signed_name.trim()) {
-        approvalError.value = 'Please enter your printed name.';
-        return;
-    }
-
     if (!consent.value) {
         approvalError.value = 'Please accept the acknowledgement to continue.';
         return;
@@ -119,11 +91,6 @@ const submitDecline = () => {
 
 const handlePrint = () => window.print();
 
-const signaturePadOptions = {
-    penColor: '#1a1a2e',
-    minWidth: 1,
-    maxWidth: 3,
-};
 </script>
 
 <template>
@@ -140,7 +107,7 @@ const signaturePadOptions = {
                     </div>
                     <h1 class="text-3xl font-bold mb-2">Estimate Approved</h1>
                     <p class="text-emerald-100 text-lg">{{ record.display_name }}</p>
-                    <p class="text-emerald-200 text-sm mt-2">Approved on {{ formatDateTime(record.signed_at) }}</p>
+                    <p class="text-emerald-200 text-sm mt-2">Approved on {{ formatDateTime(record.approved_at) }}</p>
                 </div>
             </div>
 
@@ -188,6 +155,7 @@ const signaturePadOptions = {
                     <h1 class="text-3xl font-bold mb-2">Estimate Declined</h1>
                     <p class="text-red-100 text-lg">{{ record.display_name }}</p>
                     <p class="text-red-200 text-sm mt-2">Declined on {{ formatDateTime(record.declined_at) }}</p>
+                    <p v-if="record.decline_reason" class="text-red-200 text-sm mt-1">Reason: {{ record.decline_reason }}</p>
                 </div>
             </div>
             <div class="max-w-2xl mx-auto w-full px-4 py-8">
@@ -224,7 +192,11 @@ const signaturePadOptions = {
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <p class="text-gray-500 text-xs">Customer</p>
-                        <p class="font-medium text-gray-900">{{ record.customer?.display_name ?? '—' }}</p>
+                        <p class="font-medium text-gray-900">{{ record.customer?.display_name ?? record.customer_name ?? '—' }}</p>
+                        <div v-if="record.customer_email || record.customer_phone" class="mt-1 text-xs text-gray-600 space-y-0.5">
+                            <div v-if="record.customer_email">{{ record.customer_email }}</div>
+                            <div v-if="record.customer_phone">{{ record.customer_phone }}</div>
+                        </div>
                     </div>
                     <div>
                         <p class="text-gray-500 text-xs">Sales Contact</p>
@@ -237,6 +209,17 @@ const signaturePadOptions = {
                     <div v-if="record.expiration_date">
                         <p class="text-gray-500 text-xs">Valid Until</p>
                         <p class="font-medium text-gray-900">{{ formatDate(record.expiration_date) }}</p>
+                    </div>
+                    <div v-if="record.billing_address_line1 || record.billing_city" class="col-span-2">
+                        <p class="text-gray-500 text-xs mb-1">Billing Address</p>
+                        <div class="font-medium text-gray-900 space-y-0.5">
+                            <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
+                            <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
+                            <div v-if="record.billing_city || record.billing_state || record.billing_postal">
+                                {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                            </div>
+                            <div v-if="record.billing_country">{{ record.billing_country }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -311,82 +294,29 @@ const signaturePadOptions = {
                 </div>
             </div>
 
-            <!-- ── Approval & Signature Section ── -->
+            <!-- ── Approval Section ── -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-1">Authorization &amp; Signature</h3>
-                <p class="text-sm text-gray-500 mb-6">By signing below, you authorize the work described in this estimate.</p>
-
-                <!-- Signature Mode Toggle -->
-                <div class="flex gap-3 mb-5">
-                    <button
-                        @click="signatureMode = 'draw'"
-                        class="flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors"
-                        :class="signatureMode === 'draw'
-                            ? 'bg-primary-600 text-white border-primary-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'"
-                    >
-                        Draw Signature
-                    </button>
-                    <button
-                        @click="signatureMode = 'type'"
-                        class="flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors"
-                        :class="signatureMode === 'type'
-                            ? 'bg-primary-600 text-white border-primary-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'"
-                    >
-                        Type Signature
-                    </button>
-                </div>
-
-                <!-- Draw -->
-                <div v-if="signatureMode === 'draw'" class="mb-5">
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 relative">
-                        <VueSignaturePad
-                            ref="signaturePadRef"
-                            width="100%"
-                            height="140px"
-                            :options="signaturePadOptions"
-                        />
-                        <p class="absolute bottom-2 left-0 right-0 text-center text-xs text-gray-400 pointer-events-none select-none">
-                            Sign here
-                        </p>
-                    </div>
-                    <div class="flex gap-2 mt-2">
-                        <button @click="undoSignature" class="text-xs text-gray-500 hover:text-gray-700 underline">Undo</button>
-                        <button @click="clearSignature" class="text-xs text-gray-500 hover:text-gray-700 underline">Clear</button>
-                    </div>
-                </div>
-
-                <!-- Type -->
-                <div v-else class="mb-5">
-                    <input
-                        v-model="typedSignature"
-                        type="text"
-                        placeholder="Type your full name"
-                        class="w-full signature-cursive text-3xl border-b-2 border-gray-300 focus:border-primary-500 outline-none py-3 px-1 bg-transparent text-gray-800"
-                    />
-                    <p class="text-xs text-gray-400 mt-1">Your typed name will serve as your electronic signature.</p>
-                </div>
-
-                <!-- Print Name -->
-                <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Print Full Name</label>
-                    <input
-                        v-model="approveForm.signed_name"
-                        type="text"
-                        placeholder="Enter your full name"
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
-                    />
-                </div>
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-1">Approval</h3>
+                <p class="text-sm text-gray-500 mb-6">Please review this estimate and approve or decline the proposed work.</p>
 
                 <!-- Consent -->
                 <label class="flex items-start gap-3 cursor-pointer mb-5">
                     <input v-model="consent" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
                     <span class="text-sm text-gray-600 leading-relaxed">
-                        I have reviewed this estimate and authorize the described work to be performed.
-                        I understand this constitutes my electronic approval and signature.
+                        I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.
                     </span>
                 </label>
+
+                <!-- Approval Note (Optional) -->
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Approval Note (Optional)</label>
+                    <textarea
+                        v-model="approveForm.approval_note"
+                        rows="2"
+                        placeholder="Any additional notes or comments..."
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
+                    />
+                </div>
 
                 <!-- Error -->
                 <p v-if="approvalError" class="text-sm text-red-600 mb-4">{{ approvalError }}</p>

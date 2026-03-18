@@ -2,13 +2,34 @@
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     customer: Object,
     recentEstimates: Array,
     recentInvoices: Array,
     recentServiceTickets: Array,
+    estimateStatuses: { type: Array, default: () => [] },
     counts: Object,
 });
+
+const resolveEstimateStatus = (status) =>
+    props.estimateStatuses.find(s => s.id === status || s.value === status) ?? null;
+
+const statusBadgeClass = (status) => {
+    const s = resolveEstimateStatus(status);
+    if (!s) return 'bg-gray-100 text-gray-600';
+    const map = {
+        gray: 'bg-gray-100 text-gray-700',
+        yellow: 'bg-yellow-100 text-yellow-700',
+        green: 'bg-green-100 text-green-700',
+        red: 'bg-red-100 text-red-700',
+        orange: 'bg-orange-100 text-orange-700',
+        purple: 'bg-purple-100 text-purple-700',
+        slate: 'bg-slate-100 text-slate-700',
+    };
+    return map[s.color] ?? 'bg-gray-100 text-gray-700';
+};
+
+const statusLabel = (status) => resolveEstimateStatus(status)?.name ?? 'Unknown';
 
 const statCards = [
     { label: 'Estimates', key: 'estimates', icon: 'request_quote', color: 'primary', route: 'portal.estimates' },
@@ -64,17 +85,21 @@ const statCards = [
                         View all
                     </Link>
                 </div>
+
                 <div v-if="recentEstimates?.length" class="divide-y divide-gray-50">
                     <div v-for="est in recentEstimates" :key="est.id" class="px-5 py-3 hover:bg-gray-50 transition-colors">
-                        <div class="flex items-center justify-between">
+                        <Link class="flex items-center justify-between" :href="route('portal.estimate.show', est.id)">
                             <div>
-                                <p class="text-sm font-medium text-gray-900">{{ est.title || `Estimate #${est.id}` }}</p>
+                                <p class="text-sm font-medium text-gray-900">{{ est.display_name || `Estimate #${est.id}` }}</p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ est.created_at }}</p>
                             </div>
-                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-primary-50 text-primary-700">
-                                {{ est.status || 'Draft' }}
+                            <span
+                                class="text-xs font-medium px-2 py-1 rounded-full"
+                                :class="statusBadgeClass(est.status)"
+                            >
+                                {{ statusLabel(est.status) }}
                             </span>
-                        </div>
+                        </Link>
                     </div>
                 </div>
                 <div v-else class="px-5 py-8 text-center text-sm text-gray-400">No estimates yet</div>

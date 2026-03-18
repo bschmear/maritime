@@ -35,6 +35,8 @@ Route::middleware([
         Route::get('/', [CustomerPortalController::class, 'index'])->name('index');
         Route::get('/estimates', [CustomerPortalController::class, 'estimates'])->name('estimates');
         Route::get('/estimates/{id}', [CustomerPortalController::class, 'estimateShow'])->name('estimate.show');
+        Route::post('/estimates/{id}/approve', [CustomerPortalController::class, 'approveEstimate'])->name('estimate.approve');
+        Route::post('/estimates/{id}/decline', [CustomerPortalController::class, 'declineEstimate'])->name('estimate.decline');
         Route::get('/invoices', [CustomerPortalController::class, 'invoices'])->name('invoices');
         Route::get('/service-tickets', [CustomerPortalController::class, 'serviceTickets'])->name('servicetickets');
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');

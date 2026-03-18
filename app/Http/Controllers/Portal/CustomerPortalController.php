@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
-use App\Domain\Document\Models\Document;
 use App\Domain\PortalAccess\Models\PortalAccess;
 use App\Enums\Estimate\EstimateStatus;
 use App\Models\AccountSettings;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -17,11 +17,14 @@ use Inertia\Response;
 
 class CustomerPortalController extends Controller
 {
+    public function __construct(private NotificationService $notifications) {}
+
     public function index(Request $request): Response
     {
         $customer = Auth::guard('customer')->user();
 
         $estimates = Estimate::where('customer_id', $customer->id)
+            ->where('status', '!=', EstimateStatus::Draft->id())
             ->latest()
             ->take(5)
             ->get();
@@ -37,15 +40,17 @@ class CustomerPortalController extends Controller
             ->get();
 
         return Inertia::render('Portal/Overview', [
-            'customer' => $customer->only('id', 'display_name', 'first_name', 'last_name', 'email'),
-            'recentEstimates' => $estimates,
-            'recentInvoices' => $invoices,
+            'customer'             => $customer->only('id', 'display_name', 'first_name', 'last_name', 'email'),
+            'recentEstimates'      => $estimates,
+            'recentInvoices'       => $invoices,
             'recentServiceTickets' => $serviceTickets,
+            'estimateStatuses'     => EstimateStatus::options(),
             'counts' => [
-                'estimates' => Estimate::where('customer_id', $customer->id)->count(),
-                'invoices' => Invoice::where('customer_id', $customer->id)->count(),
+                'estimates'      => Estimate::where('customer_id', $customer->id)
+                    ->where('status', '!=', EstimateStatus::Draft->id())->count(),
+                'invoices'       => Invoice::where('customer_id', $customer->id)->count(),
                 'serviceTickets' => ServiceTicket::where('customer_id', $customer->id)->count(),
-                'documents' => $customer->documents()->count(),
+                'documents'      => $customer->documents()->count(),
             ],
         ]);
     }
@@ -55,6 +60,7 @@ class CustomerPortalController extends Controller
         $customer = Auth::guard('customer')->user();
 
         $estimates = Estimate::where('customer_id', $customer->id)
+            ->where('status', '!=', EstimateStatus::Draft->id())
             ->with(['primaryVersion:id,estimate_id,subtotal,tax,total'])
             ->latest()
             ->paginate(15);
@@ -88,26 +94,7 @@ class CustomerPortalController extends Controller
         $recordArray['signed_at']     = $estimate->signed_at?->toISOString();
         $recordArray['declined_at']   = $estimate->declined_at?->toISOString();
 
-        $lineItems = [];
-        if ($estimate->primaryVersion) {
-            $lineItems = $estimate->primaryVersion->lineItems->map(fn ($li) => [
-                'id'          => $li->id,
-                'name'        => $li->name,
-                'description' => $li->description,
-                'quantity'    => (float) $li->quantity,
-                'unit_price'  => (float) $li->unit_price,
-                'discount'    => (float) ($li->discount ?? 0),
-                'line_total'  => (float) $li->line_total,
-                'addons'      => $li->addons->map(fn ($a) => [
-                    'id'       => $a->id,
-                    'name'     => $a->name,
-                    'price'    => (float) $a->price,
-                    'quantity' => (int) $a->quantity,
-                ])->values()->all(),
-            ])->values()->all();
-        }
-
-        $recordArray['line_items'] = $lineItems;
+        $recordArray['line_items'] = $this->buildLineItems($estimate);
         $recordArray['subtotal']   = (float) ($estimate->primaryVersion?->subtotal ?? 0);
         $recordArray['tax']        = (float) ($estimate->primaryVersion?->tax ?? 0);
         $recordArray['total']      = (float) ($estimate->primaryVersion?->total ?? 0);
@@ -117,8 +104,73 @@ class CustomerPortalController extends Controller
             'account'    => $account,
             'logoUrl'    => $account->logo_url ?? null,
             'reviewUrl'  => $reviewUrl,
+            'approveUrl' => url("/portal/estimates/{$estimate->id}/approve"),
+            'declineUrl' => url("/portal/estimates/{$estimate->id}/decline"),
             'statuses'   => EstimateStatus::options(),
         ]);
+    }
+
+    public function approveEstimate(Request $request, int $id)
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $estimate = Estimate::where('id', $id)
+            ->where('customer_id', $customer->id)
+            ->where('status', '!=', EstimateStatus::Approved->id())
+            ->firstOrFail();
+
+        if ($estimate->approved_at) {
+            return back();
+        }
+
+        $request->validate([
+            'consent'       => 'required|accepted',
+            'approval_note' => 'nullable|string|max:1000',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        $estimate->update([
+            'status'        => EstimateStatus::Approved->id(),
+            'approved_at'   => now(),
+            'approval_note' => $request->approval_note,
+        ]);
+
+        $estimate->refresh();
+
+        $this->notifications->notifyEstimateApproved($estimate, $account);
+
+        return back();
+    }
+
+    public function declineEstimate(Request $request, int $id)
+    {
+        $customer = Auth::guard('customer')->user();
+
+        $estimate = Estimate::where('id', $id)
+            ->where('customer_id', $customer->id)
+            ->where('status', '!=', EstimateStatus::Declined->id())
+            ->firstOrFail();
+
+        if ($estimate->declined_at) {
+            return back();
+        }
+
+        $request->validate([
+            'decline_reason' => 'required|string|max:1000',
+        ]);
+
+        $estimate->update([
+            'status'         => EstimateStatus::Declined->id(),
+            'declined_at'    => now(),
+            'decline_reason' => $request->decline_reason,
+        ]);
+
+        $estimate->refresh();
+
+        $this->notifications->notifyEstimateDeclined($estimate, AccountSettings::getCurrent());
+
+        return back();
     }
 
     public function invoices(Request $request): Response
@@ -158,5 +210,32 @@ class CustomerPortalController extends Controller
         return Inertia::render('Portal/Documents', [
             'documents' => $documents,
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function buildLineItems(Estimate $estimate): array
+    {
+        if (!$estimate->primaryVersion) {
+            return [];
+        }
+
+        return $estimate->primaryVersion->lineItems->map(fn ($li) => [
+            'id'          => $li->id,
+            'name'        => $li->name,
+            'description' => $li->description,
+            'quantity'    => (float) $li->quantity,
+            'unit_price'  => (float) $li->unit_price,
+            'discount'    => (float) ($li->discount ?? 0),
+            'line_total'  => (float) $li->line_total,
+            'addons'      => $li->addons->map(fn ($a) => [
+                'id'       => $a->id,
+                'name'     => $a->name,
+                'price'    => (float) $a->price,
+                'quantity' => (int) $a->quantity,
+            ])->values()->all(),
+        ])->values()->all();
     }
 }

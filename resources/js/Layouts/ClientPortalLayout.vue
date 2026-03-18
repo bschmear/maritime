@@ -33,7 +33,7 @@ const customer = usePage().props.auth?.customer;
     <div class="flex min-h-screen bg-gray-100 font-sans text-gray-900">
         <!-- Sidebar -->
         <aside
-            class="w-[248px] min-h-screen bg-primary-900 flex flex-col fixed top-0 left-0 z-50 transition-transform duration-200 ease-in-out flex-shrink-0 lg:translate-x-0"
+            class="w-[248px] min-h-screen bg-gray-900 flex flex-col fixed top-0 left-0 z-50 transition-transform duration-200 ease-in-out flex-shrink-0 lg:translate-x-0"
             :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
         >
             <!-- Logo / Brand -->

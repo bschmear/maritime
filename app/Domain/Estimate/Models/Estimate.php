@@ -26,6 +26,7 @@ class Estimate extends Model
         'tax_rate'         => 'decimal:3',
         'sent_at'          => 'datetime',
         'signed_at'        => 'datetime',
+        'approved_at'      => 'datetime',
         'declined_at'      => 'datetime',
     ];
 

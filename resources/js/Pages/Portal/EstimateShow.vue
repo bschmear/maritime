@@ -2,30 +2,26 @@
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { VueSignaturePad } from 'vue-signature-pad';
 
 const props = defineProps({
-    estimate:  { type: Object, required: true },
-    account:   { type: Object, default: null },
-    logoUrl:   { type: String, default: null },
-    reviewUrl: { type: String, default: null },
-    statuses:  { type: Array, default: () => [] },
+    estimate:   { type: Object, required: true },
+    account:    { type: Object, default: null },
+    logoUrl:    { type: String, default: null },
+    reviewUrl:  { type: String, default: null },
+    approveUrl: { type: String, default: null },
+    declineUrl: { type: String, default: null },
+    statuses:   { type: Array, default: () => [] },
 });
 
 // ── State ──────────────────────────────────────────────────────────────────
-const signatureMode   = ref('draw');
-const signaturePadRef = ref(null);
-const typedSignature  = ref('');
-const consent         = ref(false);
-const showDeclineForm = ref(false);
-const showSignForm    = ref(false);
-const approvalError   = ref('');
+const consent           = ref(false);
+const showDeclineForm   = ref(false);
+const showApprovalForm  = ref(false);
+const approvalError     = ref('');
 
 const approveForm = useForm({
-    signature_method: 'draw',
-    signature_data:   '',
-    signed_name:      '',
-    consent:          false,
+    approval_note: '',
+    consent:       false,
 });
 
 const declineForm = useForm({
@@ -39,7 +35,7 @@ const currentStatus = computed(() => {
     return props.statuses.find(o => o.id == s || o.value === s) ?? null;
 });
 
-const isApproved = computed(() => currentStatus.value?.value === 'approved' || !!props.estimate.signed_at);
+const isApproved = computed(() => currentStatus.value?.value === 'approved' || !!props.estimate.approved_at);
 const isDeclined = computed(() => currentStatus.value?.value === 'declined' || !!props.estimate.declined_at);
 const canAct     = computed(() => {
     if (isApproved.value || isDeclined.value) return false;
@@ -99,37 +95,19 @@ const lineItemTotal = (item) => {
 const addonTotal = (addon) =>
     Number(addon.price || 0) * Number(addon.quantity || 1);
 
-// ── Signature Actions ───────────────────────────────────────────────────────
-const clearSignature = () => signaturePadRef.value?.clearSignature();
-const undoSignature  = () => signaturePadRef.value?.undoSignature();
-
+// ── Approval Actions ───────────────────────────────────────────────────────
 const submitApproval = () => {
     approvalError.value = '';
 
-    if (signatureMode.value === 'draw') {
-        if (!signaturePadRef.value) return;
-        const { isEmpty, data } = signaturePadRef.value.saveSignature();
-        if (isEmpty) { approvalError.value = 'Please draw your signature.'; return; }
-        approveForm.signature_data   = data;
-        approveForm.signature_method = 'draw';
-    } else {
-        if (!typedSignature.value.trim()) { approvalError.value = 'Please type your signature.'; return; }
-        approveForm.signature_data   = typedSignature.value.trim();
-        approveForm.signature_method = 'type';
-    }
-
-    if (!approveForm.signed_name.trim()) { approvalError.value = 'Please enter your full name.'; return; }
     if (!consent.value) { approvalError.value = 'Please accept the acknowledgement.'; return; }
 
     approveForm.consent = consent.value;
-    approveForm.post(route('estimates.approve', props.estimate.uuid), { preserveScroll: false });
+    approveForm.post(props.approveUrl, { preserveScroll: false });
 };
 
 const submitDecline = () => {
-    declineForm.post(route('estimates.decline', props.estimate.uuid));
+    declineForm.post(props.declineUrl);
 };
-
-const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
 </script>
 
 <template>
@@ -156,22 +134,47 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
                 </span>
             </div>
 
-            <div class="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm border-b border-gray-100">
-                <div>
-                    <p class="text-xs text-gray-400 mb-0.5">Total</p>
-                    <p class="font-bold text-gray-900 text-lg">{{ formatCurrency(grandTotal) }}</p>
+            <div class="px-6 py-4 space-y-4 border-b border-gray-100">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                        <p class="text-xs text-gray-400 mb-0.5">Total</p>
+                        <p class="font-bold text-gray-900 text-lg">{{ formatCurrency(grandTotal) }}</p>
+                    </div>
+                    <div v-if="estimate.issue_date">
+                        <p class="text-xs text-gray-400 mb-0.5">Issue Date</p>
+                        <p class="font-medium text-gray-700">{{ formatDate(estimate.issue_date) }}</p>
+                    </div>
+                    <div v-if="estimate.expiration_date">
+                        <p class="text-xs text-gray-400 mb-0.5">Valid Until</p>
+                        <p class="font-medium text-gray-700">{{ formatDate(estimate.expiration_date) }}</p>
+                    </div>
+                    <div v-if="estimate.user">
+                        <p class="text-xs text-gray-400 mb-0.5">Sales Contact</p>
+                        <p class="font-medium text-gray-700">{{ estimate.user.display_name ?? estimate.user.name }}</p>
+                    </div>
                 </div>
-                <div v-if="estimate.issue_date">
-                    <p class="text-xs text-gray-400 mb-0.5">Issue Date</p>
-                    <p class="font-medium text-gray-700">{{ formatDate(estimate.issue_date) }}</p>
-                </div>
-                <div v-if="estimate.expiration_date">
-                    <p class="text-xs text-gray-400 mb-0.5">Valid Until</p>
-                    <p class="font-medium text-gray-700">{{ formatDate(estimate.expiration_date) }}</p>
-                </div>
-                <div v-if="estimate.user">
-                    <p class="text-xs text-gray-400 mb-0.5">Sales Contact</p>
-                    <p class="font-medium text-gray-700">{{ estimate.user.display_name ?? estimate.user.name }}</p>
+
+                <!-- Customer Contact & Billing Address -->
+                <div v-if="estimate.customer_name || estimate.customer_email || estimate.customer_phone || estimate.billing_address_line1 || estimate.billing_city" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-100 text-sm">
+                    <div v-if="estimate.customer_name || estimate.customer_email || estimate.customer_phone">
+                        <p class="text-xs text-gray-400 mb-1">Contact Information</p>
+                        <div class="text-gray-700 space-y-0.5">
+                            <div v-if="estimate.customer_name" class="font-medium">{{ estimate.customer_name }}</div>
+                            <div v-if="estimate.customer_email" class="text-gray-600">{{ estimate.customer_email }}</div>
+                            <div v-if="estimate.customer_phone" class="text-gray-600">{{ estimate.customer_phone }}</div>
+                        </div>
+                    </div>
+                    <div v-if="estimate.billing_address_line1 || estimate.billing_city">
+                        <p class="text-xs text-gray-400 mb-1">Billing Address</p>
+                        <div class="text-gray-700 space-y-0.5">
+                            <div v-if="estimate.billing_address_line1">{{ estimate.billing_address_line1 }}</div>
+                            <div v-if="estimate.billing_address_line2">{{ estimate.billing_address_line2 }}</div>
+                            <div v-if="estimate.billing_city || estimate.billing_state || estimate.billing_postal">
+                                {{ [estimate.billing_city, estimate.billing_state, estimate.billing_postal].filter(Boolean).join(', ') }}
+                            </div>
+                            <div v-if="estimate.billing_country">{{ estimate.billing_country }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -179,11 +182,11 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
             <div v-if="canAct" class="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between gap-4">
                 <p class="text-sm text-amber-800 font-medium">This estimate is awaiting your approval.</p>
                 <button
-                    @click="showSignForm = true"
+                    @click="showApprovalForm = true"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
-                    <span class="material-icons text-base">draw</span>
-                    Review &amp; Sign
+                    <span class="material-icons text-base">check_circle</span>
+                    Review &amp; Approve
                 </button>
             </div>
 
@@ -191,7 +194,7 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
             <div v-if="isApproved" class="px-6 py-3 bg-green-50 border-b border-green-100 flex items-center gap-2">
                 <span class="material-icons text-green-600 text-base">check_circle</span>
                 <p class="text-sm text-green-800">
-                    <span class="font-semibold">Approved</span> by {{ estimate.signed_name }} on {{ formatDateTime(estimate.signed_at) }}
+                    <span class="font-semibold">Approved</span> on {{ formatDateTime(estimate.approved_at) }}
                 </p>
             </div>
 
@@ -268,26 +271,11 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
             </div>
         </div>
 
-        <!-- Signature (already approved) -->
-        <div v-if="isApproved && estimate.signed_name" class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Your Signature</h3>
-            <div v-if="estimate.signature_url" class="border border-gray-200 rounded-lg p-2 bg-gray-50 mb-3">
-                <img :src="estimate.signature_url" alt="Signature" class="max-h-20 mx-auto" />
-            </div>
-            <p v-else class="signature-cursive text-4xl text-gray-800 text-center py-3 border-b border-gray-200 mb-3">
-                {{ estimate.signed_name }}
-            </p>
-            <div class="text-xs text-gray-500 flex gap-4">
-                <span>Signed by: <strong>{{ estimate.signed_name }}</strong></span>
-                <span>Date: {{ formatDateTime(estimate.signed_at) }}</span>
-            </div>
-        </div>
-
         <!-- Link to public review page (always visible if available) -->
         <div v-if="reviewUrl && !isApproved && !isDeclined" class="bg-white rounded-xl border border-gray-200 p-5 mb-6 flex items-center justify-between gap-4">
             <div>
                 <p class="text-sm font-medium text-gray-900">Public Review Link</p>
-                <p class="text-xs text-gray-500 mt-0.5">Share this link to allow signing without a portal account.</p>
+                <p class="text-xs text-gray-500 mt-0.5">Share this link to allow approval without a portal account.</p>
             </div>
             <a :href="reviewUrl" target="_blank" class="inline-flex items-center gap-1.5 px-4 py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 text-sm font-medium rounded-lg transition-colors whitespace-nowrap">
                 <span class="material-icons text-base">open_in_new</span>
@@ -295,57 +283,90 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
             </a>
         </div>
 
-        <!-- ── Inline Sign Form (modal-like panel) ── -->
+        <!-- Line Items -->
+        <div v-if="estimate.line_items?.length" class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-900 text-sm">Line Items</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <template v-for="item in estimate.line_items" :key="item.id">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-5 py-3">
+                                    <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
+                                    <p v-if="item.description" class="text-xs text-gray-500 mt-0.5">{{ item.description }}</p>
+                                </td>
+                                <td class="px-5 py-3 text-right text-gray-700">{{ item.quantity }}</td>
+                                <td class="px-5 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
+                                <td class="px-5 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
+                            </tr>
+                            <tr
+                                v-for="addon in item.addons"
+                                :key="'addon-' + addon.id"
+                                class="bg-gray-50"
+                            >
+                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600">
+                                    <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
+                                </td>
+                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
+                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
+                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addonTotal(addon)) }}</td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-5 py-4 bg-gray-50 border-t border-gray-100">
+                <div class="ml-auto max-w-xs space-y-1.5 text-sm">
+                    <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span></div>
+                    <div v-if="taxRate > 0" class="flex justify-between text-gray-600"><span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span></div>
+                    <div class="flex justify-between font-bold text-gray-900 text-base border-t border-gray-300 pt-2 mt-1"><span>Total</span><span>{{ formatCurrency(grandTotal) }}</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes / Terms -->
+        <div v-if="estimate.notes || estimate.terms" class="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
+            <div v-if="estimate.notes">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</h3>
+                <p class="text-sm text-gray-700 whitespace-pre-line">{{ estimate.notes }}</p>
+            </div>
+            <div v-if="estimate.terms">
+                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Terms &amp; Conditions</h3>
+                <p class="text-sm text-gray-700 whitespace-pre-line">{{ estimate.terms }}</p>
+            </div>
+        </div>
+
+        <!-- ── Inline Approval Form (modal-like panel) ── -->
         <Transition name="slide">
-            <div v-if="showSignForm && canAct" class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div v-if="showApprovalForm && canAct" class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
                 <div class="flex items-center justify-between mb-5">
-                    <h3 class="font-semibold text-gray-900">Sign &amp; Approve Estimate</h3>
-                    <button @click="showSignForm = false" class="text-gray-400 hover:text-gray-600">
+                    <h3 class="font-semibold text-gray-900">Review &amp; Approve Estimate</h3>
+                    <button @click="showApprovalForm = false" class="text-gray-400 hover:text-gray-600">
                         <span class="material-icons text-xl">close</span>
                     </button>
                 </div>
 
-                <!-- Mode toggle -->
-                <div class="flex gap-3 mb-5">
-                    <button @click="signatureMode = 'draw'" class="flex-1 py-2 text-sm font-medium rounded-lg border transition-colors"
-                        :class="signatureMode === 'draw' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'">
-                        Draw
-                    </button>
-                    <button @click="signatureMode = 'type'" class="flex-1 py-2 text-sm font-medium rounded-lg border transition-colors"
-                        :class="signatureMode === 'type' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'">
-                        Type
-                    </button>
-                </div>
-
-                <!-- Draw -->
-                <div v-if="signatureMode === 'draw'" class="mb-4">
-                    <div class="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 relative">
-                        <VueSignaturePad ref="signaturePadRef" width="100%" height="120px" :options="signaturePadOptions" />
-                        <p class="absolute bottom-2 left-0 right-0 text-center text-xs text-gray-400 pointer-events-none select-none">Sign here</p>
-                    </div>
-                    <div class="flex gap-3 mt-1">
-                        <button @click="undoSignature" class="text-xs text-gray-400 hover:text-gray-600 underline">Undo</button>
-                        <button @click="clearSignature" class="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
-                    </div>
-                </div>
-
-                <!-- Type -->
-                <div v-else class="mb-4">
-                    <input v-model="typedSignature" type="text" placeholder="Type your full name"
-                        class="w-full signature-cursive text-3xl border-b-2 border-gray-300 focus:border-primary-500 outline-none py-2 bg-transparent" />
-                </div>
-
-                <!-- Print name -->
+                <!-- Approval Note (Optional) -->
                 <div class="mb-4">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Print Full Name</label>
-                    <input v-model="approveForm.signed_name" type="text" placeholder="Your full name"
-                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none" />
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Approval Note (Optional)</label>
+                    <textarea v-model="approveForm.approval_note" rows="3" placeholder="Any comments or notes about this approval…"
+                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:ring-2 focus:ring-primary-500" />
                 </div>
 
                 <!-- Consent -->
                 <label class="flex items-start gap-2 cursor-pointer mb-4">
                     <input v-model="consent" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                    <span class="text-xs text-gray-600 leading-relaxed">I authorize this estimate and understand this constitutes my electronic signature and approval.</span>
+                    <span class="text-sm text-gray-600 leading-relaxed">I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.</span>
                 </label>
 
                 <p v-if="approvalError" class="text-xs text-red-600 mb-3">{{ approvalError }}</p>
@@ -358,14 +379,14 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
                 </button>
 
                 <div class="mt-3 text-center">
-                    <button @click="showDeclineForm = !showDeclineForm" class="text-xs text-gray-400 hover:text-red-500 underline transition-colors">
+                    <button @click="showDeclineForm = !showDeclineForm" class="text-sm text-gray-400 hover:text-red-500 underline transition-colors">
                         {{ showDeclineForm ? 'Cancel decline' : 'I need to decline' }}
                     </button>
                 </div>
 
                 <Transition name="slide">
                     <div v-if="showDeclineForm" class="mt-4 border border-red-200 rounded-lg p-4 bg-red-50">
-                        <p class="text-xs font-semibold text-red-700 mb-2">Please tell us why you're declining:</p>
+                        <p class="text-sm font-semibold text-red-700 mb-2">Please tell us why you're declining:</p>
                         <textarea v-model="declineForm.decline_reason" rows="3" placeholder="Reason for declining (required)…"
                             class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm outline-none bg-white resize-none focus:ring-1 focus:ring-red-400" />
                         <button @click="submitDecline" :disabled="!declineForm.decline_reason.trim() || declineForm.processing"
@@ -381,10 +402,6 @@ const signaturePadOptions = { penColor: '#1a1a2e', minWidth: 1, maxWidth: 3 };
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
-
-.signature-cursive { font-family: 'Dancing Script', cursive; }
-
 .slide-enter-active, .slide-leave-active { transition: all 0.25s ease; overflow: hidden; }
 .slide-enter-from, .slide-leave-to { max-height: 0; opacity: 0; }
 .slide-enter-to, .slide-leave-from { max-height: 600px; opacity: 1; }
