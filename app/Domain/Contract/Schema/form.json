@@ -1,0 +1,153 @@
+{
+  "settings": {
+      "max_width": "5xl"
+  },
+  "form": {
+      "primary": {
+          "label": "Contract Details",
+          "fields": [
+              {
+                  "key": "contact_id",
+                  "required": true
+              },
+              {
+                  "key": "estimate_id",
+                  "required": false
+              },
+              {
+                  "key": "contract_number",
+                  "required": false
+              },
+              {
+                  "key": "status",
+                  "required": true
+              },
+              {
+                  "key": "payment_status",
+                  "required": true
+              },
+              {
+                  "key": "total_amount",
+                  "required": true
+              },
+              {
+                  "key": "currency",
+                  "required": false
+              },
+              {
+                  "key": "signature_required",
+                  "required": false
+              },
+              {
+                  "key": "paper_signature_document_id",
+                  "required": false
+              }
+          ]
+      },
+      "address": {
+          "label": "Billing Address",
+          "is_address": true,
+          "fields": [
+              {
+                  "key": "billing_address_line1",
+                  "required": false,
+                  "tag": "street"
+              },
+              {
+                  "key": "billing_address_line2",
+                  "required": false,
+                  "tag": "unit"
+              },
+              {
+                  "key": "billing_city",
+                  "required": false,
+                  "tag": "city"
+              },
+              {
+                  "key": "billing_state",
+                  "required": false,
+                  "tag": "state"
+              },
+              {
+                  "key": "billing_postal",
+                  "required": false,
+                  "tag": "postal_code"
+              },
+              {
+                  "key": "billing_country",
+                  "required": false,
+                  "tag": "country"
+              },
+              {
+                  "key": "billing_latitude",
+                  "hidden": true,
+                  "tag": "latitude"
+              },
+              {
+                  "key": "billing_longitude",
+                  "hidden": true,
+                  "tag": "longitude"
+              }
+          ]
+      },
+      "terms_section": {
+          "label": "Terms & Notes",
+          "fields": [
+              {
+                  "key": "payment_terms",
+                  "required": false
+              },
+              {
+                  "key": "delivery_terms",
+                  "required": false
+              },
+              {
+                  "key": "notes",
+                  "required": false
+              }
+          ]
+      },
+      "signature_section": {
+          "label": "Signature Info",
+          "fields": [
+              {
+                  "key": "signed_at",
+                  "required": false
+              },
+              {
+                  "key": "signed_name",
+                  "required": false
+              },
+              {
+                  "key": "signed_email",
+                  "required": false
+              },
+              {
+                  "key": "signed_ip",
+                  "required": false
+              },
+              {
+                  "key": "signed_user_agent",
+                  "required": false
+              },
+              {
+                  "key": "signature_file",
+                  "required": false
+              },
+              {
+                  "key": "signature_hash",
+                  "required": false
+              },
+              {
+                  "key": "document_url",
+                  "required": false
+              },
+              {
+                  "key": "docusign_envelope_id",
+                  "required": false
+              }
+          ]
+      }
+  },
+  "sublists": []
+}

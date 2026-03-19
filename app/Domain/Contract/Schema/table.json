@@ -1,0 +1,69 @@
+{
+    "allow_create_modal": false,
+    "columns": [
+        {
+            "key": "id",
+            "label": "#",
+            "sortable": true
+        },
+        {
+            "key": "contract_number",
+            "label": "Contract #",
+            "sortable": true,
+            "isKey": true
+        },
+        {
+            "key": "contact_id",
+            "label": "Contact",
+            "sortable": false
+        },
+        {
+            "key": "status",
+            "label": "Status",
+            "sortable": true
+        },
+        {
+            "key": "payment_status",
+            "label": "Payment Status",
+            "sortable": true
+        },
+        {
+            "key": "total_amount",
+            "label": "Total",
+            "sortable": true
+        },
+        {
+            "key": "signature_required",
+            "label": "Sig. Required",
+            "sortable": false
+        },
+        {
+            "key": "signed_at",
+            "label": "Signed",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ],
+    "filters": [
+        {
+            "key": "status",
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Contract\\ContractStatus"
+        },
+        {
+            "key": "payment_status",
+            "label": "Payment Status",
+            "type": "select",
+            "enum": "App\\Enums\\Contract\\ContractPaymentStatus"
+        },
+        {
+            "key": "signature_required",
+            "label": "Signature Required",
+            "type": "boolean"
+        }
+    ]

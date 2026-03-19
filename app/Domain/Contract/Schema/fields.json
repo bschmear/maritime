@@ -1,0 +1,154 @@
+{
+    "fields": {
+        "contact_id": {
+            "label": "Contact",
+            "type": "record",
+            "typeDomain": "Contact",
+            "relationship": "contact",
+            "required": true
+        },
+        "estimate_id": {
+            "label": "Originating Estimate",
+            "type": "record",
+            "typeDomain": "Estimate",
+            "relationship": "estimate"
+        },
+        "contract_number": {
+            "label": "Contract #",
+            "type": "text",
+            "readOnly": true
+        },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Contract\\ContractStatus",
+            "default": "draft"
+        },
+        "payment_status": {
+            "label": "Payment Status",
+            "type": "select",
+            "enum": "App\\Enums\\Contract\\ContractPaymentStatus",
+            "default": "pending"
+        },
+        "total_amount": {
+            "label": "Total Amount",
+            "type": "currency",
+            "required": true
+        },
+        "currency": {
+            "label": "Currency",
+            "type": "text",
+            "default": "USD"
+        },
+        "payment_terms": {
+            "label": "Payment Terms",
+            "type": "textarea"
+        },
+        "delivery_terms": {
+            "label": "Delivery Terms",
+            "type": "textarea"
+        },
+        "notes": {
+            "label": "Notes",
+            "type": "textarea"
+        },
+        "billing_address_line1": {
+            "label": "Address Line 1",
+            "type": "text"
+        },
+        "billing_address_line2": {
+            "label": "Address Line 2",
+            "type": "text"
+        },
+        "billing_city": {
+            "label": "City",
+            "type": "text"
+        },
+        "billing_state": {
+            "label": "State",
+            "type": "text"
+        },
+        "billing_postal": {
+            "label": "Postal Code",
+            "type": "text"
+        },
+        "billing_country": {
+            "label": "Country",
+            "type": "text"
+        },
+        "billing_latitude": {
+            "label": "Latitude",
+            "type": "number"
+        },
+        "billing_longitude": {
+            "label": "Longitude",
+            "type": "number"
+        },
+        "signature_required": {
+            "label": "Signature Required",
+            "type": "boolean",
+            "default": true
+        },
+        "paper_signature_document_id": {
+            "label": "Paper Signature Document",
+            "type": "record",
+            "typeDomain": "Document",
+            "relationship": "paperSignatureDocument"
+        },
+        "signed_at": {
+            "label": "Signed At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "signed_name": {
+            "label": "Signed By (Name)",
+            "type": "text",
+            "readOnly": true
+        },
+        "signed_email": {
+            "label": "Signed By (Email)",
+            "type": "text",
+            "readOnly": true
+        },
+        "signed_ip": {
+            "label": "Signed IP",
+            "type": "text",
+            "readOnly": true
+        },
+        "signed_user_agent": {
+            "label": "Signed User Agent",
+            "type": "text",
+            "readOnly": true
+        },
+        "signature_file": {
+            "label": "Signature File",
+            "type": "text",
+            "readOnly": true
+        },
+        "signature_hash": {
+            "label": "Signature Hash",
+            "type": "text",
+            "readOnly": true
+        },
+        "document_url": {
+            "label": "Document URL",
+            "type": "text",
+            "readOnly": true
+        },
+        "docusign_envelope_id": {
+            "label": "DocuSign Envelope ID",
+            "type": "text",
+            "readOnly": true
+        },
+        "created_at": {
+            "label": "Created At",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "updated_at": {
+            "label": "Updated At",
+            "type": "datetime",
+            "readOnly": true
+        }
+    }
+}
