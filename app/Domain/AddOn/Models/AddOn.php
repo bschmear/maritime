@@ -2,6 +2,7 @@
 
 namespace App\Domain\AddOn\Models;
 
+use App\Enums\Transaction\AddOnType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -16,6 +17,7 @@ class AddOn extends Model
 
     protected $casts = [
         'default_price' => 'decimal:2',
+        'type' => AddOnType::class,
     ];
 
     protected $appends = ['display_name'];

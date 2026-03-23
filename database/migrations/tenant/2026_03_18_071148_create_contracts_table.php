@@ -20,9 +20,14 @@ return new class extends Migration
             // Optional link to originating estimate
             $table->unsignedBigInteger('estimate_id')->nullable()->index();
             $table->foreign('estimate_id')
-                  ->references('id')
-                  ->on('estimates')
-                  ->onDelete('set null');
+                ->references('id')
+                ->on('estimates')
+                ->onDelete('set null');
+
+            $table->foreignId('transaction_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
 
             // Core contract info
             $table->string('contract_number')->nullable()->unique();
@@ -38,11 +43,6 @@ return new class extends Migration
             $table->text('delivery_terms')->nullable();
             $table->text('notes')->nullable();
 
-            // Signature info
-            $table->timestamp('signed_at')->nullable();
-            $table->string('signed_by_name')->nullable();
-            $table->string('signed_by_email')->nullable();
-
             // Document / e-signature references
             $table->string('document_url')->nullable();
             $table->string('docusign_envelope_id')->nullable();
@@ -57,25 +57,24 @@ return new class extends Migration
             $table->decimal('billing_longitude', 10, 7)->nullable();
 
             $table->boolean('signature_required')->default(true);
-        
+
             $table->foreignId('paper_signature_document_id')
                 ->nullable()
                 ->constrained('documents')
                 ->nullOnDelete();
-        
+
             $table->timestamp('signed_at')->nullable();
-        
+
             $table->string('signed_name')->nullable();
             $table->string('signed_email')->nullable();
-        
+
             $table->string('signed_ip')->nullable();
             $table->string('signed_user_agent')->nullable();
-        
+
             $table->string('signature_file')->nullable();
-        
+
             $table->string('signature_hash')->nullable()
                 ->comment('Hash of contract data at time of signing');
-
 
             // Metadata / provider-specific info
             $table->json('meta')->nullable();
@@ -100,10 +99,39 @@ return new class extends Migration
                 ->default('Delivery will be scheduled according to contract terms. Customer will be notified in advance.')
                 ->after('default_payment_terms');
         });
+
+        Schema::create('contract_line_items', function (Blueprint $table) {
+
+            $table->id();
+            $table->foreignId('contract_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
+            $table->nullableMorphs('itemable');
+            $table->foreignId('inventory_unit_id')->nullable();
+            $table->foreignId('asset_unit_id')->nullable();
+
+            $table->string('name')->nullable();
+            $table->text('description')->nullable();
+            $table->integer('quantity')->default(1);
+
+            $table->decimal('unit_price', 12, 2)->default(0);
+            $table->decimal('discount', 12, 2)->default(0);
+
+            $table->decimal('tax_rate', 6, 3)->nullable();
+            $table->decimal('tax_amount', 12, 2)->nullable();
+
+            $table->decimal('line_total', 12, 2)->default(0);
+
+            $table->integer('position')->nullable();
+
+            $table->timestamps();
+        });
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('contract_line_items');
         Schema::dropIfExists('contracts');
         Schema::table('account_settings', function (Blueprint $table) {
             $table->dropColumn('default_payment_terms');

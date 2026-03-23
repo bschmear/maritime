@@ -110,6 +110,7 @@ const secondaryNavItems = ref([
         children: [
             { name: 'Opportunities', href: 'opportunities.index' },
             { name: 'Estimates', href: 'estimates.index' },
+            { name: 'Contracts', href: 'contracts.index' },
             { name: 'Transactions', href: 'transactions.index' },
             { name: 'Invoices', href: 'invoices.index' }
         ]

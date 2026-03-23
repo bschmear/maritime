@@ -17,20 +17,8 @@
         "type": {
             "label": "Product Type",
             "type": "select",
-            "options": [
-                {
-                    "label": "Universal",
-                    "value": null
-                },
-                {
-                    "label": "Asset",
-                    "value": "Asset"
-                },
-                {
-                    "label": "Inventory Item",
-                    "value": "InventoryItem"
-                }
-            ],
+            "enum": "App\\Enums\\Transaction\\AddOnType",
+            "default": 1,
             "description": "Restrict this add-on to a specific product type"
         },
         "created_at": {

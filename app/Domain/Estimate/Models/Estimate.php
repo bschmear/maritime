@@ -2,6 +2,7 @@
 
 namespace App\Domain\Estimate\Models;
 
+use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Estimate\EstimateStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,13 +22,13 @@ class Estimate extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'issue_date'       => 'date',
-        'expiration_date'  => 'date',
-        'tax_rate'         => 'decimal:3',
-        'sent_at'          => 'datetime',
-        'signed_at'        => 'datetime',
-        'approved_at'      => 'datetime',
-        'declined_at'      => 'datetime',
+        'issue_date' => 'date',
+        'expiration_date' => 'date',
+        'tax_rate' => 'decimal:3',
+        'sent_at' => 'datetime',
+        'signed_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'declined_at' => 'datetime',
     ];
 
     protected $appends = ['display_name', 'is_locked'];
@@ -82,6 +83,11 @@ class Estimate extends Model
     }
 
     /** The estimate this record was revised from (parent). */
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class);
+    }
+
     public function revisedFrom(): BelongsTo
     {
         return $this->belongsTo(Estimate::class, 'revised_from_id');
@@ -106,12 +112,12 @@ class Estimate extends Model
 
     public function getDisplayNameAttribute()
     {
-        return 'EST-' . ($this->sequence ?: $this->id ?: '???');
+        return 'EST-'.($this->sequence ?: $this->id ?: '???');
     }
 
     public function getSignatureUrlAttribute(): ?string
     {
-        if (!$this->signature_file) {
+        if (! $this->signature_file) {
             return null;
         }
 

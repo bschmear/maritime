@@ -28,8 +28,11 @@ class GeneralController extends BaseController
             'serviceitem' => 'ServiceItem',
             'assetunit' => 'AssetUnit',
             'inventoryunit' => 'InventoryUnit',
+            // Str::studly('addon') is "Addon" but the domain is AddOn / AddOn model
+            'addon' => 'AddOn',
         ];
-        $domainName = $typeToDomain[$type] ?? \Illuminate\Support\Str::studly($type);
+        $typeKey = $type !== null && $type !== '' ? strtolower((string) $type) : '';
+        $domainName = $typeToDomain[$typeKey] ?? \Illuminate\Support\Str::studly($type);
 
         $recordModel = 'App\Domain\\' . $domainName . '\Models\\' . $domainName;
         $recordModel = new $recordModel();
@@ -195,6 +198,9 @@ class GeneralController extends BaseController
                       ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
                       ->orderBy('inventory_items.display_name')
                       ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
+            } elseif ($typeKey === 'addon') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('name', $dir);
             } else {
                 // Default ordering for other models without display_name column
                 $query->orderBy('created_at', 'desc');

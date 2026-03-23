@@ -13,6 +13,12 @@
             "typeDomain": "Estimate",
             "relationship": "estimate"
         },
+        "transaction_id": {
+            "label": "Transaction",
+            "type": "record",
+            "typeDomain": "Transaction",
+            "relationship": "transaction"
+        },
         "contract_number": {
             "label": "Contract #",
             "type": "text",

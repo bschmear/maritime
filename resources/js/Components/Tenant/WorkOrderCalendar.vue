@@ -254,7 +254,7 @@ function formatTime(dateStr) {
 .border-yellow-500 { border-left-color: #f59e0b !important; }
 .border-orange-500 { border-left-color: #f97316 !important; }
 .border-gray-500 { border-left-color: #6b7280 !important; }
-.border-indigo-500 { border-left-color: #6366f1 !important; }
+.border-primary-500 { border-left-color: #6366f1 !important; }
 .border-slate-500 { border-left-color: #64748b !important; }
 .border-purple-500 { border-left-color: #a855f7 !important; }
 
@@ -289,10 +289,10 @@ function formatTime(dateStr) {
 .text-gray-700 { color: #374151; }
 .text-gray-300 { color: #d1d5db; }
 
-.bg-indigo-100 { background-color: #e0e7ff; }
-.bg-indigo-900\/30 { background-color: rgba(49, 46, 129, 0.3); }
-.text-indigo-700 { color: #4338ca; }
-.text-indigo-300 { color: #a5b4fc; }
+.bg-primary-100 { background-color: #e0e7ff; }
+.bg-primary-900\/30 { background-color: rgba(49, 46, 129, 0.3); }
+.text-primary-700 { color: #4338ca; }
+.text-primary-300 { color: #a5b4fc; }
 
 .bg-slate-100 { background-color: #f1f5f9; }
 .bg-slate-900\/30 { background-color: rgba(15, 23, 42, 0.3); }

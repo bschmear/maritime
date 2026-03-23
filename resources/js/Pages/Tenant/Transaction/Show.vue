@@ -1,300 +1,769 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+
+const props = defineProps({
+    record: {
+        type: Object,
+        required: true,
+    },
+    enumOptions: {
+        type: Object,
+        default: () => ({}),
+    },
+});
+
+const page = usePage();
+const flash = computed(() => page.props.flash || {});
+
+const statusEnumKey = 'App\\Enums\\Transaction\\TransactionStatus';
+
+const statusMeta = computed(() => {
+    const raw = props.record.status;
+    const opts = props.enumOptions[statusEnumKey] || [];
+    const opt = opts.find((o) => o.value === raw || o.id === raw);
+    if (opt) {
+        return { label: opt.name, bgClass: opt.bgClass || 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+    }
+    const map = {
+        open:      { label: 'Active',    bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
+        active:    { label: 'Active',    bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
+        won:       { label: 'Won',       bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
+        lost:      { label: 'Lost',      bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
+        cancelled: { label: 'Cancelled', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' },
+    };
+    return map[raw] || { label: raw || '—', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+});
+
+const breadcrumbItems = computed(() => [
+    { label: 'Home', href: route('dashboard') },
+    { label: 'Transactions', href: route('transactions.index') },
+    { label: props.record.title || `Deal #${props.record.sequence}` },
+]);
+
+const items = computed(() => props.record.items || []);
+
+const lineBaseTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 1);
+
+const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
+
+const dealTaxRatePercent = () => Number(props.record.tax_rate) || 0;
+
+const taxOnItemBase = (item) => {
+    const r = dealTaxRatePercent();
+    const taxable = item.taxable !== false && item.taxable !== 0 && item.taxable !== '0';
+    if (!taxable || r <= 0) return 0;
+    return roundMoney(lineBaseTotal(item) * (r / 100));
+};
+
+const taxOnAddon = (addon) => {
+    const r = dealTaxRatePercent();
+    const taxable = addon.taxable !== false && addon.taxable !== 0 && addon.taxable !== '0';
+    if (!taxable || r <= 0) return 0;
+    return roundMoney(addonPreTaxTotal(addon) * (r / 100));
+};
+
+function formatMoney(amount, currency) {
+    if (amount == null || amount === '') return '—';
+    const n = Number(amount);
+    if (Number.isNaN(n)) return String(amount);
+    try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency || props.record.currency || 'USD' }).format(n);
+    } catch {
+        return `${currency || 'USD'} ${n.toFixed(2)}`;
+    }
+}
+
+function formatDateTime(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch { return iso; }
+}
+
+function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch { return iso; }
+}
+
+const isWon = computed(() => {
+    const raw = props.record.status;
+    const opts = props.enumOptions[statusEnumKey] || [];
+    const opt = opts.find((o) => o.value === raw || o.id === raw);
+    return opt?.value === 'won' || raw === 'won';
+});
+
+const isLost = computed(() => {
+    const raw = props.record.status;
+    const opts = props.enumOptions[statusEnumKey] || [];
+    const opt = opts.find((o) => o.value === raw || o.id === raw);
+    return opt?.value === 'lost' || raw === 'lost';
+});
+
+const deleteTransaction = () => {
+    if (confirm('Delete this transaction? This cannot be undone.')) {
+        router.delete(route('transactions.destroy', props.record.id));
+    }
+};
+
+// Related records — build a list of whatever is linked
+const relatedRecords = computed(() => {
+    const links = [];
+    if (props.record.estimate_id) {
+        links.push({
+            key: 'estimate',
+            icon: 'description',
+            label: 'Estimate',
+            name: props.record.estimate?.display_name || `#${props.record.estimate_id}`,
+            href: route('estimates.show', props.record.estimate_id),
+            meta: props.record.estimate?.status_label || null,
+            amount: props.record.estimate?.total ?? null,
+        });
+    }
+    if (props.record.opportunity_id) {
+        links.push({
+            key: 'opportunity',
+            icon: 'trending_up',
+            label: 'Opportunity',
+            name: props.record.opportunity?.display_name || `#${props.record.opportunity_id}`,
+            href: route('opportunities.show', props.record.opportunity_id),
+            meta: props.record.opportunity?.status_label || null,
+            amount: props.record.opportunity?.amount ?? null,
+        });
+    }
+    if (props.record.contract_id) {
+        links.push({
+            key: 'contract',
+            icon: 'gavel',
+            label: 'Contract',
+            name: props.record.contract?.contract_number || `#${props.record.contract_id}`,
+            href: route('contracts.show', props.record.contract_id),
+            meta: props.record.contract?.status_label || null,
+            amount: props.record.contract?.total_amount ?? null,
+        });
+    }
+
+    return links;
+});
+
+// ─── Stepper ──────────────────────────────────────────────────────────────
+//
+// Estimate status — stored as unsignedTinyInteger (EstimateStatus ids):
+//   1=Draft  2=PendingApproval  3=Approved  4=Declined  5=Expired  6=Cancelled
+//
+// Contract status — stored as string (ContractStatus values):
+//   draft | pending_approval | signed | cancelled | expired
+//
+// Delivery status — stored as string (Deliveries\Status values):
+//   scheduled | confirmed | en_route | delivered | cancelled | rescheduled
+//
+const stepperSteps = computed(() => {
+    const steps = [];
+
+    // ── Estimate (shown only when linked) ─────────────────────────────────
+    if (props.record.estimate_id) {
+        const status = props.record.estimate?.status; // integer id
+        const done    = status === 3;                  // Approved
+        const pending = status === 2;                  // PendingApproval
+        steps.push({
+            key:   'estimate',
+            label: 'Estimate',
+            icon:  'description',
+            state: done ? 'complete' : pending ? 'pending' : 'current',
+            href:  route('estimates.show', props.record.estimate_id),
+        });
+    }
+
+    // ── Deal (always complete — you are on this page) ─────────────────────
+    // steps.push({
+    //     key:   'deal',
+    //     label: 'Deal',
+    //     icon:  'handshake',
+    //     state: 'complete',
+    //     href:  null,
+    // });
+
+    // ── Contract ──────────────────────────────────────────────────────────
+    // Contract has `transaction_id` FK; loaded as hasOne from Transaction.
+    const contract       = props.record.contract;
+    const contractStatus = contract?.status ?? null;
+    if (props.record.needs_contract) {
+        const done    = contractStatus === 'signed';
+        const pending = ['draft', 'pending_approval'].includes(contractStatus);
+        steps.push({
+            key:   'contract',
+            label: 'Contract',
+            icon:  'gavel',
+            state: done ? 'complete' : pending ? 'pending' : 'todo',
+            href:  contract?.id ? route('contracts.show', contract.id) : null,
+        });
+    } else {
+        steps.push({
+            key:   'contract',
+            label: 'Contract',
+            icon:  'gavel',
+            state: contractStatus === 'signed' ? 'complete' : 'optional',
+            href:  contract?.id ? route('contracts.show', contract.id) : null,
+        });
+    }
+
+    steps.push({
+        key:   'invoice',
+        label: 'Invoice',
+        icon:  'receipt_long',
+        state: 'todo',
+        href:  null,
+    });
+
+    // ── Delivery ──────────────────────────────────────────────────────────
+    // Deliveries link via asset_unit_id / work_order_id — no direct
+    // transaction_id FK exists yet, so state is derived from needs_delivery only.
+    if (props.record.needs_delivery) {
+        steps.push({
+            key:   'delivery',
+            label: 'Delivery',
+            icon:  'local_shipping',
+            state: 'todo',
+            href:  null,
+        });
+    } else {
+        steps.push({
+            key:   'delivery',
+            label: 'Delivery',
+            icon:  'local_shipping',
+            state: 'optional',
+            href:  null,
+        });
+    }
+
+    // ── Completed (derived) ───────────────────────────────────────────────
+    // Deal must be won AND all required downstream steps must be satisfied.
+    const dealWon    = props.record.status === 'won' || props.record.status === 2;
+    const contractOk = !props.record.needs_contract || contractStatus === 'signed';
+    // Delivery verification requires a direct delivery record (not yet linked).
+    const deliveryOk = !props.record.needs_delivery;
+    steps.push({
+        key:   'completed',
+        label: 'Completed',
+        icon:  'check_circle',
+        state: dealWon && contractOk && deliveryOk ? 'complete' : 'todo',
+        href:  null,
+    });
+
+    return steps;
+});
+
+const confirmModal = ref({ show: false, type: null });
+
+const openOptionalModal = (type) => {
+    confirmModal.value = { show: true, type };
+};
+
+const confirmAddStep = () => {
+    router.patch(route('transactions.update', props.record.id), {
+        [confirmModal.value.type === 'contract' ? 'needs_contract' : 'needs_delivery']: true,
+    }, {
+        preserveScroll: true,
+        onSuccess: () => { confirmModal.value = { show: false, type: null }; },
+    });
+};
 </script>
 
 <template>
-    <Head title="Transaction" />
+    <Head :title="record.title || `Deal #${record.sequence}`" />
 
     <TenantLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                Transaction
-            </h2>
+            <div class="col-span-full">
+                <Breadcrumb :items="breadcrumbItems" />
+                <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                            {{ record.title || `Deal #${record.sequence}` }}
+                        </h2>
+                        <!-- <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Deal #{{ record.sequence }}
+                            <span v-if="record.uuid" class="ml-2 font-mono text-sm text-gray-400 dark:text-gray-500">{{ record.uuid }}</span>
+                        </p> -->
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-sm font-medium" :class="statusMeta.bgClass">
+                                {{ statusMeta.label }}
+                            </span>
+                            <span v-if="record.closed_at" class="text-sm text-gray-500 dark:text-gray-400">
+                                Closed {{ formatDateTime(record.closed_at) }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Link :href="route('transactions.index')">
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                                <span class="material-icons text-base">arrow_back</span>
+                                Back
+                            </button>
+                        </Link>
+                        <Link :href="route('transactions.edit', record.id)">
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                                <span class="material-icons text-base">edit</span>
+                                Edit
+                            </button>
+                        </Link>
+                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" @click="deleteTransaction">
+                            <span class="material-icons text-base">delete</span>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
         </template>
 
-<div class="grid grid-cols-12 gap-4">
-  <div class="col-span-full mx-4 mt-4 ">
-    <nav class="mb-4 flex" aria-label="Breadcrumb">
-      <ol class="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
-        <li class="inline-flex items-center">
-          <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-primary-700 dark:text-gray-400 dark:hover:text-white">
-            <svg class="me-2.5 h-4 w-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" d="M11.3 3.3a1 1 0 0 1 1.4 0l6 6 2 2a1 1 0 0 1-1.4 1.4l-.3-.3V19a2 2 0 0 1-2 2h-3a1 1 0 0 1-1-1v-3h-2v3c0 .6-.4 1-1 1H7a2 2 0 0 1-2-2v-6.6l-.3.3a1 1 0 0 1-1.4-1.4l2-2 6-6Z" clip-rule="evenodd" />
-            </svg>
-            Home
-          </a>
-        </li>
-        <li>
-          <div class="flex items-center">
-            <svg class="mx-1 h-4 w-4 text-gray-400 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" />
-            </svg>
-            <a href="#" class="ms-1 text-sm font-medium text-gray-700 hover:text-primary-700 dark:text-gray-400 dark:hover:text-white md:ms-2">Invoices</a>
-          </div>
-        </li>
-        <li aria-current="page">
-          <div class="flex items-center">
-            <svg class="mx-1 h-4 w-4 text-gray-400 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7" />
-            </svg>
-            <span class="ms-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ms-2">Invoice #184325</span>
-          </div>
-        </li>
-      </ol>
-    </nav>
-    <div class="justify-between md:flex">
-      <div class="mb-4 items-center sm:flex sm:space-x-4 md:mb-0">
-        <h1 class="mb-4 text-xl font-semibold text-gray-900 dark:text-white sm:mb-0">Order #1846325</h1>
-        <span class="me-2 rounded-sm bg-green-100 px-2.5 py-0.5 text-sm font-medium text-green-800 dark:bg-green-900 dark:text-green-300">Completed</span>
-        <div class="hidden h-6 w-px bg-gray-200 dark:bg-gray-800 sm:flex"></div>
-        <time datetime="2025-07-05" class="text-gray-500 dark:text-gray-400"><span class="font-medium text-gray-900 dark:text-white">Due date:</span> 25 August 2025</time>
-      </div>
-      <div class="flex items-center space-x-4">
-        <button
-          type="button"
-          class="flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700 sm:w-auto"
-        >
-          View receipt
-        </button>
-        <button
-          id="refundDropdownButton"
-          data-dropdown-toggle="refundDropdown"
-          type="button"
-          class="flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700 sm:w-auto"
-        >
-          Refund
-          <svg class="-me-0.5 ms-1.5 h-4 w-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7" />
-          </svg>
-        </button>
-        <div id="refundDropdown" class="z-10 hidden w-40 rounded-lg bg-white shadow-sm dark:bg-gray-700">
-          <ul class="p-2 text-sm font-medium text-gray-500 dark:text-gray-400" aria-labelledby="invoice-2-dropdown-button">
-            <li>
-              <a href="#" class="block rounded-md px-3 py-2 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white">Full refund</a>
-            </li>
-            <li>
-              <a href="#" class="block rounded-md px-3 py-2 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white">Partial refund</a>
-            </li>
-          </ul>
+        <!-- Flash messages -->
+        <div v-if="flash.success" class="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">
+            {{ flash.success }}
         </div>
-      </div>
+        <div v-if="flash.error" class="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
+            {{ flash.error }}
+        </div>
+
+<!-- ─── Deal Progress Stepper ─────────────────────────────────────────── -->
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg px-6 py-5 ">
+    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Deal Progress</h3>
+    <div class="relative flex items-start justify-between">
+
+        <!-- Connector line behind the icons -->
+        <div class="absolute top-4 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700 z-0" aria-hidden="true"></div>
+
+        <template v-for="(step, index) in stepperSteps" :key="step.key">
+            <div class="relative z-10 flex flex-col items-center text-center"
+                 :class="stepperSteps.length <= 4 ? 'w-1/4' : stepperSteps.length === 5 ? 'w-1/5' : 'w-1/6'">
+
+                <!-- Icon bubble -->
+                <component
+                    :is="step.href ? 'a' : step.state === 'optional' ? 'button' : 'div'"
+                    :href="step.href || undefined"
+                    @click="step.state === 'optional' ? openOptionalModal(step.key) : undefined"
+                    class="flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all"
+                    :class="{
+                        'bg-green-500 border-green-500 text-white': step.state === 'complete',
+                        'bg-blue-600 border-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900/40': step.state === 'current',
+                        'bg-amber-400 border-amber-400 text-white': step.state === 'pending',
+                        'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500': step.state === 'todo',
+                        'bg-white dark:bg-gray-800 border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600 hover:border-blue-400 hover:text-blue-400 cursor-pointer': step.state === 'optional',
+                    }"
+                >
+                    <!-- complete -->
+                    <span v-if="step.state === 'complete'" class="material-icons text-sm">check</span>
+                    <!-- pending -->
+                    <span v-else-if="step.state === 'pending'" class="material-icons text-sm">hourglass_top</span>
+                    <!-- optional -->
+                    <span v-else-if="step.state === 'optional'" class="material-icons text-sm">add</span>
+                    <!-- todo / current -->
+                    <span v-else class="material-icons text-sm">{{ step.icon }}</span>
+                </component>
+
+                <!-- Label -->
+                <span class="mt-2 text-xs font-medium leading-tight"
+                    :class="{
+                        'text-green-600 dark:text-green-400': step.state === 'complete',
+                        'text-blue-600 dark:text-blue-400': step.state === 'current',
+                        'text-amber-600 dark:text-amber-400': step.state === 'pending',
+                        'text-gray-400 dark:text-gray-500': step.state === 'todo',
+                        'text-gray-300 dark:text-gray-600': step.state === 'optional',
+                    }">
+                    {{ step.label }}
+                </span>
+
+                <!-- Sub-label -->
+                <span class="mt-0.5 text-xs leading-tight"
+                    :class="{
+                        'text-green-500 dark:text-green-500': step.state === 'complete',
+                        'text-blue-500 dark:text-blue-500': step.state === 'current',
+                        'text-amber-500 dark:text-amber-500': step.state === 'pending',
+                        'text-gray-300 dark:text-gray-600': step.state === 'todo' || step.state === 'optional',
+                    }">
+                    <template v-if="step.state === 'complete'">Done</template>
+                    <template v-else-if="step.state === 'current'">In progress</template>
+                    <template v-else-if="step.state === 'pending'">In progress</template>
+                    <template v-else-if="step.state === 'optional'">Optional</template>
+                    <template v-else>Pending</template>
+                </span>
+            </div>
+        </template>
     </div>
-  </div>
-</div>
-<div class="grid grid-cols-12 gap-4 p-4">
-  <div class="col-span-12 2xl:col-span-8">
-    <div class="h-full space-y-4 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800 sm:space-y-8 md:p-6">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Order details</h2>
-      <!-- Table -->
-      <div class="relative overflow-x-auto">
-        <table class="w-full text-left text-sm font-medium text-gray-900 dark:text-white rtl:text-right">
-          <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th scope="col" class="px-6 py-3 font-semibold">Product name</th>
-              <th scope="col" class="px-6 py-3 font-semibold">Qty</th>
-              <th scope="col" class="px-6 py-3 font-semibold">Price</th>
-              <th scope="col" class="px-6 py-3 font-semibold">Discount</th>
-              <th scope="col" class="min-w-32 px-6 py-3 font-semibold">Total price</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
-              <th scope="row" class="h-16 space-y-2 whitespace-nowrap px-6 font-medium text-gray-900 dark:text-white">
-                <div class="text-base">Flowbite Developer Edition</div>
-                <div class="font-normal leading-none text-gray-500 dark:text-gray-400">HTML, Figma, JS</div>
-              </th>
-              <td class="h-16 px-6">$269</td>
-              <td class="h-16 px-6">2</td>
-              <td class="h-16 px-6">50%</td>
-              <td class="h-16 px-6">$269</td>
-            </tr>
-            <tr class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
-              <th scope="row" class="h-16 space-y-2 whitespace-nowrap px-6 font-medium text-gray-900 dark:text-white">
-                <div class="text-base">Flowbite Designer Edition</div>
-                <div class="font-normal leading-none text-gray-500 dark:text-gray-400">Figma Design System</div>
-              </th>
-              <td class="h-16 px-6">$149</td>
-              <td class="h-16 px-6">3</td>
-              <td class="h-16 px-6">0%</td>
-              <td class="h-16 px-6">$447</td>
-            </tr>
-            <tr class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
-              <th scope="row" class="h-16 space-y-2 whitespace-nowrap px-6 font-medium">
-                <div class="text-base">Flowbite Open Source</div>
-                <div class="font-normal leading-none text-gray-500 dark:text-gray-400">Open source components</div>
-              </th>
-              <td class="h-16 px-6">$0</td>
-              <td class="h-16 px-6">1</td>
-              <td class="h-16 px-6">0%</td>
-              <td class="h-16 px-6">$0</td>
-            </tr>
-            <tr class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
-              <th scope="row" class="h-16 space-y-2 whitespace-nowrap px-6 font-medium text-gray-900 dark:text-white">
-                <div class="text-base">2 Years Support</div>
-                <div class="font-normal leading-none text-gray-500 dark:text-gray-400">Premium support</div>
-              </th>
-              <td class="h-16 px-6">$199</td>
-              <td class="h-16 px-6">1</td>
-              <td class="h-16 px-6">0%</td>
-              <td class="h-16 px-6">$199</td>
-            </tr>
-            <tr class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800">
-              <th scope="row" class="h-16 space-y-2 whitespace-nowrap px-6 font-medium text-gray-900 dark:text-white">
-                <div class="text-base">Flowbite Developer (Team License)</div>
-                <div class="font-normal leading-none text-gray-500 dark:text-gray-400">HTML, Figma, JS</div>
-              </th>
-              <td class="h-16 px-6">$799</td>
-              <td class="h-16 px-6">2</td>
-              <td class="h-16 px-6">0%</td>
-              <td class="h-16 px-6">$1598</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="ms-auto mt-4 max-w-xs">
-        <h3 class="font-semibold text-gray-900 dark:text-white">Order summary</h3>
-        <ul class="mt-4 max-w-md">
-          <li class="mb-2 flex items-center justify-between rtl:space-x-reverse">
-            <p class="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">Subtotal</p>
-            <div class="font-medium text-gray-900 dark:text-white">$320</div>
-          </li>
-          <li class="mb-2 flex items-center justify-between rtl:space-x-reverse">
-            <p class="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">Tax</p>
-            <div class="font-medium text-gray-900 dark:text-white">$477</div>
-          </li>
-          <li class="mb-4 flex items-center justify-between rtl:space-x-reverse">
-            <p class="min-w-0 flex-1 truncate text-gray-500 dark:text-gray-400">Shipping estimate</p>
-            <div class="font-medium text-gray-900 dark:text-white">$0</div>
-          </li>
-          <li class="flex items-center justify-between text-lg font-bold text-gray-900 dark:text-white rtl:space-x-reverse">
-            <p class="min-w-0 flex-1 truncate">Order total</p>
-            <div>$2990</div>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </div>
-  <div class="col-span-12 2xl:col-span-4">
-    <div class="mb-4 space-y-4 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800 sm:space-y-6 md:p-6">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Customer details</h2>
-      <!-- List -->
-      <ul class="list-inside text-gray-500 dark:text-gray-400">
-        <li class="flex items-center justify-between gap-8 border-b border-gray-200 pb-4 dark:border-gray-700">
-          <p class="font-semibold text-gray-900 dark:text-white">Name</p>
-          <p class="text-end">Joseph McFall</p>
-        </li>
-        <li class="flex items-center justify-between gap-8 border-b border-gray-200 py-4 dark:border-gray-700">
-          <p class="font-semibold text-gray-900 dark:text-white">Email</p>
-          <p class="text-end">name@example.com</p>
-        </li>
-        <li class="flex items-center justify-between gap-8 border-b border-gray-200 py-4 dark:border-gray-700">
-          <p class="font-semibold text-gray-900 dark:text-white">Phone</p>
-          <p class="text-end">+123 456 7890</p>
-        </li>
-        <li class="flex items-center justify-between gap-8 border-b border-gray-200 py-4 dark:border-gray-700">
-          <p class="font-semibold text-gray-900 dark:text-white">Country</p>
-          <p class="flex items-center">
-            <svg class="me-2 h-4" viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect y="0.857147" width="20" height="14.2857" rx="2" fill="white" />
-              <mask id="mask0_2992_9965" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="20" height="16">
-                <rect y="0.857147" width="20" height="14.2857" rx="2" fill="white" />
-              </mask>
-              <g mask="url(#mask0_2992_9965)">
-                <path
-                  fill-rule="evenodd"
-                  clip-rule="evenodd"
-                  d="M20 0.857147H0V1.80953H20V0.857147ZM20 2.76191H0V3.71429H20V2.76191ZM0 4.66667H20V5.61905H0V4.66667ZM20 6.57143H0V7.52381H20V6.57143ZM0 8.4762H20V9.42858H0V8.4762ZM20 10.381H0V11.3333H20V10.381ZM0 12.2857H20V13.2381H0V12.2857ZM20 14.1905H0V15.1429H20V14.1905Z"
-                  fill="#D02F44"
-                />
-                <rect y="0.857147" width="8.57143" height="6.66667" fill="#46467F" />
-                <g filter="url(#filter0_d_2992_9965)">
-                  <path
-                    fill-rule="evenodd"
-                    clip-rule="evenodd"
-                    d="M1.90477 2.28572C1.90477 2.54871 1.69158 2.76191 1.42858 2.76191C1.16559 2.76191 0.952393 2.54871 0.952393 2.28572C0.952393 2.02272 1.16559 1.80952 1.42858 1.80952C1.69158 1.80952 1.90477 2.02272 1.90477 2.28572ZM3.80954 2.28572C3.80954 2.54871 3.59634 2.76191 3.33334 2.76191C3.07035 2.76191 2.85715 2.54871 2.85715 2.28572C2.85715 2.02272 3.07035 1.80952 3.33334 1.80952C3.59634 1.80952 3.80954 2.02272 3.80954 2.28572ZM5.23811 2.76191C5.5011 2.76191 5.7143 2.54871 5.7143 2.28572C5.7143 2.02272 5.5011 1.80952 5.23811 1.80952C4.97511 1.80952 4.76192 2.02272 4.76192 2.28572C4.76192 2.54871 4.97511 2.76191 5.23811 2.76191ZM7.61906 2.28572C7.61906 2.54871 7.40586 2.76191 7.14287 2.76191C6.87988 2.76191 6.66668 2.54871 6.66668 2.28572C6.66668 2.02272 6.87988 1.80952 7.14287 1.80952C7.40586 1.80952 7.61906 2.02272 7.61906 2.28572ZM2.38096 3.71429C2.64396 3.71429 2.85715 3.50109 2.85715 3.2381C2.85715 2.9751 2.64396 2.76191 2.38096 2.76191C2.11797 2.76191 1.90477 2.9751 1.90477 3.2381C1.90477 3.50109 2.11797 3.71429 2.38096 3.71429ZM4.76192 3.2381C4.76192 3.50109 4.54872 3.71429 4.28573 3.71429C4.02273 3.71429 3.80954 3.50109 3.80954 3.2381C3.80954 2.9751 4.02273 2.76191 4.28573 2.76191C4.54872 2.76191 4.76192 2.9751 4.76192 3.2381ZM6.19049 3.71429C6.45348 3.71429 6.66668 3.50109 6.66668 3.2381C6.66668 2.9751 6.45348 2.76191 6.19049 2.76191C5.9275 2.76191 5.7143 2.9751 5.7143 3.2381C5.7143 3.50109 5.9275 3.71429 6.19049 3.71429ZM7.61906 4.19048C7.61906 4.45347 7.40586 4.66667 7.14287 4.66667C6.87988 4.66667 6.66668 4.45347 6.66668 4.19048C6.66668 3.92748 6.87988 3.71429 7.14287 3.71429C7.40586 3.71429 7.61906 3.92748 7.61906 4.19048ZM5.23811 4.66667C5.5011 4.66667 5.7143 4.45347 5.7143 4.19048C5.7143 3.92748 5.5011 3.71429 5.23811 3.71429C4.97511 3.71429 4.76192 3.92748 4.76192 4.19048C4.76192 4.45347 4.97511 4.66667 5.23811 4.66667ZM3.80954 4.19048C3.80954 4.45347 3.59634 4.66667 3.33334 4.66667C3.07035 4.66667 2.85715 4.45347 2.85715 4.19048C2.85715 3.92748 3.07035 3.71429 3.33334 3.71429C3.59634 3.71429 3.80954 3.92748 3.80954 4.19048ZM1.42858 4.66667C1.69158 4.66667 1.90477 4.45347 1.90477 4.19048C1.90477 3.92748 1.69158 3.71429 1.42858 3.71429C1.16559 3.71429 0.952393 3.92748 0.952393 4.19048C0.952393 4.45347 1.16559 4.66667 1.42858 4.66667ZM2.85715 5.14286C2.85715 5.40585 2.64396 5.61905 2.38096 5.61905C2.11797 5.61905 1.90477 5.40585 1.90477 5.14286C1.90477 4.87987 2.11797 4.66667 2.38096 4.66667C2.64396 4.66667 2.85715 4.87987 2.85715 5.14286ZM4.28573 5.61905C4.54872 5.61905 4.76192 5.40585 4.76192 5.14286C4.76192 4.87987 4.54872 4.66667 4.28573 4.66667C4.02273 4.66667 3.80954 4.87987 3.80954 5.14286C3.80954 5.40585 4.02273 5.61905 4.28573 5.61905ZM6.66668 5.14286C6.66668 5.40585 6.45348 5.61905 6.19049 5.61905C5.9275 5.61905 5.7143 5.40585 5.7143 5.14286C5.7143 4.87987 5.9275 4.66667 6.19049 4.66667C6.45348 4.66667 6.66668 4.87987 6.66668 5.14286ZM7.14287 6.57143C7.40586 6.57143 7.61906 6.35823 7.61906 6.09524C7.61906 5.83225 7.40586 5.61905 7.14287 5.61905C6.87988 5.61905 6.66668 5.83225 6.66668 6.09524C6.66668 6.35823 6.87988 6.57143 7.14287 6.57143ZM5.7143 6.09524C5.7143 6.35823 5.5011 6.57143 5.23811 6.57143C4.97511 6.57143 4.76192 6.35823 4.76192 6.09524C4.76192 5.83225 4.97511 5.61905 5.23811 5.61905C5.5011 5.61905 5.7143 5.83225 5.7143 6.09524ZM3.33334 6.57143C3.59634 6.57143 3.80954 6.35823 3.80954 6.09524C3.80954 5.83225 3.59634 5.61905 3.33334 5.61905C3.07035 5.61905 2.85715 5.83225 2.85715 6.09524C2.85715 6.35823 3.07035 6.57143 3.33334 6.57143ZM1.90477 6.09524C1.90477 6.35823 1.69158 6.57143 1.42858 6.57143C1.16559 6.57143 0.952393 6.35823 0.952393 6.09524C0.952393 5.83225 1.16559 5.61905 1.42858 5.61905C1.69158 5.61905 1.90477 5.83225 1.90477 6.09524Z"
-                    fill="url(#paint0_linear_2992_9965)"
-                  />
-                </g>
-              </g>
-              <defs>
-                <filter id="filter0_d_2992_9965" x="0.952393" y="1.80952" width="6.66675" height="5.7619" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                  <feFlood flood-opacity="0" result="BackgroundImageFix" />
-                  <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
-                  <feOffset dy="1" />
-                  <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0" />
-                  <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2992_9965" />
-                  <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2992_9965" result="shape" />
-                </filter>
-                <linearGradient id="paint0_linear_2992_9965" x1="0.952393" y1="1.80952" x2="0.952393" y2="6.57143" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="white" />
-                  <stop offset="1" stop-color="#F0F0F0" />
-                </linearGradient>
-              </defs>
-            </svg>
-            United States
-          </p>
-        </li>
-        <li class="flex items-center justify-between gap-8 pt-4">
-          <p class="font-semibold text-gray-900 dark:text-white">Address</p>
-          <p class="text-end">62 Miles Drive St, Newark, NJ 07103, California,</p>
-        </li>
-      </ul>
-    </div>
-    <div class="space-y-4 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800 sm:space-y-6 md:p-6">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Order history</h2>
-      <!-- Timeline -->
-      <ol class="relative ms-3 border-s border-gray-200 dark:border-gray-700">
-        <li class="mb-10 ms-6">
-          <span class="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-8 ring-white dark:bg-primary-900 dark:ring-gray-800">
-            <svg class="h-3.5 w-3.5 text-primary-800 dark:text-primary-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" d="M4 4c0-.6.4-1 1-1h1.5c.5 0 .9.3 1 .8L7.9 6H19a1 1 0 0 1 1 1.2l-1.3 6a1 1 0 0 1-1 .8h-8l.2 1H17a3 3 0 1 1-2.8 2h-2.4a3 3 0 1 1-4-1.8L5.7 5H5a1 1 0 0 1-1-1Z" clip-rule="evenodd" />
-            </svg>
-          </span>
-          <h3 class="mb-1 block items-center font-semibold text-gray-900 dark:text-white sm:flex">
-            Checkout started <span class="mx-2 text-sm font-normal text-gray-500 dark:text-gray-400">09:23</span>
-            <div class="me-2 hidden h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700 sm:flex"></div>
-            <div class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400 sm:mt-0">25th August 2025</div>
-          </h3>
-          <p class="text-base font-normal text-gray-500 dark:text-gray-400">via flowbite.com / www.google.com</p>
-        </li>
-        <li class="mb-10 ms-6">
-          <span class="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-8 ring-white dark:bg-primary-900 dark:ring-gray-800">
-            <svg class="h-3.5 w-3.5 text-primary-800 dark:text-primary-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" d="M7 6c0-1.1.9-2 2-2h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2v-4a3 3 0 0 0-3-3H7V6Z" clip-rule="evenodd" />
-              <path fill-rule="evenodd" d="M2 11c0-1.1.9-2 2-2h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7Zm7.5 1a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" clip-rule="evenodd" />
-              <path d="M10.5 14.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" />
-            </svg>
-          </span>
-          <h3 class="mb-1 block items-center font-semibold text-gray-900 dark:text-white sm:flex">
-            Purchased <span class="mx-2 text-sm font-normal text-gray-500 dark:text-gray-400">09:27</span>
-            <div class="me-2 hidden h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700 sm:flex"></div>
-            <div class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400 sm:mt-0">25th August 2025</div>
-          </h3>
-          <p class="text-base font-normal text-gray-500 dark:text-gray-400">for $2990 via VISA card ending in 8262</p>
-        </li>
-        <li class="mb-10 ms-6">
-          <span class="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 ring-8 ring-white dark:bg-primary-900 dark:ring-gray-800">
-            <svg class="h-3.5 w-3.5 text-primary-800 dark:text-primary-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                fill-rule="evenodd"
-                d="M5 5c.6 0 1-.4 1-1a1 1 0 1 1 2 0c0 .6.4 1 1 1h1c.6 0 1-.4 1-1a1 1 0 1 1 2 0c0 .6.4 1 1 1h1c.6 0 1-.4 1-1a1 1 0 1 1 2 0c0 .6.4 1 1 1a2 2 0 0 1 2 2v1c0 .6-.4 1-1 1H4a1 1 0 0 1-1-1V7c0-1.1.9-2 2-2ZM3 19v-7c0-.6.4-1 1-1h16c.6 0 1 .4 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Zm6-6c0-.6-.4-1-1-1a1 1 0 1 0 0 2c.6 0 1-.4 1-1Zm2 0a1 1 0 1 1 2 0c0 .6-.4 1-1 1a1 1 0 0 1-1-1Zm6 0c0-.6-.4-1-1-1a1 1 0 1 0 0 2c.6 0 1-.4 1-1ZM7 17a1 1 0 1 1 2 0c0 .6-.4 1-1 1a1 1 0 0 1-1-1Zm6 0c0-.6-.4-1-1-1a1 1 0 1 0 0 2c.6 0 1-.4 1-1Zm2 0a1 1 0 1 1 2 0c0 .6-.4 1-1 1a1 1 0 0 1-1-1Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </span>
-          <h3 class="mb-1 block items-center font-semibold text-gray-900 dark:text-white sm:flex">
-            Receipt email sent <span class="mx-2 text-sm font-normal text-gray-500 dark:text-gray-400">09:29</span>
-            <div class="me-2 hidden h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700 sm:flex"></div>
-            <div class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400 sm:mt-0">25th August 2025</div>
-          </h3>
-          <p class="text-base font-normal text-gray-500 dark:text-gray-400">Receipt #648573</p>
-        </li>
-      </ol>
-    </div>
-  </div>
 </div>
 
+<!-- ─── Optional Step Confirm Modal ───────────────────────────────────── -->
+<div v-if="confirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="confirmModal.show = false">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20">
+                <span class="material-icons text-blue-600 dark:text-blue-400">{{ confirmModal.type === 'contract' ? 'gavel' : 'local_shipping' }}</span>
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                    Add {{ confirmModal.type === 'contract' ? 'Contract' : 'Delivery' }}?
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">This will mark the deal as requiring a {{ confirmModal.type }}.</p>
+            </div>
+        </div>
+        <div class="flex gap-3 justify-end mt-6">
+            <button type="button" @click="confirmModal.show = false"
+                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                Cancel
+            </button>
+            <button type="button" @click="confirmAddStep"
+                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                Yes, add {{ confirmModal.type }}
+            </button>
+        </div>
+    </div>
+</div>
 
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            
+            <!-- ─── MAIN COLUMN ─────────────────────────────────────────── -->
+            <div class="space-y-6 lg:col-span-8">
+
+                <!-- Main detail card -->
+                <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+
+                    <!-- Blue header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h1 class="text-xl font-bold text-white">{{ record.title || `Deal #${record.sequence}` }}</h1>
+                                <p class="text-blue-100 text-sm mt-0.5">Deal Record</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-blue-200 text-sm mb-0.5">Deal #</p>
+                                <p class="text-white text-lg font-mono font-semibold">{{ record.sequence || '—' }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-6">
+
+                        <!-- Won / Lost banners -->
+                        <div v-if="isWon" class="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
+                            <span class="material-icons text-green-600 dark:text-green-400">emoji_events</span>
+                            <div>
+                                <p class="text-sm font-semibold text-green-800 dark:text-green-200">Deal Won</p>
+                                <p v-if="record.won_at" class="text-sm text-green-600 dark:text-green-400">{{ formatDateTime(record.won_at) }}</p>
+                            </div>
+                        </div>
+                        <div v-if="isLost" class="flex items-center gap-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
+                            <span class="material-icons text-red-600 dark:text-red-400">sentiment_dissatisfied</span>
+                            <div>
+                                <p class="text-sm font-semibold text-red-800 dark:text-red-200">Deal Lost</p>
+                                <p v-if="record.lost_at" class="text-sm text-red-600 dark:text-red-400">{{ formatDateTime(record.lost_at) }}</p>
+                                <p v-if="record.loss_reason_category" class="text-sm text-red-600 dark:text-red-400 mt-0.5">
+                                    Category: {{ record.loss_reason_category }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Customer & Relations -->
+                        <div class=" border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Customer &amp; Relations
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</p>
+                                    <Link v-if="record.customer_id" :href="route('customers.show', record.customer_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.customer?.display_name || '—' }}
+                                    </Link>
+                                    <p v-else class="text-sm text-gray-900 dark:text-white">—</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Salesperson</p>
+                                    <Link v-if="record.user" :href="route('users.show', record.user)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.user?.display_name || `#${record.user}` }}
+                                    </Link>
+                                    <p v-else class="text-sm text-gray-900 dark:text-white">—</p>
+                                </div>
+                                <div v-if="record.estimate_id">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Estimate</p>
+                                    <Link :href="route('estimates.show', record.estimate_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.estimate?.display_name || `#${record.estimate_id}` }}
+                                    </Link>
+                                </div>
+                                <div v-if="record.opportunity_id">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Opportunity</p>
+                                    <Link :href="route('opportunities.show', record.opportunity_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.opportunity?.display_name || `#${record.opportunity_id}` }}
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Next steps -->
+                        <div class="border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Next steps
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs contract</p>
+                                    <p class="text-gray-900 dark:text-gray-100">{{ record.needs_contract ? 'Yes' : 'No' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs delivery</p>
+                                    <p class="text-gray-900 dark:text-gray-100">{{ record.needs_delivery ? 'Yes' : 'No' }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Customer Snapshot -->
+                        <div class="border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Customer Snapshot
+                            </h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 -mt-2">Preserved at time of deal creation</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Name</p>
+                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.customer_name || '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</p>
+                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.customer_email || '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Phone</p>
+                                    <p class="text-sm text-gray-900 dark:text-white">{{ formatPhoneNumber(record.customer_phone) || '—' }}</p>
+                                </div>
+                                <div v-if="record.billing_address_line1 || record.billing_city">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</p>
+                                    <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
+                                        <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
+                                        <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
+                                        <div v-if="record.billing_city || record.billing_state || record.billing_postal">
+                                            {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                                        </div>
+                                        <div v-if="record.billing_country">{{ record.billing_country }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    
+                        <!-- Tax -->
+                        <div v-if="record.tax_rate != null || record.tax_jurisdiction" class="border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Tax
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                                <div>
+                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Rate</div>
+                                    <div class="text-gray-900 dark:text-gray-100">{{ record.tax_rate != null ? `${record.tax_rate}%` : '—' }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Jurisdiction</div>
+                                    <div class="text-gray-900 dark:text-gray-100">{{ record.tax_jurisdiction || '—' }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes -->
+                        <div v-if="record.notes" class=" border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Notes
+                            </h3>
+                            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.notes }}</p>
+                        </div>
+
+
+                        <!-- Line Items -->
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                                Line Items
+                            </h3>
+
+                            <div v-if="items.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
+                                <div class="inline-block min-w-full align-middle">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name / Description</th>
+                                                <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
+                                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Qty</th>
+                                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
+                                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
+                                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
+                                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                            <template v-for="row in items" :key="row.id">
+                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                                    <td class="px-4 py-3">
+                                                        <div class="font-medium text-sm text-gray-900 dark:text-white">{{ row.name }}</div>
+                                                        <div v-if="row.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">{{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}</td>
+                                                    <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
+                                                    <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(row.unit_price) }}</td>
+                                                    <td class="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row)) }}</td>
+                                                    <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(row)) }}</td>
+                                                    <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row) + taxOnItemBase(row)) }}</td>
+                                                </tr>
+                                                <tr
+                                                    v-for="addon in (row.addons || [])"
+                                                    :key="'addon-' + addon.id"
+                                                    class="bg-blue-50/30 dark:bg-blue-900/10"
+                                                >
+                                                    <td class="px-4 py-2 pl-10 text-sm text-gray-600 dark:text-gray-400 italic">
+                                                        ↳ {{ addon.name || 'Add-on' }}
+                                                        <span v-if="addon.notes" class="block text-gray-400 dark:text-gray-500 not-italic">{{ addon.notes }}</span>
+                                                    </td>
+                                                    <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatMoney(addonPreTaxTotal(addon)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAddon(addon)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                                <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">No line items on this deal</p>
+                            </div>
+                        </div>
+
+
+
+                        <!-- Loss Tracking -->
+                        <div v-if="record.loss_reason || record.loss_reason_category" class="border-red-200 dark:border-red-800 pt-6">
+                            <h3 class="text-sm font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide border-b border-red-200 dark:border-red-800 pb-2 mb-4">
+                                Loss Tracking
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Category</p>
+                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.loss_reason_category || '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reason</p>
+                                    <p class="text-sm text-gray-900 dark:text-white whitespace-pre-line">{{ record.loss_reason || '—' }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── SIDEBAR ────────────────────────────────────────────── -->
+            <div class="space-y-4 lg:col-span-4">
+
+                <!-- Status & Dates -->
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+                    <div class="flex items-center justify-between px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Status</span>
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-sm font-medium" :class="statusMeta.bgClass">
+                            {{ statusMeta.label }}
+                        </span>
+                    </div>
+                    <div class="p-5 space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Created</span>
+                            <span class="text-gray-900 dark:text-white text-right">{{ formatDateTime(record.created_at) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Updated</span>
+                            <span class="text-gray-900 dark:text-white text-right">{{ formatDateTime(record.updated_at) }}</span>
+                        </div>
+                        <div v-if="record.won_at" class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Won</span>
+                            <span class="font-medium text-green-600 dark:text-green-400">{{ formatDateTime(record.won_at) }}</span>
+                        </div>
+                        <div v-if="record.lost_at" class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Lost</span>
+                            <span class="font-medium text-red-600 dark:text-red-400">{{ formatDateTime(record.lost_at) }}</span>
+                        </div>
+                        <div v-if="record.closed_at" class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Closed</span>
+                            <span class="text-gray-900 dark:text-white">{{ formatDateTime(record.closed_at) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deal Summary -->
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+                    <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Deal Summary</span>
+                    </div>
+                    <div class="p-5 space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.subtotal) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Tax ({{ record.tax_rate != null ? record.tax_rate : '—' }}%)</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.tax_total) }}</span>
+                        </div>
+                        <div v-if="Number(record.discount_total) > 0" class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Discount</span>
+                            <span class="font-medium text-red-600 dark:text-red-400">−{{ formatMoney(record.discount_total) }}</span>
+                        </div>
+                        <div v-if="Number(record.fees_total) > 0" class="flex justify-between">
+                            <span class="text-gray-500 dark:text-gray-400">Fees</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.fees_total) }}</span>
+                        </div>
+                        <div class="flex justify-between text-base font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
+                            <span class="text-gray-900 dark:text-white">Total</span>
+                            <span class="text-blue-600 dark:text-blue-400">{{ formatMoney(record.total) }}</span>
+                        </div>
+                        <div class="pt-1 text-sm text-gray-400 dark:text-gray-500 text-right">
+                            {{ record.currency || 'USD' }} · {{ items.length }} line item{{ items.length !== 1 ? 's' : '' }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Related Records -->
+                <div v-if="relatedRecords.length > 0" class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+                    <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Related Records</span>
+                    </div>
+                    <div class="p-4 space-y-2">
+                        <component
+                            :is="rel.href ? Link : 'div'"
+                            v-for="rel in relatedRecords"
+                            :key="rel.key"
+                            :href="rel.href || undefined"
+                            class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group"
+                            :class="{ 'cursor-default': !rel.href }"
+                        >
+                            <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+                                <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">{{ rel.icon }}</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ rel.label }}</p>
+                                <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ rel.name }}</p>
+                                <p v-if="rel.meta" class="text-sm text-gray-500 dark:text-gray-400">{{ rel.meta }}</p>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <p v-if="rel.amount != null" class="text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(rel.amount) }}</p>
+                                <span v-if="rel.href" class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-base transition-colors">chevron_right</span>
+                            </div>
+                        </component>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
     </TenantLayout>
 </template>

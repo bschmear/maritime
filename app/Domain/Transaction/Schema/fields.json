@@ -1,3 +1,128 @@
 {
-
+    "fields": {
+        "uuid": {
+            "label": "UUID",
+            "type": "text",
+            "readOnly": true
+        },
+        "sequence": {
+            "label": "Deal #",
+            "type": "number",
+            "readOnly": true
+        },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Transaction\\TransactionStatus",
+            "default": "active"
+        },
+        "estimate_id": {
+            "label": "Estimate",
+            "type": "record",
+            "typeDomain": "Estimate",
+            "relationship": "estimate"
+        },
+        "opportunity_id": {
+            "label": "Opportunity",
+            "type": "record",
+            "typeDomain": "Opportunity",
+            "relationship": "opportunity"
+        },
+        "customer_id": {
+            "label": "Customer",
+            "type": "record",
+            "typeDomain": "Customer",
+            "relationship": "customer",
+            "required": true
+        },
+        "user_id": {
+            "label": "Salesperson",
+            "type": "record",
+            "typeDomain": "User",
+            "relationship": "user",
+            "required": true
+        },
+        "customer_name": {
+            "label": "Customer name (snapshot)",
+            "type": "text"
+        },
+        "customer_email": {
+            "label": "Customer email (snapshot)",
+            "type": "text"
+        },
+        "customer_phone": {
+            "label": "Customer phone (snapshot)",
+            "type": "text"
+        },
+        "needs_contract": {
+            "label": "Needs contract",
+            "type": "boolean",
+            "default": true
+          },
+          "needs_delivery": {
+            "label": "Needs delivery",
+            "type": "boolean",
+            "default": false
+          },
+        "billing_address_line1": { "label": "Billing street", "type": "text" },
+        "billing_address_line2": { "label": "Billing line 2", "type": "text" },
+        "billing_city": { "label": "Billing city", "type": "text" },
+        "billing_state": { "label": "Billing state", "type": "text" },
+        "billing_postal": { "label": "Billing postal", "type": "text" },
+        "billing_country": { "label": "Billing country", "type": "text" },
+        "billing_latitude": { "label": "Billing latitude", "type": "number" },
+        "billing_longitude": { "label": "Billing longitude", "type": "number" },
+        "tax_rate": { "label": "Tax rate (%)", "type": "number" },
+        "tax_jurisdiction": { "label": "Tax jurisdiction", "type": "text" },
+        "discount_total": { "label": "Discount total", "type": "currency" },
+        "fees_total": { "label": "Fees total", "type": "currency" },
+        "title": {
+            "label": "Title",
+            "type": "text"
+        },
+        "subtotal": {
+            "label": "Subtotal",
+            "type": "currency"
+        },
+        "tax_total": {
+            "label": "Tax total",
+            "type": "currency"
+        },
+        "total": {
+            "label": "Total",
+            "type": "currency"
+        },
+        "currency": {
+            "label": "Currency",
+            "type": "text",
+            "default": "USD"
+        },
+        "closed_at": {
+            "label": "Closed at",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "won_at": {
+            "label": "Won at",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "lost_at": {
+            "label": "Lost at",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "loss_reason_category": {
+            "label": "Loss reason category",
+            "type": "text"
+        },
+        "loss_reason": {
+            "label": "Loss reason",
+            "type": "textarea"
+        },
+        "notes": {
+            "label": "Notes",
+            "type": "textarea"
+        }
+    }
 }

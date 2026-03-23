@@ -112,13 +112,13 @@ onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
                         <span
                             v-if="unreadCount > 0"
                             class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5
-                                   text-[11px] font-bold text-white bg-indigo-500 rounded-full leading-none"
+                                   text-[11px] font-bold text-white bg-primary-500 rounded-full leading-none"
                         >{{ unreadCount }}</span>
                     </div>
                     <button
                         v-if="unreadCount > 0"
                         @click="markAllRead"
-                        class="text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300
+                        class="text-xs text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300
                                font-medium transition-colors"
                     >
                         Mark all read
@@ -141,12 +141,12 @@ onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
                             @click="handleNotificationClick(n)"
                             class="group relative flex gap-3 px-4 py-3.5 cursor-pointer
                                    hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                            :class="{ 'bg-indigo-50/60 dark:bg-indigo-900/10': !n.read_at }"
+                            :class="{ 'bg-primary-50/60 dark:bg-primary-900/10': !n.read_at }"
                         >
                             <!-- Unread dot -->
                             <span
                                 v-if="!n.read_at"
-                                class="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500"
+                                class="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary-500"
                             />
 
                             <!-- Icon based on notification type -->
@@ -163,7 +163,7 @@ onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
                                     {{ n.title }}
                                 </p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ n.message }}</p>
-                                <p class="text-[11px] text-indigo-400 dark:text-indigo-500 mt-1 font-medium">
+                                <p class="text-[11px] text-primary-400 dark:text-primary-500 mt-1 font-medium">
                                     {{ formatTimeAgo(n.created_at) }}
                                 </p>
                             </div>
@@ -200,8 +200,8 @@ onUnmounted(() => document.removeEventListener('mousedown', handleOutsideClick))
                 >
                     <a
                         href="#"
-                        class="flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-500
-                               hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                        class="flex items-center justify-center gap-1.5 text-xs font-medium text-primary-500
+                               hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
                     >
                         View all notifications
                         <span class="material-icons text-sm leading-none">arrow_forward</span>

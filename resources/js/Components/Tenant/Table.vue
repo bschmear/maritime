@@ -123,7 +123,7 @@ const getColorClass = (color) => {
         'orange': 'bg-orange-500',
         'red': 'bg-red-500',
         'pink': 'bg-pink-500',
-        'indigo': 'bg-indigo-500',
+        'primary': 'bg-primary-500',
     };
     return colorMap[color] || `bg-${color}-500`;
 };

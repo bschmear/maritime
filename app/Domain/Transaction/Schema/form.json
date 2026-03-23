@@ -1,15 +1,52 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
-  "form": {
-    "primary": {
-      "label": "Primary",
-      "fields": []
+    "settings": {
+        "max_width": "5xl"
     },
-    "secondary": {
-      "label": "Secondary",
-      "fields": []
-    }
-  }
+    "form": {
+        "deal": {
+            "label": "Deal",
+            "fields": [
+                { "key": "status", "required": true },
+                { "key": "title", "required": false },
+                { "key": "customer_id", "required": true },
+                { "key": "user_id", "required": true },
+                { "key": "estimate_id", "required": false },
+                { "key": "opportunity_id", "required": false },
+                { "key": "needs_contract", "required": false },
+                { "key": "needs_delivery", "required": false }
+            ]
+        },
+        "snapshot": {
+            "label": "Customer snapshot",
+            "fields": [
+                { "key": "customer_name", "required": false },
+                { "key": "customer_email", "required": false },
+                { "key": "customer_phone", "required": false }
+            ]
+        },
+        "totals": {
+            "label": "Totals",
+            "fields": [
+                { "key": "subtotal", "required": false },
+                { "key": "tax_total", "required": false },
+                { "key": "total", "required": false },
+                { "key": "currency", "required": false }
+            ]
+        },
+        "loss": {
+            "label": "Loss tracking",
+            "fields": [
+                { "key": "loss_reason_category", "required": false },
+                { "key": "loss_reason", "required": false },
+                { "key": "closed_at", "required": false },
+                { "key": "won_at", "required": false },
+                { "key": "lost_at", "required": false }
+            ]
+        },
+        "notes_section": {
+            "label": "Notes",
+            "fields": [{ "key": "notes", "required": false }]
+        }
+    },
+    "sublists": []
 }

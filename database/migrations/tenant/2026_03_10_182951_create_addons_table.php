@@ -18,8 +18,7 @@ return new class extends Migration
             $table->string('name'); // Add-on name, e.g., "Carbon Fiber Bow"
             $table->decimal('default_price', 12, 2)->default(0); // Standard price
             $table->text('description')->nullable(); // Optional description
-            $table->string('type')->nullable(); // e.g., "InventoryItem" or "Asset" or null if universal
-
+            $table->unsignedSmallInteger('type')->default(1);
             $table->timestamps();
             $table->softDeletes();
         });

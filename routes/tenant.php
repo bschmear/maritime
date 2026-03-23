@@ -1,51 +1,49 @@
 <?php
+
 declare(strict_types=1);
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Tenant\AccountController;
+use App\Http\Controllers\Tenant\AddOnController;
+use App\Http\Controllers\Tenant\AssetController;
+use App\Http\Controllers\Tenant\AssetUnitController;
+use App\Http\Controllers\Tenant\BoatMakeController;
+use App\Http\Controllers\Tenant\ContractController;
+use App\Http\Controllers\Tenant\CustomerController;
+use App\Http\Controllers\Tenant\DashboardController;
+use App\Http\Controllers\Tenant\DeliveryChecklistController;
+use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
+use App\Http\Controllers\Tenant\DeliveryController;
+use App\Http\Controllers\Tenant\DocumentController;
+use App\Http\Controllers\Tenant\EstimateController;
+use App\Http\Controllers\Tenant\GeneralController;
+use App\Http\Controllers\Tenant\InventoryImageController;
+use App\Http\Controllers\Tenant\InventoryItemController;
+use App\Http\Controllers\Tenant\InventoryUnitController;
+use App\Http\Controllers\Tenant\InvoiceController;
+use App\Http\Controllers\Tenant\LeadController;
+use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\NotificationController;
+use App\Http\Controllers\Tenant\OperationsController;
+use App\Http\Controllers\Tenant\OpportunityController;
+use App\Http\Controllers\Tenant\PortalAccessController;
+use App\Http\Controllers\Tenant\PublicController;
+use App\Http\Controllers\Tenant\QualificationController;
+use App\Http\Controllers\Tenant\RoleController;
+use App\Http\Controllers\Tenant\ScoreController;
+use App\Http\Controllers\Tenant\ServiceItemController;
+use App\Http\Controllers\Tenant\ServiceTicketController;
+use App\Http\Controllers\Tenant\StripeController;
+use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\TaskController;
+use App\Http\Controllers\Tenant\TransactionController;
+use App\Http\Controllers\Tenant\UserController;
+use App\Http\Controllers\Tenant\VendorController;
+use App\Http\Controllers\Tenant\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-use Inertia\Inertia;
 
-
-use App\Http\Controllers\Tenant\DashboardController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\Tenant\CustomerController;
-use App\Http\Controllers\Tenant\LeadController;
-use App\Http\Controllers\Tenant\VendorController;
-use App\Http\Controllers\Tenant\TaskController;
-use App\Http\Controllers\Tenant\UserController;
-use App\Http\Controllers\Tenant\RoleController;
-use App\Http\Controllers\Tenant\AccountController;
-use App\Http\Controllers\Tenant\GeneralController;
-use App\Http\Controllers\Tenant\LocationController;
-use App\Http\Controllers\Tenant\DocumentController;
-use App\Http\Controllers\Tenant\OperationsController;
-use App\Http\Controllers\Tenant\TransactionController;
-use App\Http\Controllers\Tenant\InvoiceController;
-use App\Http\Controllers\Tenant\InventoryItemController;
-use App\Http\Controllers\Tenant\InventoryUnitController;
-use App\Http\Controllers\Tenant\InventoryImageController;
-use App\Http\Controllers\Tenant\BoatMakeController;
-use App\Http\Controllers\Tenant\SubsidiaryController;
-use App\Http\Controllers\Tenant\WorkOrderController;
-use App\Http\Controllers\Tenant\ServiceItemController;
-use App\Http\Controllers\Tenant\ServiceTicketController;
-use App\Http\Controllers\Tenant\DeliveryController;
-use App\Http\Controllers\Tenant\DeliveryChecklistController;
-use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
-use App\Http\Controllers\Tenant\AssetController;
-use App\Http\Controllers\Tenant\AssetUnitController;
-use App\Http\Controllers\Tenant\NotificationController;
-use App\Http\Controllers\Tenant\QualificationController;
-use App\Http\Controllers\Tenant\OpportunityController;
-use App\Http\Controllers\Tenant\EstimateController;
-use App\Http\Controllers\Tenant\AddOnController;
-use App\Http\Controllers\Tenant\ScoreController;
-use App\Http\Controllers\Tenant\PortalAccessController;
-use App\Http\Controllers\Tenant\StripeController;
-
-use App\Http\Controllers\Tenant\PortalController;
-use App\Http\Controllers\Tenant\PublicController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
 /*
 |||--------------------------------------------------------------------------
 ||| Tenant Routes
@@ -55,7 +53,6 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 ||| These routes are loaded by the TenantRouteServiceProvider.
 |||
 */
-
 
 Route::middleware([
     'web',
@@ -83,10 +80,9 @@ Route::middleware([
                     'payouts_enabled' => $account->payouts_enabled,
                 ]);
         }
+
         return response()->json(['status' => 'success']);
     });
-
-
 
     // Public routes — UUID-secured, no auth required
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
@@ -104,11 +100,9 @@ Route::middleware([
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-
         Route::get('/stripe/connect', [StripeController::class, 'connect'])->name('stripe.connect');
         Route::get('/stripe/return', [StripeController::class, 'return'])->name('stripe.return');
         Route::get('/stripe/refresh', [StripeController::class, 'refresh'])->name('stripe.refresh');
-
 
         Route::resource('subsidiaries', SubsidiaryController::class);
 
@@ -142,15 +136,19 @@ Route::middleware([
         Route::prefix('estimates')->name('estimates.')->group(function () {
             // Static routes must come before the resource wildcard {estimate}
             Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
+            Route::post('/{estimate}/create-deal', [EstimateController::class, 'createDeal'])->name('create-deal');
             Route::resource('/', EstimateController::class)->parameters(['' => 'estimate']);
             Route::post('/{estimate}/send-approval', [EstimateController::class, 'sendApprovalRequest'])->name('send-approval');
-            Route::post('/{estimate}/revision',      [EstimateController::class, 'createRevision'])->name('revision');
+            Route::post('/{estimate}/revision', [EstimateController::class, 'createRevision'])->name('revision');
+        });
+
+        Route::prefix('contracts')->name('contracts.')->group(function () {
+            Route::resource('/', ContractController::class)->parameters(['' => 'contract']);
         });
 
         Route::prefix('addons')->name('addons.')->group(function () {
             Route::resource('/', AddOnController::class)->parameters(['' => 'addon']);
         });
-
 
         Route::prefix('vendors')->name('vendors.')->group(function () {
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
@@ -321,7 +319,6 @@ Route::middleware([
                 Route::delete('/{id}', [NotificationController::class, 'destroy'])
                     ->name('destroy');
             });
-
 
         // Profile routes
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

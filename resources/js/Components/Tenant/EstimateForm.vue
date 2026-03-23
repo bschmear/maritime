@@ -1,6 +1,7 @@
 <script setup>
 import { useForm, router } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
@@ -392,80 +393,16 @@ const removeAssetItem = (index) => assetItems.value.splice(index, 1);
 // ==============================
 const showAddonModal = ref(false);
 const currentLineItem = ref(null);
-const currentLineItemType = ref(null);
 
-const addonSearchQuery = ref('');
-const addonRecords = ref([]);
-const addonCurrentPage = ref(1);
-const addonTotalPages = ref(1);
-const addonIsLoading = ref(false);
-
-const customAddonForm = ref({ name: '', price: 0, quantity: 1, notes: '' });
-
-const fetchAddons = async (resetPage = false) => {
-    if (resetPage) addonCurrentPage.value = 1;
-    addonIsLoading.value = true;
-    try {
-        const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('type', 'AddOn');
-        url.searchParams.append('page', addonCurrentPage.value);
-        url.searchParams.append('per_page', 10);
-        if (addonSearchQuery.value.trim()) url.searchParams.append('search', addonSearchQuery.value.trim());
-        const response = await fetch(url.toString(), {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        addonRecords.value = data.records || data.data || [];
-        addonTotalPages.value = data.meta?.last_page || 1;
-    } catch (err) {
-        console.error('Failed to fetch add-ons:', err);
-        addonRecords.value = [];
-    } finally {
-        addonIsLoading.value = false;
-    }
-};
-
-const debouncedFetchAddons = debounce(() => fetchAddons(true), 300);
-
-const openAddonModal = (lineItem, lineType) => {
+const openAddonModal = (lineItem) => {
     currentLineItem.value = lineItem;
-    currentLineItemType.value = lineType;
-    addonSearchQuery.value = '';
-    customAddonForm.value = { name: '', price: 0, quantity: 1, notes: '' };
-    fetchAddons(true);
     showAddonModal.value = true;
 };
 
-const selectAddon = (addon) => {
+const onAddonPicked = (payload) => {
     if (!currentLineItem.value) return;
     if (!currentLineItem.value.addons) currentLineItem.value.addons = [];
-    currentLineItem.value.addons.push({
-        addon_id: addon.id,
-        name: addon.name,
-        price: Number(addon.default_price) || 0,
-        quantity: 1,
-        notes: '',
-    });
-    showAddonModal.value = false;
-};
-
-const addCustomAddon = () => {
-    if (!currentLineItem.value || !customAddonForm.value.name.trim()) return;
-    if (!currentLineItem.value.addons) currentLineItem.value.addons = [];
-    currentLineItem.value.addons.push({
-        addon_id: null,
-        name: customAddonForm.value.name,
-        price: Number(customAddonForm.value.price) || 0,
-        quantity: Number(customAddonForm.value.quantity) || 1,
-        notes: customAddonForm.value.notes || '',
-    });
-    showAddonModal.value = false;
+    currentLineItem.value.addons.push(payload);
 };
 
 const removeAddon = (lineItem, addonIndex) => {
@@ -887,7 +824,7 @@ const handleCancel = () => emit('cancelled');
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
-                                                    @click="openAddonModal(item, 'asset')"
+                                                    @click="openAddonModal(item)"
                                                     class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -999,7 +936,7 @@ const handleCancel = () => emit('cancelled');
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
-                                                    @click="openAddonModal(item, 'inventory')"
+                                                    @click="openAddonModal(item)"
                                                     class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1457,135 +1394,7 @@ const handleCancel = () => emit('cancelled');
             </div>
         </Teleport>
 
-        <!-- ============================
-             Add-on Modal
-             ============================ -->
-        <Teleport to="body">
-            <div
-                v-if="showAddonModal"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-                @click.self="showAddonModal = false"
-            >
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Add-on</h3>
-                        <button @click="showAddonModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="flex-1 overflow-y-auto p-6 space-y-5">
-
-                        <!-- Catalog search -->
-                        <div>
-                            <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">From Catalog</h4>
-                            <div class="relative mb-3">
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                    </svg>
-                                </div>
-                                <input
-                                    v-model="addonSearchQuery"
-                                    @input="debouncedFetchAddons"
-                                    type="text"
-                                    placeholder="Search add-ons..."
-                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <div v-if="addonIsLoading" class="flex justify-center py-6">
-                                <svg class="w-6 h-6 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                </svg>
-                            </div>
-
-                            <div v-else-if="addonRecords.length > 0" class="space-y-1.5 max-h-44 overflow-y-auto">
-                                <button
-                                    v-for="addon in addonRecords"
-                                    :key="addon.id"
-                                    type="button"
-                                    @click="selectAddon(addon)"
-                                    class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all group"
-                                >
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div>
-                                            <div class="font-medium text-gray-900 dark:text-white text-sm group-hover:text-primary-700 dark:group-hover:text-primary-300">{{ addon.name }}</div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
-                                                <span>{{ formatCurrency(addon.default_price) }}</span>
-                                                <span v-if="addon.description">{{ addon.description }}</span>
-                                            </div>
-                                        </div>
-                                        <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                        </svg>
-                                    </div>
-                                </button>
-                            </div>
-
-                            <div v-else class="text-center py-6 text-gray-400 dark:text-gray-500 text-sm">
-                                {{ addonSearchQuery.trim() ? 'No add-ons match your search' : 'No catalog add-ons available' }}
-                            </div>
-                        </div>
-
-                        <!-- Custom add-on -->
-                        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
-                            <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Or Create Custom Add-on</h4>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Name <span class="text-red-500">*</span></label>
-                                    <input
-                                        v-model="customAddonForm.name"
-                                        type="text"
-                                        placeholder="Add-on name..."
-                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Price</label>
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                        <input type="number" v-model.number="customAddonForm.price" step="0.01" min="0"
-                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity</label>
-                                    <input type="number" v-model.number="customAddonForm.quantity" min="1"
-                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                </div>
-                                <div class="col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
-                                    <input v-model="customAddonForm.notes" type="text" placeholder="Optional notes..."
-                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                @click="addCustomAddon"
-                                :disabled="!customAddonForm.name.trim()"
-                                class="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add Custom Add-on
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        <button type="button" @click="showAddonModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
+        <AddonSelect v-model:open="showAddonModal" accent="primary" @picked="onAddonPicked" />
 
         <!-- ============================
              Billing Address Confirm Modal

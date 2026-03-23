@@ -1,73 +1,67 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { Head } from '@inertiajs/vue3';
+import TransactionForm from '@/Components/Tenant/TransactionForm.vue';
+import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
-    records: {
+    record: {
         type: Object,
         required: true,
     },
-    schema: {
-        type: Object,
-        default: null,
-    },
     formSchema: {
         type: Object,
-        default: null,
+        required: true,
     },
     fieldsSchema: {
         type: Object,
-        default: () => ({}),
+        required: true,
     },
     enumOptions: {
         type: Object,
         default: () => ({}),
     },
-    recordType: {
-        type: String,
-        default: 'transactions',
+    account: {
+        type: Object,
+        default: null,
     },
-    recordTitle: {
-        type: String,
-        default: 'Transaction',
-    },
-    pluralTitle: {
-        type: String,
-        default: 'Transactions',
+    timezones: {
+        type: Array,
+        default: () => [],
     },
 });
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: props.pluralTitle },
+    { label: 'Transactions', href: route('transactions.index') },
+    { label: props.record.title || `Deal #${props.record.sequence}` },
 ]);
+
+const handleCancel = () => {
+    router.visit(route('transactions.show', props.record.id));
+};
 </script>
 
 <template>
-    <Head :title="pluralTitle" />
+    <Head title="Edit Transaction" />
 
     <TenantLayout>
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <h2 class="mt-4 text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                    {{ pluralTitle }}
-                </h2>
             </div>
         </template>
 
-        <Table
-            :records="records"
-            :schema="schema"
+        <TransactionForm
+            :record="record"
             :form-schema="formSchema"
             :fields-schema="fieldsSchema"
             :enum-options="enumOptions"
-            :record-type="recordType"
-            :record-title="recordTitle"
-            :plural-title="pluralTitle"
+            :account="account"
+            :timezones="timezones"
+            mode="edit"
+            @cancel="handleCancel"
         />
     </TenantLayout>
 </template>

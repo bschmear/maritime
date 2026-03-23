@@ -3,7 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -173,6 +173,39 @@ const statusTextClass = computed(() =>
 const isApproved = computed(() => statusInfo.value?.value === 'approved' || !!props.record?.approved_at);
 const isDeclined = computed(() => statusInfo.value?.value === 'declined' || !!props.record?.declined_at);
 
+const hasDeal = computed(() => !!props.record?.transaction_id);
+
+const canCreateDeal = computed(() =>
+    isApproved.value
+    && !hasDeal.value
+    && !hasRevision.value
+    && !!primaryVersion.value
+);
+
+const showCreateDealModal = ref(false);
+
+const createDealForm = useForm({});
+
+const submitCreateDeal = () => {
+    createDealForm.clearErrors();
+    createDealForm.post(route('estimates.create-deal', props.record.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCreateDealModal.value = false;
+        },
+    });
+};
+
+const closeCreateDealModal = () => {
+    showCreateDealModal.value = false;
+};
+
+onMounted(() => {
+    if (canCreateDeal.value) {
+        showCreateDealModal.value = true;
+    }
+});
+
 const handleDelete = () => { showDeleteModal.value = true; };
 const cancelDelete = () => { showDeleteModal.value = false; };
 
@@ -233,15 +266,23 @@ const confirmDelete = () => {
                             {{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}
                         </button>
 
-                        <!-- Create Contract (approved) -->
-                        <button
-                            v-if="isApproved && !hasRevision"
-                            
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600  rounded-lg transition-colors"
-                            title="Contract creation coming soon"
+                        <!-- View Deal / Create Deal -->
+                        <Link
+                            v-if="hasDeal"
+                            :href="route('transactions.show', record.transaction_id)"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
-                            <span class="material-icons text-base">description</span>
-                            Create Contract
+                            <span class="material-icons text-base">handshake</span>
+                            View Deal
+                        </Link>
+                        <button
+                            v-else-if="canCreateDeal"
+                            type="button"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            @click="showCreateDealModal = true"
+                        >
+                            <span class="material-icons text-base">add_business</span>
+                            Create Deal
                         </button>
 
                         <!-- Edit (unlocked and not approved) -->
@@ -696,15 +737,23 @@ const confirmDelete = () => {
                                 View Latest Version
                             </Link>
 
-                            <!-- Create Contract (approved) -->
-                            <button
-                                v-if="isApproved && !hasRevision"
-                                
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600  rounded-lg transition-colors"
-                                title="Contract creation coming soon"
+                            <!-- View Deal / Create Deal -->
+                            <Link
+                                v-if="hasDeal"
+                                :href="route('transactions.show', record.transaction_id)"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
-                                <span class="material-icons text-base">description</span>
-                                Create Contract
+                                <span class="material-icons text-base">handshake</span>
+                                View Deal
+                            </Link>
+                            <button
+                                v-else-if="canCreateDeal"
+                                type="button"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                @click="showCreateDealModal = true"
+                            >
+                                <span class="material-icons text-base">add_business</span>
+                                Create Deal
                             </button>
 
                             <!-- Edit (unlocked and not approved) -->
@@ -834,6 +883,50 @@ const confirmDelete = () => {
                                 <span class="text-gray-500 dark:text-gray-400">Approved</span>
                                 <span class="text-green-600 dark:text-green-400 font-medium">{{ formatDate(record.approved_at) }}</span>
                             </div>
+                            <div v-if="record.signed_at" class="flex justify-between items-center">
+                                <span class="text-gray-500 dark:text-gray-400">Signed</span>
+                                <span class="text-green-600 dark:text-green-400 font-medium">{{ formatDateTime(record.signed_at) }}</span>
+                            </div>
+                            <div
+                                v-if="canCreateDeal"
+                                class="mt-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800"
+                            >
+                                <p class="text-xs font-semibold text-primary-800 dark:text-primary-200 uppercase tracking-wide mb-1">
+                                    Next step
+                                </p>
+                                <p class="text-sm text-primary-900 dark:text-primary-100 mb-2">
+                                    Start the deal process from this approved estimate.
+                                </p>
+                                <button
+                                    type="button"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                    @click="showCreateDealModal = true"
+                                >
+                                    <span class="material-icons text-base">add_business</span>
+                                    Create Deal
+                                </button>
+                                <Link
+                                    :href="route('transactions.create', { estimate_id: record.id })"
+                                    class="mt-2 block w-full text-center text-xs font-medium text-primary-700 underline hover:text-primary-900 dark:text-primary-300 dark:hover:text-primary-100"
+                                >
+                                    Create transaction (form)
+                                </Link>
+                            </div>
+                            <div
+                                v-else-if="hasDeal"
+                                class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600"
+                            >
+                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
+                                    Deal
+                                </p>
+                                <Link
+                                    :href="route('transactions.show', record.transaction_id)"
+                                    class="inline-flex items-center gap-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                >
+                                    <span class="material-icons text-base">open_in_new</span>
+                                    Open deal
+                                </Link>
+                            </div>
                             <div v-if="record.declined_at" class="flex justify-between items-center">
                                 <span class="text-gray-500 dark:text-gray-400">Declined</span>
                                 <span class="text-red-600 dark:text-red-400 font-medium">{{ formatDate(record.declined_at) }}</span>
@@ -844,6 +937,63 @@ const confirmDelete = () => {
                 </div>
             </div>
         </div>
+
+        <!-- Create Deal Modal -->
+        <Modal :show="showCreateDealModal" @close="closeCreateDealModal" max-width="md">
+            <div class="p-6">
+                <div class="mx-auto mb-4 w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+                    <span class="material-icons text-primary-600 dark:text-primary-300 text-2xl">add_business</span>
+                </div>
+                <h3 class="text-lg font-semibold text-center text-gray-900 dark:text-white">
+                    Estimate approved
+                </h3>
+                <p class="mt-2 text-sm text-center text-gray-600 dark:text-gray-400">
+                    This estimate was approved on
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDateTime(record.approved_at) }}</span>.
+                </p>
+                <p class="mt-2 text-sm text-center text-gray-600 dark:text-gray-400">
+                    Start the deal process by creating a deal (transaction and contract).
+                </p>
+                <div
+                    v-if="createDealForm.errors.error || Object.keys(createDealForm.errors).length"
+                    class="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-800 dark:text-red-200"
+                >
+                    <p v-if="createDealForm.errors.error" class="font-medium">{{ createDealForm.errors.error }}</p>
+                    <ul v-else class="list-disc list-inside space-y-1">
+                        <li v-for="(msg, key) in createDealForm.errors" :key="key">{{ Array.isArray(msg) ? msg[0] : msg }}</li>
+                    </ul>
+                </div>
+                <div class="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+                    <button
+                        type="button"
+                        :disabled="createDealForm.processing"
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50 transition-colors"
+                        @click="submitCreateDeal"
+                    >
+                        <span v-if="createDealForm.processing" class="material-icons text-base animate-spin">refresh</span>
+                        <span v-else class="material-icons text-base">handshake</span>
+                        {{ createDealForm.processing ? 'Creating…' : 'Create Deal' }}
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="createDealForm.processing"
+                        class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        @click="closeCreateDealModal"
+                    >
+                        Not now
+                    </button>
+                </div>
+                <p class="mt-4 text-center">
+                    <Link
+                        :href="route('transactions.create', { estimate_id: record.id })"
+                        class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                        @click="closeCreateDealModal"
+                    >
+                        Create transaction in form instead
+                    </Link>
+                </p>
+            </div>
+        </Modal>
 
         <!-- Delete Modal -->
         <Modal :show="showDeleteModal" @close="cancelDelete" max-width="md">

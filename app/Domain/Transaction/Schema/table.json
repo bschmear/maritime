@@ -1,5 +1,49 @@
 {
+    "allow_create_modal": false,
     "columns": [
-
+        {
+            "key": "id",
+            "label": "#",
+            "sortable": true
+        },
+        {
+            "key": "sequence",
+            "label": "Deal #",
+            "sortable": true,
+            "isKey": true
+        },
+        {
+            "key": "title",
+            "label": "Title",
+            "sortable": true
+        },
+        {
+            "key": "status",
+            "label": "Status",
+            "sortable": true
+        },
+        {
+            "key": "customer_id",
+            "label": "Customer",
+            "sortable": false
+        },
+        {
+            "key": "total",
+            "label": "Total",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ],
+    "filters": [
+        {
+            "key": "status",
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Transaction\\TransactionStatus"
+        }
     ]
 }

@@ -2,7 +2,9 @@
 namespace App\Domain\AddOn\Actions;
 
 use App\Domain\AddOn\Models\AddOn as RecordModel;
+use App\Enums\Transaction\AddOnType;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
@@ -14,7 +16,7 @@ class UpdateAddOn
         $validated = Validator::make($data, [
             'name' => 'required|string|max:255',
             'default_price' => 'required|numeric',
-            'type' => 'nullable|string|in:Asset,InventoryItem',
+            'type' => ['nullable', Rule::enum(AddOnType::class)],
             'description' => 'nullable|string',
         ])->validate();
 
