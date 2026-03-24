@@ -3,10 +3,12 @@
 namespace App\Domain\Contract\Actions;
 
 use App\Domain\Contract\Models\Contract as RecordModel;
+use App\Enums\Payments\Terms;
 use App\Support\ContractEnumMapper;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class UpdateContract
@@ -14,7 +16,7 @@ class UpdateContract
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'contact_id' => ['sometimes', 'required', 'integer', 'exists:contacts,id'],
+            'customer_id' => ['sometimes', 'required', 'integer', 'exists:customers,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'transaction_id' => ['nullable', 'integer', 'exists:transactions,id'],
             'total_amount' => ['sometimes', 'required', 'numeric', 'min:0'],
@@ -23,6 +25,8 @@ class UpdateContract
             'payment_status' => ['nullable'],
             'payment_terms' => ['nullable', 'string'],
             'delivery_terms' => ['nullable', 'string'],
+            'contract_terms' => ['nullable', 'string'],
+            'payment_term' => ['nullable', Rule::enum(Terms::class)],
             'notes' => ['nullable', 'string'],
             'billing_address_line1' => ['nullable', 'string', 'max:255'],
             'billing_address_line2' => ['nullable', 'string', 'max:255'],

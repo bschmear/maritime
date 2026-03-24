@@ -10,12 +10,14 @@ return new class extends Migration
     {
         Schema::create('contracts', function (Blueprint $table) {
             $table->id();
+            $table->uuid('uuid')->unique();
+            $table->unsignedBigInteger('sequence')->unique();
 
             // Tenant linkage
             $table->foreignId('account_settings_id')->index();
 
-            // Link to customer/contact
-            $table->foreignId('contact_id')->index();
+            // Link to customer
+            $table->foreignId('customer_id')->index();
 
             // Optional link to originating estimate
             $table->unsignedBigInteger('estimate_id')->nullable()->index();
@@ -41,6 +43,9 @@ return new class extends Migration
             // Terms and details
             $table->text('payment_terms')->nullable();
             $table->text('delivery_terms')->nullable();
+            $table->string('payment_term')->default('due_on_receipt')->nullable();
+            $table->text('contract_terms')->nullable();
+
             $table->text('notes')->nullable();
 
             // Document / e-signature references
@@ -89,6 +94,14 @@ return new class extends Migration
         });
 
         Schema::table('account_settings', function (Blueprint $table) {
+            $table->text('default_contract_terms')
+                ->nullable()
+                ->default('This agreement outlines the terms and conditions of the sale, including product details, payment obligations, and delivery expectations.');
+
+            $table->string('default_payment_term')->default('due_on_receipt')
+                ->nullable()
+                ->after('default_contract_terms');
+
             $table->text('default_payment_terms')
                 ->nullable()
                 ->default('Payment is due as specified in the contract. Please remit promptly.')
@@ -134,8 +147,12 @@ return new class extends Migration
         Schema::dropIfExists('contract_line_items');
         Schema::dropIfExists('contracts');
         Schema::table('account_settings', function (Blueprint $table) {
-            $table->dropColumn('default_payment_terms');
-            $table->dropColumn('default_delivery_terms');
+            $table->dropColumn([
+                'default_delivery_terms',
+                'default_payment_terms',
+                'default_payment_term',
+                'default_contract_terms',
+            ]);
         });
     }
 };

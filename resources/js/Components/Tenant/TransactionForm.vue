@@ -62,6 +62,8 @@ const form = useForm({
     user_id: merged.user_id ?? null,
     estimate_id: merged.estimate_id ?? null,
     opportunity_id: merged.opportunity_id ?? null,
+    subsidiary_id: merged.subsidiary_id ?? null,
+    location_id: merged.location_id ?? null,
     status: resolveStatusId(merged.status) ?? statusOptions.value[0]?.id ?? null,
     title: merged.title ?? '',
     customer_name: merged.customer_name ?? '',
@@ -195,6 +197,13 @@ const findTaxRateFromBillingAddress = async () => {
 watch(() => form.billing_state, async (newState) => {
     if (!newState) return;
     await findTaxRateFromBillingAddress();
+});
+
+watch(() => form.subsidiary_id, (newVal, oldVal) => {
+    if (oldVal === undefined) return;
+    if (newVal !== oldVal) {
+        form.location_id = null;
+    }
 });
 
 // ─── Line items (assets + parts only in UI; legacy generic lines load into inventoryItems) ─
@@ -736,6 +745,46 @@ const handleCancel = () => emit('cancel');
                                             field-key="opportunity_id"
                                         />
                                         <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.opportunity?.display_name || '—' }}</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            {{ fieldsSchema.subsidiary_id?.label || 'Subsidiary' }}
+                                        </label>
+                                        <RecordSelect
+                                            v-if="mode !== 'show'"
+                                            id="subsidiary_id"
+                                            :field="fieldsSchema.subsidiary_id"
+                                            v-model="form.subsidiary_id"
+                                            :enum-options="getRecordOptions('subsidiary_id')"
+                                            :record="recordForSelect"
+                                            field-key="subsidiary_id"
+                                        />
+                                        <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.subsidiary?.display_name || '—' }}</p>
+                                        <p v-if="form.errors.subsidiary_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            {{ fieldsSchema.location_id?.label || 'Location' }}
+                                        </label>
+                                        <RecordSelect
+                                            v-if="mode !== 'show'"
+                                            id="location_id"
+                                            :field="fieldsSchema.location_id"
+                                            v-model="form.location_id"
+                                            :enum-options="getRecordOptions('location_id')"
+                                            :record="recordForSelect"
+                                            field-key="location_id"
+                                            filter-by="subsidiary_id"
+                                            :filter-value="form.subsidiary_id"
+                                            :disabled="!form.subsidiary_id"
+                                        />
+                                        <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.location?.display_name || '—' }}</p>
+                                        <p v-if="form.errors.location_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
+                                        <p v-if="mode !== 'show' && !form.subsidiary_id" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Select a subsidiary to choose a location.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

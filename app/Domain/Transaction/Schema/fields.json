@@ -1,15 +1,5 @@
 {
     "fields": {
-        "uuid": {
-            "label": "UUID",
-            "type": "text",
-            "readOnly": true
-        },
-        "sequence": {
-            "label": "Deal #",
-            "type": "number",
-            "readOnly": true
-        },
         "status": {
             "label": "Status",
             "type": "select",
@@ -41,6 +31,20 @@
             "typeDomain": "User",
             "relationship": "user",
             "required": true
+        },
+        "subsidiary_id": {
+            "label": "Subsidiary",
+            "type": "record",
+            "typeDomain": "Subsidiary",
+            "relationship": "subsidiary",
+            "required": false
+        },
+        "location_id": {
+            "label": "Location",
+            "type": "record",
+            "typeDomain": "Location",
+            "relationship": "location",
+            "required": false
         },
         "customer_name": {
             "label": "Customer name (snapshot)",

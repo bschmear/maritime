@@ -7,14 +7,14 @@
             "sortable": true
         },
         {
-            "key": "contract_number",
+            "key": "display_name",
             "label": "Contract #",
             "sortable": true,
             "isKey": true
         },
         {
-            "key": "contact_id",
-            "label": "Contact",
+            "key": "customer_id",
+            "label": "Customer",
             "sortable": false
         },
         {

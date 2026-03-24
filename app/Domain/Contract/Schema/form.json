@@ -7,7 +7,7 @@
           "label": "Contract Details",
           "fields": [
               {
-                  "key": "contact_id",
+                  "key": "customer_id",
                   "required": true
               },
               {
@@ -15,7 +15,7 @@
                   "required": false
               },
               {
-                  "key": "contract_number",
+                  "key": "transaction_id",
                   "required": false
               },
               {
@@ -93,6 +93,14 @@
       "terms_section": {
           "label": "Terms & Notes",
           "fields": [
+              {
+                  "key": "payment_term",
+                  "required": false
+              },
+              {
+                  "key": "contract_terms",
+                  "required": false
+              },
               {
                   "key": "payment_terms",
                   "required": false

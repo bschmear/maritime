@@ -9,6 +9,7 @@ use App\Domain\Contract\Models\Contract;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Contract\ContractStatus;
+use App\Enums\Payments\Terms;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
@@ -256,7 +257,18 @@ class ContractController extends BaseController
     public function create(Request $request)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
-        $initialData = [];
+        $settings = AccountSettings::getCurrent();
+        $paymentTermDefault = $settings->default_payment_term;
+        $paymentTermValue = $paymentTermDefault instanceof Terms
+            ? $paymentTermDefault->value
+            : ($paymentTermDefault ?: Terms::DueOnReceipt->value);
+
+        $initialData = [
+            'payment_term' => $paymentTermValue,
+            'contract_terms' => $settings->default_contract_terms,
+            'payment_terms' => $settings->default_payment_terms,
+            'delivery_terms' => $settings->default_delivery_terms,
+        ];
         if ($request->filled('estimate_id')) {
             $initialData['estimate_id'] = (int) $request->get('estimate_id');
         }
@@ -288,6 +300,25 @@ class ContractController extends BaseController
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->relationshipClosuresForSchema();
+
+        // Override the transaction loader so we also pull its line items + addons + billing snapshot,
+        // plus subsidiary + location for contract preview header (same pattern as service ticket preview).
+        $relationships['transaction'] = fn ($q) => $q
+            ->select([
+                'id', 'title', 'sequence', 'customer_name', 'customer_email', 'customer_phone',
+                'tax_rate', 'currency', 'subsidiary_id', 'location_id',
+                'billing_address_line1', 'billing_address_line2', 'billing_city',
+                'billing_state', 'billing_postal', 'billing_country',
+            ])
+            ->with([
+                'items' => fn ($q2) => $q2->with('addons')->orderBy('position')->orderBy('id'),
+                'subsidiary' => fn ($q2) => $q2->select(['id', 'display_name']),
+                'location' => fn ($q2) => $q2->select([
+                    'id', 'display_name',
+                    'address_line_1', 'address_line_2', 'city', 'state', 'postal_code',
+                    'phone', 'email',
+                ]),
+            ]);
 
         $settings = AccountSettings::getCurrent();
         $record = Contract::query()

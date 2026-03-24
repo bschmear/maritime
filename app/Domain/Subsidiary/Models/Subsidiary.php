@@ -2,15 +2,17 @@
 
 namespace App\Domain\Subsidiary\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use App\Models\Concerns\HasDocuments;
 use App\Domain\Document\Models\Document;
-use Illuminate\Support\Facades\Storage;
+use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Timezone;
+use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Subsidiary extends Model
 {
     use HasDocuments;
+
     /**
      * The attributes that aren't mass assignable.
      *
@@ -28,12 +30,12 @@ class Subsidiary extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'inactive'                 => 'boolean',
-        'latitude'                 => 'decimal:7',
-        'longitude'                => 'decimal:7',
-        'default_labor_rate'       => 'decimal:2',
-        'next_work_order_number'   => 'integer',
-        'settings'                 => 'array',
+        'inactive' => 'boolean',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+        'default_labor_rate' => 'decimal:2',
+        'next_work_order_number' => 'integer',
+        'settings' => 'array',
     ];
 
     /**
@@ -51,13 +53,18 @@ class Subsidiary extends Model
         )->withTimestamps();
     }
 
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'subsidiary_id');
+    }
+
     public function users()
     {
         return $this->belongsToMany(
             \App\Domain\User\Models\User::class,
             'subsidiary_user'
         )->withPivot(['primary'])
-        ->withTimestamps();
+            ->withTimestamps();
     }
 
     /**
@@ -65,18 +72,18 @@ class Subsidiary extends Model
      */
     public function getLogoUrlAttribute(): ?string
     {
-        if (!$this->logo) {
+        if (! $this->logo) {
             return null;
         }
 
         $document = Document::find($this->logo);
-        if (!$document || !$document->file) {
+        if (! $document || ! $document->file) {
             return null;
         }
 
         $cdnUrl = config('filesystems.disks.s3.cdn_url');
         if ($cdnUrl) {
-            return rtrim($cdnUrl, '/') . '/' . $document->file;
+            return rtrim($cdnUrl, '/').'/'.$document->file;
         }
 
         return Storage::disk('s3')->temporaryUrl(

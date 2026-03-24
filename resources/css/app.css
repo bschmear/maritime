@@ -151,3 +151,91 @@ td.sticky {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
+@media print {
+    /*
+     * Contract preview is Teleported to <body>, so the DOM order is:
+     *   body > #app (full page layout — lots of height)
+     *   body > .contract-preview-overlay (our print target)
+     *
+     * PROBLEM A — blank pages: `visibility:hidden` hides layout but keeps height,
+     *   so #app produces 2–3 blank pages before the contract starts.
+     * FIX: `display:none` #app entirely when the overlay is present (`:has()` selector).
+     *
+     * PROBLEM B — repeated pages: `position:fixed` on the overlay makes browsers
+     *   stamp the same content on every page.
+     * FIX: reset the overlay to normal flow (`position:static`).
+     */
+
+    /* Remove #app's layout height so the contract starts at page top */
+    body:has(.contract-preview-overlay) #app {
+        display: none !important;
+    }
+
+    /* Reset the Teleport overlay from fixed → static flow */
+    .contract-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+    }
+
+    .contract-preview-shell {
+        min-height: 0 !important;
+        background: white !important;
+    }
+
+    /* Visibility trick: hide stray elements but let the print root and its
+       descendants show (works even inside hidden ancestors) */
+    body * {
+        visibility: hidden;
+    }
+
+    #contract-print-root,
+    #contract-print-root * {
+        visibility: visible;
+    }
+
+    #contract-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+    }
+
+    html,
+    body {
+        background: white !important;
+    }
+
+    /* Reset page */
+    @page { margin: 0.75in; size: letter; }
+
+    /* Hide screen-only elements */
+    .print\:hidden { display: none !important; }
+
+    /* Remove backgrounds that waste ink, but keep border lines */
+    .print-no-bg { background: white !important; color: black !important; }
+
+    /* Avoid breaking inside key sections */
+    .print\:break-inside-avoid { break-inside: avoid; }
+
+    /* Make the document full-width */
+    #contract-print-document {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* Don’t repeat table column headers on each printed page */
+    #contract-print-document thead {
+        display: table-row-group;
+    }
+
+    #contract-print-document tfoot {
+        display: table-row-group;
+    }
+}

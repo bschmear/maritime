@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\PaymentTermsCast;
 use Illuminate\Database\Eloquent\Model;
 
 class AccountSettings extends Model
@@ -21,7 +22,12 @@ class AccountSettings extends Model
         'auto_assign_work_orders',
         'settings',
         'service_ticket_ack_text',
-        'estimate_threshold_percent'
+        'estimate_threshold_percent',
+        'service_ticket_signed_notify_user_id',
+        'default_contract_terms',
+        'default_payment_term',
+        'default_payment_terms',
+        'default_delivery_terms',
     ];
 
     protected $casts = [
@@ -29,6 +35,7 @@ class AccountSettings extends Model
         'week_starts_on_monday' => 'boolean',
         'auto_assign_work_orders' => 'boolean',
         'settings' => 'array',
+        'default_payment_term' => PaymentTermsCast::class,
     ];
 
     protected $appends = ['logo_url'];
@@ -44,7 +51,7 @@ class AccountSettings extends Model
         // TODO: Re-enable caching when Redis is properly configured
         $settings = static::first();
 
-        if (!$settings) {
+        if (! $settings) {
             $settings = static::create([
                 'timezone' => 'America/Chicago',
                 'date_format' => 'Y-m-d',
@@ -64,7 +71,7 @@ class AccountSettings extends Model
      */
     public function getLogoUrlAttribute(): ?string
     {
-        if (!$this->logo_file) {
+        if (! $this->logo_file) {
             return null;
         }
 
@@ -72,7 +79,8 @@ class AccountSettings extends Model
         if ($cdnUrl) {
             // Remove trailing slash from CDN URL to avoid double slashes
             $cdnUrl = rtrim($cdnUrl, '/');
-            return $cdnUrl . '/' . $this->logo_file;
+
+            return $cdnUrl.'/'.$this->logo_file;
         }
 
         // Generate temporary signed URL with cache headers (valid for 7 days)

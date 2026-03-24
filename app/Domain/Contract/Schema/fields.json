@@ -1,10 +1,10 @@
 {
     "fields": {
-        "contact_id": {
-            "label": "Contact",
+        "customer_id": {
+            "label": "Customer",
             "type": "record",
-            "typeDomain": "Contact",
-            "relationship": "contact",
+            "typeDomain": "Customer",
+            "relationship": "customer",
             "required": true
         },
         "estimate_id": {
@@ -19,11 +19,6 @@
             "typeDomain": "Transaction",
             "relationship": "transaction"
         },
-        "contract_number": {
-            "label": "Contract #",
-            "type": "text",
-            "readOnly": true
-        },
         "status": {
             "label": "Status",
             "type": "select",
@@ -36,6 +31,11 @@
             "enum": "App\\Enums\\Contract\\ContractPaymentStatus",
             "default": "pending"
         },
+        "sequence": {
+            "label": "Sequence",
+            "type": "number",
+            "readOnly": true
+        },
         "total_amount": {
             "label": "Total Amount",
             "type": "currency",
@@ -46,13 +46,26 @@
             "type": "text",
             "default": "USD"
         },
+        "payment_term": {
+            "label": "Payment term",
+            "type": "select",
+            "enum": "App\\Enums\\Payments\\Terms",
+            "default": "due_on_receipt",
+            "description": "Standard payment schedule (e.g. Net 30)"
+        },
         "payment_terms": {
             "label": "Payment Terms",
-            "type": "textarea"
+            "type": "textarea",
+            "description": "Detailed payment terms text"
         },
         "delivery_terms": {
             "label": "Delivery Terms",
             "type": "textarea"
+        },
+        "contract_terms": {
+            "label": "Contract terms",
+            "type": "textarea",
+            "description": "General agreement / body terms"
         },
         "notes": {
             "label": "Notes",

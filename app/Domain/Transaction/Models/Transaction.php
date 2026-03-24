@@ -5,7 +5,9 @@ namespace App\Domain\Transaction\Models;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +25,8 @@ class Transaction extends Model
     protected $table = 'transactions';
 
     protected $guarded = ['id'];
+
+    protected $appends = ['display_name'];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
@@ -83,6 +87,16 @@ class Transaction extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function subsidiary(): BelongsTo
+    {
+        return $this->belongsTo(Subsidiary::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(Location::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(TransactionItem::class)->orderBy('position')->orderBy('id');
@@ -91,5 +105,10 @@ class Transaction extends Model
     public function contract(): HasOne
     {
         return $this->hasOne(Contract::class);
+    }
+
+    public function getDisplayNameAttribute()
+    {
+        return 'DL-'.($this->sequence ?: $this->id ?: '???');
     }
 }

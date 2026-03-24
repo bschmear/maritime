@@ -16,11 +16,13 @@ class CreateTransaction
 {
     public function __invoke(array $data): array
     {
-        $validated = Validator::make($data, [
+        $validator = Validator::make($data, [
             'customer_id' => ['required', 'integer', 'exists:customers,id'],
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'opportunity_id' => ['nullable', 'integer', 'exists:opportunities,id'],
+            'subsidiary_id' => ['nullable', 'integer', 'exists:subsidiaries,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'status' => ['nullable'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_email' => ['nullable', 'string', 'max:255'],
@@ -47,7 +49,22 @@ class CreateTransaction
             'loss_reason' => ['nullable', 'string'],
             'needs_contract' => ['sometimes', 'boolean'],
             'needs_delivery' => ['sometimes', 'boolean'],
-        ])->validate();
+        ]);
+        $validator->after(function ($validator) use ($data) {
+            $locId = $data['location_id'] ?? null;
+            $subId = $data['subsidiary_id'] ?? null;
+            if (! $locId || ! $subId) {
+                return;
+            }
+            $ok = DB::table('location_subsidiary')
+                ->where('location_id', $locId)
+                ->where('subsidiary_id', $subId)
+                ->exists();
+            if (! $ok) {
+                $validator->errors()->add('location_id', 'The selected location is not linked to this subsidiary.');
+            }
+        });
+        $validated = $validator->validate();
 
         $payload = FillTransactionCustomerSnapshot::merge($validated);
         $payload['status'] = TransactionEnumMapper::statusToValue($payload['status'] ?? null);
@@ -63,6 +80,8 @@ class CreateTransaction
             $payload['user'],
             $payload['estimate'],
             $payload['opportunity'],
+            $payload['subsidiary'],
+            $payload['location'],
         );
 
         $itemsData = is_array($data['items'] ?? null) ? $data['items'] : [];

@@ -128,7 +128,9 @@ class TransactionController extends BaseController
         }
         if (! in_array('id', $actualColumns, true)) {
             $actualColumns[] = 'id';
+
         }
+        $actualColumns[] = 'sequence';
 
         $query = Transaction::query()
             ->select($actualColumns)
@@ -323,6 +325,8 @@ class TransactionController extends BaseController
                 'estimate' => fn ($q) => $q->select(['id', 'sequence', 'uuid', 'status']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
                 'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'contract_number', 'status']),
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select(['id', 'display_name']),
             ])
             ->findOrFail($id);
 
@@ -356,6 +360,8 @@ class TransactionController extends BaseController
                 'user' => fn ($q) => $q->select(['id', 'display_name']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select(['id', 'display_name']),
             ])
             ->findOrFail($id);
 

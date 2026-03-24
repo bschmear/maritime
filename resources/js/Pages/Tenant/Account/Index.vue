@@ -20,7 +20,15 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    paymentTermOptions: {
+        type: Array,
+        default: () => [],
+    },
 });
+
+const defaultContractTermsFallback = 'This agreement outlines the terms and conditions of the sale, including product details, payment obligations, and delivery expectations.';
+const defaultPaymentTermsFallback = 'Payment is due as specified in the contract. Please remit promptly.';
+const defaultDeliveryTermsFallback = 'Delivery will be scheduled according to contract terms. Customer will be notified in advance.';
 
 const form = useForm({
     logo: null,
@@ -29,6 +37,10 @@ const form = useForm({
     estimate_threshold_percent: parseInt(props.account?.estimate_threshold_percent, 10) || 20,
     service_ticket_ack_text: props.account?.service_ticket_ack_text || 'I acknowledge that all charges for services, labor, parts, materials, and applicable fees are due upon release of the property. I understand that I will be notified when work is complete. Storage fees may apply if the property is not picked up within 14 days from notification. Unclaimed property after 60 days may be subject to sale or disposal as permitted by law. I have reviewed and approved the estimate or scope of work and accept the associated charges.',
     service_ticket_signed_notify_user_id: props.account?.service_ticket_signed_notify_user_id || (props.users?.length > 0 ? props.users[0].id : null),
+    default_contract_terms: props.account?.default_contract_terms ?? defaultContractTermsFallback,
+    default_payment_term: props.account?.default_payment_term ?? 'due_on_receipt',
+    default_payment_terms: props.account?.default_payment_terms ?? defaultPaymentTermsFallback,
+    default_delivery_terms: props.account?.default_delivery_terms ?? defaultDeliveryTermsFallback,
 });
 
 const logoPreview = ref(props.account?.logo_url || null);
@@ -44,6 +56,13 @@ const selectedNotificationUser = computed(() => {
 // Check if the first user is selected (default behavior)
 const isFirstUserSelected = computed(() => {
     return props.users.length > 0 && form.service_ticket_signed_notify_user_id === props.users[0].id;
+});
+
+const selectedPaymentTermDescription = computed(() => {
+    const opt = props.paymentTermOptions.find(
+        (o) => o.value === form.default_payment_term || String(o.id) === String(form.default_payment_term),
+    );
+    return opt?.description ?? '';
 });
 
 const handleLogoChange = (event) => {
@@ -448,11 +467,121 @@ const submit = () => {
                             </div>
                         </div>
 
+                        <!-- Default transaction / contract terms -->
+                        <div class="p-6 border-t border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
+                                    <span class="material-icons text-violet-600 dark:text-violet-400">
+                                        receipt_long
+                                    </span>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                        Default transaction settings
+                                    </h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        Defaults for new contracts and deals (payment schedule, contract body, and term text)
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Default payment term (enum) -->
+                            <div class="mb-6 max-w-xl">
+                                <label for="default_payment_term" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Default payment term
+                                </label>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                    Standard payment schedule (e.g. Net 30) applied when creating contracts or transactions.
+                                </p>
+                                <select
+                                    id="default_payment_term"
+                                    v-model="form.default_payment_term"
+                                    class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option
+                                        v-for="opt in paymentTermOptions"
+                                        :key="opt.value"
+                                        :value="opt.value"
+                                    >
+                                        {{ opt.name }}
+                                    </option>
+                                </select>
+                                <p
+                                    v-if="selectedPaymentTermDescription"
+                                    class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+                                >
+                                    {{ selectedPaymentTermDescription }}
+                                </p>
+                                <p v-if="form.errors.default_payment_term" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.default_payment_term }}
+                                </p>
+                            </div>
+
+                            <!-- Default contract terms (body) -->
+                            <div class="mb-6">
+                                <label for="default_contract_terms" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Default contract terms
+                                </label>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                    General agreement language pre-filled on new contracts (sale terms, obligations, expectations).
+                                </p>
+                                <textarea
+                                    id="default_contract_terms"
+                                    v-model="form.default_contract_terms"
+                                    rows="5"
+                                    class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-y"
+                                    placeholder="This agreement outlines the terms and conditions..."
+                                />
+                                <p v-if="form.errors.default_contract_terms" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.default_contract_terms }}
+                                </p>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                                <div>
+                                    <label for="default_payment_terms" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Default payment terms (text)
+                                    </label>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                        Pre-filled on new contracts when no other terms are supplied.
+                                    </p>
+                                    <textarea
+                                        id="default_payment_terms"
+                                        v-model="form.default_payment_terms"
+                                        rows="6"
+                                        class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 resize-y"
+                                        placeholder="Payment is due as specified in the contract..."
+                                    />
+                                    <p v-if="form.errors.default_payment_terms" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        {{ form.errors.default_payment_terms }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label for="default_delivery_terms" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Default delivery terms
+                                    </label>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                        Pre-filled on new contracts and related records when created from a deal flow.
+                                    </p>
+                                    <textarea
+                                        id="default_delivery_terms"
+                                        v-model="form.default_delivery_terms"
+                                        rows="6"
+                                        class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 resize-y"
+                                        placeholder="Delivery will be scheduled according to contract terms..."
+                                    />
+                                    <p v-if="form.errors.default_delivery_terms" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                        {{ form.errors.default_delivery_terms }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Submit Button -->
                         <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
                             <div class="flex items-center justify-between">
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    Changes will be applied to all future service tickets and work orders
+                                    Changes apply to account defaults for future service tickets, work orders, and transactions
                                 </p>
                                 <button
                                     type="submit"

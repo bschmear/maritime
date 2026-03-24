@@ -2,9 +2,10 @@
 
 namespace App\Domain\Location\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
 
 class Location extends Model
 {
@@ -26,19 +27,21 @@ class Location extends Model
         'updated_at',
     ];
 
-
     public function created_by()
     {
         return $this->belongsTo(User::class, 'created_by_id')->select('id', 'display_name');
     }
+
     public function updated_by()
     {
         return $this->belongsTo(User::class, 'updated_by_id')->select('id', 'display_name');
     }
+
     public function manager_user()
     {
         return $this->belongsTo(User::class, 'manager_user_id')->select('id', 'display_name');
     }
+
     public function subsidiaries()
     {
         return $this->belongsToMany(
@@ -47,5 +50,8 @@ class Location extends Model
         )->withTimestamps();
     }
 
-
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'location_id');
+    }
 }

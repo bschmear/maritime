@@ -12,6 +12,8 @@
                 { "key": "user_id", "required": true },
                 { "key": "estimate_id", "required": false },
                 { "key": "opportunity_id", "required": false },
+                { "key": "subsidiary_id", "required": false },
+                { "key": "location_id", "required": false },
                 { "key": "needs_contract", "required": false },
                 { "key": "needs_delivery", "required": false }
             ]

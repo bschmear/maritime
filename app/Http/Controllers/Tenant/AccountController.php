@@ -1,7 +1,9 @@
 <?php
+
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
+use App\Enums\Payments\Terms;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
 use Illuminate\Http\Request;
@@ -65,6 +67,7 @@ class AccountController extends Controller
             'account' => $account,
             'timezones' => Timezone::options(),
             'users' => $users,
+            'paymentTermOptions' => Terms::options(),
         ]);
     }
 
@@ -80,6 +83,8 @@ class AccountController extends Controller
             'estimate_threshold_percent' => 'required|integer|min:0|max:100',
             'service_ticket_ack_text' => 'required|string|max:1000',
             'service_ticket_signed_notify_user_id' => 'nullable|exists:users,id',
+            'default_payment_terms' => 'nullable|string|max:20000',
+            'default_delivery_terms' => 'nullable|string|max:20000',
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -101,6 +106,10 @@ class AccountController extends Controller
         $account->estimate_threshold_percent = $validated['estimate_threshold_percent'];
         $account->service_ticket_ack_text = $validated['service_ticket_ack_text'];
         $account->service_ticket_signed_notify_user_id = $validated['service_ticket_signed_notify_user_id'] ?? null;
+        $account->default_contract_terms = $validated['default_contract_terms'] ?? null;
+        $account->default_payment_term = $validated['default_payment_term'] ?? Terms::DueOnReceipt->value;
+        $account->default_payment_terms = $validated['default_payment_terms'] ?? null;
+        $account->default_delivery_terms = $validated['default_delivery_terms'] ?? null;
 
         $account->save();
 

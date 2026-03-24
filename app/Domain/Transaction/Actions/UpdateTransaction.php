@@ -17,11 +17,13 @@ class UpdateTransaction
 {
     public function __invoke(int $id, array $data): array
     {
-        $validated = Validator::make($data, [
+        $validator = Validator::make($data, [
             'customer_id' => ['sometimes', 'required', 'integer', 'exists:customers,id'],
             'user_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'opportunity_id' => ['nullable', 'integer', 'exists:opportunities,id'],
+            'subsidiary_id' => ['nullable', 'integer', 'exists:subsidiaries,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'status' => ['nullable'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_email' => ['nullable', 'string', 'max:255'],
@@ -48,7 +50,26 @@ class UpdateTransaction
             'loss_reason' => ['nullable', 'string'],
             'needs_contract' => ['sometimes', 'boolean'],
             'needs_delivery' => ['sometimes', 'boolean'],
-        ])->validate();
+        ]);
+        $validator->after(function ($validator) use ($data, $id) {
+            $effectiveSub = array_key_exists('subsidiary_id', $data)
+                ? $data['subsidiary_id']
+                : RecordModel::query()->whereKey($id)->value('subsidiary_id');
+            $effectiveLoc = array_key_exists('location_id', $data)
+                ? $data['location_id']
+                : RecordModel::query()->whereKey($id)->value('location_id');
+            if (! $effectiveLoc || ! $effectiveSub) {
+                return;
+            }
+            $ok = DB::table('location_subsidiary')
+                ->where('location_id', $effectiveLoc)
+                ->where('subsidiary_id', $effectiveSub)
+                ->exists();
+            if (! $ok) {
+                $validator->errors()->add('location_id', 'The selected location is not linked to this subsidiary.');
+            }
+        });
+        $validated = $validator->validate();
 
         $payload = FillTransactionCustomerSnapshot::merge($validated);
         unset(
@@ -60,6 +81,8 @@ class UpdateTransaction
             $payload['user'],
             $payload['estimate'],
             $payload['opportunity'],
+            $payload['subsidiary'],
+            $payload['location'],
         );
 
         if (array_key_exists('status', $payload)) {

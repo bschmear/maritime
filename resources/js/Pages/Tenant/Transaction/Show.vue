@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -260,6 +260,46 @@ const stepperSteps = computed(() => {
     return steps;
 });
 
+// ─── Grand total (all items + addons, including tax) ──────────────────────
+const computedGrandTotal = computed(() => {
+    let total = 0;
+    for (const item of items.value) {
+        total += lineBaseTotal(item) + taxOnItemBase(item);
+        for (const addon of (item.addons || [])) {
+            total += addonPreTaxTotal(addon) + taxOnAddon(addon);
+        }
+    }
+    return roundMoney(total);
+});
+
+// ─── Create contract modal ─────────────────────────────────────────────────
+const createContractModal = ref(false);
+
+const contractForm = useForm({
+    transaction_id: props.record.id,
+    customer_id: props.record.customer_id,
+    estimate_id: props.record.estimate_id ?? null,
+    total_amount: 0,
+    currency: props.record.currency || 'USD',
+    notes: '',
+    signature_required: true,
+});
+
+const openCreateContractModal = () => {
+    contractForm.total_amount = computedGrandTotal.value;
+    createContractModal.value = true;
+};
+
+const submitContract = () => {
+    contractForm.post(route('contracts.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            createContractModal.value = false;
+        },
+    });
+};
+
+// ─── Optional step confirm modal ──────────────────────────────────────────
 const confirmModal = ref({ show: false, type: null });
 
 const openOptionalModal = (type) => {
@@ -271,7 +311,13 @@ const confirmAddStep = () => {
         [confirmModal.value.type === 'contract' ? 'needs_contract' : 'needs_delivery']: true,
     }, {
         preserveScroll: true,
-        onSuccess: () => { confirmModal.value = { show: false, type: null }; },
+        onSuccess: () => {
+            const type = confirmModal.value.type;
+            confirmModal.value = { show: false, type: null };
+            if (type === 'contract') {
+                openCreateContractModal();
+            }
+        },
     });
 };
 </script>
@@ -425,6 +471,93 @@ const confirmAddStep = () => {
     </div>
 </div>
 
+<!-- ─── Create Contract Modal ──────────────────────────────────────────── -->
+<div v-if="createContractModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @click.self="createContractModal = false">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-3">
+                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20">
+                    <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">gavel</span>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Create Contract</h3>
+            </div>
+            <button type="button" @click="createContractModal = false"
+                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                <span class="material-icons">close</span>
+            </button>
+        </div>
+
+        <!-- Body -->
+        <form @submit.prevent="submitContract" class="p-6 space-y-4">
+
+            <!-- Validation errors -->
+            <div v-if="Object.keys(contractForm.errors).length" class="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300 space-y-1">
+                <p v-for="(msg, field) in contractForm.errors" :key="field">{{ msg }}</p>
+            </div>
+
+            <!-- Total amount -->
+            <div>
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wide">
+                    Contract Amount <span class="text-red-500">*</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-3 flex items-center text-gray-500 dark:text-gray-400 text-sm">$</span>
+                    <input
+                        v-model.number="contractForm.total_amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 pl-7 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    />
+                </div>
+                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Pre-filled from deal line items total</p>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wide">Notes</label>
+                <textarea
+                    v-model="contractForm.notes"
+                    rows="3"
+                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
+                    placeholder="Optional contract notes…"
+                />
+            </div>
+
+            <!-- Signature required -->
+            <div class="flex items-center gap-3">
+                <input
+                    id="sig-required"
+                    v-model="contractForm.signature_required"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                />
+                <label for="sig-required" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Signature required
+                </label>
+            </div>
+
+            <!-- Footer -->
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" @click="createContractModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" :disabled="contractForm.processing"
+                    class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors">
+                    <span v-if="contractForm.processing" class="material-icons text-sm animate-spin">refresh</span>
+                    <span v-else class="material-icons text-sm">save</span>
+                    Create Contract
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
             
             <!-- ─── MAIN COLUMN ─────────────────────────────────────────── -->
@@ -500,6 +633,18 @@ const confirmAddStep = () => {
                                         {{ record.opportunity?.display_name || `#${record.opportunity_id}` }}
                                     </Link>
                                 </div>
+                                <div v-if="record.subsidiary_id">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Subsidiary</p>
+                                    <Link :href="route('subsidiaries.show', record.subsidiary_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.subsidiary?.display_name || `#${record.subsidiary_id}` }}
+                                    </Link>
+                                </div>
+                                <div v-if="record.location_id">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Location</p>
+                                    <Link :href="route('locations.show', record.location_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                        {{ record.location?.display_name || `#${record.location_id}` }}
+                                    </Link>
+                                </div>
                             </div>
                         </div>
 
@@ -509,14 +654,40 @@ const confirmAddStep = () => {
                                 Next steps
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+
+                                <!-- Contract -->
                                 <div>
                                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs contract</p>
-                                    <p class="text-gray-900 dark:text-gray-100">{{ record.needs_contract ? 'Yes' : 'No' }}</p>
+                                    <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.needs_contract ? 'Yes' : 'No' }}</p>
+                                    <template v-if="record.needs_contract">
+                                        <a v-if="record.contract?.id"
+                                            :href="route('contracts.show', record.contract.id)"
+                                            class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                            <span class="material-icons text-sm">gavel</span>
+                                            View Contract
+                                        </a>
+                                        <button v-else type="button"
+                                            @click="openCreateContractModal"
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+                                            <span class="material-icons text-sm">add</span>
+                                            Create Contract
+                                        </button>
+                                    </template>
                                 </div>
+
+                                <!-- Delivery -->
                                 <div>
                                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs delivery</p>
-                                    <p class="text-gray-900 dark:text-gray-100">{{ record.needs_delivery ? 'Yes' : 'No' }}</p>
+                                    <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.needs_delivery ? 'Yes' : 'No' }}</p>
+                                    <template v-if="record.needs_delivery">
+                                        <a :href="route('deliveries.create')"
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+                                            <span class="material-icons text-sm">add</span>
+                                            Schedule Delivery
+                                        </a>
+                                    </template>
                                 </div>
+
                             </div>
                         </div>
 
