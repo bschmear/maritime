@@ -1,12 +1,12 @@
 <?php
-namespace App\Domain\InvoiceLine\Actions;
+namespace App\Domain\BoatShowEvent\Actions;
 
-use App\Domain\InvoiceLine\Models\InvoiceLine as RecordModel;
+use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
 
-class DeleteInvoiceLine
+class DeleteBoatShowEvent
 {
     public function __invoke(int $id): array
     {
@@ -19,7 +19,7 @@ class DeleteInvoiceLine
                 'message' => 'Record deleted successfully.',
             ];
         } catch (QueryException $e) {
-            Log::error('Database query error in DeleteInvoiceLine', [
+            Log::error('Database query error in DeleteBoatShowEvent', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);
@@ -28,7 +28,7 @@ class DeleteInvoiceLine
                 'message' => $e->getMessage(),
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in DeleteInvoiceLine', [
+            Log::error('Unexpected error in DeleteBoatShowEvent', [
                 'error' => $e->getMessage(),
                 'id' => $id
             ]);

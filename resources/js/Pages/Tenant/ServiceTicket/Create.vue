@@ -26,6 +26,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    transactionId: {
+        type: Number,
+        default: null,
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -328,6 +332,10 @@ const proceedToTicketForm = () => {
     if (selectedAssetUnit.value) {
         data.asset_unit_id = selectedAssetUnit.value.id;
         data.asset_unit = selectedAssetUnit.value; // Include full asset record
+    }
+
+    if (props.transactionId) {
+        data.transaction_id = props.transactionId;
     }
 
     initialFormData.value = data;

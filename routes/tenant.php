@@ -96,6 +96,9 @@ Route::middleware([
     Route::get('/deliveries/{uuid}/review', [PublicController::class, 'reviewDelivery'])->name('deliveries.review');
     Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])->name('deliveries.sign');
 
+    Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
+    Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
+
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -144,6 +147,7 @@ Route::middleware([
 
         Route::prefix('contracts')->name('contracts.')->group(function () {
             Route::resource('/', ContractController::class)->parameters(['' => 'contract']);
+            Route::post('/{contract}/send-to-customer', [ContractController::class, 'sendToCustomer'])->name('send-to-customer');
         });
 
         Route::prefix('addons')->name('addons.')->group(function () {
@@ -219,6 +223,37 @@ Route::middleware([
             Route::post('/{id}/send-approval-request', [ServiceTicketController::class, 'sendApprovalRequest'])->name('send-approval-request');
             Route::get('/{id}/approval-url', [ServiceTicketController::class, 'getApprovalUrl'])->name('approval-url');
             Route::resource('/', ServiceTicketController::class)->parameters(['' => 'serviceticket']);
+        });
+
+        // ── Boat Shows ────────────────────────────────────────────────
+        Route::prefix('boat-shows')->name('boat-shows.')->group(function () {
+            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowController::class)
+                ->parameters(['' => 'boatShow']);
+
+            // Boat Show Events
+            Route::prefix('{boatShow}/events')->name('events.')->group(function () {
+                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
+                    ->parameters(['' => 'event']);
+            });
+
+            // Boat Show Leads
+            Route::prefix('{boatShow}/leads')->name('leads.')->group(function () {
+                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLeadController::class)
+                    ->parameters(['' => 'lead']);
+            });
+
+            // Boat Show Layouts
+            Route::prefix('{boatShow}/layouts')->name('layouts.')->group(function () {
+                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLayoutController::class)
+                    ->parameters(['' => 'layout']);
+
+                // Optional: attach boats to layout
+                Route::prefix('{layout}/boats')->name('boats.')->group(function () {
+                    Route::post('/', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'store'])->name('store');
+                    Route::put('/{boat}', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'update'])->name('update');
+                    Route::delete('/{boat}', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'destroy'])->name('destroy');
+                });
+            });
         });
 
         // Route::prefix('inventory')->group(function () {

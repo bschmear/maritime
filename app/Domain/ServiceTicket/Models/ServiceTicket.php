@@ -87,6 +87,11 @@ class ServiceTicket extends Model
         return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
     }
 
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Transaction\Models\Transaction::class);
+    }
+
     public function location(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\Location\Models\Location::class);

@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
+use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\ServiceTicketApproved;
 use App\Models\Account;
@@ -164,6 +166,46 @@ class NotificationService
         } catch (\Exception $e) {
             Log::error('Failed to notify delivery signed', [
                 'delivery_id' => $delivery->id,
+                'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Contract
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function notifyContractSigned(Contract $contract, AccountSettings $account): void
+    {
+        try {
+            $contract->loadMissing(['customer', 'transaction.user']);
+
+            $notifyUser = $contract->transaction?->user ?? $this->getAccountOwner();
+
+            if (! $notifyUser) {
+                Log::warning('No user found to notify for contract signed', [
+                    'contract_id' => $contract->id,
+                ]);
+                return;
+            }
+
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type'                => 'contract_signed',
+                'title'               => 'Contract Signed',
+                'message'             => "Contract {$contract->contract_number} has been signed by {$contract->customer?->display_name}.",
+                'route'               => 'contracts.show',
+                'route_params'        => $contract->id,
+            ]);
+
+            Mail::to($notifyUser->email)->send(
+                new ContractSignedNotification($contract, $account, $notifyUser)
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Failed to notify contract signed', [
+                'contract_id' => $contract->id,
                 'error'       => $e->getMessage(),
                 'trace'       => $e->getTraceAsString(),
             ]);

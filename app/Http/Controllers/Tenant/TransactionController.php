@@ -325,6 +325,7 @@ class TransactionController extends BaseController
                 'estimate' => fn ($q) => $q->select(['id', 'sequence', 'uuid', 'status']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
                 'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'contract_number', 'status']),
+                'serviceTickets' => fn ($q) => $q->select(['id', 'transaction_id', 'service_ticket_number', 'status'])->orderByDesc('id')->limit(20),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
             ])

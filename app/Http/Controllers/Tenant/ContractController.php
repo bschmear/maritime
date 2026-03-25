@@ -12,12 +12,14 @@ use App\Enums\Contract\ContractStatus;
 use App\Enums\Payments\Terms;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Mail\ContractReviewRequest;
 use App\Models\AccountSettings;
 use App\Support\ContractEnumMapper;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Mail;
 
 class ContractController extends BaseController
 {
@@ -392,6 +394,29 @@ class ContractController extends BaseController
         }
 
         return redirect()->route('contracts.show', $contract);
+    }
+
+    public function sendToCustomer(int $contract)
+    {
+        $settings = AccountSettings::getCurrent();
+        $record = Contract::query()
+            ->where('account_settings_id', $settings->id)
+            ->with(['customer', 'transaction'])
+            ->findOrFail($contract);
+
+        $customerEmail = $record->customer?->email
+            ?? $record->transaction?->customer_email;
+
+        if (! $customerEmail) {
+            return back()->with('error', 'No customer email found for this contract.');
+        }
+
+        $record->update(['status' => ContractStatus::PendingApproval->value]);
+
+        $reviewUrl = route('contracts.review', $record->uuid);
+        Mail::to($customerEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
+
+        return back()->with('success', 'Contract sent to ' . $customerEmail);
     }
 
     public function destroy(int $contract)

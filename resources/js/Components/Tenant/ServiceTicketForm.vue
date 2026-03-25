@@ -551,6 +551,11 @@ if (!formData.hasOwnProperty('tax_rate')) {
     formData.tax_rate = props.record?.tax_rate ?? 0;
 }
 
+// Preserve transaction_id (not a schema field but needed for the FK relation)
+if (props.record?.transaction_id != null) {
+    formData.transaction_id = props.record.transaction_id;
+}
+
 const form = useForm(formData);
 
 // Initialize line items from record.service_items when editing
@@ -637,6 +642,11 @@ const submit = () => {
 
         allData.tax_rate = form.tax_rate;
         allData.status = form.status;
+
+        // Preserve transaction_id FK even though it's not in the schema
+        if (form.transaction_id != null) {
+            allData.transaction_id = form.transaction_id;
+        }
 
         // Add service items
         allData.service_items = lineItems.value.map((li, idx) => ({

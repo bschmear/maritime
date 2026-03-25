@@ -1,5 +1,182 @@
 {
-    "fields": [
-
-    ]
-}
+    "customer_id": {
+      "label": "Customer",
+      "type": "record",
+      "typeDomain": "Customer",
+      "required": true,
+      "create": true
+    },
+  
+    "transaction_id": {
+      "label": "Transaction",
+      "type": "record",
+      "typeDomain": "Transaction",
+      "nullable": true
+    },
+  
+    "contract_id": {
+      "label": "Contract",
+      "type": "record",
+      "typeDomain": "Contract",
+      "nullable": true
+    },
+  
+    "status": {
+      "label": "Status",
+      "type": "select",
+      "enum": "App\\Enums\\Invoice\\Status",
+      "default": "draft",
+      "required": true
+    },
+  
+    "sequence": {
+      "label": "Invoice Number",
+      "type": "text",
+      "readOnly": true,
+      "help": "Auto-generated invoice number"
+    },
+  
+    "currency": {
+      "label": "Currency",
+      "type": "text",
+      "default": "USD"
+    },
+  
+    "payment_term": {
+      "label": "Payment Terms",
+      "type": "select",
+      "enum": "App\\Enums\\Payments\\Term",
+      "default": "1"
+    },
+  
+    "due_at": {
+      "label": "Due Date",
+      "type": "date",
+      "nullable": true
+    },
+  
+    "customer_name": {
+      "label": "Customer Name",
+      "type": "text",
+      "help": "Snapshot of customer name at time of invoice"
+    },
+  
+    "customer_email": {
+      "label": "Customer Email",
+      "type": "email"
+    },
+  
+    "customer_phone": {
+      "label": "Customer Phone",
+      "type": "text"
+    },
+  
+    "billing_address_line1": {
+      "label": "Billing Address Line 1",
+      "type": "text"
+    },
+  
+    "billing_address_line2": {
+      "label": "Billing Address Line 2",
+      "type": "text",
+      "nullable": true
+    },
+  
+    "billing_city": {
+      "label": "City",
+      "type": "text"
+    },
+  
+    "billing_state": {
+      "label": "State",
+      "type": "text"
+    },
+  
+    "billing_postal": {
+      "label": "Postal Code",
+      "type": "text"
+    },
+  
+    "billing_country": {
+      "label": "Country",
+      "type": "text"
+    },
+  
+    "notes": {
+      "label": "Notes",
+      "type": "textarea",
+      "help": "Visible to customer on invoice"
+    },
+  
+    "subtotal": {
+      "label": "Subtotal",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "tax_total": {
+      "label": "Tax Total",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "discount_total": {
+      "label": "Discount Total",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "fees_total": {
+      "label": "Fees",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "total": {
+      "label": "Total",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "amount_paid": {
+      "label": "Amount Paid",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "amount_due": {
+      "label": "Amount Due",
+      "type": "currency",
+      "readOnly": true
+    },
+  
+    "sent_at": {
+      "label": "Sent At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "viewed_at": {
+      "label": "Viewed At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "paid_at": {
+      "label": "Paid At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "created_at": {
+      "label": "Created At",
+      "type": "datetime",
+      "readOnly": true
+    },
+  
+    "updated_at": {
+      "label": "Updated At",
+      "type": "datetime",
+      "readOnly": true
+    }
+  }

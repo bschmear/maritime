@@ -65,7 +65,13 @@ const paymentTextClass = computed(() => STATUS_TEXT[paymentInfo.value?.color] ??
 
 const isSigned = computed(() => props.record?.status === 'signed' || !!props.record?.signed_at);
 const isDraft = computed(() => props.record?.status === 'draft');
-const isSent = computed(() => props.record?.status === 'sent');
+const isSent = computed(() => props.record?.status === 'pending_approval');
+
+const sendToCustomer = () => {
+    if (confirm('Send this contract to the customer for electronic signature?')) {
+        router.post(route('contracts.send-to-customer', props.record.id));
+    }
+};
 
 const contractLabel = computed(() =>
     props.record?.display_name || `Contract #${props.record?.id}`
@@ -212,6 +218,15 @@ const closePreview = () => { showPreview.value = false; };
                             @click="openPreview">
                             <span class="material-icons text-base">visibility</span>
                             Preview
+                        </button>
+                        <button
+                            v-if="!isSigned && record.status !== 'cancelled' && record.status !== 'expired'"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                            @click="sendToCustomer"
+                        >
+                            <span class="material-icons text-base">send</span>
+                            Send to Customer
                         </button>
                         <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" @click="deleteContract">
                             <span class="material-icons text-base">delete</span>

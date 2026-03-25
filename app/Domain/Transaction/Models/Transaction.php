@@ -8,6 +8,7 @@ use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
@@ -95,6 +96,10 @@ class Transaction extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+    public function serviceTickets(): HasMany
+    {
+        return $this->hasMany(ServiceTicket::class);
     }
 
     public function items(): HasMany

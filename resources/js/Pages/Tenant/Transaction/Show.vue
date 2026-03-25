@@ -219,12 +219,25 @@ const stepperSteps = computed(() => {
         label: 'Invoice',
         icon:  'receipt_long',
         state: 'todo',
-        href:  null,
+        href:  route('invoices.create') + `?transaction_id=${props.record.id}&customer_id=${props.record.customer_id || ''}`,
+        createLabel: 'Create Invoice',
+    });
+
+    // ── Service Ticket ────────────────────────────────────────────────────
+    const tickets = props.record.service_tickets ?? [];
+    const hasTickets = tickets.length > 0;
+    const ticketDone    = hasTickets && tickets.every(t => [4, 5].includes(t.status));
+    const ticketActive  = hasTickets && tickets.some(t => [2, 3].includes(t.status));
+    steps.push({
+        key:   'service_ticket',
+        label: 'Service',
+        icon:  'build',
+        state: ticketDone ? 'complete' : ticketActive ? 'current' : hasTickets ? 'pending' : 'todo',
+        href:  hasTickets ? route('servicetickets.show', tickets[0].id) : null,
+        count: tickets.length,
     });
 
     // ── Delivery ──────────────────────────────────────────────────────────
-    // Deliveries link via asset_unit_id / work_order_id — no direct
-    // transaction_id FK exists yet, so state is derived from needs_delivery only.
     if (props.record.needs_delivery) {
         steps.push({
             key:   'delivery',
@@ -399,7 +412,8 @@ const confirmAddStep = () => {
                         'bg-green-500 border-green-500 text-white': step.state === 'complete',
                         'bg-blue-600 border-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900/40': step.state === 'current',
                         'bg-amber-400 border-amber-400 text-white': step.state === 'pending',
-                        'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500': step.state === 'todo',
+                        'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors': step.state === 'todo' && step.href,
+                        'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500': step.state === 'todo' && !step.href,
                         'bg-white dark:bg-gray-800 border-dashed border-gray-300 dark:border-gray-600 text-gray-300 dark:text-gray-600 hover:border-blue-400 hover:text-blue-400 cursor-pointer': step.state === 'optional',
                     }"
                 >
@@ -686,6 +700,42 @@ const confirmAddStep = () => {
                                             Schedule Delivery
                                         </a>
                                     </template>
+                                </div>
+
+                                <!-- Invoice -->
+                                <div>
+                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice</p>
+                                    <a :href="route('invoices.create') + `?transaction_id=${record.id}&customer_id=${record.customer_id || ''}`"
+                                        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+                                        <span class="material-icons text-sm">add</span>
+                                        Create Invoice
+                                    </a>
+                                </div>
+
+                                <!-- Service Tickets -->
+                                <div class="sm:col-span-2">
+                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Service Tickets</p>
+                                    <div v-if="record.service_tickets && record.service_tickets.length > 0" class="space-y-2 mb-3">
+                                        <a
+                                            v-for="ticket in record.service_tickets"
+                                            :key="ticket.id"
+                                            :href="route('servicetickets.show', ticket.id)"
+                                            class="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group"
+                                        >
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-icons text-base text-gray-400 group-hover:text-blue-500">build</span>
+                                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                                    {{ ticket.service_ticket_number || `#${ticket.id}` }}
+                                                </span>
+                                            </div>
+                                            <span class="material-icons text-gray-300 group-hover:text-blue-400 text-sm">chevron_right</span>
+                                        </a>
+                                    </div>
+                                    <a :href="route('servicetickets.create') + `?transaction_id=${record.id}`"
+                                        class="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 transition-colors">
+                                        <span class="material-icons text-sm">add</span>
+                                        Create Service Ticket
+                                    </a>
                                 </div>
 
                             </div>

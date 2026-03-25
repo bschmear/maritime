@@ -151,6 +151,15 @@ const secondaryNavItems = ref([
     },
 
     {
+        name: 'Boat Shows',
+        children: [
+            { name: 'All Shows', href: 'boat-shows.index' },
+            { name: 'Events', href: 'boat-shows.events.index' },
+            { name: 'Layouts', href: 'boat-shows.layouts.index' }
+        ]
+    },
+
+    {
         name: 'Productivity',
         children: [
             { name: 'Tasks', href: 'tasks.index' },

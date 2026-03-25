@@ -1,0 +1,35 @@
+{
+    "boat_show_id": {
+      "label": "Boat Show",
+      "type": "record",
+      "typeDomain": "BoatShow",
+      "relationship": "boatShow",
+      "validation": "required|exists:boat_shows,id",
+      "help": "The boat show this layout belongs to"
+    },
+  
+    "space_width": {
+      "label": "Space Width (ft)",
+      "type": "number",
+      "validation": "required|numeric|min:10|max:500",
+      "default": 50,
+      "help": "Width of the available floor space in feet"
+    },
+  
+    "space_height": {
+      "label": "Space Height (ft)",
+      "type": "number",
+      "validation": "required|numeric|min:10|max:500",
+      "default": 50,
+      "help": "Height of the available floor space in feet"
+    },
+  
+    "meta": {
+      "label": "Additional Settings",
+      "type": "json",
+      "validation": "nullable|array",
+      "hidden": true,
+      "help": "Extra configuration for layout (e.g., grid size, background color)"
+    },
+
+  }

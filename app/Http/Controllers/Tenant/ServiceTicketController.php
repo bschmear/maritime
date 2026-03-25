@@ -116,7 +116,7 @@ class ServiceTicketController extends BaseController
     /**
      * Show the form for creating a new service ticket.
      */
-    public function create()
+    public function create(Request $request)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
@@ -124,12 +124,17 @@ class ServiceTicketController extends BaseController
 
         $account = \App\Models\AccountSettings::getCurrent();
 
+        $transactionId = $request->filled('transaction_id')
+            ? (int) $request->get('transaction_id')
+            : null;
+
         return inertia('Tenant/ServiceTicket/Create', [
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
+            'transactionId' => $transactionId,
         ]);
     }
 
@@ -181,6 +186,10 @@ class ServiceTicketController extends BaseController
 
         $relationships['workOrders'] = function ($query) {
             $query->select(['id', 'service_ticket_id', 'display_name', 'work_order_number', 'status']);
+        };
+
+        $relationships['transaction'] = function ($query) {
+            $query->select(['id', 'title', 'sequence']);
         };
 
         $record = ServiceTicket::with($relationships)->findOrFail($id);

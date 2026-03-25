@@ -1,13 +1,13 @@
 <?php
-namespace App\Domain\InvoiceLine\Actions;
+namespace App\Domain\BoatShowEvent\Actions;
 
-use App\Domain\InvoiceLine\Models\InvoiceLine as RecordModel;
+use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
 use Throwable;
 
-class CreateInvoiceLine
+class CreateBoatShowEvent
 {
     public function __invoke(array $data): array
     {
@@ -23,7 +23,7 @@ class CreateInvoiceLine
                 'record' => $record,
             ];
         } catch (QueryException $e) {
-            Log::error('Database query error in CreateInvoiceLine', [
+            Log::error('Database query error in CreateBoatShowEvent', [
                 'error' => $e->getMessage(),
                 'data' => $data
             ]);
@@ -33,7 +33,7 @@ class CreateInvoiceLine
                 'record' => null,
             ];
         } catch (Throwable $e) {
-            Log::error('Unexpected error in CreateInvoiceLine', [
+            Log::error('Unexpected error in CreateBoatShowEvent', [
                 'error' => $e->getMessage(),
                 'data' => $data
             ]);

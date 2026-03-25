@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Enums\Contract\ContractStatus;
 use App\Enums\Estimate\EstimateStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
@@ -357,6 +359,103 @@ class PublicController extends Controller
         $delivery->refresh();
 
         $this->notifications->notifyDeliverySigned($delivery, $account);
+
+        return back();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Contract Review / Sign
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function reviewContract(Request $request, string $uuid)
+    {
+        $contract = Contract::where('uuid', $uuid)
+            ->with([
+                'customer',
+                'transaction' => fn ($q) => $q
+                    ->select([
+                        'id', 'title', 'sequence', 'customer_name', 'customer_email', 'customer_phone',
+                        'tax_rate', 'currency', 'subsidiary_id', 'location_id',
+                        'billing_address_line1', 'billing_address_line2', 'billing_city',
+                        'billing_state', 'billing_postal', 'billing_country',
+                    ])
+                    ->with([
+                        'items' => fn ($q2) => $q2->with('addons')->orderBy('position')->orderBy('id'),
+                        'subsidiary' => fn ($q2) => $q2->select(['id', 'display_name']),
+                        'location' => fn ($q2) => $q2->select([
+                            'id', 'display_name',
+                            'address_line_1', 'address_line_2', 'city', 'state', 'postal_code',
+                            'phone', 'email',
+                        ]),
+                    ]),
+            ])
+            ->firstOrFail();
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $contract->transaction?->subsidiary?->logo_url ?? $account->logo_url;
+
+        $recordArray = $contract->toArray();
+        $recordArray['created_at'] = $contract->created_at?->toISOString();
+        $recordArray['updated_at'] = $contract->updated_at?->toISOString();
+        $recordArray['signed_at'] = $contract->signed_at?->toISOString();
+        $recordArray['signature_url'] = $contract->signature_file
+            ? Storage::disk('s3')->temporaryUrl($contract->signature_file, now()->addHours(2))
+            : null;
+
+        return Inertia::render('Tenant/Public/ContractReview', [
+            'record' => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+        ]);
+    }
+
+    public function signContract(Request $request, string $uuid)
+    {
+        $contract = Contract::where('uuid', $uuid)->firstOrFail();
+
+        if ($contract->signed_at) {
+            return back();
+        }
+
+        $request->validate([
+            'signature_method' => 'required|in:draw,type',
+            'signature_data' => 'required|string',
+            'signed_name' => 'required|string|max:255',
+            'consent' => 'required|accepted',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        $signatureMethod = $request->signature_method === 'draw' ? 1 : 5;
+        $signatureFile = null;
+        if ($request->signature_method === 'draw') {
+            $signatureFile = $this->storeSignatureImage($request->signature_data, $contract->uuid);
+        }
+
+        $signatureHash = hash('sha256', json_encode([
+            'contract_id' => $contract->id,
+            'uuid' => $contract->uuid,
+            'total_amount' => (string) $contract->total_amount,
+            'signed_name' => $request->signed_name,
+            'timestamp' => now()->toISOString(),
+            'ip' => $request->ip(),
+        ]));
+
+        $contract->update([
+            'status' => ContractStatus::Signed->value,
+            'signed_at' => now(),
+            'signed_ip' => $request->ip(),
+            'signed_user_agent' => $request->userAgent(),
+            'signed_name' => $request->signed_name,
+            'customer_signature' => $request->signature_method === 'type' ? $request->signature_data : null,
+            'signature_method' => $signatureMethod,
+            'signature_hash' => $signatureHash,
+            'signature_file' => $signatureFile,
+        ]);
+
+        $contract->refresh();
+
+        $this->notifications->notifyContractSigned($contract, $account);
 
         return back();
     }

@@ -155,6 +155,14 @@ const closePreview = () => {
 const isLocked = computed(() => {
     return props.record.approved || props.record.signed_at || props.record.customer_signature;
 });
+
+const linkedTransaction = computed(() => {
+    if (!props.record.transaction_id) return null;
+    return {
+        id: props.record.transaction_id,
+        title: props.record.transaction?.title || `Deal #${props.record.transaction?.sequence || props.record.transaction_id}`,
+    };
+});
 </script>
 
 <template>
@@ -325,6 +333,14 @@ const isLocked = computed(() => {
                                 No
                             </span>
                         </div>
+                        <Link
+                            v-if="linkedTransaction"
+                            :href="route('transactions.show', linkedTransaction.id)"
+                            class="flex items-center justify-between sm:justify-start gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 sm:py-2.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
+                        >
+                            <span class="material-icons text-base text-blue-500 dark:text-blue-400">handshake</span>
+                            <span class="text-sm font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap group-hover:underline">{{ linkedTransaction.title }}</span>
+                        </Link>
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
                             <div class="flex items-center gap-2">
