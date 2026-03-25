@@ -1,153 +1,93 @@
 {
-    "display_name": {
-    "label": "Name",
-    "type": "text",
-    "validation": "required|string|max:255",
-    "help": "Name shown in the interface"
-    },
-    
     "boat_show_id": {
-    "label": "Boat Show",
-    "type": "record",
-    "typeDomain": "BoatShow",
-    "relationship": "show",
-    "validation": "required|exists:boat_shows,id",
-    "help": "Parent boat show"
+        "label": "Boat Show",
+        "type": "record",
+        "typeDomain": "BoatShow",
+        "relationship": "show",
+        "validation": "required|exists:boat_shows,id",
+        "help": "Parent boat show"
     },
-    
-    "name": {
-    "label": "Event Name",
-    "type": "text",
-    "validation": "nullable|string|max:255",
-    "help": "Optional custom name (e.g. 'VIP Weekend')"
+    "display_name": {
+        "label": "Display Name",
+        "type": "text",
+        "validation": "required|string|max:255",
+        "help": "Label for this event (e.g. Miami 2026)"
     },
-    
     "year": {
-    "label": "Year",
-    "type": "number",
-    "validation": "required|integer|min:2000|max:2100",
-    "help": "Event year"
+        "label": "Year",
+        "type": "number",
+        "validation": "required|integer|min:2000|max:2100",
+        "help": "Event year"
     },
-    
-    "start_date": {
-    "label": "Start Date",
-    "type": "date",
-    "validation": "required|date",
-    "help": "Event start date"
+    "starts_at": {
+        "label": "Starts",
+        "type": "date",
+        "validation": "nullable|date",
+        "help": "Start date"
     },
-    
-    "end_date": {
-    "label": "End Date",
-    "type": "date",
-    "validation": "required|date|after_or_equal:start_date",
-    "help": "Event end date"
+    "ends_at": {
+        "label": "Ends",
+        "type": "date",
+        "validation": "nullable|date|after_or_equal:starts_at",
+        "help": "End date"
     },
-    
-    "status": {
-    "label": "Status",
-    "type": "select",
-    "validation": "required|in:planning,active,completed,cancelled",
-    "default": "planning",
-    "options": [
-    { "id": "planning", "name": "Planning" },
-    { "id": "active", "name": "Active" },
-    { "id": "completed", "name": "Completed" },
-    { "id": "cancelled", "name": "Cancelled" }
-    ]
+    "venue": {
+        "label": "Venue",
+        "type": "text",
+        "validation": "nullable|string|max:255",
+        "help": "Venue or marina name"
     },
-    
-    "venue_name": {
-    "label": "Venue Name",
-    "type": "text",
-    "validation": "nullable|string|max:255",
-    "help": "Name of the marina or convention center"
-    },
-    
-    "address_line1": {
-    "label": "Address Line 1",
-    "type": "text",
-    "validation": "nullable|string|max:255"
-    },
-    
-    "address_line2": {
-    "label": "Address Line 2",
-    "type": "text",
-    "validation": "nullable|string|max:255"
-    },
-    
     "city": {
-    "label": "City",
-    "type": "text",
-    "validation": "nullable|string|max:255"
+        "label": "City",
+        "type": "text",
+        "validation": "nullable|string|max:255"
     },
-    
     "state": {
-    "label": "State",
-    "type": "text",
-    "validation": "nullable|string|max:255"
+        "label": "State / Region",
+        "type": "text",
+        "validation": "nullable|string|max:255"
     },
-    
-    "postal": {
-    "label": "Postal Code",
-    "type": "text",
-    "validation": "nullable|string|max:20"
-    },
-    
     "country": {
-    "label": "Country",
-    "type": "text",
-    "validation": "nullable|string|max:255",
-    "default": "United States"
+        "label": "Country",
+        "type": "text",
+        "validation": "nullable|string|max:255"
     },
-    
     "latitude": {
-    "label": "Latitude",
-    "type": "number",
-    "validation": "nullable|numeric"
+        "label": "Latitude",
+        "type": "number",
+        "validation": "nullable|numeric"
     },
-    
     "longitude": {
-    "label": "Longitude",
-    "type": "number",
-    "validation": "nullable|numeric"
+        "label": "Longitude",
+        "type": "number",
+        "validation": "nullable|numeric"
     },
-    
-    "description": {
-    "label": "Description",
-    "type": "textarea",
-    "validation": "nullable|string|max:2000",
-    "help": "Details about this specific event"
+    "booth": {
+        "label": "Booth",
+        "type": "text",
+        "validation": "nullable|string|max:255",
+        "help": "Booth or space identifier"
     },
-    
-    "banner": {
-    "label": "Event Banner",
-    "type": "image",
-    "validation": "nullable|image|max:4096",
+    "active": {
+        "label": "Active",
+        "type": "boolean",
+        "validation": "boolean",
+        "default": true
+    },
     "meta": {
-    "directory": "boat-shows/events/banner",
-    "private": false,
-    "max_width": 1600,
-    "ratio": "16/9"
-    }
+        "label": "Additional Data",
+        "type": "json",
+        "validation": "nullable|array",
+        "hidden": true
     },
-    
-    "meta": {
-    "label": "Additional Data",
-    "type": "json",
-    "validation": "nullable|array",
-    "hidden": true
-    },
-    
     "created_at": {
-    "label": "Created At",
-    "type": "datetime",
-    "readOnly": true
+        "label": "Created At",
+        "type": "datetime",
+        "readOnly": true
     },
-    
     "updated_at": {
-    "label": "Updated At",
-    "type": "datetime",
-    "readOnly": true
+        "label": "Updated At",
+        "type": "datetime",
+        "readOnly": true
     }
-    }
-    
+}

@@ -1,19 +1,16 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
-  "form": {
-    "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+    "settings": {
+        "max_width": "4xl"
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+    "form": {
+        "primary": {
+            "label": "Boat show",
+            "fields": [
+                { "key": "display_name", "required": true },
+                { "key": "description" },
+                { "key": "website" },
+                { "key": "logo" }
+            ]
+        }
     }
-  }
 }

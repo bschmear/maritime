@@ -2,15 +2,15 @@
 
 namespace App\Domain\Task\Models;
 
+use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Concerns\HasDocuments;
 
 class Task extends Model
 {
-    use SoftDeletes;
     use HasDocuments;
+    use SoftDeletes;
 
     protected $fillable = [
         'display_name',
@@ -74,4 +74,7 @@ class Task extends Model
         return $this->morphTo();
     }
 
+    /**
+     * Get the task type.
+     */
 }

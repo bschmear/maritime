@@ -1,88 +1,49 @@
 {
     "display_name": {
-    "label": "Name",
-    "type": "text",
-    "validation": "required|string|max:255",
-    "help": "Name shown in the interface"
+        "label": "Show Name",
+        "type": "text",
+        "validation": "required|string|max:255",
+        "help": "Official name of the boat show"
     },
-    
-    "name": {
-    "label": "Show Name",
-    "type": "text",
-    "validation": "required|string|max:255",
-    "help": "Official name of the boat show"
-    },
-    
-    "slug": {
-    "label": "Slug",
-    "type": "text",
-    "validation": "nullable|string|max:255|unique:boat_shows,slug",
-    "hidden": true,
-    "help": "Auto-generated URL slug"
-    },
-    
     "description": {
-    "label": "Description",
-    "type": "textarea",
-    "validation": "nullable|string|max:2000",
-    "help": "Overview or details about the boat show"
+        "label": "Description",
+        "type": "textarea",
+        "validation": "nullable|string|max:2000",
+        "help": "Overview or details about the boat show"
     },
-    
     "website": {
-    "label": "Website",
-    "type": "url",
-    "validation": "nullable|url|max:255",
-    "help": "Official website for the boat show"
+        "label": "Website",
+        "type": "text",
+        "validation": "nullable|url|max:255",
+        "help": "Official website for the boat show"
     },
-    
     "logo": {
-    "label": "Logo",
-    "type": "image",
-    "validation": "nullable|image|max:2048",
-    "help": "Upload the boat show logo (transparent preferred)",
+        "label": "Logo",
+        "type": "image",
+        "validation": "nullable|image|max:2048",
+        "help": "Upload the boat show logo (transparent preferred)",
+        "meta": {
+            "directory": "boat-shows/logo",
+            "private": false,
+            "max_width": 500,
+            "ratio": "1/1"
+        }
+    },
     "meta": {
-    "directory": "boat-shows/logo",
-    "private": false,
-    "max_width": 500,
-    "ratio": "1/1"
-    }
+        "label": "Additional Data",
+        "type": "json",
+        "validation": "nullable|array",
+        "hidden": true,
+        "help": "Flexible metadata for future use"
     },
-    
-    "banner": {
-    "label": "Banner Image",
-    "type": "image",
-    "validation": "nullable|image|max:4096",
-    "help": "Large banner image for marketing/display",
-    "meta": {
-    "directory": "boat-shows/banner",
-    "private": false,
-    "max_width": 1600,
-    "ratio": "16/9"
-    }
+    "created_at": {
+        "label": "Created At",
+        "type": "datetime",
+        "readOnly": true
     },
-    
-    "is_active": {
-    "label": "Active",
-    "type": "boolean",
-    "validation": "boolean",
-    "default": true,
-    "help": "Toggle visibility of this boat show"
-    },
-    
-    "featured": {
-    "label": "Featured",
-    "type": "boolean",
-    "validation": "boolean",
-    "default": false,
-    "help": "Highlight this show in marketplace listings"
-    },
-    
-    "meta": {
-    "label": "Additional Data",
-    "type": "json",
-    "validation": "nullable|array",
-    "hidden": true,
-    "help": "Flexible metadata for future use (sponsors, links, etc.)"
+    "updated_at": {
+        "label": "Updated At",
+        "type": "datetime",
+        "readOnly": true
     }
 }
-    

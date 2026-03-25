@@ -2,45 +2,39 @@
 
 namespace App\Domain\BoatShowLayout\Models;
 
+use App\Domain\BoatShowEvent\Models\BoatShowEvent;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BoatShowLayout extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'boat_show_layouts';
 
     protected $fillable = [
-        'boat_show_id',
-        'space_width',
-        'space_height',
-        'meta', // store JSON for additional layout settings
+        'boat_show_event_id',
+        'name',
+        'width_ft',
+        'height_ft',
+        'grid_size',
+        'scale',
+        'meta',
     ];
 
     protected $casts = [
         'meta' => 'array',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
-    |--------------------------------------------------------------------------
-    */
-
-    public function boatShow(): BelongsTo
+    public function event(): BelongsTo
     {
-        return $this->belongsTo(
-            \App\Domain\BoatShow\Models\BoatShow::class,
-            'boat_show_id'
-        );
+        return $this->belongsTo(BoatShowEvent::class, 'boat_show_event_id');
     }
 
-    public function boats(): HasMany
+    public function items(): HasMany
     {
-        return $this->hasMany(
-            \App\Domain\BoatShowLayout\Models\BoatShowLayoutBoat::class,
-            'layout_id'
-        );
+        return $this->hasMany(BoatShowLayoutItem::class, 'layout_id');
     }
 }

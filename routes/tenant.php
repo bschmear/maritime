@@ -226,33 +226,32 @@ Route::middleware([
         });
 
         // ── Boat Shows ────────────────────────────────────────────────
+        Route::prefix('boat-show-events')->name('boat-show-events.')->group(function () {
+            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
+                ->parameters(['' => 'event']);
+        });
+
+        Route::prefix('boat-show-layouts')->name('boat-show-layouts.')->group(function () {
+            Route::post('/{layout}/sync', [\App\Http\Controllers\Tenant\BoatShowLayoutController::class, 'sync'])->name('sync');
+            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLayoutController::class)
+                ->parameters(['' => 'layout']);
+        });
+
         Route::prefix('boat-shows')->name('boat-shows.')->group(function () {
             Route::resource('/', \App\Http\Controllers\Tenant\BoatShowController::class)
                 ->parameters(['' => 'boatShow']);
 
-            // Boat Show Events
+            // Boat Show Events (scoped under a show)
             Route::prefix('{boatShow}/events')->name('events.')->group(function () {
                 Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
                     ->parameters(['' => 'event']);
             });
 
-            // Boat Show Leads
-            Route::prefix('{boatShow}/leads')->name('leads.')->group(function () {
-                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLeadController::class)
-                    ->parameters(['' => 'lead']);
-            });
-
-            // Boat Show Layouts
+            // Boat Show Layouts (scoped under a show)
             Route::prefix('{boatShow}/layouts')->name('layouts.')->group(function () {
+                Route::post('/{layout}/sync', [\App\Http\Controllers\Tenant\BoatShowLayoutController::class, 'sync'])->name('sync');
                 Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLayoutController::class)
                     ->parameters(['' => 'layout']);
-
-                // Optional: attach boats to layout
-                Route::prefix('{layout}/boats')->name('boats.')->group(function () {
-                    Route::post('/', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'store'])->name('store');
-                    Route::put('/{boat}', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'update'])->name('update');
-                    Route::delete('/{boat}', [\App\Http\Controllers\Tenant\BoatShowLayoutBoatController::class, 'destroy'])->name('destroy');
-                });
             });
         });
 

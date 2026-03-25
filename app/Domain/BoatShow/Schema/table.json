@@ -1,5 +1,6 @@
 {
     "columns": [
-
+        { "key": "display_name", "label": "Name", "sortable": true },
+        { "key": "website", "label": "Website", "sortable": false }
     ]
 }

@@ -3,8 +3,10 @@
 namespace App\Domain\BoatShow\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class BoatShow extends Model
 {
@@ -13,18 +15,30 @@ class BoatShow extends Model
     protected $table = 'boat_shows';
 
     protected $fillable = [
-        'name',
+        'display_name',
         'slug',
         'description',
         'website',
         'logo',
-        'banner',
         'meta',
     ];
 
     protected $casts = [
         'meta' => 'array',
     ];
+
+    protected static function booted()
+    {
+        static::creating(function ($record) {
+            if (empty($record->uuid)) {
+                $record->uuid = (string) Str::uuid();
+            }
+            if (empty($record->sequence)) {
+                $next = (int) (DB::table('boat_shows')->max('sequence') ?? 999);
+                $record->sequence = $next + 1;
+            }
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -35,23 +49,8 @@ class BoatShow extends Model
     public function events(): HasMany
     {
         return $this->hasMany(
-            \App\Domain\BoatShow\Models\BoatShowEvent::class
+            \App\Domain\BoatShowEvent\Models\BoatShowEvent::class,
+            'boat_show_id'
         );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Helpers
-    |--------------------------------------------------------------------------
-    */
-
-    public function getRouteKeyName(): string
-    {
-        return 'slug';
-    }
-
-    public function getDisplayNameAttribute(): string
-    {
-        return $this->name;
     }
 }

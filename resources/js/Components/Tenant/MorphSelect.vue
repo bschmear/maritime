@@ -22,6 +22,10 @@ const props = defineProps({
     id: {
         type: String,
         required: true
+    },
+    initialDisplayName: {
+        type: String,
+        default: ''
     }
 });
 
@@ -30,7 +34,7 @@ const emit = defineEmits(['update:modelValue', 'update:selectedType']);
 const showModal = ref(false);
 const selectedMorphType = ref(props.selectedType || '');
 const selectedRecordId = ref(props.modelValue || null);
-const selectedRecordName = ref('');
+const selectedRecordName = ref(props.initialDisplayName || '');
 const records = ref([]);
 const searchQuery = ref('');
 const isLoading = ref(false);
@@ -127,6 +131,31 @@ watch(searchQuery, async () => {
     await fetchRecords();
 });
 
+/**
+ * When domain + "s.index" does not match Ziggy (e.g. BoatShowEvent → boatshowevents.index).
+ * Key = morph type `value` (model FQCN).
+ */
+const MORPH_INDEX_ROUTE_BY_MODEL = {
+    'App\\Domain\\BoatShowEvent\\Models\\BoatShowEvent': 'boat-show-events.index',
+};
+
+/**
+ * Ziggy route name for the tenant index used to list records for this morph type.
+ * Resolution order: lookupRoute / lookup_route (schema), map by model class, then "{domain}s.index".
+ */
+const morphIndexRouteName = (config) => {
+    const fromSchema = config.lookupRoute ?? config.lookup_route;
+    if (typeof fromSchema === 'string' && fromSchema.trim() !== '') {
+        return fromSchema.trim();
+    }
+    if (config.value && MORPH_INDEX_ROUTE_BY_MODEL[config.value]) {
+        return MORPH_INDEX_ROUTE_BY_MODEL[config.value];
+    }
+    const domain = (config.domain || '').toLowerCase();
+
+    return `${domain}s.index`;
+};
+
 // Fetch records from the selected domain
 const fetchRecords = async () => {
     if (!selectedMorphConfig.value) return;
@@ -134,10 +163,16 @@ const fetchRecords = async () => {
     isLoading.value = true;
     
     try {
-        const domain = selectedMorphConfig.value.domain.toLowerCase();
-        
+        const config = selectedMorphConfig.value;
+        const routeName = morphIndexRouteName(config);
+        const rawParams = config.lookupRouteParams ?? config.lookup_route_params;
+        const routeParams = rawParams && typeof rawParams === 'object' && Object.keys(rawParams).length > 0
+            ? rawParams
+            : undefined;
+        const baseUrl = routeParams !== undefined ? route(routeName, routeParams) : route(routeName);
+
         // Build the URL with query parameters
-        const url = new URL(route(`${domain}s.index`), window.location.origin);
+        const url = new URL(baseUrl, window.location.origin);
         url.searchParams.append('page', currentPage.value);
         url.searchParams.append('per_page', perPage);
         if (searchQuery.value) {
@@ -217,6 +252,12 @@ watch(() => props.modelValue, (newValue) => {
 
 watch(() => props.selectedType, (newValue) => {
     selectedMorphType.value = newValue;
+});
+
+watch(() => props.initialDisplayName, (newValue) => {
+    if (newValue) {
+        selectedRecordName.value = newValue;
+    }
 });
 </script>
 

@@ -1,35 +1,60 @@
 {
-    "boat_show_id": {
-      "label": "Boat Show",
-      "type": "record",
-      "typeDomain": "BoatShow",
-      "relationship": "boatShow",
-      "validation": "required|exists:boat_shows,id",
-      "help": "The boat show this layout belongs to"
+    "boat_show_event_id": {
+        "label": "Boat Show Event",
+        "type": "record",
+        "typeDomain": "BoatShowEvent",
+        "relationship": "event",
+        "validation": "required|exists:boat_show_events,id",
+        "help": "The event this floor plan belongs to"
     },
-  
-    "space_width": {
-      "label": "Space Width (ft)",
-      "type": "number",
-      "validation": "required|numeric|min:10|max:500",
-      "default": 50,
-      "help": "Width of the available floor space in feet"
+    "name": {
+        "label": "Layout Name",
+        "type": "text",
+        "validation": "nullable|string|max:255",
+        "help": "Optional name (e.g. Main floor)"
     },
-  
-    "space_height": {
-      "label": "Space Height (ft)",
-      "type": "number",
-      "validation": "required|numeric|min:10|max:500",
-      "default": 50,
-      "help": "Height of the available floor space in feet"
+    "width_ft": {
+        "label": "Width (ft)",
+        "type": "number",
+        "validation": "required|integer|min:1|max:500",
+        "default": 50,
+        "help": "Floor width in feet"
     },
-  
+    "height_ft": {
+        "label": "Height (ft)",
+        "type": "number",
+        "validation": "required|integer|min:1|max:500",
+        "default": 50,
+        "help": "Floor depth in feet"
+    },
+    "grid_size": {
+        "label": "Grid (ft)",
+        "type": "number",
+        "validation": "nullable|integer|min:1|max:10",
+        "default": 1,
+        "help": "Snap grid size in feet"
+    },
+    "scale": {
+        "label": "Scale (px per ft)",
+        "type": "number",
+        "validation": "nullable|integer|min:1|max:50",
+        "default": 10,
+        "help": "Canvas pixels per foot (builder)"
+    },
     "meta": {
-      "label": "Additional Settings",
-      "type": "json",
-      "validation": "nullable|array",
-      "hidden": true,
-      "help": "Extra configuration for layout (e.g., grid size, background color)"
+        "label": "Additional Settings",
+        "type": "json",
+        "validation": "nullable|array",
+        "hidden": true
     },
-
-  }
+    "created_at": {
+        "label": "Created At",
+        "type": "datetime",
+        "readOnly": true
+    },
+    "updated_at": {
+        "label": "Updated At",
+        "type": "datetime",
+        "readOnly": true
+    }
+}

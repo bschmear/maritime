@@ -1,19 +1,18 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
-  "form": {
-    "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+    "settings": {
+        "max_width": "4xl"
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+    "form": {
+        "primary": {
+            "label": "Layout",
+            "fields": [
+                { "key": "boat_show_event_id", "required": true },
+                { "key": "name" },
+                { "key": "width_ft", "required": true },
+                { "key": "height_ft", "required": true },
+                { "key": "grid_size" },
+                { "key": "scale" }
+            ]
+        }
     }
-  }
 }

@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\Task\Actions;
 
 use App\Domain\Task\Models\Task as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class CreateTask
@@ -33,13 +34,16 @@ class CreateTask
             $validated = $validator->validate();
 
             // Filter to only include fillable fields
-            $fillableFields = (new RecordModel())->getFillable();
+            $fillableFields = (new RecordModel)->getFillable();
             $fieldsToSave = array_intersect_key($validated, array_flip($fillableFields));
 
+            // Automatically set created_by to the authenticated user
+            $fieldsToSave['created_by'] = auth()->id();
+
             $record = RecordModel::create($fieldsToSave);
-            
+
             // Load relationships for the response
-            $record->load(['assigned', 'creator', 'updater']);
+            $record->load(['assigned', 'createdBy', 'updatedBy']);
 
             return [
                 'success' => true,
@@ -55,8 +59,9 @@ class CreateTask
         } catch (QueryException $e) {
             Log::error('Database query error in CreateTask', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -65,8 +70,9 @@ class CreateTask
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateTask', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

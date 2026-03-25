@@ -13,6 +13,7 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 const props = defineProps({
     schema: {
@@ -67,6 +68,10 @@ const props = defineProps({
     recordIdentifier: {
         type: [String, Number],
         default: null,
+    },
+    extraRouteParams: {
+        type: Object,
+        default: () => ({}),
     },
 });
 
@@ -152,6 +157,8 @@ const initializeFormData = () => {
                 }
             } else if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                 formData[key] = value === true || value === 1 ? 1 : 0;
+            } else if (fieldDef.type === 'record' && value && typeof value === 'object' && value.id) {
+                formData[key] = value.id;
             } else {
                 formData[key] = value;
             }
@@ -226,6 +233,11 @@ const initializeFormData = () => {
                             }
                         } else if (fieldType === 'record') {
                             formData[field.key] = null;
+                        } else if (fieldType === 'morph') {
+                            formData[field.key] = null;
+                            if (fieldDef.id_field && !(fieldDef.id_field in formData)) {
+                                formData[fieldDef.id_field] = null;
+                            }
                         } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'time') {
                             formData[field.key] = null;
                         } else if (fieldType === 'rating') {
@@ -371,45 +383,6 @@ const getImageSource = (fieldKey) => {
     return null;
 };
 
-// Initialize sections from localStorage or default to open
-watch(() => formGroups.value, (groups) => {
-    if (groups.length > 0 && Object.keys(openSections.value).length === 0) {
-        // Try to load saved state from localStorage
-        const storageKey = getStorageKey();
-        const savedState = localStorage.getItem(storageKey);
-        
-        if (savedState) {
-            try {
-                const parsed = JSON.parse(savedState);
-                groups.forEach(group => {
-                    // Use saved state if available, otherwise default to open
-                    openSections.value[group.key] = parsed[group.key] !== undefined ? parsed[group.key] : true;
-                });
-            } catch (e) {
-                // If parsing fails, default all to open
-                groups.forEach(group => {
-                    openSections.value[group.key] = true;
-                });
-            }
-        } else {
-            // No saved state, default all to open
-            groups.forEach(group => {
-                openSections.value[group.key] = true;
-            });
-        }
-    }
-}, { immediate: true });
-
-// Save section state to localStorage whenever it changes
-watch(openSections, (newState) => {
-    const storageKey = getStorageKey();
-    localStorage.setItem(storageKey, JSON.stringify(newState));
-}, { deep: true });
-
-const toggleSection = (key) => {
-    openSections.value[key] = !openSections.value[key];
-};
-
 const getFieldValue = (fieldKey) => form[fieldKey] ?? '';
 
 /**
@@ -465,24 +438,52 @@ const getEnumLabel = (fieldKey, value) => {
     return option ? option.name : value;
 };
 
+const relationshipKeyOnRecord = (fieldKey, fieldDef) => {
+    if (fieldDef.relationship) {
+        return fieldDef.relationship
+            .replace(/([A-Z])/g, '_$1')
+            .toLowerCase()
+            .replace(/^_/, '');
+    }
+    if (fieldKey.endsWith('_id')) {
+        return fieldKey.slice(0, -3);
+    }
+    return fieldKey.replace('_id', '');
+};
+
 const getRecordDisplayName = (fieldKey, value) => {
     if (!value) return '—';
-    
+
     const fieldDef = getFieldDefinition(fieldKey);
-    
+
     // If it's a record type field, try to get the display name from the loaded relationship
     if (fieldDef.type === 'record' && props.record) {
-        // Convert field key like 'assigned_id' to relationship name like 'assigned'
-        const relationshipName = fieldKey.replace('_id', '');
+        const relationshipName = relationshipKeyOnRecord(fieldKey, fieldDef);
         const relatedRecord = props.record[relationshipName];
-        
+
         if (relatedRecord && relatedRecord.display_name) {
             return relatedRecord.display_name;
         }
     }
-    
+
     // Fallback to enum label for backward compatibility
     return getEnumLabel(fieldKey, value);
+};
+
+const getMorphRelatedDisplayName = (fieldKey) => {
+    const fieldDef = getFieldDefinition(fieldKey);
+    if (!fieldDef || fieldDef.type !== 'morph' || !props.record) {
+        return '';
+    }
+
+    const relationshipName = fieldKey.replace('_type', '');
+    const relatedRecord = props.record[relationshipName];
+
+    if (relatedRecord && relatedRecord.display_name) {
+        return relatedRecord.display_name;
+    }
+
+    return '';
 };
 const getFieldType = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
@@ -663,6 +664,46 @@ const isGroupVisible = (group) => {
             }
             return currentValue == value;
     }
+};
+
+const visibleFormGroups = computed(() => formGroups.value.filter((group) => isGroupVisible(group)));
+
+const useFormAccordion = computed(() => visibleFormGroups.value.length > 1);
+
+watch(() => visibleFormGroups.value, (groups) => {
+    if (groups.length > 0 && Object.keys(openSections.value).length === 0) {
+        const storageKey = getStorageKey();
+        const savedState = localStorage.getItem(storageKey);
+
+        if (savedState) {
+            try {
+                const parsed = JSON.parse(savedState);
+                groups.forEach((group) => {
+                    openSections.value[group.key] = parsed[group.key] !== undefined ? parsed[group.key] : true;
+                });
+            } catch (e) {
+                groups.forEach((group) => {
+                    openSections.value[group.key] = true;
+                });
+            }
+        } else {
+            groups.forEach((group) => {
+                openSections.value[group.key] = true;
+            });
+        }
+    }
+}, { immediate: true });
+
+watch(openSections, () => {
+    if (!useFormAccordion.value) {
+        return;
+    }
+    const storageKey = getStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(openSections.value));
+}, { deep: true });
+
+const toggleSection = (key) => {
+    openSections.value[key] = !openSections.value[key];
 };
 
 const getFieldColSpan = (field) => {
@@ -879,7 +920,7 @@ const handleSubmit = () => {
                 submissionData = formData;
             }
 
-            axios.post(route(`${props.recordType}.store`), submissionData, {
+            axios.post(route(`${props.recordType}.store`, props.extraRouteParams), submissionData, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json',
@@ -924,7 +965,7 @@ const handleSubmit = () => {
                     });
                 }
                 return transformed;
-            }).post(route(`${props.recordType}.store`), {
+            }).post(route(`${props.recordType}.store`, props.extraRouteParams), {
                 preserveScroll: true,
                 onSuccess: (page) => {
                     // Extract record ID from flash data or URL
@@ -952,7 +993,10 @@ const handleSubmit = () => {
             
             let submissionData = rawData;
             let method = 'put';
-            let url = route(`${props.recordType}.update`, updateRecordId.value);
+            let url = route(
+                `${props.recordType}.update`,
+                buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams)
+            );
             
             if (hasFiles) {
                 const formData = new FormData();
@@ -1010,17 +1054,22 @@ const handleSubmit = () => {
                     });
                 }
                 return transformed;
-            }).put(route(`${props.recordType}.update`, updateRecordId.value), {
-                preserveScroll: true,
-                onSuccess: (page) => {
-                    emit('submit');
-                    // Reload the record data from the server
-                    router.reload({ only: ['record', 'imageUrls'] });
-                },
-                onError: (errors) => {
-                    // Errors are handled by form.errors
-                },
-            });
+            }).put(
+                route(
+                    `${props.recordType}.update`,
+                    buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams)
+                ),
+                {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        emit('submit');
+                        router.reload({ only: ['record', 'imageUrls'] });
+                    },
+                    onError: (errors) => {
+                        // Errors are handled by form.errors
+                    },
+                }
+            );
         }
     }
 };
@@ -1054,12 +1103,12 @@ defineExpose({
 
 <template>
     <form :id="formId || `form-${recordType}-${record?.id || 'new'}`" @submit.prevent="handleSubmit" v-if="normalizedSchema">
-        <!-- Accordion -->
+        <!-- Sections (accordion when multiple visible groups) -->
         <div id="accordion-collapse">
-            <div v-for="(group, groupIndex) in formGroups" :key="group.key">
-                <div v-if="isGroupVisible(group)">
-                    <!-- Accordion Header -->
-                    <h2 :id="`accordion-heading-${group.index}`">
+            <div v-for="(group, groupIndex) in visibleFormGroups" :key="group.key">
+                <div>
+                    <!-- Accordion header (multiple sections) -->
+                    <h2 v-if="useFormAccordion" :id="`accordion-heading-${group.index}`">
                         <button
                             type="button"
                             @click="toggleSection(group.key)"
@@ -1080,12 +1129,22 @@ defineExpose({
                         </button>
                     </h2>
 
-                    <!-- Accordion Body -->
+                    <!-- Single-section title (no collapse) -->
+                    <h2
+                        v-else
+                        :id="`form-section-heading-${group.index}`"
+                        class="py-4 px-4 font-medium leading-none text-left text-gray-900 bg-gray-100 sm:px-5 dark:text-white dark:bg-gray-700"
+                        :class="groupIndex > 0 ? 'border-t border-gray-200 dark:border-gray-700' : ''"
+                    >
+                        {{ group.label }}
+                    </h2>
+
+                    <!-- Section body -->
                     <div
                         v-if="group.filteredFields && group.filteredFields.length > 0"
                         :id="`accordion-body-${group.index}`"
-                        v-show="openSections[group.key]"
-                        :aria-labelledby="`accordion-heading-${group.index}`"
+                        v-show="!useFormAccordion || openSections[group.key]"
+                        :aria-labelledby="useFormAccordion ? `accordion-heading-${group.index}` : `form-section-heading-${group.index}`"
                     >
                         <div class="p-4 border-gray-200 sm:p-5 dark:border-gray-700">
                             <!-- Address Group (Autocomplete) -->
@@ -1409,6 +1468,7 @@ defineExpose({
                                             v-model="form[getFieldDefinition(field.key).id_field]"
                                             v-model:selected-type="form[field.key]"
                                             :disabled="isFieldDisabled(field.key)"
+                                            :initial-display-name="getMorphRelatedDisplayName(field.key)"
                                         />
 
                                         <!-- WYSIWYG Editor -->

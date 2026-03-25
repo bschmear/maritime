@@ -5,6 +5,7 @@ import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 const props = defineProps({
     records: {
@@ -42,6 +43,14 @@ const props = defineProps({
     createModal: {
         type: Boolean,
         default: true,
+    },
+    extraRouteParams: {
+        type: Object,
+        default: () => ({}),
+    },
+    initialCreateData: {
+        type: Object,
+        default: () => ({}),
     },
 });
 
@@ -364,44 +373,27 @@ const getColumnLabel = (column) => {
     return column.key;
 };
 
-const getRouteParamName = () => {
-    // Use singular form of record type as parameter name
-    // This works for standard Laravel resource routes where the parameter
-    // is the singular form of the resource name
-    let routeType = props.recordType;
-
-    if (props.recordType.includes('.')) {
-        // For nested routes like 'account.users', extract the last part
-        const parts = props.recordType.split('.');
-        routeType = parts[parts.length - 1];
-    }
-
-    // Handle irregular plurals
-    if (routeType === 'subsidiaries') {
-        return 'subsidiary';
-    }
-
-    // For regular plurals, remove trailing 's'
-    return routeType.replace(/s$/, '');
-};
-
 const getShowUrl = (recordId) => {
     if (!recordId) {
         console.error('Invalid recordId passed to getShowUrl:', recordId);
         return '#';
     }
-    const paramName = getRouteParamName();
     try {
-        return route(`${props.recordType}.show`, { [paramName]: recordId });
+        return route(
+            `${props.recordType}.show`,
+            buildResourceRouteParams(props.recordType, recordId, props.extraRouteParams)
+        );
     } catch (error) {
-        console.error('Error generating route for', props.recordType, 'with param', paramName, 'and recordId', recordId, error);
+        console.error('Error generating route for', props.recordType, 'and recordId', recordId, error);
         return '#';
     }
 };
 
 const getEditUrl = (recordId) => {
-    const paramName = getRouteParamName();
-    return route(`${props.recordType}.edit`, { [paramName]: recordId });
+    return route(
+        `${props.recordType}.edit`,
+        buildResourceRouteParams(props.recordType, recordId, props.extraRouteParams)
+    );
 };
 
 const handleRecordCreated = (recordId) => {
@@ -427,7 +419,7 @@ const backToPage = () => {
 const handleCreateClick = () => {
     console.log(props.schema?.allow_create_modal);
     if (props.createModal === false || props.schema?.allow_create_modal === false) {
-        const createRoute = route(`${props.recordType}.create`);
+        const createRoute = route(`${props.recordType}.create`, props.extraRouteParams);
         window.location.href = createRoute;
     } else {
         showCreateModal.value = true;
@@ -462,29 +454,15 @@ const handleViewOnPage = async (record) => {
     showViewModal.value = true;
 
     try {
-        // Determine the parameter name based on record type
-        let routeType = props.recordType;
-        if (props.recordType.includes('.')) {
-            // For nested routes like 'account.users', extract the last part
-            const parts = props.recordType.split('.');
-            routeType = parts[parts.length - 1];
-        }
-
-        // Handle irregular plurals
-        let paramName;
-        if (routeType === 'subsidiaries') {
-            paramName = 'subsidiary';
-        } else {
-            // For regular plurals, remove trailing 's'
-            paramName = routeType.replace(/s$/, '');
-        }
-
-        const response = await axios.get(route(`${props.recordType}.show`, { [paramName]: record.id }), {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            },
-        });
+        const response = await axios.get(
+            route(`${props.recordType}.show`, buildResourceRouteParams(props.recordType, record.id, props.extraRouteParams)),
+            {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            }
+        );
         
         // Extract the record and imageUrls from the JSON response
         if (response.data && response.data.record) {
@@ -906,7 +884,7 @@ onMounted(() => {
                                 <td v-for="column in columns" :key="column.key" class="px-4 py-2 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                     <template v-if="column.key === 'id'">
                                         <Link
-                                            :href="route(`${recordType}.show`, record.id)"
+                                            :href="getShowUrl(record.id)"
                                             class="font-mono text-primary-600 dark:text-primary-400 hover:underline"
                                             @click.stop
                                         >
@@ -915,7 +893,7 @@ onMounted(() => {
                                     </template>
                                     <template v-else-if="column.key === 'display_name'">
                                         <a
-                                            :href="route(`${recordType}.show`, record.id)"
+                                            :href="getShowUrl(record.id)"
                                             target="_blank"
                                             class="font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
                                         >
@@ -1062,6 +1040,8 @@ onMounted(() => {
                     :record-type="recordType"
                     :record-title="recordTitle"
                     :enum-options="enumOptions"
+                    :extra-route-params="extraRouteParams"
+                    :initial-data="initialCreateData"
                     mode="create"
                     :prevent-redirect="true"
                     @created="handleRecordCreated"
@@ -1142,6 +1122,7 @@ onMounted(() => {
                     :record-type="recordType"
                     :record-title="recordTitle"
                     :enum-options="enumOptions"
+                    :extra-route-params="extraRouteParams"
                     :image-urls="selectedRecordImageUrls"
                     mode="edit"
                     :prevent-redirect="true"

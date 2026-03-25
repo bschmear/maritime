@@ -1,19 +1,66 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
-  "form": {
-    "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+    "settings": {
+        "max_width": "4xl"
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+    "form": {
+        "primary": {
+            "label": "Event",
+            "fields": [
+                { "key": "boat_show_id", "required": true },
+                { "key": "display_name", "required": true },
+                { "key": "year", "required": true },
+                { "key": "starts_at" },
+                { "key": "ends_at" },
+                { "key": "venue" },
+                { "key": "booth" },
+                { "key": "active" }
+            ]
+        },
+        "address": {
+            "label": "Address",
+            "is_address": true,
+            "fields": [
+              {
+                "key": "address_line_1",
+                "required": false,
+                "tag": "street"
+              },
+              {
+                "key": "address_line_2",
+                "required": false,
+                "tag": "unit"
+              },
+              {
+                "key": "city",
+                "required": false,
+                "tag": "city"
+              },
+              {
+                "key": "state",
+                "required": false,
+                "tag": "state"
+              },
+              {
+                "key": "postal_code",
+                "required": false,
+                "tag": "postal_code"
+              },
+              {
+                "key": "country",
+                "required": false,
+                "tag": "country"
+              },
+              {
+                "key": "latitude",
+                "hidden": true,
+                "tag": "latitude"
+              },
+              {
+                "key": "longitude",
+                "hidden": true,
+                "tag": "longitude"
+              }
+            ]
+          }
     }
-  }
 }

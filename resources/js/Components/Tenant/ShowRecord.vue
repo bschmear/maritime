@@ -6,6 +6,7 @@ import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { ref, computed, getCurrentInstance } from 'vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 // Get access to global properties for formatting (optional)
 const instance = getCurrentInstance();
@@ -81,6 +82,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    extraRouteParams: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const isEditMode = ref(false);
@@ -122,18 +127,24 @@ const handleDelete = () => {
 
 const confirmDelete = () => {
     isDeleting.value = true;
-    router.delete(route(`${props.recordType}.destroy`, props.record.id), {
-        onSuccess: () => {
-            router.visit(route(`${props.recordType}.index`));
-        },
-        onError: () => {
-            isDeleting.value = false;
-        },
-        onFinish: () => {
-            isDeleting.value = false;
-            showDeleteModal.value = false;
-        },
-    });
+    router.delete(
+        route(
+            `${props.recordType}.destroy`,
+            buildResourceRouteParams(props.recordType, props.record.id, props.extraRouteParams)
+        ),
+        {
+            onSuccess: () => {
+                router.visit(route(`${props.recordType}.index`, props.extraRouteParams));
+            },
+            onError: () => {
+                isDeleting.value = false;
+            },
+            onFinish: () => {
+                isDeleting.value = false;
+                showDeleteModal.value = false;
+            },
+        }
+    );
 };
 
 const cancelDelete = () => {
@@ -260,6 +271,7 @@ const breadcrumbItems = computed(() => {
                             :record="record"
                             :record-type="recordType"
                             :enum-options="enumOptions"
+                            :extra-route-params="extraRouteParams"
                             :mode="isEditMode ? 'edit' : 'view'"
                             :prevent-redirect="true"
                             :form-id="`form-${recordType}-${record.id}`"

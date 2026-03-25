@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Concerns;
 
-use Illuminate\Support\Str;
-
 trait HasSchemaSupport
 {
     protected function getTableSchema()
@@ -11,11 +9,12 @@ trait HasSchemaSupport
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
         $schemaPath = app_path("Domain/{$domainName}/Schema/table.json");
 
-        if (!file_exists($schemaPath)) {
+        if (! file_exists($schemaPath)) {
             return null;
         }
 
         $schema = json_decode(file_get_contents($schemaPath), true);
+
         return $schema;
     }
 
@@ -24,11 +23,12 @@ trait HasSchemaSupport
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
         $schemaPath = app_path("Domain/{$domainName}/Schema/form.json");
 
-        if (!file_exists($schemaPath)) {
+        if (! file_exists($schemaPath)) {
             return null;
         }
 
         $schema = json_decode(file_get_contents($schemaPath), true);
+
         return $schema;
     }
 
@@ -37,24 +37,25 @@ trait HasSchemaSupport
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
         $schemaPath = app_path("Domain/{$domainName}/Schema/fields.json");
 
-        if (!file_exists($schemaPath)) {
+        if (! file_exists($schemaPath)) {
             return null;
         }
 
         $schema = json_decode(file_get_contents($schemaPath), true);
+
         return $schema;
     }
 
     protected function getSchemaColumns()
     {
         $tableSchema = $this->getTableSchema();
-        
-        if (!$tableSchema || !isset($tableSchema['columns'])) {
+
+        if (! $tableSchema || ! isset($tableSchema['columns'])) {
             return [];
         }
 
         // Extract just the 'key' values from the columns array
-        return array_map(function($column) {
+        return array_map(function ($column) {
             return is_array($column) ? ($column['key'] ?? $column) : $column;
         }, $tableSchema['columns']);
     }
@@ -63,7 +64,7 @@ trait HasSchemaSupport
     {
         $fieldsSchemaRaw = $this->getFieldsSchema();
 
-        if (!$fieldsSchemaRaw) {
+        if (! $fieldsSchemaRaw) {
             return [];
         }
 
@@ -77,7 +78,7 @@ trait HasSchemaSupport
             $fieldType = $fieldDef['type'] ?? 'text';
 
             // Handle enum fields (existing functionality)
-            if (isset($fieldDef['enum']) && !empty($fieldDef['enum'])) {
+            if (isset($fieldDef['enum']) && ! empty($fieldDef['enum'])) {
                 $enumClass = $fieldDef['enum'];
 
                 // Check if the enum class exists and has an options() method
@@ -94,23 +95,34 @@ trait HasSchemaSupport
                 // Check if the model class exists
                 if (class_exists($modelClass)) {
                     try {
-                        // Get all records from the related domain
-                        $records = $modelClass::select('id', 'display_name')->get();
+                        if ($domainName === 'BoatShow') {
+                            $records = $modelClass::query()->select(['id', 'display_name'])->orderBy('display_name')->get();
+                            $options = $records->map(function ($record) {
+                                return [
+                                    'id' => $record->id,
+                                    'name' => $record->display_name,
+                                    'value' => $record->id,
+                                ];
+                            })->toArray();
+                        } else {
+                            // Get all records from the related domain
+                            $records = $modelClass::select('id', 'display_name')->get();
 
-                        // Format as options array
-                        $options = $records->map(function ($record) {
-                            return [
-                                'id' => $record->id,
-                                'name' => $record->display_name,
-                                'value' => $record->id,
-                            ];
-                        })->toArray();
+                            // Format as options array
+                            $options = $records->map(function ($record) {
+                                return [
+                                    'id' => $record->id,
+                                    'name' => $record->display_name,
+                                    'value' => $record->id,
+                                ];
+                            })->toArray();
+                        }
 
                         // Use the field key as the options key
                         $enumOptions[$fieldKey] = $options;
                     } catch (\Exception $e) {
                         // Log error but don't break the page
-                        \Log::warning("Failed to load record options for {$domainName}: " . $e->getMessage());
+                        \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
                         $enumOptions[$fieldKey] = [];
                     }
                 }
@@ -120,13 +132,26 @@ trait HasSchemaSupport
         return $enumOptions;
     }
 
+    /**
+     * Exact public method names on the model. Used instead of method_exists() for relationship
+     * names because PHP treats method names as case-insensitive, so "created_by" would match
+     * createdBy() but Eloquent::with() requires the real method name string.
+     *
+     * @return array<string, true>
+     */
+    protected function getModelMethodIndex(): array
+    {
+        return array_flip(get_class_methods($this->recordModel));
+    }
+
     protected function getRelationshipsToLoad($fieldsSchema)
     {
-        if (!$fieldsSchema) {
+        if (! $fieldsSchema) {
             return [];
         }
 
         $relationships = [];
+        $methods = $this->getModelMethodIndex();
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             $fieldType = $fieldDef['type'] ?? 'text';
@@ -142,13 +167,18 @@ trait HasSchemaSupport
                     $relationshipName = substr($relationshipName, 0, -5);
                 }
 
-                // Check if the relationship exists
-                if (method_exists($this->recordModel, $relationshipName)) {
+                if (isset($methods[$relationshipName])) {
                     $relationships[] = $relationshipName;
                 }
             }
 
             if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
+                if (! empty($fieldDef['relationship']) && isset($methods[$fieldDef['relationship']])) {
+                    $relationships[] = $fieldDef['relationship'];
+
+                    continue;
+                }
+
                 // Try to infer the relationship name from the field key
                 $relationshipName = $fieldKey;
 
@@ -165,27 +195,24 @@ trait HasSchemaSupport
                     $relationshipName = substr($relationshipName, 0, -1);
                 }
 
-                // Check if the relationship exists on the model
-                if (method_exists($this->recordModel, $relationshipName)) {
+                if (isset($methods[$relationshipName])) {
                     $relationships[] = $relationshipName;
                 } else {
                     // Try alternative relationship names
                     $alternatives = [
                         $fieldKey, // Original field key
-                        $fieldKey . '_data', // With _data suffix
+                        $fieldKey.'_data', // With _data suffix
                         strtolower($fieldDef['typeDomain']), // Domain name lowercase
                     ];
 
-                    // Add common Laravel relationship naming patterns
+                    // created_by / updated_by -> createdBy, updatedBy (not creator/updater)
                     if (str_ends_with($fieldKey, '_by')) {
-                        // For fields like created_by, updated_by -> try creator, updater
                         $baseName = str_replace('_by', '', $fieldKey);
-                        $alternatives[] = $baseName . 'r'; // creator, updater
-                        $alternatives[] = $baseName . 'By'; // createdBy, updatedBy (camelCase)
+                        $alternatives[] = $baseName.'By';
                     }
 
                     foreach ($alternatives as $altRelationship) {
-                        if (method_exists($this->recordModel, $altRelationship)) {
+                        if (isset($methods[$altRelationship])) {
                             $relationships[] = $altRelationship;
                             break;
                         }
@@ -206,7 +233,7 @@ trait HasSchemaSupport
             $tableName = $this->recordModel->getTable();
             // Check if this field exists on the main table
             if (\Schema::connection($this->recordModel->getConnectionName())->hasColumn($tableName, $field)) {
-                return $tableName . '.' . $field;
+                return $tableName.'.'.$field;
             }
         }
 
@@ -217,29 +244,30 @@ trait HasSchemaSupport
     {
         foreach ($filters as $key => $filter) {
             // Handle simple key-value filters (e.g., ['inventory_item_id' => 2])
-            if (!is_array($filter)) {
+            if (! is_array($filter)) {
                 $query->where($key, '=', $filter);
+
                 continue;
             }
-            
+
             // Handle structured filters with field, operator, value
-            if (!isset($filter['field'])) {
+            if (! isset($filter['field'])) {
                 continue;
             }
-            
+
             $field = $filter['field'];
             $operator = $filter['operator'] ?? 'equals';
             $value = $filter['value'] ?? null;
-            
+
             $fieldConfig = $fieldsSchema[$field] ?? [];
             $fieldType = $fieldConfig['type'] ?? 'text';
-            
+
             switch ($operator) {
                 case 'contains':
                     // Case-insensitive search using ILIKE (PostgreSQL) or LOWER()
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', ['%' . strtolower($value) . '%']);
+                        $query->whereRaw('LOWER('.$fieldWithPrefix.') LIKE ?', ['%'.strtolower($value).'%']);
                     } else {
                         $query->where($fieldWithPrefix, 'LIKE', "%{$value}%");
                     }
@@ -250,7 +278,7 @@ trait HasSchemaSupport
 
                     // Handle Location subsidiary filtering (many-to-many)
                     if ($this->domainName === 'Location' && $field === 'subsidiary_id') {
-                        $query->whereExists(function($subQuery) use ($value) {
+                        $query->whereExists(function ($subQuery) use ($value) {
                             $subQuery->selectRaw('1')
                                 ->from('location_subsidiary')
                                 ->whereColumn('location_subsidiary.location_id', 'locations.id')
@@ -260,11 +288,11 @@ trait HasSchemaSupport
                     }
 
                     // If not a special relationship case, handle as normal field
-                    if (!$relationshipHandled) {
+                    if (! $relationshipHandled) {
                         // Case-insensitive for text fields
                         if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
                             $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
-                            $query->whereRaw('LOWER(' . $fieldWithPrefix . ') = ?', [strtolower($value)]);
+                            $query->whereRaw('LOWER('.$fieldWithPrefix.') = ?', [strtolower($value)]);
                         } else {
                             $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                             $query->where($fieldWithPrefix, '=', $value);
@@ -275,7 +303,7 @@ trait HasSchemaSupport
                     // Case-insensitive search
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', [strtolower($value) . '%']);
+                        $query->whereRaw('LOWER('.$fieldWithPrefix.') LIKE ?', [strtolower($value).'%']);
                     } else {
                         $query->where($fieldWithPrefix, 'LIKE', "{$value}%");
                     }
@@ -284,14 +312,14 @@ trait HasSchemaSupport
                     // Case-insensitive search
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') LIKE ?', ['%' . strtolower($value)]);
+                        $query->whereRaw('LOWER('.$fieldWithPrefix.') LIKE ?', ['%'.strtolower($value)]);
                     } else {
                         $query->where($fieldWithPrefix, 'LIKE', "%{$value}");
                     }
                     break;
                 case 'is_empty':
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
-                    $query->where(function($q) use ($fieldWithPrefix) {
+                    $query->where(function ($q) use ($fieldWithPrefix) {
                         $q->whereNull($fieldWithPrefix)->orWhere($fieldWithPrefix, '');
                     });
                     break;
@@ -303,7 +331,7 @@ trait HasSchemaSupport
                     // Case-insensitive for text fields
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
                     if ($fieldType === 'text' || $fieldType === 'textarea' || $fieldType === 'email') {
-                        $query->whereRaw('LOWER(' . $fieldWithPrefix . ') != ?', [strtolower($value)]);
+                        $query->whereRaw('LOWER('.$fieldWithPrefix.') != ?', [strtolower($value)]);
                     } else {
                         $query->where($fieldWithPrefix, '!=', $value);
                     }
@@ -369,15 +397,15 @@ trait HasSchemaSupport
                 case 'is_false':
                     // Handle table prefixing for domains that may have joins
                     $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
-                    $query->where(function($q) use ($fieldWithPrefix) {
+                    $query->where(function ($q) use ($fieldWithPrefix) {
                         $q->where($fieldWithPrefix, '=', 0)
-                          ->orWhere($fieldWithPrefix, '=', false)
-                          ->orWhereNull($fieldWithPrefix);
+                            ->orWhere($fieldWithPrefix, '=', false)
+                            ->orWhereNull($fieldWithPrefix);
                     });
                     break;
             }
         }
-        
+
         return $query;
     }
 }

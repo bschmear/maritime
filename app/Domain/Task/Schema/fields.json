@@ -44,18 +44,21 @@
   "assigned_id": {
     "label": "Assigned To",
     "type": "record",
-    "typeDomain": "User"
+    "typeDomain": "User",
+    "relationship": "assigned"
   },
   "created_by": {
     "label": "Created By",
     "type": "record",
     "typeDomain": "User",
+    "relationship": "createdBy",
     "disabled": true
   },
   "updated_by": {
     "label": "Updated By",
     "type": "record",
     "typeDomain": "User",
+    "relationship": "updatedBy",
     "disabled": true
   },
   "completed": {
@@ -80,6 +83,12 @@
         "value": "App\\Domain\\Vendor\\Models\\Vendor",
         "label": "Vendor",
         "domain": "Vendor"
+      },
+      {
+        "value": "App\\Domain\\BoatShowEvent\\Models\\BoatShowEvent",
+        "label": "Boat Show Event",
+        "domain": "BoatShowEvent",
+        "lookupRoute": "boat-show-events.index"
       }
     ],
     "id_field": "relatable_id"
@@ -102,8 +111,7 @@
   },
   "task_type_id": {
     "label": "Task Type",
-    "type": "record",
-    "typeDomain": "TaskType"
+    "type": "number"
   },
   "recurring_rule": {
     "label": "Recurring Rule",

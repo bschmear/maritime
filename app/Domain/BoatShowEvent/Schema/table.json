@@ -1,5 +1,9 @@
 {
     "columns": [
-
+        { "key": "display_name", "label": "Event", "sortable": true },
+        { "key": "year", "label": "Year", "sortable": true },
+        { "key": "show.name", "label": "Boat Show", "sortable": false },
+        { "key": "starts_at", "label": "Starts", "sortable": true },
+        { "key": "active", "label": "Active", "sortable": true }
     ]
 }

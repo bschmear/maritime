@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\BoatShow\Actions;
 
 use App\Domain\BoatShow\Models\BoatShow as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateBoatShow
@@ -12,11 +13,16 @@ class UpdateBoatShow
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            // Add validation rules here
+            'display_name' => ['sometimes', 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'website' => ['nullable', 'url', 'max:255'],
+            'logo' => ['nullable', 'integer'],
+            'banner' => ['nullable', 'integer'],
+            'meta' => ['nullable', 'array'],
         ])->validate();
 
         try {
-            $record = RecordModel::findOrFail($id);
+            $record = RecordModel::query()->findOrFail($id);
             $record->update($validated);
 
             return [
@@ -27,8 +33,9 @@ class UpdateBoatShow
             Log::error('Database query error in UpdateBoatShow', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -38,8 +45,9 @@ class UpdateBoatShow
             Log::error('Unexpected error in UpdateBoatShow', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

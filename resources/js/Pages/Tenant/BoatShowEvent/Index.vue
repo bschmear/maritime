@@ -1,26 +1,56 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
+import Table from '@/Components/Tenant/Table.vue';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const props = defineProps({
+    records: { type: Object, required: true },
+    schema: { type: Object, default: null },
+    formSchema: { type: Object, default: null },
+    fieldsSchema: { type: Object, default: () => ({}) },
+    enumOptions: { type: Object, default: () => ({}) },
+    recordType: { type: String, default: 'boat-show-events' },
+    recordTitle: { type: String, default: 'BoatShowEvent' },
+    pluralTitle: { type: String, default: 'Boat Show Events' },
+    extraRouteParams: { type: Object, default: () => ({}) },
+    initialCreateData: { type: Object, default: () => ({}) },
+});
+
+const breadcrumbItems = computed(() => {
+    const items = [{ label: 'Home', href: route('dashboard') }];
+    if (Object.keys(props.extraRouteParams).length === 0) {
+        items.push({ label: props.pluralTitle });
+    } else {
+        items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
+        items.push({ label: props.pluralTitle });
+    }
+    return items;
+});
 </script>
 
 <template>
-    <Head title="BoatShowEvents" />
+    <Head :title="pluralTitle" />
 
     <TenantLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                BoatShowEvents
-            </h2>
+            <div class="col-span-full">
+                <Breadcrumb :items="breadcrumbItems" />
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <p>BoatShowEvents management coming soon...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <Table
+            :records="records"
+            :schema="schema"
+            :form-schema="formSchema"
+            :fields-schema="fieldsSchema"
+            :enum-options="enumOptions"
+            :record-type="recordType"
+            :record-title="recordTitle"
+            :plural-title="pluralTitle"
+            :extra-route-params="extraRouteParams"
+            :initial-create-data="initialCreateData"
+        />
     </TenantLayout>
 </template>

@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\Task\Actions;
 
 use App\Domain\Task\Models\Task as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateTask
@@ -35,15 +36,18 @@ class UpdateTask
             $validated = $validator->validate();
 
             // Filter to only include fillable fields
-            $fillableFields = (new RecordModel())->getFillable();
+            $fillableFields = (new RecordModel)->getFillable();
             $fieldsToUpdate = array_intersect_key($validated, array_flip($fillableFields));
+
+            // Automatically set updated_by to the authenticated user
+            $fieldsToUpdate['updated_by'] = auth()->id();
 
             $record = RecordModel::findOrFail($id);
             $record->update($fieldsToUpdate);
 
             // Reload the record with relationships
             $record->refresh();
-            $record->load(['assigned', 'creator', 'updater']);
+            $record->load(['assigned', 'createdBy', 'updatedBy']);
 
             return [
                 'success' => true,
@@ -60,8 +64,9 @@ class UpdateTask
             Log::error('Database query error in UpdateTask', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -71,8 +76,9 @@ class UpdateTask
             Log::error('Unexpected error in UpdateTask', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
