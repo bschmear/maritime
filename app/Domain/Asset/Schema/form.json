@@ -32,29 +32,16 @@
       ]
     },
 
+    "specs": {
+      "label": "Specifications",
+      "type": "specs"
+    },
+
     "details": {
       "label": "Details",
       "fields": [
         {
           "key": "inactive"
-        },
-        {
-          "key": "length"
-        },
-        {
-          "key": "beam"
-        },
-        {
-          "key": "persons"
-        },
-        {
-          "key": "minimum_power"
-        },
-        {
-          "key": "maximum_power"
-        },
-        {
-          "key": "fuel_tank"
         }
       ]
     },

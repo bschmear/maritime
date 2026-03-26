@@ -39,6 +39,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    availableSpecs: {
+        type: Array,
+        default: () => [],
+    },
 });
 </script>
 
@@ -57,5 +61,6 @@ const props = defineProps({
         :breadcrumb-parent-href="route(`${recordType}.index`)"
         :account="account"
         :timezones="timezones"
+        :available-specs="availableSpecs"
     />
 </template>

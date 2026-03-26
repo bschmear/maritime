@@ -86,6 +86,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    availableSpecs: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isEditMode = ref(false);
@@ -278,6 +282,7 @@ const breadcrumbItems = computed(() => {
                             :account="account"
                             :timezones="timezones"
                             :image-urls="imageUrls"
+                            :available-specs="availableSpecs"
                             @submit="handleSubmit"
                             @updated="handleUpdated"
                             @cancel="handleCancel"

@@ -1,8 +1,10 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Checklist from '@/Components/Tenant/Checklist.vue';
+import LayoutBuilder from '@/Components/Tenant/LayoutBuilder.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -16,6 +18,13 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     extraRouteParams: { type: Object, default: () => ({}) },
+    checklist: { type: Object, default: () => ({ name: 'Event Checklist', items: [] }) },
+    tasks: { type: Array, default: () => [] },
+    assets: {
+        type: Object,
+        default: () => ({ boats: [], engines: [], trailers: [] }),
+    },
+    savedLayout: { type: String, default: null },
 });
 
 const isNested = computed(() => Object.keys(props.extraRouteParams).length > 0);
@@ -54,6 +63,22 @@ const breadcrumbItems = computed(() => {
     return items;
 });
 
+// ── Tabs ────────────────────────────────────────────────────────
+const tabs = [
+    { key: 'details',   label: 'Details',         icon: 'info' },
+    { key: 'layout',    label: 'Layout Builder',  icon: 'dashboard_customize' },
+    { key: 'checklist', label: 'Checklist',        icon: 'checklist' },
+    { key: 'tasks',     label: 'Tasks',            icon: 'task_alt' },
+    { key: 'assets',    label: 'Asset List',       icon: 'directions_boat' },
+];
+
+const totalAssets = computed(() =>
+    (props.assets.boats?.length ?? 0) +
+    (props.assets.engines?.length ?? 0) +
+    (props.assets.trailers?.length ?? 0)
+);
+const activeTab = ref('details');
+
 // ── Date helpers ─────────────────────────────────────────────────────────────
 const formatDate = (val) => {
     if (!val) return null;
@@ -65,11 +90,6 @@ const formatDate = (val) => {
 const formatDateShort = (val) => {
     if (!val) return null;
     return new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
-
-const formatYear = (val) => {
-    if (!val) return null;
-    return new Date(val).getFullYear();
 };
 
 const dateRange = computed(() => {
@@ -139,6 +159,12 @@ const confirmDelete = () => {
         : route('boat-show-events.destroy', props.record.id);
     router.delete(url, { preserveScroll: true });
 };
+
+// ── Checklist local state ────────────────────────────────────────
+const checklistData = ref(props.checklist);
+
+// ── Layout state ─────────────────────────────────────────────────
+const layoutJson = ref(props.savedLayout);
 </script>
 
 <template>
@@ -262,149 +288,424 @@ const confirmDelete = () => {
                 <!-- Left / Main column -->
                 <div class="lg:col-span-2 space-y-4">
 
-                    <!-- Event Details card -->
+                    <!-- ── Tabbed section ── -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                            <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                Event Details
-                            </h2>
-                        </div>
-                        <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
 
-                            <!-- Display name -->
-                            <div class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">badge</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Display Name</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.display_name }}</p>
-                                </div>
-                            </div>
-
-                            <!-- Year -->
-                            <div v-if="record.year" class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">tag</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Year</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.year }}</p>
-                                </div>
-                            </div>
-
-                            <!-- Dates -->
-                            <div v-if="record.starts_at || record.ends_at" class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">date_range</span>
-                                <div class="min-w-0 grid grid-cols-2 gap-4 w-full">
-                                    <div v-if="record.starts_at">
-                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Starts</p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatDate(record.starts_at) }}</p>
-                                    </div>
-                                    <div v-if="record.ends_at">
-                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Ends</p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatDate(record.ends_at) }}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Venue -->
-                            <div v-if="record.venue" class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_city</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Venue</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.venue }}</p>
-                                </div>
-                            </div>
-
-                            <!-- Booth -->
-                            <div v-if="record.booth" class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">store</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Booth</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.booth }}</p>
-                                </div>
-                            </div>
-
-                            <!-- Boat show -->
-                            <div v-if="record.boat_show" class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">sailing</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Boat Show</p>
-                                    <Link
-                                        :href="route('boat-shows.show', record.boat_show.id)"
-                                        class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
-                                    >
-                                        {{ record.boat_show.name }}
-                                    </Link>
-                                </div>
-                            </div>
-
-                            <!-- Status row -->
-                            <div class="flex items-start gap-4 px-6 py-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">toggle_on</span>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Status</p>
-                                    <span :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold', eventStatus.badge]">
-                                        <span :class="['w-1.5 h-1.5 rounded-full', eventStatus.dot]"></span>
-                                        {{ eventStatus.label }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Venue address card -->
-                    <div v-if="hasAddress" class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                            <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
-                                Venue Address
-                            </h2>
-                            <a
-                                v-if="mapsUrl"
-                                :href="mapsUrl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        <!-- Tab bar -->
+                        <div class="border-b border-gray-100 dark:border-gray-700 px-2 flex items-center gap-1 overflow-x-auto">
+                            <button
+                                v-for="tab in tabs"
+                                :key="tab.key"
+                                @click="activeTab = tab.key"
+                                :class="[
+                                    'flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                                    activeTab === tab.key
+                                        ? 'border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400'
+                                        : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300'
+                                ]"
                             >
-                                <span class="material-icons text-[14px]">open_in_new</span>
-                                Open in Maps
-                            </a>
-                        </div>
-                        <div class="px-6 py-5 space-y-4">
-
-                            <!-- Address lines -->
-                            <div class="flex items-start gap-4">
-                                <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_on</span>
-                                <address class="not-italic text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                                    <span v-if="record.address_line_1" class="block font-medium text-gray-900 dark:text-white">{{ record.address_line_1 }}</span>
-                                    <span v-if="record.address_line_2" class="block">{{ record.address_line_2 }}</span>
-                                    <span class="block">
-                                        {{ [record.city, record.state, record.postal_code].filter(Boolean).join(', ') }}
-                                    </span>
-                                    <span v-if="record.country" class="block text-gray-500 dark:text-gray-400">{{ record.country }}</span>
-                                </address>
-                            </div>
-
-                            <!-- Coordinates -->
-                            <div v-if="record.latitude && record.longitude" class="flex items-center gap-4">
-                                <span class="material-icons text-[20px] text-gray-400 shrink-0">my_location</span>
-                                <p class="text-xs font-mono text-gray-500 dark:text-gray-400">
-                                    {{ Number(record.latitude).toFixed(6) }}, {{ Number(record.longitude).toFixed(6) }}
-                                </p>
-                            </div>
-
-                            <!-- Static map placeholder / embed hint -->
-                            <div v-if="mapsUrl" class="mt-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
-                                <a
-                                    :href="mapsUrl"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
+                                <span class="material-icons text-[17px]">{{ tab.icon }}</span>
+                                {{ tab.label }}
+                                <span
+                                    v-if="tab.key === 'tasks'"
+                                    class="ml-1 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300"
                                 >
-                                    <span class="material-icons text-[32px] group-hover:scale-110 transition-transform">map</span>
-                                    <span>View on Google Maps</span>
-                                </a>
+                                    {{ tasks.length }}
+                                </span>
+                                <span
+                                    v-if="tab.key === 'assets'"
+                                    class="ml-1 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                                >
+                                    {{ totalAssets }}
+                                </span>
+                            </button>
+                        </div>
+
+                        <!-- ── DETAILS TAB ── -->
+                        <div v-show="activeTab === 'details'">
+
+                            <!-- Event Details card -->
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+
+                                <!-- Display name -->
+                                <div class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">badge</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Display Name</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.display_name }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Year -->
+                                <div v-if="record.year" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">tag</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Year</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.year }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Dates -->
+                                <div v-if="record.starts_at || record.ends_at" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">date_range</span>
+                                    <div class="min-w-0 grid grid-cols-2 gap-4 w-full">
+                                        <div v-if="record.starts_at">
+                                            <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Starts</p>
+                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatDate(record.starts_at) }}</p>
+                                        </div>
+                                        <div v-if="record.ends_at">
+                                            <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Ends</p>
+                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatDate(record.ends_at) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Venue -->
+                                <div v-if="record.venue" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_city</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Venue</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.venue }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Booth -->
+                                <div v-if="record.booth" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">store</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Booth</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.booth }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Boat show -->
+                                <div v-if="record.boat_show" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">sailing</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Boat Show</p>
+                                        <Link
+                                            :href="route('boat-shows.show', record.boat_show.id)"
+                                            class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ record.boat_show.name }}
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                <!-- Status row -->
+                                <div class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">toggle_on</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Status</p>
+                                        <span :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold', eventStatus.badge]">
+                                            <span :class="['w-1.5 h-1.5 rounded-full', eventStatus.dot]"></span>
+                                            {{ eventStatus.label }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Venue address section (within details tab) -->
+                            <div v-if="hasAddress" class="border-t border-gray-100 dark:border-gray-700">
+                                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-50 dark:border-gray-700/50">
+                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                        Venue Address
+                                    </h3>
+                                    <a
+                                        v-if="mapsUrl"
+                                        :href="mapsUrl"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                                    >
+                                        <span class="material-icons text-[14px]">open_in_new</span>
+                                        Open in Maps
+                                    </a>
+                                </div>
+                                <div class="px-6 py-5 space-y-4">
+
+                                    <!-- Address lines -->
+                                    <div class="flex items-start gap-4">
+                                        <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_on</span>
+                                        <address class="not-italic text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                                            <span v-if="record.address_line_1" class="block font-medium text-gray-900 dark:text-white">{{ record.address_line_1 }}</span>
+                                            <span v-if="record.address_line_2" class="block">{{ record.address_line_2 }}</span>
+                                            <span class="block">
+                                                {{ [record.city, record.state, record.postal_code].filter(Boolean).join(', ') }}
+                                            </span>
+                                            <span v-if="record.country" class="block text-gray-500 dark:text-gray-400">{{ record.country }}</span>
+                                        </address>
+                                    </div>
+
+                                    <!-- Coordinates -->
+                                    <div v-if="record.latitude && record.longitude" class="flex items-center gap-4">
+                                        <span class="material-icons text-[20px] text-gray-400 shrink-0">my_location</span>
+                                        <p class="text-xs font-mono text-gray-500 dark:text-gray-400">
+                                            {{ Number(record.latitude).toFixed(6) }}, {{ Number(record.longitude).toFixed(6) }}
+                                        </p>
+                                    </div>
+
+                                    <!-- Map link -->
+                                    <div v-if="mapsUrl" class="mt-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+                                        <a
+                                            :href="mapsUrl"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group"
+                                        >
+                                            <span class="material-icons text-[32px] group-hover:scale-110 transition-transform">map</span>
+                                            <span>View on Google Maps</span>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- ── LAYOUT BUILDER TAB ── -->
+                        <div v-show="activeTab === 'layout'" class="p-4">
+                            <LayoutBuilder
+                                :initial-boats="assets.boats"
+                                :saved-layout="layoutJson"
+                                @save="json => { layoutJson = json; $emit('layout-saved', json); }"
+                                @change="json => layoutJson = json"
+                            />
+                        </div>
+
+                        <!-- ── CHECKLIST TAB ── -->
+                        <div v-show="activeTab === 'checklist'" class="p-6">
+                            <Checklist
+                                v-model="checklistData"
+                                @save-template="handleSaveTemplate"
+                            />
+                        </div>
+
+                        <!-- ── TASKS TAB ── -->
+                        <div v-show="activeTab === 'tasks'" class="p-6">
+                            <div class="flex items-center justify-between mb-5">
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tasks</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Manage and assign tasks related to this event.
+                                    </p>
+                                </div>
+                                <button class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>
+                                    <span class="material-icons text-[16px]">add</span>
+                                    Add task
+                                </button>
+                            </div>
+
+                            <!-- Kanban-style column skeletons -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div v-for="(col, i) in [
+                                        { label: 'To Do',       color: 'bg-gray-400' },
+                                        { label: 'In Progress', color: 'bg-blue-400' },
+                                        { label: 'Done',        color: 'bg-green-400' },
+                                    ]" :key="i"
+                                     class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 overflow-hidden">
+                                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                                        <span :class="['w-2 h-2 rounded-full shrink-0', col.color]" />
+                                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ col.label }}</span>
+                                    </div>
+                                    <div class="p-3 space-y-2 animate-pulse">
+                                        <div v-for="n in (i === 1 ? 3 : 2)" :key="n"
+                                             class="rounded-md bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 space-y-2 shadow-sm">
+                                            <div class="h-3 w-3/4 rounded bg-gray-200 dark:bg-gray-600" />
+                                            <div class="h-2.5 w-1/2 rounded bg-gray-200 dark:bg-gray-600" />
+                                            <div class="flex items-center justify-between pt-1">
+                                                <div class="h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-600" />
+                                                <div class="h-5 w-5 rounded-full bg-gray-200 dark:bg-gray-600" />
+                                            </div>
+                                        </div>
+                                        <button class="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-primary-500 hover:bg-white dark:hover:bg-gray-700 rounded-md border border-dashed border-gray-200 dark:border-gray-600 flex items-center gap-1.5 transition-colors">
+                                            <span class="material-icons text-[14px]">add</span>
+                                            Add task
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── ASSET LIST TAB ── -->
+                        <div v-show="activeTab === 'assets'" class="p-6">
+                            <div class="flex items-center justify-between mb-5">
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Asset List</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Boats, engines, and trailers assigned to this event.
+                                    </p>
+                                </div>
+                                <button class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>
+                                    <span class="material-icons text-[16px]">add</span>
+                                    Add asset
+                                </button>
+                            </div>
+
+                            <div class="space-y-6">
+
+                                <!-- ── Boats ── -->
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-icons text-[18px] text-blue-500">directions_boat</span>
+                                            <span class="text-sm font-semibold text-gray-800 dark:text-white">Boats</span>
+                                            <span class="rounded-full bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                {{ assets.boats?.length ?? 0 }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-sm text-gray-900 dark:text-white">
+                                            <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
+                                                <tr>
+                                                    <th class="px-4 py-3 font-semibold">Name / Model</th>
+                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Year</th>
+                                                    <th class="px-4 py-3 font-semibold">Length</th>
+                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr
+                                                    v-for="boat in assets.boats"
+                                                    :key="boat.id"
+                                                    class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
+                                                >
+                                                    <td class="px-4 py-3 font-medium">{{ boat.display_name ?? boat.model ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.make ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.year ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.length ? `${boat.length}'` : '—' }}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Link
+                                                            v-if="boat.id"
+                                                            :href="route('boats.show', boat.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                        >
+                                                            View
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                                <tr v-if="!assets.boats?.length">
+                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                        No boats assigned to this event.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- ── Engines ── -->
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-icons text-[18px] text-orange-500">settings</span>
+                                            <span class="text-sm font-semibold text-gray-800 dark:text-white">Engines</span>
+                                            <span class="rounded-full bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 text-xs font-semibold text-orange-700 dark:text-orange-300">
+                                                {{ assets.engines?.length ?? 0 }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-sm text-gray-900 dark:text-white">
+                                            <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
+                                                <tr>
+                                                    <th class="px-4 py-3 font-semibold">Name / Model</th>
+                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Year</th>
+                                                    <th class="px-4 py-3 font-semibold">HP</th>
+                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr
+                                                    v-for="engine in assets.engines"
+                                                    :key="engine.id"
+                                                    class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
+                                                >
+                                                    <td class="px-4 py-3 font-medium">{{ engine.display_name ?? engine.model ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.make ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.year ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.horsepower ? `${engine.horsepower} hp` : '—' }}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Link
+                                                            v-if="engine.id"
+                                                            :href="route('engines.show', engine.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                        >
+                                                            View
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                                <tr v-if="!assets.engines?.length">
+                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                        No engines assigned to this event.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- ── Trailers ── -->
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-icons text-[18px] text-green-500">local_shipping</span>
+                                            <span class="text-sm font-semibold text-gray-800 dark:text-white">Trailers</span>
+                                            <span class="rounded-full bg-green-100 dark:bg-green-900/40 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-300">
+                                                {{ assets.trailers?.length ?? 0 }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-left text-sm text-gray-900 dark:text-white">
+                                            <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
+                                                <tr>
+                                                    <th class="px-4 py-3 font-semibold">Name / Model</th>
+                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Year</th>
+                                                    <th class="px-4 py-3 font-semibold">Type</th>
+                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr
+                                                    v-for="trailer in assets.trailers"
+                                                    :key="trailer.id"
+                                                    class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
+                                                >
+                                                    <td class="px-4 py-3 font-medium">{{ trailer.display_name ?? trailer.model ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.make ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.year ?? '—' }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.trailer_type ?? '—' }}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Link
+                                                            v-if="trailer.id"
+                                                            :href="route('trailers.show', trailer.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                        >
+                                                            View
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                                <tr v-if="!assets.trailers?.length">
+                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                        No trailers assigned to this event.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
                     </div>
+                    <!-- /tabbed section -->
+
                 </div>
+                <!-- /main column -->
 
                 <!-- Right / Sidebar column -->
                 <div class="space-y-4">
@@ -494,7 +795,35 @@ const confirmDelete = () => {
                             </ol>
                         </div>
                     </div>
+
+                    <!-- Quick-jump to tabs -->
+                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Jump to</span>
+                        </div>
+                        <div class="p-3 space-y-1">
+                            <button
+                                v-for="tab in tabs"
+                                :key="tab.key"
+                                @click="activeTab = tab.key"
+                                :class="[
+                                    'flex w-full items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                                    activeTab === tab.key
+                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                                ]"
+                            >
+                                <span :class="['material-icons text-[18px]', activeTab === tab.key ? 'text-primary-500' : 'text-gray-400']">
+                                    {{ tab.icon }}
+                                </span>
+                                {{ tab.label }}
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
+                <!-- /sidebar -->
+
             </div>
         </div>
     </TenantLayout>

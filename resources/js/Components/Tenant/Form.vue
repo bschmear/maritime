@@ -13,6 +13,7 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import AssetSpecsSection from '@/Components/Tenant/AssetSpec/AssetSpecsSection.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 const props = defineProps({
@@ -73,6 +74,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    availableSpecs: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -83,6 +88,9 @@ const { convertUTCToTimezone, convertTimezoneToUTC, timezoneLabels, accountTimez
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
 const updateRecordId = computed(() => props.recordIdentifier ?? props.record?.id);
+
+// Ref to AssetSpecsSection so we can trigger its save alongside the main form save
+const specsSectionRef = ref(null);
 
 // Handle both old schema format and new nested format (with settings)
 const normalizedSchema = computed(() => {
@@ -341,8 +349,9 @@ const formGroups = computed(() => {
             key,
             index,
             label: group.label || key,
+            type: group.type || null,
             is_address: group.is_address || false,
-            conditional: group.conditional || null, // Add this line
+            conditional: group.conditional || null,
             // Filter out invalid fields and ensure field.key exists
             filteredFields: (group.fields || []).filter(f => f && typeof f === 'object' && f.key)
         }));
@@ -1018,6 +1027,8 @@ const handleSubmit = () => {
                 },
             })
             .then((response) => {
+                // Save specs alongside the main record update
+                specsSectionRef.value?.saveSpecs();
                 // Emit updated event with the updated record data
                 const updatedRecord = response.data?.record || response.data?.data?.record;
                 if (updatedRecord) {
@@ -1062,6 +1073,7 @@ const handleSubmit = () => {
                 {
                     preserveScroll: true,
                     onSuccess: (page) => {
+                        specsSectionRef.value?.saveSpecs();
                         emit('submit');
                         router.reload({ only: ['record', 'imageUrls'] });
                     },
@@ -1514,6 +1526,21 @@ defineExpose({
                                 </template>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Specs Section (type: "specs") -->
+                    <div
+                        v-else-if="group.type === 'specs'"
+                        :id="`accordion-body-${group.index}`"
+                        v-show="!useFormAccordion || openSections[group.key]"
+                        :aria-labelledby="useFormAccordion ? `accordion-heading-${group.index}` : `form-section-heading-${group.index}`"
+                    >
+                        <AssetSpecsSection
+                            ref="specsSectionRef"
+                            :record="record"
+                            :available-specs="availableSpecs"
+                            :mode="mode"
+                        />
                     </div>
                 </div>
             </div>

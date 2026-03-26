@@ -39,61 +39,6 @@
     "type": "text",
     "placeholder": "Year"
   },
-  "length": {
-    "label": "Length",
-    "type": "text",
-    "placeholder": "e.g., 22ft",
-    "help": "Boat length"
-  },
-  "beam": {
-    "label": "Beam",
-    "type": "text",
-    "placeholder": "e.g., 8ft",
-    "help": "Boat beam width"
-  },
-  "persons": {
-    "label": "Persons Capacity",
-    "type": "number",
-    "placeholder": "0",
-    "help": "Maximum persons capacity"
-  },
-  "minimum_power": {
-    "label": "Min Power",
-    "type": "number",
-    "placeholder": "HP",
-    "help": "Minimum engine power required"
-  },
-  "maximum_power": {
-    "label": "Max Power",
-    "type": "number",
-    "placeholder": "HP",
-    "help": "Maximum engine power recommended"
-  },
-  "fuel_tank": {
-    "label": "Fuel Tank",
-    "type": "text",
-    "placeholder": "e.g., 50 Gal"
-  },
-  "engine_shaft": {
-    "label": "Engine Shaft",
-    "type": "text",
-    "placeholder": "e.g., 1L"
-  },
-  "water_tank": {
-    "label": "Water Tank",
-    "type": "text",
-    "placeholder": "e.g., 12 Gal"
-  },
-  "category": {
-    "label": "Category",
-    "type": "text",
-    "placeholder": "Asset category"
-  },
-  "engine_details": {
-    "label": "Engine Details",
-    "type": "textarea",
-    "placeholder": "Detailed engine specifications"
-  },
   "default_cost": {
     "label": "Default Cost",
     "type": "currency",
@@ -104,15 +49,15 @@
     "type": "currency",
     "placeholder": "0.00"
   },
-  "attributes": {
-    "label": "Additional Attributes",
-    "type": "json",
-    "help": "Custom attributes as JSON"
-  },
   "description": {
     "label": "Description",
     "type": "textarea",
     "placeholder": "Asset description"
+  },
+  "attributes": {
+    "label": "Additional Attributes",
+    "type": "json",
+    "help": "Custom attributes as JSON"
   },
   "created_at": {
     "label": "Created",

@@ -12,6 +12,7 @@ use Illuminate\Routing\Controller as BaseController;
 use App\Actions\PublicStorage;
 use App\Enums\Timezone;
 use App\Domain\Document\Models\Document;
+use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use Illuminate\Support\Facades\Storage;
 
 class RecordController extends BaseController
@@ -502,7 +503,7 @@ class RecordController extends BaseController
             }
         }
 
-        // Load form schema to check for sublists
+        // Load form schema to check for sublists and spec groups
         $formSchema = $this->getFormSchema();
 
         // Add sublist relationships (for model relationships like hasMany, belongsToMany)
@@ -516,11 +517,26 @@ class RecordController extends BaseController
                 }
             }
         }
+
+        // Detect if the form has a specs section and eager-load spec values
+        $formGroups = $formSchema['form'] ?? $formSchema;
+        $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
+            ->contains(fn($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
+
+        if ($hasSpecsGroup) {
+            $relationships['specValues'] = fn($q) => $q->with('definition');
+        }
        
         // Load the record with relationships
         $record = $this->recordModel
             ->with($relationships)
             ->findOrFail($id);
+
+        $availableSpecs = $hasSpecsGroup && isset($record->type)
+            ? AssetSpecDefinition::whereJsonContains('asset_types', (int) $record->type)
+                ->orderBy('position')
+                ->get()
+            : [];
            
         $enumOptions = $this->getEnumOptions();
 
@@ -540,6 +556,7 @@ class RecordController extends BaseController
                 'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
                 'account' => $account,
                 'timezones' => Timezone::options(),
+                'availableSpecs' => $availableSpecs,
             ]);
         }
 
@@ -555,6 +572,7 @@ class RecordController extends BaseController
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
             'account' => $account,
             'timezones' => Timezone::options(),
+            'availableSpecs' => $availableSpecs,
         ]);
     }
 
@@ -611,10 +629,26 @@ class RecordController extends BaseController
             }
         }
 
+        $formSchema = $this->getFormSchema();
+
+        // Detect if the form has a specs section and eager-load spec values
+        $formGroups = $formSchema['form'] ?? $formSchema;
+        $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
+            ->contains(fn($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
+
+        if ($hasSpecsGroup) {
+            $relationships['specValues'] = fn($q) => $q->with('definition');
+        }
+
         // Load the record with relationships
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
-        $formSchema = $this->getFormSchema();
+        $availableSpecs = $hasSpecsGroup && isset($record->type)
+            ? AssetSpecDefinition::whereJsonContains('asset_types', (int) $record->type)
+                ->orderBy('position')
+                ->get()
+            : [];
+
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
@@ -629,6 +663,7 @@ class RecordController extends BaseController
             'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
             'account' => $account,
             'timezones' => Timezone::options(),
+            'availableSpecs' => $availableSpecs,
         ]);
     }
 

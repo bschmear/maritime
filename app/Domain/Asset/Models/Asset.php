@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Models\Concerns\HasDocuments;
 
 class Asset extends Model
@@ -80,6 +81,16 @@ class Asset extends Model
     public function images()
     {
         return $this->morphMany(InventoryImage::class, 'imageable');
+    }
+
+    public function specs()
+    {
+        return $this->hasMany(AssetSpecValue::class);
+    }
+
+    public function specValues()
+    {
+        return $this->hasMany(AssetSpecValue::class)->with('definition');
     }
 
     /**
