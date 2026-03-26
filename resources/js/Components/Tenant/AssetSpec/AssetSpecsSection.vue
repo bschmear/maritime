@@ -4,23 +4,14 @@ import { Link } from '@inertiajs/vue3';
 import axios from 'axios';
 
 const props = defineProps({
-    record: {
-        type: Object,
-        default: null,
-    },
-    availableSpecs: {
-        type: Array,
-        default: () => [],
-    },
-    mode: {
-        type: String,
-        default: 'view',
-    },
+    record: { type: Object, default: null },
+    availableSpecs: { type: Array, default: () => [] },
+    mode: { type: String, default: 'view' },
+    assetType: { type: [Number, String], default: null },
 });
 
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 
-// Build a lookup of existing spec values keyed by definition id
 const existingValues = computed(() => {
     const map = {};
     if (props.record && Array.isArray(props.record.spec_values)) {
@@ -31,38 +22,56 @@ const existingValues = computed(() => {
     return map;
 });
 
-// Editable local state for edit mode
+const liveSpecs = ref([]);
 const localValues = ref({});
 
-const initLocalValues = () => {
-    const data = {};
-    props.availableSpecs.forEach(spec => {
+const applySpecs = (specs) => {
+    const newLocalValues = {};
+    specs.forEach(spec => {
         const existing = existingValues.value[spec.id];
-        if (existing) {
-            data[spec.id] = {
-                value_number: existing.value_number ?? null,
-                value_text: existing.value_text ?? null,
+        newLocalValues[spec.id] = existing
+            ? {
+                value_number:  existing.value_number  ?? null,
+                value_text:    existing.value_text    ?? null,
                 value_boolean: existing.value_boolean ?? false,
-                unit: existing.unit ?? spec.unit ?? null,
-            };
-        } else {
-            data[spec.id] = {
-                value_number: null,
-                value_text: null,
+                unit:          existing.unit          ?? spec.unit ?? null,
+            }
+            : {
+                value_number:  null,
+                value_text:    null,
                 value_boolean: false,
-                unit: spec.unit ?? null,
+                unit:          spec.unit ?? null,
             };
-        }
     });
-    localValues.value = data;
+    liveSpecs.value  = specs;
+    localValues.value = newLocalValues;
 };
 
-watch(() => [props.record, props.availableSpecs], initLocalValues, { immediate: true, deep: true });
+watch(() => props.availableSpecs, (val) => applySpecs([...(val ?? [])]), { immediate: true });
+
+const hasInitialisedType = ref(false);
+watch(
+    () => props.assetType,
+    async (newType, oldType) => {
+        if (!newType) return;
+        if (!hasInitialisedType.value) { hasInitialisedType.value = true; return; }
+        if (newType === oldType) return;
+        try {
+            const response = await axios.get(route('asset-specs.index'), {
+                params: { asset_type: newType },
+                headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+            });
+            applySpecs(response.data?.specs ?? []);
+        } catch { /* keep existing specs on error */ }
+    }
+);
+
+watch(() => props.record, () => applySpecs([...liveSpecs.value]), { deep: true });
 
 const getDisplayValue = (spec) => {
     const sv = existingValues.value[spec.id];
     if (!sv) return null;
-    if (spec.type === 'number') return sv.value_number ?? null;
+    if (spec.type === 'number')  return sv.value_number ?? null;
     if (spec.type === 'boolean') return sv.value_boolean;
     if (spec.type === 'select' || spec.type === 'text') return sv.value_text ?? null;
     return null;
@@ -75,7 +84,7 @@ const getDisplayUnit = (spec) => {
 
 const groupedSpecs = computed(() => {
     const groups = {};
-    props.availableSpecs.forEach(spec => {
+    liveSpecs.value.forEach(spec => {
         const group = spec.group || 'Other';
         if (!groups[group]) groups[group] = [];
         groups[group].push(spec);
@@ -83,33 +92,28 @@ const groupedSpecs = computed(() => {
     return groups;
 });
 
-const saveSpecs = () => {
-    if (!props.record?.id || props.availableSpecs.length === 0) return;
+// ── Public API ───────────────────────────────────────────────────
+// Returns the specs array ready to be merged into the main form payload.
+const buildSpecsPayload = () => liveSpecs.value.map(spec => {
+    const val = localValues.value[spec.id] || {};
+    return {
+        spec_id:       spec.id,
+        value_number:  spec.type === 'number'
+            ? (val.value_number !== '' && val.value_number !== null ? val.value_number : null)
+            : null,
+        value_text:    (spec.type === 'text' || spec.type === 'select')
+            ? (val.value_text || null)
+            : null,
+        value_boolean: spec.type === 'boolean' ? (val.value_boolean ? 1 : 0) : null,
+        unit:          val.unit || null,
+    };
+});
 
-    const specs = props.availableSpecs.map(spec => {
-        const val = localValues.value[spec.id] || {};
-        return {
-            spec_id: spec.id,
-            value_number: spec.type === 'number' ? (val.value_number !== '' ? val.value_number : null) : null,
-            value_text: (spec.type === 'text' || spec.type === 'select') ? (val.value_text || null) : null,
-            value_boolean: spec.type === 'boolean' ? (val.value_boolean ? 1 : 0) : null,
-            unit: val.unit || null,
-        };
-    });
-
-    axios.post(
-        route('assets.specs.store', { asset: props.record.id }),
-        { specs },
-        { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } }
-    );
-};
-
-defineExpose({ saveSpecs });
+defineExpose({ buildSpecsPayload });
 </script>
 
 <template>
     <div class="p-4 sm:p-5">
-        <!-- Header with edit link -->
         <div class="mb-4 flex items-center justify-between">
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 Specifications for this asset type
@@ -123,13 +127,9 @@ defineExpose({ saveSpecs });
             </Link>
         </div>
 
-        <!-- Empty state -->
-        <div v-if="availableSpecs.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div v-if="liveSpecs.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             No specifications available for this asset type.
-            <Link
-                :href="route('asset-specs.index')"
-                class="ml-1 font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
-            >
+            <Link :href="route('asset-specs.index')" class="ml-1 font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
                 Add specifications
             </Link>
         </div>
@@ -139,13 +139,9 @@ defineExpose({ saveSpecs });
                 <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     {{ groupName }}
                 </h3>
-
                 <div class="grid gap-4 sm:grid-cols-12">
-                    <div
-                        v-for="spec in groupSpecs"
-                        :key="spec.id"
-                        class="sm:col-span-6 xl:col-span-4"
-                    >
+                    <div v-for="spec in groupSpecs" :key="spec.id" class="sm:col-span-6 xl:col-span-4">
+
                         <!-- View mode -->
                         <template v-if="!isEditMode">
                             <p class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -154,11 +150,7 @@ defineExpose({ saveSpecs });
                             </p>
                             <p class="text-sm text-gray-900 dark:text-white">
                                 <template v-if="spec.type === 'boolean'">
-                                    <span
-                                        :class="getDisplayValue(spec)
-                                            ? 'text-green-600 dark:text-green-400'
-                                            : 'text-gray-400 dark:text-gray-500'"
-                                    >
+                                    <span :class="getDisplayValue(spec) ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'">
                                         {{ getDisplayValue(spec) ? 'Yes' : 'No' }}
                                     </span>
                                 </template>
@@ -173,7 +165,7 @@ defineExpose({ saveSpecs });
                         </template>
 
                         <!-- Edit mode -->
-                        <template v-else>
+                        <template v-else-if="localValues[spec.id]">
                             <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 {{ spec.label }}
                                 <span v-if="spec.is_required" class="text-red-500">*</span>
@@ -182,62 +174,51 @@ defineExpose({ saveSpecs });
                                 </span>
                             </label>
 
-                            <!-- Number -->
                             <div v-if="spec.type === 'number'" class="flex items-center gap-2">
                                 <input
                                     v-model="localValues[spec.id].value_number"
                                     type="number"
                                     :step="spec.step || 'any'"
                                     :placeholder="`Enter ${spec.label.toLowerCase()}`"
-                                    class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                                    class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                                 />
                                 <span v-if="getDisplayUnit(spec)" class="whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                     {{ getDisplayUnit(spec) }}
                                 </span>
                             </div>
 
-                            <!-- Text -->
                             <input
                                 v-else-if="spec.type === 'text'"
                                 v-model="localValues[spec.id].value_text"
                                 type="text"
                                 :placeholder="`Enter ${spec.label.toLowerCase()}`"
-                                class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                                class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                             />
 
-                            <!-- Select -->
                             <select
                                 v-else-if="spec.type === 'select'"
                                 v-model="localValues[spec.id].value_text"
-                                class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                                class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             >
                                 <option value="">Select {{ spec.label.toLowerCase() }}</option>
-                                <option
-                                    v-for="option in (spec.options || [])"
-                                    :key="option.value"
-                                    :value="option.value"
-                                >
+                                <option v-for="option in (spec.options || [])" :key="option.value" :value="option.value">
                                     {{ option.label }}
                                 </option>
                             </select>
 
-                            <!-- Boolean -->
-                            <label
-                                v-else-if="spec.type === 'boolean'"
-                                class="flex cursor-pointer items-center gap-2"
-                            >
+                            <label v-else-if="spec.type === 'boolean'" class="flex cursor-pointer items-center gap-2">
                                 <input
                                     v-model="localValues[spec.id].value_boolean"
                                     type="checkbox"
-                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:focus:ring-primary-400"
+                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                                 />
                                 <span class="text-sm text-gray-600 dark:text-gray-400">Yes</span>
                             </label>
                         </template>
+
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 </template>

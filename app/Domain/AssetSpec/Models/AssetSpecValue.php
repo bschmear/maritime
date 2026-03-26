@@ -15,6 +15,10 @@ class AssetSpecValue extends Model
         'unit',
     ];
 
+    protected $casts = [
+        'value_number' => 'float',
+    ];
+
     public function definition()
     {
         return $this->belongsTo(AssetSpecDefinition::class, 'asset_spec_definition_id');

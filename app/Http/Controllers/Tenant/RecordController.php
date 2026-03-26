@@ -671,6 +671,7 @@ class RecordController extends BaseController
     {
         try {
             $data = $request->all();
+            // dd($data);
             $fieldsSchema = $this->getUnwrappedFieldsSchema();
             
             // Handle image uploads (creates Document records)

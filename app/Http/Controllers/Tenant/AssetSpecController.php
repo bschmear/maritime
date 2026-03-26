@@ -54,6 +54,11 @@ class AssetSpecController extends Controller
 
         $specs = $query->orderBy('position')->get();
 
+        // Return JSON for AJAX requests (e.g. dynamic asset-type switching in forms)
+        if ($request->ajax() && !$request->header('X-Inertia')) {
+            return response()->json(['specs' => $specs]);
+        }
+
         // Get unique groups and types for filters
         $groups = AssetSpecDefinition::distinct()->pluck('group')->filter()->values();
         $types  = AssetSpecDefinition::distinct()->pluck('type')->filter()->values();
