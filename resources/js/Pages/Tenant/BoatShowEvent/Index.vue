@@ -12,7 +12,7 @@ const props = defineProps({
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
     recordType: { type: String, default: 'boat-show-events' },
-    recordTitle: { type: String, default: 'BoatShowEvent' },
+    recordTitle: { type: String, default: 'Boat Show Event' },
     pluralTitle: { type: String, default: 'Boat Show Events' },
     extraRouteParams: { type: Object, default: () => ({}) },
     initialCreateData: { type: Object, default: () => ({}) },

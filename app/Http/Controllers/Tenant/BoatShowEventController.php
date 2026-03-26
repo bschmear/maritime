@@ -8,7 +8,11 @@ use App\Domain\BoatShowEvent\Actions\CreateBoatShowEvent as CreateAction;
 use App\Domain\BoatShowEvent\Actions\DeleteBoatShowEvent as DeleteAction;
 use App\Domain\BoatShowEvent\Actions\UpdateBoatShowEvent as UpdateAction;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
+use App\Domain\Checklist\Actions\SyncChecklist;
+use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 use App\Domain\Document\Models\Document;
+use App\Enums\Tasks\Priority;
+use App\Enums\Tasks\Status;
 use Illuminate\Http\Request;
 use Inertia\Response as InertiaResponse;
 
@@ -16,12 +20,40 @@ class BoatShowEventController extends RecordController
 {
     private const NESTED_SCOPE = 'boat_show_event_nested_boat_show';
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function taskBoardInertiaProps(): array
+    {
+        $fieldsPath = app_path('Domain/Task/Schema/fields.json');
+        $formPath = app_path('Domain/Task/Schema/form.json');
+
+        $fieldsRaw = is_file($fieldsPath)
+            ? json_decode((string) file_get_contents($fieldsPath), true) ?? []
+            : [];
+        $taskFieldsSchema = $fieldsRaw['fields'] ?? $fieldsRaw;
+
+        $taskFormSchema = is_file($formPath)
+            ? json_decode((string) file_get_contents($formPath), true) ?? []
+            : [];
+
+        return [
+            'taskBoardFormSchema' => $taskFormSchema,
+            'taskBoardFieldsSchema' => $taskFieldsSchema,
+            'taskBoardEnumOptions' => [
+                'App\\Enums\\Tasks\\Status' => Status::options(),
+                'App\\Enums\\Tasks\\Priority' => Priority::options(),
+            ],
+            'taskStatusOptions' => Status::options(),
+        ];
+    }
+
     public function __construct(Request $request)
     {
         parent::__construct(
             $request,
             'boat-show-events',
-            'BoatShowEvent',
+            'Boat Show Event',
             new RecordModel,
             new CreateAction,
             new UpdateAction,
@@ -240,7 +272,51 @@ class BoatShowEventController extends RecordController
         $response = parent::show($request, $eventId);
 
         if ($response instanceof InertiaResponse) {
-            return $response->with('extraRouteParams', $this->eventExtraRouteParams($request));
+            $event = RecordModel::query()
+                ->with([
+                    'checklist.items' => fn ($q) => $q->orderBy('position'),
+                    'tasks' => fn ($q) => $q->with([
+                        'assigned' => fn ($a) => $a->select(['id', 'display_name', 'first_name']),
+                    ])
+                        ->orderByRaw('case when due_date is null then 1 else 0 end')
+                        ->orderBy('due_date'),
+                ])
+                ->findOrFail($eventId);
+
+            $checklist = $event->checklist
+                ? SyncChecklist::formatForFrontend($event->checklist)
+                : [
+                    'id' => null,
+                    'name' => 'Event Checklist',
+                    'checklist_template_id' => null,
+                    'items' => [],
+                ];
+
+            $checklistTemplates = ChecklistTemplate::query()
+                ->where('is_active', true)
+                ->where(function ($q) {
+                    $q->where('context', 'boat_show_event')->orWhereNull('context');
+                })
+                ->with(['items' => fn ($q) => $q->orderBy('position')])
+                ->orderBy('name')
+                ->get()
+                ->map(fn (ChecklistTemplate $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'items' => $t->items->map(fn ($i) => [
+                        'label' => $i->label,
+                        'required' => (bool) $i->required,
+                    ])->values()->all(),
+                ])
+                ->values()
+                ->all();
+
+            return $response
+                ->with('extraRouteParams', $this->eventExtraRouteParams($request))
+                ->with('checklist', $checklist)
+                ->with('checklistTemplates', $checklistTemplates)
+                ->with('tasks', $event->tasks)
+                ->with($this->taskBoardInertiaProps());
         }
 
         return $response;

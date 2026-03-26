@@ -3,16 +3,13 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
-    // Pre-populate from the event's asset list if desired
     initialBoats: { type: Array, default: () => [] },
-    // Saved layout JSON (stringified state) to restore
-    savedLayout: { type: String, default: null },
+    savedLayout:  { type: String, default: null },
 });
 
 const emit = defineEmits(['save', 'change']);
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const SCALE  = 10;   // pixels per foot
 const MARGIN = 28;
 
 const COLORS = [
@@ -28,6 +25,9 @@ const COLORS = [
 
 // ── State ────────────────────────────────────────────────────────────────────
 const canvasRef    = ref(null);
+const containerRef = ref(null);
+const containerW   = ref(800); // fallback until ResizeObserver fires
+
 const spaceW       = ref(60);
 const spaceH       = ref(40);
 const pendingW     = ref(60);
@@ -44,8 +44,14 @@ const form = reactive({ name: '', length: 20, width: 8, color: '#378ADD' });
 const drag = { active: false, offX: 0, offY: 0 };
 
 // ── Computed ─────────────────────────────────────────────────────────────────
-const canvasW = computed(() => spaceW.value * SCALE + MARGIN * 2);
-const canvasH = computed(() => spaceH.value * SCALE + MARGIN * 2);
+
+// Dynamic scale: fit the floor plan into the container width
+const SCALE = computed(() =>
+    Math.max(4, Math.floor((containerW.value - MARGIN * 2) / spaceW.value))
+);
+
+const canvasW = computed(() => spaceW.value * SCALE.value + MARGIN * 2);
+const canvasH = computed(() => spaceH.value * SCALE.value + MARGIN * 2);
 
 const selectedInfo = computed(() => {
     const b = selected.value;
@@ -63,15 +69,17 @@ function draw() {
     const canvas = canvasRef.value;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const cw = canvasW.value;
-    const ch = canvasH.value;
+    const cw  = canvasW.value;
+    const ch  = canvasH.value;
+    const S   = SCALE.value;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    const bg         = isDark ? '#1c1c1e' : '#f0f0eb';
-    const floorBg    = isDark ? '#2a2a28' : '#ffffff';
-    const gridColor  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    const labelColor = isDark ? '#666' : '#aaa';
-    const borderCol  = isDark ? '#444' : '#ccc';
+    // Slate palette
+    const bg         = isDark ? '#1e2433' : '#e8ecf2';
+    const floorBg    = isDark ? '#252d3d' : '#f4f6f9';
+    const gridColor  = isDark ? 'rgba(148,163,184,0.08)' : 'rgba(71,85,105,0.08)';
+    const labelColor = isDark ? '#64748b' : '#94a3b8';
+    const borderCol  = isDark ? '#334155' : '#94a3b8';
 
     ctx.clearRect(0, 0, cw, ch);
 
@@ -80,27 +88,27 @@ function draw() {
     ctx.fillRect(0, 0, cw, ch);
 
     // Floor
-    ctx.fillStyle = floorBg;
+    ctx.fillStyle   = floorBg;
     ctx.strokeStyle = borderCol;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth   = 1.5;
     ctx.beginPath();
-    ctx.rect(MARGIN, MARGIN, spaceW.value * SCALE, spaceH.value * SCALE);
+    ctx.rect(MARGIN, MARGIN, spaceW.value * S, spaceH.value * S);
     ctx.fill();
     ctx.stroke();
 
-    // Grid lines
+    // Grid lines (every 5 ft)
     ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 0.5;
+    ctx.lineWidth   = 0.5;
     for (let x = 0; x <= spaceW.value; x += 5) {
         ctx.beginPath();
-        ctx.moveTo(MARGIN + x * SCALE, MARGIN);
-        ctx.lineTo(MARGIN + x * SCALE, MARGIN + spaceH.value * SCALE);
+        ctx.moveTo(MARGIN + x * S, MARGIN);
+        ctx.lineTo(MARGIN + x * S, MARGIN + spaceH.value * S);
         ctx.stroke();
     }
     for (let y = 0; y <= spaceH.value; y += 5) {
         ctx.beginPath();
-        ctx.moveTo(MARGIN, MARGIN + y * SCALE);
-        ctx.lineTo(MARGIN + spaceW.value * SCALE, MARGIN + y * SCALE);
+        ctx.moveTo(MARGIN,                    MARGIN + y * S);
+        ctx.lineTo(MARGIN + spaceW.value * S, MARGIN + y * S);
         ctx.stroke();
     }
 
@@ -110,26 +118,26 @@ function draw() {
     ctx.textBaseline = 'alphabetic';
     for (let x = 0; x <= spaceW.value; x += 10) {
         ctx.font = '9px sans-serif';
-        ctx.fillText(x + "'", MARGIN + x * SCALE, MARGIN - 8);
+        ctx.fillText(x + "'", MARGIN + x * S, MARGIN - 8);
     }
-    ctx.textAlign = 'right';
+    ctx.textAlign    = 'right';
     ctx.textBaseline = 'middle';
     for (let y = 0; y <= spaceH.value; y += 10) {
         ctx.font = '9px sans-serif';
-        ctx.fillText(y + "'", MARGIN - 5, MARGIN + y * SCALE);
+        ctx.fillText(y + "'", MARGIN - 5, MARGIN + y * S);
     }
 
     // Boats
     for (const boat of boats.value) {
-        drawBoat(ctx, boat, boat === selected.value);
+        drawBoat(ctx, boat, boat === selected.value, S);
     }
 }
 
-function drawBoat(ctx, boat, isSel) {
-    const px = MARGIN + boat.x * SCALE;
-    const py = MARGIN + boat.y * SCALE;
-    const pw = (boat.rotated ? boat.w : boat.l) * SCALE;
-    const ph = (boat.rotated ? boat.l : boat.w) * SCALE;
+function drawBoat(ctx, boat, isSel, S) {
+    const px = MARGIN + boat.x * S;
+    const py = MARGIN + boat.y * S;
+    const pw = (boat.rotated ? boat.w : boat.l) * S;
+    const ph = (boat.rotated ? boat.l : boat.w) * S;
 
     const oob =
         boat.x < 0 || boat.y < 0 ||
@@ -190,12 +198,13 @@ function drawBoat(ctx, boat, isSel) {
 
 // ── Hit test ─────────────────────────────────────────────────────────────────
 function hitTest(mx, my) {
+    const S = SCALE.value;
     for (let i = boats.value.length - 1; i >= 0; i--) {
         const b  = boats.value[i];
-        const px = MARGIN + b.x * SCALE;
-        const py = MARGIN + b.y * SCALE;
-        const pw = (b.rotated ? b.w : b.l) * SCALE;
-        const ph = (b.rotated ? b.l : b.w) * SCALE;
+        const px = MARGIN + b.x * S;
+        const py = MARGIN + b.y * S;
+        const pw = (b.rotated ? b.w : b.l) * S;
+        const ph = (b.rotated ? b.l : b.w) * S;
         if (mx >= px && mx <= px + pw && my >= py && my <= py + ph) return b;
     }
     return null;
@@ -216,9 +225,8 @@ function onPointerDown(e) {
     if (hit) {
         selected.value = hit;
         drag.active = true;
-        drag.offX   = mx - (MARGIN + hit.x * SCALE);
-        drag.offY   = my - (MARGIN + hit.y * SCALE);
-        // Bring to top
+        drag.offX   = mx - (MARGIN + hit.x * SCALE.value);
+        drag.offY   = my - (MARGIN + hit.y * SCALE.value);
         boats.value = [...boats.value.filter(b => b !== hit), hit];
     } else {
         selected.value = null;
@@ -229,8 +237,9 @@ function onPointerDown(e) {
 function onPointerMove(e) {
     if (!drag.active || !selected.value) return;
     const { mx, my } = getXY(e, canvasRef.value);
-    selected.value.x = snap((mx - drag.offX - MARGIN) / SCALE);
-    selected.value.y = snap((my - drag.offY - MARGIN) / SCALE);
+    const S = SCALE.value;
+    selected.value.x = snap((mx - drag.offX - MARGIN) / S);
+    selected.value.y = snap((my - drag.offY - MARGIN) / S);
     draw();
     emit('change', serializeLayout());
 }
@@ -261,7 +270,7 @@ function addBoat() {
         rotated: false,
     };
     boats.value = [...boats.value, boat];
-    selected.value = boat;
+    selected.value  = boat;
     showModal.value = false;
     draw();
     emit('change', serializeLayout());
@@ -283,8 +292,8 @@ function deleteSelected() {
 }
 
 function applySpace() {
-    spaceW.value = Math.max(10, Math.min(200, parseInt(pendingW.value) || 60));
-    spaceH.value = Math.max(10, Math.min(200, parseInt(pendingH.value) || 40));
+    spaceW.value   = Math.max(10, Math.min(200, parseInt(pendingW.value) || 60));
+    spaceH.value   = Math.max(10, Math.min(200, parseInt(pendingH.value) || 40));
     pendingW.value = spaceW.value;
     pendingH.value = spaceH.value;
     draw();
@@ -329,7 +338,19 @@ function saveLayout() {
 }
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
+let ro;
+
 onMounted(() => {
+    // ResizeObserver: keep containerW in sync and redraw
+    ro = new ResizeObserver(entries => {
+        containerW.value = entries[0].contentRect.width;
+        requestAnimationFrame(draw);
+    });
+    if (containerRef.value) {
+        ro.observe(containerRef.value);
+        containerW.value = containerRef.value.clientWidth || 800;
+    }
+
     // Restore saved layout or seed from initialBoats prop
     if (props.savedLayout) {
         restoreLayout(props.savedLayout);
@@ -353,23 +374,22 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    ro?.disconnect();
     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', draw);
 });
 
-// Redraw when canvas size changes
+// Redraw when canvas size changes (spaceW/H change → SCALE recomputes → these fire)
 watch([canvasW, canvasH], () => {
-    // canvas dimensions are bound via :width/:height, Vue updates them next tick
     requestAnimationFrame(draw);
 });
 </script>
 
 <template>
-    <div class="flex flex-col gap-0 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800 select-none">
+    <div class="flex flex-col gap-0 rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 select-none">
 
         <!-- ── Toolbar ─────────────────────────────────────────────────────── -->
-        <div class="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
 
-            <!-- Left: actions -->
             <button
                 @click="openModal"
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
@@ -381,7 +401,7 @@ watch([canvasW, canvasH], () => {
             <button
                 @click="rotateSelected"
                 :disabled="!selected"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md transition-colors hover:bg-gray-50 dark:hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-md transition-colors hover:bg-slate-50 dark:hover:bg-slate-500 disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <span class="material-icons text-[14px]">rotate_right</span>
                 Rotate 90°
@@ -390,7 +410,7 @@ watch([canvasW, canvasH], () => {
             <button
                 @click="deleteSelected"
                 :disabled="!selected"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-600 border border-red-200 dark:border-red-700 rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-white dark:bg-slate-600 border border-red-200 dark:border-red-700 rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <span class="material-icons text-[14px]">delete_outline</span>
                 Remove
@@ -399,7 +419,7 @@ watch([canvasW, canvasH], () => {
             <button
                 @click="clearAll"
                 :disabled="!boats.length"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
                 <span class="material-icons text-[14px]">clear_all</span>
                 Clear
@@ -407,29 +427,29 @@ watch([canvasW, canvasH], () => {
 
             <!-- Right: space size + save -->
             <div class="ml-auto flex items-center gap-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Space (ft):</span>
+                <span class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Space (ft):</span>
                 <input
                     v-model.number="pendingW"
                     type="number" min="10" max="200"
-                    class="w-14 px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                    class="w-14 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                     @keydown.enter="applySpace"
                 />
-                <span class="text-xs text-gray-400">×</span>
+                <span class="text-xs text-slate-400">×</span>
                 <input
                     v-model.number="pendingH"
                     type="number" min="10" max="200"
-                    class="w-14 px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                    class="w-14 px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                     @keydown.enter="applySpace"
                 />
                 <button
                     @click="applySpace"
-                    class="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                    class="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-md hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors"
                 >
                     Apply
                 </button>
                 <button
                     @click="saveLayout"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-500 rounded-md transition-colors"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 rounded-md transition-colors"
                 >
                     <span class="material-icons text-[14px]">save</span>
                     Save
@@ -438,31 +458,31 @@ watch([canvasW, canvasH], () => {
         </div>
 
         <!-- ── Info bar ────────────────────────────────────────────────────── -->
-        <div class="flex items-center gap-3 px-4 py-1.5 text-xs border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div class="flex items-center gap-3 px-4 py-1.5 text-xs border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
             <template v-if="selectedInfo">
-                <span class="font-medium text-gray-900 dark:text-white">{{ selectedInfo.name }}</span>
-                <span class="text-gray-400">{{ selectedInfo.dims }}</span>
-                <span class="text-gray-400">@ {{ selectedInfo.pos }}</span>
+                <span class="font-medium text-slate-900 dark:text-white">{{ selectedInfo.name }}</span>
+                <span class="text-slate-400">{{ selectedInfo.dims }}</span>
+                <span class="text-slate-400">@ {{ selectedInfo.pos }}</span>
                 <span v-if="selectedInfo.oob" class="flex items-center gap-1 text-red-500 font-medium">
                     <span class="material-icons text-[13px]">warning</span>
                     Outside boundary
                 </span>
             </template>
             <template v-else>
-                <span class="text-gray-400">No boat selected — click a boat to select, then drag to move</span>
+                <span class="text-slate-400">No boat selected — click a boat to select, then drag to move</span>
             </template>
-            <span class="ml-auto font-medium text-gray-700 dark:text-gray-300">
+            <span class="ml-auto font-medium text-slate-700 dark:text-slate-300">
                 {{ boatCount }} boat{{ boatCount !== 1 ? 's' : '' }}
             </span>
         </div>
 
-        <!-- ── Canvas ──────────────────────────────────────────────────────── -->
-        <div class="overflow-auto bg-gray-100 dark:bg-gray-900 p-4">
+        <!-- ── Canvas (full-width, no scroll) ─────────────────────────────── -->
+        <div ref="containerRef" class="w-full bg-slate-200 dark:bg-slate-900">
             <canvas
                 ref="canvasRef"
                 :width="canvasW"
                 :height="canvasH"
-                class="block rounded cursor-default touch-none"
+                class="block w-full touch-none cursor-default"
                 @mousedown="onPointerDown"
                 @mousemove="onPointerMove"
                 @mouseup="onPointerUp"
@@ -474,7 +494,7 @@ watch([canvasW, canvasH], () => {
         </div>
 
         <!-- ── Legend ──────────────────────────────────────────────────────── -->
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 text-xs text-gray-500 dark:text-gray-400">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs text-slate-500 dark:text-slate-400">
             <span class="flex items-center gap-1.5">
                 <span class="inline-block w-3 h-3 rounded-sm bg-[#E24B4A]"></span>
                 Out of bounds
@@ -483,7 +503,7 @@ watch([canvasW, canvasH], () => {
                 <span class="inline-block w-3 h-3 rounded-sm bg-primary-500 opacity-70"></span>
                 Selected (dashed outline)
             </span>
-            <span class="text-gray-400 hidden sm:block">Grid = 5 ft intervals · Bow points right</span>
+            <span class="text-slate-400 hidden sm:block">Grid = 5 ft intervals · Bow points right</span>
             <span class="ml-auto">{{ spaceW }}' × {{ spaceH }}' floor plan</span>
         </div>
     </div>
@@ -496,41 +516,41 @@ watch([canvasW, canvasH], () => {
                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                 @click.self="showModal = false"
             >
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 w-80">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Add boat to layout</h3>
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 w-80">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">Add boat to layout</h3>
 
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Boat name</label>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Boat name</label>
                             <input
                                 v-model="form.name"
                                 type="text"
                                 placeholder="e.g. Sea Ray 250"
-                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                                class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                                 @keydown.enter="addBoat"
                                 autofocus
                             />
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Length (ft)</label>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Length (ft)</label>
                                 <input
                                     v-model.number="form.length"
                                     type="number" min="1"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Width (ft)</label>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Width (ft)</label>
                                 <input
                                     v-model.number="form.width"
                                     type="number" min="1"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                                    class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                                 />
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Color</label>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Color</label>
                             <div class="flex flex-wrap gap-2 pt-1">
                                 <button
                                     v-for="c in COLORS"
@@ -541,7 +561,7 @@ watch([canvasW, canvasH], () => {
                                     :class="[
                                         'w-7 h-7 rounded-full transition-all border-2',
                                         form.color === c.value
-                                            ? 'border-gray-900 dark:border-white scale-110 shadow'
+                                            ? 'border-slate-900 dark:border-white scale-110 shadow'
                                             : 'border-transparent opacity-70 hover:opacity-100 hover:scale-105'
                                     ]"
                                 />
@@ -552,7 +572,7 @@ watch([canvasW, canvasH], () => {
                     <div class="flex gap-2 justify-end mt-5">
                         <button
                             @click="showModal = false"
-                            class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                            class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
                         >
                             Cancel
                         </button>

@@ -29,6 +29,14 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    reloadOnly: {
+        type: Array,
+        default: () => ['tasks'],
+    },
+    sortableGroup: {
+        type: String,
+        default: 'list-tasks',
+    },
 });
 
 const emit = defineEmits(['task-clicked', 'view-task', 'create-task', 'task-updated']);
@@ -37,19 +45,14 @@ const groupRefs = ref({});
 const sortableInstances = ref({});
 const isDragging = ref(false);
 
-// Group tasks by the specified field
-const groupedTasks = computed(() => {
-    const groups = {};
-    
-    props.groupOptions.forEach(option => {
-        groups[option.id] = {
-            ...option,
-            tasks: props.tasks.filter(task => task[props.groupByField] === option.id),
-        };
-    });
-
-    return groups;
-});
+const groupedTasks = computed(() =>
+    props.groupOptions.map((option) => ({
+        ...option,
+        tasks: props.tasks.filter(
+            (task) => Number(task[props.groupByField]) === Number(option.id),
+        ),
+    })),
+);
 
 const handleTaskClick = (task) => {
     // Don't open modal if we just finished dragging
@@ -105,7 +108,7 @@ const initializeSortable = () => {
             const element = groupRefs.value[groupId];
             if (element && !sortableInstances.value[groupId]) {
                 sortableInstances.value[groupId] = new Sortable(element, {
-                    group: 'list-tasks',
+                    group: props.sortableGroup,
                     animation: 150,
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
@@ -150,28 +153,37 @@ const handleTaskMove = async (evt) => {
         emit('task-updated', taskId);
 
         // Reload the page to refresh data
-        router.reload({ only: ['tasks'] });
+        router.reload({ only: props.reloadOnly });
     } catch (error) {
         console.error('Error updating task:', error);
-        // Revert the move on error
-        router.reload({ only: ['tasks'] });
+        router.reload({ only: props.reloadOnly });
     }
 };
 
-// Watch for changes in group structure (not individual tasks)
-watch(() => props.groupOptions.length, () => {
-    // Only reinitialize if group structure changes
-    nextTick(() => {
-        // Destroy existing instances
-        Object.values(sortableInstances.value).forEach(instance => {
-            if (instance) instance.destroy();
+const columnDotClass = (color) => {
+    const map = {
+        red: 'bg-red-500',
+        orange: 'bg-orange-500',
+        yellow: 'bg-yellow-500',
+        green: 'bg-green-500',
+        blue: 'bg-blue-500',
+        gray: 'bg-gray-500',
+    };
+    return map[color] || map.gray;
+};
+
+watch(
+    () => props.groupOptions.map((o) => o.id).join(','),
+    () => {
+        nextTick(() => {
+            Object.values(sortableInstances.value).forEach((instance) => {
+                if (instance) instance.destroy();
+            });
+            sortableInstances.value = {};
+            initializeSortable();
         });
-        sortableInstances.value = {};
-        
-        // Reinitialize
-        initializeSortable();
-    });
-});
+    },
+);
 
 onMounted(() => {
     initializeSortable();
@@ -189,12 +201,7 @@ onMounted(() => {
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2">
-                        <div
-                            :class="[
-                                'w-3 h-3 rounded-full',
-                                `bg-${group.color}-500`
-                            ]"
-                        ></div>
+                        <div :class="['w-3 h-3 rounded-full', columnDotClass(group.color)]" />
                         <h3 class="text-base font-semibold text-gray-900 dark:text-white">
                             {{ group.name }}
                         </h3>

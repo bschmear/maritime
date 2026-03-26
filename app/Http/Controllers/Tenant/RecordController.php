@@ -2,29 +2,34 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Concerns\HasSchemaSupport;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use App\Actions\PublicStorage;
+use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
+use App\Domain\Document\Models\Document;
+use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
+use App\Http\Controllers\Concerns\HasSchemaSupport;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use App\Actions\PublicStorage;
-use App\Enums\Timezone;
-use App\Domain\Document\Models\Document;
-use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class RecordController extends BaseController
 {
-    use AuthorizesRequests, ValidatesRequests, HasSchemaSupport, HasImageSupport;
+    use AuthorizesRequests, HasImageSupport, HasSchemaSupport, ValidatesRequests;
 
     protected $recordType;
+
     protected $recordTitle;
+
     protected $recordModel;
+
     protected $createAction;
+
     protected $updateAction;
+
     protected $deleteAction;
+
     protected $domainName;
 
     public function __construct(
@@ -46,15 +51,20 @@ class RecordController extends BaseController
         $this->deleteAction = $deleteAction;
         $this->domainName = $domainName ?? $recordTitle;
     }
-    
+
     /**
      * Get unwrapped fields schema (handles both wrapped and unwrapped structures)
      */
-    protected function getUnwrappedFieldsSchema()
+    protected function getUnwrappedFieldsSchema(): array
     {
         $fieldsSchemaRaw = $this->getFieldsSchema();
-        // Unwrap fields if necessary
-        return isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+        if (! is_array($fieldsSchemaRaw)) {
+            return [];
+        }
+
+        $unwrapped = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+
+        return is_array($unwrapped) ? $unwrapped : [];
     }
 
     public function index(Request $request)
@@ -86,11 +96,11 @@ class RecordController extends BaseController
 
         // If the model uses $appends (virtual accessors), include all real DB columns
         // so that accessor dependencies (e.g. `sequence` for display_name) are always loaded.
-        if (!empty($this->recordModel->getAppends())) {
+        if (! empty($this->recordModel->getAppends())) {
             $actualColumns = array_values(array_unique(array_merge($actualColumns, $dbColumns)));
         }
 
-        if (!in_array('id', $actualColumns)) {
+        if (! in_array('id', $actualColumns)) {
             $actualColumns[] = 'id';
         }
 
@@ -120,9 +130,9 @@ class RecordController extends BaseController
                     $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                              ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name']);
-                              }]);
+                            ->with(['asset' => function ($q) {
+                                $q->select(['id', 'display_name']);
+                            }]);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
@@ -143,7 +153,7 @@ class RecordController extends BaseController
                 $selectFields = array_unique($selectFields);
 
                 // Only set the relationship if it wasn't already set for AssetUnit
-                if (!isset($relationships[$relationshipName])) {
+                if (! isset($relationships[$relationshipName])) {
                     $relationships[$relationshipName] = function ($query) use ($selectFields) {
                         $query->select($selectFields);
                     };
@@ -154,41 +164,41 @@ class RecordController extends BaseController
         $query = $this->recordModel->select($actualColumns)->with($relationships);
 
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
+        if ($searchQuery && ! empty(trim($searchQuery))) {
             // Check if display_name column exists, otherwise search in typical display name fields
             $tableName = $this->recordModel->getTable();
             $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
                 ->hasColumn($tableName, 'display_name');
 
             if ($hasDisplayName) {
-                $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+                $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
                 // Search in fields that typically make up display names
-                $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 if ($this->domainName === 'AssetUnit') {
                     // For AssetUnit, also search in the joined assets table
                     $query->where(function ($q) use ($searchTerm) {
                         $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                            ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
                     });
                 } elseif ($this->domainName === 'InventoryUnit') {
                     // For InventoryUnit, also search in the joined inventory_items table
                     $query->where(function ($q) use ($searchTerm) {
                         $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                            ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
                     });
                 } else {
                     $query->where(function ($q) use ($searchTerm) {
                         $q->whereRaw('LOWER(serial_number) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(hin) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('LOWER(sku) LIKE ?', [$searchTerm])
-                          ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
+                            ->orWhereRaw('LOWER(hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
                     });
                 }
             }
@@ -206,7 +216,6 @@ class RecordController extends BaseController
             }
         }
 
-
         // Order by display_name if the column exists, otherwise by created_at
         $tableName = $this->recordModel->getTable();
         $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
@@ -218,26 +227,28 @@ class RecordController extends BaseController
             // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
             if ($this->domainName === 'AssetUnit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
-                $prefixedColumns = array_map(function($col) {
+                $prefixedColumns = array_map(function ($col) {
                     // Prefix all columns that belong to the asset_units table
                     $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-                    return in_array($col, $tableColumns) ? 'asset_units.' . $col : $col;
+
+                    return in_array($col, $tableColumns) ? 'asset_units.'.$col : $col;
                 }, $actualColumns);
                 $query->select($prefixedColumns)
-                      ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
-                      ->orderBy('assets.display_name')
-                      ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
+                    ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
+                    ->orderBy('assets.display_name')
+                    ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
             } elseif ($this->domainName === 'InventoryUnit') {
                 // Override select to use table prefixes to avoid ambiguous column errors
-                $prefixedColumns = array_map(function($col) {
+                $prefixedColumns = array_map(function ($col) {
                     // Prefix all columns that belong to the inventory_units table
                     $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-                    return in_array($col, $tableColumns) ? 'inventory_units.' . $col : $col;
+
+                    return in_array($col, $tableColumns) ? 'inventory_units.'.$col : $col;
                 }, $actualColumns);
                 $query->select($prefixedColumns)
-                      ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
-                      ->orderBy('inventory_items.display_name')
-                      ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
+                    ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
+                    ->orderBy('inventory_items.display_name')
+                    ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
             } else {
                 $query->orderBy('created_at', 'desc');
             }
@@ -247,7 +258,7 @@ class RecordController extends BaseController
         $records = $query->paginate($perPage);
 
         // Return JSON for Inertia / AJAX / JSON requests only
-        if ($request->ajax() && !$request->header('X-Inertia')) {
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
                 'schema' => $schema,
@@ -264,7 +275,7 @@ class RecordController extends BaseController
         // Normal initial page load - return Inertia page
         $pluralTitle = Str::plural($this->recordTitle);
 
-        return inertia('Tenant/' . $this->domainName . '/Index', [
+        return inertia('Tenant/'.$this->domainName.'/Index', [
             'records' => $records,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -285,7 +296,7 @@ class RecordController extends BaseController
         // Get account settings for timezone display (cached)
         $account = \App\Models\AccountSettings::getCurrent();
 
-        return inertia('Tenant/' . $this->domainName . '/Create', [
+        return inertia('Tenant/'.$this->domainName.'/Create', [
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
@@ -311,7 +322,7 @@ class RecordController extends BaseController
                         $meta = $fieldDef['meta'] ?? [];
 
                         // Default options
-                        $directory = $meta['directory'] ?? ($this->domainName . '/' . $fieldKey); // e.g., "User/avatar"
+                        $directory = $meta['directory'] ?? ($this->domainName.'/'.$fieldKey); // e.g., "User/avatar"
                         $isPrivate = $meta['private'] ?? false;
                         $resizeWidth = $meta['max_width'] ?? null;
                         $crop = $meta['crop'] ?? false;
@@ -346,7 +357,7 @@ class RecordController extends BaseController
             $result = ($this->createAction)($data);
 
             // Handle case where action returns a model directly (for backward compatibility)
-            if (!is_array($result)) {
+            if (! is_array($result)) {
                 $result = [
                     'success' => true,
                     'record' => $result,
@@ -355,7 +366,7 @@ class RecordController extends BaseController
 
             if ($result['success']) {
                 // If it's an AJAX request that wants JSON, return JSON instead of redirecting
-                if ($request->ajax() && !$request->header('X-Inertia')) {
+                if ($request->ajax() && ! $request->header('X-Inertia')) {
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getUnwrappedFieldsSchema();
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
@@ -364,7 +375,7 @@ class RecordController extends BaseController
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                            
+
                             // Determine which fields to select for this relationship
                             $selectFields = ['id'];
 
@@ -374,9 +385,9 @@ class RecordController extends BaseController
                                 $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                                          ->with(['asset' => function ($q) {
-                                              $q->select(['id', 'display_name']);
-                                          }]);
+                                        ->with(['asset' => function ($q) {
+                                            $q->select(['id', 'display_name']);
+                                        }]);
                                 };
                             } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                                 // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
@@ -397,7 +408,7 @@ class RecordController extends BaseController
                             $selectFields = array_unique($selectFields);
 
                             // Only set the relationship if it wasn't already set for AssetUnit
-                            if (!isset($relationships[$relationshipName])) {
+                            if (! isset($relationships[$relationshipName])) {
                                 $relationships[$relationshipName] = function ($query) use ($selectFields) {
                                     $query->select($selectFields);
                                 };
@@ -412,31 +423,31 @@ class RecordController extends BaseController
                         'success' => true,
                         'recordId' => $result['record']->id,
                         'record' => $record,
-                        'message' => $this->domainName . ' created successfully',
+                        'message' => $this->domainName.' created successfully',
                     ]);
                 }
 
                 return redirect()
-                    ->route($this->recordType . '.show', $result['record']->id)
-                    ->with('success', $this->domainName . ' created successfully')
+                    ->route($this->recordType.'.show', $result['record']->id)
+                    ->with('success', $this->domainName.' created successfully')
                     ->with('recordId', $result['record']->id);
             }
 
             // Handle errors for AJAX requests
-            if ($request->ajax() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to create ' . $this->recordTitle,
+                    'message' => $result['message'] ?? 'Failed to create '.$this->recordTitle,
                 ], 422);
             }
 
             return back()
                 ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create ' . $this->recordTitle);
+                ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors
-            if ($request->ajax() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
@@ -472,9 +483,9 @@ class RecordController extends BaseController
                     $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                              ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name']);
-                              }]);
+                            ->with(['asset' => function ($q) {
+                                $q->select(['id', 'display_name']);
+                            }]);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
@@ -495,7 +506,7 @@ class RecordController extends BaseController
                 $selectFields = array_unique($selectFields);
 
                 // Only set the relationship if it wasn't already set for AssetUnit
-                if (!isset($relationships[$relationshipName])) {
+                if (! isset($relationships[$relationshipName])) {
                     $relationships[$relationshipName] = function ($query) use ($selectFields) {
                         $query->select($selectFields);
                     };
@@ -521,12 +532,12 @@ class RecordController extends BaseController
         // Detect if the form has a specs section and eager-load spec values
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
-            ->contains(fn($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
+            ->contains(fn ($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
 
         if ($hasSpecsGroup) {
-            $relationships['specValues'] = fn($q) => $q->with('definition');
+            $relationships['specValues'] = fn ($q) => $q->with('definition');
         }
-       
+
         // Load the record with relationships
         $record = $this->recordModel
             ->with($relationships)
@@ -542,7 +553,7 @@ class RecordController extends BaseController
         $account = \App\Models\AccountSettings::getCurrent();
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
-        if ($request->ajax() && !$request->header('X-Inertia')) {
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'record' => $record,
                 'recordType' => $this->recordType,
@@ -559,7 +570,7 @@ class RecordController extends BaseController
         }
 
         // Return Inertia response (for navigation and partial reloads)
-        return inertia('Tenant/' . $this->domainName . '/Show', [
+        return inertia('Tenant/'.$this->domainName.'/Show', [
             'record' => $record,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -596,9 +607,9 @@ class RecordController extends BaseController
                     $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                              ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name']);
-                              }]);
+                            ->with(['asset' => function ($q) {
+                                $q->select(['id', 'display_name']);
+                            }]);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
@@ -619,7 +630,7 @@ class RecordController extends BaseController
                 $selectFields = array_unique($selectFields);
 
                 // Only set the relationship if it wasn't already set for AssetUnit
-                if (!isset($relationships[$relationshipName])) {
+                if (! isset($relationships[$relationshipName])) {
                     $relationships[$relationshipName] = function ($query) use ($selectFields) {
                         $query->select($selectFields);
                     };
@@ -632,10 +643,10 @@ class RecordController extends BaseController
         // Detect if the form has a specs section and eager-load spec values
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
-            ->contains(fn($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
+            ->contains(fn ($g) => is_array($g) && ($g['type'] ?? null) === 'specs');
 
         if ($hasSpecsGroup) {
-            $relationships['specValues'] = fn($q) => $q->with('definition');
+            $relationships['specValues'] = fn ($q) => $q->with('definition');
         }
 
         // Load the record with relationships
@@ -650,7 +661,7 @@ class RecordController extends BaseController
         // Get account settings for timezone display (cached)
         $account = \App\Models\AccountSettings::getCurrent();
 
-        return inertia('Tenant/' . $this->domainName . '/Edit', [
+        return inertia('Tenant/'.$this->domainName.'/Edit', [
             'record' => $record,
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
@@ -669,7 +680,7 @@ class RecordController extends BaseController
             $data = $request->all();
             // dd($data);
             $fieldsSchema = $this->getUnwrappedFieldsSchema();
-            
+
             // Handle image uploads (creates Document records)
             foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                 if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
@@ -684,7 +695,7 @@ class RecordController extends BaseController
                         $meta = $fieldDef['meta'] ?? [];
 
                         // Default options
-                        $directory = $meta['directory'] ?? ($this->domainName . '/' . $fieldKey);
+                        $directory = $meta['directory'] ?? ($this->domainName.'/'.$fieldKey);
                         $isPrivate = $meta['private'] ?? false;
                         $resizeWidth = $meta['max_width'] ?? null;
                         $crop = $meta['crop'] ?? false;
@@ -731,7 +742,7 @@ class RecordController extends BaseController
             if ($result['success']) {
 
                 // Check if this is a non-Inertia AJAX request (axios from preventRedirect)
-                if ($request->ajax() && !$request->header('X-Inertia')) {
+                if ($request->ajax() && ! $request->header('X-Inertia')) {
 
                     // Reload the record with relationships to ensure display_name is available
                     $fieldsSchema = $this->getUnwrappedFieldsSchema();
@@ -741,7 +752,7 @@ class RecordController extends BaseController
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                            
+
                             // Determine which fields to select for this relationship
                             $selectFields = ['id'];
 
@@ -751,9 +762,9 @@ class RecordController extends BaseController
                                 $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                                          ->with(['asset' => function ($q) {
-                                              $q->select(['id', 'display_name']);
-                                          }]);
+                                        ->with(['asset' => function ($q) {
+                                            $q->select(['id', 'display_name']);
+                                        }]);
                                 };
                             } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                                 // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
@@ -774,7 +785,7 @@ class RecordController extends BaseController
                             $selectFields = array_unique($selectFields);
 
                             // Only set the relationship if it wasn't already set for AssetUnit
-                            if (!isset($relationships[$relationshipName])) {
+                            if (! isset($relationships[$relationshipName])) {
                                 $relationships[$relationshipName] = function ($query) use ($selectFields) {
                                     $query->select($selectFields);
                                 };
@@ -788,31 +799,31 @@ class RecordController extends BaseController
                     return response()->json([
                         'success' => true,
                         'record' => $record,
-                        'message' => $this->domainName . ' updated successfully',
+                        'message' => $this->domainName.' updated successfully',
                     ]);
                 }
 
                 // Inertia Response (Always redirect for Inertia requests)
-                return back()->with('success', $this->domainName . ' updated successfully');
+                return back()->with('success', $this->domainName.' updated successfully');
             }
 
             // Handle business logic errors
-            if ($request->ajax() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to update ' . $this->recordTitle,
+                    'message' => $result['message'] ?? 'Failed to update '.$this->recordTitle,
                 ], 422);
             }
 
             // For Inertia requests, return back with errors
             return back()
                 ->withInput()
-                ->withErrors(['general' => $result['message'] ?? 'Failed to update ' . $this->recordTitle]);
+                ->withErrors(['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors
-            if ($request->ajax() && !$request->header('X-Inertia')) {
+            if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),
@@ -831,12 +842,12 @@ class RecordController extends BaseController
 
         if ($result['success']) {
             return redirect()
-                ->route($this->recordType . '.index')
-                ->with('success', $this->domainName . ' deleted successfully');
+                ->route($this->recordType.'.index')
+                ->with('success', $this->domainName.' deleted successfully');
         }
 
         return back()
-            ->with('error', $result['message'] ?? 'Failed to delete ' . $this->recordTitle);
+            ->with('error', $result['message'] ?? 'Failed to delete '.$this->recordTitle);
     }
 
     public function lookup(Request $request)
@@ -848,9 +859,9 @@ class RecordController extends BaseController
 
         // Apply search query
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
+        if ($searchQuery && ! empty(trim($searchQuery))) {
             // Default search on display_name
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
         }
 
         // Get per_page from request, default to 15
@@ -864,7 +875,7 @@ class RecordController extends BaseController
                 'last_page' => $records->lastPage(),
                 'per_page' => $records->perPage(),
                 'total' => $records->total(),
-            ]
+            ],
         ]);
     }
 
@@ -881,7 +892,7 @@ class RecordController extends BaseController
                     $enumOptions[$enumClass] = $enumClass::options();
                 } elseif (class_exists($enumClass)) {
                     // Fallback: if no options method, create from cases
-                    $enumOptions[$enumClass] = array_map(fn($case) => [
+                    $enumOptions[$enumClass] = array_map(fn ($case) => [
                         'id' => $case->value,
                         'name' => $case->name ?? $case->value,
                     ], $enumClass::cases());
@@ -908,19 +919,19 @@ class RecordController extends BaseController
             $relatedId = $request->input('related_id');
 
             // Check if relationship exists and is a BelongsToMany
-            if (!method_exists($record, $relationship)) {
+            if (! method_exists($record, $relationship)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Relationship '{$relationship}' does not exist on this model."
+                    'message' => "Relationship '{$relationship}' does not exist on this model.",
                 ], 400);
             }
 
             $relationshipInstance = $record->$relationship();
-            
-            if (!($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+
+            if (! ($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship."
+                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship.",
                 ], 400);
             }
 
@@ -928,7 +939,7 @@ class RecordController extends BaseController
             if ($relationshipInstance->where($relationshipInstance->getRelated()->getQualifiedKeyName(), $relatedId)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => "This record is already attached."
+                    'message' => 'This record is already attached.',
                 ], 400);
             }
 
@@ -942,7 +953,7 @@ class RecordController extends BaseController
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to attach record: ' . $e->getMessage()
+                'message' => 'Failed to attach record: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -963,19 +974,19 @@ class RecordController extends BaseController
             $relatedId = $request->input('related_id');
 
             // Check if relationship exists and is a BelongsToMany
-            if (!method_exists($record, $relationship)) {
+            if (! method_exists($record, $relationship)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Relationship '{$relationship}' does not exist on this model."
+                    'message' => "Relationship '{$relationship}' does not exist on this model.",
                 ], 400);
             }
 
             $relationshipInstance = $record->$relationship();
-            
-            if (!($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+
+            if (! ($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship."
+                    'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship.",
                 ], 400);
             }
 
@@ -989,9 +1000,8 @@ class RecordController extends BaseController
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to detach record: ' . $e->getMessage()
+                'message' => 'Failed to detach record: '.$e->getMessage(),
             ], 500);
         }
     }
-
 }

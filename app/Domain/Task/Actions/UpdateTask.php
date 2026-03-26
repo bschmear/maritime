@@ -19,6 +19,8 @@ class UpdateTask
                 'notes' => ['nullable', 'string'],
                 'start_date' => ['nullable', 'date'],
                 'due_date' => ['nullable', 'date'],
+                'has_due_time' => ['nullable', 'boolean'],
+                'due_time' => ['nullable', 'string', 'max:32'],
                 'completed_at' => ['nullable', 'date'],
                 'status_id' => ['nullable', 'integer'],
                 'priority_id' => ['nullable', 'integer'],
@@ -38,6 +40,10 @@ class UpdateTask
             // Filter to only include fillable fields
             $fillableFields = (new RecordModel)->getFillable();
             $fieldsToUpdate = array_intersect_key($validated, array_flip($fillableFields));
+
+            if (array_key_exists('has_due_time', $fieldsToUpdate) && ! $fieldsToUpdate['has_due_time']) {
+                $fieldsToUpdate['due_time'] = null;
+            }
 
             // Automatically set updated_by to the authenticated user
             $fieldsToUpdate['updated_by'] = auth()->id();

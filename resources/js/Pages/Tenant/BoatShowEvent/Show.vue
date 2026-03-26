@@ -3,8 +3,15 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Checklist from '@/Components/Tenant/Checklist.vue';
 import LayoutBuilder from '@/Components/Tenant/LayoutBuilder.vue';
+import RelatableTasksBoard from '@/Components/Tenant/RelatableTasksBoard.vue';
+import axios from 'axios';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, getCurrentInstance, ref, watch } from 'vue';
+
+const appInstance = getCurrentInstance();
+function toast(type, message) {
+    appInstance?.appContext.config.globalProperties.$toast?.(type, message);
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -18,8 +25,21 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     extraRouteParams: { type: Object, default: () => ({}) },
-    checklist: { type: Object, default: () => ({ name: 'Event Checklist', items: [] }) },
+    checklist: {
+        type: Object,
+        default: () => ({
+            id: null,
+            name: 'Event Checklist',
+            checklist_template_id: null,
+            items: [],
+        }),
+    },
+    checklistTemplates: { type: Array, default: () => [] },
     tasks: { type: Array, default: () => [] },
+    taskStatusOptions: { type: Array, default: () => [] },
+    taskBoardFormSchema: { type: Object, default: null },
+    taskBoardFieldsSchema: { type: Object, default: () => ({}) },
+    taskBoardEnumOptions: { type: Object, default: () => ({}) },
     assets: {
         type: Object,
         default: () => ({ boats: [], engines: [], trailers: [] }),
@@ -119,6 +139,8 @@ const isPast = computed(() => {
     return new Date(props.record.ends_at) < new Date();
 });
 
+const boatShowEventRelatableType = 'App\\Domain\\BoatShowEvent\\Models\\BoatShowEvent';
+
 const eventStatus = computed(() => {
     if (!props.record.active) return { label: 'Inactive', color: 'text-gray-500 dark:text-gray-400', dot: 'bg-gray-400', badge: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' };
     if (isActive.value) return { label: 'Live Now', color: 'text-green-600 dark:text-green-400', dot: 'bg-green-500 animate-pulse', badge: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' };
@@ -161,7 +183,92 @@ const confirmDelete = () => {
 };
 
 // ── Checklist local state ────────────────────────────────────────
-const checklistData = ref(props.checklist);
+const cloneChecklist = (c) => JSON.parse(JSON.stringify(c));
+const checklistData = ref(cloneChecklist(props.checklist));
+const savingChecklist = ref(false);
+const checklistSaveError = ref(null);
+
+watch(
+    () => props.checklist,
+    (c) => {
+        checklistData.value = cloneChecklist(c);
+    },
+    { deep: true }
+);
+
+function checklistUpdateUrl() {
+    return isNested.value
+        ? route('boat-shows.events.checklist.update', { ...props.extraRouteParams, event: props.record.id })
+        : route('boat-show-events.checklist.update', props.record.id);
+}
+
+async function handleSaveChecklistItem({ item, resolve }) {
+    checklistSaveError.value = null
+    try {
+        const { data } = await axios.put(checklistUpdateUrl(), {
+            name: checklistData.value.name,
+            checklist_template_id: checklistData.value.checklist_template_id ?? null,
+            items: checklistData.value.items.map((i) => ({
+                id: i.id ?? null,
+                label: i.label,
+                completed: !!i.completed,
+                required: !!i.required,
+            })),
+        })
+        if (data.success && data.checklist) {
+            checklistData.value = data.checklist
+        }
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Failed to save checklist.'
+        checklistSaveError.value = msg
+    } finally {
+        resolve()  // always resolve so the Checklist component clears its saving state
+    }
+}
+
+async function handleSaveTemplate(payload) {
+    const resolve = typeof payload.resolve === 'function' ? payload.resolve : () => {};
+    let success = false;
+
+    try {
+        const items = payload.items
+            .map((i) => ({
+                label: String(i.label ?? '').trim(),
+                required: !!i.required,
+            }))
+            .filter((i) => i.label.length > 0);
+
+        if (!items.length) {
+            checklistSaveError.value =
+                'Add at least one item with a label before saving as a template.';
+            return;
+        }
+
+        checklistSaveError.value = null;
+        const name = payload.name?.trim() || 'Untitled template';
+
+        await axios.post(route('checklist-templates.store'), {
+            name,
+            context: 'boat_show_event',
+            items,
+        });
+        await router.reload({ only: ['checklistTemplates'] });
+        toast('success', `Template "${name}" saved`);
+        success = true;
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Failed to save template.';
+        checklistSaveError.value = msg;
+        toast('error', msg);
+    } finally {
+        resolve(success);
+    }
+}
 
 // ── Layout state ─────────────────────────────────────────────────
 const layoutJson = ref(props.savedLayout);
@@ -473,56 +580,43 @@ const layoutJson = ref(props.savedLayout);
 
                         <!-- ── CHECKLIST TAB ── -->
                         <div v-show="activeTab === 'checklist'" class="p-6">
+                            <p v-if="checklistSaveError" class="mb-4 text-sm text-red-600 dark:text-red-400">
+                                {{ checklistSaveError }}
+                            </p>
+                        
                             <Checklist
                                 v-model="checklistData"
+                                :templates="checklistTemplates"
                                 @save-template="handleSaveTemplate"
+                                @save-item="handleSaveChecklistItem"
                             />
                         </div>
 
                         <!-- ── TASKS TAB ── -->
                         <div v-show="activeTab === 'tasks'" class="p-6">
-                            <div class="flex items-center justify-between mb-5">
-                                <div>
-                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tasks</h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Manage and assign tasks related to this event.
-                                    </p>
-                                </div>
-                                <button class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>
-                                    <span class="material-icons text-[16px]">add</span>
-                                    Add task
-                                </button>
+                            <div class="mb-5">
+                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tasks</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Manage and assign tasks related to this event.
+                                </p>
                             </div>
 
-                            <!-- Kanban-style column skeletons -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div v-for="(col, i) in [
-                                        { label: 'To Do',       color: 'bg-gray-400' },
-                                        { label: 'In Progress', color: 'bg-blue-400' },
-                                        { label: 'Done',        color: 'bg-green-400' },
-                                    ]" :key="i"
-                                     class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 overflow-hidden">
-                                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-                                        <span :class="['w-2 h-2 rounded-full shrink-0', col.color]" />
-                                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ col.label }}</span>
-                                    </div>
-                                    <div class="p-3 space-y-2 animate-pulse">
-                                        <div v-for="n in (i === 1 ? 3 : 2)" :key="n"
-                                             class="rounded-md bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 p-3 space-y-2 shadow-sm">
-                                            <div class="h-3 w-3/4 rounded bg-gray-200 dark:bg-gray-600" />
-                                            <div class="h-2.5 w-1/2 rounded bg-gray-200 dark:bg-gray-600" />
-                                            <div class="flex items-center justify-between pt-1">
-                                                <div class="h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-600" />
-                                                <div class="h-5 w-5 rounded-full bg-gray-200 dark:bg-gray-600" />
-                                            </div>
-                                        </div>
-                                        <button class="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-primary-500 hover:bg-white dark:hover:bg-gray-700 rounded-md border border-dashed border-gray-200 dark:border-gray-600 flex items-center gap-1.5 transition-colors">
-                                            <span class="material-icons text-[14px]">add</span>
-                                            Add task
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <RelatableTasksBoard
+                                v-if="taskStatusOptions.length"
+                                :tasks="tasks"
+                                :record="record"
+                                :relatable-type="boatShowEventRelatableType"
+                                :status-options="taskStatusOptions"
+                                :default-hidden-status-ids="[3, 4]"
+                                :task-form-schema="taskBoardFormSchema"
+                                :task-fields-schema="taskBoardFieldsSchema"
+                                :task-board-enum-options="taskBoardEnumOptions"
+                                :enum-options="enumOptions"
+                                :reload-only="['tasks']"
+                            />
+                            <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                Task board is not configured for this page.
+                            </p>
                         </div>
 
                         <!-- ── ASSET LIST TAB ── -->

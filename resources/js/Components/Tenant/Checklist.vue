@@ -4,9 +4,9 @@
         <!-- Header -->
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ checklist.name }}</h3>
-
             <div class="flex items-center gap-2">
                 <button
+                    v-if="checklist.items.length === 0"
                     @click="openTemplatePicker"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
@@ -14,7 +14,7 @@
                     From Template
                 </button>
                 <button
-                    @click="saveAsTemplate"
+                    @click="openSaveTemplateModal"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                     <span class="material-icons text-[14px]">bookmark_add</span>
@@ -84,51 +84,90 @@
                 <!-- Checkbox -->
                 <button
                     @click="toggleItem(item)"
-                    class="shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all"
+                    :disabled="togglingItem === (item.id ?? getItemKey(item))"
+                    class="shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all disabled:opacity-50"
                     :class="item.completed
                         ? 'bg-green-500 border-green-500 text-white'
                         : 'border-gray-300 dark:border-gray-500 hover:border-primary-400 dark:hover:border-primary-400'"
                 >
-                    <span v-if="item.completed" class="material-icons text-[13px] leading-none">check</span>
+                    <span v-if="togglingItem === (item.id ?? getItemKey(item))" class="material-icons text-[11px] leading-none animate-spin">autorenew</span>
+                    <span v-else-if="item.completed" class="material-icons text-[13px] leading-none">check</span>
                 </button>
 
-                <!-- Label input -->
-                <input
-                    v-model="item.label"
-                    @input="update"
-                    @keydown.enter="focusNextOrAdd(index)"
-                    placeholder="Checklist item…"
-                    :class="[
-                        'flex-1 bg-transparent text-sm outline-none placeholder-gray-300 dark:placeholder-gray-600 transition-colors min-w-0',
-                        item.completed
-                            ? 'line-through text-gray-400 dark:text-gray-500'
-                            : 'text-gray-800 dark:text-gray-100',
-                    ]"
-                />
+                <!-- Label: view mode -->
+                <template v-if="editingItem !== (item.id ?? getItemKey(item))">
+                    <span
+                        :class="[
+                            'flex-1 text-sm min-w-0 truncate',
+                            item.completed
+                                ? 'line-through text-gray-400 dark:text-gray-500'
+                                : 'text-gray-800 dark:text-gray-100',
+                            !item.label ? 'italic text-gray-300 dark:text-gray-600' : '',
+                        ]"
+                    >
+                        {{ item.label || 'Untitled item' }}
+                    </span>
 
-                <!-- Remove button -->
+                    <!-- Edit button -->
+                    <button
+                        @click="startEditing(item)"
+                        class="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded text-gray-300 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-300 transition-all"
+                        title="Edit"
+                    >
+                        <span class="material-icons text-[15px]">edit</span>
+                    </button>
+                </template>
+
+                <!-- Label: edit mode -->
+                <template v-else>
+                    <input
+                        :ref="el => { if (el) editInputRef = el }"
+                        v-model="editingLabel"
+                        @keydown.enter="commitEdit(item)"
+                        @keydown.escape="cancelEdit"
+                        placeholder="Checklist item…"
+                        class="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 min-w-0"
+                    />
+                    <!-- Save edit -->
+                    <button
+                        @click="commitEdit(item)"
+                        :disabled="savingItem === (item.id ?? getItemKey(item))"
+                        class="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 rounded-md transition-colors"
+                    >
+                        <span class="material-icons text-[13px]">
+                            {{ savingItem === (item.id ?? getItemKey(item)) ? 'hourglass_empty' : 'save' }}
+                        </span>
+                        {{ savingItem === (item.id ?? getItemKey(item)) ? '' : 'Save' }}
+                    </button>
+                    <!-- Cancel edit -->
+                    <button
+                        @click="cancelEdit"
+                        class="shrink-0 p-1 rounded text-gray-300 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-300 transition-all"
+                        title="Cancel"
+                    >
+                        <span class="material-icons text-[15px]">close</span>
+                    </button>
+                </template>
+
+                <!-- Remove button (only in view mode) -->
                 <button
+                    v-if="editingItem !== (item.id ?? getItemKey(item))"
                     @click="removeItem(realIndex(item))"
                     class="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 rounded text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-400 transition-all"
                     aria-label="Remove item"
                 >
-                    <span class="material-icons text-[16px]">close</span>
+                    <span class="material-icons text-[16px]">delete_outline</span>
                 </button>
             </div>
 
-            <!-- Empty state for filtered view -->
+            <!-- Empty states -->
             <div
                 v-if="filteredItems.length === 0 && checklist.items.length > 0"
                 class="py-6 text-center text-sm text-gray-400 dark:text-gray-500"
             >
                 No {{ activeFilter === 'pending' ? 'pending' : 'completed' }} items.
             </div>
-
-            <!-- Empty state: no items at all -->
-            <div
-                v-if="checklist.items.length === 0"
-                class="py-8 text-center"
-            >
+            <div v-if="checklist.items.length === 0" class="py-8 text-center">
                 <span class="material-icons text-3xl text-gray-200 dark:text-gray-600 block mb-2">checklist</span>
                 <p class="text-sm text-gray-400 dark:text-gray-500">No items yet. Add one below or load a template.</p>
             </div>
@@ -153,37 +192,120 @@
             @select="applyTemplate"
         />
     </div>
+
+    <Teleport to="body">
+        <div
+            v-if="showSaveModal"
+            class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        >
+            <div
+                class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                @click="!savingTemplate && (showSaveModal = false)"
+            />
+
+            <div
+                class="relative w-full max-w-md rounded-xl border border-gray-100 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-800"
+                @click.stop
+            >
+                <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
+                    Save as Template
+                </h3>
+
+                <label class="sr-only" for="checklist-template-name">Template name</label>
+                <input
+                    id="checklist-template-name"
+                    v-model="templateName"
+                    type="text"
+                    placeholder="Template name…"
+                    :disabled="savingTemplate"
+                    class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+                    @keydown.enter.prevent="submitSaveTemplate"
+                />
+
+                <div class="mt-4 flex justify-end gap-2">
+                    <button
+                        type="button"
+                        :disabled="savingTemplate"
+                        class="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 dark:hover:text-gray-300"
+                        @click="showSaveModal = false"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="button"
+                        :disabled="savingTemplate || !templateName.trim()"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                        @click="submitSaveTemplate"
+                    >
+                        <span
+                            v-if="savingTemplate"
+                            class="material-icons animate-spin text-[14px]"
+                        >autorenew</span>
+                        <span
+                            v-else-if="saveSuccess"
+                            class="material-icons text-[14px]"
+                        >check</span>
+                        <span>{{
+                            savingTemplate ? 'Saving…' : saveSuccess ? 'Saved!' : 'Save'
+                        }}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import TemplatePicker from './ChecklistTemplatePicker.vue'
 
 const props = defineProps({
-    modelValue: {
-        type: Object,
-        required: true,
-    },
-    templates: {
-        type: Array,
-        default: () => [],
-    },
+    modelValue: { type: Object, required: true },
+    templates:  { type: Array, default: () => [] },
 })
 
-const emit = defineEmits(['update:modelValue', 'save-template'])
+const emit = defineEmits(['update:modelValue', 'save-template', 'save-item'])
 
-// JSON round-trip safely strips Vue's reactive proxies before cloning
 const deepClone = (val) => JSON.parse(JSON.stringify(val))
 
-const checklist = ref(deepClone(props.modelValue))
+const checklist      = ref(deepClone(props.modelValue))
 const showTemplatePicker = ref(false)
-const activeFilter = ref('all')
+const activeFilter   = ref('all')
+const savingItem     = ref(null)   // item being label-saved
+const togglingItem   = ref(null)   // item being checkbox-saved
 
-/*
-|--------------------------------------------------------------------------
-| Filter tabs
-|--------------------------------------------------------------------------
-*/
+// Edit state
+const editingItem  = ref(null)   // key of item currently being edited
+const editingLabel = ref('')
+const editInputRef = ref(null)
+
+const showSaveModal = ref(false)
+const templateName = ref('')
+const savingTemplate = ref(false)
+const saveSuccess = ref(false)
+
+
+// Stable key for new (unsaved) items
+let tempKeyCounter = 0
+const tempKeys = new WeakMap()
+const getItemKey = (item) => {
+    if (!tempKeys.has(item)) tempKeys.set(item, `__new_${++tempKeyCounter}`)
+    return tempKeys.get(item)
+}
+
+watch(
+    () => props.modelValue,
+    (next) => {
+        if (next === checklist.value) return
+        const c = deepClone(next)
+        if (!Array.isArray(c.items)) c.items = []
+        checklist.value = c
+        editingItem.value = null
+    }
+)
+
+// ── Filter tabs ──────────────────────────────────────────────────
 const filterTabs = computed(() => [
     { label: 'All',     value: 'all',     count: checklist.value.items.length },
     { label: 'Pending', value: 'pending', count: checklist.value.items.filter(i => !i.completed).length },
@@ -196,14 +318,9 @@ const filteredItems = computed(() => {
     return checklist.value.items
 })
 
-// Resolve the real index in the full items array (needed when a filter is active)
 const realIndex = (item) => checklist.value.items.indexOf(item)
 
-/*
-|--------------------------------------------------------------------------
-| Progress
-|--------------------------------------------------------------------------
-*/
+// ── Progress ─────────────────────────────────────────────────────
 const progress = computed(() => {
     const total     = checklist.value.items.length
     const completed = checklist.value.items.filter(i => i.completed).length
@@ -219,21 +336,63 @@ const progressBarColor = computed(() => {
     return 'bg-gray-300 dark:bg-gray-600'
 })
 
-/*
-|--------------------------------------------------------------------------
-| Actions
-|--------------------------------------------------------------------------
-*/
+// ── Helpers ──────────────────────────────────────────────────────
 function update() {
     emit('update:modelValue', checklist.value)
 }
 
-function addItem() {
-    checklist.value.items.push({ label: '', completed: false })
+function callSaveItem(item) {
+    return new Promise((resolve) => {
+        emit('save-item', { item: { ...item }, resolve })
+    })
+}
+
+// ── Editing ──────────────────────────────────────────────────────
+function startEditing(item) {
+    editingItem.value  = item.id ?? getItemKey(item)
+    editingLabel.value = item.label
+    nextTick(() => editInputRef.value?.focus())
+}
+
+function cancelEdit() {
+    editingItem.value  = null
+    editingLabel.value = ''
+}
+
+async function commitEdit(item) {
+    const trimmed = editingLabel.value.trim()
+    if (!trimmed) return
+    item.label = trimmed
     update()
+
+    const key = item.id ?? getItemKey(item)
+    savingItem.value = key
+    await callSaveItem(item)
+    savingItem.value  = null
+    editingItem.value = null
+    editingLabel.value = ''
+}
+
+// ── Toggle (auto-save) ───────────────────────────────────────────
+async function toggleItem(item) {
+    item.completed = !item.completed
+    update()
+
+    const key = item.id ?? getItemKey(item)
+    togglingItem.value = key
+    await callSaveItem(item)
+    togglingItem.value = null
+}
+
+// ── Add / remove ─────────────────────────────────────────────────
+function addItem() {
+    const newItem = { label: '', completed: false }
+    checklist.value.items.push(newItem)
+    update()
+    // Open the new item immediately in edit mode
     nextTick(() => {
-        const inputs = document.querySelectorAll('.checklist input[placeholder="Checklist item…"]')
-        if (inputs.length) inputs[inputs.length - 1].focus()
+        const item = checklist.value.items[checklist.value.items.length - 1]
+        startEditing(item)
     })
 }
 
@@ -242,45 +401,53 @@ function removeItem(index) {
     update()
 }
 
-function toggleItem(item) {
-    item.completed = !item.completed
-    update()
-
-    // optional API call:
-    // axios.patch(`/checklist-items/${item.id}`, { completed: item.completed })
-}
-
-function focusNextOrAdd(index) {
-    const inputs = document.querySelectorAll('.checklist input[placeholder="Checklist item…"]')
-    if (inputs[index + 1]) {
-        inputs[index + 1].focus()
-    } else {
-        addItem()
-    }
-}
-
-/*
-|--------------------------------------------------------------------------
-| Templates
-|--------------------------------------------------------------------------
-*/
-function openTemplatePicker() {
-    showTemplatePicker.value = true
-}
+// ── Templates ────────────────────────────────────────────────────
+function openTemplatePicker() { showTemplatePicker.value = true }
 
 function applyTemplate(template) {
-    checklist.value.items = template.items.map(item => ({
-        label: item.label,
+    checklist.value.items = (template.items ?? []).map(item => ({
+        label:     item.label,
         completed: false,
+        required:  !!item.required,
     }))
+    checklist.value.checklist_template_id = template.id ?? null
     showTemplatePicker.value = false
     update()
 }
 
-function saveAsTemplate() {
-    emit('save-template', {
-        name: checklist.value.name,
-        items: checklist.value.items,
-    })
+function openSaveTemplateModal() {
+    templateName.value = checklist.value.name || ''
+    saveSuccess.value = false
+    showSaveModal.value = true
+}
+
+async function submitSaveTemplate() {
+    const name = templateName.value.trim()
+    if (!name) return
+
+    savingTemplate.value = true
+    saveSuccess.value = false
+
+    let ok = false
+    try {
+        ok = await new Promise((resolvePromise) => {
+            emit('save-template', {
+                name,
+                items: checklist.value.items,
+                resolve: (success) => resolvePromise(success === true),
+            })
+        })
+    } finally {
+        savingTemplate.value = false
+    }
+
+    if (ok) {
+        saveSuccess.value = true
+        setTimeout(() => {
+            showSaveModal.value = false
+            saveSuccess.value = false
+            templateName.value = ''
+        }, 1200)
+    }
 }
 </script>

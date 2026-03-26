@@ -5,10 +5,12 @@ namespace App\Domain\BoatShowEvent\Models;
 use App\Domain\BoatShow\Models\BoatShow;
 use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\BoatShowLayout\Models\BoatShowLayout;
+use App\Domain\Checklist\Models\Checklist;
 use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -49,13 +51,13 @@ class BoatShowEvent extends Model
     protected static function booted()
     {
         static::creating(function ($record) {
-            if (empty($record->uuid)) {
-                $record->uuid = (string) Str::uuid();
-            }
-            if (empty($record->sequence)) {
-                $next = (int) (DB::table('boat_show_events')->max('sequence') ?? 999);
-                $record->sequence = $next + 1;
-            }
+            // if (empty($record->uuid)) {
+            //     $record->uuid = (string) Str::uuid();
+            // }
+            // if (empty($record->sequence)) {
+            //     $next = (int) (DB::table('boat_show_events')->max('sequence') ?? 999);
+            //     $record->sequence = $next + 1;
+            // }
         });
     }
 
@@ -77,5 +79,10 @@ class BoatShowEvent extends Model
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');
+    }
+
+    public function checklist(): MorphOne
+    {
+        return $this->morphOne(Checklist::class, 'checklistable');
     }
 }

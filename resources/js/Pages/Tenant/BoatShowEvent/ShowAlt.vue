@@ -60,6 +60,11 @@ const eventShowHref = (ev) =>
 
 // ── Checklist local state ────────────────────────────────────────
 const checklistData = ref(props.checklist);
+
+/** Stub: boat-show page has no template API here; always completes the modal promise. */
+function handleSaveTemplate(payload) {
+    payload.resolve?.(false);
+}
 </script>
 
 <template>

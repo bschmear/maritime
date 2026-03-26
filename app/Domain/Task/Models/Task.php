@@ -17,6 +17,8 @@ class Task extends Model
         'notes',
         'start_date',
         'due_date',
+        'has_due_time',
+        'due_time',
         'completed_at',
         'status_id',
         'priority_id',
@@ -36,6 +38,7 @@ class Task extends Model
     protected $casts = [
         'start_date' => 'datetime',
         'due_date' => 'datetime',
+        'has_due_time' => 'boolean',
         'completed_at' => 'datetime',
         'reminder_at' => 'datetime',
         'snoozed_until' => 'datetime',

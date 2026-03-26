@@ -6,6 +6,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
+use App\Http\Controllers\Tenant\AssetSpecController;
+use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\ContractController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\EstimateController;
+use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\InventoryItemController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
+use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\TaskController;
@@ -40,9 +44,6 @@ use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Tenant\WorkOrderController;
-use App\Http\Controllers\Tenant\AssetSpecController;
-use App\Http\Controllers\Tenant\SpecGroupController;
-use App\Http\Controllers\Tenant\AssetSpecValueController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -230,6 +231,7 @@ Route::middleware([
 
         // ── Boat Shows ────────────────────────────────────────────────
         Route::prefix('boat-show-events')->name('boat-show-events.')->group(function () {
+            Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
             Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
                 ->parameters(['' => 'event']);
         });
@@ -246,6 +248,7 @@ Route::middleware([
 
             // Boat Show Events (scoped under a show)
             Route::prefix('{boatShow}/events')->name('events.')->group(function () {
+                Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
                 Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
                     ->parameters(['' => 'event']);
             });
@@ -257,6 +260,8 @@ Route::middleware([
                     ->parameters(['' => 'layout']);
             });
         });
+
+        Route::post('checklist-templates', [EventChecklistController::class, 'storeTemplate'])->name('checklist-templates.store');
 
         // Route::prefix('inventory')->group(function () {
         //     Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
@@ -285,7 +290,7 @@ Route::middleware([
             Route::delete('/{assetSpec}', [AssetSpecController::class, 'destroy'])->name('destroy');
             Route::post('/reorder', [AssetSpecController::class, 'reorder'])->name('reorder');
         });
-    
+
         // Asset Spec Values (per asset)
         Route::prefix('assets/{asset}/specs')->name('assets.specs.')->group(function () {
             Route::get('/', [AssetSpecValueController::class, 'index'])->name('index');

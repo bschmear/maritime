@@ -56,7 +56,12 @@ createInertiaApp({
         app.config.globalProperties.$formatDateRelative = formatDateRelative;
         app.config.globalProperties.$formatCurrency = formatCurrency;
 
-        return app.mount(el);
+        const root = app.mount(el);
+        app.config.globalProperties.$toast = (type, message) => {
+            root.createToast(type, message);
+        };
+
+        return root;
     },
     progress: {
         color: '#4B5563',

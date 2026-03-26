@@ -7,6 +7,7 @@
 
             <div class="flex items-center gap-2">
                 <button
+                    v-if="checklist.items.length === 0"
                     @click="openTemplatePicker"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >

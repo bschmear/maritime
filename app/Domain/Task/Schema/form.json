@@ -19,10 +19,6 @@
           "required": false
         },
         {
-          "key": "start_date",
-          "required": true
-        },
-        {
           "key": "due_date",
           "required": false
         },

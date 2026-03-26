@@ -19,6 +19,8 @@ class CreateTask
                 'notes' => ['nullable', 'string'],
                 'start_date' => ['nullable', 'date'],
                 'due_date' => ['nullable', 'date'],
+                'has_due_time' => ['nullable', 'boolean'],
+                'due_time' => ['nullable', 'string', 'max:32'],
                 'status_id' => ['nullable', 'integer'],
                 'priority_id' => ['nullable', 'integer'],
                 'assigned_id' => ['nullable', 'integer'],
@@ -36,6 +38,11 @@ class CreateTask
             // Filter to only include fillable fields
             $fillableFields = (new RecordModel)->getFillable();
             $fieldsToSave = array_intersect_key($validated, array_flip($fillableFields));
+
+            if (! ($fieldsToSave['has_due_time'] ?? false)) {
+                $fieldsToSave['has_due_time'] = false;
+                $fieldsToSave['due_time'] = null;
+            }
 
             // Automatically set created_by to the authenticated user
             $fieldsToSave['created_by'] = auth()->id();
