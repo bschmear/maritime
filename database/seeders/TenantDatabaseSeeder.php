@@ -14,6 +14,7 @@ class TenantDatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             AccountSettingsSeeder::class,
+            AssetSpecDefinitionSeeder::class,
         ]);
     }
 }

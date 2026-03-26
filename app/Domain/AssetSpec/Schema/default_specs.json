@@ -3,7 +3,7 @@
     {
       "key": "overall_length",
       "label": "Overall Length",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "ft",
       "unit_imperial": "ft",
@@ -19,7 +19,7 @@
     {
       "key": "internal_length",
       "label": "Internal Length",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "ft",
       "unit_imperial": "ft",
@@ -34,7 +34,7 @@
     {
       "key": "overall_width",
       "label": "Overall Width",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "ft",
       "unit_imperial": "ft",
@@ -50,7 +50,7 @@
     {
       "key": "internal_width",
       "label": "Internal Width",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "ft",
       "unit_imperial": "ft",
@@ -65,7 +65,7 @@
     {
       "key": "dead_rise",
       "label": "Dead Rise",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "deg",
       "unit_imperial": "deg",
@@ -80,7 +80,7 @@
     {
       "key": "tube_diameter",
       "label": "Tube Diameter",
-      "group": "dimensions",
+      "group_id": 1,
       "type": "number",
       "unit": "in",
       "unit_imperial": "in",
@@ -95,7 +95,7 @@
     {
       "key": "air_chambers",
       "label": "# of Air Chambers",
-      "group": "capacity",
+      "group_id": 2,
       "type": "number",
       "step": 1,
       "is_filterable": true,
@@ -106,7 +106,7 @@
     {
       "key": "max_load",
       "label": "Maximum Load",
-      "group": "capacity",
+      "group_id": 2,
       "type": "number",
       "unit": "lb",
       "unit_imperial": "lb",
@@ -121,7 +121,7 @@
     {
       "key": "max_people",
       "label": "Maximum People",
-      "group": "capacity",
+      "group_id": 2,
       "type": "number",
       "step": 1,
       "is_filterable": true,
@@ -132,7 +132,7 @@
     {
       "key": "boat_weight",
       "label": "Boat Weight",
-      "group": "weight",
+      "group_id": 3,
       "type": "number",
       "unit": "lb",
       "unit_imperial": "lb",
@@ -147,7 +147,7 @@
     {
       "key": "max_engine_weight",
       "label": "Max Engine Weight",
-      "group": "engine",
+      "group_id": 4,
       "type": "number",
       "unit": "lb",
       "unit_imperial": "lb",
@@ -162,7 +162,7 @@
     {
       "key": "max_hp",
       "label": "Max HP",
-      "group": "engine",
+      "group_id": 4,
       "type": "number",
       "unit": "hp",
       "unit_imperial": "hp",
@@ -177,7 +177,7 @@
     {
       "key": "engine_shaft",
       "label": "Engine Shaft",
-      "group": "engine",
+      "group_id": 4,
       "type": "select",
       "options": [
         { "value": "S", "label": "Short" },
@@ -192,7 +192,7 @@
     {
       "key": "design_category",
       "label": "Design Category",
-      "group": "compliance",
+      "group_id": 5,
       "type": "select",
       "options": [
         { "value": "A", "label": "Ocean" },

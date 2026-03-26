@@ -18,7 +18,9 @@ class AssetSpecValueController extends Controller
         $specValues = $asset->specValues;
 
         // Get all available specs for this asset type
-        $availableSpecs = AssetSpecDefinition::whereJsonContains('asset_types', $asset->type)
+        $availableSpecs = AssetSpecDefinition::query()
+            ->with('group')
+            ->whereJsonContains('asset_types', $asset->type)
             ->orderBy('position')
             ->get();
 

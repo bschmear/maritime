@@ -41,6 +41,7 @@ use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\AssetSpecController;
+use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -269,6 +270,12 @@ Route::middleware([
 
         Route::prefix('assets')->name('assets.')->group(function () {
             Route::resource('/', AssetController::class)->parameters(['' => 'asset']);
+        });
+
+        Route::prefix('spec-groups')->name('spec-groups.')->group(function () {
+            Route::post('/', [SpecGroupController::class, 'store'])->name('store');
+            Route::put('/{specGroup}', [SpecGroupController::class, 'update'])->name('update');
+            Route::post('/reorder', [SpecGroupController::class, 'reorder'])->name('reorder');
         });
 
         Route::prefix('asset-specs')->name('asset-specs.')->group(function () {

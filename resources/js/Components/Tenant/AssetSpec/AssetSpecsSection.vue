@@ -82,14 +82,27 @@ const getDisplayUnit = (spec) => {
     return (sv && sv.unit) ? sv.unit : (spec.unit || null);
 };
 
-const groupedSpecs = computed(() => {
-    const groups = {};
-    liveSpecs.value.forEach(spec => {
-        const group = spec.group || 'Other';
-        if (!groups[group]) groups[group] = [];
-        groups[group].push(spec);
+const groupedSpecSections = computed(() => {
+    const buckets = new Map();
+    liveSpecs.value.forEach((spec) => {
+        const gid = spec.group_id ?? '__none__';
+        if (!buckets.has(gid)) {
+            buckets.set(gid, {
+                key: String(gid),
+                label: spec.group?.name || 'Other',
+                sortPos: spec.group?.position ?? 9999,
+                specs: [],
+            });
+        }
+        buckets.get(gid).specs.push(spec);
     });
-    return groups;
+    for (const b of buckets.values()) {
+        b.specs.sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
+    }
+    return [...buckets.values()].sort((a, b) => {
+        if (a.sortPos !== b.sortPos) return a.sortPos - b.sortPos;
+        return a.label.localeCompare(b.label);
+    });
 });
 
 // ── Public API ───────────────────────────────────────────────────
@@ -135,12 +148,12 @@ defineExpose({ buildSpecsPayload });
         </div>
 
         <div v-else class="space-y-6">
-            <div v-for="(groupSpecs, groupName) in groupedSpecs" :key="groupName">
+            <div v-for="section in groupedSpecSections" :key="section.key">
                 <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {{ groupName }}
+                    {{ section.label }}
                 </h3>
                 <div class="grid gap-4 sm:grid-cols-12">
-                    <div v-for="spec in groupSpecs" :key="spec.id" class="sm:col-span-6 xl:col-span-4">
+                    <div v-for="spec in section.specs" :key="spec.id" class="sm:col-span-6 xl:col-span-4">
 
                         <!-- View mode -->
                         <template v-if="!isEditMode">

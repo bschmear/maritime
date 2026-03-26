@@ -5,16 +5,27 @@ const props = defineProps({
     specs: Array,
 });
 
-const groupedSpecs = computed(() => {
-    const groups = {};
-    props.specs.forEach(spec => {
-        const group = spec.group || 'Other';
-        if (!groups[group]) {
-            groups[group] = [];
+const groupedSpecSections = computed(() => {
+    const buckets = new Map();
+    (props.specs || []).forEach((spec) => {
+        const gid = spec.group_id ?? '__none__';
+        if (!buckets.has(gid)) {
+            buckets.set(gid, {
+                key: String(gid),
+                label: spec.group?.name || 'Other',
+                sortPos: spec.group?.position ?? 9999,
+                specs: [],
+            });
         }
-        groups[group].push(spec);
+        buckets.get(gid).specs.push(spec);
     });
-    return groups;
+    for (const b of buckets.values()) {
+        b.specs.sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
+    }
+    return [...buckets.values()].sort((a, b) => {
+        if (a.sortPos !== b.sortPos) return a.sortPos - b.sortPos;
+        return a.label.localeCompare(b.label);
+    });
 });
 
 const getInputType = (spec) => {
@@ -65,15 +76,15 @@ const getPlaceholder = (spec) => {
             </div>
 
             <div v-else class="space-y-6">
-                <div v-for="(groupSpecs, groupName) in groupedSpecs" :key="groupName">
+                <div v-for="section in groupedSpecSections" :key="section.key">
                     <!-- Group Header -->
                     <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
-                        {{ groupName }}
+                        {{ section.label }}
                     </h3>
 
                     <!-- Fields in Group -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-                        <div v-for="spec in groupSpecs" :key="spec.id">
+                        <div v-for="spec in section.specs" :key="spec.id">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 {{ spec.label }}
                                 <span v-if="spec.is_required" class="text-red-500">*</span>

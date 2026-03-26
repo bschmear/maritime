@@ -286,15 +286,28 @@ watch(() => form.data(), (newData, oldData) => {
     }
 }, { deep: true });
 
-// ── Grouped specs by group name ──────────────────────────────────
-const groupedSpecs = computed(() => {
-    const groups = {};
-    props.availableSpecs.forEach(spec => {
-        const g = spec.group || 'General';
-        if (!groups[g]) groups[g] = [];
-        groups[g].push(spec);
+// ── Grouped specs (spec_groups.name via relation) ─────────────────
+const groupedSpecSections = computed(() => {
+    const buckets = new Map();
+    (props.availableSpecs || []).forEach((spec) => {
+        const gid = spec.group_id ?? '__none__';
+        if (!buckets.has(gid)) {
+            buckets.set(gid, {
+                key: String(gid),
+                label: spec.group?.name || 'General',
+                sortPos: spec.group?.position ?? 9999,
+                specs: [],
+            });
+        }
+        buckets.get(gid).specs.push(spec);
     });
-    return groups;
+    for (const b of buckets.values()) {
+        b.specs.sort((a, c) => (a.position ?? 0) - (c.position ?? 0));
+    }
+    return [...buckets.values()].sort((a, b) => {
+        if (a.sortPos !== b.sortPos) return a.sortPos - b.sortPos;
+        return a.label.localeCompare(b.label);
+    });
 });
 
 // ── Build specs array for submission ────────────────────────────
@@ -824,12 +837,12 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                             </div>
 
                             <div v-else class="space-y-6">
-                                <div v-for="(groupSpecs, groupName) in groupedSpecs" :key="groupName">
+                                <div v-for="section in groupedSpecSections" :key="section.key">
                                     <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                        {{ groupName }}
+                                        {{ section.label }}
                                     </h3>
                                     <div class="grid gap-4 sm:grid-cols-12">
-                                        <div v-for="spec in groupSpecs" :key="spec.id" class="sm:col-span-6 xl:col-span-4">
+                                        <div v-for="spec in section.specs" :key="spec.id" class="sm:col-span-6 xl:col-span-4">
 
                                             <!-- View mode -->
                                             <template v-if="!isEditMode">

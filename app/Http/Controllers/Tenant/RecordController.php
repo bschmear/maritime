@@ -12,7 +12,7 @@ use Illuminate\Routing\Controller as BaseController;
 use App\Actions\PublicStorage;
 use App\Enums\Timezone;
 use App\Domain\Document\Models\Document;
-use App\Domain\AssetSpec\Models\AssetSpecDefinition;
+use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use Illuminate\Support\Facades\Storage;
 
 class RecordController extends BaseController
@@ -533,11 +533,9 @@ class RecordController extends BaseController
             ->findOrFail($id);
 
         $availableSpecs = $hasSpecsGroup && isset($record->type)
-            ? AssetSpecDefinition::whereJsonContains('asset_types', (int) $record->type)
-                ->orderBy('position')
-                ->get()
+            ? AvailableAssetSpecsCache::get((int) $record->type)
             : [];
-           
+
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
@@ -644,9 +642,7 @@ class RecordController extends BaseController
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
         $availableSpecs = $hasSpecsGroup && isset($record->type)
-            ? AssetSpecDefinition::whereJsonContains('asset_types', (int) $record->type)
-                ->orderBy('position')
-                ->get()
+            ? AvailableAssetSpecsCache::get((int) $record->type)
             : [];
 
         $enumOptions = $this->getEnumOptions();

@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Controller;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
-// use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetSpec\Models\SpecGroup;
+use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
+use App\Http\Controllers\Controller;
 use Database\Seeders\AssetSpecDefinitionSeeder;
 use Illuminate\Http\Request;
-// use Illuminate\Support\Facades\Artisan;
-// use Illuminate\Support\Facades\Cache;
 
 class AssetSpecController extends Controller
 {
@@ -19,55 +18,66 @@ class AssetSpecController extends Controller
      */
     public function index(Request $request)
     {
-        // Run the seeder once — flag is stored permanently so it never runs again.
-        if (!AssetSpecDefinition::exists()) {
+        if (! AssetSpecDefinition::exists()) {
             app(AssetSpecDefinitionSeeder::class)->run();
         }
 
-        $query = AssetSpecDefinition::query();
+        // JSON fetch for asset forms (asset type only) — same payload as RecordController cache
+        if ($request->ajax() && ! $request->header('X-Inertia')
+            && $request->filled('asset_type')
+            && ! $request->has('search')
+            && ! $request->filled('group_id')
+            && ! $request->has('type')) {
+            return response()->json([
+                'specs' => AvailableAssetSpecsCache::get((int) $request->asset_type),
+            ]);
+        }
 
-        // Filter by asset type if provided
+        $query = AssetSpecDefinition::query()->with('group');
+
         if ($request->has('asset_type')) {
             $assetType = (int) $request->asset_type;
             $query->whereJsonContains('asset_types', $assetType);
         }
 
-        // Search
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('label', 'like', "%{$search}%")
-                  ->orWhere('key', 'like', "%{$search}%")
-                  ->orWhere('group', 'like', "%{$search}%");
+                    ->orWhere('key', 'like', "%{$search}%")
+                    ->orWhereHas('group', function ($gq) use ($search) {
+                        $gq->where('name', 'like', "%{$search}%")
+                            ->orWhere('key', 'like', "%{$search}%");
+                    });
             });
         }
 
-        // Filter by group
-        if ($request->has('group')) {
-            $query->where('group', $request->group);
+        if ($request->filled('group_id')) {
+            $query->where('group_id', (int) $request->group_id);
         }
 
-        // Filter by type
         if ($request->has('type')) {
             $query->where('type', $request->type);
         }
 
         $specs = $query->orderBy('position')->get();
 
-        // Return JSON for AJAX requests (e.g. dynamic asset-type switching in forms)
-        if ($request->ajax() && !$request->header('X-Inertia')) {
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json(['specs' => $specs]);
         }
 
-        // Get unique groups and types for filters
-        $groups = AssetSpecDefinition::distinct()->pluck('group')->filter()->values();
-        $types  = AssetSpecDefinition::distinct()->pluck('type')->filter()->values();
+        $specGroups = SpecGroup::query()
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->get();
+
+        $types = AssetSpecDefinition::query()->distinct()->orderBy('type')->pluck('type')->filter()->values();
 
         return inertia('Tenant/AssetSpec/Index', [
-            'specs'   => $specs,
-            'groups'  => $groups,
-            'types'   => $types,
-            'filters' => $request->only(['asset_type', 'search', 'group', 'type']),
+            'specs' => $specs,
+            'specGroups' => $specGroups,
+            'types' => $types,
+            'filters' => $request->only(['asset_type', 'search', 'group_id', 'type']),
         ]);
     }
 
@@ -77,30 +87,31 @@ class AssetSpecController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'key'           => 'required|string|unique:asset_spec_definitions,key',
-            'label'         => 'required|string|max:255',
-            'group'         => 'nullable|string|max:255',
-            'type'          => 'required|in:number,text,select,boolean',
-            'unit'          => 'nullable|string|max:50',
+            'key' => 'required|string|unique:asset_spec_definitions,key',
+            'label' => 'required|string|max:255',
+            'group_id' => 'nullable|exists:spec_groups,id',
+            'type' => 'required|in:number,text,select,boolean',
+            'unit' => 'nullable|string|max:50',
             'unit_imperial' => 'nullable|string|max:50',
-            'unit_metric'   => 'nullable|string|max:50',
-            'use_metric'    => 'boolean',
-            'options'           => 'nullable|array',
-            'options.*.value'   => 'required_with:options|string',
-            'options.*.label'   => 'required_with:options|string',
+            'unit_metric' => 'nullable|string|max:50',
+            'use_metric' => 'boolean',
+            'options' => 'nullable|array',
+            'options.*.value' => 'required_with:options|string',
+            'options.*.label' => 'required_with:options|string',
             'is_filterable' => 'boolean',
-            'is_visible'    => 'boolean',
-            'is_required'   => 'boolean',
-            'position'      => 'integer',
-            'asset_types'   => 'nullable|array',
+            'is_visible' => 'boolean',
+            'is_required' => 'boolean',
+            'position' => 'integer',
+            'asset_types' => 'nullable|array',
             'asset_types.*' => 'integer',
         ]);
 
-        if (!isset($validated['position'])) {
-            $validated['position'] = AssetSpecDefinition::max('position') + 1;
+        if (! isset($validated['position'])) {
+            $validated['position'] = (int) (AssetSpecDefinition::max('position') ?? 0) + 1;
         }
 
         AssetSpecDefinition::create($validated);
+        AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Spec definition created successfully.');
     }
@@ -111,23 +122,24 @@ class AssetSpecController extends Controller
     public function update(Request $request, AssetSpecDefinition $assetSpec)
     {
         $validated = $request->validate([
-            'label'         => 'required|string|max:255',
-            'group'         => 'nullable|string|max:255',
-            'type'          => 'required|in:number,text,select,boolean',
-            'unit'          => 'nullable|string|max:50',
+            'label' => 'required|string|max:255',
+            'group_id' => 'nullable|exists:spec_groups,id',
+            'type' => 'required|in:number,text,select,boolean',
+            'unit' => 'nullable|string|max:50',
             'unit_imperial' => 'nullable|string|max:50',
-            'unit_metric'   => 'nullable|string|max:50',
-            'use_metric'    => 'boolean',
-            'options'       => 'nullable|array',
+            'unit_metric' => 'nullable|string|max:50',
+            'use_metric' => 'boolean',
+            'options' => 'nullable|array',
             'is_filterable' => 'boolean',
-            'is_visible'    => 'boolean',
-            'is_required'   => 'boolean',
-            'position'      => 'integer',
-            'asset_types'   => 'nullable|array',
+            'is_visible' => 'boolean',
+            'is_required' => 'boolean',
+            'position' => 'integer',
+            'asset_types' => 'nullable|array',
             'asset_types.*' => 'integer',
         ]);
 
         $assetSpec->update($validated);
+        AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Spec definition updated successfully.');
     }
@@ -142,6 +154,7 @@ class AssetSpecController extends Controller
         }
 
         $assetSpec->delete();
+        AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Spec definition deleted successfully.');
     }
@@ -152,8 +165,8 @@ class AssetSpecController extends Controller
     public function reorder(Request $request)
     {
         $validated = $request->validate([
-            'specs'            => 'required|array',
-            'specs.*.id'       => 'required|exists:asset_spec_definitions,id',
+            'specs' => 'required|array',
+            'specs.*.id' => 'required|exists:asset_spec_definitions,id',
             'specs.*.position' => 'required|integer',
         ]);
 
@@ -161,6 +174,7 @@ class AssetSpecController extends Controller
             AssetSpecDefinition::where('id', $spec['id'])
                 ->update(['position' => $spec['position']]);
         }
+        AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Specs reordered successfully.');
     }

@@ -9,7 +9,7 @@ class AssetSpecDefinition extends Model
     protected $fillable = [
         'key',
         'label',
-        'group',
+        'group_id',
         'type',
         'unit',          // default/display unit
         'unit_imperial', // imperial unit
@@ -31,4 +31,8 @@ class AssetSpecDefinition extends Model
         'use_metric' => 'boolean',
         'asset_types' => 'array',
     ];
+    public function group()
+    {
+        return $this->belongsTo(SpecGroup::class, 'group_id');
+    }
 }

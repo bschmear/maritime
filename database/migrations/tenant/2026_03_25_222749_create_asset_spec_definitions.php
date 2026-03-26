@@ -11,12 +11,29 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::create('spec_groups', function (Blueprint $table) {
+            $table->id();
+        
+            $table->string('key')->unique();     // dimensions, engine, capacity
+            $table->string('name');              // "Dimensions", "Engine Specs"
+        
+            $table->integer('position')->default(0); // ordering in UI
+        
+            $table->boolean('is_active')->default(true);
+        
+            $table->timestamps();
+        });
         Schema::create('asset_spec_definitions', function (Blueprint $table) {
             $table->id();
 
             $table->string('key')->unique(); // overall_length
             $table->string('label');         // Overall Length
-            $table->string('group')->nullable(); // dimensions, engine, capacity
+
+            $table->foreignId('group_id')
+                ->nullable()
+                ->constrained('spec_groups')
+                ->nullOnDelete();
+
             $table->string('type'); // number, text, select, boolean
 
             $table->string('unit')->nullable();          // current/legacy unit
@@ -64,6 +81,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('asset_spec_values');
         Schema::dropIfExists('asset_spec_definitions');
+        Schema::dropIfExists('spec_groups');
     }
 };

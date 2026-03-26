@@ -3,7 +3,10 @@ import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
-    assetType: Number,
+    specGroups: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const emit = defineEmits(['close']);
@@ -11,7 +14,7 @@ const emit = defineEmits(['close']);
 const form = useForm({
     key: '',
     label: '',
-    group: '',
+    group_id: '',
     type: 'text',
     unit: '',
     unit_imperial: '',
@@ -22,7 +25,7 @@ const form = useForm({
     is_visible: true,
     is_required: false,
     position: 0,
-    asset_types: props.assetType ? [props.assetType] : [],
+    asset_types: [],
 });
 
 const showUnitFields = ref(false);
@@ -35,18 +38,12 @@ const typeOptions = [
     { value: 'boolean', label: 'Yes/No (Boolean)' },
 ];
 
-const groupOptions = [
-    'dimensions',
-    'capacity',
-    'weight',
-    'engine',
-    'compliance',
-];
-
+/** AssetType enum: Boat=1, Engine=2, Trailer=3, Other=4 */
 const assetTypeOptions = [
-    { value: 1, label: 'Boats' },
-    { value: 2, label: 'Motors' },
-    { value: 3, label: 'Trailers' },
+    { value: 1, label: 'Boat' },
+    { value: 3, label: 'Trailer' },
+    { value: 2, label: 'Engine' },
+    { value: 4, label: 'Other' },
 ];
 
 const addOption = () => {
@@ -166,18 +163,17 @@ const submit = () => {
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Group
                         </label>
-                        <input
-                            v-model="form.group"
-                            type="text"
-                            list="group-options"
-                            placeholder="e.g., dimensions"
+                        <select
+                            v-model="form.group_id"
                             class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
-                        />
-                        <datalist id="group-options">
-                            <option v-for="group in groupOptions" :key="group" :value="group" />
-                        </datalist>
+                        >
+                            <option value="">None</option>
+                            <option v-for="g in specGroups" :key="g.id" :value="g.id">
+                                {{ g.name }}
+                            </option>
+                        </select>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Optional grouping for organizing specs
+                            Optional section for organizing specs
                         </p>
                     </div>
 
