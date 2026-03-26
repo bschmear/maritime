@@ -53,7 +53,7 @@ const getPlaceholder = (spec) => {
         </div>
 
         <!-- Preview Form -->
-        <div class="overflow-y-auto max-h-[600px] p-6">
+        <div class="overflow-y-auto  p-6">
             <div v-if="specs.length === 0" class="text-center py-12">
                 <span class="material-icons text-gray-300 dark:text-gray-600 text-5xl">preview</span>
                 <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
@@ -72,7 +72,7 @@ const getPlaceholder = (spec) => {
                     </h3>
 
                     <!-- Fields in Group -->
-                    <div class="space-y-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
                         <div v-for="spec in groupSpecs" :key="spec.id">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 {{ spec.label }}

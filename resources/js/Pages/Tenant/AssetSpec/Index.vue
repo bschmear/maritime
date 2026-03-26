@@ -143,31 +143,31 @@ const assetTypeOptions = [
                     </div>
                 </div>
 
-                <!-- Spec Library (Left) -->
-                <div class="col-span-12 lg:col-span-4">
-                    <SpecLibrary
-                        :specs="specs"
-                        :groups="groups"
-                        :types="types"
-                        :selectedSpecs="selectedSpecs"
-                        :assetType="selectedAssetType"
-                        @add-spec="addSpecToSelected"
-                    />
-                </div>
+<!-- Spec Library (Left) -->
+<div class="col-span-12 lg:col-span-6">
+    <SpecLibrary
+        :specs="specs"
+        :groups="groups"
+        :types="types"
+        :selectedSpecs="selectedSpecs"
+        :assetType="selectedAssetType"
+        @add-spec="addSpecToSelected"
+    />
+</div>
 
-                <!-- Selected Specs Panel (Middle) -->
-                <div class="col-span-12 lg:col-span-4">
-                    <SelectedSpecsPanel
-                        :specs="selectedSpecs"
-                        @remove-spec="removeSpecFromSelected"
-                        @reorder="reorderSpecs"
-                    />
-                </div>
+<!-- Selected Specs Panel (Right) -->
+<div class="col-span-12 lg:col-span-6">
+    <SelectedSpecsPanel
+        :specs="selectedSpecs"
+        @remove-spec="removeSpecFromSelected"
+        @reorder="reorderSpecs"
+    />
+</div>
 
-                <!-- Preview (Right) -->
-                <div class="col-span-12 lg:col-span-4">
-                    <SpecPreview :specs="selectedSpecs" />
-                </div>
+<!-- Preview (Full width row below) -->
+<div class="col-span-12">
+    <SpecPreview :specs="selectedSpecs" />
+</div>
             </div>
         </div>
 
