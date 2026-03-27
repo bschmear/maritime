@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\BoatMake\Actions;
 
 use App\Domain\BoatMake\Models\BoatMake as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateBoatMake
@@ -12,7 +13,12 @@ class UpdateBoatMake
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            // Add validation rules here
+            'display_name' => ['sometimes', 'string', 'max:255'],
+            'asset_types' => ['sometimes', 'array', 'min:1'],
+            'asset_types.*' => ['integer', 'in:1,2,3,4'],
+            'is_custom' => ['sometimes', 'boolean'],
+            'logo' => ['sometimes', 'nullable', 'string'],
+            'active' => ['sometimes', 'boolean'],
         ])->validate();
 
         try {
@@ -27,8 +33,9 @@ class UpdateBoatMake
             Log::error('Database query error in UpdateBoatMake', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -38,8 +45,9 @@ class UpdateBoatMake
             Log::error('Unexpected error in UpdateBoatMake', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

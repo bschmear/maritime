@@ -9,6 +9,10 @@
         {
           "key": "display_name",
           "required": true
+        },
+        {
+          "key": "asset_types",
+          "required": true
         }
       ]
     }

@@ -52,6 +52,11 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    /** Optional: spec definitions for create modal (e.g. assets index). */
+    createAvailableSpecs: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const showCreateModal = ref(false);
@@ -1042,6 +1047,7 @@ onMounted(() => {
                     :enum-options="enumOptions"
                     :extra-route-params="extraRouteParams"
                     :initial-data="initialCreateData"
+                    :available-specs="createAvailableSpecs"
                     mode="create"
                     :prevent-redirect="true"
                     @created="handleRecordCreated"

@@ -24,10 +24,12 @@
     "default": false
   },
   "make_id": {
-    "label": "Make",
+    "label": "Brand",
     "type": "record",
     "typeDomain": "BoatMake",
-    "addNew": true
+    "addNew": true,
+    "filterby": "type",
+    "record_filter_field": "asset_types"
   },
   "model": {
     "label": "Model",

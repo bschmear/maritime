@@ -35,6 +35,11 @@ const props = defineProps({
     pluralTitle: {
         type: String
     },
+    /** Spec field definitions for the create modal (default asset type); switching type refetches in Form. */
+    createAvailableSpecs: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -82,7 +87,17 @@ const switchRecordType = (newType) => {
                 </div>
             </div>
         </template>
-        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" record-title="Asset" plural-title="Assets" />
+        <Table
+            :records="records"
+            :schema="schema"
+            :form-schema="formSchema"
+            :fields-schema="fieldsSchema"
+            :enum-options="enumOptions"
+            :record-type="recordType"
+            record-title="Asset"
+            plural-title="Assets"
+            :create-available-specs="createAvailableSpecs"
+        />
     </TenantLayout>
 </template>
 

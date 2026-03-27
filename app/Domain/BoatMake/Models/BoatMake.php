@@ -14,11 +14,13 @@ class BoatMake extends Model
         'is_custom',
         'logo',
         'active',
+        'asset_types',
     ];
 
     protected $casts = [
         'is_custom' => 'boolean',
         'active' => 'boolean',
+        'asset_types' => 'array',
     ];
 
     public function items()

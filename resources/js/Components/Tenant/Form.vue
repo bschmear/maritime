@@ -65,6 +65,24 @@ const getFieldId = (fieldKey) => `${formUniqueId.value}-field-${fieldKey}`;
 
 const getFieldDefinition = (fieldKey) => props.fieldsSchema[fieldKey] || {};
 
+const hasSpecsSection = computed(() => {
+    const s = normalizedSchema.value;
+    if (!s || typeof s !== 'object') return false;
+    return Object.values(s).some((g) => g && typeof g === 'object' && g.type === 'specs');
+});
+
+const isAssetsRecordType = computed(() => props.recordType === 'assets');
+
+/** When non-null, replaces props.availableSpecs (after fetching by asset type). */
+const specsOverrideFromFetch = ref(null);
+
+const resolvedAvailableSpecs = computed(() => {
+    if (specsOverrideFromFetch.value !== null) {
+        return specsOverrideFromFetch.value;
+    }
+    return props.availableSpecs || [];
+});
+
 // ── Build initial spec values from existing record spec_values ───
 const buildInitialSpecValues = () => {
     const specValues = {};
@@ -74,7 +92,7 @@ const buildInitialSpecValues = () => {
             existing[sv.asset_spec_definition_id] = sv;
         });
     }
-    props.availableSpecs.forEach(spec => {
+    resolvedAvailableSpecs.value.forEach(spec => {
         const sv = existing[spec.id];
         specValues[spec.id] = sv
             ? {
@@ -141,6 +159,15 @@ const initializeFormData = () => {
                 formData[key] = value === true || value === 1 ? 1 : 0;
             } else if (fieldDef.type === 'record' && value && typeof value === 'object' && value.id) {
                 formData[key] = value.id;
+            } else if (fieldDef.type === 'multi_enum') {
+                if (Array.isArray(value) && value.length > 0) {
+                    formData[key] = value.map((x) => Number(x));
+                } else if (value == null && props.record?.id) {
+                    // Legacy makes: NULL in DB = all asset types
+                    formData[key] = [1, 2, 3, 4];
+                } else {
+                    formData[key] = [];
+                }
             } else {
                 formData[key] = value;
             }
@@ -190,6 +217,12 @@ const initializeFormData = () => {
                             } else {
                                 formData[field.key] = null;
                             }
+                        } else if (fieldType === 'multi_enum') {
+                            if (fieldDef.default !== undefined && Array.isArray(fieldDef.default)) {
+                                formData[field.key] = fieldDef.default.map((x) => Number(x));
+                            } else {
+                                formData[field.key] = [];
+                            }
                         } else if (fieldType === 'record') {
                             formData[field.key] = null;
                         } else if (fieldType === 'morph') {
@@ -221,8 +254,40 @@ const initializeFormData = () => {
 const form = useForm(initializeFormData());
 const isProcessing = ref(false);
 
-// Re-seed spec values when availableSpecs or record changes
-watch([() => props.availableSpecs, () => props.record], () => {
+watch(
+    () => form.type,
+    async (type, prevType) => {
+        if (!isAssetsRecordType.value || !hasSpecsSection.value || props.mode === 'view') {
+            return;
+        }
+        if (prevType === undefined && (props.availableSpecs?.length ?? 0) > 0) {
+            return;
+        }
+
+        const assetType = type === null || type === '' ? null : Number(type);
+        if (assetType === null || Number.isNaN(assetType)) {
+            specsOverrideFromFetch.value = [];
+            return;
+        }
+
+        try {
+            const { data } = await axios.get(route('asset-specs.index'), {
+                params: { asset_type: assetType },
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            specsOverrideFromFetch.value = data?.specs ?? [];
+        } catch {
+            specsOverrideFromFetch.value = [];
+        }
+    },
+    { immediate: true },
+);
+
+// Re-seed spec values when resolved specs or record changes
+watch([resolvedAvailableSpecs, () => props.record], () => {
     form.specValues = buildInitialSpecValues();
 }, { deep: true });
 
@@ -289,7 +354,7 @@ watch(() => form.data(), (newData, oldData) => {
 // ── Grouped specs (spec_groups.name via relation) ─────────────────
 const groupedSpecSections = computed(() => {
     const buckets = new Map();
-    (props.availableSpecs || []).forEach((spec) => {
+    (resolvedAvailableSpecs.value || []).forEach((spec) => {
         const gid = spec.group_id ?? '__none__';
         if (!buckets.has(gid)) {
             buckets.set(gid, {
@@ -312,7 +377,7 @@ const groupedSpecSections = computed(() => {
 
 // ── Build specs array for submission ────────────────────────────
 const buildSpecsPayload = () => {
-    return props.availableSpecs.map(spec => {
+    return resolvedAvailableSpecs.value.map(spec => {
         const val = form.specValues?.[spec.id] || {};
         return {
             spec_id:       spec.id,
@@ -390,6 +455,54 @@ const getImageSource = (fieldKey) => {
 };
 
 const getFieldValue = (fieldKey) => form[fieldKey] ?? '';
+
+const toggleMultiEnumValue = (fieldKey, optionId) => {
+    const id = Number(optionId);
+    if (!Array.isArray(form[fieldKey])) {
+        form[fieldKey] = [];
+    }
+    const arr = form[fieldKey].map((x) => Number(x));
+    const i = arr.indexOf(id);
+    if (i >= 0) {
+        arr.splice(i, 1);
+    } else {
+        arr.push(id);
+    }
+    form[fieldKey] = arr;
+};
+
+const isMultiEnumSelected = (fieldKey, optionId) => {
+    const id = Number(optionId);
+    if (!Array.isArray(form[fieldKey])) return false;
+    return form[fieldKey].map((x) => Number(x)).includes(id);
+};
+
+const getMultiEnumDisplay = (fieldKey) => {
+    const def = getFieldDefinition(fieldKey);
+    const ids = form[fieldKey];
+    if (!Array.isArray(ids) || ids.length === 0) return '—';
+    const opts = getEnumOptions(fieldKey);
+    return ids
+        .map((id) => opts.find((o) => Number(o.id) === Number(id) || Number(o.value) === Number(id))?.name ?? id)
+        .join(', ');
+};
+
+/** Append a value to FormData; arrays of scalars use Laravel-friendly key[] entries. */
+const appendFormDataValue = (formData, key, value) => {
+    if (value === null || value === undefined) return;
+    if (Array.isArray(value)) {
+        if (value.length === 0) return;
+        if (typeof value[0] !== 'object' || value[0] instanceof File) {
+            value.forEach((v) => formData.append(`${key}[]`, v));
+            return;
+        }
+    }
+    if (typeof value === 'object' && !(value instanceof File) && !(value instanceof Blob)) {
+        formData.append(key, JSON.stringify(value));
+        return;
+    }
+    formData.append(key, value);
+};
 
 const applySourcedDefaults = (changedFieldKey, selectedRecord) => {
     if (!selectedRecord || !props.fieldsSchema) return;
@@ -681,12 +794,8 @@ const handleSubmit = () => {
             let submissionData = rawData;
             if (hasFiles) {
                 const formData = new FormData();
-                Object.keys(rawData).forEach(key => {
-                    const value = rawData[key];
-                    if (value !== null && value !== undefined) {
-                        formData.append(key, Array.isArray(value) || typeof value === 'object'
-                            ? JSON.stringify(value) : value);
-                    }
+                Object.keys(rawData).forEach((key) => {
+                    appendFormDataValue(formData, key, rawData[key]);
                 });
                 submissionData = formData;
             }
@@ -731,12 +840,8 @@ const handleSubmit = () => {
             if (hasFiles) {
                 const formData = new FormData();
                 formData.append('_method', 'PUT');
-                Object.keys(rawData).forEach(key => {
-                    const value = rawData[key];
-                    if (value !== null && value !== undefined) {
-                        formData.append(key, Array.isArray(value) || typeof value === 'object'
-                            ? JSON.stringify(value) : value);
-                    }
+                Object.keys(rawData).forEach((key) => {
+                    appendFormDataValue(formData, key, rawData[key]);
                 });
                 submissionData = formData;
                 method = 'post';
@@ -832,7 +937,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
             </Link>
         </div>
                             <!-- Empty state -->
-                            <div v-if="availableSpecs.length === 0" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                            <div v-if="resolvedAvailableSpecs.length === 0" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                                 No specifications available for this asset type.
                             </div>
 
@@ -982,6 +1087,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                             </div>
                                             <span v-else-if="getFieldType(field.key) === 'record'">{{ getRecordDisplayName(field.key, getFieldValue(field.key)) }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum">{{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}</span>
+                                            <span v-else-if="getFieldType(field.key) === 'multi_enum'">{{ getMultiEnumDisplay(field.key) }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'tel'">{{ getFormattedPhoneValue(field.key) || '—' }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'datetime'">{{ formatDateTime(getFieldValue(field.key)) || '—' }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'date'">{{ formatDate(getFieldValue(field.key)) || '—' }}</span>
@@ -1025,14 +1131,29 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
 
                                         <!-- Edit Mode -->
                                         <div v-else>
-                                            <div v-if="getFieldType(field.key) === 'tel'" class="relative">
+                                            <div v-if="getFieldType(field.key) === 'multi_enum'" class="flex flex-wrap gap-3 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800">
+                                                <label
+                                                    v-for="option in getEnumOptions(field.key)"
+                                                    :key="option.id"
+                                                    class="flex cursor-pointer items-center gap-2 text-sm text-gray-800 dark:text-gray-200"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
+                                                        :checked="isMultiEnumSelected(field.key, option.id)"
+                                                        @change="toggleMultiEnumValue(field.key, option.id)"
+                                                    />
+                                                    <span>{{ option.name }}</span>
+                                                </label>
+                                            </div>
+                                            <div v-else-if="getFieldType(field.key) === 'tel'" class="relative">
                                                 <input :id="getFieldId(field.key)" type="tel" :value="getFormattedPhoneValue(field.key)" @input="handlePhoneInput(field.key, $event)" @blur="handlePhoneInput(field.key, $event)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" placeholder="(123) 456-7890" />
                                             </div>
                                             <NumberInput v-else-if="getFieldType(field.key) === 'number'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :min="getFieldDefinition(field.key).min" :max="getFieldDefinition(field.key).max" :step="getFieldDefinition(field.key).step || 1" :allow-decimals="getFieldDefinition(field.key).allow_decimals !== false" :is-year="getFieldDefinition(field.key).isYear === true" />
                                             <CurrencyInput v-else-if="getFieldType(field.key) === 'currency'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" />
                                             <input v-else-if="['text', 'email'].includes(getFieldType(field.key))" :id="getFieldId(field.key)" v-model="form[field.key]" :type="getFieldType(field.key)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" />
                                             <textarea v-else-if="getFieldType(field.key) === 'textarea'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" rows="4" class="block p-2.5 w-full input-style" />
-                                            <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />
+                                            <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />
                                             <select v-else-if="getFieldType(field.key) === 'select'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :class="['input-style', !form[field.key] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900']">
                                                 <option v-if="!isFieldRequired(field)" value="" disabled>Select {{ getFieldLabel(field.key) }}</option>
                                                 <option v-for="option in getEnumOptions(field.key)" :key="option.id" :value="option.id">{{ option.name }}</option>

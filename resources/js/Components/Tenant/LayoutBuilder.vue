@@ -2,7 +2,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 
 const props = defineProps({
-    initialBoats: { type: Array, default: () => [] },
+    /** Assigned boats, engines, and trailers for this event (each row includes `type` from the asset). */
+    initialLayoutItems: { type: Array, default: () => [] },
     layoutSpace: {
         type: Object,
         default: () => ({ width_ft: 60, height_ft: 40 }),
@@ -14,16 +15,69 @@ const emit = defineEmits(['save', 'change', 'request-attach-asset']);
 
 const MARGIN = 28;
 
-const COLORS = [
-    { label: 'Blue', value: '#378ADD' },
-    { label: 'Teal', value: '#1D9E75' },
-    { label: 'Coral', value: '#D85A30' },
-    { label: 'Green', value: '#639922' },
-    { label: 'Amber', value: '#BA7517' },
-    { label: 'Pink', value: '#D4537E' },
-    { label: 'Purple', value: '#7F77DD' },
-    { label: 'Gray', value: '#888780' },
-];
+/** @see App\Enums\Inventory\AssetType */
+const ASSET_TYPE = { BOAT: 1, ENGINE: 2, TRAILER: 3 };
+
+/** Tailwind text-*-500 — matches Boat Show event asset list (boat blue, engine orange, trailer green). */
+const LAYOUT_COLOR_BY_TYPE = {
+    [ASSET_TYPE.BOAT]: '#3B82F6',
+    [ASSET_TYPE.ENGINE]: '#F97316',
+    [ASSET_TYPE.TRAILER]: '#22C55E',
+};
+
+const CUSTOM_LAYOUT_COLOR = '#64748B';
+
+function layoutFillColor(item) {
+    if (item.assetType == null) return CUSTOM_LAYOUT_COLOR;
+    return LAYOUT_COLOR_BY_TYPE[item.assetType] ?? CUSTOM_LAYOUT_COLOR;
+}
+
+/** Stacking: trailers bottom (0), boats middle (1), engines top (2). Custom shapes use boat tier. */
+function typeDrawTier(assetType) {
+    if (assetType == null) return 1;
+    const t = Number(assetType);
+    if (t === ASSET_TYPE.TRAILER) return 0;
+    if (t === ASSET_TYPE.BOAT) return 1;
+    if (t === ASSET_TYPE.ENGINE) return 2;
+    return 1;
+}
+
+function stackTypeKey(item) {
+    return item.assetType == null ? 'custom' : String(item.assetType);
+}
+
+function itemFootprint(item) {
+    const fw = item.rotated ? item.w : item.l;
+    const fh = item.rotated ? item.l : item.w;
+    return { x: item.x, y: item.y, w: fw, h: fh };
+}
+
+function footprintsOverlap(a, b) {
+    return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+}
+
+function hasSameTypeFootprintOverlap(moving, allItems) {
+    const m = itemFootprint(moving);
+    for (const o of allItems) {
+        if (o === moving || !o.includeInLayout) continue;
+        if (stackTypeKey(o) !== stackTypeKey(moving)) continue;
+        if (footprintsOverlap(m, itemFootprint(o))) return true;
+    }
+    return false;
+}
+
+function nudgeItemToFreeSpot(item) {
+    if (!item.includeInLayout) return;
+    const maxY = Math.max(0, Math.ceil(spaceH.value));
+    const maxX = Math.max(0, Math.ceil(spaceW.value));
+    for (let y = 0; y < maxY; y++) {
+        for (let x = 0; x < maxX; x++) {
+            item.x = x;
+            item.y = y;
+            if (!hasSameTypeFootprintOverlap(item, boats.value)) return;
+        }
+    }
+}
 
 const canvasRef = ref(null);
 const containerRef = ref(null);
@@ -39,10 +93,10 @@ const boatIdCounter = ref(0);
 
 const showModal = ref(false);
 const modalMode = ref('add'); // 'add' | 'edit'
-const form = reactive({ name: '', length: 20, width: 8, color: '#378ADD' });
+const form = reactive({ name: '', length: 20, width: 8 });
 const editingBoat = ref(null);
 
-const drag = { active: false, offX: 0, offY: 0 };
+const drag = { active: false, offX: 0, offY: 0, lastValidX: 0, lastValidY: 0 };
 
 const SCALE = computed(() =>
     Math.max(4, Math.floor((containerW.value - MARGIN * 2) / spaceW.value)),
@@ -54,13 +108,32 @@ const canvasH = computed(() => spaceH.value * SCALE.value + MARGIN * 2);
 const onLayoutBoats = computed(() => boats.value.filter((b) => b.includeInLayout));
 const offLayoutBoats = computed(() => boats.value.filter((b) => !b.includeInLayout));
 
-const boatsDrawOrder = computed(() =>
-    [...onLayoutBoats.value].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)),
-);
+/** Selected item draws on top and wins hit-tests; deselect restores type-tier + z_index order. */
+const boatsDrawOrder = computed(() => {
+    const sel = selected.value;
+    return [...onLayoutBoats.value].sort((a, b) => {
+        const aSel = sel != null && a === sel;
+        const bSel = sel != null && b === sel;
+        if (aSel !== bSel) return aSel ? 1 : -1;
+        const ta = typeDrawTier(a.assetType);
+        const tb = typeDrawTier(b.assetType);
+        if (ta !== tb) return ta - tb;
+        return (a.zIndex ?? 0) - (b.zIndex ?? 0);
+    });
+});
 
-const boatsHitOrder = computed(() =>
-    [...onLayoutBoats.value].sort((a, b) => (b.zIndex ?? 0) - (a.zIndex ?? 0)),
-);
+const boatsHitOrder = computed(() => {
+    const sel = selected.value;
+    return [...onLayoutBoats.value].sort((a, b) => {
+        const aSel = sel != null && a === sel;
+        const bSel = sel != null && b === sel;
+        if (aSel !== bSel) return aSel ? -1 : 1;
+        const ta = typeDrawTier(a.assetType);
+        const tb = typeDrawTier(b.assetType);
+        if (ta !== tb) return tb - ta;
+        return (b.zIndex ?? 0) - (a.zIndex ?? 0);
+    });
+});
 
 const selectedInfo = computed(() => {
     const b = selected.value;
@@ -82,18 +155,19 @@ const boatCount = computed(() => boats.value.length);
 
 function rowToBoat(b, i) {
     const rot = Number(b.rotation ?? 0);
+    const assetType = b.type != null ? Number(b.type) : null;
     const label = b.layout_label && String(b.layout_label).trim()
         ? b.layout_label
-        : (b.display_name ?? b.name ?? `Boat ${i + 1}`);
+        : (b.display_name ?? b.name ?? `Asset ${i + 1}`);
     return {
         id: ++boatIdCounter.value,
         eventAssetId: b.event_asset_id ?? null,
         assetId: b.id ?? null,
+        assetType,
         includeInLayout: !!b.include_in_layout,
         name: label,
         l: parseFloat(b.length_ft ?? b.length) || 20,
         w: parseFloat(b.width_ft ?? b.width) || 8,
-        color: b.color || COLORS[i % COLORS.length].value,
         x: Number.isFinite(Number(b.x)) ? Number(b.x) : 2 + (i % 5) * 4,
         y: Number.isFinite(Number(b.y)) ? Number(b.y) : 2 + Math.floor(i / 5) * 4,
         rotated: rot % 180 === 90,
@@ -118,7 +192,7 @@ function buildSyncPayload() {
     return {
         width_ft: spaceW.value,
         height_ft: spaceH.value,
-        boats: boats.value
+        items: boats.value
             .filter((b) => b.eventAssetId != null)
             .map((b) => ({
                 event_asset_id: b.eventAssetId,
@@ -130,7 +204,6 @@ function buildSyncPayload() {
                 name: b.name?.trim() ? b.name.trim() : null,
                 length_ft: b.l,
                 width_ft: b.w,
-                color: b.color || null,
             })),
     };
 }
@@ -208,7 +281,7 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
         (boat.rotated ? boat.y + boat.l > spaceH.value : boat.y + boat.w > spaceH.value);
 
     ctx.globalAlpha = dimmed ? 0.38 : 0.9;
-    ctx.fillStyle = oob ? '#E24B4A' : boat.color;
+    ctx.fillStyle = oob ? '#E24B4A' : layoutFillColor(boat);
     ctx.strokeStyle = isSel ? '#fff' : 'rgba(0,0,0,0.22)';
     ctx.lineWidth = isSel ? 2.5 : 1;
     ctx.beginPath();
@@ -282,6 +355,8 @@ function onPointerDown(e) {
         drag.active = true;
         drag.offX = mx - (MARGIN + hit.x * SCALE.value);
         drag.offY = my - (MARGIN + hit.y * SCALE.value);
+        drag.lastValidX = hit.x;
+        drag.lastValidY = hit.y;
         boats.value = [...boats.value.filter((b) => b !== hit), hit];
     } else {
         selected.value = null;
@@ -293,8 +368,17 @@ function onPointerMove(e) {
     if (!drag.active || !selected.value) return;
     const { mx, my } = getXY(e, canvasRef.value);
     const S = SCALE.value;
-    selected.value.x = snap((mx - drag.offX - MARGIN) / S);
-    selected.value.y = snap((my - drag.offY - MARGIN) / S);
+    const nx = snap((mx - drag.offX - MARGIN) / S);
+    const ny = snap((my - drag.offY - MARGIN) / S);
+    selected.value.x = nx;
+    selected.value.y = ny;
+    if (selected.value.includeInLayout && hasSameTypeFootprintOverlap(selected.value, boats.value)) {
+        selected.value.x = drag.lastValidX;
+        selected.value.y = drag.lastValidY;
+    } else {
+        drag.lastValidX = selected.value.x;
+        drag.lastValidY = selected.value.y;
+    }
     draw();
     emit('change', buildSyncPayload());
 }
@@ -308,11 +392,9 @@ function openAddModal() {
     form.name = '';
     form.length = 20;
     form.width = 8;
-    form.color = '#378ADD';
     showModal.value = true;
 }
 
-// Open modal to EDIT the selected boat's size/name/color
 function openEditModal() {
     if (!selected.value) return;
     modalMode.value = 'edit';
@@ -320,7 +402,6 @@ function openEditModal() {
     form.name = selected.value.name;
     form.length = selected.value.l;
     form.width = selected.value.w;
-    form.color = selected.value.color;
     showModal.value = true;
 }
 
@@ -330,7 +411,9 @@ function submitModal() {
         editingBoat.value.name = form.name.trim();
         editingBoat.value.l = parseFloat(form.length) || editingBoat.value.l;
         editingBoat.value.w = parseFloat(form.width) || editingBoat.value.w;
-        editingBoat.value.color = form.color;
+        if (editingBoat.value.includeInLayout && hasSameTypeFootprintOverlap(editingBoat.value, boats.value)) {
+            nudgeItemToFreeSpot(editingBoat.value);
+        }
         showModal.value = false;
         draw();
         emit('change', buildSyncPayload());
@@ -339,11 +422,11 @@ function submitModal() {
             id: ++boatIdCounter.value,
             eventAssetId: null,
             assetId: null,
+            assetType: null,
             includeInLayout: true,
             name: form.name.trim(),
             l: parseFloat(form.length) || 20,
             w: parseFloat(form.width) || 8,
-            color: form.color,
             x: 2,
             y: 2,
             rotated: false,
@@ -351,6 +434,9 @@ function submitModal() {
         };
         boats.value = [...boats.value, boat];
         selected.value = boat;
+        if (hasSameTypeFootprintOverlap(boat, boats.value)) {
+            nudgeItemToFreeSpot(boat);
+        }
         showModal.value = false;
         draw();
         emit('change', buildSyncPayload());
@@ -359,16 +445,26 @@ function submitModal() {
 
 function rotateSelected() {
     if (!selected.value) return;
+    const was = selected.value.rotated;
     selected.value.rotated = !selected.value.rotated;
+    if (
+        selected.value.includeInLayout &&
+        hasSameTypeFootprintOverlap(selected.value, boats.value)
+    ) {
+        selected.value.rotated = was;
+        return;
+    }
     draw();
     emit('change', buildSyncPayload());
 }
 
 function addToGrid(boat) {
     boat.includeInLayout = true;
-    // Place near top-left if position is unset
     if (!Number.isFinite(boat.x)) boat.x = 2;
     if (!Number.isFinite(boat.y)) boat.y = 2;
+    if (hasSameTypeFootprintOverlap(boat, boats.value)) {
+        nudgeItemToFreeSpot(boat);
+    }
     selected.value = boat;
     draw();
     emit('change', buildSyncPayload());
@@ -404,7 +500,7 @@ function applySpace() {
 }
 
 function clearAll() {
-    if (!confirm('Clear the floor plan? Boats will be moved off the layout.')) return;
+    if (!confirm('Clear the floor plan? Assets will be moved off the layout.')) return;
     boats.value.forEach((b) => (b.includeInLayout = false));
     selected.value = null;
     draw();
@@ -425,8 +521,8 @@ onMounted(() => {
         ro.observe(containerRef.value);
         containerW.value = containerRef.value.clientWidth || 800;
     }
-    if (props.initialBoats?.length) {
-        boats.value = props.initialBoats.map((b, i) => rowToBoat(b, i));
+    if (props.initialLayoutItems?.length) {
+        boats.value = props.initialLayoutItems.map((b, i) => rowToBoat(b, i));
     }
     draw();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
@@ -439,9 +535,9 @@ watch(
 );
 
 watch(
-    () => props.initialBoats,
-    (newBoats) => {
-        const list = newBoats ?? [];
+    () => props.initialLayoutItems,
+    (newItems) => {
+        const list = newItems ?? [];
         const byEventAsset = new Map(list.map((b) => [b.event_asset_id, b]));
         boats.value = boats.value.filter((b) => {
             if (!b.eventAssetId) return true;
@@ -453,10 +549,10 @@ watch(
             if (existing) {
                 Object.assign(existing, {
                     includeInLayout: !!b.include_in_layout,
+                    assetType: b.type != null ? Number(b.type) : existing.assetType,
                     name: b.layout_label && String(b.layout_label).trim() ? b.layout_label : existing.name,
                     l: parseFloat(b.length_ft ?? b.length) || existing.l,
                     w: parseFloat(b.width_ft ?? b.width) || existing.w,
-                    color: b.color || existing.color,
                     x: Number.isFinite(Number(b.x)) ? Number(b.x) : existing.x,
                     y: Number.isFinite(Number(b.y)) ? Number(b.y) : existing.y,
                     rotated: Number(b.rotation ?? 0) % 180 === 90,
@@ -484,7 +580,6 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
 
         <!-- ── Toolbar row 1: actions ── -->
         <div class="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
-            <!-- Add boat -->
             <button
                 v-if="attachAssetConfig"
                 type="button"
@@ -492,7 +587,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 @click="emit('request-attach-asset')"
             >
                 <span class="material-icons text-[14px]">add</span>
-                Add boat
+                Add asset
             </button>
             <button
                 v-else
@@ -501,7 +596,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 @click="openAddModal"
             >
                 <span class="material-icons text-[14px]">add</span>
-                Add boat
+                Add custom shape
             </button>
 
             <div class="w-px h-5 bg-slate-200 dark:bg-slate-600 hidden sm:block"></div>
@@ -605,7 +700,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 </span>
             </template>
             <template v-else>
-                <span class="text-slate-400">Click a boat to select, then drag to reposition</span>
+                <span class="text-slate-400">Click an asset to select, then drag to reposition</span>
             </template>
             <span class="ml-auto text-slate-500 dark:text-slate-400">
                 {{ onLayoutBoats.length }} on layout · {{ boatCount }} total
@@ -642,7 +737,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                         Not on grid
                     </p>
                     <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        {{ offLayoutBoats.length }} boat{{ offLayoutBoats.length !== 1 ? 's' : '' }} hidden from layout
+                        {{ offLayoutBoats.length }} asset{{ offLayoutBoats.length !== 1 ? 's' : '' }} hidden from layout
                     </p>
                 </div>
                 <div class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
@@ -654,7 +749,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                         <!-- Color swatch -->
                         <span
                             class="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0"
-                            :style="{ background: boat.color }"
+                            :style="{ background: layoutFillColor(boat) }"
                         ></span>
                         <div class="flex-1 min-w-0">
                             <p class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate leading-tight">{{ boat.name }}</p>
@@ -676,10 +771,26 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
         <!-- ── Legend footer ── -->
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs text-slate-500 dark:text-slate-400">
             <span class="flex items-center gap-1.5">
+                <span class="inline-block w-3 h-3 rounded-sm bg-[#3B82F6]"></span>
+                Boat
+            </span>
+            <span class="flex items-center gap-1.5">
+                <span class="inline-block w-3 h-3 rounded-sm bg-[#F97316]"></span>
+                Engine
+            </span>
+            <span class="flex items-center gap-1.5">
+                <span class="inline-block w-3 h-3 rounded-sm bg-[#22C55E]"></span>
+                Trailer
+            </span>
+            <span class="flex items-center gap-1.5">
+                <span class="inline-block w-3 h-3 rounded-sm bg-[#64748B]"></span>
+                Custom
+            </span>
+            <span class="flex items-center gap-1.5">
                 <span class="inline-block w-3 h-3 rounded-sm bg-[#E24B4A]"></span>
                 Out of bounds
             </span>
-            <span class="text-slate-400 hidden sm:block">Grid = 5 ft · Bow points right</span>
+            <span class="text-slate-400 hidden lg:block">Stacking: trailer under boat under engine. Same type cannot overlap.</span>
             <span class="ml-auto">{{ spaceW }}' × {{ spaceH }}' floor plan</span>
         </div>
     </div>
@@ -697,15 +808,15 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                     @click.stop
                 >
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-                        {{ modalMode === 'edit' ? 'Edit boat' : 'Add boat to layout' }}
+                        {{ modalMode === 'edit' ? 'Edit dimensions' : 'Add custom shape' }}
                     </h3>
                     <div class="space-y-3">
                         <div>
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Boat name</label>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Label</label>
                             <input
                                 v-model="form.name"
                                 type="text"
-                                placeholder="e.g. Sea Ray 250"
+                                placeholder="e.g. Display area"
                                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                                 @keydown.enter="submitModal"
                             />
@@ -725,25 +836,6 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                                     v-model.number="form.width"
                                     type="number" min="1"
                                     class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Color</label>
-                            <div class="flex flex-wrap gap-2 pt-1">
-                                <button
-                                    v-for="c in COLORS"
-                                    :key="c.value"
-                                    type="button"
-                                    @click="form.color = c.value"
-                                    :title="c.label"
-                                    :style="{ background: c.value }"
-                                    :class="[
-                                        'w-7 h-7 rounded-full transition-all border-2',
-                                        form.color === c.value
-                                            ? 'border-slate-900 dark:border-white scale-110 shadow'
-                                            : 'border-transparent opacity-70 hover:opacity-100 hover:scale-105',
-                                    ]"
                                 />
                             </div>
                         </div>

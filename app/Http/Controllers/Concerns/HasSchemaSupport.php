@@ -273,6 +273,19 @@ trait HasSchemaSupport
                     }
                     break;
                 case 'equals':
+                    // BoatMake: filter by selected inventory asset type (JSON array on boat_make).
+                    // NULL asset_types = legacy / unrestricted (show for every type).
+                    // Domain may be miscased as "Boatmake" when derived from Str::studly('boatmake').
+                    if ($field === 'asset_types' && $value !== null && $value !== ''
+                        && strcasecmp((string) $this->domainName, 'BoatMake') === 0) {
+                        $assetType = (int) $value;
+                        $query->where(function ($q) use ($assetType) {
+                            $q->whereJsonContains('asset_types', $assetType)
+                                ->orWhereNull('asset_types');
+                        });
+                        break;
+                    }
+
                     // Check if this is a many-to-many relationship filter
                     $relationshipHandled = false;
 

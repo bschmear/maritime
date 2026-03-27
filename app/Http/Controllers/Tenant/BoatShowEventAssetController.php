@@ -79,6 +79,7 @@ class BoatShowEventAssetController extends Controller
             'z_index' => 0,
             'length_ft' => $footprint['length_ft'],
             'width_ft' => $footprint['width_ft'],
+            'color' => self::canonicalLayoutColorForAssetType((int) $asset->type),
         ]);
 
         return response()->json(['success' => true]);
@@ -94,29 +95,36 @@ class BoatShowEventAssetController extends Controller
         $validated = $request->validate([
             'width_ft' => ['required', 'integer', 'min:10', 'max:200'],
             'height_ft' => ['required', 'integer', 'min:10', 'max:200'],
-            'boats' => ['present', 'array'],
-            'boats.*.event_asset_id' => ['required', 'integer', 'exists:boat_show_event_assets,id'],
-            'boats.*.include_in_layout' => ['sometimes', 'boolean'],
-            'boats.*.x' => ['required', 'numeric'],
-            'boats.*.y' => ['required', 'numeric'],
-            'boats.*.rotation' => ['required', 'integer', 'min:0', 'max:359'],
-            'boats.*.z_index' => ['sometimes', 'integer'],
-            'boats.*.name' => ['nullable', 'string', 'max:255'],
-            'boats.*.length_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
-            'boats.*.width_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
-            'boats.*.color' => ['nullable', 'string', 'max:32'],
+            'items' => ['present', 'array'],
+            'items.*.event_asset_id' => ['required', 'integer', 'exists:boat_show_event_assets,id'],
+            'items.*.include_in_layout' => ['sometimes', 'boolean'],
+            'items.*.x' => ['required', 'numeric'],
+            'items.*.y' => ['required', 'numeric'],
+            'items.*.rotation' => ['required', 'integer', 'min:0', 'max:359'],
+            'items.*.z_index' => ['sometimes', 'integer'],
+            'items.*.name' => ['nullable', 'string', 'max:255'],
+            'items.*.length_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
+            'items.*.width_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
         ]);
 
-        $boatRows = BoatShowEventAsset::query()
+        $layoutableTypes = [
+            AssetType::Boat->value,
+            AssetType::Engine->value,
+            AssetType::Trailer->value,
+        ];
+
+        $rows = BoatShowEventAsset::query()
             ->where('boat_show_event_id', $event->id)
-            ->whereHas('asset', fn ($q) => $q->where('type', AssetType::Boat))
+            ->whereHas('asset', fn ($q) => $q->whereIn('type', $layoutableTypes))
+            ->with('asset:id,type')
             ->get();
 
-        $byId = collect($validated['boats'])->keyBy('event_asset_id');
+        $byId = collect($validated['items'])->keyBy('event_asset_id');
 
-        foreach ($boatRows as $row) {
+        foreach ($rows as $row) {
             $p = $byId->get($row->id);
             if ($p !== null) {
+                $assetType = (int) $row->asset->type;
                 $row->update([
                     'include_in_layout' => (bool) ($p['include_in_layout'] ?? true),
                     'x' => $p['x'],
@@ -126,7 +134,7 @@ class BoatShowEventAssetController extends Controller
                     'name' => $p['name'] ?? null,
                     'length_ft' => $p['length_ft'],
                     'width_ft' => $p['width_ft'],
-                    'color' => $p['color'] ?? null,
+                    'color' => self::canonicalLayoutColorForAssetType($assetType),
                 ]);
             } else {
                 $row->update(['include_in_layout' => false]);
@@ -200,6 +208,19 @@ class BoatShowEventAssetController extends Controller
                 'display_name' => $u->display_name,
             ])->values()->all(),
         ]);
+    }
+
+    /**
+     * Matches tenant asset list accents (Tailwind *-500): boats blue, engines orange, trailers green.
+     */
+    private static function canonicalLayoutColorForAssetType(int $assetType): string
+    {
+        return match ($assetType) {
+            AssetType::Boat->value => '#3B82F6',
+            AssetType::Engine->value => '#F97316',
+            AssetType::Trailer->value => '#22C55E',
+            default => '#64748B',
+        };
     }
 
     private function resolveEvent(Request $request): BoatShowEvent

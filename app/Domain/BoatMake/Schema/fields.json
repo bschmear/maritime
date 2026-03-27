@@ -1,6 +1,13 @@
 {
+    "asset_types": {
+      "label": "Applies to asset types",
+      "type": "multi_enum",
+      "enum": "App\\Enums\\Inventory\\AssetType",
+      "required": true,
+      "help": "This make appears when creating assets of the selected types only."
+    },
     "display_name": {
-      "label": "Boat Make",
+      "label": "Brand",
       "type": "text",
       "required": true
     },

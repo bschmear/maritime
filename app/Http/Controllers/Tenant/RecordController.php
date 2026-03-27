@@ -273,18 +273,29 @@ class RecordController extends BaseController
         }
 
         // Normal initial page load - return Inertia page
-        $pluralTitle = Str::plural($this->recordTitle);
+        return inertia(
+            'Tenant/'.$this->domainName.'/Index',
+            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions)
+        );
+    }
 
-        return inertia('Tenant/'.$this->domainName.'/Index', [
+    /**
+     * Props for the domain Index Inertia page. Override in child controllers (e.g. Asset) to add keys.
+     *
+     * @param  \Illuminate\Contracts\Pagination\LengthAwarePaginator  $records
+     */
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions): array
+    {
+        return [
             'records' => $records,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
-            'pluralTitle' => $pluralTitle,
+            'pluralTitle' => Str::plural($this->recordTitle),
             'schema' => $schema,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
-        ]);
+        ];
     }
 
     public function create()

@@ -1,26 +1,50 @@
 <script setup>
-import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import ShowRecord from '@/Components/Tenant/ShowRecord.vue';
+
+const props = defineProps({
+    record: {
+        type: Object,
+        required: true,
+    },
+    recordType: {
+        type: String,
+        default: 'boatmakes',
+    },
+    recordTitle: {
+        type: String,
+        default: 'Brands',
+    },
+    formSchema: {
+        type: Object,
+        default: null,
+    },
+    fieldsSchema: {
+        type: Object,
+        default: () => ({}),
+    },
+    enumOptions: {
+        type: Object,
+        default: () => ({}),
+    },
+    domainName: {
+        type: String,
+        default: 'Brands',
+    },
+});
 </script>
 
 <template>
-    <Head title="BoatMake" />
+    <ShowRecord
+        :record="record"
+        :record-type="recordType"
+        :record-title="recordTitle"
+        :form-schema="formSchema"
+        :fields-schema="fieldsSchema"
+        :enum-options="enumOptions"
+        :domain-name="domainName"
+        :show-sublists="true"
+        :breadcrumb-parent-label="'Brandss'"
+        :breadcrumb-parent-href="route(`${recordType}.index`)"
 
-    <TenantLayout>
-        <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                BoatMake
-            </h2>
-        </template>
-
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <p>BoatMake details coming soon...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </TenantLayout>
+    />
 </template>

@@ -14,7 +14,7 @@
       "is_visible": true,
       "is_required": true,
       "position": 1,
-      "asset_types": [1]
+      "asset_types": [1,2,3,4]
     },
     {
       "key": "internal_length",
@@ -45,7 +45,7 @@
       "is_visible": true,
       "is_required": true,
       "position": 3,
-      "asset_types": [1]
+      "asset_types": [1,2,3,4]
     },
     {
       "key": "internal_width",

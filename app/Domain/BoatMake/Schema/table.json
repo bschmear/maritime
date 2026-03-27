@@ -2,7 +2,7 @@
     "columns": [
       {
         "key": "display_name",
-        "label": "Boat Make",
+        "label": "Brand",
         "sortable": true
       },
       {

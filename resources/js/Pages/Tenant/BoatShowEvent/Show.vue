@@ -317,7 +317,7 @@ function onLayoutChange(payload) {
     clearTimeout(layoutPersistTimer);
     layoutPersistTimer = setTimeout(
         () => persistEventLayout(payload, { showToast: false, reloadAfter: false }),
-        2000,
+        1000,
     );
 }
 
@@ -356,6 +356,13 @@ const eventAssetUnitsUrl = computed(() =>
 
 /** Truthy prop for LayoutBuilder: use inventory picker instead of only the custom-size modal. */
 const eventAssetAttachConfig = computed(() => ({}));
+
+/** Boats, engines, and trailers share one floor plan (colors fixed by asset type). */
+const layoutItemsForBuilder = computed(() => [
+    ...(props.assets.boats ?? []),
+    ...(props.assets.engines ?? []),
+    ...(props.assets.trailers ?? []),
+]);
 
 function formatBoatLengthFt(boat) {
     const v = boat.length_display ?? boat.length;
@@ -698,18 +705,27 @@ async function removeEventAsset(row) {
                         </div>
 
                         <!-- ── LAYOUT BUILDER TAB ── -->
-                        <div v-show="activeTab === 'layout'" class="p-4 space-y-2">
-                            <p v-if="layoutSavePending" class="text-xs text-gray-500 dark:text-gray-400">
-                                Saving layout…
-                            </p>
+                        <div v-show="activeTab === 'layout'" class="relative p-4 space-y-2">
                             <LayoutBuilder
-                                :initial-boats="assets.boats"
+                                :initial-layout-items="layoutItemsForBuilder"
                                 :layout-space="layoutSpace"
                                 :attach-asset-config="eventAssetAttachConfig"
                                 @request-attach-asset="assetPickerOpen = true"
                                 @save="onLayoutSave"
                                 @change="onLayoutChange"
                             />
+                            <div
+                                v-if="layoutSavePending"
+                                class="pointer-events-none absolute top-3 right-4 z-20 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-md dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <span
+                                    class="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-primary-600 border-t-transparent dark:border-primary-400"
+                                    aria-hidden="true"
+                                />
+                                Saving layout…
+                            </div>
                         </div>
 
                         <!-- ── CHECKLIST TAB ── -->
@@ -790,7 +806,7 @@ async function removeEventAsset(row) {
                                             <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
                                                 <tr>
                                                     <th class="px-4 py-3 font-semibold">Name / Model</th>
-                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Brand</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">Length</th>
                                                     <th class="px-4 py-3 font-semibold">Unit</th>
@@ -853,7 +869,7 @@ async function removeEventAsset(row) {
                                             <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
                                                 <tr>
                                                     <th class="px-4 py-3 font-semibold">Name / Model</th>
-                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Brand</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">HP</th>
                                                     <th class="px-4 py-3 font-semibold">Unit</th>
@@ -916,7 +932,7 @@ async function removeEventAsset(row) {
                                             <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
                                                 <tr>
                                                     <th class="px-4 py-3 font-semibold">Name / Model</th>
-                                                    <th class="px-4 py-3 font-semibold">Make</th>
+                                                    <th class="px-4 py-3 font-semibold">Brand</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">Type</th>
                                                     <th class="px-4 py-3 font-semibold">Unit</th>

@@ -12,7 +12,7 @@
     },
     {
       "key": "make_id",
-      "label": "Make",
+      "label": "Brand",
       "sortable": true
     },
     {
