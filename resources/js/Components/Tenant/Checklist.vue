@@ -3,19 +3,19 @@
 
         <!-- Header -->
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ checklist.name }}</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ checklist.name }}</h3>
             <div class="flex items-center gap-2">
                 <button
                     v-if="checklist.items.length === 0"
                     @click="openTemplatePicker"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                     <span class="material-icons text-[14px]">library_books</span>
                     From Template
                 </button>
                 <button
                     @click="openSaveTemplateModal"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                     <span class="material-icons text-[14px]">bookmark_add</span>
                     Save as Template
@@ -26,11 +26,11 @@
         <!-- Progress bar -->
         <div class="mb-4">
             <div class="flex items-center justify-between mb-1.5">
-                <span class="text-xs text-gray-500 dark:text-gray-400">
+                <span class="text-base text-gray-500 dark:text-gray-400">
                     {{ progress.completed }} of {{ progress.total }} completed
                 </span>
                 <span
-                    class="text-xs font-semibold"
+                    class="text-base font-semibold"
                     :class="progress.pct === 100 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'"
                 >
                     {{ progress.pct }}%
@@ -52,7 +52,7 @@
                 :key="tab.value"
                 @click="activeFilter = tab.value"
                 :class="[
-                    'px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
+                    'px-3 py-2 text-base font-medium border-b-2 -mb-px transition-colors',
                     activeFilter === tab.value
                         ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                         : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
@@ -98,7 +98,7 @@
                 <template v-if="editingItem !== (item.id ?? getItemKey(item))">
                     <span
                         :class="[
-                            'flex-1 text-sm min-w-0 truncate',
+                            'flex-1 text-base min-w-0 truncate',
                             item.completed
                                 ? 'line-through text-gray-400 dark:text-gray-500'
                                 : 'text-gray-800 dark:text-gray-100',
@@ -126,7 +126,7 @@
                         @keydown.enter="commitEdit(item)"
                         @keydown.escape="cancelEdit"
                         placeholder="Checklist item…"
-                        class="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 min-w-0"
+                        class="flex-1 bg-transparent text-base outline-none text-gray-800 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 min-w-0"
                     />
                     <!-- Save edit -->
                     <button
@@ -163,13 +163,13 @@
             <!-- Empty states -->
             <div
                 v-if="filteredItems.length === 0 && checklist.items.length > 0"
-                class="py-6 text-center text-sm text-gray-400 dark:text-gray-500"
+                class="py-6 text-center text-base text-gray-400 dark:text-gray-500"
             >
                 No {{ activeFilter === 'pending' ? 'pending' : 'completed' }} items.
             </div>
             <div v-if="checklist.items.length === 0" class="py-8 text-center">
                 <span class="material-icons text-3xl text-gray-200 dark:text-gray-600 block mb-2">checklist</span>
-                <p class="text-sm text-gray-400 dark:text-gray-500">No items yet. Add one below or load a template.</p>
+                <p class="text-base text-gray-400 dark:text-gray-500">No items yet. Add one below or load a template.</p>
             </div>
         </div>
 
@@ -177,7 +177,7 @@
         <div class="mt-3">
             <button
                 @click="addItem"
-                class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-base font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
             >
                 <span class="material-icons text-[16px]">add</span>
                 Add item
@@ -207,7 +207,7 @@
                 class="relative w-full max-w-md rounded-xl border border-gray-100 bg-white p-5 shadow-2xl dark:border-gray-700 dark:bg-gray-800"
                 @click.stop
             >
-                <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
+                <h3 class="mb-3 text-base font-semibold text-gray-900 dark:text-white">
                     Save as Template
                 </h3>
 
@@ -218,7 +218,7 @@
                     type="text"
                     placeholder="Template name…"
                     :disabled="savingTemplate"
-                    class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+                    class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-base text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
                     @keydown.enter.prevent="submitSaveTemplate"
                 />
 
@@ -226,7 +226,7 @@
                     <button
                         type="button"
                         :disabled="savingTemplate"
-                        class="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50 dark:hover:text-gray-300"
+                        class="rounded-lg px-3 py-1.5 text-base text-gray-500 hover:text-gray-700 disabled:opacity-50 dark:hover:text-gray-300"
                         @click="showSaveModal = false"
                     >
                         Cancel
@@ -235,7 +235,7 @@
                     <button
                         type="button"
                         :disabled="savingTemplate || !templateName.trim()"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-base font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                         @click="submitSaveTemplate"
                     >
                         <span
@@ -396,9 +396,11 @@ function addItem() {
     })
 }
 
-function removeItem(index) {
+async function removeItem(index) {
     checklist.value.items.splice(index, 1)
     update()
+    // Persist full checklist so SyncChecklist removes the row from the DB (same as toggle/edit)
+    await callSaveItem({})
 }
 
 // ── Templates ────────────────────────────────────────────────────

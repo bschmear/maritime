@@ -4,6 +4,7 @@ namespace App\Domain\BoatShowEvent\Models;
 
 use App\Domain\BoatShow\Models\BoatShow;
 use App\Domain\BoatShow\Models\BoatShowLead;
+use App\Domain\BoatShowEvent\Support\EventAssetsPayload;
 use App\Domain\BoatShowLayout\Models\BoatShowLayout;
 use App\Domain\Checklist\Models\Checklist;
 use App\Domain\Task\Models\Task;
@@ -51,9 +52,9 @@ class BoatShowEvent extends Model
     protected static function booted()
     {
         static::creating(function ($record) {
-            // if (empty($record->uuid)) {
-            //     $record->uuid = (string) Str::uuid();
-            // }
+            if (empty($record->uuid)) {
+                $record->uuid = (string) Str::uuid();
+            }
             // if (empty($record->sequence)) {
             //     $next = (int) (DB::table('boat_show_events')->max('sequence') ?? 999);
             //     $record->sequence = $next + 1;
@@ -84,5 +85,18 @@ class BoatShowEvent extends Model
     public function checklist(): MorphOne
     {
         return $this->morphOne(Checklist::class, 'checklistable');
+    }
+
+    public function eventAssets(): HasMany
+    {
+        return $this->hasMany(BoatShowEventAsset::class, 'boat_show_event_id');
+    }
+
+    /**
+     * @return array{boats: array, engines: array, trailers: array}
+     */
+    public function assetsGroupedForInertia(): array
+    {
+        return EventAssetsPayload::grouped($this);
     }
 }

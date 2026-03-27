@@ -43,6 +43,16 @@
         modalContext: {
             type: Boolean,
             default: false
+        },
+        /** IDs to hide from lookup results (e.g. assets already on an event). */
+        excludeIds: {
+            type: Array,
+            default: () => []
+        },
+        /** Page size for records.lookup pagination. */
+        perPage: {
+            type: Number,
+            default: 10
         }
     });
     
@@ -58,8 +68,6 @@
     const isLoading = ref(false);
     const currentPage = ref(1);
     const totalPages = ref(1);
-    const perPage = 10;
-
     // Enhanced modal state
     const showEnhancedModal = ref(false);
     const enhancedModalTab = ref('existing');
@@ -238,6 +246,11 @@
             await fetchRecords();
         }
     });
+
+    watch(() => props.excludeIds, async () => {
+        currentPage.value = 1;
+        await fetchRecords();
+    }, { deep: true });
     
     // Fetch records from the domain
     const fetchRecords = async (initialLoad = false) => {
@@ -252,7 +265,7 @@
             // Build the URL with query parameters
             const url = new URL(route(routeName), window.location.origin);
             url.searchParams.append('page', currentPage.value);
-            url.searchParams.append('per_page', perPage);
+            url.searchParams.append('per_page', props.perPage);
             url.searchParams.append('type', domain);
 
             // For initial load (first page, no search), order by display_name
@@ -296,7 +309,12 @@
             
             // Handle response format from lookup endpoint
             if (data.records) {
-                records.value = data.records;
+                let list = data.records;
+                if (props.excludeIds?.length) {
+                    const ex = new Set(props.excludeIds.map((id) => Number(id)));
+                    list = list.filter((r) => r?.id != null && !ex.has(Number(r.id)));
+                }
+                records.value = list;
                 totalPages.value = data.meta?.last_page || 1;
             } else {
                 console.warn('Unexpected response format:', data);

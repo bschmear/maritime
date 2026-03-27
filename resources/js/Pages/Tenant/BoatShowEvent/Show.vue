@@ -2,11 +2,12 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Checklist from '@/Components/Tenant/Checklist.vue';
+import BoatShowEventAssetPickerModal from '@/Components/Tenant/BoatShowEventAssetPickerModal.vue';
 import LayoutBuilder from '@/Components/Tenant/LayoutBuilder.vue';
 import RelatableTasksBoard from '@/Components/Tenant/RelatableTasksBoard.vue';
 import axios from 'axios';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, getCurrentInstance, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onUnmounted, ref, watch } from 'vue';
 
 const appInstance = getCurrentInstance();
 function toast(type, message) {
@@ -44,7 +45,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ boats: [], engines: [], trailers: [] }),
     },
-    savedLayout: { type: String, default: null },
+    layoutSpace: {
+        type: Object,
+        default: () => ({ width_ft: 60, height_ft: 40 }),
+    },
 });
 
 const isNested = computed(() => Object.keys(props.extraRouteParams).length > 0);
@@ -270,8 +274,133 @@ async function handleSaveTemplate(payload) {
     }
 }
 
-// ── Layout state ─────────────────────────────────────────────────
-const layoutJson = ref(props.savedLayout);
+// ── Layout (persisted on boat_show_event_assets + boat_show_layouts) ──
+const layoutSavePending = ref(false);
+let layoutPersistTimer = null;
+
+const eventLayoutSyncUrl = computed(() =>
+    isNested.value
+        ? route('boat-shows.events.layout.sync', { ...props.extraRouteParams, event: props.record.id })
+        : route('boat-show-events.layout.sync', { event: props.record.id }),
+);
+
+async function persistEventLayout(payload, { showToast = false, reloadAfter = false } = {}) {
+    if (!payload || typeof payload !== 'object') {
+        return;
+    }
+    layoutSavePending.value = true;
+    try {
+        await axios.put(eventLayoutSyncUrl.value, payload, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        if (reloadAfter) {
+            await router.reload({ only: ['assets', 'layoutSpace'] });
+        }
+        if (showToast) {
+            toast('success', 'Layout saved');
+        }
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Could not save layout.';
+        toast('error', msg);
+    } finally {
+        layoutSavePending.value = false;
+    }
+}
+
+function onLayoutChange(payload) {
+    clearTimeout(layoutPersistTimer);
+    layoutPersistTimer = setTimeout(
+        () => persistEventLayout(payload, { showToast: false, reloadAfter: false }),
+        2000,
+    );
+}
+
+async function onLayoutSave(payload) {
+    clearTimeout(layoutPersistTimer);
+    await persistEventLayout(payload, { showToast: true, reloadAfter: true });
+}
+
+onUnmounted(() => {
+    clearTimeout(layoutPersistTimer);
+});
+
+// ── Event assets (picker + remove) ───────────────────────────────
+const assetPickerOpen = ref(false);
+
+const linkedAssetIds = computed(() => {
+    const a = props.assets;
+    return [
+        ...(a.boats || []).map((x) => x.id),
+        ...(a.engines || []).map((x) => x.id),
+        ...(a.trailers || []).map((x) => x.id),
+    ].filter(Boolean);
+});
+
+const eventAssetStoreUrl = computed(() =>
+    isNested.value
+        ? route('boat-shows.events.assets.store', { ...props.extraRouteParams, event: props.record.id })
+        : route('boat-show-events.assets.store', { event: props.record.id }),
+);
+
+const eventAssetUnitsUrl = computed(() =>
+    isNested.value
+        ? route('boat-shows.events.assets.units', { ...props.extraRouteParams, event: props.record.id })
+        : route('boat-show-events.assets.units', { event: props.record.id }),
+);
+
+/** Truthy prop for LayoutBuilder: use inventory picker instead of only the custom-size modal. */
+const eventAssetAttachConfig = computed(() => ({}));
+
+function formatBoatLengthFt(boat) {
+    const v = boat.length_display ?? boat.length;
+    if (v === null || v === undefined || v === '') {
+        return '—';
+    }
+    return `${v}'`;
+}
+
+function formatAssetUnitLabel(row) {
+    return row.asset_unit?.display_name ?? '—';
+}
+
+async function onEventAssetAttached() {
+    await router.reload({ only: ['assets'] });
+    assetPickerOpen.value = false;
+    toast('success', 'Asset added');
+}
+
+async function removeEventAsset(row) {
+    if (!row.event_asset_id) {
+        return;
+    }
+    if (!confirm('Remove this asset from the event?')) {
+        return;
+    }
+    try {
+        const url = isNested.value
+            ? route('boat-shows.events.assets.destroy', {
+                  ...props.extraRouteParams,
+                  event: props.record.id,
+                  eventAsset: row.event_asset_id,
+              })
+            : route('boat-show-events.assets.destroy', { event: props.record.id, eventAsset: row.event_asset_id });
+        await axios.delete(url);
+        await router.reload({ only: ['assets'] });
+        toast('success', 'Asset removed');
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Failed to remove asset.';
+        toast('error', msg);
+    }
+}
 </script>
 
 <template>
@@ -569,12 +698,17 @@ const layoutJson = ref(props.savedLayout);
                         </div>
 
                         <!-- ── LAYOUT BUILDER TAB ── -->
-                        <div v-show="activeTab === 'layout'" class="p-4">
+                        <div v-show="activeTab === 'layout'" class="p-4 space-y-2">
+                            <p v-if="layoutSavePending" class="text-xs text-gray-500 dark:text-gray-400">
+                                Saving layout…
+                            </p>
                             <LayoutBuilder
                                 :initial-boats="assets.boats"
-                                :saved-layout="layoutJson"
-                                @save="json => { layoutJson = json; $emit('layout-saved', json); }"
-                                @change="json => layoutJson = json"
+                                :layout-space="layoutSpace"
+                                :attach-asset-config="eventAssetAttachConfig"
+                                @request-attach-asset="assetPickerOpen = true"
+                                @save="onLayoutSave"
+                                @change="onLayoutChange"
                             />
                         </div>
 
@@ -628,7 +762,11 @@ const layoutJson = ref(props.savedLayout);
                                         Boats, engines, and trailers assigned to this event.
                                     </p>
                                 </div>
-                                <button class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                    @click="assetPickerOpen = true"
+                                >
                                     <span class="material-icons text-[16px]">add</span>
                                     Add asset
                                 </button>
@@ -655,31 +793,42 @@ const layoutJson = ref(props.savedLayout);
                                                     <th class="px-4 py-3 font-semibold">Make</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">Length</th>
-                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                    <th class="px-4 py-3 font-semibold">Unit</th>
+                                                    <th class="px-4 py-3 font-semibold text-right w-36">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr
                                                     v-for="boat in assets.boats"
-                                                    :key="boat.id"
+                                                    :key="boat.event_asset_id ?? boat.id"
                                                     class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                                                 >
                                                     <td class="px-4 py-3 font-medium">{{ boat.display_name ?? boat.model ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.make ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.year ?? '—' }}</td>
-                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ boat.length ? `${boat.length}'` : '—' }}</td>
-                                                    <td class="px-4 py-3">
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ formatBoatLengthFt(boat) }}</td>
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs max-w-[200px] truncate" :title="formatAssetUnitLabel(boat)">
+                                                        {{ formatAssetUnitLabel(boat) }}
+                                                    </td>
+                                                    <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
                                                             v-if="boat.id"
-                                                            :href="route('boats.show', boat.id)"
-                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                            :href="route('assets.show', boat.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View
                                                         </Link>
+                                                        <button
+                                                            type="button"
+                                                            class="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                            @click="removeEventAsset(boat)"
+                                                        >
+                                                            Remove
+                                                        </button>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="!assets.boats?.length">
-                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                                                         No boats assigned to this event.
                                                     </td>
                                                 </tr>
@@ -707,31 +856,42 @@ const layoutJson = ref(props.savedLayout);
                                                     <th class="px-4 py-3 font-semibold">Make</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">HP</th>
-                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                    <th class="px-4 py-3 font-semibold">Unit</th>
+                                                    <th class="px-4 py-3 font-semibold text-right w-36">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr
                                                     v-for="engine in assets.engines"
-                                                    :key="engine.id"
+                                                    :key="engine.event_asset_id ?? engine.id"
                                                     class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                                                 >
                                                     <td class="px-4 py-3 font-medium">{{ engine.display_name ?? engine.model ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.make ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.year ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ engine.horsepower ? `${engine.horsepower} hp` : '—' }}</td>
-                                                    <td class="px-4 py-3">
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs max-w-[200px] truncate" :title="formatAssetUnitLabel(engine)">
+                                                        {{ formatAssetUnitLabel(engine) }}
+                                                    </td>
+                                                    <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
                                                             v-if="engine.id"
-                                                            :href="route('engines.show', engine.id)"
-                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                            :href="route('assets.show', engine.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View
                                                         </Link>
+                                                        <button
+                                                            type="button"
+                                                            class="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                            @click="removeEventAsset(engine)"
+                                                        >
+                                                            Remove
+                                                        </button>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="!assets.engines?.length">
-                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                                                         No engines assigned to this event.
                                                     </td>
                                                 </tr>
@@ -759,31 +919,42 @@ const layoutJson = ref(props.savedLayout);
                                                     <th class="px-4 py-3 font-semibold">Make</th>
                                                     <th class="px-4 py-3 font-semibold">Year</th>
                                                     <th class="px-4 py-3 font-semibold">Type</th>
-                                                    <th class="px-4 py-3 font-semibold w-20"></th>
+                                                    <th class="px-4 py-3 font-semibold">Unit</th>
+                                                    <th class="px-4 py-3 font-semibold text-right w-36">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <tr
                                                     v-for="trailer in assets.trailers"
-                                                    :key="trailer.id"
+                                                    :key="trailer.event_asset_id ?? trailer.id"
                                                     class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
                                                 >
                                                     <td class="px-4 py-3 font-medium">{{ trailer.display_name ?? trailer.model ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.make ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.year ?? '—' }}</td>
                                                     <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ trailer.trailer_type ?? '—' }}</td>
-                                                    <td class="px-4 py-3">
+                                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs max-w-[200px] truncate" :title="formatAssetUnitLabel(trailer)">
+                                                        {{ formatAssetUnitLabel(trailer) }}
+                                                    </td>
+                                                    <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
                                                             v-if="trailer.id"
-                                                            :href="route('trailers.show', trailer.id)"
-                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                            :href="route('assets.show', trailer.id)"
+                                                            class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View
                                                         </Link>
+                                                        <button
+                                                            type="button"
+                                                            class="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                            @click="removeEventAsset(trailer)"
+                                                        >
+                                                            Remove
+                                                        </button>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="!assets.trailers?.length">
-                                                    <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                                                         No trailers assigned to this event.
                                                     </td>
                                                 </tr>
@@ -920,5 +1091,13 @@ const layoutJson = ref(props.savedLayout);
 
             </div>
         </div>
+
+        <BoatShowEventAssetPickerModal
+            v-model="assetPickerOpen"
+            :linked-asset-ids="linkedAssetIds"
+            :store-url="eventAssetStoreUrl"
+            :units-base-url="eventAssetUnitsUrl"
+            @attached="onEventAssetAttached"
+        />
     </TenantLayout>
 </template>

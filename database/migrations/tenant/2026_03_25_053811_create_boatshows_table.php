@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('boat_shows', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->bigInteger('sequence')->unique();
+            $table->bigInteger('sequence')->nullable()->unique();
 
             $table->string('display_name'); // "Miami International Boat Show"
             $table->string('slug')->unique();
@@ -33,6 +33,8 @@ return new class extends Migration
 
         Schema::create('boat_show_events', function (Blueprint $table) {
             $table->id();
+            $table->uuid('uuid')->unique();
+            $table->bigInteger('sequence')->unique();
 
             $table->foreignId('boat_show_id')
                 ->constrained()
@@ -118,55 +120,6 @@ return new class extends Migration
             $table->index(['boat_show_event_id']);
         });
 
-        Schema::create('boat_show_items', function (Blueprint $table) {
-            $table->id();
-        
-            $table->foreignId('boat_show_event_id')
-                ->constrained()
-                ->cascadeOnDelete();
-        
-            // Links
-            $table->foreignId('asset_id')->nullable();
-            $table->foreignId('asset_unit_id')->nullable();
-            $table->foreignId('inventory_item_id')->nullable();
-            $table->foreignId('inventory_unit_id')->nullable();
-        
-            // Snapshot
-            $table->string('name');
-            $table->decimal('length_ft', 8, 2);
-            $table->decimal('width_ft', 8, 2);
-        
-            $table->string('color')->nullable();
-        
-            $table->json('meta')->nullable();
-        
-            $table->timestamps();
-        
-            $table->index(['boat_show_event_id']);
-        });
-
-        Schema::create('boat_show_layout_items', function (Blueprint $table) {
-            $table->id();
-        
-            $table->foreignId('layout_id')
-                ->constrained('boat_show_layouts')
-                ->cascadeOnDelete();
-        
-            $table->foreignId('boat_show_item_id')
-                ->constrained()
-                ->cascadeOnDelete();
-        
-            // Position
-            $table->decimal('x', 8, 2);
-            $table->decimal('y', 8, 2);
-        
-            $table->unsignedSmallInteger('rotation')->default(0);
-            $table->integer('z_index')->default(0);
-        
-            $table->timestamps();
-        
-            $table->unique(['layout_id', 'boat_show_item_id']);
-        });
 
     }
 
@@ -175,8 +128,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('boat_show_layout_items');
-        Schema::dropIfExists('boat_show_items');
+
         Schema::dropIfExists('boat_show_layouts');
         Schema::dropIfExists('boat_show_leads');
         Schema::dropIfExists('boat_show_events');

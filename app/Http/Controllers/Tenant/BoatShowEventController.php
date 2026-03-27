@@ -311,11 +311,18 @@ class BoatShowEventController extends RecordController
                 ->values()
                 ->all();
 
+            $layout = $event->layouts()->orderBy('id')->first();
+
             return $response
                 ->with('extraRouteParams', $this->eventExtraRouteParams($request))
                 ->with('checklist', $checklist)
                 ->with('checklistTemplates', $checklistTemplates)
                 ->with('tasks', $event->tasks)
+                ->with('assets', $event->assetsGroupedForInertia())
+                ->with('layoutSpace', [
+                    'width_ft' => $layout ? (int) $layout->width_ft : 60,
+                    'height_ft' => $layout ? (int) $layout->height_ft : 40,
+                ])
                 ->with($this->taskBoardInertiaProps());
         }
 

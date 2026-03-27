@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\BoatMakeController;
+use App\Http\Controllers\Tenant\BoatShowEventAssetController;
 use App\Http\Controllers\Tenant\ContractController;
 use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\DashboardController;
@@ -232,6 +233,10 @@ Route::middleware([
         // ── Boat Shows ────────────────────────────────────────────────
         Route::prefix('boat-show-events')->name('boat-show-events.')->group(function () {
             Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
+            Route::post('{event}/assets', [BoatShowEventAssetController::class, 'store'])->name('assets.store');
+            Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
+            Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');
+            Route::put('{event}/layout', [BoatShowEventAssetController::class, 'syncLayout'])->name('layout.sync');
             Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
                 ->parameters(['' => 'event']);
         });
@@ -249,6 +254,10 @@ Route::middleware([
             // Boat Show Events (scoped under a show)
             Route::prefix('{boatShow}/events')->name('events.')->group(function () {
                 Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
+                Route::post('{event}/assets', [BoatShowEventAssetController::class, 'store'])->name('assets.store');
+                Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
+                Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');
+                Route::put('{event}/layout', [BoatShowEventAssetController::class, 'syncLayout'])->name('layout.sync');
                 Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
                     ->parameters(['' => 'event']);
             });
