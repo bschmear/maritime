@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
+    protected $connection = 'tenant';
+
     protected $fillable = [
         'display_name',
         'slug',

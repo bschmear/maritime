@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Models\Survey;
+namespace App\Domain\Survey\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Scopes\TeamScope;
+// use App\Scopes\TeamScope;
 
 class SurveyQuestion extends Model
 {
@@ -24,7 +24,7 @@ class SurveyQuestion extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new TeamScope());
+        // static::addGlobalScope(new TeamScope());
     }
 
     public function survey(): BelongsTo

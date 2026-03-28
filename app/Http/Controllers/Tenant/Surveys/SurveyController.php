@@ -2,31 +2,39 @@
 
 namespace App\Http\Controllers\Tenant\Surveys;
 
+use App\Domain\User\Models\User;
+use App\Enums\RecordType;
+use App\Enums\Surveys\Type;
 use App\Http\Controllers\Controller;
+use App\Models\Lead;
 use App\Models\Survey\Survey;
 use App\Models\Survey\SurveyResponse;
 use App\Models\Survey\SurveyResponseAnswer;
-use App\Enums\Surveys\Status;
-use App\Enums\Surveys\Type;
-use App\Models\Lead;
-use App\Models\Note;
+// use App\Models\Note;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SurveyController extends Controller
 {
     public function index(Request $request)
     {
-        // Get current user and team
-        $user = auth()->user();
-        $team = $user->currentTeam;
-        $isAdmin = $user->canEditTeam($team);
+        // abort_unless(tenant_can_access_record_type(RecordType::Survey), 403, 'Unauthorized action.');
 
-        if (!$user->hasAccessToCurrentTeam()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $user = auth()->user();
+        // $team = null;
+
+        // $TeamUsers = User::on('tenant')
+        //     ->select(['id', 'display_name', 'first_name', 'last_name', 'email'])
+        //     ->orderByRaw('COALESCE(display_name, first_name)')
+        //     ->get()
+        //     ->map(fn ($u) => [
+        //         'id' => $u->id,
+        //         'name' => $u->display_name ?: trim(($u->first_name ?? '').' '.($u->last_name ?? '')) ?: $u->email,
+        //     ])
+        //     ->values()
+        //     ->all();
 
         // Get filters
         $filterType = $request->get('type');
@@ -53,7 +61,7 @@ class SurveyController extends Controller
         }
 
         if ($filterName) {
-            $query->where('title', 'like', '%' . $filterName . '%');
+            $query->where('title', 'like', '%'.$filterName.'%');
         }
 
         if ($filterUser) {
@@ -85,7 +93,7 @@ class SurveyController extends Controller
         $breadcrumbs = json_encode([
             'current' => 'Surveys',
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
             ],
         ]);
 
@@ -107,11 +115,8 @@ class SurveyController extends Controller
                 'name' => 'Inactive',
                 'color' => 'red',
                 'bgClass' => 'bg-red-200 dark:text-white dark:bg-red-900',
-            ]
+            ],
         ]);
-
-        // Get team users
-        $TeamUsers = $team->getTeamUserNames(true);
 
         // Calculate stats
         $totalResponsesThisMonth = DB::table('survey_responses')
@@ -121,7 +126,6 @@ class SurveyController extends Controller
 
         // Average satisfaction score from rating questions
         $ratingQuestionIds = DB::table('survey_questions')
-            ->where('team_id', auth()->user()->currentTeam->id)
             ->where('type', 'rating')
             ->pluck('id');
 
@@ -143,8 +147,8 @@ class SurveyController extends Controller
 
         $topAgentName = 'N/A';
         if ($topAgent) {
-            $agentUser = \App\Models\User::find($topAgent->user_id);
-            $topAgentName = $agentUser ? $agentUser->name : 'N/A';
+            $agentUser = User::on('tenant')->find($topAgent->user_id);
+            $topAgentName = $agentUser ? $agentUser->display_name_or_full_name : 'N/A';
         }
 
         // Conversion rate for lead surveys
@@ -159,7 +163,8 @@ class SurveyController extends Controller
             ->count();
         // dd($convertedLeads);
         $conversionRate = $leadSurveyResponses > 0 ? round(($convertedLeads / $leadSurveyResponses) * 100, 1) : 0;
-// dd($surveys);
+
+        // dd($surveys);
         return view('crm.surveys.index', compact(
             'breadcrumbs',
             'surveys',
@@ -185,16 +190,16 @@ class SurveyController extends Controller
         $isAdmin = $user->canEditTeam($team);
         $TeamUsers = $team->getTeamUserNames(true);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
 
         $breadcrumbs = [
             'current' => 'Create Survey',
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
-                (object)['url' => route('surveysIndex'), 'name' => 'Surveys']
-            ]
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('surveysIndex'), 'name' => 'Surveys'],
+            ],
         ];
         $breadcrumbs = json_encode($breadcrumbs);
 
@@ -205,16 +210,16 @@ class SurveyController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-// Cache::forget('survey_templates');
+        // Cache::forget('survey_templates');
         $templates = Cache::remember('survey_templates', now()->addDay(), function () {
             $templatesPath = resource_path('survey-templates');
             $templates = [];
 
             if (file_exists($templatesPath)) {
-                $files = glob($templatesPath . '/*.json');
+                $files = glob($templatesPath.'/*.json');
 
                 foreach ($files as $file) {
                     $content = file_get_contents($file);
@@ -239,7 +244,7 @@ class SurveyController extends Controller
         // $isAdmin = $user->canEditTeam($team);
         // $TeamUsers = $team->getTeamUserNames(true);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
         $validated = $request->validate([
@@ -289,7 +294,7 @@ class SurveyController extends Controller
         ]);
 
         // Create questions if provided
-        if (!empty($validated['questions'])) {
+        if (! empty($validated['questions'])) {
             foreach ($validated['questions'] as $questionData) {
                 $survey->questions()->create([
                     'team_id' => $team->id,
@@ -307,7 +312,7 @@ class SurveyController extends Controller
         if ($request->expectsJson()) {
             return response()->json($survey->load('questions'), 201);
         }
-        
+
         return redirect()->route('surveysShow', ['id' => $survey->uuid])->with('success', 'Survey created successfully.');
     }
 
@@ -317,10 +322,10 @@ class SurveyController extends Controller
         $team = $user->currentTeam;
         $isAdmin = $user->canEditTeam($team);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
-        
+
         // Get team users for agent selection
         $TeamUsersNames = $team->getTeamUserNames();
         $TeamUsers = collect($TeamUsersNames)->map(function ($name, $id) {
@@ -337,21 +342,21 @@ class SurveyController extends Controller
         abort_unless($survey, 404);
 
         // Load relationships
-        $survey->load(['questions' => function($query) {
+        $survey->load(['questions' => function ($query) {
             $query->orderBy('order');
-        }, 'followups', 'responses' => function($query) {
+        }, 'followups', 'responses' => function ($query) {
             $query->latest();
         }, 'user']);
-        
+
         // Calculate statistics
         $weeklyResponses = $survey->responses()
             ->where('created_at', '>=', now()->subWeek())
             ->count();
-            
-        $completionRate = $survey->responses()->count() > 0 
+
+        $completionRate = $survey->responses()->count() > 0
             ? round(($survey->responses()->whereNotNull('created_at')->count() / $survey->responses()->count()) * 100)
             : 0;
-            
+
         // Calculate average rating from rating questions
         $avgRating = null;
         $ratingQuestions = $survey->questions()->where('type', 'rating')->pluck('id');
@@ -362,21 +367,20 @@ class SurveyController extends Controller
                 ->avg('answer');
             $avgRating = $avgRating ? number_format($avgRating, 1) : null;
         }
-        
+
         $breadcrumbs = [
             'current' => $survey->title,
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
-                (object)['url' => route('surveysIndex'), 'name' => 'Surveys']
-            ]
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('surveysIndex'), 'name' => 'Surveys'],
+            ],
         ];
         $breadcrumbs = json_encode($breadcrumbs);
-        
-        
+
         return view('crm.surveys.show', compact(
-            'survey', 
-            'breadcrumbs', 
-            'user', 
+            'survey',
+            'breadcrumbs',
+            'user',
             'team',
             'TeamUsers',
             'weeklyResponses',
@@ -389,9 +393,11 @@ class SurveyController extends Controller
     {
         $user = auth()->user();
         $team = $user->currentTeam;
-        $isAdmin = $user->canEditTeam($team);
+        $isAdmin = $user->role;
+        dd($isAdmin);
+        // $isAdmin = $user->canEditTeam($team);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -410,26 +416,26 @@ class SurveyController extends Controller
 
         // Get filter value - default to current user
         $filterUser = $request->get('filteruser', $user->id);
-        
+
         // Non-admins can only see their own responses
-        if (!$isAdmin) {
+        if (! $isAdmin) {
             $filterUser = $user->id;
         }
 
         // Build the base query
         $query = SurveyResponse::query()
             ->with(['survey', 'owner', 'assignedTo'])
-            ->whereHas('survey', function($q) use ($team, $user, $isAdmin) {
+            ->whereHas('survey', function ($q) use ($team, $user, $isAdmin) {
                 $q->where('team_id', $team->id);
 
                 // Apply visibility filters
-                if (!$isAdmin) {
-                    $q->where(function($query) use ($user) {
-                        $query->where(function($q) use ($user) {
+                if (! $isAdmin) {
+                    $q->where(function ($query) use ($user) {
+                        $query->where(function ($q) use ($user) {
                             // Private surveys by the current user
                             $q->where('visibility', 'private')
-                              ->where('user_id', $user->id);
-                        })->orWhere(function($q) {
+                                ->where('user_id', $user->id);
+                        })->orWhere(function ($q) {
                             $q->where('visibility', 'public');
                         });
                     });
@@ -458,13 +464,13 @@ class SurveyController extends Controller
         $breadcrumbs = [
             'current' => $survey ? "Responses: {$survey->title}" : 'All Survey Responses',
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
-                (object)['url' => route('surveysIndex'), 'name' => 'Surveys']
-            ]
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('surveysIndex'), 'name' => 'Surveys'],
+            ],
         ];
 
         if ($survey) {
-            $breadcrumbs['links'][] = (object)['url' => route('surveyResponses'), 'name' => 'All Responses'];
+            $breadcrumbs['links'][] = (object) ['url' => route('surveyResponses'), 'name' => 'All Responses'];
         }
 
         $breadcrumbs = json_encode($breadcrumbs);
@@ -487,7 +493,7 @@ class SurveyController extends Controller
         $team = $user->currentTeam;
         $isAdmin = $user->canEditTeam($team);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -495,21 +501,21 @@ class SurveyController extends Controller
         $responseId = $request->get('rid');
         abort_unless($responseId, 404);
 
-        $response = SurveyResponse::with(['scheduledFollowupEmail' => function($query) {
+        $response = SurveyResponse::with(['scheduledFollowupEmail' => function ($query) {
             // Only load if it's still scheduled and not sent
             $query->whereNotNull('scheduled_at')
-                  ->where('scheduled_at', '>', now())
-                  ->whereNull('sent_at');
+                ->where('scheduled_at', '>', now())
+                ->whereNull('sent_at');
         }, 'latestAiAnalysis'])->findOrFail($responseId);
 
         $survey = $response->survey;
 
-        if($survey->uuid != $surveyId) {
+        if ($survey->uuid != $surveyId) {
             abort(403, 'Unauthorized action.');
         }
 
         // Load relationships
-        $survey->load(['questions' => function($query) {
+        $survey->load(['questions' => function ($query) {
             $query->orderBy('order');
         }, 'followups', 'user']);
 
@@ -517,7 +523,7 @@ class SurveyController extends Controller
         $TeamUsersNames = $team->getTeamUserNames();
         $TeamUsers = collect($TeamUsersNames)->mapWithKeys(function ($name, $id) {
             return [
-                $id => (object)[
+                $id => (object) [
                     'id' => $id,
                     'name' => $name,
                 ],
@@ -527,9 +533,9 @@ class SurveyController extends Controller
         $breadcrumbs = [
             'current' => $survey->title,
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
-                (object)['url' => route('surveysIndex'), 'name' => 'Surveys']
-            ]
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('surveysIndex'), 'name' => 'Surveys'],
+            ],
         ];
         $breadcrumbs = json_encode($breadcrumbs);
 
@@ -544,7 +550,7 @@ class SurveyController extends Controller
             } else {
                 $analysis->owner_record_type = null;
             }
-            
+
             // Check if follow-up email is already scheduled
             if ($response->scheduled_followup_email_id) {
                 $scheduledFollowUp = \App\Models\EmailSent::where('id', $response->scheduled_followup_email_id)
@@ -552,7 +558,7 @@ class SurveyController extends Controller
                     ->where('scheduled_at', '>', now())
                     ->whereNull('sent_at')
                     ->first();
-                
+
                 $analysis->has_scheduled_followup = $scheduledFollowUp !== null;
             } else {
                 $analysis->has_scheduled_followup = false;
@@ -563,7 +569,8 @@ class SurveyController extends Controller
         $subscription = $team->cachedActiveSubscription();
         $onTrial = $subscription ? $subscription->onTrial() : false;
         $subscriptionLevel = $subscription ? $subscription->level : 1;
-// dd($response);
+
+        // dd($response);
         return view('crm.surveys.response', compact(
             'response',
             'survey',
@@ -583,10 +590,10 @@ class SurveyController extends Controller
         $user = auth()->user();
         $team = $user->currentTeam;
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized action.'
+                'message' => 'Unauthorized action.',
             ], 403);
         }
 
@@ -603,15 +610,15 @@ class SurveyController extends Controller
         if ($response->survey->team_id !== $team->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized action.'
+                'message' => 'Unauthorized action.',
             ], 403);
         }
 
         // Ensure the response has an email
-        if (!$response->email) {
+        if (! $response->email) {
             return response()->json([
                 'success' => false,
-                'message' => 'Survey response must have an email address to convert to lead.'
+                'message' => 'Survey response must have an email address to convert to lead.',
             ], 422);
         }
 
@@ -631,13 +638,13 @@ class SurveyController extends Controller
                         'last_name' => $existingLead->last_name,
                         'email' => $existingLead->email,
                         'created_at' => $existingLead->created_at,
-                    ]
+                    ],
                 ]);
             }
 
             return response()->json([
                 'success' => true,
-                'duplicate_found' => false
+                'duplicate_found' => false,
             ]);
         }
 
@@ -661,33 +668,33 @@ class SurveyController extends Controller
                 $message = 'Survey response linked to existing lead successfully!';
             } else {
                 // Create new lead
-                $lead = Lead::create([
-                    'team_id' => $team->id,
-                    'user_id' => $user->id,
-                    'first_name' => $response->first_name,
-                    'last_name' => $response->last_name,
-                    'email' => $response->email,
-                    'source_id' => 13,
-                    'status_id' => 1,
-                ]);
-                
+                // $lead = Lead::create([
+                //     'team_id' => $team->id,
+                //     'user_id' => $user->id,
+                //     'first_name' => $response->first_name,
+                //     'last_name' => $response->last_name,
+                //     'email' => $response->email,
+                //     'source_id' => 13,
+                //     'status_id' => 1,
+                // ]);
+
                 // Create a note for the lead
-                $note = Note::create([
-                    'note' => 'Created from survey response: ' . $response->survey->title,
-                    'team_id' => $team->id,
-                    'created_by' => $user->id,
-                ]);
-                
+                // $note = Note::create([
+                //     'note' => 'Created from survey response: ' . $response->survey->title,
+                //     'team_id' => $team->id,
+                //     'created_by' => $user->id,
+                // ]);
+
                 // Attach the note to the lead
-                $lead->note_id = $note->id;
-                $lead->save();
+                // $lead->note_id = $note->id;
+                // $lead->save();
 
                 // Update survey response to link to new lead
-                $response->update([
-                    'owner_type' => Lead::class,
-                    'owner_id' => $lead->id,
-                    'converted' => true,
-                ]);
+                // $response->update([
+                //     'owner_type' => Lead::class,
+                //     'owner_id' => $lead->id,
+                //     'converted' => true,
+                // ]);
 
                 $message = 'Lead created successfully from survey response!';
             }
@@ -699,8 +706,8 @@ class SurveyController extends Controller
                 'communication_type_id' => 5, // Survey response type
                 'direction' => 'inbound',
                 'channel_id' => 6, // Email channel
-                'subject' => 'Survey response: ' . $response->survey->title,
-                'notes' => 'Survey: ' . $response->survey->title . "\n\n" . $this->formatSurveyAnswers($response),
+                'subject' => 'Survey response: '.$response->survey->title,
+                'notes' => 'Survey: '.$response->survey->title."\n\n".$this->formatSurveyAnswers($response),
                 'is_private' => false,
                 'status_id' => 3, // Closed
                 'priority_id' => 2, // Medium
@@ -716,10 +723,11 @@ class SurveyController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to convert survey response to lead: ' . $e->getMessage());
+            Log::error('Failed to convert survey response to lead: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to convert survey response. Please try again.'
+                'message' => 'Failed to convert survey response. Please try again.',
             ], 500);
         }
     }
@@ -741,7 +749,6 @@ class SurveyController extends Controller
         return implode("\n\n", $formatted);
     }
 
-
     public function edit(Request $request)
     {
         $user = auth()->user();
@@ -749,7 +756,7 @@ class SurveyController extends Controller
         $isAdmin = $user->canEditTeam($team);
         $TeamUsers = $team->getTeamUserNames(true);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -757,10 +764,10 @@ class SurveyController extends Controller
         abort_unless($uuid, 404);
 
         $survey = Survey::with([
-            'questions' => fn($q) => $q->orderBy('order'),
+            'questions' => fn ($q) => $q->orderBy('order'),
             'followups',
             'responses.answers',
-            'user'
+            'user',
         ])->firstWhere('uuid', $uuid);
 
         abort_unless($survey, 404);
@@ -797,10 +804,10 @@ class SurveyController extends Controller
         $breadcrumbs = json_encode([
             'current' => 'Edit',
             'links' => [
-                (object)['url' => route('dashOverview'), 'name' => 'Dashboard'],
-                (object)['url' => route('surveysIndex'), 'name' => 'Surveys'],
-                (object)['url' => route('surveysShow', ['id' => $survey->uuid]), 'name' => $survey->title]
-            ]
+                (object) ['url' => route('dashOverview'), 'name' => 'Dashboard'],
+                (object) ['url' => route('surveysIndex'), 'name' => 'Surveys'],
+                (object) ['url' => route('surveysShow', ['id' => $survey->uuid]), 'name' => $survey->title],
+            ],
         ]);
 
         return view('crm.surveys.edit', compact(
@@ -815,7 +822,6 @@ class SurveyController extends Controller
         ));
     }
 
-
     public function update(Request $request)
     {
 
@@ -824,7 +830,7 @@ class SurveyController extends Controller
         $isAdmin = $user->canEditTeam($team);
         // $TeamUsers = $team->getTeamUserNames(true);
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -950,9 +956,10 @@ class SurveyController extends Controller
         if ($survey->team_id !== $team->id) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'You do not have permission to delete this survey.'
+                    'message' => 'You do not have permission to delete this survey.',
                 ], 403);
             }
+
             return redirect()->route('surveysIndex')
                 ->with('alert', 'You do not have permission to delete this survey.');
         }
@@ -962,9 +969,10 @@ class SurveyController extends Controller
         if (! $isAdmin && $survey->user_id !== $user->id) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'You do not have permission to delete this survey.'
+                    'message' => 'You do not have permission to delete this survey.',
                 ], 403);
             }
+
             return redirect()->route('surveysIndex')
                 ->with('alert', 'You do not have permission to delete this survey.');
         }
@@ -973,14 +981,14 @@ class SurveyController extends Controller
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Survey deleted successfully.'
+                'message' => 'Survey deleted successfully.',
             ], 200);
         }
 
         return redirect()->route('surveysIndex')
             ->with('success', 'Survey deleted successfully.');
     }
-    
+
     public function clone(Request $request)
     {
         $user = auth()->user();
@@ -989,28 +997,28 @@ class SurveyController extends Controller
         abort_unless($getId, 404);
         $survey = Survey::firstWhere('uuid', $getId);
         abort_unless($survey, 404);
-        if ( $survey->team_id != $team->id ) {
+        if ($survey->team_id != $team->id) {
             return redirect()->route('surveysIndex')->with('alert', 'You do not have permission to clone this survey.');
         }
         $newSurvey = $survey->replicate();
-        $newSurvey->title = $survey->title . ' (Copy)';
+        $newSurvey->title = $survey->title.' (Copy)';
         $newSurvey->uuid = null;
         $newSurvey->status = false;
 
         $newSurvey->user_id = auth()->id();
         $newSurvey->save();
-        
+
         // Clone questions
         foreach ($survey->questions as $question) {
             $newQuestion = $question->replicate();
             $newQuestion->survey_id = $newSurvey->id;
             $newQuestion->save();
         }
-        
+
         if (request()->expectsJson()) {
             return response()->json($newSurvey->load('questions'), 201);
         }
-        
+
         return redirect()->route('surveysEdit', ['id' => $newSurvey->uuid])->with('success', 'Survey cloned successfully.');
     }
 
@@ -1020,7 +1028,7 @@ class SurveyController extends Controller
             $user = auth()->user();
             $team = $user->currentTeam;
 
-            if (!$user->hasAccessToCurrentTeam()) {
+            if (! $user->hasAccessToCurrentTeam()) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -1051,14 +1059,14 @@ class SurveyController extends Controller
             if ($validated['send_option'] === 'cancel') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Survey sending cancelled'
+                    'message' => 'Survey sending cancelled',
                 ]);
             }
 
             if (empty($validated['selected_recipients'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No recipients selected'
+                    'message' => 'No recipients selected',
                 ], 400);
             }
 
@@ -1067,7 +1075,7 @@ class SurveyController extends Controller
 
             // Verify the agent belongs to the team
             $sendAsAgent = \App\Models\User::find($sendAsAgentId);
-            if (!$sendAsAgent || !$sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
+            if (! $sendAsAgent || ! $sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
                 $sendAsAgentId = $user->id; // Fallback to current user
             }
 
@@ -1102,13 +1110,13 @@ class SurveyController extends Controller
                         break;
                 }
 
-                if (!$recipient || empty($recipient->email)) {
+                if (! $recipient || empty($recipient->email)) {
                     continue;
                 }
 
                 // Send survey email
                 try {
-                    $surveyUrl = $survey->getPublicUrl($sendAsAgentId) . '&type=' . $recipientType . '&rid=' . $recipientId . '&did=' . $deal->id;
+                    $surveyUrl = $survey->getPublicUrl($sendAsAgentId).'&type='.$recipientType.'&rid='.$recipientId.'&did='.$deal->id;
 
                     // Create unique hash for tracking
                     do {
@@ -1125,11 +1133,11 @@ class SurveyController extends Controller
                         'user_id' => $user->id,
                         'team_id' => $team->id,
                         'recipient_email' => $recipient->email,
-                        'recipient_name' => $recipient->first_name . ' ' . ($recipient->last_name ?? ''),
+                        'recipient_name' => $recipient->first_name.' '.($recipient->last_name ?? ''),
                         'recipient_type' => $recipientModelClass,
                         'recipient_id' => $recipientId,
-                        'subject' => 'Survey: ' . $survey->title,
-                        'message' => 'Survey invitation: ' . $surveyUrl,
+                        'subject' => 'Survey: '.$survey->title,
+                        'message' => 'Survey invitation: '.$surveyUrl,
                         'log_communication' => true,
                     ];
 
@@ -1177,7 +1185,7 @@ class SurveyController extends Controller
 
                     $sentCount++;
                 } catch (\Exception $e) {
-                    \Log::error('Failed to send survey to ' . $recipientType . ': ' . $recipientId . ' - ' . $e->getMessage());
+                    \Log::error('Failed to send survey to '.$recipientType.': '.$recipientId.' - '.$e->getMessage());
                 }
             }
 
@@ -1188,7 +1196,7 @@ class SurveyController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $message,
-                'sent_count' => $sentCount
+                'sent_count' => $sentCount,
             ]);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
@@ -1201,7 +1209,7 @@ class SurveyController extends Controller
             $user = auth()->user();
             $team = $user->currentTeam;
 
-            if (!$user->hasAccessToCurrentTeam()) {
+            if (! $user->hasAccessToCurrentTeam()) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -1232,14 +1240,14 @@ class SurveyController extends Controller
             if ($validated['send_option'] === 'cancel') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Survey sending cancelled'
+                    'message' => 'Survey sending cancelled',
                 ]);
             }
 
             if (empty($validated['selected_recipients'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No recipients selected'
+                    'message' => 'No recipients selected',
                 ], 400);
             }
 
@@ -1248,7 +1256,7 @@ class SurveyController extends Controller
 
             // Verify the agent belongs to the team
             $sendAsAgent = \App\Models\User::find($sendAsAgentId);
-            if (!$sendAsAgent || !$sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
+            if (! $sendAsAgent || ! $sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
                 $sendAsAgentId = $user->id; // Fallback to current user
             }
 
@@ -1283,13 +1291,13 @@ class SurveyController extends Controller
                         break;
                 }
 
-                if (!$recipient || empty($recipient->email)) {
+                if (! $recipient || empty($recipient->email)) {
                     continue;
                 }
 
                 // Send survey email
                 try {
-                    $surveyUrl = $survey->getPublicUrl($sendAsAgentId) . '&type=' . $recipientType . '&rid=' . $recipientId . '&cid=' . $contact->id;
+                    $surveyUrl = $survey->getPublicUrl($sendAsAgentId).'&type='.$recipientType.'&rid='.$recipientId.'&cid='.$contact->id;
 
                     // Create unique hash for tracking
                     do {
@@ -1306,11 +1314,11 @@ class SurveyController extends Controller
                         'user_id' => $user->id,
                         'team_id' => $team->id,
                         'recipient_email' => $recipient->email,
-                        'recipient_name' => $recipient->first_name . ' ' . ($recipient->last_name ?? ''),
+                        'recipient_name' => $recipient->first_name.' '.($recipient->last_name ?? ''),
                         'recipient_type' => $recipientModelClass,
                         'recipient_id' => $recipientId,
-                        'subject' => 'Survey: ' . $survey->title,
-                        'message' => 'Survey invitation: ' . $surveyUrl,
+                        'subject' => 'Survey: '.$survey->title,
+                        'message' => 'Survey invitation: '.$surveyUrl,
                         'log_communication' => true,
                     ];
 
@@ -1358,7 +1366,7 @@ class SurveyController extends Controller
 
                     $sentCount++;
                 } catch (\Exception $e) {
-                    \Log::error('Failed to send survey to ' . $recipientType . ': ' . $recipientId . ' - ' . $e->getMessage());
+                    \Log::error('Failed to send survey to '.$recipientType.': '.$recipientId.' - '.$e->getMessage());
                 }
             }
 
@@ -1369,7 +1377,7 @@ class SurveyController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $message,
-                'sent_count' => $sentCount
+                'sent_count' => $sentCount,
             ]);
         } catch (\Exception $e) {
             Log::error($e->getMessage());
@@ -1381,19 +1389,19 @@ class SurveyController extends Controller
         $user = auth()->user();
         $team = $user->currentTeam;
 
-        if (!$user->hasAccessToCurrentTeam()) {
+        if (! $user->hasAccessToCurrentTeam()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
         // Get active surveys based on record type preference (optional filtering)
         $query = Survey::where('team_id', $team->id)
             ->where('status', true)
-            ->where(function($query) use ($user) {
-                $query->where(function($q) use ($user) {
+            ->where(function ($query) use ($user) {
+                $query->where(function ($q) use ($user) {
                     // Private surveys by the current user
                     $q->where('visibility', 'private')
-                      ->where('user_id', $user->id);
-                })->orWhere(function($q) {
+                        ->where('user_id', $user->id);
+                })->orWhere(function ($q) {
                     // Public surveys (shared with team)
                     $q->where('visibility', 'public');
                 });
@@ -1401,7 +1409,7 @@ class SurveyController extends Controller
             ->select('id', 'uuid', 'title', 'description', 'type', 'automation_config', 'user_id', 'visibility')
             ->orderBy('created_at', 'desc');
 
-        $surveys = $query->get()->map(function($survey) use ($user) {
+        $surveys = $query->get()->map(function ($survey) use ($user) {
             $config = $survey->automation_config ?? [];
 
             return [
@@ -1412,7 +1420,7 @@ class SurveyController extends Controller
                 'type' => $survey->type,
                 'automation_config' => $config,
                 'is_owner' => $survey->user_id === $user->id,
-                'visibility' => $survey->visibility
+                'visibility' => $survey->visibility,
             ];
         });
 
@@ -1430,7 +1438,7 @@ class SurveyController extends Controller
             'surveys' => $surveys,
             'team_users' => $TeamUsers,
             'current_user_id' => $user->id,
-            'team_owner_id' => $team->user_id
+            'team_owner_id' => $team->user_id,
         ]);
     }
 
@@ -1440,7 +1448,7 @@ class SurveyController extends Controller
             $user = auth()->user();
             $team = $user->currentTeam;
 
-            if (!$user->hasAccessToCurrentTeam()) {
+            if (! $user->hasAccessToCurrentTeam()) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -1486,17 +1494,17 @@ class SurveyController extends Controller
                     break;
             }
 
-            if (!$recipient) {
+            if (! $recipient) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Recipient not found or does not belong to your team'
+                    'message' => 'Recipient not found or does not belong to your team',
                 ], 404);
             }
 
             if (empty($recipient->email)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Recipient does not have an email address'
+                    'message' => 'Recipient does not have an email address',
                 ], 400);
             }
 
@@ -1505,7 +1513,7 @@ class SurveyController extends Controller
 
             // Verify the agent belongs to the team
             $sendAsAgent = \App\Models\User::find($sendAsAgentId);
-            if (!$sendAsAgent || !$sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
+            if (! $sendAsAgent || ! $sendAsAgent->teams()->where('teams.id', $team->id)->exists()) {
                 $sendAsAgentId = $user->id; // Fallback to current user
             }
 
@@ -1517,7 +1525,7 @@ class SurveyController extends Controller
             }
 
             // Build survey URL with agent ID
-            $surveyUrl = $survey->getPublicUrl($sendAsAgentId) . '&type=' . $recipientType . '&rid=' . $recipientId;
+            $surveyUrl = $survey->getPublicUrl($sendAsAgentId).'&type='.$recipientType.'&rid='.$recipientId;
 
             try {
                 // Create unique hash for tracking
@@ -1535,11 +1543,11 @@ class SurveyController extends Controller
                     'user_id' => $user->id,
                     'team_id' => $team->id,
                     'recipient_email' => $recipient->email,
-                    'recipient_name' => $recipient->first_name . ' ' . ($recipient->last_name ?? ''),
+                    'recipient_name' => $recipient->first_name.' '.($recipient->last_name ?? ''),
                     'recipient_type' => $recipientModelClass,
                     'recipient_id' => $recipientId,
-                    'subject' => 'Survey: ' . $survey->title,
-                    'message' => 'Survey invitation: ' . $surveyUrl,
+                    'subject' => 'Survey: '.$survey->title,
+                    'message' => 'Survey invitation: '.$surveyUrl,
                     'log_communication' => true,
                 ];
 
@@ -1591,14 +1599,14 @@ class SurveyController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => $message
+                    'message' => $message,
                 ]);
             } catch (\Exception $e) {
-                \Log::error('Failed to send survey to ' . $recipientType . ': ' . $recipientId . ' - ' . $e->getMessage());
+                \Log::error('Failed to send survey to '.$recipientType.': '.$recipientId.' - '.$e->getMessage());
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to send survey. Please try again.'
+                    'message' => 'Failed to send survey. Please try again.',
                 ], 500);
             }
         } catch (\Exception $e) {
@@ -1606,7 +1614,7 @@ class SurveyController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred. Please try again.'
+                'message' => 'An error occurred. Please try again.',
             ], 500);
         }
     }
@@ -1618,7 +1626,7 @@ class SurveyController extends Controller
             $team = $user->currentTeam;
             $isAdmin = $user->canEditTeam($team);
 
-            if (!$user->hasAccessToCurrentTeam()) {
+            if (! $user->hasAccessToCurrentTeam()) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 
@@ -1633,30 +1641,30 @@ class SurveyController extends Controller
             if ($response->survey->team_id !== $team->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Response not found or access denied.'
+                    'message' => 'Response not found or access denied.',
                 ], 403);
             }
 
             // Check permissions: admins can reassign any response, agents can only reassign their own
-            if (!$isAdmin && $response->assigned_to !== $user->id) {
+            if (! $isAdmin && $response->assigned_to !== $user->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to reassign this response.'
+                    'message' => 'You do not have permission to reassign this response.',
                 ], 403);
             }
 
             // Verify the new assignee belongs to the same team
             $newAssignee = \App\Models\User::find($validated['assigned_to']);
-            if (!$newAssignee || !$newAssignee->teams()->where('teams.id', $team->id)->exists()) {
+            if (! $newAssignee || ! $newAssignee->teams()->where('teams.id', $team->id)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid assignee selected.'
+                    'message' => 'Invalid assignee selected.',
                 ], 400);
             }
 
             // Update the assignment
             $response->update([
-                'assigned_to' => $validated['assigned_to']
+                'assigned_to' => $validated['assigned_to'],
             ]);
 
             return response()->json([
@@ -1664,18 +1672,17 @@ class SurveyController extends Controller
                 'message' => "Response reassigned to {$newAssignee->name} successfully!",
                 'assigned_to' => [
                     'id' => $newAssignee->id,
-                    'name' => $newAssignee->name
-                ]
+                    'name' => $newAssignee->name,
+                ],
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Failed to reassign survey response: ' . $e->getMessage());
+            \Log::error('Failed to reassign survey response: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reassign response. Please try again.'
+                'message' => 'Failed to reassign response. Please try again.',
             ], 500);
         }
     }
-
 }

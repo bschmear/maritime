@@ -1,7 +1,5 @@
 <?php
-// App\Models\Survey\SurveyResponse.php
-
-namespace App\Models\Survey;
+namespace App\Domain\Survey\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
