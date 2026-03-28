@@ -1,0 +1,27 @@
+@extends ('crm.layouts.app')
+@section('title', "Create Survey")
+@section('content-class', 'flex flex-col')
+@section ('content')
+
+<breadcrumbs :items="{{$breadcrumbs}}"></breadcrumbs>
+
+<div class="container mx-auto px-4 py-6">
+
+    <survey-creator
+        :users='@json($TeamUsers->values())'
+        :team='@json($team)'
+        :subscription='@json($team->activeSubscription())'
+        :initial-data="{}"
+    ></survey-creator>
+</div>
+
+@endsection
+
+@push('footer.scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Any additional initialization can go here
+});
+</script>
+@endpush
+

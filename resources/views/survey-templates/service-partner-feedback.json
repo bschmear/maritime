@@ -1,0 +1,54 @@
+{
+  "id": "service-partner-feedback",
+  "name": "Service Partner Feedback",
+  "description": "Evaluate referral partners (inspectors, photographers, stagers, etc.)",
+  "public_description": "Please provide feedback regarding interactions with service partners to assist in assessing performance and service quality",
+  "type": "feedback",
+  "icon": "fa-handshake",
+  "category": "Partner Feedback",
+  "questions": [
+    {
+      "type": "dropdown",
+      "label": "Which partner did you work with?",
+      "required": true,
+      "order": 1,
+      "options": ["Home Inspector", "Photographer", "Stager", "Contractor", "Title Company", "Other"]
+    },
+    {
+      "type": "rating",
+      "label": "Were you satisfied with their service?",
+      "required": true,
+      "order": 2,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Did they meet deadlines and expectations?",
+      "required": true,
+      "order": 3,
+      "options": ["Exceeded expectations", "Met expectations", "Mostly met expectations", "Did not meet expectations"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Would you recommend them again?",
+      "required": true,
+      "order": 4,
+      "options": ["Yes, definitely", "Yes, probably", "Not sure", "Probably not", "Definitely not"]
+    },
+    {
+      "type": "textarea",
+      "label": "Any suggestions for improvement?",
+      "required": false,
+      "order": 5,
+      "options": null,
+      "config": {
+        "rows": 4
+      }
+    }
+  ]
+}
+

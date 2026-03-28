@@ -24,6 +24,7 @@ return [
     'documents_url' => env('APP_DOCUMENTS'),
     'client_url' => env('APP_CLIENT'),
     'aws_url' => env('AWS_PUBLIC_URL', null),
+    'api_key' => env('OPENAI_API_KEY', ''),
 
     'timezone' => 'UTC',
     'locale' => env('APP_LOCALE', 'en'),

@@ -92,6 +92,11 @@ class BoatShowEvent extends Model
         return $this->hasMany(BoatShowEventAsset::class, 'boat_show_event_id');
     }
 
+    public function surveyResponses(): MorphMany
+    {
+        return $this->morphMany(SurveyResponse::class, 'sourceable');
+    }
+
     /**
      * @return array{boats: array, engines: array, trailers: array}
      */

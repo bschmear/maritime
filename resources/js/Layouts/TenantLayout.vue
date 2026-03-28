@@ -151,7 +151,15 @@ const secondaryNavItems = ref([
         children: [
             { name: 'Leads', href: 'leads.index' },
             { name: 'Customers', href: 'customers.index' },
-            { name: 'Vendors', href: 'vendors.index' }
+            { name: 'Vendors', href: 'vendors.index' },
+            {
+                name: 'Surveys',
+                children: [
+                    { name: 'All Surveys', href: 'surveys.index' },
+                    { name: 'Templates', href: 'survey-templates.index' },
+                    { name: 'Responses', href: 'survey-responses.index' }
+                ]
+            }
         ]
     },
 

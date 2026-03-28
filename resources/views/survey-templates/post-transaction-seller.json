@@ -1,0 +1,59 @@
+{
+  "id": "post-transaction-seller",
+  "name": "Post-Transaction Client Feedback (Seller)",
+"description": "Assess the listing and selling experience",
+"public_description": "Please provide feedback regarding the home selling experience to assist in assessing satisfaction and service quality",
+  "type": "feedback",
+  "icon": "fa-hand-holding-usd",
+  "category": "Post-Transaction",
+  "questions": [
+    {
+      "type": "nps",
+      "label": "How satisfied are you with the sale price achieved?",
+      "required": true,
+      "order": 1,
+      "options": null,
+      "config": {
+        "min": 0,
+        "max": 10,
+        "labels": {
+          "min": "Not satisfied",
+          "max": "Extremely satisfied"
+        }
+      }
+    },
+    {
+      "type": "rating",
+      "label": "How effective was your agent's marketing strategy?",
+      "required": true,
+      "order": 2,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Were you kept informed throughout the process?",
+      "required": true,
+      "order": 3,
+      "options": ["Always", "Most of the time", "Sometimes", "Rarely", "Never"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Did your home sell in your expected timeframe?",
+      "required": true,
+      "order": 4,
+      "options": ["Yes, faster than expected", "Yes, within expected timeframe", "Took longer than expected", "Not sure"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Would you list with the same agent again?",
+      "required": true,
+      "order": 5,
+      "options": ["Yes, definitely", "Yes, probably", "Not sure", "Probably not", "Definitely not"]
+    }
+  ]
+}
+

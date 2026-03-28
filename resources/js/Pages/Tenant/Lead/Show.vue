@@ -271,7 +271,7 @@ const showConversionSuccessModal = (customerId, customerName) => {
             </div>
 
             <!-- Sidebar -->
-            <div class="w-80 flex-shrink-0 space-y-6">
+            <div class="w-80 lg:w-96 flex-shrink-0 space-y-6">
                 <!-- Score Panel -->
                 <ScorePanel
                     scorable-type="App\\Domain\\Lead\\Models\\Lead"

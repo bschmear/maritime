@@ -1,0 +1,40 @@
+{
+  "id": "market-insight-poll",
+  "name": "Market Insight Poll",
+"description": "Capture quick insights or engagement data for social or email marketing",
+"public_description": "Please provide your input to assist in gathering insights and understanding trends for marketing purposes",
+  "type": "custom",
+  "icon": "fa-poll",
+  "category": "Marketing",
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "label": "Are you planning to move this year?",
+      "required": true,
+      "order": 1,
+      "options": ["Yes, within 3 months", "Yes, within 6 months", "Yes, within 12 months", "No plans to move", "Not sure"]
+    },
+    {
+      "type": "dropdown",
+      "label": "What's your biggest challenge in buying/selling right now?",
+      "required": false,
+      "order": 2,
+      "options": ["Finding the right property", "Financing/Budget", "Market conditions", "Timing", "Finding an agent", "Other"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "What's most important when choosing an agent?",
+      "required": false,
+      "order": 3,
+      "options": ["Experience", "Local knowledge", "Communication", "Marketing strategy", "Commission rate"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "What's your preferred method of home search?",
+      "required": false,
+      "order": 4,
+      "options": ["Mobile app", "Website", "Working with agent", "Social media", "Drive-by"]
+    }
+  ]
+}
+

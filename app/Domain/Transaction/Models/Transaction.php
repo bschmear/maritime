@@ -112,6 +112,11 @@ class Transaction extends Model
         return $this->hasOne(Contract::class);
     }
 
+    public function surveyResponses(): MorphMany
+    {
+        return $this->morphMany(SurveyResponse::class, 'sourceable');
+    }
+
     public function getDisplayNameAttribute()
     {
         return 'DL-'.($this->sequence ?: $this->id ?: '???');

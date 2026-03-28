@@ -1,0 +1,47 @@
+{
+  "id": "lead-intake-buyer",
+  "name": "Lead Intake (Buyer Lead Generator)",
+"description": "Qualify new buyer leads from website or ad campaigns",
+"public_description": "Provide a few details about buying plans to help determine next steps for potential home purchase opportunities",
+  "type": "lead",
+  "icon": "fa-user-plus",
+  "category": "Lead Generation",
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "label": "Are you currently working with an agent?",
+      "required": true,
+      "order": 1,
+      "options": ["Yes", "No", "Not sure"]
+    },
+    {
+      "type": "dropdown",
+      "label": "What type of property are you looking for?",
+      "required": true,
+      "order": 2,
+      "options": ["Single Family Home", "Condo/Townhouse", "Multi-Family", "Land/Lot", "Commercial", "Other"]
+    },
+    {
+      "type": "dropdown",
+      "label": "What's your target price range?",
+      "required": true,
+      "order": 3,
+      "options": ["Under $200k", "$200k - $400k", "$400k - $600k", "$600k - $800k", "$800k - $1M", "Over $1M"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How soon are you looking to buy?",
+      "required": true,
+      "order": 4,
+      "options": ["0-3 months", "3-6 months", "6-12 months", "Just browsing"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Have you been pre-approved for a mortgage?",
+      "required": true,
+      "order": 5,
+      "options": ["Yes", "No", "In progress", "Paying cash"]
+    }
+  ]
+}
+
