@@ -155,9 +155,9 @@ const secondaryNavItems = ref([
             {
                 name: 'Surveys',
                 children: [
-                    { name: 'All Surveys', href: 'surveys.index' },
-                    { name: 'Templates', href: 'survey-templates.index' },
-                    { name: 'Responses', href: 'survey-responses.index' }
+                    { name: 'All Surveys', href: 'surveysIndex' },
+                    { name: 'Create', href: 'surveysCreate' },
+                    { name: 'Responses', href: 'surveyResponses' }
                 ]
             }
         ]

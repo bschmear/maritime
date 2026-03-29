@@ -5,22 +5,22 @@
             Survey Link
         </h3>
         <div class="space-y-4">
-            <!-- Agent Selection for Links - Only for Public/Team Surveys -->
-            <div v-if="visibility !== 'private' && teamUsers.length > 1">
+            <!-- User selection for links — public / team visibility -->
+            <div v-if="visibility !== 'private' && users.length > 1">
                 <label class="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <i class="fas fa-user-tag text-purple-600 mr-1"></i>
-                    Select Agent for Link
+                    Select user for link
                 </label>
                 <select 
-                    v-model="selectedAgentId"
+                    v-model="selectedUserId"
                     class="input-style"
                 >
-                    <option v-for="agent in teamUsers" :key="agent.id" :value="agent.id">
-                        {{ agent.name }}{{ agent.id === currentUserId ? ' (You)' : '' }}
+                    <option v-for="u in users" :key="u.id" :value="u.id">
+                        {{ u.name }}{{ u.id === currentUserId ? ' (You)' : '' }}
                     </option>
                 </select>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    The selected agent's info will appear for survey recipients
+                    The selected user’s info will appear for survey recipients
                 </p>
             </div>
 
@@ -98,13 +98,13 @@ export default {
     },
     data() {
         return {
-            selectedAgentId: this.currentUserId
+            selectedUserId: this.currentUserId
         };
     },
     computed: {
         directLinkUrl() {
             const separator = this.baseUrl.includes('?') ? '&' : '?';
-            return `${this.baseUrl}${separator}aid=${this.selectedAgentId}`;
+            return `${this.baseUrl}${separator}aid=${this.selectedUserId}`;
         },
         embedCode() {
             return `<iframe src="${this.directLinkUrl}" width="100%" height="600" frameborder="0"></iframe>`;

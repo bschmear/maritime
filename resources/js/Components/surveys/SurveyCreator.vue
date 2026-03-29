@@ -546,7 +546,7 @@ export default {
     async loadTemplates() {
       this.loadingTemplates = true;
       try {
-        const response = await axios.get('/surveys/templates');
+        const response = await axios.get(route('surveyTemplates'));
         this.templates = response.data || [];
       } catch (error) {
         console.error('Error loading templates:', error);
@@ -652,45 +652,43 @@ export default {
       }
     },
 
+    apiErrorMessage(error) {
+      if (error.response?.data) {
+        if (error.response.data.errors) {
+          return Object.values(error.response.data.errors).flat().join('\n');
+        }
+        if (error.response.data.message) return error.response.data.message;
+      }
+      return error.message ?? 'Unknown error';
+    },
+
+    navigateToShow(uuid) {
+      window.location.href = route('surveysShow', { id: uuid });
+    },
+
     async saveDraft(keepLive = false) {
       this.saving = true;
       try {
-
         let response;
         if (this.isEditing && this.surveyId) {
-          // Update existing survey
-          response = await axios.put(`/surveys/update?id=${this.surveyId}`, {
+          response = await axios.put(route('surveysUpdate', { id: this.surveyId }), {
             ...this.surveyData,
-            status: keepLive, // Keep status as is if keepLive is true
+            status: keepLive,
           });
         } else {
-          // Create new survey
-          response = await axios.post('/surveys/store', {
+          response = await axios.post(route('surveysStore'), {
             ...this.surveyData,
-            status: false, // Draft
+            status: false,
           });
         }
 
         if (response.data) {
-          const message = keepLive ? 'Survey saved successfully!' : 'Draft saved successfully!';
-          alert(message);
-          const surveyUuid = response.data.uuid || this.surveyId;
-          window.location.href = `/surveys/survey?id=${surveyUuid}`;
+          alert(keepLive ? 'Survey saved successfully!' : 'Draft saved successfully!');
+          this.navigateToShow(response.data.uuid || this.surveyId);
         }
       } catch (error) {
         console.error('Error:', error);
-        let errorMessage = 'Unknown error';
-        if (error.response && error.response.data) {
-          if (error.response.data.errors) {
-            const errors = Object.values(error.response.data.errors).flat();
-            errorMessage = errors.join('\n');
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-        alert('Error saving draft:\n' + errorMessage);
+        alert('Error saving draft:\n' + this.apiErrorMessage(error));
       } finally {
         this.saving = false;
         this.showDraftConfirmation = false;
@@ -712,32 +710,18 @@ export default {
 
       this.saving = true;
       try {
-        const response = await axios.put(`/surveys/update?id=${this.surveyId}`, {
+        const response = await axios.put(route('surveysUpdate', { id: this.surveyId }), {
           ...this.surveyData,
-          status: Boolean(this.surveyData.status), // Ensure boolean
+          status: Boolean(this.surveyData.status),
         });
 
         if (response.data) {
           alert('Survey saved successfully!');
-          const surveyUuid = response.data.uuid || this.surveyId;
-          window.location.href = `/surveys/survey?id=${surveyUuid}`;
+          this.navigateToShow(response.data.uuid || this.surveyId);
         }
       } catch (error) {
         console.error('Error:', error);
-
-        let errorMessage = 'Unknown error';
-        if (error.response && error.response.data) {
-          if (error.response.data.errors) {
-            const errors = Object.values(error.response.data.errors).flat();
-            errorMessage = errors.join('\n');
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        alert('Error saving survey:\n' + errorMessage);
+        alert('Error saving survey:\n' + this.apiErrorMessage(error));
       } finally {
         this.saving = false;
       }
@@ -750,39 +734,21 @@ export default {
 
       this.saving = true;
       try {
-
-        const url = this.isEditing
-          ? `/surveys/update/?id=${this.surveyId}`   // update endpoint
-          : '/surveys/store';             // create endpoint
-
+        const url    = this.isEditing ? route('surveysUpdate', { id: this.surveyId }) : route('surveysStore');
         const method = this.isEditing ? 'put' : 'post';
 
         const response = await axios[method](url, {
           ...this.surveyData,
-          status: true, // Published
+          status: true,
         });
 
         if (response.data) {
           alert('Survey published successfully!');
-          const surveyUuid = response.data.uuid || this.surveyId;
-          window.location.href = `/surveys/survey?id=${surveyUuid}`;
+          this.navigateToShow(response.data.uuid || this.surveyId);
         }
       } catch (error) {
         console.error('Error:', error);
-
-        let errorMessage = 'Unknown error';
-        if (error.response && error.response.data) {
-          if (error.response.data.errors) {
-            const errors = Object.values(error.response.data.errors).flat();
-            errorMessage = errors.join('\n');
-          } else if (error.response.data.message) {
-            errorMessage = error.response.data.message;
-          }
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        alert('Error publishing survey:\n' + errorMessage);
+        alert('Error publishing survey:\n' + this.apiErrorMessage(error));
       } finally {
         this.saving = false;
       }

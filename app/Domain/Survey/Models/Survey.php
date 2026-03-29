@@ -2,18 +2,19 @@
 
 namespace App\Domain\Survey\Models;
 
+use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use App\Scopes\TeamScope;
 
 class Survey extends Model
 {
     use HasFactory;
 
+    protected $connection = 'tenant';
+
     protected $fillable = [
         'user_id',
-        'team_id',
         'title',
         'description',
         'public_description',
@@ -37,30 +38,16 @@ class Survey extends Model
         'privacy_settings' => 'array',
     ];
 
-    protected static function boot()
+    protected static function booted(): void
     {
-        parent::boot();
-        static::addGlobalScope(new TeamScope());
-    }
-
-    protected static function booted()
-    {
-        static::creating(function ($survey) {
+        static::creating(function (Survey $survey) {
             $survey->uuid = (string) Str::uuid();
-            // if (empty($survey->slug)) {
-            //     $survey->slug = Str::slug($survey->title) . '-' . uniqid();
-            // }
         });
-    }
-
-    public function team()
-    {
-        return $this->belongsTo(\App\Models\Team::class);
     }
 
     public function user()
     {
-        return $this->belongsTo(\App\Models\User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function questions()
@@ -78,45 +65,27 @@ class Survey extends Model
         return $this->hasMany(SurveyFollowup::class);
     }
 
-    public function getSurveyResponse(): string
+    public function getPublicUrl(?int $agentId = null): string
     {
-        return config('app.crm_url') . '/surveys/survey/responses?id=' . $this->uuid;
-    }
-
-    public function getPublicUrl($agentId = null): string
-    {
-        $url = config('app.url') . '/survey/view?id=' . $this->uuid;
+        $url = config('app.url').'/survey/view?id='.$this->uuid;
         if ($agentId) {
-            $url .= '&aid=' . $agentId;
+            $url .= '&aid='.$agentId;
         }
+
         return $url;
     }
 
     public function getEmbedUrl(): string
     {
-        return config('app.url') . '/survey/embed?id=' . $this->uuid;
-    }
-
-    public function surveysEdit(): string
-    {
-        return config('app.crm_url') . '/surveys/edit?id=' . $this->uuid;
-    }
-
-    public function surveysShow(): string
-    {
-        return config('app.crm_url') . '/surveys/survey?id=' . $this->uuid;
+        return config('app.url').'/survey/embed?id='.$this->uuid;
     }
 
     public function getEffectiveColor(): string
     {
         if ($this->color_scheme === 'custom' && $this->custom_color) {
             return $this->custom_color;
-        } elseif ($this->color_scheme === 'team' && $this->team && isset($this->team->team_color)) {
-            return $this->team->team_color;
         }
 
-        // Default brand color
-        return config('app.app_brand');
+        return config('app.app_brand', '#0d9488');
     }
-
 }

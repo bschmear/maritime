@@ -9,13 +9,13 @@ const props = defineProps({
         type: Object,
         required: true,
     },
-    teamUsers: {
+    users: {
         type: Array,
         default: () => [],
     },
     team: {
         type: Object,
-        required: true,
+        default: null,
     },
     subscription: {
         type: Object,
@@ -42,7 +42,7 @@ const breadcrumbItems = computed(() => [
 
         <div class="container mx-auto px-4 py-6">
             <survey-creator
-                :users="teamUsers"
+                :users="users"
                 :team="team"
                 :subscription="subscription"
                 :initial-data="survey"

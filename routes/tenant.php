@@ -40,6 +40,7 @@ use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\Surveys\SurveyController;
 use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\UserController;
@@ -48,13 +49,6 @@ use App\Http\Controllers\Tenant\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-
-use App\Http\Controllers\Tenant\Surveys\{
-    SurveyController,
-    SurveyQuestionController,
-    SurveyResponseController,
-    SurveyFollowupController
-};
 
 /*
 |||--------------------------------------------------------------------------
@@ -375,36 +369,29 @@ Route::middleware([
         Route::post('/subsidiaries/{subsidiary}/detach', [SubsidiaryController::class, 'detachRelationship'])->name('subsidiaries.detach');
 
         Route::prefix('surveys')->group(function () {
-            Route::get('/', [SurveyController::class, 'index'])->name('surveys.index');
+            Route::get('/', [SurveyController::class, 'index'])->name('surveysIndex');
             Route::get('/create', [SurveyController::class, 'create'])->name('surveysCreate');
-            Route::get('/templates', [SurveyController::class, 'getTemplates'])->name('survey-templates.index');
+            Route::get('/templates', [SurveyController::class, 'getTemplates'])->name('surveyTemplates');
             Route::post('/store', [SurveyController::class, 'store'])->name('surveysStore');
             Route::get('/survey', [SurveyController::class, 'show'])->name('surveysShow');
             Route::get('/edit', [SurveyController::class, 'edit'])->name('surveysEdit');
-            Route::put('/update', [SurveyController::class, 'update'])->name('surveysUpdate');
+            Route::match(['put', 'patch'], '/update', [SurveyController::class, 'update'])->name('surveysUpdate');
             Route::delete('/delete', [SurveyController::class, 'destroy'])->name('surveysDestroy');
             Route::post('/delete-selected', [SurveyController::class, 'deleteSelected'])->name('surveysDeleteSelected');
             Route::post('/clone', [SurveyController::class, 'clone'])->name('surveysClone');
+            Route::get('/get-active-surveys', [SurveyController::class, 'getActiveSurveys'])->name('surveysGetActive');
+
+            // Stubs — pending implementation
             Route::post('/send-to-deal', [SurveyController::class, 'sendToDeal'])->name('surveysSendToDeal');
             Route::post('/send-to-contact', [SurveyController::class, 'sendToContact'])->name('surveysSendToContact');
-            Route::get('/get-active-surveys', [SurveyController::class, 'getActiveSurveys'])->name('surveysGetActive');
             Route::post('/send-to-record', [SurveyController::class, 'sendToRecord'])->name('surveysSendToRecord');
 
             // Response routes
-            Route::post('/response/reassign', [SurveyController::class, 'reassignResponse'])->name('surveyResponseReassign');
-            Route::get('/responses', [SurveyController::class, 'responses'])->name('survey-responses.index');
+            Route::patch('/response/reassign', [SurveyController::class, 'reassignResponse'])->name('surveyResponseReassign');
+            Route::get('/responses', [SurveyController::class, 'responses'])->name('surveyResponses');
             Route::get('/survey/responses', [SurveyController::class, 'responses'])->name('surveyResponsesByUuid');
             Route::get('/survey/response', [SurveyController::class, 'showResponse'])->name('surveyResponseShow');
             Route::post('/survey/response/convert-to-lead', [SurveyController::class, 'convertResponseToLead'])->name('surveyResponseConvertToLead');
-
-            // Question routes
-            Route::apiResource('/questions', SurveyQuestionController::class)->shallow();
-
-            // Response API routes
-            // Route::apiResource('/responses', SurveyResponseController::class)->shallow();
-
-            // Followup routes
-            Route::apiResource('/followups', SurveyFollowupController::class)->shallow();
         });
 
         Route::prefix('notifications')
