@@ -1,61 +1,77 @@
 <template>
   <div class="flex items-center gap-2" v-cloak>
+
+    <!-- Share button -->
     <button
       v-if="statusBoolean"
       type="button"
       @click="$root.copyLink('survey-link', 'Link copied to clipboard!')"
-      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-      <i class="fas fa-share-alt mr-2"></i>
+      class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 transition-colors"
+    >
+      <span class="material-icons text-[16px]">share</span>
       Share
     </button>
 
+    <!-- Kebab menu -->
     <div class="relative">
       <button
         @click.prevent="showForm = !showForm"
         type="button"
-        class="p-2.5 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-100 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
-        <i class="fas fa-ellipsis-v"></i>
+        class="p-2.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 transition-colors"
+        aria-label="More actions"
+      >
+        <span class="material-icons text-[20px]">more_vert</span>
       </button>
 
+      <!-- Dropdown -->
       <div
         v-show="showForm"
         @click.away="showForm = false"
-        class="absolute right-0 z-10 mt-2 w-56 bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600">
-        <ul class="py-2 text-sm text-gray-700 dark:text-gray-200">
-          <li>
-            <form :action="surveysclone" method="POST" class="w-full">
-              <input type="hidden" name="_token" :value="csrfToken">
-              <button type="submit" class="flex items-center w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white text-left">
-                <i class="fas fa-clone w-4 mr-2"></i>
-                Clone Survey
-              </button>
-            </form>
-          </li>
-          <li>
-            <button
-              v-if="statusBoolean"
-              type="button"
-              @click="toggleStatus(false)"
-              class="flex items-center w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white text-left">
-              <i class="fas fa-pause w-4 mr-2"></i>
-              Deactivate
-            </button>
-            <button
-              v-else
-              type="button"
-              @click="toggleStatus(true)"
-              class="flex items-center w-full px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white text-left">
-              <i class="fas fa-play w-4 mr-2"></i>
-              Activate
-            </button>
-          </li>
-        </ul>
-        <div class="py-2">
+        class="absolute right-0 z-10 mt-2 w-52 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg overflow-hidden"
+      >
+        <!-- Clone -->
+        <form :action="surveysclone" method="POST" class="w-full">
+          <input type="hidden" name="_token" :value="csrfToken" />
+          <button
+            type="submit"
+            class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-left"
+          >
+            <span class="material-icons text-[18px] text-gray-400">content_copy</span>
+            Clone Survey
+          </button>
+        </form>
+
+        <div class="border-t border-gray-100 dark:border-gray-600">
+          <!-- Deactivate -->
+          <button
+            v-if="statusBoolean"
+            type="button"
+            @click="toggleStatus(false)"
+            class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-left"
+          >
+            <span class="material-icons text-[18px] text-amber-500">pause_circle</span>
+            Deactivate
+          </button>
+          <!-- Activate -->
+          <button
+            v-else
+            type="button"
+            @click="toggleStatus(true)"
+            class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-left"
+          >
+            <span class="material-icons text-[18px] text-green-500">play_circle</span>
+            Activate
+          </button>
+        </div>
+
+        <div class="border-t border-gray-100 dark:border-gray-600">
+          <!-- Delete -->
           <button
             type="button"
             @click="toggleDelete"
-            class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-red-500 dark:hover:text-red-400 text-left">
-            <i class="fas fa-trash-alt w-4 mr-2"></i>
+            class="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+          >
+            <span class="material-icons text-[18px]">delete_outline</span>
             Delete Survey
           </button>
         </div>
@@ -63,80 +79,99 @@
     </div>
   </div>
 
-<div v-if="$root.confirmDelete" @click="$root.confirmDelete = false" class="bg-gray-900 bg-opacity-50 dark:bg-opacity-80 fixed inset-0 z-40"></div>
-<div v-show="$root.confirmDelete" tabindex="-1" :aria-hidden="!$root.confirmDelete" class="modal-style flex items-center justify-center" v-cloak>
+  <!-- Delete confirmation backdrop -->
+  <div
+    v-if="$root.confirmDelete"
+    @click="$root.confirmDelete = false"
+    class="fixed inset-0 z-40 bg-gray-900/60 dark:bg-gray-900/80"
+  />
 
-    <div class="relative p-4 w-full max-w-md h-full md:h-auto">
-        <div class="relative p-4 text-center bg-white rounded-lg shadow dark:bg-gray-800 sm:p-5">
-            <button type="button"
-                    class="text-gray-400 absolute top-2.5 right-2.5 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                    @click="$root.confirmDelete = false">
-                <i class="fas fa-times"></i>
-            </button>
-            <svg class="text-gray-400 dark:text-gray-500 w-11 h-11 mb-3.5 mx-auto" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-            </svg>
-            <p class="mb-4 text-gray-500 dark:text-gray-300">Are you sure you want to delete this survey?</p>
-            <div class="flex justify-center items-center space-x-4">
-                <button @click="$root.confirmDelete = false" type="button" class="btn-outline sm">
-                    No, cancel
-                </button>
-                <button type="button" @click="deleteSurvey" class="red-button sm">
-                    Yes, I'm sure
-                </button>
-            </div>
-        </div>
+  <!-- Delete confirmation modal -->
+  <div
+    v-show="$root.confirmDelete"
+    :aria-hidden="!$root.confirmDelete"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    v-cloak
+  >
+    <div class="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 text-center">
+
+      <!-- Close button -->
+      <button
+        type="button"
+        @click="$root.confirmDelete = false"
+        class="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        aria-label="Close"
+      >
+        <span class="material-icons text-[20px]">close</span>
+      </button>
+
+      <!-- Icon -->
+      <span class="material-icons text-5xl text-gray-300 dark:text-gray-500 block mb-3">delete_outline</span>
+
+      <p class="text-gray-600 dark:text-gray-300 mb-6">
+        Are you sure you want to delete this survey? This cannot be undone.
+      </p>
+
+      <div class="flex items-center justify-center gap-3">
+        <button
+          @click="$root.confirmDelete = false"
+          type="button"
+          class="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+        >
+          No, cancel
+        </button>
+        <button
+          type="button"
+          @click="deleteSurvey"
+          class="px-5 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg focus:outline-none focus:ring-4 focus:ring-red-300 dark:focus:ring-red-800 transition-colors"
+        >
+          Yes, delete
+        </button>
+      </div>
     </div>
-</div>
-
+  </div>
 </template>
 
 <script>
 export default {
   name: 'SurveyActions',
+
   props: ['status', 'uuid', 'deleteroute', 'surveysindex', 'surveysupdate', 'surveysclone'],
+
   data() {
     return {
       showForm: false,
-      csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+      csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
     };
   },
 
   computed: {
     statusBoolean() {
       return this.status === true || this.status === 1 || this.status === '1';
-    }
+    },
   },
 
   methods: {
     toggleDelete() {
-      // Close dropdown
       this.showForm = false;
       this.$root.confirmDelete = !this.$root.confirmDelete;
     },
+
     async deleteSurvey() {
-        const response = await axios.delete(this.deleteroute);
-
-        if (response.status === 200) {
-            window.location.href = this.surveysindex;
-        }  else {
-            alert(response.message)
-        }
+      const response = await axios.delete(this.deleteroute);
+      if (response.status === 200) {
+        window.location.href = this.surveysindex;
+      } else {
+        alert(response.message);
+      }
     },
+
     async toggleStatus(status) {
-      // Close dropdown
       this.showForm = false;
-
       try {
-        const response = await axios.put(this.surveysupdate, {
-          status: status
-        });
-
+        await axios.put(this.surveysupdate, { status });
         this.showToast('success', `Survey ${status ? 'activated' : 'deactivated'} successfully`);
-
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+        setTimeout(() => window.location.reload(), 1500);
       } catch (error) {
         this.showToast('error', 'Error updating survey status');
         console.error(error);
@@ -145,7 +180,7 @@ export default {
 
     showToast(type, message) {
       this.$root.createToast(type, message || 'Action completed successfully.');
-    }
-  }
+    },
+  },
 };
 </script>

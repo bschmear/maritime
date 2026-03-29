@@ -45,6 +45,35 @@ createInertiaApp({
                 hideLoading() {
                     this.loadingOverlay.visible = false;
                 },
+                copyLink(elementId, successMessage = 'Copied to clipboard!') {
+                    const element = document.getElementById(elementId);
+
+                    if (!element) {
+                        console.error(`Element with id "${elementId}" not found`);
+                        this.createToast('error', 'Unable to copy - element not found');
+                        return;
+                    }
+
+                    // Select the text
+                    element.select();
+                    element.setSelectionRange(0, 99999); // For mobile devices
+
+                    // Try modern clipboard API first
+                    navigator.clipboard.writeText(element.value)
+                        .then(() => {
+                            this.createToast('success', successMessage);
+                        })
+                        .catch(() => {
+                            // Fallback for older browsers
+                            try {
+                                document.execCommand('copy');
+                                this.createToast('success', successMessage);
+                            } catch (err) {
+                                console.error('Failed to copy text:', err);
+                                this.createToast('error', 'Failed to copy to clipboard');
+                            }
+                        });
+                }
             }
         })
             .use(plugin)
@@ -75,6 +104,36 @@ if (token) {
 } else {
     console.error('CSRF token not found.');
 }
+
+        // copyLink(elementId, successMessage = 'Copied to clipboard!') {
+        //     const element = document.getElementById(elementId);
+
+        //     if (!element) {
+        //         console.error(`Element with id "${elementId}" not found`);
+        //         this.createToast('error', 'Unable to copy - element not found');
+        //         return;
+        //     }
+
+        //     // Select the text
+        //     element.select();
+        //     element.setSelectionRange(0, 99999); // For mobile devices
+
+        //     // Try modern clipboard API first
+        //     navigator.clipboard.writeText(element.value)
+        //         .then(() => {
+        //             this.createToast('success', successMessage);
+        //         })
+        //         .catch(() => {
+        //             // Fallback for older browsers
+        //             try {
+        //                 document.execCommand('copy');
+        //                 this.createToast('success', successMessage);
+        //             } catch (err) {
+        //                 console.error('Failed to copy text:', err);
+        //                 this.createToast('error', 'Failed to copy to clipboard');
+        //             }
+        //         });
+        // }
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';

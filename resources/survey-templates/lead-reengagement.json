@@ -1,0 +1,46 @@
+{
+  "id": "lead-reengagement",
+  "name": "Lead Re-Engagement (Cold Leads)",
+  "description": "Re-engage leads who previously inquired but did not purchase",
+  "public_description": "It's been a while — we wanted to check in and see if you're still thinking about getting out on the water.",
+  "type": "followup",
+  "icon": "refresh",
+  "category": "Follow-Up",
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "label": "Are you still considering purchasing a boat in the next 6 months?",
+      "required": true,
+      "order": 1,
+      "options": ["Yes, definitely", "Yes, possibly", "Not sure", "No, not right now", "I already purchased elsewhere"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "What's the main thing holding you back?",
+      "required": false,
+      "order": 2,
+      "options": ["Budget / financing", "Still researching", "Waiting for the right season", "Life circumstances changed", "Nothing — I'm ready to move forward", "Other"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Has your boat preference changed since we last spoke?",
+      "required": false,
+      "order": 3,
+      "options": ["No, same as before", "Yes — looking at different type or size", "Yes — different budget", "Not sure"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Would you like to see what's new in our inventory?",
+      "required": true,
+      "order": 4,
+      "options": ["Yes, please send me options", "Yes, I'd like to come in", "Not at this time"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How would you prefer we follow up?",
+      "required": true,
+      "order": 5,
+      "options": ["Email", "Text message", "Phone call", "Don't contact me right now"]
+    }
+  ]
+}

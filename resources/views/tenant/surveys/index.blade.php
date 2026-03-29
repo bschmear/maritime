@@ -34,7 +34,7 @@
         </div>
     </div>
 
-    {{-- Top Performing Agent --}}
+    {{-- Top user by surveys created --}}
     <div class="flex items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="flex-shrink-0">
             <div class="flex items-center justify-center w-12 h-12 text-purple-600 bg-purple-100 rounded-lg dark:bg-purple-900 dark:text-purple-300">
@@ -42,8 +42,8 @@
             </div>
         </div>
         <div class="flex-1 ms-4">
-            <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $topAgentName }}</h3>
-            <p class="text-sm font-normal text-gray-500 dark:text-gray-400">Top Performing Agent</p>
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white">{{ data_get($topUsers ?? null, 'name', '—') }}</h3>
+            <p class="text-sm font-normal text-gray-500 dark:text-gray-400">Most surveys created</p>
         </div>
     </div>
 

@@ -20,7 +20,7 @@
                     </option>
                 </select>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    The selected user’s info will appear for survey recipients
+                    The selected user will be associated with this link for recipients
                 </p>
             </div>
 
@@ -79,7 +79,7 @@ export default {
             type: String,
             required: true
         },
-        teamUsers: {
+        users: {
             type: Array,
             required: true
         },

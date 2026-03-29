@@ -1,0 +1,72 @@
+{
+  "id": "financing-experience",
+  "name": "Financing Experience Feedback",
+  "description": "Gauge customer satisfaction with the marine financing process",
+  "public_description": "We'd love your feedback on the financing portion of your purchase to help us keep the process as smooth as possible.",
+  "type": "feedback",
+  "icon": "payment",
+  "category": "Post-Transaction",
+  "questions": [
+    {
+      "type": "rating",
+      "label": "How smooth was the overall financing process?",
+      "required": true,
+      "order": 1,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Were the loan terms and rates clearly explained?",
+      "required": true,
+      "order": 2,
+      "options": ["Very clear", "Mostly clear", "Somewhat clear", "Not clear at all"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How long did the financing approval process take?",
+      "required": true,
+      "order": 3,
+      "options": ["Same day", "1-2 days", "3-5 days", "Over a week", "Still in process"]
+    },
+    {
+      "type": "rating",
+      "label": "How would you rate the communication from our finance team?",
+      "required": true,
+      "order": 4,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "nps",
+      "label": "How likely are you to recommend our financing options to others?",
+      "required": true,
+      "order": 5,
+      "options": null,
+      "config": {
+        "min": 0,
+        "max": 10,
+        "labels": {
+          "min": "Not likely",
+          "max": "Extremely likely"
+        }
+      }
+    },
+    {
+      "type": "textarea",
+      "label": "Any issues or suggestions regarding the financing process?",
+      "required": false,
+      "order": 6,
+      "options": null,
+      "config": {
+        "rows": 4
+      }
+    }
+  ]
+}

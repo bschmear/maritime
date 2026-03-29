@@ -1,0 +1,67 @@
+{
+  "id": "boat-show-event-feedback",
+  "name": "Boat Show & Event Feedback",
+  "description": "Capture leads and feedback from boat shows, demo days, or dealership events",
+  "public_description": "Thanks for stopping by! We'd love to hear what brought you in and how we can help you find your perfect boat.",
+  "type": "feedback",
+  "icon": "event_available",
+  "category": "Events",
+  "questions": [
+    {
+      "type": "dropdown",
+      "label": "What event did you attend?",
+      "required": true,
+      "order": 1,
+      "options": ["Boat Show", "Demo Day", "Dealership Open House", "On-Water Demo Event", "Other"]
+    },
+    {
+      "type": "dropdown",
+      "label": "How did you hear about the event?",
+      "required": true,
+      "order": 2,
+      "options": ["Email", "Social media", "Online ad", "Friend / family", "Signage", "Radio / TV", "Other"]
+    },
+    {
+      "type": "rating",
+      "label": "How would you rate the event overall?",
+      "required": true,
+      "order": 3,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Were our team members helpful and knowledgeable?",
+      "required": true,
+      "order": 4,
+      "options": ["Very helpful", "Helpful", "Somewhat helpful", "Not helpful"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Are you actively looking to purchase a boat?",
+      "required": true,
+      "order": 5,
+      "options": ["Yes, within 3 months", "Yes, within 6 months", "Yes, within a year", "Just exploring for now", "No"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Would you like us to follow up with more information?",
+      "required": true,
+      "order": 6,
+      "options": ["Yes — email me inventory options", "Yes — I'd like to schedule a test drive", "Maybe later", "No thanks"]
+    },
+    {
+      "type": "textarea",
+      "label": "Any suggestions to improve future events?",
+      "required": false,
+      "order": 7,
+      "options": null,
+      "config": {
+        "rows": 3
+      }
+    }
+  ]
+}

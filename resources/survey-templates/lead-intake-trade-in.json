@@ -1,0 +1,74 @@
+{
+  "id": "lead-intake-trade-in",
+  "name": "Trade-In & Consignment Lead Intake",
+  "description": "Qualify leads looking to trade in or consign their current boat",
+  "public_description": "Thinking about trading in or selling your boat? Share a few details and we'll get back to you with options.",
+  "type": "lead",
+  "icon": "swap_horiz",
+  "category": "Lead Generation",
+  "questions": [
+    {
+      "type": "dropdown",
+      "label": "What are you looking to do?",
+      "required": true,
+      "order": 1,
+      "options": ["Trade in toward a new boat", "Trade in toward a pre-owned boat", "Sell / Consign only", "Not sure yet"]
+    },
+    {
+      "type": "text",
+      "label": "What is the year, make, and model of your current boat?",
+      "required": true,
+      "order": 2,
+      "options": null,
+      "config": {
+        "placeholder": "e.g., 2019 Chaparral 21 SSi"
+      }
+    },
+    {
+      "type": "dropdown",
+      "label": "Approximately how many engine hours?",
+      "required": true,
+      "order": 3,
+      "options": ["Under 100 hours", "100-300 hours", "300-600 hours", "600-1,000 hours", "Over 1,000 hours", "Not sure"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How would you describe the overall condition?",
+      "required": true,
+      "order": 4,
+      "options": ["Excellent — like new", "Good — minor wear", "Fair — visible wear or issues", "Poor — needs significant work"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Does the boat have any known mechanical issues?",
+      "required": true,
+      "order": 5,
+      "options": ["No known issues", "Minor issues", "Yes, significant issues", "Not sure"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Does the sale include a trailer?",
+      "required": false,
+      "order": 6,
+      "options": ["Yes", "No", "Open to negotiation"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How soon are you looking to move forward?",
+      "required": true,
+      "order": 7,
+      "options": ["As soon as possible", "Within 1-3 months", "3-6 months", "Just getting an estimate"]
+    },
+    {
+      "type": "textarea",
+      "label": "Any upgrades, accessories, or special features we should know about?",
+      "required": false,
+      "order": 8,
+      "options": null,
+      "config": {
+        "placeholder": "e.g., Bimini top, upgraded stereo, GPS/fishfinder, custom cover, etc.",
+        "rows": 3
+      }
+    }
+  ]
+}

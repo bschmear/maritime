@@ -1,0 +1,81 @@
+{
+  "id": "follow-up-past-clients",
+  "name": "Past Client Follow-Up",
+  "description": "Stay connected with past buyers and generate referrals or repeat business",
+  "public_description": "We hope you've been enjoying your boat! We'd love to hear how the season is going.",
+  "type": "followup",
+  "icon": "how_to_reg",
+  "category": "Follow-Up",
+  "questions": [
+    {
+      "type": "rating",
+      "label": "How much are you enjoying your boat so far?",
+      "required": true,
+      "order": 1,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "How often are you getting out on the water?",
+      "required": false,
+      "order": 2,
+      "options": ["Multiple times a week", "Once a week", "A few times a month", "Occasionally", "Haven't been out yet"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Have you had any issues with the boat since purchase?",
+      "required": false,
+      "order": 3,
+      "options": ["No issues at all", "Minor issue — resolved", "Minor issue — unresolved", "Significant issue — resolved", "Significant issue — unresolved"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Are you interested in any accessories, upgrades, or add-ons?",
+      "required": false,
+      "order": 4,
+      "options": ["Yes — fishing gear / rod holders", "Yes — electronics / GPS", "Yes — seating or upholstery", "Yes — stereo upgrade", "Yes — trailer accessories", "Not right now"]
+    },
+    {
+      "type": "nps",
+      "label": "How likely are you to refer us to a friend or family member?",
+      "required": true,
+      "order": 5,
+      "options": null,
+      "config": {
+        "min": 0,
+        "max": 10,
+        "labels": {
+          "min": "Not likely",
+          "max": "Extremely likely"
+        }
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Can we feature your experience on our website or social media?",
+      "required": false,
+      "order": 6,
+      "options": ["Yes, I'd love that!", "No thanks"]
+    },
+    {
+      "type": "textarea",
+      "label": "Feel free to leave a testimonial if you'd like!",
+      "required": false,
+      "order": 7,
+      "options": null,
+      "config": {
+        "placeholder": "Example: We've had an amazing summer on the lake — best purchase we've ever made!",
+        "rows": 3
+      },
+      "conditional_logic": {
+        "rules": [
+          { "question": 5, "equals": "Yes, I'd love that!" }
+        ]
+      }
+    }
+  ]
+}

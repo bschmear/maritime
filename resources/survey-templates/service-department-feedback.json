@@ -1,0 +1,79 @@
+{
+  "id": "service-department-feedback",
+  "name": "Service Department Feedback",
+  "description": "Evaluate customer satisfaction with marina service and repairs",
+  "public_description": "We want to make sure your service experience was top notch. Please share your feedback below.",
+  "type": "feedback",
+  "icon": "build",
+  "category": "Service",
+  "questions": [
+    {
+      "type": "dropdown",
+      "label": "What type of service did you bring your boat in for?",
+      "required": true,
+      "order": 1,
+      "options": ["Routine maintenance / winterization", "Engine repair", "Electrical work", "Gelcoat / body repair", "Warranty work", "Upgrade / accessory installation", "Inspection / pre-purchase survey", "Other"]
+    },
+    {
+      "type": "rating",
+      "label": "How satisfied were you with the quality of the work performed?",
+      "required": true,
+      "order": 2,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Was the work completed within the estimated timeframe?",
+      "required": true,
+      "order": 3,
+      "options": ["Yes, on time", "Slightly delayed — communicated well", "Delayed with little communication", "No, significantly delayed"]
+    },
+    {
+      "type": "multiple_choice",
+      "label": "Was the final cost in line with the original estimate?",
+      "required": true,
+      "order": 4,
+      "options": ["Yes, matched the estimate", "Slightly over — explained beforehand", "Over estimate with no warning", "Under estimate — pleasant surprise"]
+    },
+    {
+      "type": "rating",
+      "label": "How would you rate the communication from our service team?",
+      "required": true,
+      "order": 5,
+      "options": null,
+      "config": {
+        "max": 5,
+        "icon": "star"
+      }
+    },
+    {
+      "type": "nps",
+      "label": "How likely are you to bring your boat back for future service?",
+      "required": true,
+      "order": 6,
+      "options": null,
+      "config": {
+        "min": 0,
+        "max": 10,
+        "labels": {
+          "min": "Not likely",
+          "max": "Extremely likely"
+        }
+      }
+    },
+    {
+      "type": "textarea",
+      "label": "Any additional comments or concerns?",
+      "required": false,
+      "order": 7,
+      "options": null,
+      "config": {
+        "rows": 4
+      }
+    }
+  ]
+}

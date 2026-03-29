@@ -288,8 +288,9 @@ class SurveyController extends Controller
 
     public function getTemplates(): JsonResponse
     {
-        $templates = Cache::remember('survey_templates', now()->addDay(), function () {
+        // $templates = Cache::remember('survey_templates', now()->addDay(), function () {
             $path = resource_path('survey-templates');
+            // dd($path);
             $templates = [];
 
             if (file_exists($path)) {
@@ -301,8 +302,8 @@ class SurveyController extends Controller
                 }
             }
 
-            return $templates;
-        });
+            // return $templates;
+        // });
 
         return response()->json($templates);
     }

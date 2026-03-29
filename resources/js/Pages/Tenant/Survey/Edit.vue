@@ -1,6 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import SurveyCreator from '@/Components/surveys/SurveyCreator.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -41,7 +42,7 @@ const breadcrumbItems = computed(() => [
         </template>
 
         <div class="container mx-auto px-4 py-6">
-            <survey-creator
+            <SurveyCreator
                 :users="users"
                 :team="team"
                 :subscription="subscription"
