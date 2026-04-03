@@ -49,6 +49,15 @@ const props = defineProps({
         type: Object,
         default: () => ({ width_ft: 60, height_ft: 40 }),
     },
+    followUpSettings: {
+        type: Object,
+        default: () => ({
+            auto_followup: true,
+            delay_amount: 1,
+            delay_unit: 'days',
+            recipient_user_count: 0,
+        }),
+    },
 });
 
 const isNested = computed(() => Object.keys(props.extraRouteParams).length > 0);
@@ -101,6 +110,7 @@ const totalAssets = computed(() =>
     (props.assets.engines?.length ?? 0) +
     (props.assets.trailers?.length ?? 0)
 );
+
 const activeTab = ref('details');
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -176,6 +186,14 @@ const mapsUrl = computed(() => {
         return `https://www.google.com/maps?q=${q}`;
     }
     return null;
+});
+
+/** Guest-facing inventory + QR / lead link (only active events are reachable). */
+const publicShowcaseHref = computed(() => {
+    if (!props.record.uuid || !props.record.active) {
+        return null;
+    }
+    return route('boat-show-events.public.showcase', { uuid: props.record.uuid });
 });
 
 const confirmDelete = () => {
@@ -702,6 +720,44 @@ async function removeEventAsset(row) {
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Follow-up email (details tab) -->
+                            <div class="border-t border-gray-100 dark:border-gray-700">
+                                <div class="px-6 py-4 border-b border-gray-50 dark:border-gray-700/50">
+                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                        Follow-up email
+                                    </h3>
+                                </div>
+                                <div class="px-6 py-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                    <div class="flex items-start gap-4">
+                                        <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">mail_outline</span>
+                                        <div class="min-w-0 space-y-2">
+                                            <p>
+                                                <span class="text-gray-500 dark:text-gray-400">Auto follow-up:</span>
+                                                {{ followUpSettings.auto_followup ? 'On' : 'Off' }}
+                                            </p>
+                                            <p>
+                                                <span class="text-gray-500 dark:text-gray-400">Delay:</span>
+                                                {{ followUpSettings.delay_amount }} {{ followUpSettings.delay_unit }}
+                                            </p>
+                                            <p>
+                                                <span class="text-gray-500 dark:text-gray-400">Staff recipients:</span>
+                                                {{
+                                                    followUpSettings.recipient_user_count
+                                                        ? followUpSettings.recipient_user_count + ' user(s)'
+                                                        : 'Account owner (default)'
+                                                }}
+                                            </p>
+                                            <Link
+                                                :href="editHref"
+                                                class="inline-flex text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+                                            >
+                                                Change on Edit event
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- ── LAYOUT BUILDER TAB ── -->
@@ -997,12 +1053,36 @@ async function removeEventAsset(row) {
                             <span class="text-sm font-semibold text-white">Actions</span>
                         </div>
                         <div class="p-4 space-y-2">
+                            <a
+                                v-if="publicShowcaseHref"
+                                :href="publicShowcaseHref"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
+                            >
+                                <span class="material-icons text-[18px]">open_in_new</span>
+                                Public event page
+                            </a>
+                            <p
+                                v-else
+                                class="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                                <span v-if="!record.active">Activate this event to enable the public page.</span>
+                                <span v-else>Public page URL is unavailable (missing event UUID).</span>
+                            </p>
                             <Link
                                 :href="editHref"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
                                 <span class="material-icons text-[18px]">edit</span>
                                 Edit Event
+                            </Link>
+                            <Link
+                                :href="route('boat-show-email-templates.index')"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            >
+                                <span class="material-icons text-[18px]">mail_outline</span>
+                                Follow-up email template
                             </Link>
                             <button
                                 type="button"

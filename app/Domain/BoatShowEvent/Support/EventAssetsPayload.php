@@ -5,6 +5,7 @@ namespace App\Domain\BoatShowEvent\Support;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent;
 use App\Domain\BoatShowEvent\Models\BoatShowEventAsset;
+use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Enums\Inventory\AssetType;
 
 final class EventAssetsPayload
@@ -65,6 +66,70 @@ final class EventAssetsPayload
             'engines' => $engines,
             'trailers' => $trailers,
         ];
+    }
+
+    /**
+     * Same grouping as {@see grouped()} with primary inventory image URL per asset (for public showcase).
+     *
+     * @return array{boats: array<int, array<string, mixed>>, engines: array<int, array<string, mixed>>, trailers: array<int, array<string, mixed>>}
+     */
+    public static function groupedForPublic(BoatShowEvent $event): array
+    {
+        $rows = $event->eventAssets()
+            ->with([
+                'asset.make',
+                'asset.specValues.definition',
+                'asset.images' => fn ($q) => $q->orderByDesc('is_primary')->orderBy('sort_order')->orderBy('id'),
+                'assetUnit.asset:id,display_name',
+            ])
+            ->orderBy('id')
+            ->get();
+
+        $boats = [];
+        $engines = [];
+        $trailers = [];
+
+        foreach ($rows as $link) {
+            $payload = self::serializeLinkForPublic($link);
+            $type = (int) $link->asset->type;
+            if ($type === AssetType::Boat->value) {
+                $boats[] = $payload;
+            } elseif ($type === AssetType::Engine->value) {
+                $engines[] = $payload;
+            } elseif ($type === AssetType::Trailer->value) {
+                $trailers[] = $payload;
+            }
+        }
+
+        return [
+            'boats' => $boats,
+            'engines' => $engines,
+            'trailers' => $trailers,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function serializeLinkForPublic(BoatShowEventAsset $link): array
+    {
+        $base = self::serializeLink($link);
+        $base['primary_image_url'] = self::primaryImageUrlForAsset($link->asset);
+
+        return $base;
+    }
+
+    private static function primaryImageUrlForAsset(Asset $asset): ?string
+    {
+        /** @var InventoryImage|null $img */
+        $img = $asset->images->firstWhere('is_primary', true)
+            ?? $asset->images->first();
+
+        if (! $img || ! $img->file) {
+            return null;
+        }
+
+        return $img->url;
     }
 
     /**

@@ -248,3 +248,7 @@ td.sticky {
         display: table-row-group;
     }
 }
+
+.dark .sm\:prose {
+    --tw-prose-bold: #ffffff;
+}

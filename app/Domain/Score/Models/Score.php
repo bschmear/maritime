@@ -22,10 +22,10 @@ class Score extends Model
 
     protected $casts = [
         'score_value' => 'decimal:2',
-        'weight'      => 'decimal:2',
-        'meta'        => 'array',
-        'is_current'  => 'boolean',
-        'user_id'     => 'integer',
+        'weight' => 'decimal:2',
+        'meta' => 'array',
+        'is_current' => 'boolean',
+        'user_id' => 'integer',
         'assigned_id' => 'integer',
     ];
 

@@ -30,10 +30,22 @@ class CreateBoatShowEvent
             'booth' => ['nullable', 'string', 'max:255'],
             'active' => ['sometimes', 'boolean'],
             'meta' => ['nullable', 'array'],
+            'auto_followup' => ['sometimes', 'boolean'],
+            'delay_amount' => ['sometimes', 'integer', 'min:0'],
+            'delay_unit' => ['sometimes', 'string', 'in:minutes,hours,days'],
+            'recipient_user_ids' => ['nullable', 'array'],
+            'recipient_user_ids.*' => ['integer', 'exists:users,id'],
+            'email_template_id' => ['nullable', 'integer', 'exists:email_templates,id'],
         ])->validate();
 
         if (! array_key_exists('active', $validated)) {
             $validated['active'] = true;
+        }
+
+        if (array_key_exists('recipient_user_ids', $validated)) {
+            $ids = array_values(array_unique(array_filter($validated['recipient_user_ids'] ?? [])));
+            $validated['recipients'] = $ids === [] ? null : ['user_ids' => $ids];
+            unset($validated['recipient_user_ids']);
         }
 
         try {

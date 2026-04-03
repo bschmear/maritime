@@ -1,58 +1,45 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\BoatShow\Models;
 
+use App\Domain\BoatShowEvent\Models\BoatShowEvent;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class BoatShowLead extends Model
 {
-    use SoftDeletes;
-
     protected $table = 'boat_show_leads';
 
     protected $fillable = [
+        'boat_show_id',
         'boat_show_event_id',
-        'contact_id',
-        'source',        // e.g., 'boat show', 'VIP invite'
-        'notes',
-        'status',
-        'assigned_to_id',
+        'leadable_type',
+        'leadable_id',
+        'captured_by_id',
+        'captured_at',
         'meta',
     ];
 
     protected $casts = [
+        'captured_at' => 'datetime',
         'meta' => 'array',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
-    |--------------------------------------------------------------------------
-    */
+    public function boatShow(): BelongsTo
+    {
+        return $this->belongsTo(BoatShow::class, 'boat_show_id');
+    }
 
     public function event(): BelongsTo
     {
-        return $this->belongsTo(
-            \App\Domain\BoatShowEvent\Models\BoatShowEvent::class,
-            'boat_show_event_id'
-        );
+        return $this->belongsTo(BoatShowEvent::class, 'boat_show_event_id');
     }
 
-    public function contact(): BelongsTo
+    public function leadable(): MorphTo
     {
-        return $this->belongsTo(
-            \App\Models\Contact::class,
-            'contact_id'
-        );
-    }
-
-    public function assignedTo(): BelongsTo
-    {
-        return $this->belongsTo(
-            \App\Models\User::class,
-            'assigned_to_id'
-        );
+        return $this->morphTo();
     }
 }

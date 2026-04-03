@@ -167,7 +167,8 @@ const secondaryNavItems = ref([
         name: 'Boat Shows',
         children: [
             { name: 'All Shows', href: 'boat-shows.index' },
-            { name: 'Events', href: 'boat-show-events.index' }
+            { name: 'Events', href: 'boat-show-events.index' },
+            { name: 'Follow-up emails', href: 'boat-show-email-templates.index' }
         ]
     },
 

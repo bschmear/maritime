@@ -10,6 +10,7 @@ use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\BoatMakeController;
+use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
 use App\Http\Controllers\Tenant\ContractController;
 use App\Http\Controllers\Tenant\CustomerController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OperationsController;
 use App\Http\Controllers\Tenant\OpportunityController;
 use App\Http\Controllers\Tenant\PortalAccessController;
+use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\RoleController;
@@ -104,6 +106,14 @@ Route::middleware([
 
     Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
     Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
+
+    Route::get('/boat-show-events/{uuid}/public', [PublicBoatShowEventController::class, 'showcase'])
+        ->name('boat-show-events.public.showcase');
+    Route::get('/boat-show-events/{uuid}/lead', [PublicBoatShowEventController::class, 'leadForm'])
+        ->name('boat-show-events.public.lead');
+    Route::post('/boat-show-events/{uuid}/lead', [PublicBoatShowEventController::class, 'leadStore'])
+        ->middleware('throttle:20,1')
+        ->name('boat-show-events.public.lead.store');
 
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
@@ -232,6 +242,12 @@ Route::middleware([
         });
 
         // ── Boat Shows ────────────────────────────────────────────────
+        Route::prefix('boat-show-email-templates')->name('boat-show-email-templates.')->group(function () {
+            Route::get('/', [BoatShowEmailTemplateController::class, 'index'])->name('index');
+            Route::put('{email_template}', [BoatShowEmailTemplateController::class, 'update'])->name('update');
+            Route::post('send-test', [BoatShowEmailTemplateController::class, 'sendTest'])->name('send-test');
+        });
+
         Route::prefix('boat-show-events')->name('boat-show-events.')->group(function () {
             Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
             Route::post('{event}/assets', [BoatShowEventAssetController::class, 'store'])->name('assets.store');

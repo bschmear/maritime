@@ -10,6 +10,7 @@ use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
@@ -685,6 +686,14 @@ class RecordController extends BaseController
         ]);
     }
 
+    /**
+     * Redirect after a successful Inertia update (subclasses may override).
+     */
+    protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
+    {
+        return back()->with('success', $this->domainName.' updated successfully');
+    }
+
     public function update(Request $request, $id, PublicStorage $publicStorage)
     {
         try {
@@ -815,7 +824,7 @@ class RecordController extends BaseController
                 }
 
                 // Inertia Response (Always redirect for Inertia requests)
-                return back()->with('success', $this->domainName.' updated successfully');
+                return $this->inertiaUpdateSuccessRedirect($request, $id);
             }
 
             // Handle business logic errors

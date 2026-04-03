@@ -11,8 +11,10 @@ use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\Checklist\Actions\SyncChecklist;
 use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 use App\Domain\Document\Models\Document;
+use App\Domain\User\Models\User;
 use App\Enums\Tasks\Priority;
 use App\Enums\Tasks\Status;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Response as InertiaResponse;
 
@@ -88,6 +90,34 @@ class BoatShowEventController extends RecordController
         return ['boatShow' => $show->getRouteKey()];
     }
 
+    /**
+     * @return list<array{id: int, name: string, email: string}>
+     */
+    protected function recipientUserOptions(): array
+    {
+        return User::query()
+            ->orderBy('display_name')
+            ->orderBy('first_name')
+            ->get(['id', 'display_name', 'first_name', 'last_name', 'email'])
+            ->map(function (User $u) {
+                $name = $u->display_name;
+                if ($name === null || $name === '') {
+                    $name = trim(implode(' ', array_filter([$u->first_name, $u->last_name])));
+                }
+                if ($name === '') {
+                    $name = (string) $u->email;
+                }
+
+                return [
+                    'id' => $u->id,
+                    'name' => $name,
+                    'email' => (string) $u->email,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     public function index(Request $request)
     {
         $this->recordType = $this->currentEventRoutePrefix();
@@ -160,6 +190,7 @@ class BoatShowEventController extends RecordController
             'extraRouteParams' => $this->eventExtraRouteParams(request()),
             'parentBoatShow' => $parentBoatShow,
             'boatShowOptions' => $boatShowOptions,
+            'recipientUserOptions' => $this->recipientUserOptions(),
         ]);
     }
 
@@ -313,6 +344,13 @@ class BoatShowEventController extends RecordController
 
             $layout = $event->layouts()->orderBy('id')->first();
 
+            $followUpSettings = [
+                'auto_followup' => (bool) $event->auto_followup,
+                'delay_amount' => (int) ($event->delay_amount ?? 1),
+                'delay_unit' => $event->delay_unit ?? 'days',
+                'recipient_user_count' => count($event->recipients['user_ids'] ?? []),
+            ];
+
             return $response
                 ->with('extraRouteParams', $this->eventExtraRouteParams($request))
                 ->with('checklist', $checklist)
@@ -323,6 +361,7 @@ class BoatShowEventController extends RecordController
                     'width_ft' => $layout ? (int) $layout->width_ft : 60,
                     'height_ft' => $layout ? (int) $layout->height_ft : 40,
                 ])
+                ->with('followUpSettings', $followUpSettings)
                 ->with($this->taskBoardInertiaProps());
         }
 
@@ -336,10 +375,25 @@ class BoatShowEventController extends RecordController
         $response = parent::edit($eventId);
 
         if ($response instanceof InertiaResponse) {
-            return $response->with('extraRouteParams', $this->eventExtraRouteParams(request()));
+            return $response
+                ->with('extraRouteParams', $this->eventExtraRouteParams(request()))
+                ->with('recipientUserOptions', $this->recipientUserOptions());
         }
 
         return $response;
+    }
+
+    protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
+    {
+        $event = RecordModel::query()->findOrFail($id);
+        $params = ['event' => $event->getRouteKey()];
+        if ($request->route('boatShow') !== null) {
+            $params['boatShow'] = $this->resolveBoatShow($request->route('boatShow'))->getRouteKey();
+        }
+
+        return redirect()
+            ->route($this->recordType.'.show', $params)
+            ->with('success', $this->domainName.' updated successfully');
     }
 
     public function update(Request $request, $id, PublicStorage $publicStorage)

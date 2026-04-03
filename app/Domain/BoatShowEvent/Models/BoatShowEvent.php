@@ -7,13 +7,15 @@ use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\BoatShowEvent\Support\EventAssetsPayload;
 use App\Domain\BoatShowLayout\Models\BoatShowLayout;
 use App\Domain\Checklist\Models\Checklist;
+use App\Domain\EmailTemplate\Models\EmailTemplate;
+use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\Task\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class BoatShowEvent extends Model
@@ -40,6 +42,11 @@ class BoatShowEvent extends Model
         'booth',
         'active',
         'meta',
+        'auto_followup',
+        'delay_amount',
+        'delay_unit',
+        'recipients',
+        'email_template_id',
     ];
 
     protected $casts = [
@@ -47,6 +54,9 @@ class BoatShowEvent extends Model
         'ends_at' => 'date',
         'active' => 'boolean',
         'meta' => 'array',
+        'auto_followup' => 'boolean',
+        'delay_amount' => 'integer',
+        'recipients' => 'array',
     ];
 
     protected static function booted()
@@ -55,10 +65,11 @@ class BoatShowEvent extends Model
             if (empty($record->uuid)) {
                 $record->uuid = (string) Str::uuid();
             }
-            // if (empty($record->sequence)) {
-            //     $next = (int) (DB::table('boat_show_events')->max('sequence') ?? 999);
-            //     $record->sequence = $next + 1;
-            // }
+            if ($record->email_template_id === null) {
+                $record->email_template_id = EmailTemplate::query()
+                    ->followUpTemplates()
+                    ->value('id');
+            }
         });
     }
 
@@ -90,6 +101,11 @@ class BoatShowEvent extends Model
     public function eventAssets(): HasMany
     {
         return $this->hasMany(BoatShowEventAsset::class, 'boat_show_event_id');
+    }
+
+    public function followUpEmailTemplate(): BelongsTo
+    {
+        return $this->belongsTo(EmailTemplate::class, 'email_template_id');
     }
 
     public function surveyResponses(): MorphMany

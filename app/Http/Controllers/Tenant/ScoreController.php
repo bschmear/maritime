@@ -1,28 +1,37 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Controller;
+use App\Domain\Score\Actions\CreateScore;
+use App\Domain\Score\Actions\DeleteScore;
+use App\Domain\Score\Actions\UpdateScore;
 use App\Domain\Score\Models\Score;
-use App\Domain\Lead\Models\Lead;
-use App\Domain\Contact\Models\Contact;
+use App\Domain\Score\Support\ScorableTypeResolver;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Response;
 
 class ScoreController extends Controller
 {
+    public function __construct(
+        private CreateScore $createScore,
+        private UpdateScore $updateScore,
+        private DeleteScore $deleteScore,
+    ) {}
+
     /**
      * Display a listing of scores.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = Score::query()
-            // ->where('team_id', Auth::user()->team_id)
             ->with('scorable');
 
         if ($request->has('scorable_type') && $request->has('scorable_id')) {
             $query->where('scorable_type', $request->scorable_type)
-                  ->where('scorable_id', $request->scorable_id);
+                ->where('scorable_id', $request->scorable_id);
         }
 
         return response()->json($query->paginate(25));
@@ -31,171 +40,46 @@ class ScoreController extends Controller
     /**
      * Store a newly created score.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $user = auth()->user();
-        // $team = $user->currentTeam;
-        // $subscription = $team->cachedActiveSubscription();
-
-        // Feature gating
-        // if ($subscription->level === 1) {
-        //     return response()->json(['message' => 'Lead scoring is not available on your plan.'], 403);
-        // }
 
         $validated = $request->validate([
-            'scorable_type' => 'required|string',
-            'scorable_id' => 'required|integer',
-            'score_type' => 'required|string|in:manual,behavior',
-            'score_value' => 'nullable|numeric',
-            'weight' => 'nullable|numeric',
-            'meta' => 'nullable|array',
-            'meta.breakdown' => 'nullable|array',
-            'meta.reason' => 'nullable|string',
-            'meta.stage' => 'nullable|string',
-            'meta.model_version' => 'nullable|string',
-            'meta.auto_generated' => 'nullable|boolean',
-            'meta.confidence' => 'nullable|numeric|between:0,1',
-            'meta.event_id' => 'nullable|integer',
-            'notes' => 'nullable|string|max:250',
+            'scorable_type' => ['required', 'string'],
+            'scorable_id' => ['required', 'integer'],
+            'score_type' => ['required', 'string', 'in:manual,behavior'],
+            'score_value' => ['nullable', 'numeric'],
+            'weight' => ['nullable', 'numeric'],
+            'meta' => ['nullable', 'array'],
+            'meta.breakdown' => ['nullable', 'array'],
+            'meta.reason' => ['nullable', 'string'],
+            'meta.stage' => ['nullable', 'string'],
+            'meta.model_version' => ['nullable', 'string'],
+            'meta.auto_generated' => ['nullable', 'boolean'],
+            'meta.confidence' => ['nullable', 'numeric', 'between:0,1'],
+            'meta.event_id' => ['nullable', 'integer'],
+            'notes' => ['nullable', 'string', 'max:250'],
         ]);
 
-        // Validate and map scorable_type to actual model classes
-        $allowedTypes = [
-            'Lead',
-            'Contact'
-        ];
+        $validated['user_id'] = $user?->id;
 
-        if (!in_array($validated['scorable_type'], $allowedTypes)) {
+        $result = ($this->createScore)($validated);
+
+        if (! ($result['success'] ?? false) || ! isset($result['record'])) {
             return response()->json([
-                'message' => 'The selected scorable type is invalid.',
-                'errors' => ['scorable_type' => ['The selected scorable type is invalid.']]
-            ], 422);
+                'message' => $result['message'] ?? 'Could not create score.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $modelMap = [
-            'Lead' => Lead::class,
-            'Contact' => Contact::class,
-        ];
-
-        $entityClass = $modelMap[$validated['scorable_type']] ?? null;
-
-        $entity = $entityClass::findOrFail($validated['scorable_id']);
-
-        // Tier 2: allow only one current score per type per entity
-        // if ($subscription->level === 2) {
-        //     if ($validated['score_type'] !== 'manual') {
-        //         return response()->json([
-        //             'message' => 'Only manual scoring is available on your plan.'
-        //         ], 403);
-        //     }
-
-        //     // Only allow ONE score total per entity (any type)
-        //     $existing = Score::where('scorable_type', $entityClass)
-        //         ->where('scorable_id', $entity->id)
-        //         ->count();
-
-        //     if ($existing >= 1) {
-        //         return response()->json([
-        //             'message' => 'Only one score allowed per record on your plan. Delete the existing score first or upgrade.'
-        //         ], 403);
-        //     }
-        // }
-
-        // Auto-calculate score_value from meta.breakdown if not provided
-        $scoreValue = $validated['score_value'] ?? null;
-        $meta = $validated['meta'] ?? [];
-
-        if ($scoreValue === null && isset($meta['breakdown']) && is_array($meta['breakdown'])) {
-            $scoreValue = $this->calculateScoreFromBreakdown($meta['breakdown']);
-        }
-
-        // Cap score at 100
-        if ($scoreValue !== null) {
-            $scoreValue = min($scoreValue, 100);
-        }
-
-        // Ensure default meta structure
-        $meta = array_merge([
-            'breakdown' => [],
-            'reason' => '',
-            'stage' => '',
-            'model_version' => '1.0',
-            'auto_generated' => false,
-            'confidence' => null,
-            'event_id' => null,
-        ], $meta);
-
-        // Mark previous scores of same type as not current before creating new one
-        Score::where('scorable_type', $entityClass)
-            ->where('scorable_id', $entity->id)
-            ->update(['is_current' => false]);
-
-        // Level 3: Enforce 5 historical limit (includes current)
-        // if ($subscription->level === 3) {
-            $totalScores = Score::where('scorable_type', $entityClass)
-                ->where('scorable_id', $entity->id)
-                ->where('score_type', $validated['score_type'])
-                ->count();
-
-            // If we already have 5, delete the oldest before creating the new one
-            if ($totalScores >= 5) {
-                Score::where('scorable_type', $entityClass)
-                    ->where('scorable_id', $entity->id)
-                    ->where('score_type', $validated['score_type'])
-                    ->where('is_current', false)
-                    ->orderBy('created_at', 'asc')
-                    ->first()
-                    ?->delete();
-            }
-        // }
-
-        $score = Score::create([
-            'user_id' => $user->id,
-            'assigned_id' => $entity->assigned_id ?? null,
-            'scorable_type' => $entityClass,
-            'scorable_id' => $entity->id,
-            'score_type' => $validated['score_type'],
-            'score_value' => $scoreValue ?? 0,
-            'weight' => $validated['weight'] ?? null,
-            'meta' => $meta,
-            'notes' => $validated['notes'] ?? null,
-            'is_current' => true,
-        ]);
-
-        // Update cached latest score on the entity
-        $this->updateLatestScoreCache($entity, $score);
-
-        return response()->json($score->load('scorable'), 201);
-    }
-
-    /**
-     * Calculate score from breakdown array.
-     * Breakdown format: [['component' => 'name', 'value' => 10], ...]
-     */
-    protected function calculateScoreFromBreakdown(array $breakdown): float
-    {
-        $total = 0;
-
-        foreach ($breakdown as $component) {
-            if (isset($component['value']) && is_numeric($component['value'])) {
-                $total += (float) $component['value'];
-            }
-        }
-
-        // Cap at 100 and round to 2 decimal places
-        return round(min($total, 100), 2);
+        return response()->json($result['record'], Response::HTTP_CREATED);
     }
 
     /**
      * Display a single score.
      */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
-        $score = Score::with('scorable')->findOrFail($id);
-
-        // if ($score->team_id !== Auth::user()->team_id) {
-        //     return response()->json(['message' => 'Unauthorized'], 403);
-        // }
+        $score = Score::query()->with('scorable')->findOrFail($id);
 
         return response()->json($score);
     }
@@ -203,154 +87,63 @@ class ScoreController extends Controller
     /**
      * Update an existing score.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): JsonResponse
     {
-        $score = Score::findOrFail($id);
+        $result = ($this->updateScore)((int) $id, $request->all());
 
-        $user = auth()->user();
-        // $team = $user->currentTeam;
-
-        // if ($score->team_id !== $team->id) {
-        //     return response()->json(['message' => 'Unauthorized'], 403);
-        // }
-
-        $validated = $request->validate([
-            'score_value' => 'sometimes|numeric',
-            'weight' => 'nullable|numeric',
-            'meta' => 'nullable|array',
-            'notes' => 'nullable|string|max:250',
-        ]);
-
-        $score->update($validated);
-
-        // Update cache if this is the current score
-        if ($score->is_current) {
-            $this->updateLatestScoreCache($score->scorable, $score);
+        if (! ($result['success'] ?? false) || ! isset($result['record'])) {
+            return response()->json([
+                'message' => $result['message'] ?? 'Could not update score.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return response()->json($score);
+        return response()->json($result['record']);
     }
 
     /**
      * Delete a score.
      */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
-        $score = Score::findOrFail($id);
-        $user = auth()->user();
-        // $team = $user->currentTeam;
+        $result = ($this->deleteScore)((int) $id);
 
-        // if ($score->team_id !== $team->id) {
-        //     return response()->json(['message' => 'Unauthorized'], 403);
-        // }
-
-        $entity = $score->scorable;
-        $wasCurrentScore = $score->is_current;
-
-        $score->delete();
-
-        // If we deleted the current score, update cache to next most recent score
-        if ($wasCurrentScore && $entity) {
-            $nextScore = Score::where('scorable_type', get_class($entity))
-                ->where('scorable_id', $entity->id)
-                ->orderBy('created_at', 'desc')
-                ->first();
-
-            if ($nextScore) {
-                // Mark the next most recent as current
-                $nextScore->update(['is_current' => true]);
-                $this->updateLatestScoreCache($entity, $nextScore);
-            } else {
-                // No scores left, clear the cache
-                $this->updateLatestScoreCache($entity, null);
-            }
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'message' => $result['message'] ?? 'Could not delete score.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        return response()->json(['message' => 'Score deleted successfully.']);
+        return response()->json(['message' => $result['message'] ?? 'Score deleted successfully.']);
     }
 
     /**
      * Calculate behavioral score for an entity.
      */
-    public function calculate(Request $request)
+    public function calculate(Request $request): JsonResponse
     {
-        $user = auth()->user();
-        // $team = $user->currentTeam;
-        // $subscription = $team->cachedActiveSubscription();
-
-        // Feature gating - temporarily disabled
-        // if ($subscription->level === 1) {
-        //     return response()->json(['message' => 'Lead scoring is not available on your plan.'], 403);
-        // }
-
-        // if ($subscription->level <= 2) {
-        //     return response()->json([
-        //         'message' => 'Behavioral scoring is not available on your plan.'
-        //     ], 403);
-        // }
-
         $validated = $request->validate([
-            'scorable_type' => 'required|string',
-            'scorable_id' => 'required|integer',
-            'update_current' => 'sometimes|boolean', // Whether to update current score or create new
+            'scorable_type' => ['required', 'string'],
+            'scorable_id' => ['required', 'integer'],
+            'update_current' => ['sometimes', 'boolean'],
         ]);
 
-        // Validate and map scorable_type to actual model classes
-        $allowedTypes = [
-            'Lead',
-            'Contact'
-        ];
-
-        if (!in_array($validated['scorable_type'], $allowedTypes)) {
+        $entityClass = ScorableTypeResolver::toClass($validated['scorable_type']);
+        if ($entityClass === null) {
             return response()->json([
                 'message' => 'The selected scorable type is invalid.',
-                'errors' => ['scorable_type' => ['The selected scorable type is invalid.']]
-            ], 422);
+                'errors' => ['scorable_type' => ['The selected scorable type is invalid.']],
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $modelMap = [
-            'App\\Domain\\Lead\\Models\\Lead' => Lead::class,
-            'App\\Domain\\Contact\\Models\\Contact' => Contact::class,
-        ];
-
-        $entityClass = $modelMap[$validated['scorable_type']] ?? null;
-
-        $entity = $entityClass::findOrFail($validated['scorable_id']);
-
-        // Check team access - temporarily disabled
-        // if ($entity->team_id !== $team->id) {
-        //     return response()->json(['message' => 'Unauthorized'], 403);
-        // }
+        $entity = $entityClass::query()->findOrFail($validated['scorable_id']);
 
         $updateCurrent = $validated['update_current'] ?? false;
 
-        // For now, return a simple success response
-        // TODO: Implement actual score calculation logic
         return response()->json([
             'message' => 'Score calculation not yet implemented',
             'scorable_type' => $validated['scorable_type'],
-            'scorable_id' => $validated['scorable_id'],
-            'update_current' => $updateCurrent
-        ], 200);
-    }
-
-    /**
-     * Update the cached latest_score on the entity.
-     */
-    protected function updateLatestScoreCache($entity, $score = null)
-    {
-        if (!$entity) return;
-
-        if ($score) {
-            $entity->update([
-                'latest_score_id' => $score->id,
-                'latest_score' => $score->score_value,
-            ]);
-        } else {
-            $entity->update([
-                'latest_score_id' => null,
-                'latest_score' => null,
-            ]);
-        }
+            'scorable_id' => $entity->getKey(),
+            'update_current' => $updateCurrent,
+        ]);
     }
 }
