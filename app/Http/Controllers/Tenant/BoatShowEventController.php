@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
 use App\Domain\BoatShow\Models\BoatShow;
+use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\BoatShowEvent\Actions\CreateBoatShowEvent as CreateAction;
 use App\Domain\BoatShowEvent\Actions\DeleteBoatShowEvent as DeleteAction;
 use App\Domain\BoatShowEvent\Actions\UpdateBoatShowEvent as UpdateAction;
@@ -11,6 +12,7 @@ use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\Checklist\Actions\SyncChecklist;
 use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 use App\Domain\Document\Models\Document;
+use App\Domain\Lead\Models\Lead;
 use App\Domain\User\Models\User;
 use App\Enums\Tasks\Priority;
 use App\Enums\Tasks\Status;
@@ -311,6 +313,10 @@ class BoatShowEventController extends RecordController
                     ])
                         ->orderByRaw('case when due_date is null then 1 else 0 end')
                         ->orderBy('due_date'),
+                    'leads' => fn ($q) => $q
+                        ->orderByDesc('captured_at')
+                        ->orderByDesc('id'),
+                    'leads.leadable',
                 ])
                 ->findOrFail($eventId);
 
@@ -351,11 +357,35 @@ class BoatShowEventController extends RecordController
                 'recipient_user_count' => count($event->recipients['user_ids'] ?? []),
             ];
 
+            $eventLeads = $event->leads
+                ->map(static function (BoatShowLead $row): array {
+                    $lead = $row->leadable;
+                    $leadPayload = null;
+                    if ($lead instanceof Lead) {
+                        $leadPayload = [
+                            'id' => $lead->id,
+                            'display_name' => $lead->display_name,
+                            'email' => $lead->email,
+                            'phone' => $lead->phone,
+                        ];
+                    }
+
+                    return [
+                        'id' => $row->id,
+                        'captured_at' => $row->captured_at?->toIso8601String(),
+                        'meta' => $row->meta,
+                        'lead' => $leadPayload,
+                    ];
+                })
+                ->values()
+                ->all();
+
             return $response
                 ->with('extraRouteParams', $this->eventExtraRouteParams($request))
                 ->with('checklist', $checklist)
                 ->with('checklistTemplates', $checklistTemplates)
                 ->with('tasks', $event->tasks)
+                ->with('eventLeads', $eventLeads)
                 ->with('assets', $event->assetsGroupedForInertia())
                 ->with('layoutSpace', [
                     'width_ft' => $layout ? (int) $layout->width_ft : 60,

@@ -187,5 +187,13 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Communications",
+      "domain": "Communication",
+      "modelRelationship": "communications",
+      "sublistKind": "morphCommunication"
+    }
+  ]
 }

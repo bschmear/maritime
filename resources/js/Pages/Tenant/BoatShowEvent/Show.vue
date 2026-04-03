@@ -37,6 +37,8 @@ const props = defineProps({
     },
     checklistTemplates: { type: Array, default: () => [] },
     tasks: { type: Array, default: () => [] },
+    /** Captured boat-show leads for this event (from boat_show_leads + linked CRM lead). */
+    eventLeads: { type: Array, default: () => [] },
     taskStatusOptions: { type: Array, default: () => [] },
     taskBoardFormSchema: { type: Object, default: null },
     taskBoardFieldsSchema: { type: Object, default: () => ({}) },
@@ -98,11 +100,12 @@ const breadcrumbItems = computed(() => {
 
 // ── Tabs ────────────────────────────────────────────────────────
 const tabs = [
-    { key: 'details',   label: 'Details',         icon: 'info' },
-    { key: 'layout',    label: 'Layout Builder',  icon: 'dashboard_customize' },
-    { key: 'checklist', label: 'Checklist',        icon: 'checklist' },
-    { key: 'tasks',     label: 'Tasks',            icon: 'task_alt' },
-    { key: 'assets',    label: 'Asset List',       icon: 'directions_boat' },
+    { key: 'details',     label: 'Details',         icon: 'info' },
+    { key: 'layout',      label: 'Layout Builder',  icon: 'dashboard_customize' },
+    { key: 'checklist',   label: 'Checklist',        icon: 'checklist' },
+    { key: 'tasks',       label: 'Tasks',            icon: 'task_alt' },
+    { key: 'event_leads', label: 'Event leads',     icon: 'contact_mail' },
+    { key: 'assets',      label: 'Asset List',       icon: 'directions_boat' },
 ];
 
 const totalAssets = computed(() =>
@@ -124,6 +127,13 @@ const formatDate = (val) => {
 const formatDateShort = (val) => {
     if (!val) return null;
     return new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatDateTime = (val) => {
+    if (!val) return '—';
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
 const dateRange = computed(() => {
@@ -574,6 +584,12 @@ async function removeEventAsset(row) {
                                     {{ tasks.length }}
                                 </span>
                                 <span
+                                    v-if="tab.key === 'event_leads'"
+                                    class="ml-1 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                                >
+                                    {{ eventLeads.length }}
+                                </span>
+                                <span
                                     v-if="tab.key === 'assets'"
                                     class="ml-1 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300"
                                 >
@@ -823,6 +839,70 @@ async function removeEventAsset(row) {
                             <p v-else class="text-sm text-gray-500 dark:text-gray-400">
                                 Task board is not configured for this page.
                             </p>
+                        </div>
+
+                        <!-- ── EVENT LEADS TAB ── -->
+                        <div v-show="activeTab === 'event_leads'" class="p-6">
+                            <div class="mb-5">
+                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Event leads</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Leads captured from the public event form or linked to this event.
+                                </p>
+                            </div>
+
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left text-sm text-gray-900 dark:text-white">
+                                        <thead class="bg-gray-50/60 dark:bg-gray-700/30 text-xs uppercase text-gray-500 dark:text-gray-400">
+                                            <tr>
+                                                <th class="px-4 py-3 font-semibold">Lead</th>
+                                                <th class="px-4 py-3 font-semibold">Email</th>
+                                                <th class="px-4 py-3 font-semibold">Phone</th>
+                                                <th class="px-4 py-3 font-semibold">Captured</th>
+                                                <th class="px-4 py-3 font-semibold text-right w-28">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                v-for="row in eventLeads"
+                                                :key="row.id"
+                                                class="border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors"
+                                            >
+                                                <td class="px-4 py-3 font-medium">
+                                                    <template v-if="row.lead">
+                                                        {{ row.lead.display_name || '—' }}
+                                                    </template>
+                                                    <span v-else class="text-gray-400 dark:text-gray-500 italic">Lead record removed</span>
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                                    {{ row.lead?.email || '—' }}
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                                    {{ row.lead?.phone || '—' }}
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                                                    {{ formatDateTime(row.captured_at) }}
+                                                </td>
+                                                <td class="px-4 py-3 text-right whitespace-nowrap">
+                                                    <Link
+                                                        v-if="row.lead?.id"
+                                                        :href="route('leads.show', row.lead.id)"
+                                                        class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium"
+                                                    >
+                                                        View lead
+                                                    </Link>
+                                                    <span v-else class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                                </td>
+                                            </tr>
+                                            <tr v-if="!eventLeads.length">
+                                                <td colspan="5" class="px-4 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
+                                                    No leads captured for this event yet.
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- ── ASSET LIST TAB ── -->

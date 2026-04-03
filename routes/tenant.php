@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
+use App\Http\Controllers\Tenant\CommunicationController;
 use App\Http\Controllers\Tenant\ContractController;
 use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\DashboardController;
@@ -142,6 +143,13 @@ Route::middleware([
             Route::get('/{id}', [ScoreController::class, 'show'])->name('scoresShow');
             Route::put('/{id}', [ScoreController::class, 'update'])->name('scoresUpdate');
             Route::delete('/{id}', [ScoreController::class, 'destroy'])->name('scoresDestroy');
+        });
+
+        Route::prefix('communications')->name('communications.')->group(function () {
+            Route::get('/recorditems', [CommunicationController::class, 'recorditems'])->name('recorditems');
+            Route::post('/store', [CommunicationController::class, 'store'])->name('store');
+            Route::put('/update', [CommunicationController::class, 'update'])->name('update');
+            Route::delete('/destroy', [CommunicationController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('qualifications')->name('qualifications.')->group(function () {

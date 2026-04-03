@@ -12,6 +12,12 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
+/**
+ * Immediate "new boat show lead" alert (boat-show-lead-submitted view).
+ * Sent to the event's Notify users (recipients.user_ids), or the central account owner if none.
+ * Opt out with config('boat_show.send_immediate_owner_lead_notification') = false.
+ * Visitor templated outreach: {@see SendBoatShowEventFollowUpJob} (boat_show_event_followup).
+ */
 class BoatShowLeadSubmitted extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
@@ -28,17 +34,12 @@ class BoatShowLeadSubmitted extends Mailable implements ShouldQueue
         public array $interestedAssets,
         public AccountSettings $account,
         public string $tenantLabel,
-        public bool $isOwnerCopy = true,
     ) {}
 
     public function envelope(): Envelope
     {
-        $subject = $this->isOwnerCopy
-            ? "New boat show lead: {$this->leadFullName} — {$this->eventName}"
-            : "We received your interest — {$this->eventName}";
-
         return new Envelope(
-            subject: $subject,
+            subject: "New boat show lead: {$this->leadFullName} — {$this->eventName}",
         );
     }
 
@@ -55,7 +56,6 @@ class BoatShowLeadSubmitted extends Mailable implements ShouldQueue
                 'interestedAssets' => $this->interestedAssets,
                 'account' => $this->account,
                 'tenantLabel' => $this->tenantLabel,
-                'isOwnerCopy' => $this->isOwnerCopy,
             ],
         );
     }

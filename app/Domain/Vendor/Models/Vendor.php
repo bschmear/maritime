@@ -3,13 +3,14 @@
 namespace App\Domain\Vendor\Models;
 
 use App\Domain\Task\Models\Task;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
 
 class Vendor extends Model
 {
     use HasDocuments;
+
     /**
      * The attributes that aren't mass assignable.
      *
@@ -60,7 +61,7 @@ class Vendor extends Model
     protected function contactFullName(): Attribute
     {
         return Attribute::make(
-            get: fn () => trim($this->contact_first_name . ' ' . $this->contact_last_name)
+            get: fn () => trim($this->contact_first_name.' '.$this->contact_last_name)
         );
     }
 
@@ -78,5 +79,11 @@ class Vendor extends Model
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');
+    }
+
+    public function communications()
+    {
+        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+            ->orderByDesc('created_at');
     }
 }

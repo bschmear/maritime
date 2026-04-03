@@ -170,6 +170,12 @@
       "label": "Qualifications",
       "domain": "Qualification",
       "modelRelationship": "qualitifications"
+    },
+    {
+      "label": "Communications",
+      "domain": "Communication",
+      "modelRelationship": "communications",
+      "sublistKind": "morphCommunication"
     }
   ]
 }

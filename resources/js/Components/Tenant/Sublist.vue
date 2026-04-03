@@ -4,6 +4,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
+import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
 import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
@@ -314,6 +315,7 @@ const applyFilters = (filters) => {
     if (activeTab.value 
         && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
         && activeTab.value.domain !== 'Document' 
+        && activeTab.value.sublistKind !== 'morphCommunication'
         && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
         fetchSublistData(activeTab.value);
     }
@@ -732,6 +734,10 @@ const handleTabChange = async (sublist) => {
         return;
     }
 
+    if (sublist.sublistKind === 'morphCommunication') {
+        return;
+    }
+
     // For document relationships, skip schema loading and just fetch data
     if (sublist.domain === 'Document') {
         fetchSublistData(sublist);
@@ -959,7 +965,8 @@ const handleSublistItemCreated = async (recordId) => {
         // Refetch data for regular sublists (skip for image galleries and documents)
         if (activeTab.value 
             && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
-            && activeTab.value.domain !== 'Document') {
+            && activeTab.value.domain !== 'Document'
+            && activeTab.value.sublistKind !== 'morphCommunication') {
             fetchSublistData(activeTab.value);
         }
     }
@@ -1095,6 +1102,7 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         if (activeTab.value 
             && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
             && activeTab.value.domain !== 'Document' 
+            && activeTab.value.sublistKind !== 'morphCommunication'
             && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
             await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
         }
@@ -1194,6 +1202,14 @@ onMounted(() => {
                         :parent-id="parentRecord.id"
                         :parent-type="parentDomain"
                         @update:model-value="sublistData = $event"
+                    />
+                </div>
+
+                <!-- Polymorphic communications (Lead / Customer / Vendor) -->
+                <div v-else-if="activeTab?.sublistKind === 'morphCommunication'" class="p-4 sm:p-5">
+                    <CommunicationPanel
+                        :recid="parentRecord.id"
+                        :parent-domain="parentDomain"
                     />
                 </div>
                 
@@ -1435,7 +1451,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Empty State (for regular sublists only) -->
-                <div v-else-if="!isLoadingSublist && !(activeTab?.modelRelationship && activeTab?.domain === 'InventoryImage') && activeTab?.domain !== 'Document'" class="text-center py-8">
+                <div v-else-if="!isLoadingSublist && !(activeTab?.modelRelationship && activeTab?.domain === 'InventoryImage') && activeTab?.domain !== 'Document' && activeTab?.sublistKind !== 'morphCommunication'" class="text-center py-8">
                     <div class="text-gray-500 dark:text-gray-400 mb-4">
                         No {{ activeTab?.label || 'records' }} found.
                     </div>

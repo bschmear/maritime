@@ -178,6 +178,12 @@
       "label": "Estimates",
       "domain": "Estimate",
       "modelRelationship": "estimates"
+    },
+    {
+      "label": "Communications",
+      "domain": "Communication",
+      "modelRelationship": "communications",
+      "sublistKind": "morphCommunication"
     }
   ]
 }

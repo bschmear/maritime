@@ -2,12 +2,12 @@
 
 namespace App\Domain\Customer\Models;
 
-use App\Domain\Task\Models\Task;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\PortalAccess\Models\PortalAccess;
+use App\Domain\Task\Models\Task;
+use App\Models\Concerns\HasDocuments;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Models\Concerns\HasDocuments;
 
 class Customer extends Authenticatable
 {
@@ -41,7 +41,7 @@ class Customer extends Authenticatable
 
     public function hasPortalAccount(): bool
     {
-        return !is_null($this->password);
+        return ! is_null($this->password);
     }
 
     public function tasks()
@@ -79,7 +79,6 @@ class Customer extends Authenticatable
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
     }
 
-
     public function created_by_user()
     {
         return $this->belongsTo(User::class, 'created_by_user_id')->select('id', 'display_name');
@@ -114,5 +113,11 @@ class Customer extends Authenticatable
     public function portalAccesses()
     {
         return $this->hasMany(PortalAccess::class);
+    }
+
+    public function communications()
+    {
+        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+            ->orderByDesc('created_at');
     }
 }

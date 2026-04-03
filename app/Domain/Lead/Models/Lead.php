@@ -2,12 +2,13 @@
 
 namespace App\Domain\Lead\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use App\Domain\Task\Models\Task;
-use App\Domain\User\Models\User;
+use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Qualification\Models\Qualification;
+use App\Domain\Task\Models\Task;
+use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
 
 class Lead extends Model
 {
@@ -51,6 +52,16 @@ class Lead extends Model
         'created_at',
         'updated_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Lead $lead): void {
+            BoatShowLead::query()
+                ->where('leadable_type', $lead->getMorphClass())
+                ->where('leadable_id', $lead->getKey())
+                ->delete();
+        });
+    }
 
     public function tasks()
     {
@@ -99,5 +110,11 @@ class Lead extends Model
     public function latestScore()
     {
         return $this->belongsTo(\App\Domain\Score\Models\Score::class, 'latest_score_id');
+    }
+
+    public function communications()
+    {
+        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+            ->orderByDesc('created_at');
     }
 }

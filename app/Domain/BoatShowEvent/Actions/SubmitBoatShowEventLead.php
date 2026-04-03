@@ -6,6 +6,7 @@ namespace App\Domain\BoatShowEvent\Actions;
 
 use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent;
+use App\Domain\BoatShowEvent\Support\BoatShowFollowUpScheduler;
 use App\Domain\BoatShowEvent\Support\TenantAccountOwnerSalesperson;
 use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Models\Lead;
@@ -79,7 +80,29 @@ class SubmitBoatShowEventLead
             'marketing_opt_in' => (bool) ($validated['marketing_opt_in'] ?? false),
         ];
 
-        return DB::transaction(function () use ($leadPayload, $requestedAssetIds, $event, $salesperson, $eventLabel) {
+        $breakdown = [
+            ['component' => 'boat_show_lead', 'value' => 25],
+        ];
+
+        if (! empty($validated['email'])) {
+            $breakdown[] = ['component' => 'has_email', 'value' => 10];
+        }
+
+        if (! empty($validated['phone'])) {
+            $breakdown[] = ['component' => 'has_phone', 'value' => 8];
+        }
+
+        if (! empty($requestedAssetIds)) {
+            $breakdown[] = ['component' => 'selected_assets', 'value' => 10];
+        }
+
+        if (! empty($validated['marketing_opt_in'])) {
+            $breakdown[] = ['component' => 'marketing_opt_in', 'value' => 5];
+        }
+
+        $totalScore = array_sum(array_column($breakdown, 'value'));
+
+        $result = DB::transaction(function () use ($leadPayload, $requestedAssetIds, $event, $salesperson, $eventLabel, $totalScore) {
             $leadResult = ($this->createLead)($leadPayload);
             if (! ($leadResult['success'] ?? false) || ! isset($leadResult['record'])) {
                 throw new \RuntimeException($leadResult['message'] ?? 'Could not create lead.');
@@ -104,10 +127,10 @@ class SubmitBoatShowEventLead
                 'scorable_type' => Lead::class,
                 'scorable_id' => $lead->getKey(),
                 'user_id' => $salesperson->id,
-                'score_type' => 'behavior',
+                'score_type' => 'manual',
                 'meta' => [
                     'breakdown' => [
-                        ['component' => 'boat_show_lead', 'value' => 15],
+                        ['component' => 'boat_show_lead', 'value' => $totalScore],
                     ],
                     'reason' => 'Public boat show lead form submission',
                     'auto_generated' => true,
@@ -124,5 +147,14 @@ class SubmitBoatShowEventLead
                 'lead_id' => $lead->id,
             ];
         });
+
+        if (($result['success'] ?? false) && isset($result['lead_id'])) {
+            $lead = Lead::query()->find($result['lead_id']);
+            if ($lead) {
+                BoatShowFollowUpScheduler::scheduleIfApplicable($event, $lead);
+            }
+        }
+
+        return $result;
     }
 }

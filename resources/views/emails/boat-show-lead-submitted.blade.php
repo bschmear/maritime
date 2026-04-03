@@ -1,9 +1,10 @@
+{{-- Instant staff alert: event Notify users (recipients.user_ids), else central account owner. Visitor: scheduled boat_show_event_followup. --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boat show lead</title>
+    <title>New boat show lead</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 24px; border-radius: 10px 10px 0 0; }
@@ -14,23 +15,11 @@
 </head>
 <body>
     <div class="header">
-        <h1 style="margin:0;font-size:20px;">
-            @if($isOwnerCopy)
-                New boat show lead
-            @else
-                Thank you for your interest
-            @endif
-        </h1>
+        <h1 style="margin:0;font-size:20px;">New boat show lead</h1>
         <p style="margin:8px 0 0;font-size:15px;opacity:.95;">{{ $eventName }}</p>
     </div>
     <div class="content">
-        @if($isOwnerCopy)
-            <p><strong>{{ $leadFullName }}</strong> submitted interest from the public boat show page.</p>
-        @else
-            <p>Hi {{ $leadFullName }},</p>
-            <p>We received your submission for <strong>{{ $eventName }}</strong>. A member of our team will follow up with you.</p>
-        @endif
-
+        <p><strong>{{ $leadFullName }}</strong> submitted interest from the public boat show page.</p>
         <p><strong>Contact</strong><br>
             @if($leadEmail) Email: {{ $leadEmail }}<br>@endif
             @if($leadPhone) Phone: {{ $leadPhone }}<br>@endif
