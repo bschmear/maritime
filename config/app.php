@@ -14,6 +14,10 @@ return [
     */
 
     'name' => env('APP_NAME', 'Laravel'),
+    /*
+    | Public legal links (e.g. boat show pages). Override with APP_TERMS_URL; defaults to {APP_URL}/terms.
+    */
+    'terms_url' => env('APP_TERMS_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/terms'),
     'env' => env('APP_ENV', 'production'),
     'debug' => (bool) env('APP_DEBUG', false),
     'url' => env('APP_URL', 'http://localhost'),

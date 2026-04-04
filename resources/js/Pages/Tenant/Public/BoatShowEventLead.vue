@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import PublicBrandingFooter from '../../../Components/Tenant/Public/PublicBrandingFooter.vue';
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -10,6 +11,11 @@ const props = defineProps({
     },
     account: { type: Object, default: null },
     logoUrl: { type: String, default: null },
+    /** Asset IDs to pre-check (e.g. from ?asset=123 on the lead URL). */
+    preselectedAssetIds: { type: Array, default: () => [] },
+    brandingAppName: { type: String, required: true },
+    brandingAppUrl: { type: String, required: true },
+    brandingTermsUrl: { type: String, default: null },
 });
 
 const allRows = computed(() => {
@@ -17,8 +23,13 @@ const allRows = computed(() => {
     return [...boats, ...engines, ...trailers];
 });
 
-const selectedIds = ref([]);
-const submitted   = ref(false);
+const initialSelected = [...new Set(
+    (props.preselectedAssetIds ?? [])
+        .map((id) => Number(id))
+        .filter((n) => !Number.isNaN(n) && n > 0),
+)];
+const selectedIds = ref(initialSelected);
+const submitted = ref(false);
 
 function buildLeadNotes() {
     const showName = props.event.boat_show?.display_name ?? '—';
@@ -79,7 +90,7 @@ const resetForm = () => {
 
 <template>
     <Head :title="`Lead — ${event.display_name ?? 'Boat show'}`" />
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div id="boat-show-public-print-root" class="min-h-screen bg-gray-50 dark:bg-gray-900">
         <header class="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
             <div class="mx-auto flex max-w-2xl flex-col items-center gap-4 px-4 py-8">
                 <img v-if="logoUrl" :src="logoUrl" alt="" class="max-h-14 w-auto object-contain" />
@@ -88,11 +99,19 @@ const resetForm = () => {
                         {{ event.display_name }}
                     </h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Tell us how we can help</p>
+                    <a
+                        v-if="!submitted"
+                        :href="route('boat-show-events.public.showcase', { uuid: event.uuid })"
+                        class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                        <span class="material-icons text-base leading-none">arrow_back</span>
+                        Back to event page
+                    </a>
                 </div>
             </div>
         </header>
 
-        <main class="mx-auto max-w-2xl px-4 py-8">
+        <main class="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
 
             <!-- Success / Thank You State -->
             <div v-if="submitted" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-8 text-center space-y-6">
@@ -222,5 +241,11 @@ const resetForm = () => {
                 </form>
             </template>
         </main>
+
+        <PublicBrandingFooter
+            :app-name="brandingAppName"
+            :app-url="brandingAppUrl"
+            :terms-url="brandingTermsUrl"
+        />
     </div>
 </template>

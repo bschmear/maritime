@@ -110,6 +110,11 @@ Route::middleware([
 
     Route::get('/boat-show-events/{uuid}/public', [PublicBoatShowEventController::class, 'showcase'])
         ->name('boat-show-events.public.showcase');
+    Route::get('/boat-show-events/{uuid}/print', [PublicBoatShowEventController::class, 'printFlyer'])
+        ->name('boat-show-events.public.print');
+    Route::get('/boat-show-events/{uuid}/assets/{asset}', [PublicBoatShowEventController::class, 'assetShow'])
+        ->whereNumber('asset')
+        ->name('boat-show-events.public.asset');
     Route::get('/boat-show-events/{uuid}/lead', [PublicBoatShowEventController::class, 'leadForm'])
         ->name('boat-show-events.public.lead');
     Route::post('/boat-show-events/{uuid}/lead', [PublicBoatShowEventController::class, 'leadStore'])

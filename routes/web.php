@@ -16,6 +16,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Middleware\EnsureKioskAdmin;
 use App\Http\Controllers\BlogController;
+use App\Http\Controllers\PageController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -45,6 +46,10 @@ Route::get('/blog', [BlogController::class, 'index'])->name('blog');
 Route::get('/blog/category', [BlogController::class, 'category'])->name('blogCategory');
 Route::get('/blog/tag', [BlogController::class, 'tag'])->name('blogTag');
 Route::get('/blog/{slug}', [BlogController::class, 'post'])->name('blogPostShow');
+
+
+Route::get('/terms', [PageController::class, 'terms'])->name('terms');
+Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy');
 
 // Checkout Routes
 // Route::middleware('guest')->group(function () {

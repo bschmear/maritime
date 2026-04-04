@@ -203,7 +203,9 @@ td.sticky {
     }
 
     #contract-print-root,
-    #contract-print-root * {
+    #contract-print-root *,
+    #boat-show-public-print-root,
+    #boat-show-public-print-root * {
         visibility: visible;
     }
 

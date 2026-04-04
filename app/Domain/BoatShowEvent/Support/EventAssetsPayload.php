@@ -109,6 +109,76 @@ final class EventAssetsPayload
     }
 
     /**
+     * Full public listing payload for one asset linked to the event (gallery, description, specs).
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function detailForPublic(BoatShowEvent $event, int $assetId): ?array
+    {
+        $link = BoatShowEventAsset::query()
+            ->where('boat_show_event_id', $event->id)
+            ->where('asset_id', $assetId)
+            ->with([
+                'asset.make',
+                'asset.specValues.definition',
+                'asset.images' => fn ($q) => $q->orderByDesc('is_primary')->orderBy('sort_order')->orderBy('id'),
+                'assetUnit.asset:id,display_name',
+            ])
+            ->first();
+
+        if ($link === null || $link->asset === null) {
+            return null;
+        }
+
+        $base = self::serializeLinkForPublic($link);
+        $asset = $link->asset;
+
+        $gallery = [];
+        foreach ($asset->images as $img) {
+            if (! $img->file) {
+                continue;
+            }
+            $gallery[] = [
+                'url' => $img->url,
+                'alt' => $img->display_name ?: $asset->display_name,
+            ];
+        }
+
+        $specs = [];
+        foreach ($asset->specValues as $sv) {
+            $def = $sv->definition;
+            if ($def === null) {
+                continue;
+            }
+            $raw = $sv->value_number ?? $sv->value_text ?? $sv->value_boolean;
+            if ($raw === null || $raw === '') {
+                continue;
+            }
+            if (is_bool($raw)) {
+                $valueStr = $raw ? 'Yes' : 'No';
+            } elseif (is_numeric($raw)) {
+                $valueStr = (string) $raw;
+            } else {
+                $valueStr = (string) $raw;
+            }
+            if ($sv->unit) {
+                $valueStr .= ' '.$sv->unit;
+            }
+            $label = $def->label !== null && $def->label !== '' ? $def->label : ($def->key ?? 'Spec');
+            $specs[] = [
+                'label' => $label,
+                'value' => $valueStr,
+            ];
+        }
+
+        $base['description'] = $asset->description;
+        $base['image_gallery'] = $gallery;
+        $base['specs'] = $specs;
+
+        return $base;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function serializeLinkForPublic(BoatShowEventAsset $link): array
