@@ -1,0 +1,416 @@
+{
+  "wb-22": {
+    "series": "Walker Bay 22",
+    "type_display": "Luxury Sport & Recreation RIB Runabout",
+    "boat_type_key": "runabouts",
+    "description": "The Walker Bay 22 is a luxury RIB runabout boat with a bold and elegant design. It is an impressive combination of luxury and sporty versatility. The unique hull design offers impressive performance and smooth handling for a boat of its size. What truly sets the 22 apart is the incredible comfort, roomy layout and impressive features. With seating for up to 12 passengers, the Walker Bay 22 is the perfect runabout boat for longer excursions as well as entertaining family and friends. There is no limit to what you can do with the Walker Bay 22.",
+    "specifications": {
+      "length": "21' 8\"",
+      "width": "9' 5\"",
+      "height": null,
+      "weight": "2,357 lbs",
+      "capacity_persons": 12,
+      "max_hp": "225hp",
+      "fuel_capacity": "65 gal"
+    },
+    "features": [
+      "Orca CSM® Tube Material",
+      "5 Air Chambers",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole"
+    ]
+  },
+  "g15": {
+    "series": "G-Series",
+    "type_display": "Luxury Outboard Console Tender",
+    "boat_type_key": "tenders",
+    "description": "The all-new G15 is the world’s best 15′ luxury outboard console tender and is the most sophisticated RIB Walker Bay has ever made. It features a unique V-Hull design for a smoother, drier ride and a console designed for a more comfortable driving experience. The contoured shape provides plenty of legroom while the bolstered seat allows for easy navigation from either a seated or standing position, setting the G15 apart from all other 15′ tenders.",
+    "specifications": {
+      "length": "15' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Contoured console for increased legroom",
+      "Bolstered seat for seated or standing operation",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole"
+    ]
+  },
+  "g12": {
+    "series": "G-Series",
+    "type_display": "Luxury Performance Rigid Inflatable Boat",
+    "boat_type_key": "tenders",
+    "description": "The G12 is a luxury performance rigid inflatable boat designed to deliver a truly exceptional boating experience. By combining the agility and handling of a small vessel with the high performance and capability usually found in a much larger RIB, the G12 stands at the forefront of innovation. It features a unique V-Hull design for a smoother ride and an ergonomic layout that emphasizes space and comfort for both the driver and passengers, making it a premier choice for a luxury yacht tender.",
+    "specifications": {
+      "length": "12' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Ergonomic console and seating layout",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Advanced tube fabrics"
+    ]
+  },
+  "generation-525-dlx": {
+    "series": "Generation Deluxe",
+    "type_display": "Elegant RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
+    "specifications": {
+      "length": "17' 3\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Ergonomic console with bolstered seat",
+      "Advanced tube fabrics"
+    ]
+  },
+  "generation-450-dlx": {
+    "series": "Generation Deluxe",
+    "type_display": "Elegant RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
+    "specifications": {
+      "length": "14' 9\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Ergonomic console with bolstered seat",
+      "Advanced tube fabrics"
+    ]
+  },
+  "generation-400-dlx": {
+    "series": "Generation Deluxe",
+    "type_display": "Elegant RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
+    "specifications": {
+      "length": "13' 1\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Ergonomic console with bolstered seat",
+      "Advanced tube fabrics"
+    ]
+  },
+  "generation-360-dlx": {
+    "series": "Generation Deluxe",
+    "type_display": "Elegant RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
+    "specifications": {
+      "length": "11' 10\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Ergonomic console with bolstered seat",
+      "Advanced tube fabrics"
+    ]
+  },
+  "generation-340-dlx": {
+    "series": "Generation Deluxe",
+    "type_display": "Elegant RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
+    "specifications": {
+      "length": "11' 2\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Unique V-Hull design",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole",
+      "Ergonomic console with bolstered seat",
+      "Advanced tube fabrics"
+    ]
+  },
+  "venture-16": {
+    "series": "Venture Series",
+    "type_display": "Explorer Sport RIB",
+    "boat_type_key": "inflatables",
+    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
+    "specifications": {
+      "length": "16' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole for tubing and wakesports",
+      "Unique V-Hull design for smoother ride",
+      "Ergonomic console and seating layout"
+    ]
+  },
+  "venture-14": {
+    "series": "Venture Series",
+    "type_display": "Explorer Sport RIB",
+    "boat_type_key": "inflatables",
+    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
+    "specifications": {
+      "length": "14' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole for tubing and wakesports",
+      "Unique V-Hull design for smoother ride",
+      "Ergonomic console and seating layout"
+    ]
+  },
+  "venture-13": {
+    "series": "Venture Series",
+    "type_display": "Explorer Sport RIB",
+    "boat_type_key": "inflatables",
+    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
+    "specifications": {
+      "length": "13' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole for tubing and wakesports",
+      "Unique V-Hull design for smoother ride",
+      "Ergonomic console and seating layout"
+    ]
+  },
+  "stx-365": {
+    "series": "STX",
+    "type_display": "Compact Lightweight RIB Tender",
+    "boat_type_key": "tenders",
+    "description": "The STX series represents compact, lightweight RIB tenders designed for versatility and ease of use. By focusing on rigid hull design, advanced tube fabrics, and cutting-edge building technology, these products offer enhanced features and superior comfort. These RIB boats are specifically designed to accommodate various lifting capacities and deck spaces, making them the ideal choice for yacht owners who require a high-quality tender that is easy to handle. Like all Walker Bay models, they feature a unique V-Hull design for a smoother, drier ride and provide the agility and handling of a small vessel with the high performance usually found in a much larger RIB.",
+    "specifications": {
+      "length": "12' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Rigid hull design",
+      "Advanced tube fabrics",
+      "Unique V-Hull design for smoother ride",
+      "Lightweight construction for easy lifting",
+      "Agility and handling of a small vessel",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole"
+    ]
+  },
+  "stx-325": {
+    "series": "STX",
+    "type_display": "Compact Lightweight RIB Tender",
+    "boat_type_key": "tenders",
+    "description": "The STX series represents compact, lightweight RIB tenders designed for versatility and ease of use. By focusing on rigid hull design, advanced tube fabrics, and cutting-edge building technology, these products offer enhanced features and superior comfort. These RIB boats are specifically designed to accommodate various lifting capacities and deck spaces, making them the ideal choice for yacht owners who require a high-quality tender that is easy to handle. Like all Walker Bay models, they feature a unique V-Hull design for a smoother, drier ride and provide the agility and handling of a small vessel with the high performance usually found in a much larger RIB.",
+    "specifications": {
+      "length": "10' 8\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Rigid hull design",
+      "Advanced tube fabrics",
+      "Unique V-Hull design for smoother ride",
+      "Lightweight construction for easy lifting",
+      "Agility and handling of a small vessel",
+      "Built-in swim ladder",
+      "On-board shower",
+      "Telescopic ski pole"
+    ]
+  },
+  "generation-14-lte": {
+    "series": "Generation LTE",
+    "type_display": "Lightweight Deluxe RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
+    "specifications": {
+      "length": "14' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Lightweight hull construction",
+      "Ergonomic console with bolstered seat",
+      "Unique V-Hull design for smoother ride",
+      "Increased storage capacity",
+      "Advanced tube fabrics",
+      "Built-in swim ladder"
+    ]
+  },
+  "generation-13-lte": {
+    "series": "Generation LTE",
+    "type_display": "Lightweight Deluxe RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
+    "specifications": {
+      "length": "13' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Lightweight hull construction",
+      "Ergonomic console with bolstered seat",
+      "Unique V-Hull design for smoother ride",
+      "Increased storage capacity",
+      "Advanced tube fabrics",
+      "Built-in swim ladder"
+    ]
+  },
+  "generation-12-lte": {
+    "series": "Generation LTE",
+    "type_display": "Lightweight Deluxe RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
+    "specifications": {
+      "length": "12' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Lightweight hull construction",
+      "Ergonomic console with bolstered seat",
+      "Unique V-Hull design for smoother ride",
+      "Increased storage capacity",
+      "Advanced tube fabrics",
+      "Built-in swim ladder"
+    ]
+  },
+  "generation-11-lte": {
+    "series": "Generation LTE",
+    "type_display": "Lightweight Deluxe RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
+    "specifications": {
+      "length": "11' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Lightweight hull construction",
+      "Ergonomic console with bolstered seat",
+      "Unique V-Hull design for smoother ride",
+      "Increased storage capacity",
+      "Advanced tube fabrics",
+      "Built-in swim ladder"
+    ]
+  },
+  "generation-10-lte": {
+    "series": "Generation LTE",
+    "type_display": "Lightweight Deluxe RIB",
+    "boat_type_key": "inflatables",
+    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
+    "specifications": {
+      "length": "10' 0\"",
+      "width": null,
+      "height": null,
+      "weight": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity": null
+    },
+    "features": [
+      "Lightweight hull construction",
+      "Ergonomic console with bolstered seat",
+      "Unique V-Hull design for smoother ride",
+      "Increased storage capacity",
+      "Advanced tube fabrics",
+      "Built-in swim ladder"
+    ]
+  }
+}

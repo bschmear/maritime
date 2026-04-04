@@ -1,0 +1,18 @@
+[
+  { "id": "nautilus", "name": "Nautilus Series" },
+  { "id": "oceanus", "name": "Oceanus Series" },
+  { "id": "mares", "name": "Mares Series" },
+  { "id": "navigo", "name": "Navigo Series" },
+  { "id": "ventus", "name": "Ventus Series" },
+  { "id": "alumina", "name": "Alumina Series" },
+  { "id": "lammina-al", "name": "Lammina AL Series" },
+  { "id": "lammina-ul", "name": "Lammina UL Series" },
+  { "id": "ab-rider", "name": "AB Rider" },
+  { "id": "abjet-s", "name": "ABJET S-Series" },
+  { "id": "abjet-xp", "name": "ABJET XP-Series" },
+  { "id": "abjet-diesel", "name": "ABJET Diesel" },
+  { "id": "profile-a", "name": "Profile A Series" },
+  { "id": "profile-a-xhd", "name": "Profile A-XHD Series" },
+  { "id": "profile-as", "name": "Profile AS Series" },
+  { "id": "profile-f", "name": "Profile F Series" }
+]

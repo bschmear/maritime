@@ -1,0 +1,58 @@
+{
+  "nautilus": {
+    "series": "Nautilus",
+    "type_display": "Fiberglass Luxury Console Tender",
+    "boat_type_key": "tenders",
+    "description": "Whether you're seeking adventure or comfort and relaxation, the full-featured Nautilus line is built for every lifestyle and unparalleled in quality, performance, and style. No detail is overlooked. From the cushioned bow to the convenient low helm station, each boat is flawlessly appointed with stainless-steel lateral rails, cupholders, built-in coolers, ample storage, elegant upholstery, and windshield. Even the throttle is ergonomically positioned.",
+    "specifications": {
+      "length_range": "11' - 19'",
+      "material": "ORCA (CSM) Coated Fabric"
+    },
+    "features": [
+      "Mechanical Steering System and Sport Steering Wheel",
+      "Sporty Console Look Design with SS Hand Rail & Plexiglass Windshield",
+      "Integrated Aluminum Fuel Tank",
+      "Lateral Bow SS Rails for Added Safety",
+      "Compartment Yacht Quality finish"
+    ],
+    "variants": [
+      { "id": "11-dlx", "name": "11 DLX", "specifications": { "length": "11' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "12-dlx", "name": "12 DLX", "specifications": { "length": "12' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "13-dlx", "name": "13 DLX", "specifications": { "length": "13' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "14-dlx", "name": "14 DLX", "specifications": { "length": "14' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "15-dlx", "name": "15 DLX", "specifications": { "length": "15' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "17-dlx", "name": "17 DLX", "specifications": { "length": "17' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "19-dlx", "name": "19 DLX", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "19-dlx-io", "name": "19 DLX I-O", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } }
+    ]
+  },
+  "oceanus": {
+    "series": "Oceanus",
+    "type_display": "Fiberglass Sport Console Tender",
+    "boat_type_key": "tenders",
+    "description": "Our Oceanus line of RIBs deliver unsurpassed performance, convenience, and capacity. Built with an extra-deep V-hull, the Oceanus cuts through chop while keeping your passengers dry. Our unique forward-hull design ensures ample space aboard. A stylish, functional layout provides a comfortable ride, with ample storage for gear or the day's provisions. Oceanus is the perfect tender or primary boat for whatever adventure awaits.",
+    "specifications": {
+      "length_range": "11' - 28'",
+      "material": "ORCA (CSM) Coated Fabric"
+    },
+    "features": [
+      "Mechanical Steering System and Sport Steering Wheel",
+      "SS LED Navigation Lights",
+      "Integrated Aluminum Fuel Tank",
+      "Bow & Stern Stainless Steel Cleats",
+      "Reinforced Orca (CSM) Fabric Handles on Tubes"
+    ],
+    "variants": [
+      { "id": "12-vst", "name": "12 VST", "specifications": { "length": "12' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "13-vst", "name": "13 VST", "specifications": { "length": "13' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "14-vst", "name": "14 VST", "specifications": { "length": "14' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "15-vst", "name": "15 VST", "specifications": { "length": "15' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "17-vst", "name": "17 VST", "specifications": { "length": "17' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "19-vst", "name": "19 VST", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "21-vst", "name": "21 VST", "specifications": { "length": "21' 4\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "24-vst", "name": "24 VST", "specifications": { "length": "24' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
+      { "id": "28-vst", "name": "28 VST", "specifications": { "length": "27' 4\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } }
+    ]
+  }
+  
+}

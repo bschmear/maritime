@@ -1,0 +1,20 @@
+[
+  { "id": "wb-22", "name": "Walker Bay 22" },
+  { "id": "g15", "name": "G15" },
+  { "id": "g12", "name": "G12" },
+  { "id": "generation-525-dlx", "name": "Generation 525 DLX" },
+  { "id": "generation-450-dlx", "name": "Generation 450 DLX" },
+  { "id": "generation-400-dlx", "name": "Generation 400 DLX" },
+  { "id": "generation-360-dlx", "name": "Generation 360 DLX" },
+  { "id": "generation-340-dlx", "name": "Generation 340 DLX" },
+  { "id": "venture-16", "name": "Venture 16" },
+  { "id": "venture-14", "name": "Venture 14" },
+  { "id": "venture-13", "name": "Venture 13" },
+  { "id": "generation-14-lte", "name": "Generation 14 LTE" },
+  { "id": "generation-13-lte", "name": "Generation 13 LTE" },
+  { "id": "generation-12-lte", "name": "Generation 12 LTE" },
+  { "id": "generation-11-lte", "name": "Generation 11 LTE" },
+  { "id": "generation-10-lte", "name": "Generation 10 LTE" },
+  { "id": "stx-365", "name": "365 STX" },
+  { "id": "stx-325", "name": "325 STX" }
+]
