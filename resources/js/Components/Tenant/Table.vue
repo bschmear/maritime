@@ -4,6 +4,7 @@ import { computed, ref, watch, onMounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
+import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
@@ -74,6 +75,8 @@ const searchQuery = ref('');
 
 // Get global properties
 const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
+
+const recordFormComponent = computed(() => (props.recordType === 'assets' ? AssetForm : Form));
 
 const columns = computed(() => {
     if (!props.schema || !props.schema.columns) {
@@ -1039,7 +1042,8 @@ onMounted(() => {
 
             <!-- Modal body (scrollable) -->
             <div class="overflow-y-auto flex-1">
-                <Form
+                <component
+                    :is="recordFormComponent"
                     :schema="formSchema"
                     :fields-schema="fieldsSchema"
                     :record-type="recordType"
@@ -1120,7 +1124,8 @@ onMounted(() => {
                         <p class="text-sm text-gray-500 dark:text-gray-400">Loading record...</p>
                     </div>
                 </div>
-                <Form
+                <component
+                    :is="recordFormComponent"
                     v-else-if="selectedRecord"
                     :schema="formSchema"
                     :fields-schema="fieldsSchema"

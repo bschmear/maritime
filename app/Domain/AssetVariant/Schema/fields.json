@@ -1,0 +1,30 @@
+{
+  "asset_id": {
+    "label": "Asset",
+    "type": "record",
+    "typeDomain": "Asset",
+    "relationship": "asset",
+    "required": true,
+    "locked": true
+  },
+  "name": {
+    "label": "Name",
+    "type": "text",
+    "description": "Display name for this configuration (e.g. color package, engine option)"
+  },
+  "display_name": {
+    "label": "Display",
+    "type": "text",
+    "readOnly": true
+  },
+  "created_at": {
+    "label": "Created",
+    "type": "datetime",
+    "readOnly": true
+  },
+  "updated_at": {
+    "label": "Updated",
+    "type": "datetime",
+    "readOnly": true
+  }
+}

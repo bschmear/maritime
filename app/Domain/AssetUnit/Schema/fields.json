@@ -8,6 +8,17 @@
     "locked": true
   },
 
+  "asset_variant_id": {
+    "label": "Variant",
+    "type": "record",
+    "typeDomain": "AssetVariant",
+    "relationship": "assetVariant",
+    "filterby": "asset_id",
+    "record_filter_field": "asset_id",
+    "description": "Required when this asset defines one or more variants",
+    "displayField": "display_name"
+  },
+
   "serial_number": {
     "label": "Serial Number",
     "type": "text",
@@ -102,7 +113,8 @@
     "type": "record",
     "typeDomain": "Vendor",
     "relationship": "vendor",
-    "addNew": true
+    "addNew": true,
+    "displayField": "display_name"
   },
 
   "customer_id": {
@@ -111,6 +123,7 @@
     "typeDomain": "Customer",
     "relationship": "customer",
     "addNew": true,
+    "displayField": "display_name",
     "description": "Customer associated with this unit"
   },
 

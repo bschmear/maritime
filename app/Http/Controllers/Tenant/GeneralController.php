@@ -26,6 +26,7 @@ class GeneralController extends BaseController
             'serviceticket' => 'ServiceTicket',
             'serviceitem' => 'ServiceItem',
             'assetunit' => 'AssetUnit',
+            'assetvariant' => 'AssetVariant',
             'inventoryunit' => 'InventoryUnit',
             // Str::studly('addon') is "Addon" but the domain is AddOn / AddOn model
             'addon' => 'AddOn',
@@ -85,6 +86,9 @@ class GeneralController extends BaseController
             $columns[] = 'make_id';
             $columns[] = 'default_price';
             $columns[] = 'default_cost';
+        } elseif ($typeKey === 'assetvariant') {
+            $columns[] = 'asset_id';
+            $columns[] = 'name';
         } elseif (strtolower($type) === 'addon') {
             $columns[] = 'name';
             $columns[] = 'default_price';
@@ -101,6 +105,8 @@ class GeneralController extends BaseController
             $query->with('inventoryItem:id,display_name');
         } elseif (strtolower($type) === 'asset') {
             $query->with('make:id,display_name');
+        } elseif ($typeKey === 'assetvariant') {
+            $query->with('asset:id,display_name');
         }
 
         // Apply filters if provided

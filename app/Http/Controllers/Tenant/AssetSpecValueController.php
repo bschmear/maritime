@@ -2,22 +2,29 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Controller;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 class AssetSpecValueController extends Controller
 {
-    /**
-     * Get specs for a specific asset
-     */
     public function index(Asset $asset)
     {
+        if ($asset->has_variants) {
+            return response()->json([
+                'spec_values' => [],
+                'available_specs' => AssetSpecDefinition::query()
+                    ->with('group')
+                    ->whereJsonContains('asset_types', $asset->type)
+                    ->orderBy('position')
+                    ->get(),
+            ]);
+        }
+
         $specValues = $asset->specValues;
 
-        // Get all available specs for this asset type
         $availableSpecs = AssetSpecDefinition::query()
             ->with('group')
             ->whereJsonContains('asset_types', $asset->type)
@@ -30,11 +37,14 @@ class AssetSpecValueController extends Controller
         ]);
     }
 
-    /**
-     * Store or update spec values for an asset
-     */
     public function store(Request $request, Asset $asset)
     {
+        if ($asset->has_variants) {
+            return response()->json([
+                'message' => 'Specifications for this asset are stored on each variant, not on the asset.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'specs' => 'required|array',
             'specs.*.spec_id' => 'required|exists:asset_spec_definitions,id',
@@ -44,10 +54,14 @@ class AssetSpecValueController extends Controller
             'specs.*.unit' => 'nullable|string',
         ]);
 
+        $type = $asset->getMorphClass();
+        $id = $asset->getKey();
+
         foreach ($validated['specs'] as $specData) {
             AssetSpecValue::updateOrCreate(
                 [
-                    'asset_id' => $asset->id,
+                    'specable_type' => $type,
+                    'specable_id' => $id,
                     'asset_spec_definition_id' => $specData['spec_id'],
                 ],
                 [
@@ -62,12 +76,13 @@ class AssetSpecValueController extends Controller
         return response()->json(['message' => 'Specs saved successfully.']);
     }
 
-    /**
-     * Delete a spec value
-     */
     public function destroy(Asset $asset, AssetSpecValue $specValue)
     {
-        // Don't allow deleting required specs
+        if ($specValue->specable_type !== $asset->getMorphClass()
+            || (int) $specValue->specable_id !== (int) $asset->id) {
+            abort(404);
+        }
+
         if ($specValue->definition->is_required) {
             return response()->json(['error' => 'Cannot delete a required spec.'], 422);
         }

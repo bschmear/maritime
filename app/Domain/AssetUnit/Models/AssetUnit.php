@@ -2,14 +2,15 @@
 
 namespace App\Domain\AssetUnit\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use App\Domain\Asset\Models\Asset;
-use App\Domain\Vendor\Models\Vendor;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Customer\Models\Customer;
-use App\Domain\Subsidiary\Models\Subsidiary;
-use App\Domain\Location\Models\Location;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Vendor\Models\Vendor;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
 
 class AssetUnit extends Model
 {
@@ -17,6 +18,7 @@ class AssetUnit extends Model
 
     protected $fillable = [
         'asset_id',
+        'asset_variant_id',
         'serial_number',
         'hin',
         'sku',
@@ -71,14 +73,22 @@ class AssetUnit extends Model
     {
         return $this->belongsTo(Asset::class, 'asset_id');
     }
+
+    public function assetVariant()
+    {
+        return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
+    }
+
     public function customer()
     {
         return $this->belongsTo(Customer::class, 'customer_id');
     }
+
     public function subsidiary()
     {
         return $this->belongsTo(Subsidiary::class, 'subsidiary_id');
     }
+
     /**
      * Optional vendor (consignment)
      */
@@ -105,11 +115,11 @@ class AssetUnit extends Model
         $unitIdentifier = '';
 
         // Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
-        if (!empty($this->serial_number)) {
+        if (! empty($this->serial_number)) {
             $unitIdentifier = "SN: {$this->serial_number}";
-        } elseif (!empty($this->hin)) {
+        } elseif (! empty($this->hin)) {
             $unitIdentifier = "HIN: {$this->hin}";
-        } elseif (!empty($this->sku)) {
+        } elseif (! empty($this->sku)) {
             $unitIdentifier = "SKU: {$this->sku}";
         } else {
             $unitIdentifier = "Unit #{$this->id}";
@@ -122,5 +132,4 @@ class AssetUnit extends Model
     {
         return $this->morphMany(InventoryImage::class, 'imageable');
     }
-
 }

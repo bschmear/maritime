@@ -15,6 +15,9 @@
           "required": true
         },
         {
+          "key": "has_variants"
+        },
+        {
           "key": "make_id"
         },
         {
@@ -34,7 +37,12 @@
 
     "specs": {
       "label": "Specifications",
-      "type": "specs"
+      "type": "specs",
+      "conditional": {
+        "key": "has_variants",
+        "value": false,
+        "operator": "equals"
+      }
     },
 
     "details": {
@@ -59,6 +67,21 @@
     }
   },
   "sublists": [
+    {
+      "label": "Variants",
+      "domain": "AssetVariant",
+      "modelRelationship": "variants",
+      "conditional": {
+        "key": "has_variants",
+        "value": true,
+        "operator": "equals"
+      },
+      "routes": {
+        "selectForm": "assets.variants.select-form",
+        "index": "assets.variants.index",
+        "show": "assets.variants.show"
+      }
+    },
     {
       "label": "Asset Units",
       "domain": "AssetUnit",

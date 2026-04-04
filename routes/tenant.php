@@ -313,6 +313,12 @@ Route::middleware([
         });
 
         Route::prefix('assets')->name('assets.')->group(function () {
+            Route::get('/{asset}/variants/select-form', [AssetController::class, 'variantsSelectForm'])->name('variants.select-form');
+            Route::get('/{asset}/variants', [AssetController::class, 'variantsIndex'])->name('variants.index');
+            Route::post('/{asset}/variants', [AssetController::class, 'variantsStore'])->name('variants.store');
+            Route::get('/{asset}/variants/{variant}', [AssetController::class, 'variantsShow'])->name('variants.show')->scopeBindings();
+            Route::put('/{asset}/variants/{variant}', [AssetController::class, 'variantsUpdate'])->name('variants.update')->scopeBindings();
+            Route::delete('/{asset}/variants/{variant}', [AssetController::class, 'variantsDestroy'])->name('variants.destroy')->scopeBindings();
             Route::resource('/', AssetController::class)->parameters(['' => 'asset']);
         });
 

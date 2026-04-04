@@ -23,6 +23,12 @@
     "type": "boolean",
     "default": false
   },
+  "has_variants": {
+    "label": "This asset has variants",
+    "type": "boolean",
+    "default": false,
+    "help": "When enabled, specifications are stored per variant instead of on this asset. Units must pick a variant."
+  },
   "make_id": {
     "label": "Brand",
     "type": "record",

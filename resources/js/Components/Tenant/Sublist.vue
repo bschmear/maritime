@@ -44,6 +44,12 @@ const showSublistCreateModal = ref(false);
 const sublistCreateFormData = ref(null);
 const isLoadingSublistForm = ref(false);
 
+/** Route params for nested create/edit (e.g. assets.variants.* under Asset show). */
+const sublistFormExtraRouteParams = computed(() => ({
+    ...(sublistCreateFormData.value?.extraRouteParams || {}),
+    ...(props.parentDomain === 'Asset' ? { asset: props.parentRecord.id } : {}),
+}));
+
 // Sublist Edit Modal State
 const showSublistEditModal = ref(false);
 const sublistEditRecord = ref(null);
@@ -453,41 +459,56 @@ const fetchSublistData = async (sublist, page = 1) => {
 
     isLoadingSublist.value = true;
     try {
-        const routeName = formatRouteName(sublist.domain);
-        
-        // Find the foreign key field from the loaded schema
-        let foreignKey = null;
-        if (sublistCreateFormData.value?.fieldsSchema) {
-            foreignKey = findParentReferenceFieldFromSchema(sublistCreateFormData.value.fieldsSchema);
-        }
-        
-        // If we couldn't find a matching field, log error and return
-        if (!foreignKey) {
-            console.error(`No field found in ${sublist.domain} that references ${props.parentDomain}`);
-            sublistData.value = [];
-            isLoadingSublist.value = false;
-            return;
-        }
-        
-        // Build filters - always use structured format for consistency
-        const allFilters = [
-            // Parent filter (always include to filter by parent record)
-            { field: foreignKey, operator: 'equals', value: props.parentRecord.id },
-            // Add all active filters
-            ...activeFilters.value
-        ];
+        let response;
+        if (sublist.routes?.index) {
+            const parentKey = { asset: props.parentRecord.id };
+            response = await axios.get(route(sublist.routes.index, parentKey), {
+                params: {
+                    page: page,
+                    per_page: 10
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+        } else {
+            const routeName = formatRouteName(sublist.domain);
+            
+            // Find the foreign key field from the loaded schema
+            let foreignKey = null;
+            if (sublistCreateFormData.value?.fieldsSchema) {
+                foreignKey = findParentReferenceFieldFromSchema(sublistCreateFormData.value.fieldsSchema);
+            }
+            
+            // If we couldn't find a matching field, log error and return
+            if (!foreignKey) {
+                console.error(`No field found in ${sublist.domain} that references ${props.parentDomain}`);
+                sublistData.value = [];
+                isLoadingSublist.value = false;
+                return;
+            }
+            
+            // Build filters - always use structured format for consistency
+            const allFilters = [
+                // Parent filter (always include to filter by parent record)
+                { field: foreignKey, operator: 'equals', value: props.parentRecord.id },
+                // Add all active filters
+                ...activeFilters.value
+            ];
 
-        const response = await axios.get(route(routeName), {
-            params: {
-                filters: JSON.stringify(allFilters),
-                page: page,
-                per_page: 10
-            },
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            },
-        });
+            response = await axios.get(route(routeName), {
+                params: {
+                    filters: JSON.stringify(allFilters),
+                    page: page,
+                    per_page: 10
+                },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+        }
 
         sublistData.value = response.data.records || [];
         sublistTableSchema.value = response.data.schema || null; // Table schema with columns array
@@ -774,12 +795,23 @@ const loadSublistSchema = async (sublist) => {
     }
     
     try {
-        const response = await axios.get(route('records.select-form', { type: domain }), {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
-            },
-        });
+        let response;
+        if (sublist.routes?.selectForm) {
+            const parentKey = { asset: props.parentRecord.id };
+            response = await axios.get(route(sublist.routes.selectForm, parentKey), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+        } else {
+            response = await axios.get(route('records.select-form', { type: domain }), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+        }
         
         // Cache it
         sublistSchemaCache.value[domain] = response.data;
@@ -987,12 +1019,19 @@ const openSublistEditModal = async (item) => {
     
     // Fetch the full record with all fields (not just table columns)
     try {
-        const domain = activeTab.value.domain;
-        const routePlural = getDomainPlural(domain);
-        const routeName = `${routePlural}.show`;
-        const paramName = getDomainSingular(routePlural);
-        
-        const url = route(routeName, { [paramName]: item.id });
+        let url;
+        if (activeTab.value.routes?.show) {
+            url = route(activeTab.value.routes.show, {
+                asset: props.parentRecord.id,
+                variant: item.id,
+            });
+        } else {
+            const domain = activeTab.value.domain;
+            const routePlural = getDomainPlural(domain);
+            const routeName = `${routePlural}.show`;
+            const paramName = getDomainSingular(routePlural);
+            url = route(routeName, { [paramName]: item.id });
+        }
         
         const response = await axios.get(url, {
             headers: {
@@ -1029,12 +1068,17 @@ const handleSublistItemUpdated = () => {
 const getItemUrl = (item) => {
     if (!activeTab.value) return null;
 
-    const domain = activeTab.value.domain;
-    const routePlural = getDomainPlural(domain);
-    const routeName = `${routePlural}.show`;
-    const paramName = getDomainSingular(routePlural);
-
     try {
+        if (activeTab.value.routes?.show) {
+            return route(activeTab.value.routes.show, {
+                asset: props.parentRecord.id,
+                variant: item.id,
+            });
+        }
+        const domain = activeTab.value.domain;
+        const routePlural = getDomainPlural(domain);
+        const routeName = `${routePlural}.show`;
+        const paramName = getDomainSingular(routePlural);
         return route(routeName, { [paramName]: item.id });
     } catch (error) {
         return null;
@@ -1504,6 +1548,9 @@ onMounted(() => {
                 :record-title="activeTab?.label || 'Record'"
                 :enum-options="getSublistEnumOptions()"
                 :initial-data="getSublistInitialData()"
+                :extra-route-params="sublistFormExtraRouteParams"
+                :available-specs="sublistCreateFormData.availableSpecs || []"
+                :specs-context-asset-type="sublistCreateFormData.specsContextAssetType ?? null"
                 mode="create"
                 :prevent-redirect="true"
                 @created="handleSublistItemCreated"
@@ -1546,6 +1593,9 @@ onMounted(() => {
                 :record-type="sublistCreateFormData.recordType"
                 :enum-options="sublistCreateFormData.enumOptions"
                 :image-urls="sublistCreateFormData.imageUrls || {}"
+                :extra-route-params="sublistFormExtraRouteParams"
+                :available-specs="sublistCreateFormData.availableSpecs || []"
+                :specs-context-asset-type="sublistCreateFormData.specsContextAssetType ?? null"
                 :prevent-redirect="true"
                 :mode="'edit'"
                 @updated="handleSublistItemUpdated"

@@ -1,0 +1,6 @@
+{
+  "columns": [
+    { "key": "display_name", "label": "Variant", "sortable": true },
+    { "key": "name", "label": "Name", "sortable": true }
+  ]
+}

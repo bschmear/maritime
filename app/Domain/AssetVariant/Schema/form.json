@@ -1,0 +1,15 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Variant",
+      "fields": [{ "key": "name" }]
+    },
+    "specs": {
+      "label": "Specifications",
+      "type": "specs"
+    }
+  }
+}

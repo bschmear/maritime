@@ -2,12 +2,14 @@
 
 namespace App\Domain\Asset\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\InventoryImage\Models\InventoryImage;
-use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Asset extends Model
 {
@@ -50,11 +52,13 @@ class Asset extends Model
         'default_price',
         'attributes',
         'description',
+        'has_variants',
     ];
 
     protected $casts = [
         'attributes' => 'array',
         'inactive' => 'boolean',
+        'has_variants' => 'boolean',
         'persons' => 'integer',
         'minimum_power' => 'integer',
         'maximum_power' => 'integer',
@@ -66,6 +70,16 @@ class Asset extends Model
     public function units()
     {
         return $this->hasMany(AssetUnit::class);
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(AssetVariant::class);
+    }
+
+    public function hasVariants(): bool
+    {
+        return (bool) $this->has_variants;
     }
 
     public function make()
@@ -83,14 +97,14 @@ class Asset extends Model
         return $this->morphMany(InventoryImage::class, 'imageable');
     }
 
-    public function specs()
+    public function specs(): MorphMany
     {
-        return $this->hasMany(AssetSpecValue::class);
+        return $this->specValues();
     }
 
-    public function specValues()
+    public function specValues(): MorphMany
     {
-        return $this->hasMany(AssetSpecValue::class)->with('definition');
+        return $this->morphMany(AssetSpecValue::class, 'specable')->with('definition');
     }
 
     /**
@@ -101,16 +115,19 @@ class Asset extends Model
         parent::boot();
 
         static::creating(callback: function ($item) {
-            if (empty($item->slug) && !empty($item->display_name)) {
+            if (empty($item->slug) && ! empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }
         });
 
         static::updating(function ($item) {
-            if (!empty($item->display_name)) {
+            if (! empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }
         });
-    }
 
+        static::deleting(function (Asset $asset) {
+            $asset->specValues()->delete();
+        });
+    }
 }

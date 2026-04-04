@@ -1,10 +1,13 @@
 <?php
+
 namespace App\Domain\AssetUnit\Actions;
 
+use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Throwable;
 
@@ -18,7 +21,7 @@ class CreateAssetUnit
                 'integer',
                 Rule::exists('assets', 'id')->where(function ($query) {
                     $query->where('inactive', false)->orWhereNull('inactive');
-                })
+                }),
             ],
             'serial_number' => 'nullable|string|max:255',
             'hin' => 'nullable|string|max:255|unique:asset_units,hin',
@@ -43,7 +46,31 @@ class CreateAssetUnit
             'sold_at' => 'nullable|date',
             'attributes' => 'nullable|array',
             'notes' => 'nullable|string',
+            'asset_variant_id' => 'nullable|integer|exists:asset_variants,id',
         ]);
+
+        $validator->after(function ($v) use ($data): void {
+            $assetId = $data['asset_id'] ?? null;
+            if (! $assetId) {
+                return;
+            }
+            $asset = Asset::query()->find($assetId);
+            if (! $asset) {
+                return;
+            }
+            if (! $asset->has_variants) {
+                return;
+            }
+            $vid = $data['asset_variant_id'] ?? null;
+            if (! $vid) {
+                $v->errors()->add('asset_variant_id', 'Select a variant for this unit.');
+
+                return;
+            }
+            if (! AssetVariant::query()->where('asset_id', $asset->id)->whereKey($vid)->exists()) {
+                $v->errors()->add('asset_variant_id', 'The selected variant does not belong to this asset.');
+            }
+        });
 
         if ($validator->fails()) {
             return [
@@ -57,6 +84,10 @@ class CreateAssetUnit
         try {
             // Start with all validated data
             $recordData = $validator->validated();
+            $asset = Asset::query()->find($recordData['asset_id']);
+            if ($asset && ! $asset->has_variants) {
+                unset($recordData['asset_variant_id']);
+            }
 
             // Add any additional non-validated fields that should be saved
             $additionalFields = ['price_history'];
@@ -75,8 +106,9 @@ class CreateAssetUnit
         } catch (QueryException $e) {
             Log::error('Database query error in CreateAssetUnit', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -85,8 +117,9 @@ class CreateAssetUnit
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateAssetUnit', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

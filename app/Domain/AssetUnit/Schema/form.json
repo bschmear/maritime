@@ -7,6 +7,7 @@
       "label": "Asset Unit",
       "fields": [
         { "key": "asset_id", "required": true },
+        { "key": "asset_variant_id" },
         { "key": "serial_number" },
         { "key": "hin" },
         { "key": "sku" },

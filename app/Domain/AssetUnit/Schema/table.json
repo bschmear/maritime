@@ -16,6 +16,11 @@
       "sortable": true
     },
     {
+      "key": "asset_variant_id",
+      "label": "Variant",
+      "sortable": false
+    },
+    {
       "key": "condition",
       "label": "Condition",
       "sortable": true
@@ -46,17 +51,17 @@
       "sortable": true
     },
     {
-      "key": "vendor.display_name",
+      "key": "vendor_id",
       "label": "Vendor",
       "sortable": false
     },
     {
-      "key": "customer.display_name",
+      "key": "customer_id",
       "label": "Owner",
       "sortable": false
     },
     {
-      "key": "location.display_name",
+      "key": "location_id",
       "label": "Location",
       "sortable": false
     },

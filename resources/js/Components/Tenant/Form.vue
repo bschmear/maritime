@@ -35,6 +35,8 @@ const props = defineProps({
     recordIdentifier: { type: [String, Number], default: null },
     extraRouteParams: { type: Object, default: () => ({}) },
     availableSpecs: { type: Array, default: () => [] },
+    /** When set (e.g. variant forms), asset-spec definitions are loaded for this asset type instead of using `form.type`. */
+    specsContextAssetType: { type: Number, default: null },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -65,13 +67,29 @@ const getFieldId = (fieldKey) => `${formUniqueId.value}-field-${fieldKey}`;
 
 const getFieldDefinition = (fieldKey) => props.fieldsSchema[fieldKey] || {};
 
+const getRecordSpecValues = () => {
+    const r = props.record;
+    if (!r) {
+        return [];
+    }
+    if (Array.isArray(r.spec_values)) {
+        return r.spec_values;
+    }
+    if (Array.isArray(r.specValues)) {
+        return r.specValues;
+    }
+    return [];
+};
+
 const hasSpecsSection = computed(() => {
     const s = normalizedSchema.value;
     if (!s || typeof s !== 'object') return false;
     return Object.values(s).some((g) => g && typeof g === 'object' && g.type === 'specs');
 });
 
-const isAssetsRecordType = computed(() => props.recordType === 'assets');
+const usesAssetTypeScopedSpecs = computed(() =>
+    props.recordType === 'assets' || props.recordType === 'assets.variants',
+);
 
 /** When non-null, replaces props.availableSpecs (after fetching by asset type). */
 const specsOverrideFromFetch = ref(null);
@@ -87,11 +105,9 @@ const resolvedAvailableSpecs = computed(() => {
 const buildInitialSpecValues = () => {
     const specValues = {};
     const existing = {};
-    if (props.record && Array.isArray(props.record.spec_values)) {
-        props.record.spec_values.forEach(sv => {
-            existing[sv.asset_spec_definition_id] = sv;
-        });
-    }
+    getRecordSpecValues().forEach((sv) => {
+        existing[sv.asset_spec_definition_id] = sv;
+    });
     resolvedAvailableSpecs.value.forEach(spec => {
         const sv = existing[spec.id];
         specValues[spec.id] = sv
@@ -255,16 +271,28 @@ const form = useForm(initializeFormData());
 const isProcessing = ref(false);
 
 watch(
-    () => form.type,
-    async (type, prevType) => {
-        if (!isAssetsRecordType.value || !hasSpecsSection.value || props.mode === 'view') {
-            return;
-        }
-        if (prevType === undefined && (props.availableSpecs?.length ?? 0) > 0) {
+    [
+        () => props.recordType,
+        () => form.type,
+        () => props.specsContextAssetType,
+        () => props.availableSpecs?.length ?? 0,
+    ],
+    async ([recordType, type, ctxType, availableLen], oldVals) => {
+        if (!usesAssetTypeScopedSpecs.value || !hasSpecsSection.value || props.mode === 'view') {
             return;
         }
 
-        const assetType = type === null || type === '' ? null : Number(type);
+        if (oldVals === undefined && availableLen > 0) {
+            return;
+        }
+
+        let assetType = null;
+        if (recordType === 'assets') {
+            assetType = type === null || type === '' ? null : Number(type);
+        } else if (recordType === 'assets.variants') {
+            assetType = ctxType === null || ctxType === '' ? null : Number(ctxType);
+        }
+
         if (assetType === null || Number.isNaN(assetType)) {
             specsOverrideFromFetch.value = [];
             return;
@@ -395,7 +423,7 @@ const buildSpecsPayload = () => {
 
 // ── Display helpers for spec view mode ──────────────────────────
 const getSpecDisplayValue = (spec) => {
-    const sv = props.record?.spec_values?.find(s => s.asset_spec_definition_id === spec.id);
+    const sv = getRecordSpecValues().find((s) => s.asset_spec_definition_id === spec.id);
     if (!sv) return null;
 
     if (spec.type === 'number')  return sv.value_number  == null ? null : parseFloat((+sv.value_number).toFixed(2));
@@ -411,7 +439,7 @@ const formatNumber = (val) => {
     return isNaN(n) ? '' : n.toFixed(2);
 };
 const getSpecDisplayUnit = (spec) => {
-    const sv = props.record?.spec_values?.find(s => s.asset_spec_definition_id === spec.id);
+    const sv = getRecordSpecValues().find((s) => s.asset_spec_definition_id === spec.id);
     return (sv?.unit) ? sv.unit : (spec.unit || null);
 };
 

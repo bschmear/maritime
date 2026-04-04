@@ -1,11 +1,13 @@
 <?php
+
 namespace App\Domain\AssetUnit\Actions;
 
+use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\QueryException;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateAssetUnit
@@ -37,7 +39,34 @@ class UpdateAssetUnit
             'sold_at' => 'nullable|date',
             'attributes' => 'nullable|array',
             'notes' => 'nullable|string',
+            'asset_variant_id' => 'nullable|integer|exists:asset_variants,id',
         ]);
+
+        $validator->after(function ($v) use ($data, $id): void {
+            $record = RecordModel::query()->find($id);
+            if (! $record) {
+                return;
+            }
+            $assetId = $data['asset_id'] ?? $record->asset_id;
+            $asset = Asset::query()->find($assetId);
+            if (! $asset) {
+                return;
+            }
+            if (! $asset->has_variants) {
+                return;
+            }
+            $vid = array_key_exists('asset_variant_id', $data)
+                ? $data['asset_variant_id']
+                : $record->asset_variant_id;
+            if (! $vid) {
+                $v->errors()->add('asset_variant_id', 'Select a variant for this unit.');
+
+                return;
+            }
+            if (! AssetVariant::query()->where('asset_id', $asset->id)->whereKey($vid)->exists()) {
+                $v->errors()->add('asset_variant_id', 'The selected variant does not belong to this asset.');
+            }
+        });
 
         if ($validator->fails()) {
             return [
@@ -61,6 +90,12 @@ class UpdateAssetUnit
             }
 
             $record = RecordModel::findOrFail($id);
+            $assetId = $recordData['asset_id'] ?? $record->asset_id;
+            $asset = Asset::query()->find($assetId);
+            if ($asset && ! $asset->has_variants) {
+                unset($recordData['asset_variant_id']);
+            }
+
             $record->update($recordData);
 
             return [
@@ -71,8 +106,9 @@ class UpdateAssetUnit
             Log::error('Database query error in UpdateAssetUnit', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -82,8 +118,9 @@ class UpdateAssetUnit
             Log::error('Unexpected error in UpdateAssetUnit', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

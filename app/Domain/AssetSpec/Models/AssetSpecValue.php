@@ -3,11 +3,13 @@
 namespace App\Domain\AssetSpec\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AssetSpecValue extends Model
 {
     protected $fillable = [
-        'asset_id',
+        'specable_type',
+        'specable_id',
         'asset_spec_definition_id',
         'value_number',
         'value_text',
@@ -24,16 +26,10 @@ class AssetSpecValue extends Model
         return $this->belongsTo(AssetSpecDefinition::class, 'asset_spec_definition_id');
     }
 
-    public function asset()
+    public function specable(): MorphTo
     {
-        return $this->belongsTo(Asset::class);
+        return $this->morphTo();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Helpers
-    |--------------------------------------------------------------------------
-    */
 
     public function getValueAttribute()
     {

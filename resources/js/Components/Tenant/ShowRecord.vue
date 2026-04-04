@@ -1,6 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Form from '@/Components/Tenant/Form.vue';
+import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import Modal from '@/Components/Modal.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, router } from '@inertiajs/vue3';
@@ -101,9 +102,28 @@ const computedPluralTitle = computed(() => {
     return props.pluralTitle || props.recordTitle;
 });
 
-const sublists = computed(() => {
-    return props.formSchema?.sublists || [];
-});
+const recordFormComponent = computed(() => (props.domainName === 'Asset' ? AssetForm : Form));
+
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 
 const handleEdit = () => {
     isEditMode.value = true;
@@ -268,7 +288,8 @@ const breadcrumbItems = computed(() => {
             <div class="grid gap-4 xl:grid-cols-12">
                 <div class="xl:col-span-9 bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg w-full">
                     <div class="show">
-                        <Form
+                        <component
+                            :is="recordFormComponent"
                             ref="formRef"
                             :schema="formSchema"
                             :fields-schema="fieldsSchema"
@@ -361,10 +382,10 @@ const breadcrumbItems = computed(() => {
 
             <!-- Sublist Component -->
             <Sublist
-                v-if="showSublists && sublists.length > 0 && domainName"
+                v-if="showSublists && visibleSublists.length > 0 && domainName"
                 :parent-record="record"
                 :parent-domain="domainName"
-                :sublists="sublists"
+                :sublists="visibleSublists"
             />
         </div>
 
