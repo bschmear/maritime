@@ -6,7 +6,6 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import SpecPreview from '@/Components/Tenant/AssetSpec/SpecPreview.vue';
 import AddSpecModal from '@/Components/Tenant/AssetSpec/AddSpecModal.vue';
 import SpecGroupTable from '@/Components/Tenant/AssetSpec/SpecGroupTable.vue';
-import SpecGroupsManager from '@/Components/Tenant/AssetSpec/SpecGroupsManager.vue';
 
 const props = defineProps({
     specs: Array,
@@ -17,6 +16,7 @@ const props = defineProps({
 
 const showAddModal = ref(false);
 const savingSpecId = ref(null);
+const deletingSpecId = ref(null);
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedGroupId = ref(
@@ -127,9 +127,17 @@ const groupedFilteredMap = computed(() => {
 
 const orderedGroupBlocks = computed(() => {
     const m = groupedFilteredMap.value;
-    const keys = groupKeysInOrder(localSpecs.value, specGroupsList.value).filter((k) => m.has(k));
+    let keys;
+    if (hasActiveFilters.value) {
+        keys = groupKeysInOrder(localSpecs.value, specGroupsList.value).filter((k) => m.has(k));
+    } else {
+        keys = [...specGroupsList.value]
+            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+            .map((g) => String(g.id));
+        keys.push('__none__');
+    }
     return keys.map((k) => {
-        const specs = m.get(k);
+        const specs = m.get(k) ?? [];
         const label =
             k === '__none__'
                 ? 'Ungrouped'
@@ -173,6 +181,24 @@ const buildUpdatePayload = (spec) => ({
     asset_types: normalizeAssetTypes(spec.asset_types),
 });
 
+const deleteSpec = (spec) => {
+    if (spec.is_required) return;
+    if (
+        !window.confirm(
+            `Delete "${spec.label}"? This removes the spec and any values saved on assets.`
+        )
+    ) {
+        return;
+    }
+    deletingSpecId.value = spec.id;
+    router.delete(route('asset-specs.destroy', { assetSpec: spec.id }), {
+        preserveScroll: true,
+        onFinish: () => {
+            deletingSpecId.value = null;
+        },
+    });
+};
+
 const toggleAssetType = ({ spec, typeId, checked, done }) => {
     const idx = localSpecs.value.findIndex((s) => s.id === spec.id);
     if (idx === -1) {
@@ -213,10 +239,6 @@ const toggleAssetType = ({ spec, typeId, checked, done }) => {
             },
         }
     );
-};
-
-const onToggleAssetTypeFromGroup = ({ spec, typeId }) => {
-    toggleAssetType(spec, typeId);
 };
 
 const onGroupReorder = (draggedBlockKey, newOrderForVisible) => {
@@ -296,6 +318,75 @@ const moveGroup = (blockKey, direction) => {
             ],
         },
         { preserveScroll: true, preserveState: true }
+    );
+};
+
+const applyCrossGroupMove = (allSpecs, payload, groups) => {
+    const { specId, toBlockKey, newIndex } = payload;
+    const normalized = allSpecs.map((s) => ({ ...s }));
+    const movedIdx = normalized.findIndex((s) => s.id === specId);
+    if (movedIdx === -1) return allSpecs;
+
+    const moved = { ...normalized[movedIdx] };
+    const newGroupId = toBlockKey === '__none__' ? null : Number(toBlockKey);
+    moved.group_id = newGroupId;
+    const gMeta = newGroupId ? groups.find((x) => Number(x.id) === newGroupId) : null;
+    moved.group = gMeta ? { id: gMeta.id, name: gMeta.name, key: gMeta.key } : null;
+
+    const without = normalized.filter((s) => s.id !== specId);
+    const byKey = {};
+    without.forEach((s) => {
+        const k = blockKeyForSpec(s);
+        if (!byKey[k]) byKey[k] = [];
+        byKey[k].push(s);
+    });
+    Object.keys(byKey).forEach((k) => byKey[k].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)));
+
+    const toList = [...(byKey[toBlockKey] || [])];
+    const insertAt = Math.max(0, Math.min(newIndex ?? toList.length, toList.length));
+    toList.splice(insertAt, 0, moved);
+    byKey[toBlockKey] = toList;
+
+    const allInByKey = Object.values(byKey).flat();
+    const keys = groupKeysInOrder(allInByKey, groups);
+    const flat = [];
+    for (const k of keys) {
+        (byKey[k] || []).forEach((s) => flat.push(s));
+    }
+    return flat.map((s, i) => ({ ...s, position: i + 1 }));
+};
+
+const onCrossGroupMove = (payload) => {
+    if (hasActiveFilters.value) return;
+    const next = applyCrossGroupMove(localSpecs.value, payload, specGroupsList.value);
+    const movedSpec = next.find((s) => s.id === payload.specId);
+    if (!movedSpec) return;
+
+    localSpecs.value = next;
+
+    router.put(
+        route('asset-specs.update', { assetSpec: movedSpec.id }),
+        buildUpdatePayload(movedSpec),
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onError: () => {
+                localSpecs.value = (props.specs || []).map((s) => ({ ...s }));
+            },
+            onSuccess: () => {
+                router.post(
+                    route('asset-specs.reorder'),
+                    { specs: next.map((s) => ({ id: s.id, position: s.position })) },
+                    {
+                        preserveScroll: true,
+                        preserveState: true,
+                        onError: () => {
+                            localSpecs.value = (props.specs || []).map((s) => ({ ...s }));
+                        },
+                    },
+                );
+            },
+        },
     );
 };
 
@@ -451,9 +542,10 @@ const previewSpecs = computed(() =>
                                 :is-first="block.blockKey === orderedGroupBlocks[0].blockKey"
                                 :is-last="block.blockKey === orderedGroupBlocks[orderedGroupBlocks.length - 1].blockKey"
                                 @reorder="onGroupReorder"
+                                @cross-group-move="onCrossGroupMove"
                                 @toggle-asset-type="toggleAssetType"
+                                @delete-spec="deleteSpec"
                                 @move-group="({ blockKey, direction }) => moveGroup(blockKey, direction)"
-                                
                             />
                         </template>
 

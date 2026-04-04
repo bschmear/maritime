@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import Sortable from 'sortablejs';
 
 const props = defineProps({
@@ -22,6 +22,9 @@ const props = defineProps({
     savingSpecId: {
         default: null,
     },
+    deletingSpecId: {
+        default: null,
+    },
     disableDrag: {
         type: Boolean,
         default: false,
@@ -32,9 +35,14 @@ const props = defineProps({
 
 const emit = defineEmits([
     'reorder',
+    'cross-group-move',
     'toggle-asset-type',
-    'move-group'
+    'move-group',
+    'delete-spec',
 ]);
+
+/** Shared Sortable group so rows can move between group tables */
+const SORTABLE_GROUP = 'asset-spec-definitions';
 
 /**
  * -----------------------------
@@ -60,6 +68,10 @@ const localSpecs = ref([]);
 const checkboxStates = ref({});
 const pendingUpdates = ref({}); // 🔥 NEW
 let sortable = null;
+
+const showEmptyDropZone = computed(
+    () => !props.disableDrag && localSpecs.value.length === 0
+);
 
 /**
  * -----------------------------
@@ -130,21 +142,44 @@ const destroySortable = () => {
 const initSortable = () => {
     destroySortable();
 
-    if (!listEl.value || props.disableDrag || localSpecs.value.length === 0) return;
+    if (!listEl.value || props.disableDrag) return;
 
     sortable = Sortable.create(listEl.value, {
+        group: {
+            name: SORTABLE_GROUP,
+            pull: true,
+            put: true,
+        },
         draggable: 'tr',
         handle: '.drag-handle',
         animation: 150,
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
-        filter: '.drag-disabled',
+        filter: '.drag-disabled, .empty-spec-drop-zone',
+        emptyInsertThreshold: 80,
 
         onEnd(evt) {
-            const moved = localSpecs.value.splice(evt.oldIndex, 1)[0];
-            localSpecs.value.splice(evt.newIndex, 0, moved);
-
-            emit('reorder', props.groupBlockKey, [...localSpecs.value]);
+            if (evt.from === evt.to) {
+                if (localSpecs.value.length === 0) return;
+                const moved = localSpecs.value.splice(evt.oldIndex, 1)[0];
+                if (moved == null) return;
+                localSpecs.value.splice(evt.newIndex, 0, moved);
+                emit('reorder', props.groupBlockKey, [...localSpecs.value]);
+                return;
+            }
+            const specId = Number(evt.item?.dataset?.specId);
+            const fromBlockKey = evt.from?.dataset?.blockKey;
+            const toBlockKey = evt.to?.dataset?.blockKey;
+            if (!specId || fromBlockKey == null || toBlockKey == null) {
+                return;
+            }
+            emit('cross-group-move', {
+                specId,
+                fromBlockKey: String(fromBlockKey),
+                toBlockKey: String(toBlockKey),
+                newIndex: evt.newIndex,
+                oldIndex: evt.oldIndex,
+            });
         },
     });
 };
@@ -213,26 +248,24 @@ const onToggleType = (spec, typeId) => {
             <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {{ groupLabel }}
             </h3>
-            <div class="flex items-center gap-1">
-                <button
-                    type="button"
-                    :disabled="isFirst"
-                    class="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    title="Move group up"
-                    @click="emit('move-group', { blockKey: groupBlockKey, direction: 'up' })"
-                >
-                    <span class="material-icons text-[18px]">arrow_upward</span>
-                </button>
-                <button
-                    type="button"
-                    :disabled="isLast"
-                    class="rounded p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    title="Move group down"
-                    @click="emit('move-group', { blockKey: groupBlockKey, direction: 'down' })"
-                >
-                    <span class="material-icons text-[18px]">arrow_downward</span>
-                </button>
-            </div>
+            <div class="flex items-center gap-3">
+    <button
+        type="button"
+        :disabled="isFirst"
+        class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        @click="emit('move-group', { blockKey: groupBlockKey, direction: 'up' })"
+    >
+        ↑ Move up
+    </button>
+    <button
+        type="button"
+        :disabled="isLast"
+        class="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        @click="emit('move-group', { blockKey: groupBlockKey, direction: 'down' })"
+    >
+        ↓ Move down
+    </button>
+</div>
         </div>
 
         <div class="overflow-x-auto">
@@ -265,12 +298,33 @@ const onToggleType = (spec, typeId) => {
                         >
                             {{ col.label }}
                         </th>
+                        <th
+                            scope="col"
+                            class="w-12 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+                        >
+                            <span class="sr-only">Delete</span>
+                        </th>
                     </tr>
                 </thead>
-                <tbody ref="listEl" class="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody
+                    ref="listEl"
+                    class="divide-y divide-gray-200 dark:divide-gray-700"
+                    :data-block-key="groupBlockKey"
+                >
+                    <tr
+                        v-if="showEmptyDropZone"
+                        class="empty-spec-drop-zone border-dashed border-gray-200 bg-gray-50/80 dark:border-gray-600 dark:bg-gray-800/40"
+                    >
+                        <td :colspan="4 + assetTypeColumns.length" class="px-4 py-6 text-center align-middle">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                Drop specs here
+                            </span>
+                        </td>
+                    </tr>
                     <tr
                         v-for="spec in localSpecs"
                         :key="spec.id"
+                        :data-spec-id="String(spec.id)"
                         class="hover:bg-gray-50 dark:hover:bg-gray-700/30"
                         :class="spec.is_required ? 'drag-disabled' : ''"
                     >
@@ -332,6 +386,25 @@ const onToggleType = (spec, typeId) => {
 </button>
                                 <span class="sr-only">{{ col.label }} for {{ spec.label }}</span>
                             </label>
+                        </td>
+                        <td class="px-2 py-3 text-center align-middle">
+                            <button
+                                type="button"
+                                class="inline-flex items-center justify-center rounded p-1 text-gray-400 transition-colors hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+                                :disabled="
+                                    spec.is_required ||
+                                    savingSpecId === spec.id ||
+                                    deletingSpecId === spec.id
+                                "
+                                :title="
+                                    spec.is_required
+                                        ? 'Required specs cannot be deleted'
+                                        : 'Delete spec'
+                                "
+                                @click="emit('delete-spec', spec)"
+                            >
+                                <span class="material-icons text-[18px]">delete_outline</span>
+                            </button>
                         </td>
                     </tr>
                 </tbody>

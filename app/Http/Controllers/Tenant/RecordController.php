@@ -652,6 +652,17 @@ class RecordController extends BaseController
 
         $formSchema = $this->getFormSchema();
 
+        // Add sublist relationships (same as show(), so edit pages receive variants, units, etc.)
+        if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
+            foreach ($formSchema['sublists'] as $sublist) {
+                if (isset($sublist['modelRelationship'])) {
+                    $relationships[$sublist['modelRelationship']] = function ($query) {
+                        $query->select('*');
+                    };
+                }
+            }
+        }
+
         // Detect if the form has a specs section and eager-load spec values
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\SpecGroup;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Http\Controllers\Controller;
@@ -35,6 +36,18 @@ class SpecGroupController extends Controller
         AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Spec group updated successfully.');
+    }
+
+    /**
+     * Deactivate a group and move its specs to “ungrouped” (group_id null).
+     */
+    public function destroy(SpecGroup $specGroup)
+    {
+        AssetSpecDefinition::query()->where('group_id', $specGroup->id)->update(['group_id' => null]);
+        $specGroup->update(['is_active' => false]);
+        AvailableAssetSpecsCache::forgetAll();
+
+        return back()->with('success', 'Spec group removed. Its specs are now ungrouped.');
     }
 
     public function reorder(Request $request)

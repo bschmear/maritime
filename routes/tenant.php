@@ -325,6 +325,7 @@ Route::middleware([
         Route::prefix('spec-groups')->name('spec-groups.')->group(function () {
             Route::post('/', [SpecGroupController::class, 'store'])->name('store');
             Route::put('/{specGroup}', [SpecGroupController::class, 'update'])->name('update');
+            Route::delete('/{specGroup}', [SpecGroupController::class, 'destroy'])->name('destroy');
             Route::post('/reorder', [SpecGroupController::class, 'reorder'])->name('reorder');
         });
 

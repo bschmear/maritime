@@ -138,7 +138,8 @@ const secondaryNavItems = ref([
             { name: 'Assets', href: 'assets.index',
                 children: [
                     { name: 'All Assets', href: 'assets.index' },
-                    { name: 'Asset Brands', href: 'boatmakes.index' }
+                    { name: 'Asset Brands', href: 'boatmakes.index' },
+                    { name: 'Asset Specifications', href: 'asset-specs.index' },
                 ] 
             },
             { name: 'Parts & Accessories', href: 'inventoryitems.index' },

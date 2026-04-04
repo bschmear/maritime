@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
-use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetSpec\Models\SpecGroup;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Http\Controllers\Controller;
@@ -149,8 +148,8 @@ class AssetSpecController extends Controller
      */
     public function destroy(AssetSpecDefinition $assetSpec)
     {
-        if ($assetSpec->is_required && AssetSpecValue::where('asset_spec_definition_id', $assetSpec->id)->exists()) {
-            return back()->withErrors(['error' => 'Cannot delete a required spec that is in use.']);
+        if ($assetSpec->is_required) {
+            return back()->withErrors(['error' => 'Required spec definitions cannot be deleted.']);
         }
 
         $assetSpec->delete();
