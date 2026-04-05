@@ -165,7 +165,10 @@ class PublicController extends Controller
                 'customer',
                 'user',
                 'opportunity',
-                'primaryVersion.lineItems.addons',
+                'primaryVersion.lineItems' => fn ($q) => $q->with([
+                    'addons',
+                    'assetVariant',
+                ]),
             ])
             ->firstOrFail();
 
@@ -511,20 +514,31 @@ class PublicController extends Controller
             return [];
         }
 
-        return $estimate->primaryVersion->lineItems->map(fn ($li) => [
-            'id' => $li->id,
-            'name' => $li->name,
-            'description' => $li->description,
-            'quantity' => (float) $li->quantity,
-            'unit_price' => (float) $li->unit_price,
-            'discount' => (float) ($li->discount ?? 0),
-            'line_total' => (float) $li->line_total,
-            'addons' => $li->addons->map(fn ($a) => [
-                'id' => $a->id,
-                'name' => $a->name,
-                'price' => (float) $a->price,
-                'quantity' => (int) $a->quantity,
-            ])->values()->all(),
-        ])->values()->all();
+        return $estimate->primaryVersion->lineItems->map(function ($li) {
+            $v = $li->assetVariant;
+            $variantLabel = $v ? ($v->display_name ?: $v->name) : null;
+            if ($variantLabel === null && $li->asset_variant_id) {
+                $variantLabel = 'Variant #'.$li->asset_variant_id;
+            }
+
+            return [
+                'id' => $li->id,
+                'name' => $li->name,
+                'description' => $li->description,
+                'itemable_type' => $li->itemable_type,
+                'asset_variant_id' => $li->asset_variant_id,
+                'variant_display_name' => $variantLabel,
+                'quantity' => (float) $li->quantity,
+                'unit_price' => (float) $li->unit_price,
+                'discount' => (float) ($li->discount ?? 0),
+                'line_total' => (float) $li->line_total,
+                'addons' => $li->addons->map(fn ($a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'price' => (float) $a->price,
+                    'quantity' => (int) $a->quantity,
+                ])->values()->all(),
+            ];
+        })->values()->all();
     }
 }

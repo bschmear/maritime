@@ -9,6 +9,8 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
 });
 
+const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
+
 const consent         = ref(false);
 const showDeclineForm = ref(false);
 const approvalError   = ref('');
@@ -64,6 +66,15 @@ const lineItemTotal = (item) => {
 
 const addonTotal = (addon) =>
     Number(addon.price || 0) * Number(addon.quantity || 1);
+
+const isAssetLineItem = (item) => item.itemable_type === ASSET_LINE_ITEM_TYPE;
+
+const lineItemVariantLabel = (item) => {
+    if (!isAssetLineItem(item) || !item.asset_variant_id) {
+        return null;
+    }
+    return item.variant_display_name?.trim() || `Variant #${item.asset_variant_id}`;
+};
 
 const subtotal   = computed(() => Number(props.record.subtotal) || props.record.line_items?.reduce((s, i) => s + lineItemTotal(i), 0) || 0);
 const tax        = computed(() => Number(props.record.tax) || 0);
@@ -233,7 +244,8 @@ const handlePrint = () => window.print();
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[6rem]">Variant</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
@@ -244,7 +256,13 @@ const handlePrint = () => window.print();
                                 <tr>
                                     <td class="px-6 py-3">
                                         <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
-                                        <p v-if="item.description" class="text-xs text-gray-500 mt-0.5">{{ item.description }}</p>
+                                        <!-- <p v-if="item.description" class="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{{ item.description }}</p> -->
+                                    </td>
+                                    <td class="px-6 py-3 text-sm text-gray-700">
+                                        <span v-if="lineItemVariantLabel(item)" class="font-medium text-gray-900">
+                                            {{ lineItemVariantLabel(item) }}
+                                        </span>
+                                        <span v-else class="text-gray-400">—</span>
                                     </td>
                                     <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
                                     <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
@@ -255,7 +273,7 @@ const handlePrint = () => window.print();
                                     :key="'addon-' + addon.id"
                                     class="bg-gray-50"
                                 >
-                                    <td class="pl-10 pr-6 py-2 text-sm text-gray-600">
+                                    <td class="pl-10 pr-6 py-2 text-sm text-gray-600" colspan="2">
                                         <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
                                     </td>
                                     <td class="px-6 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>

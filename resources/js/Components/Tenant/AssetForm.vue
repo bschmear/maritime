@@ -107,17 +107,108 @@ const variantFormConfig = ref(null);
 const variantRecord = ref(null);
 const variantFormKey = ref(0);
 const variantFormRef = ref(null);
-const localVariants = ref([...(props.record?.variants ?? [])]);
+
+/** Variants table (same payload as Sublist: schema.columns + fieldsSchema + records). */
+const variantTableSchema = ref(null);
+const variantTableFieldsSchemaRaw = ref({});
+const variantTableRows = ref([]);
+const variantsTableLoading = ref(false);
+const variantTableMeta = ref(null);
+const variantTablePage = ref(1);
+const VARIANTS_TABLE_PER_PAGE = 25;
+
+const variantTableFieldsSchema = computed(() => {
+    const fs = variantTableFieldsSchemaRaw.value;
+    if (fs && typeof fs === 'object' && fs.fields && typeof fs.fields === 'object' && !Array.isArray(fs.fields)) {
+        return fs.fields;
+    }
+    return fs || {};
+});
+
+const variantTableColumns = computed(() => {
+    const cols = variantTableSchema.value?.columns;
+    if (Array.isArray(cols) && cols.length > 0) {
+        return cols;
+    }
+    return [
+        { key: 'display_name', label: 'Variant', sortable: true },
+        { key: 'name', label: 'Name', sortable: true },
+    ];
+});
+
+const variantTableTotalCount = computed(() => variantTableMeta.value?.total ?? variantTableRows.value.length);
+
+const getVariantColumnFieldType = (key) => variantTableFieldsSchema.value[key]?.type || 'text';
+
+const fetchVariantsTable = async (page = 1) => {
+    if (!props.record?.id || !hasVariants.value) {
+        variantTableRows.value = [];
+        variantTableSchema.value = null;
+        variantTableFieldsSchemaRaw.value = {};
+        variantTableMeta.value = null;
+        return;
+    }
+    variantsTableLoading.value = true;
+    try {
+        const { data } = await axios.get(route('assets.variants.index', { asset: props.record.id }), {
+            params: { page, per_page: VARIANTS_TABLE_PER_PAGE },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        variantTableSchema.value = data.schema || null;
+        variantTableFieldsSchemaRaw.value = data.fieldsSchema || {};
+        variantTableRows.value = data.records || [];
+        variantTableMeta.value = data.meta || null;
+        variantTablePage.value = page;
+    } catch (e) {
+        console.error(e);
+        variantTableRows.value = Array.isArray(props.record?.variants) ? [...props.record.variants] : [];
+        variantTableSchema.value = {
+            columns: [
+                { key: 'display_name', label: 'Variant', sortable: true },
+                { key: 'name', label: 'Name', sortable: true },
+            ],
+        };
+        variantTableFieldsSchemaRaw.value = {};
+        variantTableMeta.value = null;
+    } finally {
+        variantsTableLoading.value = false;
+    }
+};
 
 watch(
-    () => props.record?.variants,
-    (v) => {
-        if (Array.isArray(v)) {
-            localVariants.value = [...v];
+    [() => props.record?.id, () => props.record?.updated_at, hasVariants],
+    () => {
+        if (props.record?.id && hasVariants.value) {
+            variantTablePage.value = 1;
+            fetchVariantsTable(1);
+        } else {
+            variantTableRows.value = [];
+            variantTableSchema.value = null;
+            variantTableFieldsSchemaRaw.value = {};
+            variantTableMeta.value = null;
         }
     },
-    { deep: true, immediate: true },
+    { immediate: true },
 );
+
+const variantsTableHasNext = computed(
+    () => variantTableMeta.value && variantTablePage.value < variantTableMeta.value.last_page,
+);
+const variantsTableHasPrev = computed(() => variantTablePage.value > 1);
+
+const goVariantsTableNext = () => {
+    if (variantsTableHasNext.value) {
+        fetchVariantsTable(variantTablePage.value + 1);
+    }
+};
+const goVariantsTablePrev = () => {
+    if (variantsTableHasPrev.value) {
+        fetchVariantsTable(variantTablePage.value - 1);
+    }
+};
 
 const getVariantSpecValuesArray = (variant) => {
     if (!variant) return [];
@@ -169,11 +260,17 @@ const closeVariantModal = () => {
 
 const onVariantFormCreated = () => {
     closeVariantModal();
+    if (props.record?.id && hasVariants.value) {
+        fetchVariantsTable(variantTablePage.value);
+    }
     router.reload({ only: ['record'] });
 };
 
 const onVariantFormUpdated = () => {
     closeVariantModal();
+    if (props.record?.id && hasVariants.value) {
+        fetchVariantsTable(variantTablePage.value);
+    }
     router.reload({ only: ['record'] });
 };
 
@@ -204,7 +301,7 @@ const openAddVariantModal = async () => {
 const openEditVariantModal = async (idx) => {
     editingVariantIdx.value = idx;
     variantModalError.value = '';
-    const v = localVariants.value[idx];
+    const v = variantTableRows.value[idx];
     variantRecord.value = null;
 
     if (!props.record?.id) {
@@ -244,9 +341,9 @@ const openEditVariantModal = async (idx) => {
 };
 
 const removeVariant = async (idx) => {
-    const v = localVariants.value[idx];
+    const v = variantTableRows.value[idx];
     if (!props.record?.id || !v?.id) {
-        localVariants.value.splice(idx, 1);
+        variantTableRows.value.splice(idx, 1);
         return;
     }
     if (!window.confirm('Delete this variant? Units must be reassigned first if any are assigned.')) {
@@ -254,6 +351,9 @@ const removeVariant = async (idx) => {
     }
     try {
         await axios.delete(route('assets.variants.destroy', { asset: props.record.id, variant: v.id }));
+        if (hasVariants.value) {
+            await fetchVariantsTable(variantTablePage.value);
+        }
         router.reload({ only: ['record'] });
     } catch (e) {
         window.alert(e.response?.data?.message || 'Could not delete variant.');
@@ -305,7 +405,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                             <ul class="mt-2 list-disc space-y-1 pl-5 text-blue-800/90 dark:text-blue-200/90">
                                 <li>Enable <strong>Has Variants</strong> when each configuration needs its own specs — specs live on the variant, not this asset.</li>
                                 <li>Leave variants off for single-spec products — specs are stored here on the asset aligned to its type.</li>
-                                <li>With variants on, manage variant records from the Variants sublist; the table below is a quick preview only.</li>
+                                <li>With variants on, use the table below to list, add, and edit variants (same columns as the catalog).</li>
                             </ul>
                         </div>
 
@@ -727,11 +827,13 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                     Variants
                                 </h3>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                    Each variant has its own specification values (same definitions as this asset’s type). Edit here or use the Variants sublist on the asset show page.
+                                    Each variant has its own specification values (same definitions as this asset’s type). Columns match your variant table settings, including specs marked “show on table”.
                                 </p>
                                 <div v-if="hasVariants">
-                                    <div class="mb-4 flex items-center justify-between">
-                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Variants ({{ localVariants.length }})</span>
+                                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Variants ({{ variantTableTotalCount }})
+                                        </span>
                                         <button
                                             v-if="isEditMode"
                                             type="button"
@@ -744,43 +846,127 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                             Add Variant
                                         </button>
                                     </div>
-                                    <div v-if="localVariants.length === 0" class="rounded-lg border-2 border-dashed border-gray-300 py-10 text-center dark:border-gray-700">
-                                        <span class="material-icons mb-2 block text-4xl text-gray-400 dark:text-gray-600">account_tree</span>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400">No variants yet</p>
-                                    </div>
-                                    <div v-else class="overflow-x-auto">
-                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                            <thead class="bg-gray-50 dark:bg-gray-900/50">
-                                                <tr>
-                                                    <th class="px-4 py-3 text-left text-sm font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
-                                                    <th v-if="isEditMode" class="w-36 px-4 py-3 text-right text-sm font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                                        Actions
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
-                                                <tr v-for="(variant, idx) in localVariants" :key="variant.id ?? idx" class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{{ variant.display_name || variant.name || '—' }}</td>
-                                                    <td v-if="isEditMode" class="px-4 py-3">
-                                                        <div class="flex justify-end gap-2">
-                                                            <button type="button" class="text-primary-600 dark:text-primary-400" @click="openEditVariantModal(idx)">
-                                                                <span class="material-icons text-base">edit</span>
-                                                            </button>
-                                                            <button type="button" class="text-red-600 dark:text-red-400" @click="removeVariant(idx)">
-                                                                <span class="material-icons text-base">delete</span>
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                    <div class="relative min-h-[8rem]">
+                                        <div
+                                            v-if="variantsTableLoading"
+                                            class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-gray-800/80"
+                                        >
+                                            <span class="material-icons animate-spin text-3xl text-primary-600">refresh</span>
+                                        </div>
+                                        <div
+                                            v-if="!variantsTableLoading && variantTableRows.length === 0"
+                                            class="rounded-lg border-2 border-dashed border-gray-300 py-10 text-center dark:border-gray-700"
+                                        >
+                                            <span class="material-icons mb-2 block text-4xl text-gray-400 dark:text-gray-600">account_tree</span>
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">No variants yet</p>
+                                        </div>
+                                        <div v-else-if="variantTableRows.length > 0" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                                <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                                    <tr>
+                                                        <th
+                                                            v-for="col in variantTableColumns"
+                                                            :key="col.key"
+                                                            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                        >
+                                                            {{ col.label }}
+                                                        </th>
+                                                        <th
+                                                            v-if="isEditMode"
+                                                            class="w-36 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                        >
+                                                            Actions
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                                                    <tr
+                                                        v-for="(variant, idx) in variantTableRows"
+                                                        :key="variant.id ?? idx"
+                                                        class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                                    >
+                                                        <td
+                                                            v-for="col in variantTableColumns"
+                                                            :key="col.key"
+                                                            class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
+                                                        >
+                                                            <template v-if="getVariantColumnFieldType(col.key) === 'boolean'">
+                                                                {{ variant[col.key] === true || variant[col.key] === 1 ? 'Yes' : 'No' }}
+                                                            </template>
+                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'date'">
+                                                                {{ formatDate(variant[col.key]) || '—' }}
+                                                            </template>
+                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'datetime'">
+                                                                {{ formatDateTime(variant[col.key]) || '—' }}
+                                                            </template>
+                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'currency'">
+                                                                {{ formatMoney(variant[col.key]) }}
+                                                            </template>
+                                                            <template v-else>
+                                                                {{
+                                                                    variant[col.key] != null && variant[col.key] !== ''
+                                                                        ? variant[col.key]
+                                                                        : (col.key === 'display_name' || col.key === 'name'
+                                                                              ? variant.display_name || variant.name || '—'
+                                                                              : '—')
+                                                                }}
+                                                            </template>
+                                                        </td>
+                                                        <td v-if="isEditMode" class="px-4 py-3">
+                                                            <div class="flex justify-end gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    class="text-primary-600 dark:text-primary-400"
+                                                                    title="Edit variant"
+                                                                    @click="openEditVariantModal(idx)"
+                                                                >
+                                                                    <span class="material-icons text-base">edit</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    class="text-red-600 dark:text-red-400"
+                                                                    title="Delete variant"
+                                                                    @click="removeVariant(idx)"
+                                                                >
+                                                                    <span class="material-icons text-base">delete</span>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div
+                                            v-if="variantTableMeta && variantTableMeta.last_page > 1"
+                                            class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700"
+                                        >
+                                            <button
+                                                type="button"
+                                                :disabled="!variantsTableHasPrev || variantsTableLoading"
+                                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                @click="goVariantsTablePrev"
+                                            >
+                                                Previous
+                                            </button>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                Page {{ variantTableMeta.current_page }} of {{ variantTableMeta.last_page }}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                :disabled="!variantsTableHasNext || variantsTableLoading"
+                                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                @click="goVariantsTableNext"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
                                     </div>
                                     <div
                                         class="mt-4 rounded-xl border border-blue-100 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20"
                                     >
                                         <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Specifications are per variant</p>
                                         <p class="mt-1 text-sm text-blue-800/90 dark:text-blue-200/90">
-                                            Use <strong>Add Variant</strong> or <strong>Edit</strong> to set spec values. The Variants sublist on the asset show page lists all variants for quick access.
+                                            Use <strong>Add Variant</strong> or <strong>Edit</strong> to set spec values for each row.
                                         </p>
                                     </div>
                                 </div>

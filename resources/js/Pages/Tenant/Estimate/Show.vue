@@ -20,6 +20,29 @@ const props = defineProps({
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 
+const showLineNotesModal = ref(false);
+const lineNotesModalTitle = ref('');
+const lineNotesModalBody = ref('');
+
+/** Stored line copy is usually `description`; fall back to `notes` if present. */
+const lineItemNoteText = (item) => {
+    const d = String(item?.description ?? '').trim();
+    const n = String(item?.notes ?? '').trim();
+    return d || n || '';
+};
+
+const openLineNotesModal = (title, body) => {
+    lineNotesModalTitle.value = title;
+    lineNotesModalBody.value = body;
+    showLineNotesModal.value = true;
+};
+
+const closeLineNotesModal = () => {
+    showLineNotesModal.value = false;
+    lineNotesModalTitle.value = '';
+    lineNotesModalBody.value = '';
+};
+
 const sendApprovalForm = useForm({});
 const sendApprovalRequest = () => {
     sendApprovalForm.post(route('estimates.send-approval', props.record.id), {
@@ -63,6 +86,23 @@ const assetLines = computed(() =>
         (li) => li.itemable_type === 'App\\Domain\\Asset\\Models\\Asset'
     )
 );
+
+/** Inertia may serialize `asset_variant` (snake) or `assetVariant` (camel). */
+const assetLineVariant = (item) => item.asset_variant ?? item.assetVariant;
+
+const assetLineVariantId = (item) => item.asset_variant_id ?? item.assetVariantId ?? null;
+
+const assetLineVariantDisplay = (item) => {
+    const v = assetLineVariant(item);
+    if (v?.display_name || v?.name) {
+        return v.display_name || v.name;
+    }
+    const vid = assetLineVariantId(item);
+    if (vid) {
+        return `Variant #${vid}`;
+    }
+    return '—';
+};
 
 const inventoryLines = computed(() =>
     lineItems.value.filter(
@@ -540,12 +580,15 @@ const confirmDelete = () => {
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
+                                        <th class="w-14 px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                            Notes
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -557,6 +600,15 @@ const confirmDelete = () => {
                                                     {{ item.itemable.make.display_name }}
                                                 </div>
                                             </td>
+                                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                <span
+                                                    v-if="assetLineVariantId(item)"
+                                                    class="font-medium text-gray-800 dark:text-gray-200"
+                                                >
+                                                    {{ assetLineVariantDisplay(item) }}
+                                                </span>
+                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                            </td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.itemable?.year || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
@@ -564,7 +616,18 @@ const confirmDelete = () => {
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button
+                                                    v-if="lineItemNoteText(item)"
+                                                    type="button"
+                                                    class="inline-flex rounded-lg p-1.5 text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30"
+                                                    title="View notes"
+                                                    @click="openLineNotesModal(item.name || 'Asset line', lineItemNoteText(item))"
+                                                >
+                                                    <span class="material-icons text-xl leading-none">visibility</span>
+                                                </button>
+                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                            </td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
                                         <tr
@@ -572,7 +635,7 @@ const confirmDelete = () => {
                                             :key="`asset-addon-${index}-${addonIdx}`"
                                             class="bg-primary-50/40 dark:bg-primary-900/10"
                                         >
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="2">
+                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="3">
                                                 ↳ {{ addon.name }}
                                             </td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
@@ -581,13 +644,24 @@ const confirmDelete = () => {
                                             <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
                                                 {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
                                             </td>
-                                            <td class="px-4 py-2 text-xs text-gray-400">{{ addon.notes || '—' }}</td>
+                                            <td class="px-4 py-2 text-center">
+                                                <button
+                                                    v-if="(addon.notes || '').trim()"
+                                                    type="button"
+                                                    class="inline-flex rounded p-1 text-primary-600 hover:bg-primary-100/80 dark:text-primary-400 dark:hover:bg-primary-900/40"
+                                                    title="View add-on notes"
+                                                    @click="openLineNotesModal(addon.name || 'Add-on', (addon.notes || '').trim())"
+                                                >
+                                                    <span class="material-icons text-base leading-none">visibility</span>
+                                                </button>
+                                                <span v-else class="text-xs text-gray-400">—</span>
+                                            </td>
                                         </tr>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
                                             Assets Subtotal
                                         </td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
@@ -992,6 +1066,28 @@ const confirmDelete = () => {
                         Create transaction in form instead
                     </Link>
                 </p>
+            </div>
+        </Modal>
+
+        <!-- Line notes (asset / line item description) -->
+        <Modal :show="showLineNotesModal" max-width="lg" @close="closeLineNotesModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ lineNotesModalTitle }}
+                </h3>
+                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</p>
+                <div class="mt-3 max-h-[min(60vh,24rem)] overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                    {{ lineNotesModalBody }}
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="closeLineNotesModal"
+                    >
+                        Close
+                    </button>
+                </div>
             </div>
         </Modal>
 

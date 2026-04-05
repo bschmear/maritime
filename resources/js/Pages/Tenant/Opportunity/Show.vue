@@ -1,6 +1,8 @@
 <script setup>
+import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -24,7 +26,7 @@ const opportunityLabel = computed(() =>
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
     { label: 'Opportunities', href: route('opportunities.index') },
-    { label: opportunityLabel.value },
+    { label: opportunityLabel.value, href: route('opportunities.show', buildResourceRouteParams('opportunities', props.record.id)) },
 ]);
 
 const formatCurrency = (value) =>
@@ -50,6 +52,20 @@ const statusLabel = computed(() =>
 
 const assets = computed(() => props.record?.assets ?? []);
 const assetTotal = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+
+/** Pivot variant display (matches estimate line item pattern). */
+const oppAssetVariantLabel = (item) => {
+    const v = item.asset_variant ?? item.assetVariant;
+    const name = v?.display_name?.trim() || v?.name?.trim();
+    if (name) {
+        return name;
+    }
+    const vid = item.pivot?.asset_variant_id;
+    if (vid) {
+        return `Variant #${vid}`;
+    }
+    return '';
+};
 const assetCostItem = (item) => Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0);
 const assetSubtotal = computed(() => assets.value.reduce((sum, item) => sum + assetTotal(item), 0));
 const assetCostTotal = computed(() => assets.value.reduce((sum, item) => sum + assetCostItem(item), 0));
@@ -75,7 +91,7 @@ const qualTimelineLabel = computed(() =>
 
 const handleDelete = () => {
     if (!confirm('Are you sure you want to delete this opportunity?')) return;
-    router.delete(route('opportunities.destroy', props.record.id));
+    router.delete(route('opportunities.destroy', buildResourceRouteParams('opportunities', props.record.id)));
 };
 </script>
 
@@ -92,7 +108,7 @@ const handleDelete = () => {
                     </h2>
                     <div class="flex items-center gap-2">
                         <Link
-                            :href="route('opportunities.edit', record.id)"
+                            :href="route('opportunities.edit', buildResourceRouteParams('opportunities', record.id))"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -312,6 +328,7 @@ const handleDelete = () => {
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Estimated Cost</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
@@ -323,12 +340,19 @@ const handleDelete = () => {
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                     <tr
                                         v-for="item in assets"
-                                        :key="item.id"
+                                        :key="`${item.id}-${item.pivot?.asset_variant_id ?? 'n'}`"
                                         class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                                     >
                                         <td class="px-4 py-3">
                                             <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
                                             <div v-if="item.make?.display_name" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make.display_name }}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            <AssetLineVariantCell
+                                                :label="oppAssetVariantLabel(item)"
+                                                :has-variants="item.has_variants"
+                                                pending-label="—"
+                                            />
                                         </td>
                                         <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
@@ -340,17 +364,17 @@ const handleDelete = () => {
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal (Revenue)</td>
+                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal (Revenue)</td>
                                         <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td></td>
                                     </tr>
                                     <tr class="border-t border-gray-200 dark:border-gray-600">
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Assets Total Cost</td>
+                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Assets Total Cost</td>
                                         <td class="px-4 py-3 text-right text-sm text-red-600 dark:text-red-400">{{ formatCurrency(assetCostTotal) }}</td>
                                         <td></td>
                                     </tr>
                                     <tr class="border-t border-dashed border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Gross Profit</td>
+                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Gross Profit</td>
                                         <td class="px-4 py-3 text-right text-sm font-bold"
                                             :class="(assetSubtotal - assetCostTotal) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
                                             {{ formatCurrency(assetSubtotal - assetCostTotal) }}
@@ -570,7 +594,7 @@ const handleDelete = () => {
                         </div>
                         <div class="p-5 space-y-3">
                             <Link
-                                :href="route('opportunities.edit', record.id)"
+                                :href="route('opportunities.edit', buildResourceRouteParams('opportunities', record.id))"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

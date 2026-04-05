@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import OpportunityForm from '@/Components/Tenant/OpportunityForm.vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -22,15 +23,17 @@ const opportunityLabel = computed(() =>
     props.record?.sequence ? `OPP-${props.record.sequence}` : `Opportunity #${props.record?.id}`
 );
 
+const oppRouteParams = computed(() => buildResourceRouteParams('opportunities', props.record.id));
+
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
     { label: 'Opportunities', href: route('opportunities.index') },
-    { label: opportunityLabel.value, href: route('opportunities.show', props.record.id) },
+    { label: opportunityLabel.value, href: route('opportunities.show', oppRouteParams.value) },
     { label: 'Edit' },
 ]);
 
 const handleCancelled = () => {
-    router.visit(route('opportunities.show', props.record.id));
+    router.visit(route('opportunities.show', oppRouteParams.value));
 };
 </script>
 

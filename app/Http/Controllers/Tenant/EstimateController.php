@@ -67,11 +67,12 @@ class EstimateController extends RecordController
                 'customer',
                 'createdBy',
                 'salesperson',
-                'assets' => fn ($q) => $q->with('make:id,display_name')->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes'),
+                'assets' => fn ($q) => $q->with('make:id,display_name')->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id'),
                 'inventoryItems' => fn ($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes'),
             ])->find($request->query('id'));
 
             if ($opportunity) {
+                Opportunity::hydratePivotAssetVariants($opportunity->assets);
                 $user = auth()->user();
 
                 $initialData = [

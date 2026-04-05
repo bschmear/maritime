@@ -19,6 +19,12 @@ export function getResourceRouteParamName(recordType) {
         return 'subsidiary';
     }
 
+    // Plurals ending in consonant + ies (e.g. opportunities → opportunity). A lone trailing
+    // .replace(/s$/, '') would yield "opportunitie" and break Ziggy route binding.
+    if (routeType.endsWith('ies')) {
+        return routeType.slice(0, -3) + 'y';
+    }
+
     return routeType.replace(/s$/, '');
 }
 

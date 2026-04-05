@@ -2,6 +2,8 @@
 import { useForm, router } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
+import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
+import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
@@ -299,39 +301,25 @@ const assetForm = ref({
     catalog_description: '',
 });
 
-const variantOptions = ref([]);
-const variantsLoading = ref(false);
-
-const fetchVariantsForAsset = async (assetId) => {
-    variantOptions.value = [];
-    if (!assetId) {
-        return;
-    }
-    variantsLoading.value = true;
-    try {
-        const url = new URL(route('assets.variants.index', { asset: assetId }), window.location.origin);
-        url.searchParams.set('per_page', '100');
-        url.searchParams.set('page', '1');
-        const response = await fetch(url.toString(), {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-        });
-        if (!response.ok) {
-            throw new Error(String(response.status));
-        }
-        const data = await response.json();
-        variantOptions.value = data.records || [];
-    } catch (e) {
-        console.error(e);
-        variantOptions.value = [];
-    } finally {
-        variantsLoading.value = false;
-    }
-};
+/** Computed bridges for AssetLineVariantSelect (nested ref + defineModel v-model sync). */
+const assetFormVariantId = computed({
+    get: () => assetForm.value.asset_variant_id,
+    set: (v) => {
+        assetForm.value.asset_variant_id = v;
+    },
+});
+const assetFormVariantDisplayName = computed({
+    get: () => assetForm.value.variant_display_name,
+    set: (v) => {
+        assetForm.value.variant_display_name = v;
+    },
+});
+const assetFormCatalogDescription = computed({
+    get: () => assetForm.value.catalog_description,
+    set: (v) => {
+        assetForm.value.catalog_description = v;
+    },
+});
 
 const assetBaseLineTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
@@ -381,7 +369,6 @@ const debouncedFetchAssets = debounce(() => fetchAssets(true), 300);
 
 const openAddAssetModal = () => {
     editingAssetIndex.value = null;
-    variantOptions.value = [];
     assetForm.value = {
         itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
         itemable_id: null,
@@ -406,50 +393,13 @@ const openAddAssetModal = () => {
     showAssetModal.value = true;
 };
 
-const openEditAssetModal = async (index) => {
+const openEditAssetModal = (index) => {
     editingAssetIndex.value = index;
     assetForm.value = { ...assetItems.value[index], addons: [...(assetItems.value[index].addons || [])] };
-    if (assetForm.value.has_variants && assetForm.value.asset_id) {
-        await fetchVariantsForAsset(assetForm.value.asset_id);
-        if (assetForm.value.asset_variant_id != null) {
-            onVariantSelectChange();
-        }
-    } else {
-        variantOptions.value = [];
-    }
     showAssetModal.value = true;
 };
 
-const onVariantSelectChange = () => {
-    const id = assetForm.value.asset_variant_id;
-    if (id == null) {
-        assetForm.value.variant_display_name = '';
-        assetForm.value.catalog_description = '';
-        return;
-    }
-    const v = variantOptions.value.find((x) => Number(x.id) === Number(id));
-    if (!v) {
-        return;
-    }
-    assetForm.value.variant_display_name = v.display_name || v.name || `Variant #${v.id}`;
-    const resolved =
-        (v.resolved_description || '').trim() ||
-        (v.description || '').trim() ||
-        assetForm.value.asset_description ||
-        '';
-    assetForm.value.catalog_description = resolved;
-    if (v.default_price != null && v.default_price !== '') {
-        assetForm.value.unit_price = Number(v.default_price);
-    }
-};
-
-const onVariantSelectFromDom = (e) => {
-    const raw = e.target.value;
-    assetForm.value.asset_variant_id = raw === '' ? null : Number(raw);
-    onVariantSelectChange();
-};
-
-const selectAsset = async (asset) => {
+const selectAsset = (asset) => {
     assetForm.value.itemable_id = asset.id;
     assetForm.value.asset_id = asset.id;
     assetForm.value.name = asset.display_name;
@@ -461,10 +411,7 @@ const selectAsset = async (asset) => {
     assetForm.value.variant_display_name = '';
     assetForm.value.asset_description = (asset.description || '').trim() || '';
     assetForm.value.catalog_description = '';
-    if (assetForm.value.has_variants) {
-        await fetchVariantsForAsset(asset.id);
-    } else {
-        variantOptions.value = [];
+    if (!assetForm.value.has_variants) {
         assetForm.value.catalog_description = assetForm.value.asset_description || '';
     }
 };
@@ -492,7 +439,6 @@ const clearSelectedAssetForChange = () => {
     assetForm.value.variant_display_name = '';
     assetForm.value.asset_description = '';
     assetForm.value.catalog_description = '';
-    variantOptions.value = [];
 };
 
 const removeAssetItem = (index) => assetItems.value.splice(index, 1);
@@ -580,6 +526,20 @@ onMounted(() => {
     if (props.opportunityLineItems) {
         (props.opportunityLineItems.assets || []).forEach((asset) => {
             const desc = (asset.description || '').trim() || '';
+            const pivotVid = asset.pivot?.asset_variant_id ?? null;
+            const vRel = asset.asset_variant ?? asset.assetVariant;
+            const variantDisplay =
+                vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : '');
+            let catalogDesc = '';
+            if (pivotVid && vRel) {
+                catalogDesc =
+                    (vRel.resolved_description || '').trim() ||
+                    (vRel.description || '').trim() ||
+                    desc ||
+                    '';
+            } else if (!asset.has_variants) {
+                catalogDesc = desc;
+            }
             assetItems.value.push({
                 itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
                 itemable_id: asset.id,
@@ -593,10 +553,10 @@ onMounted(() => {
                 notes: asset.pivot?.notes || '',
                 addons: [],
                 has_variants: Boolean(asset.has_variants),
-                asset_variant_id: null,
-                variant_display_name: '',
+                asset_variant_id: pivotVid,
+                variant_display_name: variantDisplay,
                 asset_description: desc,
-                catalog_description: asset.has_variants ? '' : desc,
+                catalog_description: catalogDesc,
             });
         });
 
@@ -985,11 +945,10 @@ const handleCancel = () => emit('cancelled');
                                                 <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
                                             </td>
                                             <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-sm">
-                                                <span v-if="item.variant_display_name" class="font-medium text-gray-800 dark:text-gray-200">{{
-                                                    item.variant_display_name
-                                                }}</span>
-                                                <span v-else-if="item.has_variants" class="text-amber-600 dark:text-amber-400 text-xs">Select variant</span>
-                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                                <AssetLineVariantCell
+                                                    :label="item.variant_display_name"
+                                                    :has-variants="item.has_variants"
+                                                />
                                             </td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
@@ -1369,30 +1328,19 @@ const handleCancel = () => emit('cancelled');
                                 </button>
                             </div>
 
-                            <div v-if="assetForm.has_variants" class="space-y-1.5">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Variant <span class="text-red-500">*</span>
-                                </label>
-                                <select
-                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
-                                    :disabled="variantsLoading"
-                                    :value="assetForm.asset_variant_id ?? ''"
-                                    @change="onVariantSelectFromDom"
-                                >
-                                    <option value="">Select a variant…</option>
-                                    <option v-for="v in variantOptions" :key="v.id" :value="v.id">
-                                        {{ v.display_name || v.name || `Variant #${v.id}` }}
-                                    </option>
-                                </select>
-                                <p v-if="variantsLoading" class="text-xs text-gray-500 dark:text-gray-400">Loading variants…</p>
-                            </div>
-                            <p
-                                v-if="(assetForm.catalog_description || '').trim()"
-                                class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3"
-                            >
-                                <span class="font-medium text-gray-600 dark:text-gray-300">Catalog description:</span>
-                                {{ assetForm.catalog_description }}
-                            </p>
+                            <AssetLineVariantSelect
+                                v-if="assetForm.has_variants && assetForm.itemable_id"
+                                v-model="assetFormVariantId"
+                                v-model:variant-display-name="assetFormVariantDisplayName"
+                                v-model:catalog-description="assetFormCatalogDescription"
+                                :asset-id="assetForm.asset_id"
+                                :has-variants="assetForm.has_variants"
+                                :asset-description="assetForm.asset_description"
+                                :sync-catalog-description="true"
+                                :apply-default-price="true"
+                                :show-catalog-preview="true"
+                                @update:unit-price="assetForm.unit_price = $event"
+                            />
 
                             <div class="grid grid-cols-3 gap-4">
                                 <div>

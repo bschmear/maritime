@@ -1,6 +1,9 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
+import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 import { computed, ref, watch } from 'vue';
 
 const debounce = (fn, delay) => {
@@ -190,6 +193,23 @@ const assetForm = ref({
     unit_price: 0,
     estimated_cost: 0,
     notes: '',
+    has_variants: false,
+    asset_variant_id: null,
+    variant_display_name: '',
+});
+
+/** Computed bridges so v-model on AssetLineVariantSelect syncs (nested ref keys + defineModel are unreliable). */
+const assetFormVariantId = computed({
+    get: () => assetForm.value.asset_variant_id,
+    set: (v) => {
+        assetForm.value.asset_variant_id = v;
+    },
+});
+const assetFormVariantDisplayName = computed({
+    get: () => assetForm.value.variant_display_name,
+    set: (v) => {
+        assetForm.value.variant_display_name = v;
+    },
 });
 
 const assetLineTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 0);
@@ -248,7 +268,19 @@ const debouncedFetchAssets = debounce(() => fetchAssets(true), 300);
 
 const openAddAssetModal = () => {
     editingAssetIndex.value = null;
-    assetForm.value = { asset_id: null, display_name: '', year: '', make: '', quantity: 1, unit_price: 0, estimated_cost: 0, notes: '' };
+    assetForm.value = {
+        asset_id: null,
+        display_name: '',
+        year: '',
+        make: '',
+        quantity: 1,
+        unit_price: 0,
+        estimated_cost: 0,
+        notes: '',
+        has_variants: false,
+        asset_variant_id: null,
+        variant_display_name: '',
+    };
     assetSearchQuery.value = '';
     assetCurrentPage.value = 1;
     fetchAssets(true);
@@ -268,10 +300,25 @@ const selectAsset = (asset) => {
     assetForm.value.make = asset.make?.display_name || asset.make || '';
     assetForm.value.unit_price = Number(asset.default_price) || 0;
     assetForm.value.estimated_cost = Number(asset.default_cost) || 0;
+    assetForm.value.has_variants = Boolean(asset.has_variants);
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
+};
+
+const clearSelectedAssetForChange = () => {
+    assetForm.value.asset_id = null;
+    assetForm.value.display_name = '';
+    assetForm.value.has_variants = false;
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
 };
 
 const saveAssetItem = () => {
     if (!assetForm.value.asset_id) return;
+    if (assetForm.value.has_variants && !assetForm.value.asset_variant_id) {
+        window.alert('This asset uses variants — select a variant before saving the line.');
+        return;
+    }
 
     if (editingAssetIndex.value !== null) {
         assetItems.value[editingAssetIndex.value] = { ...assetForm.value };
@@ -318,6 +365,9 @@ const buildInitialFormData = () => {
     // Start from fieldsSchema defaults
     Object.keys(props.fieldsSchema).forEach(key => {
         const field = props.fieldsSchema[key];
+        if (field.readOnly && !props.record) {
+            return;
+        }
         if (props.record && props.record[key] !== undefined) {
             data[key] = props.record[key];
         } else if (props.initialData[key] !== undefined) {
@@ -364,25 +414,43 @@ watch(() => props.record?.inventory_items, (items) => {
 // Initialize asset items when editing
 watch(() => props.record?.assets, (items) => {
     if (items && Array.isArray(items)) {
-        assetItems.value = items.map(item => ({
-            asset_id: item.id,
-            display_name: item.display_name,
-            year: item.year || '',
-            make: item.make?.display_name || '',
-            quantity: item.pivot?.quantity ?? 1,
-            unit_price: item.pivot?.unit_price != null ? Number(item.pivot.unit_price) : (Number(item.default_price) || 0),
-            estimated_cost: item.pivot?.estimated_cost != null ? Number(item.pivot.estimated_cost) : (Number(item.default_cost) || 0),
-            notes: item.pivot?.notes || '',
-        }));
+        assetItems.value = items.map((item) => {
+            const vRel = item.asset_variant ?? item.assetVariant;
+            const pivotVid = item.pivot?.asset_variant_id ?? null;
+            return {
+                asset_id: item.id,
+                display_name: item.display_name,
+                year: item.year || '',
+                make: item.make?.display_name || '',
+                quantity: item.pivot?.quantity ?? 1,
+                unit_price: item.pivot?.unit_price != null ? Number(item.pivot.unit_price) : (Number(item.default_price) || 0),
+                estimated_cost: item.pivot?.estimated_cost != null ? Number(item.pivot.estimated_cost) : (Number(item.default_cost) || 0),
+                notes: item.pivot?.notes || '',
+                has_variants: Boolean(item.has_variants),
+                asset_variant_id: pivotVid,
+                variant_display_name:
+                    vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : ''),
+            };
+        });
     }
 }, { immediate: true });
 
 // ==============================
 // Submit
 // ==============================
+const omitReadonlySchemaFields = (data) => {
+    const out = { ...data };
+    Object.entries(props.fieldsSchema).forEach(([key, def]) => {
+        if (def?.readOnly) {
+            delete out[key];
+        }
+    });
+    return out;
+};
+
 const submit = () => {
     form.transform((data) => ({
-        ...data,
+        ...omitReadonlySchemaFields(data),
         estimated_value: combinedSubtotal.value > 0 ? combinedSubtotal.value : (data.estimated_value || 0),
         inventory_items: lineItems.value.map(item => ({
             inventory_item_id: item.inventory_item_id,
@@ -391,30 +459,26 @@ const submit = () => {
             estimated_cost: Number(item.estimated_cost) || 0,
             notes: item.notes || '',
         })),
-        assets: assetItems.value.map(item => ({
+        assets: assetItems.value.map((item) => ({
             asset_id: item.asset_id,
             quantity: Number(item.quantity) || 1,
             unit_price: Number(item.unit_price) || 0,
             estimated_cost: Number(item.estimated_cost) || 0,
             notes: item.notes || '',
+            asset_variant_id: item.asset_variant_id || null,
         })),
     }));
 
     if (props.mode === 'edit') {
-        form.put(route('opportunities.update', props.record.id), {
+        form.put(route('opportunities.update', buildResourceRouteParams('opportunities', props.record.id)), {
             onSuccess: () => {
-                window.location.href = route('opportunities.show', props.record.id);
+                window.location.href = route('opportunities.show', buildResourceRouteParams('opportunities', props.record.id));
             },
             onError: (errors) => console.error('Update failed:', errors),
         });
     } else {
+        // Server returns redirect to opportunities.show; Inertia follows it (no client-side URL needed).
         form.post(route('opportunities.store'), {
-            onSuccess: (page) => {
-                const id = page.props.record?.id;
-                if (id) {
-                    window.location.href = route('opportunities.show', id);
-                }
-            },
             onError: (errors) => console.error('Create failed:', errors),
         });
     }
@@ -648,6 +712,7 @@ const handleCancel = () => emit('cancelled');
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
@@ -659,12 +724,18 @@ const handleCancel = () => emit('cancelled');
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                     <tr
                                         v-for="(item, index) in assetItems"
-                                        :key="index"
+                                        :key="`${item.asset_id}-${item.asset_variant_id ?? 'x'}-${index}`"
                                         class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                                     >
                                         <td class="px-4 py-3">
                                             <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
                                             <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                            <AssetLineVariantCell
+                                                :label="item.variant_display_name"
+                                                :has-variants="item.has_variants"
+                                            />
                                         </td>
                                         <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
@@ -689,7 +760,7 @@ const handleCancel = () => emit('cancelled');
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="4" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
+                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
@@ -982,12 +1053,24 @@ const handleCancel = () => emit('cancelled');
                                 <button
                                     v-if="editingAssetIndex === null"
                                     type="button"
-                                    @click="assetForm.asset_id = null; assetForm.display_name = ''"
+                                    @click="clearSelectedAssetForChange"
                                     class="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
                                 >
                                     Change
                                 </button>
                             </div>
+
+                            <AssetLineVariantSelect
+                                v-if="assetForm.has_variants && assetForm.asset_id"
+                                v-model="assetFormVariantId"
+                                v-model:variant-display-name="assetFormVariantDisplayName"
+                                :asset-id="assetForm.asset_id"
+                                :has-variants="assetForm.has_variants"
+                                :sync-catalog-description="false"
+                                :apply-default-price="true"
+                                :show-catalog-preview="false"
+                                @update:unit-price="assetForm.unit_price = $event"
+                            />
 
                             <div class="grid grid-cols-3 gap-4">
                                 <div>

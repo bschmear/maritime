@@ -95,6 +95,17 @@ const lineItemTotal = (item) => {
 const addonTotal = (addon) =>
     Number(addon.price || 0) * Number(addon.quantity || 1);
 
+const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
+
+const isAssetLineItem = (item) => item.itemable_type === ASSET_LINE_ITEM_TYPE;
+
+const lineItemVariantLabel = (item) => {
+    if (!isAssetLineItem(item) || !item.asset_variant_id) {
+        return null;
+    }
+    return item.variant_display_name?.trim() || `Variant #${item.asset_variant_id}`;
+};
+
 // ── Approval Actions ───────────────────────────────────────────────────────
 const submitApproval = () => {
     approvalError.value = '';
@@ -217,7 +228,8 @@ const submitDecline = () => {
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                            <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase min-w-[6rem]">Variant</th>
                             <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
                             <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
                             <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
@@ -228,7 +240,12 @@ const submitDecline = () => {
                             <tr class="hover:bg-gray-50">
                                 <td class="px-5 py-3">
                                     <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
-                                    <p v-if="item.description" class="text-xs text-gray-500 mt-0.5">{{ item.description }}</p>
+                                 </td>
+                                <td class="px-5 py-3 text-sm text-gray-700">
+                                    <span v-if="lineItemVariantLabel(item)" class="font-medium text-gray-900">
+                                        {{ lineItemVariantLabel(item) }}
+                                    </span>
+                                    <span v-else class="text-gray-400">—</span>
                                 </td>
                                 <td class="px-5 py-3 text-right text-gray-700">{{ item.quantity }}</td>
                                 <td class="px-5 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
@@ -239,7 +256,7 @@ const submitDecline = () => {
                                 :key="'addon-' + addon.id"
                                 class="bg-gray-50"
                             >
-                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600">
+                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600" colspan="2">
                                     <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
                                 </td>
                                 <td class="px-5 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
@@ -281,69 +298,6 @@ const submitDecline = () => {
                 <span class="material-icons text-base">open_in_new</span>
                 Open Review Page
             </a>
-        </div>
-
-        <!-- Line Items -->
-        <div v-if="estimate.line_items?.length" class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-            <div class="px-5 py-4 border-b border-gray-100">
-                <h2 class="font-semibold text-gray-900 text-sm">Line Items</h2>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
-                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Unit Price</th>
-                            <th class="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-50">
-                        <template v-for="item in estimate.line_items" :key="item.id">
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-5 py-3">
-                                    <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
-                                    <p v-if="item.description" class="text-xs text-gray-500 mt-0.5">{{ item.description }}</p>
-                                </td>
-                                <td class="px-5 py-3 text-right text-gray-700">{{ item.quantity }}</td>
-                                <td class="px-5 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
-                                <td class="px-5 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
-                            </tr>
-                            <tr
-                                v-for="addon in item.addons"
-                                :key="'addon-' + addon.id"
-                                class="bg-gray-50"
-                            >
-                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600">
-                                    <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
-                                </td>
-                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
-                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
-                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addonTotal(addon)) }}</td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-            <div class="px-5 py-4 bg-gray-50 border-t border-gray-100">
-                <div class="ml-auto max-w-xs space-y-1.5 text-sm">
-                    <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span></div>
-                    <div v-if="taxRate > 0" class="flex justify-between text-gray-600"><span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span></div>
-                    <div class="flex justify-between font-bold text-gray-900 text-base border-t border-gray-300 pt-2 mt-1"><span>Total</span><span>{{ formatCurrency(grandTotal) }}</span></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notes / Terms -->
-        <div v-if="estimate.notes || estimate.terms" class="bg-white rounded-xl border border-gray-200 p-5 mb-6 space-y-4">
-            <div v-if="estimate.notes">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</h3>
-                <p class="text-sm text-gray-700 whitespace-pre-line">{{ estimate.notes }}</p>
-            </div>
-            <div v-if="estimate.terms">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Terms &amp; Conditions</h3>
-                <p class="text-sm text-gray-700 whitespace-pre-line">{{ estimate.terms }}</p>
-            </div>
         </div>
 
         <!-- ── Inline Approval Form (modal-like panel) ── -->
