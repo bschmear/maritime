@@ -5,7 +5,13 @@
   "form": {
     "primary": {
       "label": "Variant",
-      "fields": [{ "key": "name" }]
+      "fields": [
+        { "key": "name" },
+        { "key": "default_cost" },
+        { "key": "default_price" },
+        { "key": "inactive" },
+        { "key": "description" }
+      ]
     },
     "specs": {
       "label": "Specifications",

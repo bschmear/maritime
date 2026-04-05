@@ -48,6 +48,8 @@ const assetLabel = computed(() =>
     props.record?.display_name ? props.record.display_name : `Asset #${props.record?.id}`,
 );
 
+const assetShowUrl = computed(() => route('assets.show', props.record.id));
+
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
     { label: 'Assets', href: route('assets.index') },
@@ -86,6 +88,7 @@ const handleCancel = () => {
                 :image-urls="imageUrls"
                 :timezones="timezones"
                 :available-specs="availableSpecs"
+                :redirect-after-update="assetShowUrl"
                 mode="edit"
                 @cancel="handleCancel"
             />

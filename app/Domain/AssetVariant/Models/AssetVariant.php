@@ -18,6 +18,16 @@ class AssetVariant extends Model
         'asset_id',
         'name',
         'display_name',
+        'default_cost',
+        'default_price',
+        'description',
+        'inactive',
+    ];
+
+    protected $casts = [
+        'default_cost' => 'decimal:2',
+        'default_price' => 'decimal:2',
+        'inactive' => 'boolean',
     ];
 
     public function asset(): BelongsTo
@@ -33,6 +43,24 @@ class AssetVariant extends Model
     public function specValues(): MorphMany
     {
         return $this->morphMany(AssetSpecValue::class, 'specable')->with('definition');
+    }
+
+    /**
+     * Variant-specific description if set; otherwise the parent asset's description.
+     */
+    public function resolvedDescription(): ?string
+    {
+        if (is_string($this->description) && trim($this->description) !== '') {
+            return trim($this->description);
+        }
+
+        $asset = $this->relationLoaded('asset') ? $this->asset : $this->asset()->first();
+        $d = $asset?->description;
+        if ($d === null || trim((string) $d) === '') {
+            return null;
+        }
+
+        return trim((string) $d);
     }
 
     protected static function booted(): void

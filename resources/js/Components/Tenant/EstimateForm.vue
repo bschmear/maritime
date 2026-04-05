@@ -292,7 +292,46 @@ const assetForm = ref({
     discount: 0,
     notes: '',
     addons: [],
+    has_variants: false,
+    asset_variant_id: null,
+    variant_display_name: '',
+    asset_description: '',
+    catalog_description: '',
 });
+
+const variantOptions = ref([]);
+const variantsLoading = ref(false);
+
+const fetchVariantsForAsset = async (assetId) => {
+    variantOptions.value = [];
+    if (!assetId) {
+        return;
+    }
+    variantsLoading.value = true;
+    try {
+        const url = new URL(route('assets.variants.index', { asset: assetId }), window.location.origin);
+        url.searchParams.set('per_page', '100');
+        url.searchParams.set('page', '1');
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            throw new Error(String(response.status));
+        }
+        const data = await response.json();
+        variantOptions.value = data.records || [];
+    } catch (e) {
+        console.error(e);
+        variantOptions.value = [];
+    } finally {
+        variantsLoading.value = false;
+    }
+};
 
 const assetBaseLineTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
@@ -342,6 +381,7 @@ const debouncedFetchAssets = debounce(() => fetchAssets(true), 300);
 
 const openAddAssetModal = () => {
     editingAssetIndex.value = null;
+    variantOptions.value = [];
     assetForm.value = {
         itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
         itemable_id: null,
@@ -354,6 +394,11 @@ const openAddAssetModal = () => {
         discount: 0,
         notes: '',
         addons: [],
+        has_variants: false,
+        asset_variant_id: null,
+        variant_display_name: '',
+        asset_description: '',
+        catalog_description: '',
     };
     assetSearchQuery.value = '';
     assetCurrentPage.value = 1;
@@ -361,29 +406,93 @@ const openAddAssetModal = () => {
     showAssetModal.value = true;
 };
 
-const openEditAssetModal = (index) => {
+const openEditAssetModal = async (index) => {
     editingAssetIndex.value = index;
     assetForm.value = { ...assetItems.value[index], addons: [...(assetItems.value[index].addons || [])] };
+    if (assetForm.value.has_variants && assetForm.value.asset_id) {
+        await fetchVariantsForAsset(assetForm.value.asset_id);
+        if (assetForm.value.asset_variant_id != null) {
+            onVariantSelectChange();
+        }
+    } else {
+        variantOptions.value = [];
+    }
     showAssetModal.value = true;
 };
 
-const selectAsset = (asset) => {
+const onVariantSelectChange = () => {
+    const id = assetForm.value.asset_variant_id;
+    if (id == null) {
+        assetForm.value.variant_display_name = '';
+        assetForm.value.catalog_description = '';
+        return;
+    }
+    const v = variantOptions.value.find((x) => Number(x.id) === Number(id));
+    if (!v) {
+        return;
+    }
+    assetForm.value.variant_display_name = v.display_name || v.name || `Variant #${v.id}`;
+    const resolved =
+        (v.resolved_description || '').trim() ||
+        (v.description || '').trim() ||
+        assetForm.value.asset_description ||
+        '';
+    assetForm.value.catalog_description = resolved;
+    if (v.default_price != null && v.default_price !== '') {
+        assetForm.value.unit_price = Number(v.default_price);
+    }
+};
+
+const onVariantSelectFromDom = (e) => {
+    const raw = e.target.value;
+    assetForm.value.asset_variant_id = raw === '' ? null : Number(raw);
+    onVariantSelectChange();
+};
+
+const selectAsset = async (asset) => {
     assetForm.value.itemable_id = asset.id;
     assetForm.value.asset_id = asset.id;
     assetForm.value.name = asset.display_name;
     assetForm.value.year = asset.year || '';
     assetForm.value.make = asset.make?.display_name || '';
     assetForm.value.unit_price = Number(asset.default_price) || 0;
+    assetForm.value.has_variants = Boolean(asset.has_variants);
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
+    assetForm.value.asset_description = (asset.description || '').trim() || '';
+    assetForm.value.catalog_description = '';
+    if (assetForm.value.has_variants) {
+        await fetchVariantsForAsset(asset.id);
+    } else {
+        variantOptions.value = [];
+        assetForm.value.catalog_description = assetForm.value.asset_description || '';
+    }
 };
 
 const saveAssetItem = () => {
     if (!assetForm.value.itemable_id) return;
+    if (assetForm.value.has_variants && !assetForm.value.asset_variant_id) {
+        window.alert('This asset uses variants — select a variant before saving the line.');
+        return;
+    }
     if (editingAssetIndex.value !== null) {
         assetItems.value[editingAssetIndex.value] = { ...assetForm.value };
     } else {
         assetItems.value.push({ ...assetForm.value });
     }
     showAssetModal.value = false;
+};
+
+const clearSelectedAssetForChange = () => {
+    assetForm.value.itemable_id = null;
+    assetForm.value.asset_id = null;
+    assetForm.value.name = '';
+    assetForm.value.has_variants = false;
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
+    assetForm.value.asset_description = '';
+    assetForm.value.catalog_description = '';
+    variantOptions.value = [];
 };
 
 const removeAssetItem = (index) => assetItems.value.splice(index, 1);
@@ -395,9 +504,27 @@ const showAddonModal = ref(false);
 const currentLineItem = ref(null);
 
 const openAddonModal = (lineItem) => {
+    if (
+        lineItem.itemable_type === 'App\\Domain\\Asset\\Models\\Asset' &&
+        lineItem.has_variants &&
+        !lineItem.asset_variant_id
+    ) {
+        window.alert('Select a variant for this asset before adding add-ons.');
+        return;
+    }
     currentLineItem.value = lineItem;
     showAddonModal.value = true;
 };
+
+const addonModalSubtitle = computed(() => {
+    const li = currentLineItem.value;
+    if (!li) return '';
+    const parts = [li.name].filter(Boolean);
+    if (li.variant_display_name) {
+        parts.push(li.variant_display_name);
+    }
+    return parts.join(' · ');
+});
 
 const onAddonPicked = (payload) => {
     if (!currentLineItem.value) return;
@@ -430,12 +557,29 @@ const combinedSubtotal = computed(() => assetSubtotal.value + inventorySubtotal.
 const taxAmount = computed(() => combinedSubtotal.value * (Number(form.tax_rate) / 100));
 const grandTotal = computed(() => combinedSubtotal.value + taxAmount.value);
 
+/** Stored line `description` merges catalog + notes; recover user notes when re-editing. */
+const splitLineNotesFromStoredDescription = (storedFull, catalogDesc) => {
+    const full = (storedFull || '').trim();
+    const catalog = (catalogDesc || '').trim();
+    if (!full) return '';
+    if (!catalog) return full;
+    if (full === catalog) return '';
+    const withSep = `${catalog}\n\n`;
+    if (full.startsWith(withSep)) return full.slice(withSep.length).trim();
+    const parts = full.split(/\n\n/);
+    if (parts.length >= 2 && parts[0].trim() === catalog) {
+        return parts.slice(1).join('\n\n').trim();
+    }
+    return full;
+};
+
 // ==============================
 // Load initial data
 // ==============================
 onMounted(() => {
     if (props.opportunityLineItems) {
         (props.opportunityLineItems.assets || []).forEach((asset) => {
+            const desc = (asset.description || '').trim() || '';
             assetItems.value.push({
                 itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
                 itemable_id: asset.id,
@@ -448,6 +592,11 @@ onMounted(() => {
                 discount: 0,
                 notes: asset.pivot?.notes || '',
                 addons: [],
+                has_variants: Boolean(asset.has_variants),
+                asset_variant_id: null,
+                variant_display_name: '',
+                asset_description: desc,
+                catalog_description: asset.has_variants ? '' : desc,
             });
         });
 
@@ -490,6 +639,23 @@ onMounted(() => {
                 lineData.asset_id = lineItem.itemable_id;
                 lineData.year = lineItem.itemable?.year || '';
                 lineData.make = lineItem.itemable?.make?.display_name || '';
+                lineData.has_variants = Boolean(lineItem.itemable?.has_variants);
+                lineData.asset_description = (lineItem.itemable?.description || '').trim() || '';
+                lineData.asset_variant_id = lineItem.asset_variant_id || null;
+                lineData.variant_display_name =
+                    lineItem.asset_variant?.display_name || lineItem.asset_variant?.name || '';
+                lineData.catalog_description = '';
+                if (lineData.asset_variant_id && lineItem.asset_variant) {
+                    const v = lineItem.asset_variant;
+                    const own = (v.description || '').trim();
+                    lineData.catalog_description = own || lineData.asset_description || '';
+                } else if (!lineData.has_variants) {
+                    lineData.catalog_description = lineData.asset_description || '';
+                }
+                lineData.notes = splitLineNotesFromStoredDescription(
+                    lineItem.description || '',
+                    lineData.catalog_description,
+                );
                 assetItems.value.push(lineData);
             } else if (lineItem.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
                 lineData.inventory_item_id = lineItem.itemable_id;
@@ -517,6 +683,8 @@ const submit = () => {
             unit_price: Number(item.unit_price) || 0,
             discount: Number(item.discount) || 0,
             notes: item.notes || '',
+            catalog_description: (item.catalog_description || '').trim() || null,
+            asset_variant_id: item.asset_variant_id || null,
             position: idx,
             addons: (item.addons || []).map((addon) => ({
                 addon_id: addon.addon_id,
@@ -537,6 +705,8 @@ const submit = () => {
             unit_price: Number(item.unit_price) || 0,
             discount: Number(item.discount) || 0,
             notes: item.notes || '',
+            catalog_description: null,
+            asset_variant_id: null,
             position: assetItems.value.length + idx,
             addons: (item.addons || []).map((addon) => ({
                 addon_id: addon.addon_id,
@@ -797,6 +967,7 @@ const handleCancel = () => emit('cancelled');
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
@@ -812,6 +983,13 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-3">
                                                 <div class="font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
                                                 <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-sm">
+                                                <span v-if="item.variant_display_name" class="font-medium text-gray-800 dark:text-gray-200">{{
+                                                    item.variant_display_name
+                                                }}</span>
+                                                <span v-else-if="item.has_variants" class="text-amber-600 dark:text-amber-400 text-xs">Select variant</span>
+                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                             </td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
@@ -851,7 +1029,7 @@ const handleCancel = () => emit('cancelled');
                                         </tr>
                                         <!-- Add-ons sub-rows -->
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`asset-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="2">
+                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="3">
                                                 ↳ {{ addon.name }}
                                             </td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
@@ -871,7 +1049,7 @@ const handleCancel = () => emit('cancelled');
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
+                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
@@ -1184,12 +1362,37 @@ const handleCancel = () => emit('cancelled');
                                 <button
                                     v-if="editingAssetIndex === null"
                                     type="button"
-                                    @click="assetForm.itemable_id = null; assetForm.asset_id = null; assetForm.name = ''"
+                                    @click="clearSelectedAssetForChange"
                                     class="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
                                 >
                                     Change
                                 </button>
                             </div>
+
+                            <div v-if="assetForm.has_variants" class="space-y-1.5">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Variant <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
+                                    :disabled="variantsLoading"
+                                    :value="assetForm.asset_variant_id ?? ''"
+                                    @change="onVariantSelectFromDom"
+                                >
+                                    <option value="">Select a variant…</option>
+                                    <option v-for="v in variantOptions" :key="v.id" :value="v.id">
+                                        {{ v.display_name || v.name || `Variant #${v.id}` }}
+                                    </option>
+                                </select>
+                                <p v-if="variantsLoading" class="text-xs text-gray-500 dark:text-gray-400">Loading variants…</p>
+                            </div>
+                            <p
+                                v-if="(assetForm.catalog_description || '').trim()"
+                                class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed line-clamp-3"
+                            >
+                                <span class="font-medium text-gray-600 dark:text-gray-300">Catalog description:</span>
+                                {{ assetForm.catalog_description }}
+                            </p>
 
                             <div class="grid grid-cols-3 gap-4">
                                 <div>
@@ -1394,7 +1597,12 @@ const handleCancel = () => emit('cancelled');
             </div>
         </Teleport>
 
-        <AddonSelect v-model:open="showAddonModal" accent="primary" @picked="onAddonPicked" />
+        <AddonSelect
+            v-model:open="showAddonModal"
+            accent="primary"
+            :context-subtitle="addonModalSubtitle"
+            @picked="onAddonPicked"
+        />
 
         <!-- ============================
              Billing Address Confirm Modal

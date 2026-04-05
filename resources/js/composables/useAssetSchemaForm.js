@@ -900,7 +900,11 @@ export function useAssetSchemaForm(props, emit) {
                         preserveScroll: true,
                         onSuccess: () => {
                             emit('submit');
-                            router.reload({ only: ['record', 'imageUrls'] });
+                            if (props.redirectAfterUpdate) {
+                                router.visit(props.redirectAfterUpdate);
+                            } else {
+                                router.reload({ only: ['record', 'imageUrls'] });
+                            }
                         },
                     },
                 );

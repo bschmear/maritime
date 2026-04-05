@@ -129,6 +129,7 @@ class EstimateController extends RecordController
             'lineItems' => fn ($q2) => $q2->with([
                 'addons.addon:id,name,default_price',
                 'itemable',
+                'assetVariant',
             ]),
         ]);
         $relationships['revision'] = fn ($q) => $q->select('id', 'sequence', 'revised_from_id');
@@ -178,6 +179,7 @@ class EstimateController extends RecordController
             'lineItems' => fn ($q2) => $q2->with([
                 'addons.addon:id,name,default_price',
                 'itemable',
+                'assetVariant',
             ]),
         ]);
 

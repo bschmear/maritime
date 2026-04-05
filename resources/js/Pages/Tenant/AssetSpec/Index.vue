@@ -177,6 +177,7 @@ const buildUpdatePayload = (spec) => ({
     is_filterable: Boolean(spec.is_filterable),
     is_visible: Boolean(spec.is_visible),
     is_required: Boolean(spec.is_required),
+    show_on_table: Boolean(spec.show_on_table),
     position: spec.position ?? 0,
     asset_types: normalizeAssetTypes(spec.asset_types),
 });
@@ -197,6 +198,35 @@ const deleteSpec = (spec) => {
             deletingSpecId.value = null;
         },
     });
+};
+
+const toggleShowOnTable = ({ spec, checked, done }) => {
+    const idx = localSpecs.value.findIndex((s) => s.id === spec.id);
+    if (idx === -1) {
+        done();
+        return;
+    }
+
+    const updated = { ...localSpecs.value[idx], show_on_table: checked };
+    localSpecs.value[idx] = updated;
+    savingSpecId.value = spec.id;
+
+    router.put(
+        route('asset-specs.update', { assetSpec: spec.id }),
+        buildUpdatePayload(updated),
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                savingSpecId.value = null;
+                done();
+            },
+            onError: () => {
+                localSpecs.value = (props.specs || []).map((s) => ({ ...s }));
+                done();
+            },
+        },
+    );
 };
 
 const toggleAssetType = ({ spec, typeId, checked, done }) => {
@@ -544,6 +574,7 @@ const previewSpecs = computed(() =>
                                 @reorder="onGroupReorder"
                                 @cross-group-move="onCrossGroupMove"
                                 @toggle-asset-type="toggleAssetType"
+                                @toggle-show-on-table="toggleShowOnTable"
                                 @delete-spec="deleteSpec"
                                 @move-group="({ blockKey, direction }) => moveGroup(blockKey, direction)"
                             />

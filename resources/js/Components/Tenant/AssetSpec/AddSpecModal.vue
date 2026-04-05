@@ -24,6 +24,7 @@ const form = useForm({
     is_filterable: false,
     is_visible: true,
     is_required: false,
+    show_on_table: false,
     position: 0,
     asset_types: [],
 });
@@ -321,6 +322,17 @@ const submit = () => {
                             />
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                 Always visible in UI
+                            </span>
+                        </label>
+
+                        <label class="flex items-center">
+                            <input
+                                v-model="form.show_on_table"
+                                type="checkbox"
+                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                            />
+                            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                Show on asset Variants table (when this spec applies to selected asset types)
                             </span>
                         </label>
                     </div>

@@ -19,6 +19,7 @@ class AssetSpecDefinition extends Model
         'is_filterable', // for marketplace filters
         'is_visible',    // UI display
         'is_required',   // required field
+        'show_on_table', // variant sublist columns (when enabled in table schema)
         'position',      // sort/order
         'asset_types',   // array of asset type IDs
     ];
@@ -28,9 +29,11 @@ class AssetSpecDefinition extends Model
         'is_filterable' => 'boolean',
         'is_visible' => 'boolean',
         'is_required' => 'boolean',
+        'show_on_table' => 'boolean',
         'use_metric' => 'boolean',
         'asset_types' => 'array',
     ];
+
     public function group()
     {
         return $this->belongsTo(SpecGroup::class, 'group_id');

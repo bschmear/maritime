@@ -86,6 +86,8 @@ class GeneralController extends BaseController
             $columns[] = 'make_id';
             $columns[] = 'default_price';
             $columns[] = 'default_cost';
+            $columns[] = 'has_variants';
+            $columns[] = 'description';
         } elseif ($typeKey === 'assetvariant') {
             $columns[] = 'asset_id';
             $columns[] = 'name';

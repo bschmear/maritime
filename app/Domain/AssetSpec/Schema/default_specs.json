@@ -13,6 +13,7 @@
       "is_filterable": true,
       "is_visible": true,
       "is_required": true,
+      "show_on_table":true,
       "position": 1,
       "asset_types": [1,2,3,4]
     },
@@ -28,6 +29,7 @@
       "step": 0.1,
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 2,
       "asset_types": [1]
     },
@@ -44,6 +46,7 @@
       "is_filterable": true,
       "is_visible": true,
       "is_required": true,
+      "show_on_table":true,
       "position": 3,
       "asset_types": [1,2,3,4]
     },
@@ -89,6 +92,7 @@
       "step": 0.1,
       "is_filterable": false,
       "is_required": false,
+      "show_on_table":false,
       "position": 6,
       "asset_types": [1]
     },
@@ -100,6 +104,7 @@
       "step": 1,
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 7,
       "asset_types": [1]
     },
@@ -115,6 +120,7 @@
       "step": 1,
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 8,
       "asset_types": [1]
     },
@@ -126,6 +132,7 @@
       "step": 1,
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 9,
       "asset_types": [1]
     },
@@ -141,6 +148,7 @@
       "step": 1,
       "is_filterable": false,
       "is_required": false,
+      "show_on_table":true,
       "position": 10,
       "asset_types": [1]
     },
@@ -156,6 +164,7 @@
       "step": 1,
       "is_filterable": false,
       "is_required": false,
+      "show_on_table":false,
       "position": 11,
       "asset_types": [1, 2]
     },
@@ -171,6 +180,7 @@
       "step": 1,
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 12,
       "asset_types": [1, 2]
     },
@@ -186,6 +196,7 @@
       ],
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 13,
       "asset_types": [1, 2]
     },
@@ -202,6 +213,7 @@
       ],
       "is_filterable": true,
       "is_required": false,
+      "show_on_table":false,
       "position": 14,
       "asset_types": [1]
     }

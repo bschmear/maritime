@@ -12,6 +12,7 @@ import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
+import Form from '@/Components/Tenant/Form.vue';
 
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -34,6 +35,8 @@ const props = defineProps({
     extraRouteParams: { type: Object, default: () => ({}) },
     availableSpecs: { type: Array, default: () => [] },
     specsContextAssetType: { type: Number, default: null },
+    /** When set, successful update (Inertia) navigates here instead of reloading the current page. */
+    redirectAfterUpdate: { type: String, default: null },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -99,8 +102,11 @@ const hasVariants = computed(() => {
 const showVariantModal = ref(false);
 const editingVariantIdx = ref(null);
 const variantModalError = ref('');
-const savingVariant = ref(false);
 const loadingVariantDetail = ref(false);
+const variantFormConfig = ref(null);
+const variantRecord = ref(null);
+const variantFormKey = ref(0);
+const variantFormRef = ref(null);
 const localVariants = ref([...(props.record?.variants ?? [])]);
 
 watch(
@@ -120,141 +126,120 @@ const getVariantSpecValuesArray = (variant) => {
     return [];
 };
 
-const buildVariantFormSpecValues = (variant) => {
-    const existing = {};
-    getVariantSpecValuesArray(variant).forEach((sv) => {
-        existing[sv.asset_spec_definition_id] = sv;
-    });
-    const out = {};
-    (resolvedAvailableSpecs.value || []).forEach((spec) => {
-        const sv = existing[spec.id];
-        out[spec.id] = sv
-            ? {
-                  value_number: sv.value_number ?? null,
-                  value_text: sv.value_text ?? null,
-                  value_boolean: !!(sv.value_boolean === true || sv.value_boolean === 1),
-                  unit: sv.unit ?? spec.unit ?? null,
-              }
-            : {
-                  value_number: null,
-                  value_text: null,
-                  value_boolean: false,
-                  unit: spec.unit ?? null,
-              };
-    });
-    return out;
-};
+const variantFormExtraRouteParams = computed(() =>
+    props.record?.id ? { asset: props.record.id } : {},
+);
 
-const variantForm = ref({
-    id: null,
-    display_name: '',
-    specValues: {},
+const variantFieldsSchema = computed(() => {
+    const fs = variantFormConfig.value?.fieldsSchema;
+    if (!fs) return {};
+    return fs.fields && typeof fs.fields === 'object' ? fs.fields : fs;
 });
 
-const variantModalUnit = (spec) =>
-    variantForm.value.specValues?.[spec.id]?.unit || spec.unit || null;
+const variantModalBusy = computed(
+    () => loadingVariantDetail.value || Boolean(variantFormRef.value?.isProcessing),
+);
 
-const buildVariantSpecsPayload = () =>
-    (resolvedAvailableSpecs.value || []).map((spec) => {
-        const val = variantForm.value.specValues?.[spec.id] || {};
-        return {
-            spec_id: spec.id,
-            value_number:
-                spec.type === 'number'
-                    ? val.value_number !== '' && val.value_number !== null && val.value_number !== undefined
-                        ? val.value_number
-                        : null
-                    : null,
-            value_text: spec.type === 'text' || spec.type === 'select' ? val.value_text || null : null,
-            value_boolean: spec.type === 'boolean' ? (val.value_boolean ? true : false) : null,
-            unit: val.unit || null,
-        };
+const normalizeVariantRecordForForm = (variant) => {
+    if (!variant) return null;
+    return {
+        ...variant,
+        spec_values: getVariantSpecValuesArray(variant),
+    };
+};
+
+const loadVariantFormSchema = async () => {
+    if (!props.record?.id) {
+        variantFormConfig.value = null;
+        return;
+    }
+    const { data } = await axios.get(route('assets.variants.select-form', { asset: props.record.id }), {
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
     });
+    variantFormConfig.value = data;
+};
 
-const openAddVariantModal = () => {
+const closeVariantModal = () => {
+    showVariantModal.value = false;
+    variantRecord.value = null;
+};
+
+const onVariantFormCreated = () => {
+    closeVariantModal();
+    router.reload({ only: ['record'] });
+};
+
+const onVariantFormUpdated = () => {
+    closeVariantModal();
+    router.reload({ only: ['record'] });
+};
+
+const openAddVariantModal = async () => {
     editingVariantIdx.value = null;
     variantModalError.value = '';
-    variantForm.value = {
-        id: null,
-        display_name: '',
-        specValues: buildVariantFormSpecValues(null),
-    };
-    showVariantModal.value = true;
+    variantRecord.value = null;
+    if (!props.record?.id) {
+        variantFormConfig.value = null;
+        showVariantModal.value = true;
+        return;
+    }
+    loadingVariantDetail.value = true;
+    try {
+        await loadVariantFormSchema();
+        variantFormKey.value += 1;
+        showVariantModal.value = true;
+    } catch (e) {
+        variantModalError.value =
+            e.response?.data?.message || e.message || 'Could not load variant form.';
+        variantFormConfig.value = null;
+        showVariantModal.value = true;
+    } finally {
+        loadingVariantDetail.value = false;
+    }
 };
 
 const openEditVariantModal = async (idx) => {
     editingVariantIdx.value = idx;
     variantModalError.value = '';
     const v = localVariants.value[idx];
-    if (v?.id && props.record?.id) {
-        loadingVariantDetail.value = true;
-        try {
-            const { data } = await axios.get(
-                route('assets.variants.show', { asset: props.record.id, variant: v.id }),
-                { headers: { Accept: 'application/json' } },
-            );
-            const r = data?.record;
-            variantForm.value = {
-                id: r.id,
-                display_name: r.display_name || r.name || '',
-                specValues: buildVariantFormSpecValues(r),
-            };
-        } catch {
-            variantForm.value = {
-                id: v.id,
-                display_name: v.display_name || v.name || '',
-                specValues: buildVariantFormSpecValues(v),
-            };
-        } finally {
-            loadingVariantDetail.value = false;
-        }
-    } else {
-        variantForm.value = {
-            id: v?.id ?? null,
-            display_name: v?.display_name ?? v?.name ?? '',
-            specValues: buildVariantFormSpecValues(v),
-        };
-    }
-    showVariantModal.value = true;
-};
+    variantRecord.value = null;
 
-const saveVariant = async () => {
-    variantModalError.value = '';
-    const name = variantForm.value.display_name?.trim();
-    if (!name) return;
     if (!props.record?.id) {
-        variantModalError.value = 'Save the asset first, then add variants.';
+        variantFormConfig.value = null;
+        variantRecord.value = normalizeVariantRecordForForm(v);
+        variantFormKey.value += 1;
+        showVariantModal.value = true;
         return;
     }
-    if (!hasVariants.value) {
-        variantModalError.value = 'Turn on “This asset has variants” on the asset before adding variants.';
-        return;
-    }
-    savingVariant.value = true;
+
+    loadingVariantDetail.value = true;
     try {
-        const payload = { name, specs: buildVariantSpecsPayload() };
-        if (variantForm.value.id) {
-            await axios.put(
-                route('assets.variants.update', { asset: props.record.id, variant: variantForm.value.id }),
-                payload,
-            );
+        await loadVariantFormSchema();
+        if (v?.id) {
+            try {
+                const { data } = await axios.get(
+                    route('assets.variants.show', { asset: props.record.id, variant: v.id }),
+                    { headers: { Accept: 'application/json' } },
+                );
+                variantRecord.value = data?.record ?? normalizeVariantRecordForForm(v);
+            } catch {
+                variantRecord.value = normalizeVariantRecordForForm(v);
+            }
         } else {
-            await axios.post(route('assets.variants.store', { asset: props.record.id }), payload);
+            variantRecord.value = normalizeVariantRecordForForm(v);
         }
-        showVariantModal.value = false;
-        router.reload({ only: ['record'] });
+        variantFormKey.value += 1;
+        showVariantModal.value = true;
     } catch (e) {
-        const d = e.response?.data;
-        if (d?.errors && typeof d.errors === 'object') {
-            variantModalError.value = Object.values(d.errors)
-                .flat()
-                .filter(Boolean)
-                .join(' ');
-        } else {
-            variantModalError.value = d?.message || 'Could not save variant.';
-        }
+        variantModalError.value =
+            e.response?.data?.message || e.message || 'Could not load variant form.';
+        variantFormConfig.value = null;
+        showVariantModal.value = true;
     } finally {
-        savingVariant.value = false;
+        loadingVariantDetail.value = false;
     }
 };
 
@@ -808,7 +793,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
 
             <aside class="lg:col-span-3 space-y-6">
                 <div class="sticky top-5 space-y-6">
-                    <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
+                    <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800" v-if="isEditMode && !formId">
                         <div class="flex items-center justify-between border-b border-gray-600 bg-gray-700 px-5 py-4">
                             <span class="text-sm font-semibold text-white">Actions</span>
                         </div>
@@ -920,135 +905,69 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                 leave-to-class="opacity-0"
             >
                 <div v-if="showVariantModal" class="fixed inset-0 z-50 flex items-start justify-center px-4 pb-8 pt-10">
-                    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="!savingVariant && (showVariantModal = false)" />
-                    <div class="relative flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-2xl dark:bg-gray-800">
+                    <div
+                        class="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        @click="!variantModalBusy && closeVariantModal()"
+                    />
+                    <div class="relative flex max-h-[85vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-2xl dark:bg-gray-800">
                         <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                                 {{ editingVariantIdx !== null ? 'Edit Variant' : 'Add Variant' }}
                             </h3>
                             <button
                                 type="button"
-                                :disabled="savingVariant"
+                                :disabled="variantModalBusy"
                                 class="rounded p-1 text-gray-400 hover:text-gray-600 disabled:opacity-40 dark:hover:text-gray-300"
-                                @click="showVariantModal = false"
+                                @click="closeVariantModal"
                             >
                                 <span class="material-icons">close</span>
                             </button>
                         </div>
-                        <div class="relative flex-1 space-y-5 overflow-y-auto p-6">
-                            <div v-if="loadingVariantDetail" class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 dark:bg-gray-800/70">
+                        <div class="relative min-h-[12rem] flex-1 overflow-y-auto">
+                            <div
+                                v-if="loadingVariantDetail"
+                                class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/70 dark:bg-gray-800/70"
+                            >
                                 <span class="material-icons animate-spin text-3xl text-primary-600">refresh</span>
                             </div>
-                            <p v-if="variantModalError" class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
+                            <p
+                                v-if="variantModalError"
+                                class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200"
+                            >
                                 {{ variantModalError }}
                             </p>
-                            <div>
-                                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Variant name <span class="text-red-500">*</span>
-                                </label>
-                                <input
-                                    v-model="variantForm.display_name"
-                                    type="text"
-                                    class="input-style"
-                                    placeholder="e.g. Standard, Sport package"
-                                    :disabled="loadingVariantDetail"
-                                >
-                            </div>
-
-                            <div class="border-t border-gray-200 pt-5 dark:border-gray-700">
-                                <h4 class="mb-1 text-sm font-semibold text-gray-900 dark:text-white">Specifications</h4>
-                                <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">
-                                    Values are stored on this variant (same definitions as asset type {{ record?.type_label || record?.type || '' }}).
-                                </p>
-                                <div v-if="resolvedAvailableSpecs.length === 0" class="rounded-lg border border-dashed border-gray-300 py-8 text-center text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
-                                    No spec definitions for this asset type.
-                                    <Link :href="route('asset-specs.index')" class="mt-2 inline-block font-medium text-primary-600 dark:text-primary-400">Manage spec definitions</Link>
-                                </div>
-                                <div v-else class="space-y-6">
-                                    <div v-for="section in groupedSpecSections" :key="section.key">
-                                        <h5 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                            {{ section.label }}
-                                        </h5>
-                                        <div class="grid gap-4 sm:grid-cols-2">
-                                            <div v-for="spec in section.specs" :key="spec.id">
-                                                <template v-if="variantForm.specValues[spec.id]">
-                                                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        {{ spec.label }}
-                                                        <span v-if="spec.is_required" class="text-red-500">*</span>
-                                                    </label>
-                                                    <div v-if="spec.type === 'number'" class="flex items-center gap-2">
-                                                        <input
-                                                            type="number"
-                                                            step="0.01"
-                                                            :value="variantForm.specValues[spec.id].value_number != null ? variantForm.specValues[spec.id].value_number : ''"
-                                                            class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                                            :disabled="loadingVariantDetail"
-                                                            @change="(e) => {
-                                                                const n = parseFloat(e.target.value);
-                                                                variantForm.specValues[spec.id].value_number = isNaN(n) ? null : n;
-                                                            }"
-                                                            @blur="(e) => {
-                                                                const n = parseFloat(e.target.value);
-                                                                e.target.value = isNaN(n) ? '' : n.toFixed(2);
-                                                            }"
-                                                        >
-                                                        <span v-if="variantModalUnit(spec)" class="whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                            {{ variantModalUnit(spec) }}
-                                                        </span>
-                                                    </div>
-                                                    <input
-                                                        v-else-if="spec.type === 'text'"
-                                                        v-model="variantForm.specValues[spec.id].value_text"
-                                                        type="text"
-                                                        class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                                        :disabled="loadingVariantDetail"
-                                                        :placeholder="`Enter ${spec.label.toLowerCase()}`"
-                                                    >
-                                                    <select
-                                                        v-else-if="spec.type === 'select'"
-                                                        v-model="variantForm.specValues[spec.id].value_text"
-                                                        class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                                        :disabled="loadingVariantDetail"
-                                                    >
-                                                        <option value="">Select {{ spec.label.toLowerCase() }}</option>
-                                                        <option v-for="opt in (spec.options || [])" :key="opt.value" :value="opt.value">
-                                                            {{ opt.label }}
-                                                        </option>
-                                                    </select>
-                                                    <label v-else-if="spec.type === 'boolean'" class="flex cursor-pointer items-center gap-2 pt-1">
-                                                        <input
-                                                            v-model="variantForm.specValues[spec.id].value_boolean"
-                                                            type="checkbox"
-                                                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
-                                                            :disabled="loadingVariantDetail"
-                                                        >
-                                                        <span class="text-sm text-gray-600 dark:text-gray-400">Yes</span>
-                                                    </label>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-700/30">
-                            <button
-                                type="button"
-                                :disabled="savingVariant"
-                                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                                @click="showVariantModal = false"
+                            <p
+                                v-if="!record?.id"
+                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                :disabled="savingVariant || loadingVariantDetail || !variantForm.display_name?.trim()"
-                                class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-40"
-                                @click="saveVariant"
+                                Save the asset first, then add variants.
+                            </p>
+                            <p
+                                v-else-if="record?.id && !hasVariants"
+                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
                             >
-                                <span v-if="savingVariant" class="material-icons mr-1 inline-block animate-spin align-middle text-base">refresh</span>
-                                {{ savingVariant ? 'Saving…' : (editingVariantIdx !== null ? 'Save variant' : 'Create variant') }}
-                            </button>
+                                Turn on <strong>This asset has variants</strong> before adding variants.
+                            </p>
+                            <Form
+                                v-else-if="variantFormConfig"
+                                :key="variantFormKey"
+                                ref="variantFormRef"
+                                :schema="variantFormConfig.formSchema"
+                                :fields-schema="variantFieldsSchema"
+                                :record="editingVariantIdx !== null ? variantRecord : null"
+                                :record-type="variantFormConfig.recordType"
+                                :record-title="variantFormConfig.recordTitle || 'Variant'"
+                                :enum-options="variantFormConfig.enumOptions || {}"
+                                :extra-route-params="variantFormExtraRouteParams"
+                                :available-specs="variantFormConfig.availableSpecs || []"
+                                :specs-context-asset-type="variantFormConfig.specsContextAssetType ?? null"
+                                :record-identifier="variantRecord?.id ?? null"
+                                :mode="editingVariantIdx !== null ? 'edit' : 'create'"
+                                :prevent-redirect="true"
+                                @created="onVariantFormCreated"
+                                @updated="onVariantFormUpdated"
+                                @cancel="closeVariantModal"
+                            />
                         </div>
                     </div>
                 </div>

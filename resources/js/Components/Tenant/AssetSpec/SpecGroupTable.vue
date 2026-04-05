@@ -37,6 +37,7 @@ const emit = defineEmits([
     'reorder',
     'cross-group-move',
     'toggle-asset-type',
+    'toggle-show-on-table',
     'move-group',
     'delete-spec',
 ]);
@@ -155,7 +156,7 @@ const initSortable = () => {
         animation: 150,
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
-        filter: '.drag-disabled, .empty-spec-drop-zone',
+        filter: '.drag-disabled, .empty-spec-drop-zone, .spec-show-on-table-toggle',
         emptyInsertThreshold: 80,
 
         onEnd(evt) {
@@ -240,6 +241,19 @@ const onToggleType = (spec, typeId) => {
         }
     });
 };
+
+const onToggleShowOnTable = (spec) => {
+    const key = `${spec.id}_show_on_table`;
+    pendingUpdates.value[key] = true;
+    const checked = !Boolean(spec.show_on_table);
+    emit('toggle-show-on-table', {
+        spec,
+        checked,
+        done: () => {
+            delete pendingUpdates.value[key];
+        },
+    });
+};
 </script>
 
 <template>
@@ -300,6 +314,13 @@ const onToggleType = (spec, typeId) => {
                         </th>
                         <th
                             scope="col"
+                            class="w-24 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+                            title="Show this spec as a column on the asset Variants sublist table"
+                        >
+                            Variant table
+                        </th>
+                        <th
+                            scope="col"
                             class="w-12 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
                         >
                             <span class="sr-only">Delete</span>
@@ -315,7 +336,7 @@ const onToggleType = (spec, typeId) => {
                         v-if="showEmptyDropZone"
                         class="empty-spec-drop-zone border-dashed border-gray-200 bg-gray-50/80 dark:border-gray-600 dark:bg-gray-800/40"
                     >
-                        <td :colspan="4 + assetTypeColumns.length" class="px-4 py-6 text-center align-middle">
+                        <td :colspan="5 + assetTypeColumns.length" class="px-4 py-6 text-center align-middle">
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Drop specs here
                             </span>
@@ -386,6 +407,22 @@ const onToggleType = (spec, typeId) => {
 </button>
                                 <span class="sr-only">{{ col.label }} for {{ spec.label }}</span>
                             </label>
+                        </td>
+                        <td class="spec-show-on-table-toggle px-2 py-3 text-center align-middle">
+                            <button
+                                type="button"
+                                class="flex w-full items-center justify-center rounded p-1 text-gray-400 transition-colors hover:text-primary-600 dark:text-gray-500 dark:hover:text-primary-400 disabled:cursor-not-allowed disabled:opacity-30"
+                                :disabled="
+                                    savingSpecId === spec.id ||
+                                    isPending(spec.id, 'show_on_table')
+                                "
+                                title="Show on asset Variants sublist when this spec applies to the asset type"
+                                @click="onToggleShowOnTable(spec)"
+                            >
+                                <span class="material-icons text-[20px]">
+                                    {{ spec.show_on_table ? 'check_box' : 'check_box_outline_blank' }}
+                                </span>
+                            </button>
                         </td>
                         <td class="px-2 py-3 text-center align-middle">
                             <button

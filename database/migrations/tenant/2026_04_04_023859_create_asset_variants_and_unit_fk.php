@@ -13,6 +13,11 @@ return new class extends Migration
             $table->foreignId('asset_id')->constrained()->cascadeOnDelete();
             $table->string('name')->nullable();
             $table->string('display_name')->nullable();
+            $table->decimal('default_cost', 12, 2)->nullable();
+            $table->decimal('default_price', 12, 2)->nullable();
+            $table->text('description')->nullable();
+            $table->boolean('inactive')->default(false);
+
             $table->timestamps();
 
             $table->index('asset_id');

@@ -2,6 +2,7 @@
 namespace App\Domain\Estimate\Actions;
 
 use App\Domain\Estimate\Models\Estimate as RecordModel;
+use App\Domain\Estimate\Support\LineItemDescription;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -72,8 +73,9 @@ class UpdateEstimate
                         $lineItem = $primaryVersion->lineItems()->create([
                             'itemable_type' => $lineData['itemable_type'] ?? null,
                             'itemable_id' => $lineData['itemable_id'] ?? null,
+                            'asset_variant_id' => ! empty($lineData['asset_variant_id']) ? (int) $lineData['asset_variant_id'] : null,
                             'name' => $lineData['name'] ?? '',
-                            'description' => $lineData['description'] ?? null,
+                            'description' => LineItemDescription::merge($lineData),
                             'quantity' => $lineData['quantity'] ?? 1,
                             'unit_price' => $lineData['unit_price'] ?? 0,
                             'discount' => $lineData['discount'] ?? 0,

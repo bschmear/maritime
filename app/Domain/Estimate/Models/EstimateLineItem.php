@@ -3,6 +3,7 @@
 namespace App\Domain\Estimate\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -35,6 +36,11 @@ class EstimateLineItem extends Model
     public function itemable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function assetVariant(): BelongsTo
+    {
+        return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
     }
 
     public function addons(): HasMany

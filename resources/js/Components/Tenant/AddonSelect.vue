@@ -18,6 +18,11 @@ const props = defineProps({
         default: 'primary',
         validator: (v) => ['primary', 'blue'].includes(v),
     },
+    /** Shown under the modal title (e.g. asset line + variant). */
+    contextSubtitle: {
+        type: String,
+        default: '',
+    },
 });
 
 const emit = defineEmits(['update:open', 'picked', 'close']);
@@ -237,6 +242,12 @@ const handleRecordCreated = async (recordId) => {
                                 </h2>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
                                     Choose a catalog add-on or create a new one (saved to your add-ons list).
+                                </p>
+                                <p
+                                    v-if="contextSubtitle"
+                                    class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-300"
+                                >
+                                    {{ contextSubtitle }}
                                 </p>
                             </div>
                         </div>

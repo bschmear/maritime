@@ -10,12 +10,33 @@
   "name": {
     "label": "Name",
     "type": "text",
+    "required": true,
     "description": "Display name for this configuration (e.g. color package, engine option)"
   },
   "display_name": {
     "label": "Display",
     "type": "text",
     "readOnly": true
+  },
+  "default_cost": {
+    "label": "Default Cost",
+    "type": "currency",
+    "placeholder": "0.00"
+  },
+  "default_price": {
+    "label": "Default Price",
+    "type": "currency",
+    "placeholder": "0.00"
+  },
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "placeholder": "Variant description"
+  },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean",
+    "default": false
   },
   "created_at": {
     "label": "Created",

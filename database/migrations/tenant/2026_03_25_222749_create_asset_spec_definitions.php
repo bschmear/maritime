@@ -13,14 +13,14 @@ return new class extends Migration
     {
         Schema::create('spec_groups', function (Blueprint $table) {
             $table->id();
-        
+
             $table->string('key')->unique();     // dimensions, engine, capacity
             $table->string('name');              // "Dimensions", "Engine Specs"
-        
+
             $table->integer('position')->default(0); // ordering in UI
-        
+
             $table->boolean('is_active')->default(true);
-        
+
             $table->timestamps();
         });
         Schema::create('asset_spec_definitions', function (Blueprint $table) {
@@ -45,6 +45,7 @@ return new class extends Migration
             $table->boolean('is_filterable')->default(false); // marketplace filters
             $table->boolean('is_visible')->default(false);     // always show in UI
             $table->boolean('is_required')->default(false);
+            $table->boolean('show_on_table')->default(false);
 
             $table->integer('position')->default(0);
 
