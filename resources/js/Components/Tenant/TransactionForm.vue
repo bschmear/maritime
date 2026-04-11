@@ -1366,7 +1366,7 @@ const handleCancel = () => emit('cancel');
 
                 <!-- ─── SIDEBAR ─── -->
                 <div v-if="mode !== 'show'" class="lg:col-span-3 w-full">
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
 
                         <div class="flex justify-between items-center p-4 sm:px-5 font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
                             Actions

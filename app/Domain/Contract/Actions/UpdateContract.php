@@ -16,7 +16,7 @@ class UpdateContract
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => ['sometimes', 'required', 'integer', 'exists:customers,id'],
+            'customer_id' => ['sometimes', 'required', 'integer', 'exists:customer_profiles,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'transaction_id' => ['nullable', 'integer', 'exists:transactions,id'],
             'total_amount' => ['sometimes', 'required', 'numeric', 'min:0'],

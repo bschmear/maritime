@@ -450,6 +450,14 @@ export default {
     mounted() {
 
     },
+    watch: {
+        initialScores: {
+            handler(val) {
+                this.scores = Array.isArray(val) ? [...val] : [];
+            },
+            deep: true,
+        },
+    },
     computed: {
         currentScore() {
             return this.scores.find(s => s.is_current) || null;

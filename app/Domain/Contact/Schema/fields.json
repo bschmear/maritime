@@ -1,0 +1,97 @@
+{
+  "display_name": {
+    "label": "Name",
+    "type": "text"
+  },
+  "first_name": {
+    "label": "First Name",
+    "type": "text"
+  },
+  "last_name": {
+    "label": "Last Name",
+    "type": "text"
+  },
+  "type": {
+    "label": "Type",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactType"
+  },
+  "email": {
+    "label": "Email",
+    "type": "email"
+  },
+  "secondary_email": {
+    "label": "Secondary Email",
+    "type": "email"
+  },
+  "phone": {
+    "label": "Phone",
+    "type": "tel"
+  },
+  "mobile": {
+    "label": "Mobile",
+    "type": "tel"
+  },
+  "company": {
+    "label": "Company",
+    "type": "text"
+  },
+  "title": {
+    "label": "Title",
+    "type": "text"
+  },
+  "position": {
+    "label": "Position",
+    "type": "text"
+  },
+  "assigned_user_id": {
+    "label": "Assigned To",
+    "type": "record",
+    "typeDomain": "User",
+    "relationship": "assignedUser"
+  },
+  "preferred_contact_method": {
+    "label": "Preferred Contact Method",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactMethod"
+  },
+  "preferred_contact_time": {
+    "label": "Preferred Contact Time",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactTimePreference"
+  },
+  "source": {
+    "label": "Source",
+    "type": "text"
+  },
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactStatus"
+  },
+  "stage_id": {
+    "label": "Stage",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactStage"
+  },
+  "inactive": {
+    "label": "Inactive",
+    "type": "boolean"
+  },
+  "website": {
+    "label": "Website",
+    "type": "text"
+  },
+  "linkedin": {
+    "label": "LinkedIn",
+    "type": "text"
+  },
+  "facebook": {
+    "label": "Facebook",
+    "type": "text"
+  },
+  "notes": {
+    "label": "Notes",
+    "type": "textarea"
+  }
+}

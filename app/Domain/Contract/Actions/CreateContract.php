@@ -26,7 +26,7 @@ class CreateContract
         $settings = AccountSettings::getCurrent();
 
         $validated = Validator::make($data, [
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'customer_id' => ['required', 'integer', 'exists:customer_profiles,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'transaction_id' => ['nullable', 'integer', 'exists:transactions,id'],
             'total_amount' => ['required', 'numeric', 'min:0'],

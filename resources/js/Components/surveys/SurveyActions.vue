@@ -1,16 +1,47 @@
 <template>
   <div class="flex items-center gap-2" v-cloak>
+    <!-- Share: public link popover -->
+    <div v-if="statusBoolean" class="relative">
+      <button
+        type="button"
+        @click.stop="toggleShare"
+        class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 transition-colors"
+      >
+        <span class="material-icons text-[16px]">share</span>
+        Share
+      </button>
 
-    <!-- Share button -->
-    <button
-      v-if="statusBoolean"
-      type="button"
-      @click="$root.copyLink('survey-link', 'Link copied to clipboard!')"
-      class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 transition-colors"
-    >
-      <span class="material-icons text-[16px]">share</span>
-      Share
-    </button>
+      <div
+        v-show="showShare"
+        v-cloak
+        class="absolute right-0 z-20 mt-2 w-[min(100vw-2rem,22rem)] rounded-xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-600 dark:bg-gray-800"
+        @click.stop
+      >
+        <p class="mb-2 text-sm font-medium text-gray-900 dark:text-white">Public survey link</p>
+        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          Anyone with this link can open the survey on your workspace URL. The survey UUID is included in the address.
+        </p>
+        <div class="flex gap-0">
+          <input
+            :id="shareInputId"
+            type="text"
+            readonly
+            :value="shareableUrl"
+            class="block min-w-0 flex-1 rounded-s-lg border border-gray-300 bg-gray-50 p-2.5 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white sm:text-sm"
+          />
+          <button
+            type="button"
+            class="inline-flex shrink-0 items-center rounded-e-lg border border-s-0 border-gray-300 bg-gray-200 px-3 text-sm text-gray-900 hover:bg-gray-300 dark:border-gray-600 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+            @click="copyShareLink"
+          >
+            <span class="material-icons text-[18px]">content_copy</span>
+          </button>
+        </div>
+        <p v-if="!shareableUrl" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          Missing survey identifier — reload the page or contact support.
+        </p>
+      </div>
+    </div>
 
     <!-- Kebab menu -->
     <div class="relative">
@@ -136,11 +167,23 @@
 export default {
   name: 'SurveyActions',
 
-  props: ['status', 'uuid', 'deleteroute', 'surveysindex', 'surveysupdate', 'surveysclone'],
+  props: {
+    status: [Boolean, Number, String],
+    uuid: { type: String, default: '' },
+    publicUrl: { type: String, default: '' },
+    /** When set, appends ?aid= or &aid= so responses attribute to this user (same as Survey Links). */
+    shareAgentId: { type: [Number, String], default: null },
+    deleteroute: String,
+    surveysindex: String,
+    surveysupdate: String,
+    surveysclone: String,
+  },
 
   data() {
     return {
       showForm: false,
+      showShare: false,
+      shareInputId: `survey-share-url-${Math.random().toString(36).slice(2, 9)}`,
       csrfToken: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
     };
   },
@@ -149,9 +192,74 @@ export default {
     statusBoolean() {
       return this.status === true || this.status === 1 || this.status === '1';
     },
+    basePublicUrl() {
+      if (this.publicUrl) {
+        return this.publicUrl;
+      }
+      if (this.uuid && typeof route === 'function') {
+        return route('surveysPublicShow', { id: this.uuid });
+      }
+      return '';
+    },
+    shareableUrl() {
+      let url = this.basePublicUrl;
+      if (!url || this.shareAgentId === null || this.shareAgentId === '') {
+        return url;
+      }
+      const aid = String(this.shareAgentId).trim();
+      if (!aid) {
+        return url;
+      }
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}aid=${encodeURIComponent(aid)}`;
+    },
+  },
+
+  mounted() {
+    document.addEventListener('click', this.closeShareOnOutsideClick);
+  },
+
+  beforeUnmount() {
+    document.removeEventListener('click', this.closeShareOnOutsideClick);
   },
 
   methods: {
+    toggleShare() {
+      this.showForm = false;
+      this.showShare = !this.showShare;
+    },
+    closeShareOnOutsideClick() {
+      this.showShare = false;
+    },
+    copyShareLink() {
+      const text = this.shareableUrl;
+      if (!text) {
+        this.showToast('error', 'No public link available.');
+        return;
+      }
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          this.showToast('success', 'Public link copied to clipboard!');
+          this.showShare = false;
+        })
+        .catch(() => {
+          const el = document.getElementById(this.shareInputId);
+          if (el) {
+            el.select();
+            el.setSelectionRange(0, 99999);
+            try {
+              document.execCommand('copy');
+              this.showToast('success', 'Public link copied to clipboard!');
+              this.showShare = false;
+            } catch (e) {
+              this.showToast('error', 'Could not copy — select the link and copy manually.');
+            }
+          } else {
+            this.showToast('error', 'Could not copy to clipboard.');
+          }
+        });
+    },
     toggleDelete() {
       this.showForm = false;
       this.$root.confirmDelete = !this.$root.confirmDelete;

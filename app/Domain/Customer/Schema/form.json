@@ -3,163 +3,112 @@
     "max_width": "4xl"
   },
   "form": {
-    "primary": {
-      "label": "Primary Information",
+    "contact": {
+      "label": "Contact",
       "fields": [
-        {
-          "key": "first_name",
-          "required": true
-        },
-        {
-          "key": "last_name",
-          "required": true
-        },
-        {
-          "key": "email",
-          "required": false
-        },
-        {
-          "key": "phone",
-          "required": false
-        },
-        {
-          "key": "mobile",
-          "required": false
-        },
-        {
-          "key": "inactive",
-          "required": false
-        }
+        { "key": "first_name", "required": true },
+        { "key": "last_name", "required": true },
+        { "key": "email", "required": false },
+        { "key": "secondary_email", "required": false },
+        { "key": "phone", "required": false },
+        { "key": "mobile", "required": false },
+        { "key": "inactive", "required": false },
+        { "key": "preferred_contact_method", "required": false },
+        { "key": "preferred_contact_time", "required": false },
+        { "key": "notes", "required": false }
       ]
     },
     "company_info": {
-      "label": "Company Information",
+      "label": "Company",
       "fields": [
-        {
-          "key": "company",
-          "required": false
-        },
-        {
-          "key": "position",
-          "required": false
-        },
-        {
-          "key": "title",
-          "required": false
-        }
-      ]
-    },
-    "lead_details": {
-      "label": "Lead Details",
-      "fields": [
-        {
-          "key": "budget_min",
-          "required": false
-        },
-        {
-          "key": "budget_max",
-          "required": false
-        },
-        {
-          "key": "purchase_timeline",
-          "required": false
-        },
-        {
-          "key": "has_trade_in",
-          "required": false
-        },
-        {
-          "key": "trade_in_value",
-          "required": false
-        },
-        {
-          "key": "preferred_contact_method",
-          "required": false
-        }
+        { "key": "company", "required": false },
+        { "key": "position", "required": false },
+        { "key": "title", "required": false }
       ]
     },
     "address": {
       "label": "Address",
       "is_address": true,
       "fields": [
-        {
-          "key": "address_line_1",
-          "required": false,
-          "tag": "street"
-        },
-        {
-          "key": "address_line_2",
-          "required": false,
-          "tag": "unit"
-        },
-        {
-          "key": "city",
-          "required": false,
-          "tag": "city"
-        },
-        {
-          "key": "state",
-          "required": false,
-          "tag": "state"
-        },
-        {
-          "key": "postal_code",
-          "required": false,
-          "tag": "postal_code"
-        },
-        {
-          "key": "country",
-          "required": false,
-          "tag": "country"
-        },
-        {
-          "key": "latitude",
-          "hidden": true,
-          "tag": "latitude"
-        },
-        {
-          "key": "longitude",
-          "hidden": true,
-          "tag": "longitude"
-        }
+        { "key": "address_line_1", "required": false, "tag": "street" },
+        { "key": "address_line_2", "required": false, "tag": "unit" },
+        { "key": "city", "required": false, "tag": "city" },
+        { "key": "state", "required": false, "tag": "state" },
+        { "key": "postal_code", "required": false, "tag": "postal_code" },
+        { "key": "country", "required": false, "tag": "country" },
+        { "key": "latitude", "hidden": true, "tag": "latitude" },
+        { "key": "longitude", "hidden": true, "tag": "longitude" }
       ]
     },
-    "notes": {
-      "label": "Notes",
+    "customer_profile": {
+      "label": "CRM",
       "fields": [
-        {
-          "key": "notes",
-          "required": false
-        }
+        { "key": "status_id", "required": true },
+        { "key": "source_id", "required": false },
+        { "key": "priority_id", "required": false },
+        { "key": "assigned_user_id", "required": false },
+        { "key": "last_contacted_at", "required": false },
+        { "key": "next_followup_at", "required": false },
+        { "key": "lead_score", "required": false },
+        { "key": "purchase_timeline", "required": false },
+        { "key": "budget_min", "required": false },
+        { "key": "budget_max", "required": false },
+        { "key": "interested_model", "required": false },
+        { "key": "has_trade_in", "required": false },
+        { "key": "trade_in_value", "required": false },
+        { "key": "marketing_opt_in", "required": false }
       ]
     },
-    "management": {
-      "label": "Management",
+    "account_info": {
+      "label": "Account",
       "fields": [
-        {
-          "key": "status_id",
-          "required": true
-        },
-        {
-          "key": "source_id",
-          "required": false
-        },
-        {
-          "key": "priority_id",
-          "required": false
-        },
-        {
-          "key": "assigned_user_id",
-          "required": false
-        },
-        {
-          "key": "last_contacted_at",
-          "required": false
-        },
-        {
-          "key": "next_followup_at",
-          "required": false
-        }
+        { "key": "account_status", "required": false },
+        { "key": "customer_type", "required": false },
+        { "key": "tier", "required": false },
+        { "key": "billing_email", "required": false },
+        { "key": "payment_terms", "required": false },
+        { "key": "payment_method", "required": false },
+        { "key": "currency", "required": false }
+      ]
+    },
+    "billing_tax": {
+      "label": "Billing & Tax",
+      "fields": [
+        { "key": "credit_limit", "required": false },
+        { "key": "tax_id", "required": false },
+        { "key": "tax_exempt", "required": false },
+        { "key": "tax_exempt_reason", "required": false },
+        { "key": "purchase_order_required", "required": false }
+      ]
+    },
+    "contract_dates": {
+      "label": "Contract & Dates",
+      "fields": [
+        { "key": "contract_start", "required": false },
+        { "key": "contract_end", "required": false },
+        { "key": "auto_renew", "required": false },
+        { "key": "first_purchase_at", "required": false },
+        { "key": "last_purchase_at", "required": false }
+      ]
+    },
+    "acquisition": {
+      "label": "Acquisition",
+      "fields": [
+        { "key": "campaign", "required": false },
+        { "key": "medium", "required": false },
+        { "key": "source_details", "required": false },
+        { "key": "referrer", "required": false },
+        { "key": "utm_source", "required": false },
+        { "key": "utm_medium", "required": false },
+        { "key": "utm_campaign", "required": false },
+        { "key": "utm_term", "required": false },
+        { "key": "utm_content", "required": false }
+      ]
+    },
+    "loyalty": {
+      "label": "Loyalty",
+      "fields": [
+        { "key": "loyalty_points", "required": false }
       ]
     }
   },

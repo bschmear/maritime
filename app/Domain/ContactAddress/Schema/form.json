@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "max_width": "3xl"
+  },
+  "form": {
+    "address": {
+      "label": "Address",
+      "fields": [
+        { "key": "contact_id", "required": true },
+        { "key": "label", "required": false },
+        { "key": "is_primary", "required": false },
+        { "key": "address_line_1", "required": false },
+        { "key": "address_line_2", "required": false },
+        { "key": "city", "required": false },
+        { "key": "state", "required": false },
+        { "key": "postal_code", "required": false },
+        { "key": "country", "required": false },
+        { "key": "latitude", "required": false },
+        { "key": "longitude", "required": false }
+      ]
+    }
+  }
+}

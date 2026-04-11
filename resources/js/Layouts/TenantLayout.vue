@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
 import Toast from '@/Components/Toast.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
@@ -150,6 +150,7 @@ const secondaryNavItems = ref([
     {
         name: 'Relationships',
         children: [
+            { name: 'Contacts', href: 'contacts.index' },
             { name: 'Leads', href: 'leads.index' },
             { name: 'Customers', href: 'customers.index' },
             { name: 'Vendors', href: 'vendors.index' },
@@ -196,15 +197,16 @@ const secondaryNavItems = ref([
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col ">
+        <div class="sticky top-0 z-40">
         <!-- Global Navbar -->
-        <Navbar />
-
+        <Navbar @toggle-sidebar="toggleMobileMenu" />
+        
         <!-- Desktop Secondary Navigation -->
-        <nav class="hidden lg:block bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800">
+        <nav class="hidden lg:block bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800 ">
             <div class="px-4 py-2">
                 <div class="flex items-center">
-                    <ul class="flex items-center text-sm text-gray-900 font-medium space-x-1">
+                    <ul class="flex items-center text-md text-gray-900 font-medium space-x-1">
                         <li v-for="item in secondaryNavItems" :key="item.name || item.href" class="relative">
                             <!-- Item with children (dropdown) -->
                             <div 
@@ -222,7 +224,7 @@ const secondaryNavItems = ref([
                                     ]"
                                 >
                                     {{ item.name }}
-                                    <span class="material-icons text-sm ml-1 transition-transform" :class="showDropdown === item.name ? 'rotate-180' : ''">
+                                    <span class="material-icons text-md ml-1 transition-transform" :class="showDropdown === item.name ? 'rotate-180' : ''">
                                         expand_more
                                     </span>
                                 </button>
@@ -316,142 +318,173 @@ const secondaryNavItems = ref([
                 </div>
             </div>
         </nav>
+    </div>
 
-        <!-- Mobile Navigation Button -->
-        <div class="lg:hidden bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800 px-4 py-2">
-            <button
-                @click="toggleMobileMenu"
-                class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-900 dark:text-white bg-white dark:bg-gray-600 rounded-lg"
+        <!-- Mobile nav slideout (hamburger in Navbar toggles this) -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition-opacity duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition-opacity duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
             >
-                <span>Menu</span>
-                <span class="material-icons text-sm transition-transform" :class="mobileMenuOpen ? 'rotate-180' : ''">
-                    expand_more
-                </span>
-            </button>
-        </div>
+                <div
+                    v-if="mobileMenuOpen"
+                    class="fixed inset-0 z-[100] bg-black/50 backdrop-blur-[1px] lg:hidden"
+                    aria-hidden="true"
+                    @click="closeMobileMenu"
+                />
+            </Transition>
 
-        <!-- Mobile Navigation Menu -->
-        <Transition
-            enter-active-class="transition-all duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-2"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-all duration-150 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-2"
-        >
-            <div v-show="mobileMenuOpen" class="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-lg">
-                <nav class="px-2 py-3 space-y-1 max-h-[70vh] overflow-y-auto">
-                    <template v-for="item in secondaryNavItems" :key="item.name || item.href">
-                        <!-- Item without children -->
-                        <Link
-                            v-if="!item.children"
-                            :href="route(item.href)"
-                            @click="closeMobileMenu"
-                            :class="[
-                                'block px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                                route().current(item.href) || route().current(item.href + '.*')
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            ]"
-                        >
-                            {{ item.name }}
-                        </Link>
-
-                        <!-- Item with children -->
-                        <div v-else class="space-y-1">
+            <Transition
+                enter-active-class="transition-transform duration-300 ease-out"
+                enter-from-class="-translate-x-full"
+                enter-to-class="translate-x-0"
+                leave-active-class="transition-transform duration-200 ease-in"
+                leave-from-class="translate-x-0"
+                leave-to-class="-translate-x-full"
+            >
+                <aside
+                    v-if="mobileMenuOpen"
+                    class="fixed left-0 top-0 z-[101] flex h-full w-[min(20rem,calc(100vw-2.5rem))] max-w-[90vw] flex-col border-r border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800 lg:hidden"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Main navigation"
+                >
+                        <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                            <span class="text-lg font-semibold text-gray-900 dark:text-white">Menu</span>
                             <button
-                                @click="toggleMobileItem(item.name)"
-                                :class="[
-                                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                                    hasActiveChild(item)
-                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                ]"
+                                type="button"
+                                class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                @click="closeMobileMenu"
                             >
-                                <span>{{ item.name }}</span>
-                                <span class="material-icons text-sm transition-transform" :class="isMobileExpanded(item.name) ? 'rotate-180' : ''">
-                                    expand_more
-                                </span>
+                                <span class="sr-only">Close menu</span>
+                                <span class="material-icons text-xl leading-none">close</span>
                             </button>
-
-                            <!-- Children (collapsible) -->
-                            <Transition
-                                enter-active-class="transition-all duration-200 ease-out"
-                                enter-from-class="opacity-0 max-h-0"
-                                enter-to-class="opacity-100 max-h-96"
-                                leave-active-class="transition-all duration-150 ease-in"
-                                leave-from-class="opacity-100 max-h-96"
-                                leave-to-class="opacity-0 max-h-0"
-                            >
-                                <div v-show="isMobileExpanded(item.name)" class="ml-4 mt-1 space-y-1 overflow-hidden">
-                                    <template v-for="child in item.children" :key="child.name || child.href">
-                                        <!-- Child without nested children -->
-                                        <Link
-                                            v-if="!child.children"
-                                            :href="route(child.href)"
-                                            @click="closeMobileMenu"
-                                            :class="[
-                                                'block px-3 py-2 rounded-lg text-sm transition-colors',
-                                                route().current(child.href)
-                                                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            ]"
-                                        >
-                                            {{ child.name }}
-                                        </Link>
-
-                                        <!-- Child with nested children -->
-                                        <div v-else class="space-y-1">
-                                            <button
-                                                @click="toggleMobileItem(child.name)"
-                                                :class="[
-                                                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                                                    hasActiveGrandChild(child)
-                                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                ]"
-                                            >
-                                                <span>{{ child.name }}</span>
-                                                <span class="material-icons text-sm transition-transform" :class="isMobileExpanded(child.name) ? 'rotate-180' : ''">
-                                                    expand_more
-                                                </span>
-                                            </button>
-
-                                            <!-- Grandchildren -->
-                                            <Transition
-                                                enter-active-class="transition-all duration-200 ease-out"
-                                                enter-from-class="opacity-0 max-h-0"
-                                                enter-to-class="opacity-100 max-h-96"
-                                                leave-active-class="transition-all duration-150 ease-in"
-                                                leave-from-class="opacity-100 max-h-96"
-                                                leave-to-class="opacity-0 max-h-0"
-                                            >
-                                                <div v-show="isMobileExpanded(child.name)" class="ml-4 mt-1 space-y-1 overflow-hidden">
-                                                    <Link
-                                                        v-for="grandChild in child.children"
-                                                        :key="grandChild.href"
-                                                        :href="route(grandChild.href)"
-                                                        @click="closeMobileMenu"
-                                                        :class="[
-                                                            'block px-3 py-2 rounded-lg text-sm transition-colors',
-                                                            route().current(grandChild.href)
-                                                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-medium'
-                                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                        ]"
-                                                    >
-                                                        {{ grandChild.name }}
-                                                    </Link>
-                                                </div>
-                                            </Transition>
-                                        </div>
-                                    </template>
-                                </div>
-                            </Transition>
                         </div>
-                    </template>
-                </nav>
-            </div>
-        </Transition>
+                        <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-3">
+                            <template v-for="item in secondaryNavItems" :key="item.name || item.href">
+                                <Link
+                                    v-if="!item.children"
+                                    :href="route(item.href)"
+                                    class="block rounded-lg px-3 py-2 text-md font-medium transition-colors"
+                                    :class="[
+                                        route().current(item.href) || route().current(item.href + '.*')
+                                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700',
+                                    ]"
+                                    @click="closeMobileMenu"
+                                >
+                                    {{ item.name }}
+                                </Link>
+
+                                <div v-else class="space-y-1">
+                                    <button
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-md font-medium transition-colors"
+                                        :class="[
+                                            hasActiveChild(item)
+                                                ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700',
+                                        ]"
+                                        @click="toggleMobileItem(item.name)"
+                                    >
+                                        <span>{{ item.name }}</span>
+                                        <span
+                                            class="material-icons text-md transition-transform"
+                                            :class="isMobileExpanded(item.name) ? 'rotate-180' : ''"
+                                        >
+                                            expand_more
+                                        </span>
+                                    </button>
+
+                                    <Transition
+                                        enter-active-class="transition-all duration-200 ease-out"
+                                        enter-from-class="max-h-0 opacity-0"
+                                        enter-to-class="max-h-[28rem] opacity-100"
+                                        leave-active-class="transition-all duration-150 ease-in"
+                                        leave-from-class="max-h-[28rem] opacity-100"
+                                        leave-to-class="max-h-0 opacity-0"
+                                    >
+                                        <div
+                                            v-show="isMobileExpanded(item.name)"
+                                            class="ml-3 space-y-1 overflow-hidden border-l border-gray-200 pl-2 dark:border-gray-600"
+                                        >
+                                            <template v-for="child in item.children" :key="child.name || child.href">
+                                                <Link
+                                                    v-if="!child.children"
+                                                    :href="route(child.href)"
+                                                    class="block rounded-lg px-3 py-2 text-md transition-colors"
+                                                    :class="[
+                                                        route().current(child.href)
+                                                            ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                                            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700',
+                                                    ]"
+                                                    @click="closeMobileMenu"
+                                                >
+                                                    {{ child.name }}
+                                                </Link>
+
+                                                <div v-else class="space-y-1">
+                                                    <button
+                                                        type="button"
+                                                        class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-md transition-colors"
+                                                        :class="[
+                                                            hasActiveGrandChild(child)
+                                                                ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                                                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700',
+                                                        ]"
+                                                        @click="toggleMobileItem(child.name)"
+                                                    >
+                                                        <span>{{ child.name }}</span>
+                                                        <span
+                                                            class="material-icons text-md transition-transform"
+                                                            :class="isMobileExpanded(child.name) ? 'rotate-180' : ''"
+                                                        >
+                                                            expand_more
+                                                        </span>
+                                                    </button>
+
+                                                    <Transition
+                                                        enter-active-class="transition-all duration-200 ease-out"
+                                                        enter-from-class="max-h-0 opacity-0"
+                                                        enter-to-class="max-h-96 opacity-100"
+                                                        leave-active-class="transition-all duration-150 ease-in"
+                                                        leave-from-class="max-h-96 opacity-100"
+                                                        leave-to-class="max-h-0 opacity-0"
+                                                    >
+                                                        <div
+                                                            v-show="isMobileExpanded(child.name)"
+                                                            class="ml-2 space-y-1 overflow-hidden border-l border-gray-200 pl-2 dark:border-gray-600"
+                                                        >
+                                                            <Link
+                                                                v-for="grandChild in child.children"
+                                                                :key="grandChild.href"
+                                                                :href="route(grandChild.href)"
+                                                                class="block rounded-lg px-3 py-2 text-sm transition-colors"
+                                                                :class="[
+                                                                    route().current(grandChild.href)
+                                                                        ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                                                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700',
+                                                                ]"
+                                                                @click="closeMobileMenu"
+                                                            >
+                                                                {{ grandChild.name }}
+                                                            </Link>
+                                                        </div>
+                                                    </Transition>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </Transition>
+                                </div>
+                            </template>
+                        </nav>
+                </aside>
+            </Transition>
+        </Teleport>
 
         <!-- Page Header (Optional) -->
         <header v-if="$slots.header" class="">

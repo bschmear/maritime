@@ -28,7 +28,7 @@ const props = defineProps({
     },
     recordType: {
         type: String,
-        default: 'vendor',
+        default: 'vendors',
     },
     recordTitle: {
         type: String,

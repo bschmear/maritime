@@ -134,6 +134,8 @@ const recentResponses = computed(() =>
                             :surveysupdate="route('surveysUpdate', { id: survey.uuid })"
                             :surveysclone="route('surveysClone', { id: survey.uuid })"
                             :uuid="survey.uuid"
+                            :public-url="survey.public_url ?? ''"
+                            :share-agent-id="currentUser.id"
                         />
                     </div>
                 </div>

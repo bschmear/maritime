@@ -14,7 +14,7 @@ final class ScorableTypeResolver
      */
     public static function allowedShortNames(): array
     {
-        return ['Lead', 'Contact'];
+        return ['Lead', 'LeadProfile', 'Contact'];
     }
 
     /**
@@ -22,10 +22,30 @@ final class ScorableTypeResolver
      */
     public static function toClass(string $type): ?string
     {
-        return match ($type) {
-            'Lead', Lead::class => Lead::class,
-            'Contact', Contact::class => Contact::class,
-            default => null,
-        };
+        $type = trim(str_replace('/', '\\', $type));
+
+        while (str_contains($type, '\\\\')) {
+            $type = str_replace('\\\\', '\\', $type);
+        }
+
+        $lower = strtolower($type);
+
+        if (in_array($lower, ['lead', 'leadprofile', 'lead_profile', 'lead_profiles'], true)) {
+            return Lead::class;
+        }
+
+        if ($lower === 'contact') {
+            return Contact::class;
+        }
+
+        if ($type === Lead::class) {
+            return Lead::class;
+        }
+
+        if ($type === Contact::class) {
+            return Contact::class;
+        }
+
+        return null;
     }
 }

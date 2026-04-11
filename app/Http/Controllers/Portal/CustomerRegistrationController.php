@@ -28,9 +28,11 @@ class CustomerRegistrationController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $customer = Customer::where('email', $request->email)->first();
+        $customer = Customer::query()
+            ->whereHas('contact', fn ($q) => $q->where('email', $request->email))
+            ->first();
 
-        if (!$customer) {
+        if (! $customer) {
             return back()->withErrors([
                 'email' => 'No customer account was found with that email address. Please contact us for access.',
             ]);

@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+
+const emit = defineEmits(['toggle-sidebar']);
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
@@ -175,7 +177,7 @@ onMounted(() => {
 </script>
 
 <template>
-    <header>
+    <header >
         <nav class="bg-white border-b border-gray-200 px-4 py-2.5 dark:bg-gray-800 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <div class="flex items-center ">
@@ -228,7 +230,7 @@ onMounted(() => {
                     </button>
 
                     <!-- Mobile Search Button -->
-                    <button
+                    <!-- <button
                         type="button"
                         class="md:hidden p-2 mr-1 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
                     >
@@ -236,7 +238,7 @@ onMounted(() => {
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                    </button>
+                    </button> -->
 
                     <!-- Notifications -->
                     <NotificationDropdown
@@ -310,11 +312,11 @@ onMounted(() => {
                         </ul>
                     </div>
 
-                    <!-- Mobile Sidebar Toggle -->
+                    <!-- Mobile nav slideout (handled in TenantLayout) -->
                     <button
                         type="button"
-                        @click="$emit('toggle-sidebar')"
-                        class="items-center p-2 text-gray-500 rounded-lg lg:hidden hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+                        @click="emit('toggle-sidebar')"
+                        class="inline-flex items-center justify-center p-2 text-gray-500 rounded-lg lg:hidden hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
                     >
                         <span class="sr-only">Open menu</span>
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">

@@ -43,7 +43,7 @@ return [
         'customer' => [
             'driver' => 'session',
             'provider' => 'customers',
-        ]
+        ],
     ],
 
     /*
@@ -70,7 +70,7 @@ return [
         ],
 
         'customers' => [
-            'driver' => 'eloquent',
+            'driver' => 'eloquent_contact_email',
             'model' => App\Domain\Customer\Models\Customer::class,
         ],
     ],

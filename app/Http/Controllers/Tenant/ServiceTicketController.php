@@ -2,31 +2,33 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
-use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
-use App\Services\ServiceTicketService;
-use App\Models\AccountSettings;
-use App\Mail\ServiceTicketApprovalRequest;
-use Illuminate\Support\Facades\Mail;
 use App\Enums\Timezone;
+use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Mail\ServiceTicketApprovalRequest;
+use App\Models\AccountSettings;
+use App\Services\ServiceTicketService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Mail;
 
 class ServiceTicketController extends BaseController
 {
-    use AuthorizesRequests, ValidatesRequests, HasSchemaSupport;
+    use AuthorizesRequests, HasSchemaSupport, ValidatesRequests;
 
     protected $domainName = 'ServiceTicket';
+
     protected $recordModel;
+
     protected ServiceTicketService $service;
 
     public function __construct(ServiceTicketService $service)
     {
         $this->middleware('auth');
-        $this->recordModel = new ServiceTicket();
+        $this->recordModel = new ServiceTicket;
         $this->service = $service;
     }
 
@@ -42,28 +44,28 @@ class ServiceTicketController extends BaseController
         // Ensure asset unit relationship is loaded for display
         $relationships['assetUnit'] = function ($query) {
             $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                  ->with(['asset' => function ($q) {
-                      $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                ->with(['asset' => function ($q) {
+                    $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
                         ->with(['make' => function ($mq) {
                             $mq->select(['id', 'display_name']);
                         }]);
-                  }]);
+                }]);
         };
         $query = ServiceTicket::with($relationships);
 
         // Apply search
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
-            $searchTerm = '%' . strtolower(trim($searchQuery)) . '%';
+        if ($searchQuery && ! empty(trim($searchQuery))) {
+            $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
             $query->where(function ($q) use ($searchTerm) {
                 $q->whereRaw('LOWER(service_tickets.service_ticket_number) LIKE ?', [$searchTerm])
-                  ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
-                      $customerQuery->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
-                  })
-                  ->orWhereHas('assetUnit', function ($assetQuery) use ($searchTerm) {
-                      $assetQuery->whereRaw('LOWER(hin) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(serial_number) LIKE ?', [$searchTerm]);
-                  });
+                    ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
+                        $customerQuery->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
+                    })
+                    ->orWhereHas('assetUnit', function ($assetQuery) use ($searchTerm) {
+                        $assetQuery->whereRaw('LOWER(hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(serial_number) LIKE ?', [$searchTerm]);
+                    });
             });
         }
 
@@ -144,7 +146,7 @@ class ServiceTicketController extends BaseController
     public function store(Request $request)
     {
         $request->validate([
-            'customer_id' => 'required|exists:customers,id',
+            'customer_id' => 'required|exists:customer_profiles,id',
             'subsidiary_id' => 'required|exists:subsidiaries,id',
             'location_id' => 'required|exists:locations,id',
         ]);
@@ -172,12 +174,12 @@ class ServiceTicketController extends BaseController
 
         $relationships['assetUnit'] = function ($query) {
             $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                  ->with(['asset' => function ($q) {
-                      $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                ->with(['asset' => function ($q) {
+                    $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
                         ->with(['make' => function ($mq) {
                             $mq->select(['id', 'display_name']);
                         }]);
-                  }]);
+                }]);
         };
 
         $relationships['serviceItems'] = function ($query) {
@@ -261,16 +263,16 @@ class ServiceTicketController extends BaseController
                 if ($fieldDef['typeDomain'] === 'AssetUnit') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                              ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                            ->with(['asset' => function ($q) {
+                                $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
                                     ->with(['make' => function ($mq) {
                                         $mq->select(['id', 'display_name']);
                                     }]);
-                              }]);
+                            }]);
                     };
                 } else {
                     $selectFields = ['id', 'display_name'];
-                    if (!in_array($relationshipName, $relationships)) {
+                    if (! in_array($relationshipName, $relationships)) {
                         $relationships[$relationshipName] = function ($query) use ($selectFields) {
                             $query->select($selectFields);
                         };
@@ -333,7 +335,6 @@ class ServiceTicketController extends BaseController
         return redirect()->route('servicetickets.show', $ticket->id);
     }
 
-
     /**
      * Lookup service items for the modal picker.
      */
@@ -348,7 +349,7 @@ class ServiceTicketController extends BaseController
             ->select([
                 'id', 'display_name', 'code', 'description',
                 'default_rate', 'default_cost', 'default_hours',
-                'billable', 'warranty_eligible', 'billing_type'
+                'billable', 'warranty_eligible', 'billing_type',
             ])
             ->when($query, function ($q) use ($query) {
                 $q->where(function ($subQuery) use ($query) {
@@ -367,7 +368,7 @@ class ServiceTicketController extends BaseController
                 'last_page' => $serviceItems->lastPage(),
                 'per_page' => $serviceItems->perPage(),
                 'total' => $serviceItems->total(),
-            ]
+            ],
         ]);
     }
 
@@ -380,20 +381,20 @@ class ServiceTicketController extends BaseController
         if (isset($fieldsSchemaRaw['fields'])) {
             return $fieldsSchemaRaw['fields'];
         }
+
         return $fieldsSchemaRaw ?? [];
     }
 
     /**
      * Helper: get enum options from fields schema.
      */
-
     protected function getEnumOptions(): array
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = [];
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['enum']) && !empty($fieldDef['enum'])) {
+            if (isset($fieldDef['enum']) && ! empty($fieldDef['enum'])) {
                 $enumClass = $fieldDef['enum'];
                 if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
                     $enumOptions[$enumClass] = $enumClass::options();
@@ -405,14 +406,16 @@ class ServiceTicketController extends BaseController
                 $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
                 if (class_exists($modelClass)) {
                     try {
-                        $records = $modelClass::select('id', 'display_name')->get();
+                        $records = $domainName === 'Customer'
+                            ? Customer::queryOrderedByContactDisplayName()->get()
+                            : $modelClass::select('id', 'display_name')->get();
                         $enumOptions[$fieldKey] = $records->map(fn ($r) => [
                             'id' => $r->id,
                             'name' => $r->display_name,
                             'value' => $r->id,
                         ])->toArray();
                     } catch (\Exception $e) {
-                        \Log::warning("Failed to load record options for {$domainName}: " . $e->getMessage());
+                        \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
                         $enumOptions[$fieldKey] = [];
                     }
                 }
@@ -422,7 +425,7 @@ class ServiceTicketController extends BaseController
         return $enumOptions;
     }
 
-       /**
+    /**
      * Send service ticket approval request to customer via email
      */
     public function sendApprovalRequest($id)
@@ -432,7 +435,7 @@ class ServiceTicketController extends BaseController
 
             $customerEmail = $serviceTicket->customer->email ?? null;
 
-            if (!$customerEmail) {
+            if (! $customerEmail) {
                 return back()->with('error', 'Customer does not have an email address on file.');
             }
 
@@ -446,7 +449,7 @@ class ServiceTicketController extends BaseController
                     'subsidiary',
                     'location',
                     'assetUnit',
-                    'serviceItems'
+                    'serviceItems',
                 ]),
                 'account' => $account,
                 'approval_url' => $approvalUrl,
@@ -454,10 +457,11 @@ class ServiceTicketController extends BaseController
 
             Mail::to($customerEmail)->send(new ServiceTicketApprovalRequest($emailData));
 
-            return back()->with('success', 'Approval request sent successfully to ' . $customerEmail);
+            return back()->with('success', 'Approval request sent successfully to '.$customerEmail);
 
         } catch (\Exception $e) {
-            \Log::error('Failed to send approval request email: ' . $e->getMessage());
+            \Log::error('Failed to send approval request email: '.$e->getMessage());
+
             return back()->with('error', 'Failed to send email. Please try again.');
         }
     }
@@ -470,7 +474,7 @@ class ServiceTicketController extends BaseController
         $serviceTicket = ServiceTicket::findOrFail($id);
 
         return response()->json([
-            'approval_url' => route('service-tickets.review', $serviceTicket->uuid)
+            'approval_url' => route('service-tickets.review', $serviceTicket->uuid),
         ]);
     }
 }

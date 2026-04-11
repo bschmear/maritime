@@ -104,6 +104,21 @@ trait HasSchemaSupport
                                     'value' => $record->id,
                                 ];
                             })->toArray();
+                        } elseif ($domainName === 'Customer') {
+                            $model = new $modelClass;
+                            $profileTable = $model->getTable();
+                            $records = $modelClass::query()
+                                ->join('contacts', 'contacts.id', '=', $profileTable.'.contact_id')
+                                ->select([$profileTable.'.id', 'contacts.display_name'])
+                                ->orderBy('contacts.display_name')
+                                ->get();
+                            $options = $records->map(function ($record) {
+                                return [
+                                    'id' => $record->id,
+                                    'name' => $record->display_name,
+                                    'value' => $record->id,
+                                ];
+                            })->toArray();
                         } else {
                             // Get all records from the related domain
                             $records = $modelClass::select('id', 'display_name')->get();
@@ -226,6 +241,42 @@ trait HasSchemaSupport
 
     protected function getFieldWithTablePrefix($field)
     {
+        if ($this->domainName === 'Lead') {
+            $contactBacked = [
+                'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile',
+                'company', 'position', 'title', 'secondary_email', 'website', 'linkedin', 'facebook',
+                'notes', 'inactive', 'preferred_contact_method', 'preferred_contact_time',
+                'assigned_user_id', 'type', 'source', 'status',
+            ];
+            if (in_array($field, $contactBacked, true)) {
+                return 'contacts.'.$field;
+            }
+            $tableName = $this->recordModel->getTable();
+            if (\Schema::connection($this->recordModel->getConnectionName())->hasColumn($tableName, $field)) {
+                return $tableName.'.'.$field;
+            }
+
+            return $field;
+        }
+
+        if ($this->domainName === 'Customer') {
+            $contactBacked = [
+                'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile',
+                'company', 'position', 'title', 'secondary_email', 'website', 'linkedin', 'facebook',
+                'notes', 'inactive', 'preferred_contact_method', 'preferred_contact_time',
+                'assigned_user_id', 'type', 'source', 'status',
+            ];
+            if (in_array($field, $contactBacked, true)) {
+                return 'contacts.'.$field;
+            }
+            $tableName = $this->recordModel->getTable();
+            if (\Schema::connection($this->recordModel->getConnectionName())->hasColumn($tableName, $field)) {
+                return $tableName.'.'.$field;
+            }
+
+            return $field;
+        }
+
         // For domains that may join with other tables, prefix fields that exist on the main table
         $domainsWithJoins = ['AssetUnit', 'InventoryUnit'];
 

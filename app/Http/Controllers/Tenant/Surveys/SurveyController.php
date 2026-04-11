@@ -187,6 +187,9 @@ class SurveyController extends Controller
             $avgRating = $raw ? number_format($raw, 1) : null;
         }
 
+        $survey->setAttribute('public_url', route('surveysPublicShow', ['id' => $survey->uuid], absolute: true));
+        $survey->setAttribute('embed_url', route('surveysPublicEmbed', ['id' => $survey->uuid], absolute: true));
+
         return Inertia::render('Tenant/Survey/Show', [
             'survey' => $survey,
             'weeklyResponses' => $weeklyResponses,

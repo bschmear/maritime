@@ -13,7 +13,7 @@ class CreateOpportunity
     public function __invoke(array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'required|integer|exists:customers,id',
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
             'user_id' => 'required|integer|exists:users,id',
             'stage' => 'required',
             'status' => 'required',

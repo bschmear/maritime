@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\Qualification\Actions;
 
 use App\Domain\Qualification\Models\Qualification as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -13,9 +14,9 @@ class CreateQualification
     public function __invoke(array $data): array
     {
         $validated = Validator::make($data, [
-            'lead_id' => 'required',
+            'lead_id' => 'required|exists:lead_profiles,id',
             'user_id' => 'required',
-            'status'  => 'required',
+            'status' => 'required',
         ])->validate();
 
         try {
@@ -30,27 +31,29 @@ class CreateQualification
 
             return [
                 'success' => true,
-                'record'  => $record,
+                'record' => $record,
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in CreateQualification', [
                 'error' => $e->getMessage(),
-                'data'  => $data,
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record'  => null,
+                'record' => null,
             ];
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateQualification', [
                 'error' => $e->getMessage(),
-                'data'  => $data,
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record'  => null,
+                'record' => null,
             ];
         }
     }

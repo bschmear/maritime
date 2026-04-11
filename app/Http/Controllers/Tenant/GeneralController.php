@@ -76,6 +76,18 @@ class GeneralController extends BaseController
             ]);
         }
 
+        // Contacts: lookup search and list UI use name / email fields, not only display_name
+        if (strtolower($type) === 'contact') {
+            $columns = array_merge($columns, [
+                'first_name',
+                'last_name',
+                'email',
+                'company',
+                'phone',
+                'mobile',
+            ]);
+        }
+
         // Include pricing and display fields for line item types
         if (strtolower($type) === 'inventoryitem') {
             $columns[] = 'sku';
@@ -144,6 +156,24 @@ class GeneralController extends BaseController
                 // Search add-ons by name
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+            } elseif (strtolower($type) === 'contact') {
+                // Contacts often have empty display_name; match how RecordSelect shows labels
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $trim = trim((string) $searchQuery);
+                $contactTable = $recordModel->getTable();
+                $query->where(function ($q) use ($searchTerm, $trim, $contactTable) {
+                    $q->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(first_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(last_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(secondary_email, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(company, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(mobile, \'\')) LIKE ?', [$searchTerm]);
+                    if ($trim !== '' && ctype_digit($trim)) {
+                        $q->orWhere($contactTable.'.id', '=', (int) $trim);
+                    }
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -292,11 +322,16 @@ class GeneralController extends BaseController
 
         // If it's an AJAX request, return JSON
         if ($request->wantsJson() || $request->ajax()) {
+            $recordType = match ($domainName) {
+                'ContactAddress' => 'contactaddresses',
+                default => strtolower($domainName).'s',
+            };
+
             return response()->json([
                 'formSchema' => $formSchema,
                 'fieldsSchema' => $fieldsSchema,
                 'enumOptions' => $enumOptions,
-                'recordType' => strtolower($domainName).'s', // Convert to plural (BoatMake -> boatmakes)
+                'recordType' => $recordType,
                 'recordTitle' => $domainName,
             ]);
         }

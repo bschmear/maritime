@@ -26,6 +26,15 @@ const props = defineProps({
     },
 });
 
+const emit = defineEmits(['sublist-mutated']);
+
+/** Let parent pages refresh eager-loaded data (e.g. Contact.addresses when a ContactAddress row changes). */
+const emitSublistMutatedIfNeeded = () => {
+    const domain = activeTab.value?.domain;
+    if (domain) {
+        emit('sublist-mutated', { domain });
+    }
+};
 
 // Sublist State
 const activeTab = ref(null);
@@ -79,6 +88,8 @@ const getDomainPlural = (domain) => {
     const irregularPlurals = {
         'Subsidiary': 'subsidiaries',
         'subsidiary': 'subsidiaries',
+        'ContactAddress': 'contactaddresses',
+        'contactaddress': 'contactaddresses',
     };
 
     if (irregularPlurals[domain]) {
@@ -100,6 +111,7 @@ const getDomainSingular = (pluralDomain) => {
     const irregularSingulars = {
         'subsidiaries': 'subsidiary',
         'opportunities': 'opportunity',
+        'contactaddresses': 'contactaddress',
     };
 
     if (irregularSingulars[pluralDomain]) {
@@ -1056,9 +1068,10 @@ const closeSublistEditModal = () => {
     sublistEditRecord.value = null;
 };
 
-const handleSublistItemUpdated = () => {
+const handleSublistItemUpdated = async () => {
     if (activeTab.value) {
-        fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+        await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+        emitSublistMutatedIfNeeded();
     }
     showSublistEditModal.value = false;
     sublistEditRecord.value = null;
@@ -1111,11 +1124,12 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         
         const updateUrl = route(routeName, { [paramName]: item.id });
         
-        // Convert string values to integers for enum fields
+        // Integer enums (numeric option ids); string-backed enums keep the submitted string (e.g. contact status).
         const fieldDef = getFieldDef(fieldKey);
         let processedValue = newValue;
         if (fieldDef?.type === 'select' && fieldDef?.enum) {
-            processedValue = parseInt(newValue, 10);
+            const s = String(newValue).trim();
+            processedValue = /^-?\d+$/.test(s) ? parseInt(s, 10) : newValue;
         }
         
         const response = await axios.put(updateUrl, {
@@ -1140,6 +1154,7 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
                 sublistData.value[itemIndex][fieldKey] = processedValue;
             }
         }
+        emitSublistMutatedIfNeeded();
     } catch (error) {
         console.error('[Sublist] Error updating field:', error);
         // Revert the change by refetching data (skip for image galleries, documents, and Many-to-Many relationships)

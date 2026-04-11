@@ -1,0 +1,59 @@
+{
+  "contact_id": {
+    "label": "Contact",
+    "type": "record",
+    "typeDomain": "Contact",
+    "relationship": "contact",
+    "required": true
+  },
+  "label": {
+    "label": "Label",
+    "type": "text"
+  },
+  "is_primary": {
+    "label": "Primary",
+    "type": "boolean"
+  },
+  "address_line_1": {
+    "label": "Address line 1",
+    "type": "text"
+  },
+  "address_line_2": {
+    "label": "Address line 2",
+    "type": "text"
+  },
+  "city": {
+    "label": "City",
+    "type": "text"
+  },
+  "state": {
+    "label": "State",
+    "type": "text"
+  },
+  "postal_code": {
+    "label": "Postal code",
+    "type": "text"
+  },
+  "country": {
+    "label": "Country",
+    "type": "text"
+  },
+  "latitude": {
+    "label": "Latitude",
+    "type": "number"
+  },
+  "longitude": {
+    "label": "Longitude",
+    "type": "number"
+  },
+  "created_at": {
+    "label": "Created",
+    "type": "datetime",
+    "readOnly": true
+  },
+  "updated_at": {
+    "label": "Updated",
+    "type": "datetime",
+    "readOnly": true
+  }
+}

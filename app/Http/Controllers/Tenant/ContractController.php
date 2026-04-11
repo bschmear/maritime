@@ -6,6 +6,7 @@ use App\Domain\Contract\Actions\CreateContract;
 use App\Domain\Contract\Actions\DeleteContract;
 use App\Domain\Contract\Actions\UpdateContract;
 use App\Domain\Contract\Models\Contract;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Contract\ContractStatus;
@@ -106,7 +107,9 @@ class ContractController extends BaseController
                 $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
                 if (class_exists($modelClass)) {
                     try {
-                        $records = $modelClass::select('id', 'display_name')->get();
+                        $records = $domainName === 'Customer'
+                            ? Customer::queryOrderedByContactDisplayName()->get()
+                            : $modelClass::select('id', 'display_name')->get();
                         $enumOptions[$fieldKey] = $records->map(fn ($r) => [
                             'id' => $r->id,
                             'name' => $r->display_name,
@@ -135,6 +138,12 @@ class ContractController extends BaseController
 
             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
             $selectFields = ['id'];
+
+            if ($fieldDef['typeDomain'] === 'Customer') {
+                $relationships[$relationshipName] = Customer::eagerWithContactSelect();
+
+                continue;
+            }
 
             if ($fieldDef['typeDomain'] === 'Contact') {
                 $selectFields = ['id', 'display_name', 'first_name', 'last_name', 'email'];
@@ -416,7 +425,7 @@ class ContractController extends BaseController
         $reviewUrl = route('contracts.review', $record->uuid);
         Mail::to($customerEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
 
-        return back()->with('success', 'Contract sent to ' . $customerEmail);
+        return back()->with('success', 'Contract sent to '.$customerEmail);
     }
 
     public function destroy(int $contract)

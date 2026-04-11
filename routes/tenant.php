@@ -13,6 +13,8 @@ use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
 use App\Http\Controllers\Tenant\CommunicationController;
+use App\Http\Controllers\Tenant\ContactAddressController;
+use App\Http\Controllers\Tenant\ContactController;
 use App\Http\Controllers\Tenant\ContractController;
 use App\Http\Controllers\Tenant\CustomerController;
 use App\Http\Controllers\Tenant\DashboardController;
@@ -43,6 +45,7 @@ use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\Surveys\PublicSurveyController;
 use App\Http\Controllers\Tenant\Surveys\SurveyController;
 use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\TransactionController;
@@ -121,6 +124,16 @@ Route::middleware([
         ->middleware('throttle:20,1')
         ->name('boat-show-events.public.lead.store');
 
+    Route::get('/surveys', [PublicSurveyController::class, 'index'])->name('surveysPublic');
+    Route::prefix('survey')->group(function () {
+        Route::get('/view', [PublicSurveyController::class, 'show'])->name('surveysPublicShow');
+        Route::get('/embed', [PublicSurveyController::class, 'embed'])->name('surveysPublicEmbed');
+        Route::put('/edit', [PublicSurveyController::class, 'edit'])->name('surveysPublicEdit');
+        Route::post('/submit', [PublicSurveyController::class, 'submit'])
+            ->middleware('throttle:20,1')
+            ->name('surveysPublicSubmit');
+    });
+
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -133,6 +146,15 @@ Route::middleware([
 
         Route::prefix('customers')->name('customers.')->group(function () {
             Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
+        });
+
+        Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
+            Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
+        });
+
+        Route::prefix('contactaddresses')->name('contactaddresses.')->group(function () {
+            Route::resource('/', ContactAddressController::class)->parameters(['' => 'contactaddress']);
         });
 
         Route::prefix('leads')->name('leads.')->group(function () {
@@ -184,6 +206,9 @@ Route::middleware([
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {
+            Route::patch('{vendor}/primary-contact', [VendorController::class, 'setPrimaryContact'])->name('primary-contact');
+            Route::post('{vendor}/attach', [VendorController::class, 'attachRelationship'])->name('attach');
+            Route::post('{vendor}/detach', [VendorController::class, 'detachRelationship'])->name('detach');
             Route::resource('/', VendorController::class)->parameters(['' => 'vendor']);
         });
 

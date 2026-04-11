@@ -183,20 +183,96 @@
     "label": "UTM Content",
     "type": "text"
   },
-  "website": {
-    "label": "Website",
-    "type": "text"
-  },
-  "linkedin": {
-    "label": "LinkedIn",
-    "type": "text"
-  },
-  "facebook": {
-    "label": "Facebook",
-    "type": "text"
-  },
   "inactive": {
     "label": "Inactive",
     "type": "boolean"
+  },
+  "account_status": {
+    "label": "Account Status",
+    "type": "text"
+  },
+  "customer_type": {
+    "label": "Customer Type",
+    "type": "text"
+  },
+  "tier": {
+    "label": "Tier",
+    "type": "text"
+  },
+  "billing_email": {
+    "label": "Billing Email",
+    "type": "email"
+  },
+  "payment_terms": {
+    "label": "Payment Terms (days)",
+    "type": "number"
+  },
+  "payment_method": {
+    "label": "Payment Method",
+    "type": "text"
+  },
+  "currency": {
+    "label": "Currency",
+    "type": "text"
+  },
+  "credit_limit": {
+    "label": "Credit Limit",
+    "type": "number"
+  },
+  "tax_id": {
+    "label": "Tax ID / EIN",
+    "type": "text"
+  },
+  "tax_exempt": {
+    "label": "Tax Exempt",
+    "type": "boolean"
+  },
+  "tax_exempt_reason": {
+    "label": "Tax Exempt Reason",
+    "type": "text"
+  },
+  "purchase_order_required": {
+    "label": "PO Number Required",
+    "type": "text"
+  },
+  "contract_start": {
+    "label": "Contract Start",
+    "type": "date"
+  },
+  "contract_end": {
+    "label": "Contract End",
+    "type": "date"
+  },
+  "auto_renew": {
+    "label": "Auto Renew",
+    "type": "boolean"
+  },
+  "first_purchase_at": {
+    "label": "First Purchase",
+    "type": "date"
+  },
+  "last_purchase_at": {
+    "label": "Last Purchase",
+    "type": "date"
+  },
+  "loyalty_points": {
+    "label": "Loyalty Points",
+    "type": "number"
+  },
+  "current_balance": {
+    "label": "Current Balance",
+    "type": "number"
+  },
+  "lifetime_value": {
+    "label": "Lifetime Value",
+    "type": "number"
+  },
+  "total_orders": {
+    "label": "Total Orders",
+    "type": "number"
+  },
+  "average_order_value": {
+    "label": "Average Order Value",
+    "type": "number"
   }
 }

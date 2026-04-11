@@ -1,18 +1,21 @@
 <?php
+
 namespace App\Http\Controllers\Tenant;
-use App\Http\Controllers\Tenant\RecordController;
-use App\Domain\Qualification\Models\Qualification as RecordModel;
+
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Qualification\Actions\CreateQualification as CreateAction;
-use App\Domain\Qualification\Actions\UpdateQualification as UpdateAction;
 use App\Domain\Qualification\Actions\DeleteQualification as DeleteAction;
-use App\Enums\Timezone;
+use App\Domain\Qualification\Actions\UpdateQualification as UpdateAction;
+use App\Domain\Qualification\Models\Qualification as RecordModel;
 use App\Enums\Opportunity\Stage as OpportunityStage;
 use App\Enums\Opportunity\Status as OpportunityStatus;
+use App\Enums\Timezone;
 use Illuminate\Http\Request;
 
 class QualificationController extends RecordController
 {
     protected $recordType = 'Qualification';
+
     protected $table = null;
 
     public function __construct(Request $request)
@@ -21,10 +24,10 @@ class QualificationController extends RecordController
             $request,
             'qualifications',
             'Qualification',
-            new RecordModel(),
-            new CreateAction(),
-            new UpdateAction(),
-            new DeleteAction(),
+            new RecordModel,
+            new CreateAction,
+            new UpdateAction,
+            new DeleteAction,
             $this->recordType
         );
     }
@@ -37,10 +40,14 @@ class QualificationController extends RecordController
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                if (!isset($relationships[$relationshipName])) {
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'display_name']);
-                    };
+                if (! isset($relationships[$relationshipName])) {
+                    if (($fieldDef['typeDomain'] ?? '') === 'Customer') {
+                        $relationships[$relationshipName] = Customer::eagerWithContactSelect();
+                    } else {
+                        $relationships[$relationshipName] = function ($query) {
+                            $query->select(['id', 'display_name']);
+                        };
+                    }
                 }
             }
         }
@@ -58,11 +65,14 @@ class QualificationController extends RecordController
             }
         }
 
-        // Eager-load lead with its converted_customer relationship
+        // Lead rows are lead_profiles; names live on contacts (accessors need contact loaded).
         $relationships['lead'] = function ($query) {
-            $query->with(['converted_customer' => function ($q) {
-                $q->select('id', 'display_name');
-            }])->select('id', 'display_name', 'first_name', 'last_name', 'converted', 'converted_customer_id', 'converted_at');
+            $query->with([
+                'contact' => function ($q) {
+                    $q->select('id', 'display_name', 'first_name', 'last_name');
+                },
+                'converted_customer' => Customer::eagerWithContactSelect(),
+            ]);
         };
 
         $record = RecordModel::with($relationships)->findOrFail($id);
@@ -70,51 +80,52 @@ class QualificationController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $account = \App\Models\AccountSettings::getCurrent();
 
-        $opportunityStageOptions  = OpportunityStage::options();
+        $opportunityStageOptions = OpportunityStage::options();
         $opportunityStatusOptions = OpportunityStatus::options();
 
         // Build leadData for the frontend conversion flow
         $leadData = null;
         if ($record->lead) {
             $leadData = [
-                'id'                    => $record->lead->id,
-                'converted'             => (bool) $record->lead->converted,
+                'id' => $record->lead->id,
+                'converted' => (bool) $record->lead->converted,
                 'converted_customer_id' => $record->lead->converted_customer_id,
-                'display_name'          => trim(($record->lead->first_name ?? '') . ' ' . ($record->lead->last_name ?? '')),
+                'display_name' => $record->lead->display_name
+                    ?? trim(($record->lead->first_name ?? '').' '.($record->lead->last_name ?? '')),
             ];
         }
 
-        if ($request->ajax() && !$request->header('X-Inertia')) {
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
-                'record'                   => $record,
-                'recordType'               => $this->recordType,
-                'recordTitle'              => $this->recordTitle,
-                'domainName'               => $this->domainName,
-                'formSchema'               => $formSchema,
-                'fieldsSchema'             => $fieldsSchema,
-                'enumOptions'              => $enumOptions,
-                'imageUrls'                => $this->getImageUrls($record, $fieldsSchema),
-                'account'                  => $account,
-                'timezones'                => Timezone::options(),
-                'leadData'                 => $leadData,
-                'opportunityStageOptions'  => $opportunityStageOptions,
+                'record' => $record,
+                'recordType' => $this->recordType,
+                'recordTitle' => $this->recordTitle,
+                'domainName' => $this->domainName,
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+                'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+                'account' => $account,
+                'timezones' => Timezone::options(),
+                'leadData' => $leadData,
+                'opportunityStageOptions' => $opportunityStageOptions,
                 'opportunityStatusOptions' => $opportunityStatusOptions,
             ]);
         }
 
         return inertia('Tenant/Qualification/Show', [
-            'record'                   => $record,
-            'recordType'               => $this->recordType,
-            'recordTitle'              => $this->recordTitle,
-            'domainName'               => $this->domainName,
-            'formSchema'               => $formSchema,
-            'fieldsSchema'             => $fieldsSchema,
-            'enumOptions'              => $enumOptions,
-            'imageUrls'                => $this->getImageUrls($record, $fieldsSchema),
-            'account'                  => $account,
-            'timezones'                => Timezone::options(),
-            'leadData'                 => $leadData,
-            'opportunityStageOptions'  => $opportunityStageOptions,
+            'record' => $record,
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'domainName' => $this->domainName,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+            'account' => $account,
+            'timezones' => Timezone::options(),
+            'leadData' => $leadData,
+            'opportunityStageOptions' => $opportunityStageOptions,
             'opportunityStatusOptions' => $opportunityStatusOptions,
         ]);
     }

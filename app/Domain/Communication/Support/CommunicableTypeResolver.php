@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Communication\Support;
 
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\Vendor\Models\Vendor;
@@ -16,7 +17,7 @@ final class CommunicableTypeResolver
      */
     public static function allowedShortNames(): array
     {
-        return ['Lead', 'Customer', 'Vendor'];
+        return ['Lead', 'Customer', 'Vendor', 'Contact'];
     }
 
     /**
@@ -28,6 +29,7 @@ final class CommunicableTypeResolver
             'Lead', Lead::class => Lead::class,
             'Customer', Customer::class => Customer::class,
             'Vendor', Vendor::class => Vendor::class,
+            'Contact', Contact::class => Contact::class,
             default => null,
         };
     }

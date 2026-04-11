@@ -2,14 +2,27 @@
 
 namespace App\Domain\Vendor\Models;
 
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Task\Models\Task;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 
 class Vendor extends Model
 {
     use HasDocuments;
+
+    /**
+     * Eager-load primary contact for lists and {@see $appends} summary.
+     *
+     * @var list<string>
+     */
+    protected $with = [
+        'primaryContact',
+    ];
 
     /**
      * The attributes that aren't mass assignable.
@@ -20,6 +33,13 @@ class Vendor extends Model
         'id',
         'created_at',
         'updated_at',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'primary_contact_summary',
     ];
 
     /**
@@ -36,10 +56,10 @@ class Vendor extends Model
 
         // Optional foreign keys
         'assigned_user_id' => 'integer',
+        'primary_contact_id' => 'integer',
 
         // JSON fields
         'tags' => 'array',
-        'contacts' => 'array',
     ];
 
     /**
@@ -56,12 +76,22 @@ class Vendor extends Model
     ];
 
     /**
-     * Accessor for full contact name.
+     * Table / API display for the linked primary contact (not a DB column).
      */
-    protected function contactFullName(): Attribute
+    protected function primaryContactSummary(): Attribute
     {
         return Attribute::make(
-            get: fn () => trim($this->contact_first_name.' '.$this->contact_last_name)
+            get: function () {
+                $c = $this->primaryContact;
+                if (! $c) {
+                    return null;
+                }
+
+                return $c->display_name
+                    ?: trim(($c->first_name ?? '').' '.($c->last_name ?? ''))
+                    ?: $c->email
+                    ?: ($c->company ?? null);
+            }
         );
     }
 
@@ -71,6 +101,47 @@ class Vendor extends Model
     public function assigned_user()
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
+    }
+
+    public function contacts(): BelongsToMany
+    {
+        return $this->belongsToMany(Contact::class, 'contact_vendor')
+            ->withPivot('is_primary');
+    }
+
+    /**
+     * Keep {@see primary_contact_id} and pivot in sync: primary row is attached with {@code is_primary} true.
+     */
+    public function syncPrimaryContactPivot(): void
+    {
+        $vendorId = (int) $this->id;
+        $primaryId = $this->primary_contact_id !== null ? (int) $this->primary_contact_id : null;
+
+        DB::table('contact_vendor')
+            ->where('vendor_id', $vendorId)
+            ->update(['is_primary' => false]);
+
+        if ($primaryId === null) {
+            return;
+        }
+
+        $affected = DB::table('contact_vendor')
+            ->where('vendor_id', $vendorId)
+            ->where('contact_id', $primaryId)
+            ->update(['is_primary' => true]);
+
+        if ($affected === 0) {
+            DB::table('contact_vendor')->insert([
+                'vendor_id' => $vendorId,
+                'contact_id' => $primaryId,
+                'is_primary' => true,
+            ]);
+        }
+    }
+
+    public function primaryContact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'primary_contact_id');
     }
 
     /**

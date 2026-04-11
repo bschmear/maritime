@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Opportunity\Actions\CreateOpportunity as CreateAction;
 use App\Domain\Opportunity\Actions\DeleteOpportunity as DeleteAction;
 use App\Domain\Opportunity\Actions\UpdateOpportunity as UpdateAction;
@@ -99,6 +100,8 @@ class OpportunityController extends RecordController
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // handled below
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relName] = Customer::eagerWithContactSelect();
                 } else {
                     $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name']);
                 }
@@ -157,6 +160,8 @@ class OpportunityController extends RecordController
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     $relationships[$relName] = fn ($q) => $q->select(['id', 'sequence']);
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relName] = Customer::eagerWithContactSelect();
                 } else {
                     $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name']);
                 }

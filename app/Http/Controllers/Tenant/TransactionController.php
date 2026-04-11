@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Actions\DeleteTransaction;
@@ -85,7 +86,9 @@ class TransactionController extends BaseController
                 $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
                 if (class_exists($modelClass)) {
                     try {
-                        $records = $modelClass::query()->select(['id', 'display_name'])->orderBy('display_name')->limit(500)->get();
+                        $records = $domainName === 'Customer'
+                            ? Customer::queryOrderedByContactDisplayName()->limit(500)->get()
+                            : $modelClass::query()->select(['id', 'display_name'])->orderBy('display_name')->limit(500)->get();
                         $enumOptions[$fieldKey] = $records->map(fn ($r) => [
                             'id' => $r->id,
                             'name' => $r->display_name,
@@ -135,7 +138,7 @@ class TransactionController extends BaseController
         $query = Transaction::query()
             ->select($actualColumns)
             ->with([
-                'customer' => fn ($q) => $q->select(['id', 'display_name']),
+                'customer' => Customer::eagerWithContactSelect(),
                 'user' => fn ($q) => $q->select(['id', 'display_name']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
@@ -320,7 +323,7 @@ class TransactionController extends BaseController
         $record = Transaction::query()
             ->with([
                 'items' => fn ($q) => $q->with(['addons', 'itemable'])->orderBy('position')->orderBy('id'),
-                'customer' => fn ($q) => $q->select(['id', 'display_name', 'email', 'phone']),
+                'customer' => Customer::eagerWithContactSelect(['email', 'phone']),
                 'user' => fn ($q) => $q->select(['id', 'display_name', 'email']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence', 'uuid', 'status']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
@@ -357,7 +360,7 @@ class TransactionController extends BaseController
         $record = Transaction::query()
             ->with([
                 'items' => fn ($q) => $q->with(['addons', 'itemable'])->orderBy('position')->orderBy('id'),
-                'customer' => fn ($q) => $q->select(['id', 'display_name']),
+                'customer' => Customer::eagerWithContactSelect(),
                 'user' => fn ($q) => $q->select(['id', 'display_name']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),

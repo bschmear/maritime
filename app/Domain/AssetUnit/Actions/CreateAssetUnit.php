@@ -38,7 +38,7 @@ class CreateAssetUnit
             'asking_price' => 'nullable|numeric|min:0',
             'sold_price' => 'nullable|numeric|min:0',
             'vendor_id' => 'nullable|integer|exists:vendors,id',
-            'customer_id' => 'nullable|integer|exists:customers,id',
+            'customer_id' => 'nullable|integer|exists:customer_profiles,id',
             'location_id' => 'nullable|integer|exists:locations,id',
             'subsidiary_id' => 'nullable|integer|exists:subsidiaries,id',
             'in_service_at' => 'nullable|date',

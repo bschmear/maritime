@@ -1,12 +1,13 @@
 <?php
+
 namespace App\Domain\Estimate\Actions;
 
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class CreateEstimate
@@ -14,7 +15,7 @@ class CreateEstimate
     public function __invoke(array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'required|integer|exists:customers,id',
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
             'opportunity_id' => 'nullable|integer|exists:opportunities,id',
             'user_id' => 'required|integer|exists:users,id',
             'tax_rate' => 'nullable|numeric',
@@ -46,7 +47,7 @@ class CreateEstimate
             if (isset($data['line_items']) && is_array($data['line_items'])) {
 
                 foreach ($data['line_items'] as $position => $lineData) {
-                    $lineTotal = (float)($lineData['unit_price'] ?? 0) * (int)($lineData['quantity'] ?? 1) - (float)($lineData['discount'] ?? 0);
+                    $lineTotal = (float) ($lineData['unit_price'] ?? 0) * (int) ($lineData['quantity'] ?? 1) - (float) ($lineData['discount'] ?? 0);
 
                     $lineItem = $version->lineItems()->create([
                         'itemable_type' => $lineData['itemable_type'] ?? null,
@@ -65,7 +66,7 @@ class CreateEstimate
 
                     if (isset($lineData['addons']) && is_array($lineData['addons'])) {
                         foreach ($lineData['addons'] as $addonData) {
-                            $addonTotal = (float)($addonData['price'] ?? 0) * (int)($addonData['quantity'] ?? 1);
+                            $addonTotal = (float) ($addonData['price'] ?? 0) * (int) ($addonData['quantity'] ?? 1);
 
                             $lineItem->addons()->create([
                                 'addon_id' => $addonData['addon_id'] ?? null,
@@ -83,7 +84,7 @@ class CreateEstimate
             }
 
             // 4. Calculate tax and total
-            $taxRate = (float)($data['tax_rate'] ?? 0);
+            $taxRate = (float) ($data['tax_rate'] ?? 0);
             $tax = $subtotal * ($taxRate / 100);
             $total = $subtotal + $tax;
 
@@ -106,8 +107,9 @@ class CreateEstimate
             DB::rollBack();
             Log::error('Database query error in CreateEstimate', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -117,8 +119,9 @@ class CreateEstimate
             DB::rollBack();
             Log::error('Unexpected error in CreateEstimate', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

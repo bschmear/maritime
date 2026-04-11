@@ -17,7 +17,7 @@ class CreateTransaction
     public function __invoke(array $data): array
     {
         $validator = Validator::make($data, [
-            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'customer_id' => ['required', 'integer', 'exists:customer_profiles,id'],
             'user_id' => ['required', 'integer', 'exists:users,id'],
             'estimate_id' => ['nullable', 'integer', 'exists:estimates,id'],
             'opportunity_id' => ['nullable', 'integer', 'exists:opportunities,id'],

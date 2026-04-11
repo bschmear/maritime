@@ -1,12 +1,13 @@
 <?php
+
 namespace App\Domain\Estimate\Actions;
 
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateEstimate
@@ -14,7 +15,7 @@ class UpdateEstimate
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'required|integer|exists:customers,id',
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
             'opportunity_id' => 'nullable|integer|exists:opportunities,id',
             'user_id' => 'required|integer|exists:users,id',
             'tax_rate' => 'nullable|numeric',
@@ -35,13 +36,13 @@ class UpdateEstimate
 
             $primaryVersion = $record->primaryVersion;
 
-            if (!$primaryVersion) {
+            if (! $primaryVersion) {
                 $existingVersion = $record->versions()->where('is_primary', true)->first();
-                
-                if (!$existingVersion) {
+
+                if (! $existingVersion) {
                     $existingVersion = $record->versions()->orderBy('version', 'asc')->first();
                 }
-                
+
                 if ($existingVersion) {
                     $existingVersion->update(['is_primary' => true]);
                     $record->update(['primary_version_id' => $existingVersion->id]);
@@ -66,9 +67,9 @@ class UpdateEstimate
                 $subtotal = 0;
 
                 if (isset($data['line_items']) && is_array($data['line_items'])) {
-                 
+
                     foreach ($data['line_items'] as $position => $lineData) {
-                        $lineTotal = (float)($lineData['unit_price'] ?? 0) * (int)($lineData['quantity'] ?? 1) - (float)($lineData['discount'] ?? 0);
+                        $lineTotal = (float) ($lineData['unit_price'] ?? 0) * (int) ($lineData['quantity'] ?? 1) - (float) ($lineData['discount'] ?? 0);
 
                         $lineItem = $primaryVersion->lineItems()->create([
                             'itemable_type' => $lineData['itemable_type'] ?? null,
@@ -87,7 +88,7 @@ class UpdateEstimate
 
                         if (isset($lineData['addons']) && is_array($lineData['addons'])) {
                             foreach ($lineData['addons'] as $addonData) {
-                                $addonTotal = (float)($addonData['price'] ?? 0) * (int)($addonData['quantity'] ?? 1);
+                                $addonTotal = (float) ($addonData['price'] ?? 0) * (int) ($addonData['quantity'] ?? 1);
 
                                 $lineItem->addons()->create([
                                     'addon_id' => $addonData['addon_id'] ?? null,
@@ -104,7 +105,7 @@ class UpdateEstimate
                     }
                 }
 
-                $taxRate = (float)($data['tax_rate'] ?? 0);
+                $taxRate = (float) ($data['tax_rate'] ?? 0);
                 $tax = $subtotal * ($taxRate / 100);
                 $total = $subtotal + $tax;
 
@@ -125,8 +126,9 @@ class UpdateEstimate
             Log::error('Database query error in UpdateEstimate', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -136,8 +138,9 @@ class UpdateEstimate
             Log::error('Unexpected error in UpdateEstimate', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

@@ -1,4 +1,10 @@
 {
+  "contact_id": {
+    "label": "Contact",
+    "type": "record",
+    "typeDomain": "Contact",
+    "relationship": "contact"
+  },
   "display_name": {
     "label": "Name",
     "type": "text"

@@ -67,9 +67,9 @@ class Survey extends Model
 
     public function getPublicUrl(?int $agentId = null): string
     {
-        $url = config('app.url').'/survey/view?id='.$this->uuid;
+        $url = route('surveysPublicShow', ['id' => $this->uuid], absolute: true);
         if ($agentId) {
-            $url .= '&aid='.$agentId;
+            $url .= (str_contains($url, '?') ? '&' : '?').'aid='.$agentId;
         }
 
         return $url;
@@ -77,7 +77,7 @@ class Survey extends Model
 
     public function getEmbedUrl(): string
     {
-        return config('app.url').'/survey/embed?id='.$this->uuid;
+        return route('surveysPublicEmbed', ['id' => $this->uuid], absolute: true);
     }
 
     public function getEffectiveColor(): string

@@ -6,189 +6,63 @@
     "general": {
       "label": "General Information",
       "fields": [
-        {
-          "key": "display_name",
-          "required": true
-        },
-        {
-          "key": "vendor_type",
-          "required": false
-        },
-        {
-          "key": "industry",
-          "required": false
-        },
-        {
-          "key": "vendor_code",
-          "required": false
-        },
-        {
-          "key": "tags",
-          "required": false
-        },
-        {
-          "key": "status_id",
-          "required": true
-        },
-        {
-          "key": "status_reason",
-          "required": false
-        },
-        {
-          "key": "rating",
-          "required": false
-        },
-        {
-          "key": "payment_terms",
-          "required": false
-        },
-        {
-          "key": "credit_limit",
-          "required": false
-        },
-        {
-          "key": "website",
-          "required": false
-        },
-        {
-          "key": "linkedin",
-          "required": false
-        },
-        {
-          "key": "facebook",
-          "required": false
-        },
-        {
-          "key": "is_verified",
-          "required": false
-        },
-        {
-          "key": "verified_at",
-          "required": false,
-          "disabled": true
-        },
-        {
-          "key": "created_at",
-          "required": false,
-          "disabled": true
-        },
-        {
-          "key": "updated_at",
-          "required": false,
-          "disabled": true
-        }
+        { "key": "display_name", "required": true },
+        { "key": "vendor_type", "required": false },
+        { "key": "industry", "required": false },
+        { "key": "vendor_code", "required": false },
+        { "key": "tags", "required": false },
+        { "key": "status_id", "required": true },
+        { "key": "status_reason", "required": false },
+        { "key": "rating", "required": false },
+        { "key": "payment_terms", "required": false },
+        { "key": "credit_limit", "required": false },
+        { "key": "website", "required": false },
+        { "key": "linkedin", "required": false },
+        { "key": "facebook", "required": false },
+        { "key": "is_verified", "required": false }
       ]
     },
     "contacts": {
-      "label": "Contact Information",
+      "label": "Contacts & CRM",
       "fields": [
-        {
-          "key": "contact_first_name",
-          "required": false
-        },
-        {
-          "key": "contact_last_name",
-          "required": false
-        },
-        {
-          "key": "contact_email",
-          "required": false
-        },
-        {
-          "key": "contact_phone",
-          "required": false
-        },
-        {
-          "key": "secondary_email",
-          "required": false
-        },
-        {
-          "key": "secondary_phone",
-          "required": false
-        },
-        {
-          "key": "preferred_contact_method",
-          "required": false
-        },
-        {
-          "key": "contacts",
-          "required": false
-        },
-        {
-          "key": "assigned_user_id",
-          "required": false
-        },
-        {
-          "key": "notes",
-          "required": false
-        }
+        { "key": "primary_contact_id", "required": false },
+        { "key": "secondary_email", "required": false },
+        { "key": "secondary_phone", "required": false },
+        { "key": "preferred_contact_method", "required": false },
+        { "key": "assigned_user_id", "required": false },
+        { "key": "notes", "required": false }
       ]
     },
     "address": {
       "label": "Location",
       "is_address": true,
       "fields": [
-        {
-          "key": "address_line_1",
-          "required": false,
-          "tag": "street"
-        },
-        {
-          "key": "address_line_2",
-          "required": false,
-          "tag": "unit"
-        },
-        {
-          "key": "city",
-          "required": false,
-          "tag": "city"
-        },
-        {
-          "key": "state",
-          "required": false,
-          "tag": "state"
-        },
-        {
-          "key": "postal_code",
-          "required": false,
-          "tag": "postal_code"
-        },
-        {
-          "key": "country",
-          "required": false,
-          "tag": "country"
-        },
-        {
-          "key": "latitude",
-          "hidden": true,
-          "tag": "latitude"
-        },
-        {
-          "key": "longitude",
-          "hidden": true,
-          "tag": "longitude"
-        }
+        { "key": "address_line_1", "required": false, "tag": "street" },
+        { "key": "address_line_2", "required": false, "tag": "unit" },
+        { "key": "city", "required": false, "tag": "city" },
+        { "key": "state", "required": false, "tag": "state" },
+        { "key": "postal_code", "required": false, "tag": "postal_code" },
+        { "key": "country", "required": false, "tag": "country" },
+        { "key": "latitude", "hidden": true, "tag": "latitude" },
+        { "key": "longitude", "hidden": true, "tag": "longitude" }
       ]
     },
     "contracts": {
       "label": "Contract Details",
       "fields": [
-        {
-          "key": "contract_start",
-          "required": false
-        },
-        {
-          "key": "contract_end",
-          "required": false
-        },
-        {
-          "key": "contract_status",
-          "required": false
-        }
+        { "key": "contract_start", "required": false },
+        { "key": "contract_end", "required": false },
+        { "key": "contract_status", "required": false }
       ]
     }
   },
   "sublists": [
+    {
+      "label": "Contacts",
+      "domain": "Contact",
+      "modelRelationship": "contacts",
+      "relationshipType": "ManyToMany"
+    },
     {
       "label": "Communications",
       "domain": "Communication",

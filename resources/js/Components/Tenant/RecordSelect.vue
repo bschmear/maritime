@@ -73,7 +73,55 @@
     const enhancedModalTab = ref('existing');
     const isLoadingForm = ref(false);
     const createFormData = ref(null);
-    
+
+    /** Avoid overlapping lookups (stale responses wiping the list while typing). */
+    let lookupFetchSeq = 0;
+    let lookupAbortController = null;
+    const SEARCH_DEBOUNCE_MS = 280;
+    let searchDebounceTimer = null;
+
+    const isPickerOpen = computed(
+        () => showModal.value || showEnhancedModal.value || showDropdown.value,
+    );
+
+    /** JSON filters: coerce numeric strings so `vendor_id` matches integer columns. */
+    const normalizedFilterValue = computed(() => {
+        const v = props.filterValue;
+        if (v === null || v === undefined || v === '') {
+            return null;
+        }
+        if (typeof v === 'string' && /^\d+$/.test(v.trim())) {
+            return Number(v.trim());
+        }
+        return v;
+    });
+
+    function clearSearchDebounce() {
+        if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+        }
+    }
+
+    function scheduleDebouncedFetch() {
+        clearSearchDebounce();
+        searchDebounceTimer = setTimeout(() => {
+            searchDebounceTimer = null;
+            fetchRecords(false);
+        }, SEARCH_DEBOUNCE_MS);
+    }
+
+    function relatedFromParentRecord(record, fieldKey) {
+        if (!record || !fieldKey || !fieldKey.endsWith('_id')) {
+            return null;
+        }
+        const snake = fieldKey.replace(/_id$/, '');
+        const parts = snake.split('_');
+        const camel = parts[0] + parts.slice(1).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+
+        return record[snake] ?? record[camel] ?? null;
+    }
+
     const getRecordDisplayName = (record) => {
         if (!record) return '';
     
@@ -130,22 +178,20 @@
                 // Use dropdown instead of modal when in modal context
                 showDropdown.value = !showDropdown.value;
                 if (showDropdown.value && records.value.length === 0) {
-                    fetchRecords();
+                    fetchRecordsImmediate();
                 }
             } else {
                 if (props.field.create) {
                     showEnhancedModal.value = true;
                     enhancedModalTab.value = 'existing';
-                    // Load first 10 records ordered by display_name
-                    if (records.value.length === 0) {
-                        fetchRecords(true);
-                    }
+                    searchQuery.value = '';
+                    currentPage.value = 1;
+                    fetchRecordsImmediate(true);
                 } else {
                     showModal.value = true;
-                    // If modal is opened and we don't have records yet, fetch them
-                    if (records.value.length === 0) {
-                        fetchRecords();
-                    }
+                    searchQuery.value = '';
+                    currentPage.value = 1;
+                    fetchRecordsImmediate();
                 }
             }
         }
@@ -204,7 +250,7 @@
     // Handle record created in enhanced modal
     const handleRecordCreated = (recordId) => {
         // Refresh the records list to include the new record
-        fetchRecords();
+        fetchRecordsImmediate();
         // Select the newly created record
         selectedRecordId.value = recordId;
         emit('update:modelValue', recordId);
@@ -231,30 +277,46 @@
 
     onUnmounted(() => {
         document.removeEventListener('click', handleClickOutside);
-    });
-    
-    // Watch for search query changes
-    watch(searchQuery, async () => {
-        currentPage.value = 1;
-        await fetchRecords();
+        clearSearchDebounce();
+        lookupAbortController?.abort();
     });
 
-    // Watch for filter value changes
+    // Search only while a picker is open; debounce to avoid races and duplicate requests
+    watch(searchQuery, () => {
+        if (!isPickerOpen.value) {
+            return;
+        }
+        currentPage.value = 1;
+        scheduleDebouncedFetch();
+    });
+
     watch(() => props.filterValue, async (newValue, oldValue) => {
         if (newValue !== oldValue) {
             currentPage.value = 1;
-            await fetchRecords();
+            await fetchRecordsImmediate();
         }
     });
 
     watch(() => props.excludeIds, async () => {
         currentPage.value = 1;
-        await fetchRecords();
+        await fetchRecordsImmediate();
     }, { deep: true });
-    
+
+    function fetchRecordsImmediate(initialLoad = false) {
+        clearSearchDebounce();
+        return fetchRecords(initialLoad);
+    }
+
     // Fetch records from the domain
     const fetchRecords = async (initialLoad = false) => {
         if (!props.field.typeDomain) return;
+
+        const seq = ++lookupFetchSeq;
+        if (lookupAbortController) {
+            lookupAbortController.abort();
+        }
+        lookupAbortController = new AbortController();
+        const { signal } = lookupAbortController;
 
         isLoading.value = true;
 
@@ -274,39 +336,49 @@
                 url.searchParams.append('order_direction', 'asc');
             }
 
-            if (searchQuery.value) {
-                url.searchParams.append('search', searchQuery.value);
+            const q = typeof searchQuery.value === 'string' ? searchQuery.value.trim() : searchQuery.value;
+            if (q) {
+                url.searchParams.append('search', q);
             }
 
-            // Add filter parameters if provided
-            if (props.filterBy && props.filterValue !== null && props.filterValue !== '') {
+            const fv = normalizedFilterValue.value;
+            if (props.filterBy && fv !== null && fv !== '') {
                 const filterData = [{
                     field: props.filterBy,
                     operator: 'equals',
-                    value: props.filterValue
+                    value: fv,
                 }];
 
                 url.searchParams.append('filters', JSON.stringify(filterData));
             }
-            
+
             const response = await fetch(url.toString(), {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/json',
+                    Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                signal,
             });
-            
+
+            if (seq !== lookupFetchSeq) {
+                return;
+            }
+
             if (!response.ok) {
                 const text = await response.text();
                 console.error('Response not OK:', response.status, text.substring(0, 500));
                 throw new Error(`Failed to fetch records: ${response.status}`);
             }
-            
+
             const data = await response.json();
-            
+
+            if (seq !== lookupFetchSeq) {
+                return;
+            }
+
             // Handle response format from lookup endpoint
             if (data.records) {
                 let list = data.records;
@@ -321,10 +393,15 @@
                 records.value = [];
             }
         } catch (error) {
+            if (error?.name === 'AbortError' || seq !== lookupFetchSeq) {
+                return;
+            }
             console.error('Error fetching records:', error);
             records.value = [];
         } finally {
-            isLoading.value = false;
+            if (seq === lookupFetchSeq) {
+                isLoading.value = false;
+            }
         }
     };
     
@@ -382,14 +459,14 @@
     const nextPage = () => {
         if (currentPage.value < totalPages.value) {
             currentPage.value++;
-            fetchRecords();
+            fetchRecordsImmediate();
         }
     };
-    
+
     const prevPage = () => {
         if (currentPage.value > 1) {
             currentPage.value--;
-            fetchRecords();
+            fetchRecordsImmediate();
         }
     };
     
@@ -401,18 +478,14 @@
     // Initialize selectedRecordName from various sources
     watch(() => [props.record, props.fieldKey, props.enumOptions, props.modelValue], () => {
         if (props.modelValue && !selectedRecordName.value) {
-            // 1. Try to get from eagerly loaded relationship
             if (props.record && props.fieldKey) {
-                const relationshipName = props.fieldKey.replace('_id', '');
-                const relatedRecord = props.record[relationshipName];
-                
-                if (relatedRecord && relatedRecord.display_name) {
-                    selectedRecordName.value = relatedRecord.display_name;
+                const relatedRecord = relatedFromParentRecord(props.record, props.fieldKey);
+                if (relatedRecord && typeof relatedRecord === 'object') {
+                    selectedRecordName.value = getRecordDisplayName(relatedRecord);
                     return;
                 }
             }
-            
-            // 2. Fallback to enumOptions
+
             if (props.enumOptions && props.enumOptions.length > 0) {
                 const option = props.enumOptions.find(o => o.id === props.modelValue || o.value === props.modelValue);
                 if (option) {
@@ -713,7 +786,7 @@
                     <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
                         <nav class="flex gap-1">
                             <button
-                                @click="enhancedModalTab = 'existing'; fetchRecords(true)"
+                                @click="enhancedModalTab = 'existing'; fetchRecordsImmediate(true)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
                                     enhancedModalTab === 'existing'
@@ -751,7 +824,6 @@
                                     type="text"
                                     placeholder="Search records..."
                                     class="rounded-xl w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
-                                    @input="fetchRecords"
                                 />
                             </div>
 

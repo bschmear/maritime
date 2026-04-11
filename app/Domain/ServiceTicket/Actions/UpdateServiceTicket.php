@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\ServiceTicket\Actions;
 
 use App\Domain\ServiceTicket\Models\ServiceTicket as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateServiceTicket
@@ -13,7 +14,7 @@ class UpdateServiceTicket
     {
         // Validate required fields
         Validator::make($data, [
-            'customer_id' => 'sometimes|exists:customers,id',
+            'customer_id' => 'sometimes|exists:customer_profiles,id',
             'subsidiary_id' => 'sometimes|exists:subsidiaries,id',
             'location_id' => 'sometimes|exists:locations,id',
         ])->validate();
@@ -30,8 +31,9 @@ class UpdateServiceTicket
             Log::error('Database query error in UpdateServiceTicket', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -41,8 +43,9 @@ class UpdateServiceTicket
             Log::error('Unexpected error in UpdateServiceTicket', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

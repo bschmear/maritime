@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\Qualification\Actions;
 
 use App\Domain\Qualification\Models\Qualification as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateQualification
@@ -12,9 +13,9 @@ class UpdateQualification
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'lead_id' => 'sometimes|required|exists:leads,id',
+            'lead_id' => 'sometimes|required|exists:lead_profiles,id',
             'user_id' => 'sometimes|required|exists:users,id',
-            'status'  => 'sometimes|required',
+            'status' => 'sometimes|required',
         ])->validate();
 
         try {
@@ -27,29 +28,31 @@ class UpdateQualification
 
             return [
                 'success' => true,
-                'record'  => $record,
+                'record' => $record,
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateQualification', [
                 'error' => $e->getMessage(),
-                'id'    => $id,
-                'data'  => $data,
+                'id' => $id,
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record'  => null,
+                'record' => null,
             ];
         } catch (Throwable $e) {
             Log::error('Unexpected error in UpdateQualification', [
                 'error' => $e->getMessage(),
-                'id'    => $id,
-                'data'  => $data,
+                'id' => $id,
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record'  => null,
+                'record' => null,
             ];
         }
     }

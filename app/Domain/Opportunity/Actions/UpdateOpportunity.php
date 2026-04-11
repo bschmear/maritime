@@ -13,7 +13,7 @@ class UpdateOpportunity
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'sometimes|integer|exists:customers,id',
+            'customer_id' => 'sometimes|integer|exists:customer_profiles,id',
             'user_id' => 'sometimes|integer|exists:users,id',
         ])->validate();
 

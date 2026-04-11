@@ -1144,7 +1144,7 @@ const handleCancel = () => emit('cancelled');
                 <div class="lg:col-span-4 space-y-6">
 
                     <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
                         <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <span class="text-sm font-semibold text-white">Actions</span>
                         </div>

@@ -978,7 +978,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
             </div>
 
             <aside class="lg:col-span-3 space-y-6">
-                <div class="sticky top-5 space-y-6">
+                <div class="sticky top-[140px] space-y-6">
                     <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800" v-if="isEditMode && !formId">
                         <div class="flex items-center justify-between border-b border-gray-600 bg-gray-700 px-5 py-4">
                             <span class="text-sm font-semibold text-white">Actions</span>

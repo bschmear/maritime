@@ -908,6 +908,34 @@ onMounted(() => {
                                             {{ getRecordValue(record, column) || '—' }}
                                         </a>
                                     </template>
+                                    <template v-else-if="column.key === 'contact_roles'">
+                                        <div class="flex flex-wrap gap-1">
+                                            <span
+                                                v-if="record.contact_roles?.lead"
+                                                class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                            >
+                                                Lead
+                                            </span>
+                                            <span
+                                                v-if="record.contact_roles?.customer"
+                                                class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                                            >
+                                                Customer
+                                            </span>
+                                            <span
+                                                v-if="record.contact_roles?.vendor"
+                                                class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
+                                            >
+                                                Vendor
+                                            </span>
+                                            <span
+                                                v-if="!record.contact_roles?.lead && !record.contact_roles?.customer && !record.contact_roles?.vendor"
+                                                class="text-gray-400 dark:text-gray-500"
+                                            >
+                                                —
+                                            </span>
+                                        </div>
+                                    </template>
                                     <template v-else-if="hasEnumColor(column, record)">
                                         <div class="flex items-center">
                                             <div

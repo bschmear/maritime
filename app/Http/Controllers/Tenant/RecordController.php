@@ -141,6 +141,13 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'contact_id'])
+                            ->with(['contact' => function ($q) {
+                                $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                            }]);
+                    };
                 } else {
                     $selectFields[] = 'display_name';
                 }
@@ -407,6 +414,13 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
+                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'contact_id'])
+                                        ->with(['contact' => function ($q) {
+                                            $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                                        }]);
+                                };
                             } else {
                                 $selectFields[] = 'display_name';
                             }
@@ -504,6 +518,13 @@ class RecordController extends BaseController
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'contact_id'])
+                            ->with(['contact' => function ($q) {
+                                $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                            }]);
                     };
                 } else {
                     $selectFields[] = 'display_name';
@@ -628,6 +649,13 @@ class RecordController extends BaseController
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'contact_id'])
+                            ->with(['contact' => function ($q) {
+                                $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                            }]);
                     };
                 } else {
                     $selectFields[] = 'display_name';
@@ -802,6 +830,13 @@ class RecordController extends BaseController
                                 $selectFields = ['id', 'sequence'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
+                                };
+                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'contact_id'])
+                                        ->with(['contact' => function ($q) {
+                                            $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                                        }]);
                                 };
                             } else {
                                 $selectFields[] = 'display_name';

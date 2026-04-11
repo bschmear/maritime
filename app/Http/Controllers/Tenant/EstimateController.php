@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
 use App\Domain\Estimate\Actions\DeleteEstimate as DeleteAction;
@@ -121,7 +122,9 @@ class EstimateController extends RecordController
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 $relName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                 if (! isset($relationships[$relName])) {
-                    $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name']);
+                    $relationships[$relName] = ($fieldDef['typeDomain'] ?? '') === 'Customer'
+                        ? Customer::eagerWithContactSelect()
+                        : fn ($q) => $q->select(['id', 'display_name']);
                 }
             }
         }
@@ -171,7 +174,9 @@ class EstimateController extends RecordController
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
                 $relName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
                 if (! isset($relationships[$relName])) {
-                    $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name']);
+                    $relationships[$relName] = ($fieldDef['typeDomain'] ?? '') === 'Customer'
+                        ? Customer::eagerWithContactSelect()
+                        : fn ($q) => $q->select(['id', 'display_name']);
                 }
             }
         }

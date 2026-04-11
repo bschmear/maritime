@@ -1,0 +1,140 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Primary Information",
+      "fields": [
+        {
+          "key": "first_name",
+          "required": true
+        },
+        {
+          "key": "last_name",
+          "required": true
+        },
+        {
+          "key": "type",
+          "required": false
+        },
+        {
+          "key": "email",
+          "required": false
+        },
+        {
+          "key": "secondary_email",
+          "required": false
+        },
+        {
+          "key": "phone",
+          "required": false
+        },
+        {
+          "key": "mobile",
+          "required": false
+        },
+        {
+          "key": "inactive",
+          "required": false
+        }
+      ]
+    },
+    "company_info": {
+      "label": "Company Information",
+      "fields": [
+        {
+          "key": "company",
+          "required": false
+        },
+        {
+          "key": "position",
+          "required": false
+        },
+        {
+          "key": "title",
+          "required": false
+        }
+      ]
+    },
+    "contact_preferences": {
+      "label": "Contact Preferences",
+      "fields": [
+        {
+          "key": "preferred_contact_method",
+          "required": false
+        },
+        {
+          "key": "preferred_contact_time",
+          "required": false
+        }
+      ]
+    },
+    "online_presence": {
+      "label": "Online Presence",
+      "fields": [
+        {
+          "key": "website",
+          "required": false
+        },
+        {
+          "key": "linkedin",
+          "required": false
+        },
+        {
+          "key": "facebook",
+          "required": false
+        }
+      ]
+    },
+    "management": {
+      "label": "Management",
+      "fields": [
+        {
+          "key": "status",
+          "required": false
+        },
+        {
+          "key": "stage_id",
+          "required": false
+        },
+        {
+          "key": "source",
+          "required": false
+        },
+        {
+          "key": "assigned_user_id",
+          "required": false
+        }
+      ]
+    },
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        {
+          "key": "notes",
+          "required": false
+        }
+      ]
+    }
+  },
+  "sublists": [
+    {
+      "label": "Addresses",
+      "domain": "ContactAddress",
+      "modelRelationship": "addresses"
+    },
+    {
+      "label": "Vendors",
+      "domain": "Vendor",
+      "modelRelationship": "vendors",
+      "relationshipType": "ManyToMany"
+    },
+    {
+      "label": "Activity",
+      "domain": "Communication",
+      "modelRelationship": "communications",
+      "sublistKind": "morphCommunication"
+    }
+  ]
+}

@@ -3,8 +3,8 @@
     "max_width": "4xl"
   },
   "form": {
-    "primary": {
-      "label": "Primary Information",
+    "contact": {
+      "label": "Contact",
       "fields": [
         {
           "key": "first_name",
@@ -34,12 +34,7 @@
           "key": "converted",
           "required": false,
           "disabled": true
-        }
-      ]
-    },
-    "company_info": {
-      "label": "Company Information",
-      "fields": [
+        },
         {
           "key": "company",
           "required": false
@@ -54,34 +49,8 @@
         }
       ]
     },
-    "lead_details": {
-      "label": "Lead Details",
-      "fields": [
-        { "key": "budget_range", "required": false },
-        {
-          "key": "preferred_contact_method",
-          "required": false
-        },
-        {
-          "key": "purchase_timeline",
-          "required": false
-        },
-        {
-          "key": "has_trade_in",
-          "required": false
-        },
-        {
-          "key": "trade_in_value",
-          "required": false,
-          "conditional": {
-            "key": "has_trade_in",
-            "value": true
-          }
-        }
-      ]
-    },
     "address": {
-      "label": "Address",
+      "label": "Addresses",
       "is_address": true,
       "fields": [
         {
@@ -126,18 +95,30 @@
         }
       ]
     },
-    "notes": {
-      "label": "Notes",
+    "lead_profile": {
+      "label": "Lead profile",
       "fields": [
+        { "key": "budget_range", "required": false },
         {
-          "key": "notes",
+          "key": "preferred_contact_method",
           "required": false
-        }
-      ]
-    },
-    "management": {
-      "label": "Management",
-      "fields": [
+        },
+        {
+          "key": "purchase_timeline",
+          "required": false
+        },
+        {
+          "key": "has_trade_in",
+          "required": false
+        },
+        {
+          "key": "trade_in_value",
+          "required": false,
+          "conditional": {
+            "key": "has_trade_in",
+            "value": true
+          }
+        },
         {
           "key": "status_id",
           "required": true
@@ -160,6 +141,15 @@
         },
         {
           "key": "next_followup_at",
+          "required": false
+        }
+      ]
+    },
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        {
+          "key": "notes",
           "required": false
         }
       ]
