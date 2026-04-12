@@ -322,10 +322,35 @@ class TransactionController extends BaseController
 
         $record = Transaction::query()
             ->with([
-                'items' => fn ($q) => $q->with(['addons', 'itemable'])->orderBy('position')->orderBy('id'),
+                'items' => fn ($q) => $q
+                    ->with([
+                        'addons',
+                        'itemable',
+                        'estimateLineItem' => fn ($q2) => $q2
+                            ->select(['id', 'asset_variant_id'])
+                            ->with([
+                                'assetVariant' => fn ($q3) => $q3->select(['id', 'display_name', 'name']),
+                            ]),
+                    ])
+                    ->orderBy('position')
+                    ->orderBy('id'),
                 'customer' => Customer::eagerWithContactSelect(['email', 'phone']),
                 'user' => fn ($q) => $q->select(['id', 'display_name', 'email']),
-                'estimate' => fn ($q) => $q->select(['id', 'sequence', 'uuid', 'status']),
+                'estimate' => fn ($q) => $q
+                    ->select(['id', 'sequence', 'uuid', 'status', 'tax_rate', 'primary_version_id'])
+                    ->with([
+                        'primaryVersion' => fn ($qv) => $qv
+                            ->select(['id', 'estimate_id', 'tax_rate', 'subtotal', 'tax', 'total'])
+                            ->with([
+                                'lineItems' => fn ($ql) => $ql
+                                    ->with([
+                                        'addons',
+                                        'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
+                                    ])
+                                    ->orderBy('position')
+                                    ->orderBy('id'),
+                            ]),
+                    ]),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
                 'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'contract_number', 'status']),
                 'serviceTickets' => fn ($q) => $q->select(['id', 'transaction_id', 'service_ticket_number', 'status'])->orderByDesc('id')->limit(20),

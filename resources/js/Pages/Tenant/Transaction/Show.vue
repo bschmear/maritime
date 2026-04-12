@@ -2,6 +2,13 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
+import {
+    lineItemPreTaxTotal,
+    lineVariantDisplay,
+    lineVariantId,
+    resolveLineItemsForTransaction,
+    taxRateForResolvedLines,
+} from '@/Utils/lineItemsFromEstimate';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -44,15 +51,22 @@ const breadcrumbItems = computed(() => [
     { label: props.record.title || `Deal #${props.record.sequence}` },
 ]);
 
-const items = computed(() => props.record.items || []);
+const lineItemsResolution = computed(() => resolveLineItemsForTransaction(props.record));
+const items = computed(() => lineItemsResolution.value.items);
+/** When linked estimate has lines, match the estimate view; else use deal line items. */
+const lineItemsFromEstimate = computed(() => lineItemsResolution.value.source === 'estimate');
 
-const lineBaseTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 1);
+const lineBaseTotal = (item) => lineItemPreTaxTotal(item);
 
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
 
-const dealTaxRatePercent = () => Number(props.record.tax_rate) || 0;
+const effectiveTaxRatePercent = computed(() =>
+    taxRateForResolvedLines(props.record, lineItemsResolution.value.source, props.record.tax_rate),
+);
+
+const dealTaxRatePercent = () => effectiveTaxRatePercent.value;
 
 const taxOnItemBase = (item) => {
     const r = dealTaxRatePercent();
@@ -805,6 +819,18 @@ const confirmAddStep = () => {
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Line Items
+                                <span
+                                    v-if="lineItemsFromEstimate"
+                                    class="ml-2 text-xs font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400"
+                                >
+                                    (from linked estimate)
+                                </span>
+                                <span
+                                    v-else-if="record.estimate_id"
+                                    class="ml-2 text-xs font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400"
+                                >
+                                    (from deal)
+                                </span>
                             </h3>
 
                             <div v-if="items.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
@@ -812,7 +838,8 @@ const confirmAddStep = () => {
                                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                         <thead class="bg-gray-50 dark:bg-gray-900/50">
                                             <tr>
-                                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name / Description</th>
+                                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+                                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[7rem]">Variant</th>
                                                 <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
                                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Qty</th>
                                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
@@ -826,7 +853,15 @@ const confirmAddStep = () => {
                                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                                     <td class="px-4 py-3">
                                                         <div class="font-medium text-sm text-gray-900 dark:text-white">{{ row.name }}</div>
-                                                        <div v-if="row.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                        <span
+                                                            v-if="lineVariantId(row)"
+                                                            class="font-medium text-gray-800 dark:text-gray-200"
+                                                        >
+                                                            {{ lineVariantDisplay(row) }}
+                                                        </span>
+                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
                                                     <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">{{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}</td>
                                                     <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
@@ -844,6 +879,7 @@ const confirmAddStep = () => {
                                                         ↳ {{ addon.name || 'Add-on' }}
                                                         <span v-if="addon.notes" class="block text-gray-400 dark:text-gray-500 not-italic">{{ addon.notes }}</span>
                                                     </td>
+                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
                                                     <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}</td>
                                                     <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>
                                                     <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>

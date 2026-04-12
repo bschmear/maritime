@@ -4,7 +4,9 @@ namespace App\Domain\Estimate\Actions;
 
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Actions\CreateContract;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionItem;
@@ -65,17 +67,31 @@ class CreateDealFromEstimate
                 }
 
                 $settings = AccountSettings::getCurrent();
-                $contact = $this->resolveContact($locked, $settings);
+
+                // Resolve (or create) the contact and ensure a customer profile exists.
+                $contact = $this->resolveContact($locked);
+                $customer = $this->ensureCustomerProfile($contact, $locked);
+
+                // Back-fill contact_id on the estimate if not already set.
+                if (! $locked->contact_id) {
+                    $locked->update(['contact_id' => $contact->id]);
+                }
+
+                // Prefer the estimate's own subsidiary/location; fall back to user-based resolution.
+                $subsidiaryId = $locked->subsidiary_id ?? $this->resolveSubsidiaryId($locked);
+                $locationId = $locked->location_id ?? $this->resolveLocationId($subsidiaryId);
 
                 $subtotal = (float) $version->subtotal;
                 $taxTotal = (float) $version->tax;
                 $total = (float) $version->total;
 
                 $txResult = ($this->createTransaction)([
-                    'customer_id' => $locked->customer_id,
+                    'customer_id' => $customer->id,
                     'user_id' => $locked->user_id,
                     'estimate_id' => $locked->id,
                     'opportunity_id' => $locked->opportunity_id,
+                    'subsidiary_id' => $subsidiaryId,
+                    'location_id' => $locationId,
                     'status' => 'active',
                     'customer_name' => $locked->customer_name,
                     'customer_email' => $locked->customer_email,
@@ -234,28 +250,129 @@ class CreateDealFromEstimate
         return $approved && $accepted;
     }
 
-    protected function resolveContact(Estimate $estimate, AccountSettings $settings): Contact
+    /**
+     * Pick the location for the transaction from the subsidiary's linked locations.
+     *   1. The subsidiary's primary location (pivot primary = true).
+     *   2. Any location linked to the subsidiary.
+     *   3. The first location in the tenant.
+     */
+    protected function resolveLocationId(?int $subsidiaryId): ?int
     {
-        $email = $estimate->customer_email ?: $estimate->customer?->email;
+        if ($subsidiaryId) {
+            $sub = Subsidiary::query()->find($subsidiaryId);
+            if ($sub) {
+                $primary = $sub->locations()->wherePivot('primary', true)->first();
+                if ($primary) {
+                    return $primary->id;
+                }
 
-        $query = Contact::query()->where('account_settings_id', $settings->id);
+                $any = $sub->locations()->first();
+                if ($any) {
+                    return $any->id;
+                }
+            }
+        }
+
+        return \App\Domain\Location\Models\Location::query()->value('id');
+    }
+
+    /**
+     * Pick a subsidiary for the transaction:
+     *   1. The assigned user's primary subsidiary.
+     *   2. Any subsidiary the assigned user belongs to.
+     *   3. The first subsidiary in the tenant (fallback for single-subsidiary setups).
+     */
+    protected function resolveSubsidiaryId(Estimate $estimate): ?int
+    {
+        $user = $estimate->user ?? \App\Domain\User\Models\User::query()->find($estimate->user_id);
+
+        if ($user) {
+            $primary = $user->subsidiaries()->wherePivot('primary', true)->first();
+            if ($primary) {
+                return $primary->id;
+            }
+
+            $any = $user->subsidiaries()->first();
+            if ($any) {
+                return $any->id;
+            }
+        }
+
+        return Subsidiary::query()->value('id');
+    }
+
+    /**
+     * Resolve the Contact for this estimate.
+     *  1. If estimate.contact_id is already set, return that contact.
+     *  2. If estimate.customer has a contact_id, use that contact.
+     *  3. Search by email; create a new contact as a last resort.
+     */
+    protected function resolveContact(Estimate $estimate): Contact
+    {
+        // Prefer the directly linked contact.
+        if ($estimate->contact_id) {
+            $direct = Contact::find($estimate->contact_id);
+            if ($direct) {
+                return $direct;
+            }
+        }
+
+        // Try via the customer profile's contact.
+        $customer = $estimate->customer;
+        if ($customer && $customer->contact_id) {
+            $via = Contact::find($customer->contact_id);
+            if ($via) {
+                return $via;
+            }
+        }
+
+        // Fall back to email search or create.
+        $email = $estimate->customer_email ?: $customer?->email;
 
         if ($email) {
-            $existing = (clone $query)->whereRaw('LOWER(email) = ?', [strtolower($email)])->first();
+            $existing = Contact::findByEmailCaseInsensitive($email);
             if ($existing) {
                 return $existing;
             }
         }
 
-        $customer = $estimate->customer;
-
         return Contact::create([
-            'account_settings_id' => $settings->id,
             'display_name' => $estimate->customer_name ?: $customer?->display_name ?: 'Customer',
             'first_name' => $customer?->first_name,
             'last_name' => $customer?->last_name,
             'email' => $email,
             'phone' => $estimate->customer_phone ?: $customer?->phone,
+        ]);
+    }
+
+    /**
+     * Find or create a customer_profile for the given contact.
+     * Prefers the estimate's existing customer_id to avoid creating a duplicate.
+     */
+    protected function ensureCustomerProfile(Contact $contact, Estimate $estimate): Customer
+    {
+        // Re-use the estimate's existing customer profile if it is already linked to the contact.
+        if ($estimate->customer_id) {
+            $existing = Customer::find($estimate->customer_id);
+            if ($existing) {
+                // Ensure the customer is linked to the contact (back-fill if legacy row).
+                if (! $existing->contact_id) {
+                    $existing->update(['contact_id' => $contact->id]);
+                }
+
+                return $existing;
+            }
+        }
+
+        // Find or create by contact.
+        $byContact = Customer::where('contact_id', $contact->id)->first();
+        if ($byContact) {
+            return $byContact;
+        }
+
+        return Customer::create([
+            'contact_id' => $contact->id,
+            'account_status' => 'active',
         ]);
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Domain\Estimate\Actions;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
+use App\Domain\Lead\Models\Lead;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,13 +17,29 @@ class CreateEstimate
 {
     public function __invoke(array $data): array
     {
+        // Allow either a contact_id (contact-first flow) or a customer_id (legacy).
+        // At least one must be present; we resolve the other automatically.
         $validated = Validator::make($data, [
-            'customer_id' => 'required|integer|exists:customer_profiles,id',
+            'contact_id' => 'nullable|integer|exists:contacts,id',
+            'customer_id' => 'nullable|integer|exists:customer_profiles,id',
             'opportunity_id' => 'nullable|integer|exists:opportunities,id',
+            'subsidiary_id' => 'nullable|integer|exists:subsidiaries,id',
+            'location_id' => 'nullable|integer|exists:locations,id',
             'user_id' => 'required|integer|exists:users,id',
             'tax_rate' => 'nullable|numeric',
             'issue_date' => 'nullable|date',
             'expiration_date' => 'nullable|date',
+        ])->validate();
+
+        // If only a contact_id is supplied, auto-find or create the customer profile.
+        if (! empty($data['contact_id']) && empty($data['customer_id'])) {
+            $contact = Contact::findOrFail($data['contact_id']);
+            $data['customer_id'] = $this->ensureCustomerProfile($contact)->id;
+        }
+
+        // Validate customer_id is now resolved.
+        Validator::make($data, [
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
         ])->validate();
 
         try {
@@ -32,6 +51,16 @@ class CreateEstimate
                 array_flip(['line_items', 'tenant_account'])
             );
             $record = RecordModel::create($fillable);
+
+            // Ensure a lead profile exists for the contact (silent lifecycle step).
+            if (! empty($data['contact_id'])) {
+                $this->ensureLeadProfile((int) $data['contact_id']);
+            } elseif (! empty($data['customer_id'])) {
+                $customer = Customer::find($data['customer_id']);
+                if ($customer && $customer->contact_id) {
+                    $this->ensureLeadProfile((int) $customer->contact_id);
+                }
+            }
 
             // 2. Create the initial version (Version 1)
             $version = $record->versions()->create([
@@ -128,5 +157,33 @@ class CreateEstimate
                 'record' => null,
             ];
         }
+    }
+
+    /**
+     * Find or create a customer_profile row for the given contact.
+     */
+    protected function ensureCustomerProfile(Contact $contact): Customer
+    {
+        $existing = Customer::where('contact_id', $contact->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return Customer::create([
+            'contact_id' => $contact->id,
+            'account_status' => 'active',
+        ]);
+    }
+
+    /**
+     * Ensure at least one lead_profile row exists for the contact (silent; idempotent).
+     * Uses firstOrCreate to avoid a race between exists() and create().
+     */
+    protected function ensureLeadProfile(int $contactId): void
+    {
+        Lead::firstOrCreate(
+            ['contact_id' => $contactId],
+            []
+        );
     }
 }

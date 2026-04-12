@@ -6,11 +6,25 @@
             "typeDomain": "Opportunity",
             "relationship": "opportunity"
         },
-        "customer_id": {
-            "label": "Customer",
+        "subsidiary_id": {
+            "label": "Subsidiary",
             "type": "record",
-            "typeDomain": "Customer",
-            "relationship": "customer",
+            "typeDomain": "Subsidiary",
+            "relationship": "subsidiary",
+            "required": true
+        },
+        "location_id": {
+            "label": "Location",
+            "type": "record",
+            "typeDomain": "Location",
+            "relationship": "location",
+            "required": true
+        },
+        "contact_id": {
+            "label": "Contact",
+            "type": "record",
+            "typeDomain": "Contact",
+            "relationship": "contact",
             "required": true
         },
         "user_id": {

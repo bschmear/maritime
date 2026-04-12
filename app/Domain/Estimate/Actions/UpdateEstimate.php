@@ -2,6 +2,8 @@
 
 namespace App\Domain\Estimate\Actions;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
 use Illuminate\Database\QueryException;
@@ -15,12 +17,32 @@ class UpdateEstimate
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'required|integer|exists:customer_profiles,id',
+            'contact_id' => 'nullable|integer|exists:contacts,id',
+            'customer_id' => 'nullable|integer|exists:customer_profiles,id',
             'opportunity_id' => 'nullable|integer|exists:opportunities,id',
+            'subsidiary_id' => 'nullable|integer|exists:subsidiaries,id',
+            'location_id' => 'nullable|integer|exists:locations,id',
             'user_id' => 'required|integer|exists:users,id',
             'tax_rate' => 'nullable|numeric',
             'issue_date' => 'nullable|date',
             'expiration_date' => 'nullable|date',
+        ])->validate();
+
+        // Auto-resolve customer_id from contact when only contact_id is provided.
+        if (! empty($data['contact_id']) && empty($data['customer_id'])) {
+            $contact = Contact::findOrFail($data['contact_id']);
+            $existing = Customer::where('contact_id', $contact->id)->first();
+            if (! $existing) {
+                $existing = Customer::create([
+                    'contact_id' => $contact->id,
+                    'account_status' => 'active',
+                ]);
+            }
+            $data['customer_id'] = $existing->id;
+        }
+
+        Validator::make($data, [
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
         ])->validate();
 
         try {

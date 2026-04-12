@@ -149,6 +149,7 @@ Route::middleware([
         });
 
         Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::get('{contact}/addresses', [ContactController::class, 'indexAddresses'])->name('addresses.index');
             Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
             Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
         });

@@ -3,6 +3,13 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import ContractPreview from '@/Components/Tenant/ContractPreview.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import {
+    lineItemPreTaxTotal,
+    lineVariantDisplay,
+    lineVariantId,
+    resolveLineItemsForContract,
+    taxRateForResolvedLines,
+} from '@/Utils/lineItemsFromEstimate';
 import { ref, computed } from 'vue';
 
 const props = defineProps({
@@ -139,15 +146,22 @@ const deleteContract = () => {
     }
 };
 
-// ─── Line items sourced from the linked transaction ────────────────────────
-const transactionItems = computed(() => props.record?.transaction?.items ?? []);
+// ─── Line items: prefer linked estimate primary version to match estimate; else deal ───
+const lineItemsResolution = computed(() => resolveLineItemsForContract(props.record));
+const transactionItems = computed(() => lineItemsResolution.value.items);
+const lineItemsFromEstimate = computed(() => lineItemsResolution.value.source === 'estimate');
 
-const taxRate = computed(() => Number(props.record?.transaction?.tax_rate) || 0);
+const taxRate = computed(() =>
+    taxRateForResolvedLines(
+        props.record,
+        lineItemsResolution.value.source,
+        props.record?.transaction?.tax_rate,
+    ),
+);
 
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
-const lineBaseTotal = (item) =>
-    Number(item.unit_price || 0) * Number(item.quantity || 1);
+const lineBaseTotal = (item) => lineItemPreTaxTotal(item);
 
 const taxOnItemBase = (item) => {
     if (taxRate.value <= 0) return 0;
@@ -397,11 +411,22 @@ const closePreview = () => { showPreview.value = false; };
                             <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.notes }}</p>
                         </div>
 
-                        <!-- Line Items (sourced from linked transaction) -->
+                        <!-- Line Items (estimate when linked, else deal) -->
                         <div class="border-gray-200 dark:border-gray-700 pt-6">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Line Items
-                                <span v-if="record.transaction_id" class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal">sourced from transaction</span>
+                                <span
+                                    v-if="lineItemsFromEstimate"
+                                    class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
+                                >
+                                    from linked estimate
+                                </span>
+                                <span
+                                    v-else-if="record.transaction_id"
+                                    class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
+                                >
+                                    from linked deal
+                                </span>
                             </h3>
 
                             <div v-if="transactionItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
@@ -410,6 +435,7 @@ const closePreview = () => { showPreview.value = false; };
                                         <thead class="bg-gray-50 dark:bg-gray-900/50">
                                             <tr>
                                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs">Item</th>
+                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs min-w-[7rem]">Variant</th>
                                                 <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-20">Taxable</th>
                                                 <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-16">Qty</th>
                                                 <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-28">Unit Price</th>
@@ -424,6 +450,15 @@ const closePreview = () => { showPreview.value = false; };
                                                     <td class="px-4 py-3">
                                                         <div class="font-medium text-gray-900 dark:text-white">{{ row.name }}</div>
                                                         <div v-if="row.description" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                        <span
+                                                            v-if="lineVariantId(row)"
+                                                            class="font-medium text-gray-800 dark:text-gray-200"
+                                                        >
+                                                            {{ lineVariantDisplay(row) }}
+                                                        </span>
+                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
                                                     <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
                                                         {{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}
@@ -440,6 +475,7 @@ const closePreview = () => { showPreview.value = false; };
                                                         ↳ {{ addon.name || 'Add-on' }}
                                                         <span v-if="addon.notes" class="block text-gray-400 not-italic">{{ addon.notes }}</span>
                                                     </td>
+                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
                                                     <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">
                                                         {{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}
                                                     </td>
@@ -453,13 +489,13 @@ const closePreview = () => { showPreview.value = false; };
                                         <!-- Totals footer -->
                                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-300 dark:border-gray-600">
                                             <tr v-if="taxRate > 0">
-                                                <td colspan="5" class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                                                <td colspan="6" class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">
                                                     Tax rate: {{ taxRate }}%
                                                 </td>
                                                 <td></td>
                                             </tr>
                                             <tr>
-                                                <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                                <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
                                                     Total
                                                 </td>
                                                 <td class="px-4 py-3 text-right text-sm font-bold text-blue-600 dark:text-blue-400">
@@ -474,7 +510,9 @@ const closePreview = () => { showPreview.value = false; };
                             <div v-else class="text-center py-10 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
                                 <span class="material-icons text-4xl text-gray-400 dark:text-gray-600 mb-2 block">receipt_long</span>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ record.transaction_id ? 'No line items on the linked transaction' : 'No transaction linked to this contract' }}
+                                    <template v-if="record.estimate_id && !lineItemsFromEstimate">No line items on the linked estimate</template>
+                                    <template v-else-if="record.transaction_id">No line items on the linked deal</template>
+                                    <template v-else>No estimate or deal linked for line items</template>
                                 </p>
                             </div>
                         </div>

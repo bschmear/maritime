@@ -3,7 +3,17 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, getCurrentInstance } from 'vue';
+
+const inertiaApp = getCurrentInstance();
+
+function showToast(type, message) {
+    if (!message) return;
+    const root = inertiaApp?.appContext?.app?._instance?.proxy;
+    if (typeof root?.createToast === 'function') {
+        root.createToast(type, String(message));
+    }
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -47,6 +57,16 @@ const sendApprovalForm = useForm({});
 const sendApprovalRequest = () => {
     sendApprovalForm.post(route('estimates.send-approval', props.record.id), {
         preserveScroll: true,
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash?.success) {
+                showToast('success', flash.success);
+            }
+            const err = page.props.errors?.error;
+            if (err) {
+                showToast('error', Array.isArray(err) ? err[0] : err);
+            }
+        },
     });
 };
 
@@ -60,7 +80,8 @@ const hasRevision = computed(() => !!props.record?.revision);
 
 const canSendApproval = computed(() => {
     const v = statusInfo.value?.value;
-    return (v === 'draft' || v === 'sent') && !hasRevision.value;
+    // Include pending_approval so staff can resend the review email to the customer.
+    return (v === 'draft' || v === 'sent' || v === 'pending_approval') && !hasRevision.value;
 });
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);

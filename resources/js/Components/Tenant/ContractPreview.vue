@@ -1,5 +1,12 @@
 <script setup>
 import { computed, ref } from 'vue';
+import {
+    lineItemPreTaxTotal,
+    lineVariantDisplay,
+    lineVariantId,
+    resolveLineItemsForContract,
+    taxRateForResolvedLines,
+} from '@/Utils/lineItemsFromEstimate';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -91,7 +98,9 @@ const customerPhone = computed(() =>
     props.record.customer?.phone || props.record.transaction?.customer_phone || null
 );
 
-const transactionItems = computed(() => props.record?.transaction?.items ?? []);
+const lineItemsResolution = computed(() => resolveLineItemsForContract(props.record));
+const transactionItems = computed(() => lineItemsResolution.value.items);
+const lineItemsFromEstimate = computed(() => lineItemsResolution.value.source === 'estimate');
 
 /** Location on linked deal (DB snake_case + optional camelCase from APIs). */
 const transactionLocationPreview = computed(() => {
@@ -107,9 +116,15 @@ const transactionLocationPreview = computed(() => {
     if (!line1 && !city && !phone && !email) return null;
     return { line1, line2, city, state, postal, phone, email };
 });
-const taxRate = computed(() => Number(props.record?.transaction?.tax_rate) || 0);
+const taxRate = computed(() =>
+    taxRateForResolvedLines(
+        props.record,
+        lineItemsResolution.value.source,
+        props.record?.transaction?.tax_rate,
+    ),
+);
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-const lineBaseTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 1);
+const lineBaseTotal = (item) => lineItemPreTaxTotal(item);
 const taxOnItemBase = (item) => {
     if (taxRate.value <= 0) return 0;
     const taxable = item.taxable !== false && item.taxable !== 0 && item.taxable !== '0';
@@ -278,13 +293,15 @@ const handlePrint = () => {
                 <div class="px-8 py-6 border-t border-gray-200 dark:border-gray-700 print:break-inside-avoid">
                     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                         Line items
-                        <span v-if="record.transaction_id" class="ml-1 font-normal normal-case text-gray-400">(from deal)</span>
+                        <span v-if="lineItemsFromEstimate" class="ml-1 font-normal normal-case text-gray-400">(from estimate)</span>
+                        <span v-else-if="record.transaction_id" class="ml-1 font-normal normal-case text-gray-400">(from deal)</span>
                     </h2>
                     <div v-if="transactionItems.length > 0" class="overflow-x-auto print:overflow-visible">
                         <table class="min-w-full text-sm border border-gray-200 dark:border-gray-700 print:border-gray-300">
                             <thead class="bg-gray-100 dark:bg-gray-900/50 print:bg-gray-100">
                                 <tr>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 text-sm uppercase">Item</th>
+                                    <th class="px-3 py-2 text-left text-sm uppercase text-gray-600 dark:text-gray-400 min-w-[6rem]">Variant</th>
                                     <th class="px-3 py-2 text-center text-sm uppercase text-gray-600 dark:text-gray-400 w-16">Tax</th>
                                     <th class="px-3 py-2 text-right text-sm uppercase text-gray-600 dark:text-gray-400 w-12">Qty</th>
                                     <th class="px-3 py-2 text-right text-sm uppercase text-gray-600 dark:text-gray-400 w-24">Price</th>
@@ -299,6 +316,10 @@ const handlePrint = () => {
                                             <div class="font-medium text-gray-900 dark:text-white">{{ row.name }}</div>
                                             <div v-if="row.description" class="text-sm text-gray-500 mt-0.5">{{ row.description }}</div>
                                         </td>
+                                        <td class="px-3 py-2 align-top text-sm text-gray-600 dark:text-gray-300">
+                                            <span v-if="lineVariantId(row)" class="font-medium text-gray-800 dark:text-gray-200">{{ lineVariantDisplay(row) }}</span>
+                                            <span v-else class="text-gray-400">—</span>
+                                        </td>
                                         <td class="px-3 py-2 text-center text-sm text-gray-600">{{ row.taxable !== false && row.taxable !== 0 ? 'Y' : 'N' }}</td>
                                         <td class="px-3 py-2 text-right text-gray-800 dark:text-gray-200">{{ +row.quantity }}</td>
                                         <td class="px-3 py-2 text-right text-gray-800 dark:text-gray-200">{{ formatCurrency(row.unit_price) }}</td>
@@ -307,6 +328,7 @@ const handlePrint = () => {
                                     </tr>
                                     <tr v-for="addon in (row.addons ?? [])" :key="'a-' + addon.id" class="bg-gray-50/80 dark:bg-gray-900/20">
                                         <td class="px-3 py-1.5 pl-6 text-sm italic text-gray-600 dark:text-gray-400">↳ {{ addon.name || 'Add-on' }}</td>
+                                        <td class="px-3 py-1.5 text-sm text-gray-400">—</td>
                                         <td class="px-3 py-1.5 text-center text-sm text-gray-600">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Y' : 'N' }}</td>
                                         <td class="px-3 py-1.5 text-right text-sm text-gray-800 dark:text-gray-300">{{ +addon.quantity }}</td>
                                         <td class="px-3 py-1.5 text-right text-sm text-gray-800 dark:text-gray-300">{{ formatCurrency(addon.price) }}</td>
@@ -317,11 +339,11 @@ const handlePrint = () => {
                             </tbody>
                             <tfoot class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30">
                                 <tr v-if="taxRate > 0">
-                                    <td colspan="5" class="px-3 py-1 text-right text-sm text-gray-500">Tax rate: {{ taxRate }}%</td>
+                                    <td colspan="6" class="px-3 py-1 text-right text-sm text-gray-500">Tax rate: {{ taxRate }}%</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5" class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-white">Subtotal (lines)</td>
+                                    <td colspan="6" class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-white">Subtotal (lines)</td>
                                     <td class="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</td>
                                 </tr>
                             </tfoot>

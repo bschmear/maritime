@@ -148,5 +148,15 @@ return new class extends Migration
                 DB::insert('INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)', [$table, $max]);
             }
         }
+
+        if ($driver === 'pgsql' && $max > 0) {
+            $seqRow = DB::selectOne(
+                'SELECT pg_get_serial_sequence(?, \'id\') AS seq',
+                [$table]
+            );
+            if ($seqRow && ! empty($seqRow->seq)) {
+                DB::statement('SELECT setval(?, ?, true)', [$seqRow->seq, $max]);
+            }
+        }
     }
 };

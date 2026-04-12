@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use Illuminate\Http\Request;
+
 trait HasSchemaSupport
 {
     protected function getTableSchema()
@@ -471,5 +473,40 @@ trait HasSchemaSupport
         }
 
         return $query;
+    }
+
+    /**
+     * Columns from table.json that accept sort (sortable defaults to true when omitted).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function sortableColumnsFromTableSchema(?array $schema): array
+    {
+        $out = [];
+        foreach ($schema['columns'] ?? [] as $col) {
+            $key = is_array($col) ? ($col['key'] ?? null) : $col;
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+            $sortable = is_array($col) ? ($col['sortable'] ?? true) : true;
+            if ($sortable === false) {
+                continue;
+            }
+            $out[$key] = is_array($col) ? $col : ['key' => $key];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{key: ?string, dir: 'asc'|'desc'}
+     */
+    protected function sortParamsFromRequest(Request $request): array
+    {
+        $raw = $request->get('sort');
+        $key = is_string($raw) && $raw !== '' ? $raw : null;
+        $dir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        return ['key' => $key, 'dir' => $dir];
     }
 }

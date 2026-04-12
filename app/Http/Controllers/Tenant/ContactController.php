@@ -566,6 +566,18 @@ class ContactController extends Controller
         }
     }
 
+    public function indexAddresses(int $contact): \Illuminate\Http\JsonResponse
+    {
+        $contactModel = Contact::query()->findOrFail($contact);
+
+        $addresses = $contactModel->addresses()
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get(['id', 'label', 'is_primary', 'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country', 'latitude', 'longitude']);
+
+        return response()->json(['addresses' => $addresses]);
+    }
+
     public function storeAddress(Request $request, int $contact): RedirectResponse
     {
         $contactModel = Contact::query()->findOrFail($contact);

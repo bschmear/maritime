@@ -109,6 +109,7 @@ export default {
       teal: colors.teal,
       fuchsia: colors.fuchsia,
       brown: colors.brown,
+      slate: colors.slate,
     },
     extend: {
       fontFamily: {

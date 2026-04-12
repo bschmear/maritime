@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
+use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
 use App\Domain\Estimate\Actions\DeleteEstimate as DeleteAction;
 use App\Domain\Estimate\Actions\UpdateEstimate as UpdateAction;
@@ -34,6 +36,28 @@ class EstimateController extends RecordController
             new DeleteAction,
             $this->recordType
         );
+    }
+
+    /**
+     * Search estimates by sequence number or display_name format ("EST-123" or "123").
+     */
+    protected function applyCustomSearch($query, string $rawSearch): bool
+    {
+        // Strip the "EST-" prefix if present so "EST-42" and "42" both match sequence 42
+        $normalized = preg_replace('/^EST-/i', '', trim($rawSearch));
+        $like = '%'.strtolower($normalized).'%';
+
+        $query->where(function ($q) use ($normalized, $like) {
+            $q->whereRaw('CAST(sequence AS TEXT) LIKE ?', [$like])
+              ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$like]);
+
+            // If numeric, also match exact sequence value for faster hits
+            if (ctype_digit($normalized)) {
+                $q->orWhere('sequence', '=', (int) $normalized);
+            }
+        });
+
+        return true;
     }
 
     public function store(Request $request, $publicStorage = null)
@@ -86,12 +110,40 @@ class EstimateController extends RecordController
                 if ($opportunity->customer_id) {
                     $initialData['customer_id'] = $opportunity->customer_id;
                     $initialData['customer'] = ['id' => $opportunity->customer->id, 'display_name' => $opportunity->customer->display_name];
+
+                    // Populate contact_id so the contact-first picker pre-fills.
+                    $contactId = $opportunity->customer->contact_id;
+                    if ($contactId) {
+                        $contact = $opportunity->customer->contact ?? \App\Domain\Contact\Models\Contact::find($contactId);
+                        if ($contact) {
+                            $initialData['contact_id'] = $contact->id;
+                            $initialData['contact'] = ['id' => $contact->id, 'display_name' => $contact->display_name];
+                        }
+                    }
                 }
 
                 $opportunityLineItems = [
                     'assets' => $opportunity->assets ?? [],
                     'inventoryItems' => $opportunity->inventoryItems ?? [],
                 ];
+            }
+        }
+
+        // Pre-fill subsidiary + location from the first available subsidiary (single-subsidiary tenant default).
+        if (empty($initialData['subsidiary_id'])) {
+            $sub = Subsidiary::query()->orderBy('id')->first();
+
+            if ($sub) {
+                $initialData['subsidiary_id'] = $sub->id;
+                $initialData['subsidiary'] = ['id' => $sub->id, 'display_name' => $sub->display_name];
+
+                $loc = $sub->locations()->wherePivot('primary', true)->first()
+                    ?? $sub->locations()->first();
+
+                if ($loc) {
+                    $initialData['location_id'] = $loc->id;
+                    $initialData['location'] = ['id' => $loc->id, 'display_name' => $loc->display_name];
+                }
             }
         }
 
@@ -138,6 +190,9 @@ class EstimateController extends RecordController
         ]);
         $relationships['revision'] = fn ($q) => $q->select('id', 'sequence', 'revised_from_id');
         $relationships['revisedFrom'] = fn ($q) => $q->select('id', 'sequence');
+        $relationships['contact'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone']);
+        $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
+        $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
@@ -188,6 +243,9 @@ class EstimateController extends RecordController
                 'assetVariant',
             ]),
         ]);
+        $relationships['contact'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone']);
+        $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
+        $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
@@ -225,6 +283,8 @@ class EstimateController extends RecordController
     {
         $estimate = RecordModel::with(['customer', 'primaryVersion'])->findOrFail($id);
 
+        $wasPendingApproval = (int) $estimate->status === EstimateStatus::PendingApproval->id();
+
         $customerEmail = $estimate->customer?->email;
 
         if (! $customerEmail) {
@@ -257,7 +317,11 @@ class EstimateController extends RecordController
             'status' => EstimateStatus::PendingApproval->id(),
         ]);
 
-        return back()->with('success', "Estimate sent to {$customerEmail} for approval.");
+        $success = $wasPendingApproval
+            ? "Approval email resent to {$customerEmail}."
+            : "Estimate sent to {$customerEmail} for approval.";
+
+        return back()->with('success', $success);
     }
 
     public function createRevision(Request $request, $id)

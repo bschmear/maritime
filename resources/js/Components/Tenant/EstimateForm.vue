@@ -64,14 +64,17 @@ const getDefaultDateFromSchema = (key) => {
 // Main Form
 // ==============================
 const form = useForm({
+    contact_id: props.record?.contact_id || props.initialData?.contact_id || null,
     customer_id: props.record?.customer_id || props.initialData?.customer_id || null,
     opportunity_id: props.record?.opportunity_id || props.initialData?.opportunity_id || null,
+    subsidiary_id: props.record?.subsidiary_id || props.initialData?.subsidiary_id || null,
+    location_id: props.record?.location_id || props.initialData?.location_id || null,
     user_id: props.record?.user_id || props.initialData?.user_id || null,
     tax_rate: props.record?.tax_rate ?? props.initialData?.tax_rate ?? 0,
     issue_date: extractDate(props.record?.issue_date || props.initialData?.issue_date) || getDefaultDateFromSchema('issue_date'),
     expiration_date: extractDate(props.record?.expiration_date || props.initialData?.expiration_date) || getDefaultDateFromSchema('expiration_date'),
     notes: props.record?.notes || props.initialData?.notes || '',
-    terms: props.record?.terms || props.initialData?.terms || '',
+    terms: props.record?.terms || props.initialData?.terms || props.account?.default_payment_terms || '',
     billing_address_line1: props.record?.billing_address_line1 || props.initialData?.billing_address_line1 || '',
     billing_address_line2: props.record?.billing_address_line2 || props.initialData?.billing_address_line2 || '',
     billing_city:          props.record?.billing_city          || props.initialData?.billing_city          || '',
@@ -96,28 +99,64 @@ const applyAddressToForm = (src) => {
     form.billing_longitude     = src.billing_longitude     ?? src.longitude      ?? null;
 };
 
-// Confirmation modal for billing address auto-fill
+// ── Contact address picker modal ─────────────────────────────────────────────
+const showAddressPicker = ref(false);
+const contactAddresses = ref([]);
+const isFetchingAddresses = ref(false);
+
+const formatAddressLabel = (addr) => {
+    const parts = [addr.address_line_1, addr.address_line_2, addr.city, addr.state, addr.postal_code, addr.country]
+        .filter(Boolean);
+    return parts.join(', ');
+};
+
+const handleContactSelected = async (contact) => {
+    if (!contact?.id) return;
+
+    isFetchingAddresses.value = true;
+    contactAddresses.value = [];
+
+    try {
+        const res = await fetch(route('contacts.addresses.index', { contact: contact.id }), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            contactAddresses.value = data.addresses ?? [];
+        }
+    } catch {
+        // silently ignore — user can still fill billing manually
+    } finally {
+        isFetchingAddresses.value = false;
+    }
+
+    if (contactAddresses.value.length > 0) {
+        showAddressPicker.value = true;
+    }
+};
+
+const selectContactAddress = (addr) => {
+    applyAddressToForm(addr);
+    showAddressPicker.value = false;
+    contactAddresses.value = [];
+};
+
+const dismissAddressPicker = () => {
+    showAddressPicker.value = false;
+    contactAddresses.value = [];
+};
+
+// Keep legacy confirm refs as no-ops so nothing else breaks
 const showAddressConfirm = ref(false);
 const pendingCustomerAddress = ref(null);
-
-const handleCustomerSelected = (customer) => {
-    const street = customer.address_line_1 || customer.billing_address_line1 || '';
-    if (!street) return; // customer has no address on file — nothing to offer
-
-    pendingCustomerAddress.value = customer;
-    showAddressConfirm.value = true;
-};
-
-const confirmUseBillingAddress = () => {
-    applyAddressToForm(pendingCustomerAddress.value);
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
-};
-
-const dismissAddressConfirm = () => {
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
-};
+const confirmUseBillingAddress = () => {};
+const dismissAddressConfirm = () => { showAddressConfirm.value = false; };
 
 const handleAddressUpdate = (data) => {
     form.billing_address_line1 = data.street      ?? '';
@@ -500,8 +539,44 @@ const inventoryBaseSubtotal = computed(() =>
 const inventoryAddonSubtotal = computed(() => addonSubtotalForItems(inventoryItems.value));
 
 const combinedSubtotal = computed(() => assetSubtotal.value + inventorySubtotal.value);
-const taxAmount = computed(() => combinedSubtotal.value * (Number(form.tax_rate) / 100));
-const grandTotal = computed(() => combinedSubtotal.value + taxAmount.value);
+
+const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+/** Pre-tax total for a single add-on row. */
+const addonPreTaxTotal = (addon) => Number(addon.price || 0) * Number(addon.quantity || 1);
+
+/** Tax on a pre-tax amount using the estimate header tax rate (matches per-line display). */
+const taxOnPreTax = (preTax) => {
+    const r = Number(form.tax_rate) || 0;
+    const base = Math.max(0, Number(preTax) || 0);
+    if (r <= 0 || base <= 0) return 0;
+    return roundMoney(base * (r / 100));
+};
+
+const assetSectionTax = computed(() => {
+    let sum = 0;
+    for (const item of assetItems.value) {
+        sum += taxOnPreTax(assetBaseLineTotal(item));
+        for (const a of item.addons || []) {
+            sum += taxOnPreTax(addonPreTaxTotal(a));
+        }
+    }
+    return roundMoney(sum);
+});
+
+const inventorySectionTax = computed(() => {
+    let sum = 0;
+    for (const item of inventoryItems.value) {
+        sum += taxOnPreTax(lineBaseTotal(item));
+        for (const a of item.addons || []) {
+            sum += taxOnPreTax(addonPreTaxTotal(a));
+        }
+    }
+    return roundMoney(sum);
+});
+
+const taxAmount = computed(() => roundMoney(assetSectionTax.value + inventorySectionTax.value));
+const grandTotal = computed(() => roundMoney(combinedSubtotal.value + taxAmount.value));
 
 /** Stored line `description` merges catalog + notes; recover user notes when re-editing. */
 const splitLineNotesFromStoredDescription = (storedFull, catalogDesc) => {
@@ -745,23 +820,24 @@ const handleCancel = () => emit('cancelled');
                                 <!-- Left: People -->
                                 <div class="space-y-4">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Customer & Lead
+                                        Contact & Lead
                                     </h3>
 
-                                    <!-- Customer -->
+                                    <!-- Contact (contact-first flow) -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Customer <span class="text-red-500">*</span>
+                                            Contact <span class="text-red-500">*</span>
                                         </label>
                                         <RecordSelect
-                                            id="customer_id"
-                                            :field="fieldsSchema?.customer_id || { type: 'relationship', relationship_type: 'customers', label: 'Customer', required: true }"
-                                            v-model="form.customer_id"
+                                            id="contact_id"
+                                            :field="{ typeDomain: 'Contact', label: 'Contact', required: true }"
+                                            v-model="form.contact_id"
                                             :record="pseudoRecord"
-                                            field-key="customer_id"
-                                            :disabled="mode === 'view' || (initialData?.opportunity_id && initialData?.customer_id)"
-                                            @record-selected="handleCustomerSelected"
+                                            field-key="contact_id"
+                                            :disabled="mode === 'view' || (initialData?.opportunity_id && initialData?.contact_id)"
+                                            @record-selected="handleContactSelected"
                                         />
+                                        <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
                                         <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
                                     </div>
 
@@ -849,6 +925,38 @@ const handleCancel = () => emit('cancelled');
                                         />
                                         <p v-if="form.errors.tax_rate" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.tax_rate }}</p>
                                     </div>
+
+                                    <!-- Subsidiary -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Subsidiary
+                                        </label>
+                                        <RecordSelect
+                                            id="subsidiary_id"
+                                            :field="fieldsSchema?.subsidiary_id || { typeDomain: 'Subsidiary', label: 'Subsidiary' }"
+                                            v-model="form.subsidiary_id"
+                                            :record="pseudoRecord"
+                                            field-key="subsidiary_id"
+                                            :disabled="mode === 'view'"
+                                        />
+                                        <p v-if="form.errors.subsidiary_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
+                                    </div>
+
+                                    <!-- Location -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Location
+                                        </label>
+                                        <RecordSelect
+                                            id="location_id"
+                                            :field="fieldsSchema?.location_id || { typeDomain: 'Location', label: 'Location' }"
+                                            v-model="form.location_id"
+                                            :record="pseudoRecord"
+                                            field-key="location_id"
+                                            :disabled="mode === 'view'"
+                                        />
+                                        <p v-if="form.errors.location_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -932,7 +1040,8 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
@@ -957,6 +1066,7 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetBaseLineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetBaseLineTotal(item))) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -994,7 +1104,8 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
                                             <td class="px-4 py-2"></td>
                                             <td class="px-4 py-2 text-right">
                                                 <button v-if="mode !== 'view'" type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded">
@@ -1010,6 +1121,7 @@ const handleCancel = () => emit('cancelled');
                                     <tr>
                                         <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
+                                        <td class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSectionTax) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
@@ -1053,7 +1165,8 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
@@ -1069,6 +1182,7 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(lineBaseTotal(item))) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -1106,7 +1220,8 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
                                             <td class="px-4 py-2"></td>
                                             <td class="px-4 py-2 text-right">
                                                 <button v-if="mode !== 'view'" type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded">
@@ -1122,6 +1237,7 @@ const handleCancel = () => emit('cancelled');
                                     <tr>
                                         <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(inventorySubtotal) }}</td>
+                                        <td class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySectionTax) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
@@ -1564,54 +1680,80 @@ const handleCancel = () => emit('cancelled');
                 leave-from-class="opacity-100"
                 leave-to-class="opacity-0"
             >
+                <!-- Contact address picker modal -->
                 <div
-                    v-if="showAddressConfirm && pendingCustomerAddress"
+                    v-if="showAddressPicker"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-                    @click.self="dismissAddressConfirm"
+                    @click.self="dismissAddressPicker"
                 >
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
                         <!-- Header -->
-                        <div class="flex items-start gap-3 px-6 pt-6 pb-4">
-                            <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
-                                <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <div class="flex items-start justify-between gap-3 px-6 pt-6 pb-4">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Choose a billing address</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Select which of the contact's addresses to use</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="dismissAddressPicker" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-0.5">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
-                            </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use customer's address?</h3>
-                                <p class="text-md text-gray-500 dark:text-gray-400 mt-0.5">Set this as the billing address for the estimate</p>
-                            </div>
+                            </button>
                         </div>
 
-                        <!-- Address preview -->
-                        <div class="mx-6 mb-5 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
-                            <p v-if="pendingCustomerAddress.address_line_1" class="font-medium">{{ pendingCustomerAddress.address_line_1 }}</p>
-                            <p v-if="pendingCustomerAddress.address_line_2" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.address_line_2 }}</p>
-                            <p>
-                                <span v-if="pendingCustomerAddress.city">{{ pendingCustomerAddress.city }}, </span>
-                                <span v-if="pendingCustomerAddress.state">{{ pendingCustomerAddress.state }} </span>
-                                <span v-if="pendingCustomerAddress.postal_code">{{ pendingCustomerAddress.postal_code }}</span>
-                            </p>
-                            <p v-if="pendingCustomerAddress.country" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.country }}</p>
+                        <!-- Address list -->
+                        <div class="px-6 pb-2 space-y-2 max-h-80 overflow-y-auto">
+                            <button
+                                v-for="addr in contactAddresses"
+                                :key="addr.id"
+                                type="button"
+                                @click="selectContactAddress(addr)"
+                                class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors group"
+                            >
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="text-sm space-y-0.5">
+                                        <div class="flex items-center gap-2">
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ addr.address_line_1 }}</p>
+                                            <span
+                                                v-if="addr.is_primary"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                            >Primary</span>
+                                            <span
+                                                v-if="addr.label"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                                            >{{ addr.label }}</span>
+                                        </div>
+                                        <p v-if="addr.address_line_2" class="text-gray-500 dark:text-gray-400">{{ addr.address_line_2 }}</p>
+                                        <p class="text-gray-600 dark:text-gray-300">
+                                            <span v-if="addr.city">{{ addr.city }}<span v-if="addr.state || addr.postal_code">, </span></span>
+                                            <span v-if="addr.state">{{ addr.state }} </span>
+                                            <span v-if="addr.postal_code">{{ addr.postal_code }}</span>
+                                        </p>
+                                        <p v-if="addr.country" class="text-gray-500 dark:text-gray-400">{{ addr.country }}</p>
+                                    </div>
+                                    <svg class="w-4 h-4 flex-shrink-0 text-gray-300 group-hover:text-primary-500 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </div>
+                            </button>
                         </div>
 
-                        <!-- Actions -->
-                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                        <!-- Footer -->
+                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 mt-2">
                             <button
                                 type="button"
-                                @click="dismissAddressConfirm"
+                                @click="dismissAddressPicker"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                             >
-                                No, keep blank
-                            </button>
-                            <button
-                                type="button"
-                                @click="confirmUseBillingAddress"
-                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-                            >
-                                Yes, use this address
+                                Skip, fill manually
                             </button>
                         </div>
                     </div>

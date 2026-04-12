@@ -13,14 +13,29 @@
             "isKey": true
         },
         {
+            "key": "status",
+            "label": "Status",
+            "sortable": true
+        },
+        {
             "key": "customer_id",
             "label": "Customer",
-            "sortable": false
+            "sortable": true
         },
         {
             "key": "user_id",
             "label": "Salesperson",
-            "sortable": false
+            "sortable": true
+        },
+        {
+            "key": "subsidiary_id",
+            "label": "Subsidiary",
+            "sortable": true
+        },
+        {
+            "key": "location_id",
+            "label": "Location",
+            "sortable": true
         },
         {
             "key": "issue_date",
@@ -33,5 +48,11 @@
             "sortable": true
         }
     ],
-    "filters": []
+    "filters": [
+        {
+            "field": "status",
+            "label": "Status",
+            "type": "multi-select"
+        }
+    ]
 }

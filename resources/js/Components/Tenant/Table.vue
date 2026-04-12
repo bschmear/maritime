@@ -1,6 +1,6 @@
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, watch, onMounted, getCurrentInstance } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
@@ -35,6 +35,10 @@ const selectedRecordImageUrls = ref({});
 const activeFilters    = ref([]);
 const isLoadingRecord  = ref(false);
 const searchQuery      = ref('');
+const sortKey          = ref('');
+const sortDir          = ref('asc');
+
+const page = usePage();
 
 const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
 
@@ -225,6 +229,61 @@ const handleRecordUpdated = (updated) => {
     closeViewModal();
 };
 
+// ── Quick filters (from schema.filters) ───────────────────────────────────────
+const quickFilterDefs = computed(() => props.schema?.filters ?? []);
+const openQuickFilter = ref(null); // field key of the currently open quick-filter dropdown
+
+const getQuickFieldDef = (field) => {
+    const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
+    return schema[field] ?? {};
+};
+
+const getQuickFilterOptions = (fieldKey) => {
+    const fd = getQuickFieldDef(fieldKey);
+    if (fd.enum && props.enumOptions[fd.enum]) return props.enumOptions[fd.enum];
+    return [];
+};
+
+// Active values for a quick filter field (extracted from activeFilters)
+const getQuickActiveValues = (fieldKey) => {
+    const f = activeFilters.value.find(f => f.field === fieldKey && (f.operator === 'any_of' || f.operator === 'equals'));
+    if (!f) return [];
+    return Array.isArray(f.value) ? f.value.map(String) : (f.value ? [String(f.value)] : []);
+};
+
+const toggleQuickValue = (fieldKey, optionId) => {
+    const strId = String(optionId);
+    const current = getQuickActiveValues(fieldKey);
+    const next = current.includes(strId)
+        ? current.filter(v => v !== strId)
+        : [...current, strId];
+
+    // Rebuild activeFilters — replace/remove this field's filter
+    const others = activeFilters.value.filter(f => f.field !== fieldKey);
+    if (next.length === 0) {
+        applyFilters(others);
+    } else {
+        applyFilters([
+            ...others,
+            { id: Date.now(), field: fieldKey, operator: 'any_of', value: next },
+        ]);
+    }
+};
+
+const clearQuickFilter = (fieldKey) => {
+    applyFilters(activeFilters.value.filter(f => f.field !== fieldKey));
+};
+
+const toggleQuickFilterDropdown = (fieldKey) => {
+    openQuickFilter.value = openQuickFilter.value === fieldKey ? null : fieldKey;
+};
+
+const handleQuickFilterClickOutside = (e) => {
+    if (!e.target.closest('[data-quick-filter]')) {
+        openQuickFilter.value = null;
+    }
+};
+
 // ── Filters ───────────────────────────────────────────────────────────────────
 const parseFiltersFromUrl = () => {
     const p = new URLSearchParams(window.location.search).get('filters');
@@ -246,16 +305,24 @@ const removeFilter  = (i) => { const f = [...activeFilters.value]; f.splice(i,1)
 const clearAllFilters = () => { applyFilters([]); clearSearch(); };
 
 const getFilterLabel = (filter) => {
-    const fc = props.fieldsSchema[filter.field] ?? {};
+    const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
+    const fc = schema[filter.field] ?? {};
     const fl = fc.label || filter.field;
     let vl = '';
     if (filter.operator === 'between' && typeof filter.value === 'object') {
         vl = `${filter.value.start ?? filter.value.min} - ${filter.value.end ?? filter.value.max}`;
     } else if (!['is_empty','is_not_empty','today','this_week','this_month','is_true','is_false'].includes(filter.operator)) {
         if (fc.enum && props.enumOptions[fc.enum]) {
-            const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(filter.value) || String(o.value) === String(filter.value));
-            vl = o ? o.name : filter.value;
-        } else { vl = filter.value; }
+            if (Array.isArray(filter.value)) {
+                vl = filter.value.map(v => {
+                    const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(v) || String(o.value) === String(v));
+                    return o ? o.name : v;
+                }).join(', ');
+            } else {
+                const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(filter.value) || String(o.value) === String(filter.value));
+                vl = o ? o.name : filter.value;
+            }
+        } else { vl = Array.isArray(filter.value) ? filter.value.join(', ') : filter.value; }
     }
     const ops = { contains:'contains', equals:'is', starts_with:'starts with', ends_with:'ends with',
                   is_empty:'is empty', is_not_empty:'is not empty', not_equals:'is not', any_of:'is any of',
@@ -275,14 +342,48 @@ const applySearch  = (q) => {
 };
 const clearSearch = () => { searchQuery.value = ''; applySearch(''); };
 
+// ── Column sort (?sort=&direction=) ───────────────────────────────────────────
+const isColumnSortable = (col) => (col.sortable ?? true) !== false;
+
+const syncSortFromUrl = () => {
+    const p = new URLSearchParams(window.location.search);
+    sortKey.value = p.get('sort') || '';
+    sortDir.value = p.get('direction') === 'desc' ? 'desc' : 'asc';
+};
+
+const toggleSort = (col) => {
+    if (!isColumnSortable(col)) return;
+    const key = col.key;
+    let dir = 'asc';
+    if (sortKey.value === key) {
+        dir = sortDir.value === 'asc' ? 'desc' : 'asc';
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.set('sort', key);
+    params.set('direction', dir);
+    params.delete('page');
+    const qs = params.toString();
+    router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
+};
+
+watch(() => page.url, () => {
+    syncSortFromUrl();
+});
+
 watch(() => props.records.data, () => {
     selectAll.value = props.records.data.length > 0 && selectedRecords.value.size === props.records.data.length;
 }, { immediate: true });
 
 onMounted(() => {
     activeFilters.value = parseFiltersFromUrl();
+    syncSortFromUrl();
     const s = new URLSearchParams(window.location.search).get('search');
     if (s) searchQuery.value = s;
+    document.addEventListener('click', handleQuickFilterClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleQuickFilterClickOutside);
 });
 </script>
 
@@ -327,6 +428,76 @@ onMounted(() => {
                         </div>
                     </div>
                 </form>
+
+                <!-- Quick filters (defined in schema.filters) -->
+                <template v-if="quickFilterDefs.length">
+                    <div
+                        v-for="qf in quickFilterDefs"
+                        :key="qf.field"
+                        class="relative shrink-0"
+                        data-quick-filter
+                    >
+                        <button
+                            type="button"
+                            @click.stop="toggleQuickFilterDropdown(qf.field)"
+                            :class="[
+                                'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
+                                getQuickActiveValues(qf.field).length
+                                    ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                    : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                            ]"
+                        >
+                            {{ qf.label ?? qf.field }}
+                            <span
+                                v-if="getQuickActiveValues(qf.field).length"
+                                class="px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full"
+                            >
+                                {{ getQuickActiveValues(qf.field).length }}
+                            </span>
+                            <svg class="w-3.5 h-3.5 opacity-60" :class="openQuickFilter === qf.field ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown panel -->
+                        <div
+                            v-if="openQuickFilter === qf.field"
+                            class="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden"
+                        >
+                            <div class="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <label
+                                    v-for="opt in getQuickFilterOptions(qf.field)"
+                                    :key="opt.id ?? opt.value"
+                                    class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        :value="opt.id ?? opt.value"
+                                        :checked="getQuickActiveValues(qf.field).includes(String(opt.id ?? opt.value))"
+                                        @change="toggleQuickValue(qf.field, opt.id ?? opt.value)"
+                                        class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500"
+                                    />
+                                    <div v-if="opt.color" class="flex items-center gap-1.5">
+                                        <span class="w-2 h-2 rounded-full shrink-0" :class="`bg-${opt.color}-500`"></span>
+                                        <span class="text-sm text-gray-900 dark:text-white">{{ opt.name ?? opt.label }}</span>
+                                    </div>
+                                    <span v-else class="text-sm text-gray-900 dark:text-white">{{ opt.name ?? opt.label ?? opt.value }}</span>
+                                </label>
+                            </div>
+                            <div v-if="getQuickActiveValues(qf.field).length" class="px-3 py-2 border-t border-gray-100 dark:border-gray-700/60">
+                                <button
+                                    type="button"
+                                    @click="clearQuickFilter(qf.field)"
+                                    class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Advanced filters button -->
                 <button @click="showFiltersModal = true"
                         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -406,7 +577,18 @@ onMounted(() => {
                             </th>
                             <th v-for="col in columns" :key="col.key"
                                 class="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {{ getColumnLabel(col) }}
+                                <button
+                                    v-if="isColumnSortable(col)"
+                                    type="button"
+                                    @click="toggleSort(col)"
+                                    class="inline-flex items-center gap-1 -mx-1 px-1 py-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-800 dark:hover:text-gray-200 transition-colors text-left w-full min-w-0"
+                                >
+                                    <span class="truncate">{{ getColumnLabel(col) }}</span>
+                                    <span v-if="sortKey === col.key" class="shrink-0 text-primary-600 dark:text-primary-400" aria-hidden="true">
+                                        {{ sortDir === 'asc' ? '↑' : '↓' }}
+                                    </span>
+                                </button>
+                                <span v-else class="block truncate">{{ getColumnLabel(col) }}</span>
                             </th>
                             <th class="px-4 py-3 w-20"><span class="sr-only">Actions</span></th>
                         </tr>

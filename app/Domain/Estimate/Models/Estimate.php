@@ -62,6 +62,21 @@ class Estimate extends Model
         return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
     }
 
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Contact\Models\Contact::class);
+    }
+
+    public function subsidiary(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+    }
+
     public function salesperson(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\User\Models\User::class, 'user_id');

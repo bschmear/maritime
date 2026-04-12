@@ -23,6 +23,7 @@ class HandleInertiaRequests extends Middleware
             if (str_starts_with($request->path(), 'portal')) {
                 return 'portal';
             }
+
             return 'tenant';
         }
 
@@ -62,6 +63,10 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
             'auth' => [
                 'user' => $user,
                 'customer' => fn () => $this->resolveCustomer($request),
@@ -78,7 +83,7 @@ class HandleInertiaRequests extends Middleware
 
     protected function resolveCustomer(Request $request): ?array
     {
-        if (!tenant()) {
+        if (! tenant()) {
             return null;
         }
 

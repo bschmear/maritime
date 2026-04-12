@@ -322,13 +322,39 @@ class ContractController extends BaseController
                 'billing_state', 'billing_postal', 'billing_country',
             ])
             ->with([
-                'items' => fn ($q2) => $q2->with('addons')->orderBy('position')->orderBy('id'),
+                'items' => fn ($q2) => $q2
+                    ->with([
+                        'addons',
+                        'estimateLineItem' => fn ($q3) => $q3
+                            ->select(['id', 'asset_variant_id'])
+                            ->with([
+                                'assetVariant' => fn ($q4) => $q4->select(['id', 'display_name', 'name']),
+                            ]),
+                    ])
+                    ->orderBy('position')
+                    ->orderBy('id'),
                 'subsidiary' => fn ($q2) => $q2->select(['id', 'display_name']),
                 'location' => fn ($q2) => $q2->select([
                     'id', 'display_name',
                     'address_line_1', 'address_line_2', 'city', 'state', 'postal_code',
                     'phone', 'email',
                 ]),
+            ]);
+
+        $relationships['estimate'] = fn ($q) => $q
+            ->select(['id', 'sequence', 'tax_rate', 'primary_version_id'])
+            ->with([
+                'primaryVersion' => fn ($qv) => $qv
+                    ->select(['id', 'estimate_id', 'tax_rate', 'subtotal', 'tax', 'total'])
+                    ->with([
+                        'lineItems' => fn ($ql) => $ql
+                            ->with([
+                                'addons',
+                                'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
+                            ])
+                            ->orderBy('position')
+                            ->orderBy('id'),
+                    ]),
             ]);
 
         $settings = AccountSettings::getCurrent();

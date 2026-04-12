@@ -4,16 +4,17 @@ namespace App\Mail;
 
 use App\Domain\Estimate\Models\Estimate;
 use App\Models\AccountSettings;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class EstimateApprovalRequest extends Mailable implements ShouldQueue
+/**
+ * Sent synchronously so “Send / resend for approval” delivers immediately without a queue worker.
+ */
+class EstimateApprovalRequest extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;
 
     public function __construct(
         public Estimate $estimate,
@@ -32,22 +33,22 @@ class EstimateApprovalRequest extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $version  = $this->estimate->primaryVersion;
+        $version = $this->estimate->primaryVersion;
         $subtotal = (float) ($version?->subtotal ?? 0);
-        $tax      = (float) ($version?->tax ?? 0);
-        $total    = (float) ($version?->total ?? 0);
-        $taxRate  = (float) ($this->estimate->tax_rate ?? $version?->tax_rate ?? 0);
+        $tax = (float) ($version?->tax ?? 0);
+        $total = (float) ($version?->total ?? 0);
+        $taxRate = (float) ($this->estimate->tax_rate ?? $version?->tax_rate ?? 0);
 
         return new Content(
             view: 'emails.estimate-approval-request',
             with: [
-                'estimate'   => $this->estimate,
-                'account'    => $this->account,
-                'reviewUrl'  => $this->reviewUrl,
-                'subtotal'   => $subtotal,
-                'tax'        => $tax,
-                'total'      => $total,
-                'taxRate'    => $taxRate,
+                'estimate' => $this->estimate,
+                'account' => $this->account,
+                'reviewUrl' => $this->reviewUrl,
+                'subtotal' => $subtotal,
+                'tax' => $tax,
+                'total' => $total,
+                'taxRate' => $taxRate,
             ],
         );
     }
