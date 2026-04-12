@@ -1,8 +1,9 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import SurveyFollowupCard from '@/Components/surveys/SurveyFollowupCard.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     survey: {
@@ -29,14 +30,6 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
-    onTrial: {
-        type: Boolean,
-        default: false,
-    },
-    subscriptionLevel: {
-        type: Number,
-        default: 0,
-    },
 });
 
 const breadcrumbItems = computed(() => [
@@ -46,11 +39,46 @@ const breadcrumbItems = computed(() => [
     { label: 'Response' },
 ]);
 
-const showAiAnalysis = ref(!!props.response?.latest_ai_analysis);
-const aiAnalysis = ref(props.response?.latest_ai_analysis ?? null);
+/** Laravel serializes the assignedTo relation as `assigned_to` (object when loaded) or the FK id when not. */
+const assignedToId = computed(() => {
+    const r = props.response;
+    if (!r) return null;
+    const at = r.assigned_to;
+    if (at && typeof at === 'object') {
+        return at.id ?? null;
+    }
+    if (typeof at === 'number') {
+        return at;
+    }
+    return null;
+});
 
-const canReassign = computed(() =>
-    props.isAdmin || props.response?.assigned_to === props.currentUser.id
+const assigneeUser = computed(() => {
+    const r = props.response;
+    if (!r) return null;
+    if (r.assigned_to_user && typeof r.assigned_to_user === 'object') {
+        return r.assigned_to_user;
+    }
+    const at = r.assigned_to;
+    if (at && typeof at === 'object' && (at.email !== undefined || at.display_name !== undefined)) {
+        return at;
+    }
+    return null;
+});
+
+function userDisplayName(user) {
+    if (!user) return '';
+    return (
+        user.display_name ||
+        user.name ||
+        [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+        user.email ||
+        ''
+    );
+}
+
+const canReassign = computed(
+    () => props.isAdmin || assignedToId.value === props.currentUser.id,
 );
 
 const showReassign = computed(() =>
@@ -74,12 +102,37 @@ const formatDate = (dateStr) => {
 
 const ownerConfig = computed(() => {
     if (!props.response?.owner_type) return null;
+    const t = props.response.owner_type;
+    const short = typeof t === 'string' && t.includes('\\') ? t.split('\\').pop() : t;
     const map = {
-        Contact: { icon: 'fa-user',      routeName: 'dashShowContact' },
-        Lead:    { icon: 'fa-user-plus',  routeName: 'dashShowLead' },
-        Vendor:  { icon: 'fa-briefcase',  routeName: 'dashShowVendor' },
+        Contact: { icon: 'person', routeName: 'contacts.show', param: 'contact', label: 'Contact' },
+        Lead: { icon: 'person_add', routeName: 'leads.show', param: 'lead', label: 'Lead' },
+        Vendor: { icon: 'business', routeName: 'vendors.show', param: 'vendor', label: 'Vendor' },
     };
-    return map[props.response.owner_type] ?? null;
+    return map[short] ?? null;
+});
+
+const isContactSourceable = computed(() => {
+    const r = props.response;
+    if (!r) return false;
+    const id = r.sourceable_id ?? r.sourceable?.id;
+    if (!id) return false;
+    const t = r.sourceable_type;
+    if (!t && r.sourceable) return true;
+    return t === 'Contact' || (typeof t === 'string' && t.endsWith('\\Contact'));
+});
+
+const sourceContactHref = computed(() => {
+    const r = props.response;
+    if (!r || !isContactSourceable.value) return null;
+    const id = r.sourceable?.id ?? r.sourceable_id;
+    return id ? route('contacts.show', { contact: id }) : null;
+});
+
+const showConvertActions = computed(() => {
+    const r = props.response;
+    if (!r?.email || r.converted || isContactSourceable.value) return false;
+    return true;
 });
 
 const getAnswerForQuestion = (questionId) => {
@@ -97,17 +150,8 @@ const reassignResponse = (responseId, userId) => {
     router.patch(route('surveyResponseReassign', { id: responseId }), { assigned_to: userId });
 };
 
-const convertToLead = (responseId) => {
-    router.post(route('surveyResponseConvertToLead'), { response_id: responseId });
-};
-
-const onAnalysisComplete = (analysis) => {
-    aiAnalysis.value = analysis;
-    showAiAnalysis.value = true;
-};
-
-const onSuggestionsApplied = () => {
-    router.reload();
+const convertResponse = (responseId, target) => {
+    router.post(route('surveyResponseConvert'), { response_id: responseId, target });
 };
 </script>
 
@@ -124,10 +168,10 @@ const onSuggestionsApplied = () => {
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 class="text-2xl font-semibold text-gray-900 dark:text-white mb-1">{{ survey.title }}</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Response Details</p>
+                    <p class="text-md text-gray-500 dark:text-gray-400">Response Details</p>
                 </div>
                 <a :href="route('surveysShow', { id: survey.uuid })"
-                    class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                    class="inline-flex items-center gap-2 text-md px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                     <span class="material-icons text-base leading-none">arrow_back</span>
                     Back to Survey
                 </a>
@@ -135,7 +179,7 @@ const onSuggestionsApplied = () => {
         </div>
  
         <div v-if="!response" class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm text-center">
-            <p class="text-sm text-gray-500 dark:text-gray-400">Response not found.</p>
+            <p class="text-md text-gray-500 dark:text-gray-400">Response not found.</p>
         </div>
  
         <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -147,7 +191,7 @@ const onSuggestionsApplied = () => {
                         <span class="material-icons text-blue-600 dark:text-blue-400">person</span>
                         Respondent Info
                     </h3>
-                    <ul class="text-sm space-y-3 text-gray-700 dark:text-gray-300">
+                    <ul class="text-md space-y-3 text-gray-700 dark:text-gray-300">
                         <li><strong class="text-gray-900 dark:text-white">Name:</strong> {{ respondentName ?? 'Anonymous' }}</li>
                         <li><strong class="text-gray-900 dark:text-white">Email:</strong> {{ response.email ?? 'Anonymous' }}</li>
                         <li><strong class="text-gray-900 dark:text-white">Submitted:</strong> {{ formatDate(response.submitted_at ?? response.created_at) }}</li>
@@ -161,14 +205,25 @@ const onSuggestionsApplied = () => {
                             class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
                             <strong class="text-gray-900 dark:text-white">Linked to:</strong>
                             <a v-if="ownerConfig"
-                                :href="route(ownerConfig.routeName, { id: response.owner_id })"
+                                :href="route(ownerConfig.routeName, { [ownerConfig.param]: response.owner_id })"
                                 target="_blank"
                                 class="inline-flex items-center gap-1 ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                                 <span class="material-icons text-base leading-none">{{ ownerConfig.icon }}</span>
-                                {{ response.owner_type }}
-                                <span class="material-icons text-sm leading-none">open_in_new</span>
+                                {{ ownerConfig.label }}
+                                <span class="material-icons text-md leading-none">open_in_new</span>
                             </a>
                             <span v-else class="ml-1">{{ response.owner_type }}</span>
+                        </li>
+
+                        <li v-if="sourceContactHref"
+                            class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+                            <strong class="text-gray-900 dark:text-white">Matched contact:</strong>
+                            <a :href="sourceContactHref"
+                                class="inline-flex items-center gap-1 ml-1 text-teal-600 dark:text-teal-400 hover:underline">
+                                <span class="material-icons text-base leading-none">person</span>
+                                {{ response.sourceable?.display_name || response.email || 'View contact' }}
+                                <span class="material-icons text-md leading-none">open_in_new</span>
+                            </a>
                         </li>
  
                         <li v-if="response.deal">
@@ -178,7 +233,7 @@ const onSuggestionsApplied = () => {
                                 class="inline-flex items-center gap-1 ml-1 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">
                                 <span class="material-icons text-base leading-none">home</span>
                                 {{ response.deal.title }}
-                                <span class="material-icons text-sm leading-none">open_in_new</span>
+                                <span class="material-icons text-md leading-none">open_in_new</span>
                             </a>
                         </li>
                     </ul>
@@ -189,14 +244,14 @@ const onSuggestionsApplied = () => {
                         <span class="material-icons text-green-600 dark:text-green-400">task_alt</span>
                         Summary
                     </h3>
-                    <ul class="text-sm text-gray-700 dark:text-gray-300 space-y-3">
+                    <ul class="text-md text-gray-700 dark:text-gray-300 space-y-3">
                         <li>
                             <strong class="text-gray-900 dark:text-white">Survey Type:</strong>
                             <span class="ml-1">{{ survey.type.charAt(0).toUpperCase() + survey.type.slice(1) }}</span>
                         </li>
                         <li class="flex items-center gap-2 flex-wrap">
                             <strong class="text-gray-900 dark:text-white">Survey Status:</strong>
-                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium"
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-md font-medium"
                                 :class="survey.status
                                     ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
                                     : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'">
@@ -216,31 +271,31 @@ const onSuggestionsApplied = () => {
                     </h3>
                     <div class="space-y-3">
                         <div class="flex items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                            <template v-if="response.assigned_to_user">
+                            <template v-if="assigneeUser">
                                 <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold mr-3 flex-shrink-0">
-                                    {{ response.assigned_to_user.name.charAt(0) }}
+                                    {{ userDisplayName(assigneeUser).charAt(0) }}
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ response.assigned_to_user.name }}</p>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ response.assigned_to_user.email }}</p>
+                                    <p class="text-md font-medium text-gray-900 dark:text-white truncate">{{ userDisplayName(assigneeUser) }}</p>
+                                    <p class="text-md text-gray-500 dark:text-gray-400 truncate">{{ assigneeUser.email }}</p>
                                 </div>
                             </template>
                             <template v-else>
                                 <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center mr-3 flex-shrink-0">
                                     <span class="material-icons text-gray-500 dark:text-gray-400">person</span>
                                 </div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Unassigned</p>
+                                <p class="text-md text-gray-500 dark:text-gray-400">Unassigned</p>
                             </template>
                         </div>
  
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Reassign response to:
                             </label>
                             <select class="input-style" @change="reassignResponse(response.id, $event.target.value)">
                                 <option value="">-- Select Team Member --</option>
                                 <option
-                                    v-for="member in users.filter(m => m.id !== (response.assigned_to ?? 0))"
+                                    v-for="member in users.filter(m => m.id !== (assignedToId ?? 0))"
                                     :key="member.id"
                                     :value="member.id">
                                     {{ member.name }}
@@ -250,51 +305,57 @@ const onSuggestionsApplied = () => {
                     </div>
                 </div>
  
-                <div class="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 border border-purple-200 dark:border-purple-800 rounded-lg shadow-sm p-6">
-                    <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        AI Analysis
-                    </h3>
-                    <aianalysisbutton
-                        :surveyresponseid="response.id"
-                        :teamid="team.id"
-                        :hasanalysis="!!response.latest_ai_analysis"
-                        :ontrial="onTrial"
-                        :subscriptionlevel="subscriptionLevel"
-                        :upgradeurl="`${$page.props.appUrl}/settings/subscriptions`"
-                        @analysiscomplete="onAnalysisComplete"
-                        @showanalysis="showAiAnalysis = true"
-                    />
-                </div>
- 
-                <div v-if="survey.type === 'lead' && !response.converted && response.email"
+                <div v-if="showConvertActions"
                     class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6">
                     <h3 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <span class="material-icons text-blue-600 dark:text-blue-400">person_add</span>
                         Actions
                     </h3>
-                    <button
-                        @click.prevent="convertToLead(response.id)"
-                        class="inline-flex items-center justify-center gap-2 btn btn-blue w-full">
-                        <span class="material-icons text-base leading-none">person_add</span>
-                        Convert to Lead
-                    </button>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Create a new lead from this survey response
+                    <div class="flex flex-col gap-2">
+                        <button
+                            v-if="survey.type === 'lead'"
+                            type="button"
+                            class="btn btn-primary w-full justify-center gap-2"
+                            @click.prevent="convertResponse(response.id, 'lead')">
+                            <span class="material-icons text-base leading-none">person_add</span>
+                            Convert to lead
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center gap-2 btn btn-outline w-full dark:border-gray-600"
+                            @click.prevent="convertResponse(response.id, 'contact')">
+                            <span class="material-icons text-base leading-none">contact_mail</span>
+                            Convert to contact
+                        </button>
+                    </div>
+                    <p class="mt-2 text-md text-gray-500 dark:text-gray-400">
+                        Create a CRM record from this response (email must match a new contact if you choose contact).
                     </p>
                 </div>
- 
-                <div v-else-if="survey.type === 'lead' && response.converted"
+
+                <div v-else-if="response.converted || sourceContactHref"
                     class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6">
-                    <div class="flex items-center justify-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div v-if="sourceContactHref" class="space-y-2">
+                        <a
+                            :href="sourceContactHref"
+                            class="btn btn-primary w-full justify-center gap-2 no-underline"
+                        >
+                            <span class="material-icons text-base leading-none">person</span>
+                            Open linked contact
+                        </a>
+                        <div v-if="response.converted" class="flex items-center justify-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                            <span class="material-icons text-green-600 dark:text-green-400">check_circle</span>
+                            <span class="text-md font-medium text-green-700 dark:text-green-300">Converted to CRM</span>
+                        </div>
+                    </div>
+                    <div v-else class="flex items-center justify-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                         <span class="material-icons text-green-600 dark:text-green-400">check_circle</span>
-                        <span class="text-sm font-medium text-green-700 dark:text-green-300">Already Converted to Lead</span>
+                        <span class="text-md font-medium text-green-700 dark:text-green-300">Already converted</span>
                     </div>
                 </div>
  
-                <surveyfollowupcard
+                <SurveyFollowupCard
+                    v-if="team"
                     :survey-response-id="response.id"
                     :team-id="team.id"
                     :scheduled-followup="response.scheduled_followup_email"
@@ -303,18 +364,6 @@ const onSuggestionsApplied = () => {
  
         
             <div class="lg:col-span-2 space-y-6">
- 
-                <aianalysisresults
-                    v-if="showAiAnalysis && aiAnalysis"
-                    :analysis="aiAnalysis"
-                    :teamid="team.id"
-                    :currentusername="currentUser.name"
-                    :initially-collapsed="!response.latest_ai_analysis"
-                    :response="response"
-                    @close="showAiAnalysis = false"
-                    @suggestionsapplied="onSuggestionsApplied"
-                />
- 
                 <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -330,7 +379,7 @@ const onSuggestionsApplied = () => {
                                     {{ index + 1 }}. {{ question.label }}
                                     <span v-if="question.required" class="text-red-500 ml-0.5">*</span>
                                 </h4>
-                                <div class="text-sm text-gray-700 dark:text-gray-300">
+                                <div class="text-md text-gray-700 dark:text-gray-300">
                                     <span v-if="formatAnswer(getAnswerForQuestion(question.id))">
                                         {{ formatAnswer(getAnswerForQuestion(question.id)) }}
                                     </span>
@@ -338,7 +387,7 @@ const onSuggestionsApplied = () => {
                                 </div>
                             </div>
                         </template>
-                        <p v-else class="text-sm text-gray-500 dark:text-gray-400 text-center py-6">
+                        <p v-else class="text-md text-gray-500 dark:text-gray-400 text-center py-6">
                             No questions found for this survey.
                         </p>
                     </div>

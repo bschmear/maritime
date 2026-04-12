@@ -29,6 +29,7 @@ return [
     'client_url' => env('APP_CLIENT'),
     'aws_url' => env('AWS_PUBLIC_URL', null),
     'api_key' => env('OPENAI_API_KEY', ''),
+    'app_brand' => '#2663eb',
 
     'timezone' => 'UTC',
     'locale' => env('APP_LOCALE', 'en'),
@@ -45,10 +46,10 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-    "extra_seats" => [
-        "monthly_price_id" => env('EXTRA_SEAT_MONTHLY_ID'),
-        "yearly_price_id" => env('EXTRA_SEAT_YEARLY_ID'),
-        "monthly_price" => env('EXTRA_SEAT_MONTHLY_PRICE'),
-        "yearly_price" => env('EXTRA_SEAT_YEARLY_PRICE')
-    ]
+    'extra_seats' => [
+        'monthly_price_id' => env('EXTRA_SEAT_MONTHLY_ID'),
+        'yearly_price_id' => env('EXTRA_SEAT_YEARLY_ID'),
+        'monthly_price' => env('EXTRA_SEAT_MONTHLY_PRICE'),
+        'yearly_price' => env('EXTRA_SEAT_YEARLY_PRICE'),
+    ],
 ];

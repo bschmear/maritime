@@ -3,6 +3,7 @@
 namespace App\Domain\Survey\Models;
 
 use App\Domain\User\Models\User;
+use App\Models\AccountSettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -84,6 +85,13 @@ class Survey extends Model
     {
         if ($this->color_scheme === 'custom' && $this->custom_color) {
             return $this->custom_color;
+        }
+
+        if ($this->color_scheme === 'team') {
+            $brand = AccountSettings::getCurrent()->brand_color ?? null;
+            if (is_string($brand) && $brand !== '') {
+                return $brand;
+            }
         }
 
         return config('app.app_brand', '#0d9488');

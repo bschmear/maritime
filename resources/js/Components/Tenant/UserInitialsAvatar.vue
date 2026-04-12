@@ -34,7 +34,7 @@ const boxClass = computed(() =>
 
 <template>
     <span
-        class="inline-flex shrink-0 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-700 dark:bg-slate-600 dark:text-slate-100"
+        class="inline-flex shrink-0 items-center justify-center rounded-full bg-primary-200 font-semibold text-primary-700 dark:bg-primary-600 dark:text-primary-100"
         :class="boxClass"
         :title="name || undefined"
     >

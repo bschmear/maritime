@@ -452,6 +452,7 @@ Route::middleware([
             Route::get('/responses', [SurveyController::class, 'responses'])->name('surveyResponses');
             Route::get('/survey/responses', [SurveyController::class, 'responses'])->name('surveyResponsesByUuid');
             Route::get('/survey/response', [SurveyController::class, 'showResponse'])->name('surveyResponseShow');
+            Route::post('/survey/response/convert', [SurveyController::class, 'convertSurveyResponse'])->name('surveyResponseConvert');
             Route::post('/survey/response/convert-to-lead', [SurveyController::class, 'convertResponseToLead'])->name('surveyResponseConvertToLead');
         });
 

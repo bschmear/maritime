@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Tenant\Surveys;
 
+use App\Domain\Contact\Actions\CreateContact;
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Survey\Models\Survey;
 use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\User\Models\User;
@@ -9,6 +12,7 @@ use App\Enums\Surveys\Status;
 use App\Enums\Surveys\Type;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +83,9 @@ class SurveyController extends Controller
         }
 
         if ($filterName) {
-            $query->where('title', 'like', '%'.$filterName.'%');
+            $query->whereRaw('LOWER(title) LIKE ?', [
+                '%'.mb_strtolower((string) $filterName, 'UTF-8').'%',
+            ]);
         }
 
         if ($filterUser) {
@@ -206,10 +212,13 @@ class SurveyController extends Controller
         $filterUser = $request->get('filteruser', 'all');
         $survey = null;
 
-        $query = SurveyResponse::query()->with(['survey', 'owner', 'assignedTo']);
+        $query = SurveyResponse::query()->with(['survey', 'owner', 'assignedTo', 'sourceable']);
 
         if ($surveyUuid) {
-            $survey = Survey::where('uuid', $surveyUuid)->firstOrFail();
+            $survey = Survey::query()
+                ->with('user')
+                ->where('uuid', $surveyUuid)
+                ->firstOrFail();
             $query->where('survey_id', $survey->id);
         }
 
@@ -228,7 +237,6 @@ class SurveyController extends Controller
             'survey' => $survey,
             'users' => $this->usersForSelect(),
             'filterUser' => $filterUser,
-            'isAdmin' => false,
             'currentUser' => auth()->user(),
         ]);
     }
@@ -239,7 +247,7 @@ class SurveyController extends Controller
         $responseId = $request->get('rid');
         abort_unless($responseId, 404);
 
-        $response = SurveyResponse::with(['answers', 'assignedTo'])->findOrFail($responseId);
+        $response = SurveyResponse::with(['answers', 'assignedTo', 'sourceable'])->findOrFail($responseId);
         $survey = $response->survey;
 
         if ($survey->uuid != $surveyId) {
@@ -259,8 +267,6 @@ class SurveyController extends Controller
             'currentUser' => auth()->user(),
             'isAdmin' => false,
             'team' => null,
-            'onTrial' => false,
-            'subscriptionLevel' => 0,
         ]);
     }
 
@@ -292,20 +298,20 @@ class SurveyController extends Controller
     public function getTemplates(): JsonResponse
     {
         // $templates = Cache::remember('survey_templates', now()->addDay(), function () {
-            $path = resource_path('survey-templates');
-            // dd($path);
-            $templates = [];
+        $path = resource_path('survey-templates');
+        // dd($path);
+        $templates = [];
 
-            if (file_exists($path)) {
-                foreach (glob($path.'/*.json') as $file) {
-                    $tpl = json_decode(file_get_contents($file), true);
-                    if ($tpl) {
-                        $templates[] = $tpl;
-                    }
+        if (file_exists($path)) {
+            foreach (glob($path.'/*.json') as $file) {
+                $tpl = json_decode(file_get_contents($file), true);
+                if ($tpl) {
+                    $templates[] = $tpl;
                 }
             }
+        }
 
-            // return $templates;
+        // return $templates;
         // });
 
         return response()->json($templates);
@@ -601,9 +607,131 @@ class SurveyController extends Controller
     // CRM-only stubs — not yet implemented for this project
     // -------------------------------------------------------------------------
 
-    public function convertResponseToLead(Request $request): JsonResponse
+    public function convertResponseToLead(Request $request): RedirectResponse|JsonResponse
     {
-        return response()->json(['message' => 'Not implemented.'], 501);
+        $request->merge(['target' => 'lead']);
+
+        return $this->convertSurveyResponse($request);
+    }
+
+    /**
+     * Create a lead or contact from a survey response and link {@see SurveyResponse::sourceable} to the contact.
+     */
+    public function convertSurveyResponse(Request $request): RedirectResponse|JsonResponse
+    {
+        $validated = $request->validate([
+            'response_id' => ['required', 'integer', 'exists:survey_responses,id'],
+            'target' => ['required', 'in:lead,contact'],
+        ]);
+
+        $response = SurveyResponse::query()
+            ->with('survey')
+            ->findOrFail($validated['response_id']);
+
+        if ($response->converted) {
+            return $this->convertSurveyResponseError($request, 'This response has already been converted.');
+        }
+
+        if ($this->responseIsLinkedToContact($response)) {
+            return $this->convertSurveyResponseError($request, 'This response is already linked to an existing contact.');
+        }
+
+        if (! $response->email) {
+            return $this->convertSurveyResponseError($request, 'An email address is required to convert this response.');
+        }
+
+        if ($validated['target'] === 'lead' && $response->survey->type !== 'lead') {
+            return $this->convertSurveyResponseError($request, 'Only lead-type surveys can be converted to a lead.');
+        }
+
+        if ($validated['target'] === 'contact' && Contact::findByEmailCaseInsensitive($response->email)) {
+            return $this->convertSurveyResponseError($request, 'A contact with this email already exists. Refresh the page to see the link.');
+        }
+
+        try {
+            if ($validated['target'] === 'contact') {
+                $result = app(CreateContact::class)([
+                    'first_name' => $response->first_name,
+                    'last_name' => $response->last_name,
+                    'email' => $response->email,
+                    'assigned_user_id' => $response->assigned_to,
+                    'source' => 'Survey: '.$response->survey->title,
+                    'notes' => $this->surveyResponseConversionNotes($response),
+                ]);
+                $contactId = $result['record']->id ?? null;
+            } else {
+                $result = app(CreateLead::class)([
+                    'first_name' => $response->first_name ?: 'Unknown',
+                    'last_name' => $response->last_name ?: 'Respondent',
+                    'email' => $response->email,
+                    'assigned_user_id' => $response->assigned_to,
+                    'notes' => $this->surveyResponseConversionNotes($response),
+                ]);
+                $lead = $result['record'] ?? null;
+                $contactId = $lead?->contact_id;
+            }
+
+            if (! ($result['success'] ?? false) || ! $contactId) {
+                return $this->convertSurveyResponseError(
+                    $request,
+                    is_array($result) ? ($result['message'] ?? 'Conversion failed.') : 'Conversion failed.',
+                    500,
+                );
+            }
+
+            $response->update([
+                'converted' => true,
+                'sourceable_type' => Contact::class,
+                'sourceable_id' => $contactId,
+            ]);
+
+            $message = $validated['target'] === 'contact'
+                ? 'Contact created from survey response.'
+                : 'Lead created from survey response.';
+
+            if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+                return response()->json(['success' => true, 'message' => $message]);
+            }
+
+            return redirect()->back()->with('success', $message);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Survey response conversion failed: '.$e->getMessage(), [
+                'response_id' => $response->id,
+                'target' => $validated['target'],
+            ]);
+
+            return $this->convertSurveyResponseError($request, 'Conversion failed. Please try again.', 500);
+        }
+    }
+
+    protected function responseIsLinkedToContact(SurveyResponse $response): bool
+    {
+        if (! $response->sourceable_type || ! $response->sourceable_id) {
+            return false;
+        }
+
+        return $response->sourceable_type === Contact::class
+            || str_ends_with((string) $response->sourceable_type, '\\Contact');
+    }
+
+    protected function surveyResponseConversionNotes(SurveyResponse $response): string
+    {
+        return sprintf(
+            'Created from survey response #%d (%s).',
+            $response->id,
+            $response->survey->title,
+        );
+    }
+
+    protected function convertSurveyResponseError(Request $request, string $message, int $status = 422): RedirectResponse|JsonResponse
+    {
+        if ($request->expectsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['success' => false, 'message' => $message], $status);
+        }
+
+        return redirect()->back()->withErrors(['error' => $message]);
     }
 
     public function sendToDeal(Request $request): JsonResponse

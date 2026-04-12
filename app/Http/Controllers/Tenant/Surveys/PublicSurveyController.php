@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Tenant\Surveys;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\Survey\Models\Survey;
-use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\User\Models\User;
 use App\Domain\Vendor\Models\Vendor;
 use App\Http\Controllers\Controller;
@@ -13,8 +12,10 @@ use App\Jobs\ProcessSurveyResponse;
 use App\Models\AccountSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,9 +31,41 @@ class PublicSurveyController extends Controller
         return Inertia::render('Tenant/Public/SurveyIntake', $this->buildIntakeProps($request, embed: false));
     }
 
-    public function embed(Request $request): Response
+    /**
+     * Minimal iframe-friendly HTML (no Vue/Inertia). See resources/views/surveys/embed.blade.php.
+     */
+    public function embed(Request $request): View
     {
-        return Inertia::render('Tenant/Public/SurveyIntake', $this->buildIntakeProps($request, embed: true));
+        $uuid = $request->query('id');
+        abort_unless($uuid, 404);
+
+        $survey = Survey::query()
+            ->where('uuid', $uuid)
+            ->where('status', true)
+            ->with(['questions' => fn ($q) => $q->orderBy('order')])
+            ->firstOrFail();
+
+        if ($survey->visibility !== 'public') {
+            if (! $this->userCanManageSurvey($survey)) {
+                abort(404);
+            }
+        }
+
+        $aid = $request->query('aid');
+        $agentId = null;
+        if ($aid !== null && $aid !== '') {
+            $aidInt = filter_var($aid, FILTER_VALIDATE_INT);
+            if ($aidInt !== false && $aidInt >= 1 && User::query()->whereKey($aidInt)->exists()) {
+                $agentId = $aidInt;
+            }
+        }
+
+        return view('surveys.embed', [
+            'survey' => $survey,
+            'surveyColor' => $survey->getEffectiveColor(),
+            'submitUrl' => route('surveysPublicSubmit', absolute: true),
+            'agentId' => $agentId,
+        ]);
     }
 
     /**
@@ -64,6 +97,7 @@ class PublicSurveyController extends Controller
             'recipientData' => $recipientData,
             'agent' => $this->serializeAgent($agent),
             'surveyColor' => $survey->getEffectiveColor(),
+            'defaultSurveyBrand' => config('app.app_brand', '#2663eb'),
             'embed' => $embed,
             'canEdit' => $canEdit,
             'account' => [
@@ -260,6 +294,10 @@ class PublicSurveyController extends Controller
                 }
             }
 
+            $matchedContact = ! empty($validated['email'])
+                ? Contact::findByEmailCaseInsensitive($validated['email'])
+                : null;
+
             $surveyResponse = $survey->responses()->create([
                 'email' => $validated['email'] ?? null,
                 'first_name' => $validated['first_name'] ?? null,
@@ -267,6 +305,8 @@ class PublicSurveyController extends Controller
                 'owner_type' => $ownerType,
                 'owner_id' => $ownerId,
                 'assigned_to' => $assignedTo,
+                'sourceable_type' => $matchedContact ? Contact::class : null,
+                'sourceable_id' => $matchedContact?->id,
                 'submitted_at' => now(),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -353,9 +393,13 @@ class PublicSurveyController extends Controller
      */
     protected function validateRequiredAnswers(Survey $survey, array $answers): void
     {
+        $sorted = $survey->questions->sortBy('order')->values();
         $errors = [];
-        foreach ($survey->questions as $question) {
+        foreach ($sorted as $question) {
             if (! $question->required) {
+                continue;
+            }
+            if (! $this->isSurveyQuestionVisible($question, $sorted, $answers)) {
                 continue;
             }
             $key = (string) $question->id;
@@ -373,6 +417,63 @@ class PublicSurveyController extends Controller
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /**
+     * Matches {@see \resources\js\Pages\Tenant\Public\SurveyIntake.vue} conditional visibility (sorted question index).
+     *
+     * @param  Collection<int, \App\Domain\Survey\Models\SurveyQuestion>  $sortedQuestions
+     * @param  array<string|int, mixed>  $answers
+     */
+    protected function isSurveyQuestionVisible(object $question, Collection $sortedQuestions, array $answers): bool
+    {
+        $logic = $question->conditional_logic;
+        if ($logic === null || $logic === [] || $logic === '') {
+            return true;
+        }
+        if (! is_array($logic)) {
+            return true;
+        }
+
+        /** @var list<object> $qs */
+        $qs = $sortedQuestions->all();
+
+        if (! empty($logic['rules']) && is_array($logic['rules'])) {
+            foreach ($logic['rules'] as $rule) {
+                if (! is_array($rule)) {
+                    continue;
+                }
+                $idx = $rule['question'] ?? null;
+                if ($idx === null || ! isset($qs[$idx])) {
+                    continue;
+                }
+                $targetQuestion = $qs[$idx];
+                $tid = (string) $targetQuestion->id;
+                $targetAnswer = $answers[$tid] ?? $answers[$targetQuestion->id] ?? null;
+                if ($targetAnswer == ($rule['equals'] ?? null)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        $showIdx = $logic['show_if_question'] ?? null;
+        $targetQuestion = ($showIdx !== null && isset($qs[$showIdx])) ? $qs[$showIdx] : null;
+        if (! $targetQuestion) {
+            return true;
+        }
+        $tid = (string) $targetQuestion->id;
+        $targetAnswer = $answers[$tid] ?? $answers[$targetQuestion->id] ?? null;
+
+        if (array_key_exists('equals', $logic)) {
+            return $targetAnswer == $logic['equals'];
+        }
+        if (! empty($logic['equals_any']) && is_array($logic['equals_any'])) {
+            return in_array($targetAnswer, $logic['equals_any'], false);
+        }
+
+        return true;
     }
 
     /**
@@ -495,10 +596,10 @@ class PublicSurveyController extends Controller
 
         // Color customization: allowed for survey managers in this app (no separate billing gate yet).
         $updateData = [];
-        if (isset($validated['color_scheme'])) {
+        if (array_key_exists('color_scheme', $validated)) {
             $updateData['color_scheme'] = $validated['color_scheme'];
         }
-        if (isset($validated['custom_color'])) {
+        if (array_key_exists('custom_color', $validated)) {
             $updateData['custom_color'] = $validated['custom_color'];
         }
 

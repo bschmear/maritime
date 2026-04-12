@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import UserInitialsAvatar from '@/Components/Tenant/UserInitialsAvatar.vue';
 import SurveyStatusToggle from '@/Components/surveys/SurveyStatusToggle.vue';
 import SurveyActions from '@/Components/surveys/SurveyActions.vue';
+import SurveyLinks from '@/Components/surveys/SurveyLinks.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -304,12 +305,13 @@ const recentResponses = computed(() =>
             <!-- Right Column -->
             <div class="space-y-6">
 
-                <survey-links
-                    v-if="survey.status"
+                <SurveyLinks
+                    v-if="survey.status && survey.public_url"
                     :base-url="survey.public_url"
+                    :embed-base-url="survey.embed_url || ''"
                     :users="users"
                     :current-user-id="currentUser.id"
-                    :current-user-name="currentUser.name"
+                    :current-user-name="currentUser.display_name || currentUser.name || currentUser.email || ''"
                     :visibility="survey.visibility ?? 'public'"
                 />
 

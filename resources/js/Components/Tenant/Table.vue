@@ -9,481 +9,196 @@ import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 const props = defineProps({
-    records: {
-        type: Object,
-        required: true,
-    },
-    schema: {
-        type: Object,
-        default: null,
-    },
-    formSchema: {
-        type: Object,
-        default: null,
-    },
-    fieldsSchema: {
-        type: Object,
-        default: () => ({}),
-    },
-    enumOptions: {
-        type: Object,
-        default: () => ({}),
-    },
-    recordType: {
-        type: String,
-        default: '',
-    },
-    pluralTitle: {
-        type: String,
-        default: '',
-    },
-    recordTitle: {
-        type: String,
-        default: '',
-    },
-    createModal: {
-        type: Boolean,
-        default: true,
-    },
-    extraRouteParams: {
-        type: Object,
-        default: () => ({}),
-    },
-    initialCreateData: {
-        type: Object,
-        default: () => ({}),
-    },
-    /** Optional: spec definitions for create modal (e.g. assets index). */
-    createAvailableSpecs: {
-        type: Array,
-        default: () => [],
-    },
+    records:             { type: Object, required: true },
+    schema:              { type: Object, default: null },
+    formSchema:          { type: Object, default: null },
+    fieldsSchema:        { type: Object, default: () => ({}) },
+    enumOptions:         { type: Object, default: () => ({}) },
+    recordType:          { type: String, default: '' },
+    pluralTitle:         { type: String, default: '' },
+    recordTitle:         { type: String, default: '' },
+    createModal:         { type: Boolean, default: true },
+    extraRouteParams:    { type: Object, default: () => ({}) },
+    initialCreateData:   { type: Object, default: () => ({}) },
+    createAvailableSpecs:{ type: Array,  default: () => [] },
 });
 
-const showCreateModal = ref(false);
+const showCreateModal  = ref(false);
 const showSuccessModal = ref(false);
-const showViewModal = ref(false);
+const showViewModal    = ref(false);
 const showFiltersModal = ref(false);
-const createdRecordId = ref(null);
-const selectedRecords = ref(new Set());
-const selectAll = ref(false);
-const selectedRecord = ref(null);
+const createdRecordId  = ref(null);
+const selectedRecords  = ref(new Set());
+const selectAll        = ref(false);
+const selectedRecord   = ref(null);
 const selectedRecordImageUrls = ref({});
-const activeFilters = ref([]);
-const isLoadingRecord = ref(false);
-const searchQuery = ref('');
+const activeFilters    = ref([]);
+const isLoadingRecord  = ref(false);
+const searchQuery      = ref('');
 
-// Get global properties
 const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
 
-const recordFormComponent = computed(() => (props.recordType === 'assets' ? AssetForm : Form));
+const recordFormComponent = computed(() => props.recordType === 'assets' ? AssetForm : Form);
+const columns     = computed(() => props.schema?.columns ?? []);
+const modalMaxWidth = computed(() => props.formSchema?.settings?.max_width ?? '4xl');
+const hasRecords  = computed(() => props.records.data?.length > 0);
+const showEmptyState = computed(() => !hasRecords.value && !activeFilters.value.length && !searchQuery.value);
+const showFilteredOutState = computed(() => !hasRecords.value && (activeFilters.value.length > 0 || searchQuery.value));
 
-const columns = computed(() => {
-    if (!props.schema || !props.schema.columns) {
-        return [];
-    }
-    return props.schema.columns;
-});
-
-const modalMaxWidth = computed(() => {
-    if (props.formSchema && props.formSchema.settings && props.formSchema.settings.max_width) {
-        return props.formSchema.settings.max_width;
-    }
-    return '4xl';
-});
-
-const isFirstPage = computed(() => {
-    return props.records.current_page === 1;
-});
-
-const hasRecords = computed(() => {
-    return props.records.data && props.records.data.length > 0;
-});
-
-const showEmptyState = computed(() => {
-    return !hasRecords.value && activeFilters.value.length === 0 && !searchQuery.value;
-});
-
-const showFilteredOutState = computed(() => {
-    return !hasRecords.value && (activeFilters.value.length > 0 || searchQuery.value);
-});
-
+// ── Enum helpers ──────────────────────────────────────────────────────────────
 const getEnumOption = (fieldKey, value) => {
     const fieldDef = props.fieldsSchema[fieldKey];
-    if (!fieldDef || !fieldDef.enum || !value) {
-        return null;
-    }
-    
-    const enumOptions = props.enumOptions[fieldDef.enum];
-    if (!enumOptions || !Array.isArray(enumOptions)) {
-        return null;
-    }
-    
-    return enumOptions.find(opt => opt.id === value || opt.value === value) || null;
+    if (!fieldDef?.enum || !value) return null;
+    const opts = props.enumOptions[fieldDef.enum];
+    if (!Array.isArray(opts)) return null;
+    return opts.find(o => o.id === value || o.value === value) ?? null;
 };
 
-const getEnumLabel = (fieldKey, value) => {
-    const option = getEnumOption(fieldKey, value);
-    return option ? option.name : value;
-};
+const getEnumLabel = (fieldKey, value) => getEnumOption(fieldKey, value)?.name ?? value;
 
 const getColorClass = (color) => {
     if (!color) return '';
-    // Map color names to Tailwind CSS classes
-    const colorMap = {
-        'blue': 'bg-blue-500',
-        'green': 'bg-green-500',
-        'teal': 'bg-teal-500',
-        'gray': 'bg-gray-500',
-        'purple': 'bg-purple-500',
-        'yellow': 'bg-yellow-500',
-        'orange': 'bg-orange-500',
-        'red': 'bg-red-500',
-        'pink': 'bg-pink-500',
-        'primary': 'bg-primary-500',
-    };
-    return colorMap[color] || `bg-${color}-500`;
+    const map = { blue:'bg-blue-500', green:'bg-green-500', teal:'bg-teal-500', gray:'bg-gray-500',
+                  purple:'bg-purple-500', yellow:'bg-yellow-500', orange:'bg-orange-500',
+                  red:'bg-red-500', pink:'bg-pink-500', primary:'bg-primary-500' };
+    return map[color] || `bg-${color}-500`;
 };
 
-// Phone number formatting
-const formatPhoneNumber = (value) => {
-    if (!value) return '';
-    // Remove all non-numeric characters
-    const numbers = value.replace(/\D/g, '');
-    // Format as (XXX) XXX-XXXX
-    if (numbers.length <= 3) {
-        return numbers;
-    } else if (numbers.length <= 6) {
-        return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
-    } else {
-        return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
-    }
+// ── Formatters ────────────────────────────────────────────────────────────────
+const formatPhoneNumber = (v) => {
+    if (!v) return '';
+    const n = v.replace(/\D/g, '');
+    if (n.length <= 3) return n;
+    if (n.length <= 6) return `(${n.slice(0,3)}) ${n.slice(3)}`;
+    return `(${n.slice(0,3)}) ${n.slice(3,6)}-${n.slice(6,10)}`;
 };
 
-// Date formatting
-const formatDate = (value) => {
-    if (!value || value === null || value === undefined) return '—';
-    
+const formatDate = (v) => {
+    if (!v) return '—';
     try {
-        // Handle different date formats
-        let date;
-        if (typeof value === 'string') {
-            // If it's just a date string (YYYY-MM-DD), parse it directly
-            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-                date = new Date(value + 'T00:00:00');
-            } else {
-                date = new Date(value);
-            }
-        } else {
-            date = new Date(value);
-        }
-        
-        if (isNaN(date.getTime())) {
-            return value;
-        }
-        
-        return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    } catch (e) {
-        return value;
-    }
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v + 'T00:00:00') : new Date(v);
+        if (isNaN(d.getTime())) return v;
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch { return v; }
 };
 
-// DateTime formatting
-const formatDateTime = (value) => {
-    if (!value || value === null || value === undefined) return '—';
-    
+const formatDateTime = (v) => {
+    if (!v) return '—';
     try {
-        const date = new Date(value);
-        
-        if (isNaN(date.getTime())) {
-            return value;
-        }
-        
-        // Format as: "Jan 15, 2024, 2:30 PM"
-        return date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-    } catch (e) {
-        return value;
-    }
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return v;
+        return d.toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true });
+    } catch { return v; }
 };
 
 const getRecordValue = (record, column) => {
     const key = typeof column === 'string' ? column : column.key;
-    const rawValue = record[key] ?? '';
-    
-    if (rawValue === '' || rawValue === null || rawValue === undefined) {
-        return '—';
-    }
-    
-    // Get field definition to check type
-    const fieldDef = props.fieldsSchema[key];
-    
-    // Check if this field has an enum definition
-    if (fieldDef && fieldDef.enum && rawValue !== '') {
-        return getEnumLabel(key, rawValue);
-    }
-    
-    // Format based on field type
-    if (fieldDef) {
-        const fieldType = fieldDef.type || 'text';
-        
-        // Format phone numbers
-        if (fieldType === 'tel') {
-            return formatPhoneNumber(rawValue);
-        }
-        
-        // Format dates
-        if (fieldType === 'date') {
-            return formatDate(rawValue);
-        }
-        
-        // Format datetime
-        if (fieldType === 'datetime') {
-            return formatDateTime(rawValue);
-        }
-
-        // Format rating
-        if (fieldType === 'rating') {
-            return `${rawValue || 0}/5`;
-        }
-
-        // Format currency
-        if (fieldType === 'currency') {
-            return $formatCurrency(rawValue);
-        }
-
-        // Handle record relationships
-        if (fieldType === 'record' && fieldDef.typeDomain) {
-            // Build candidate keys in priority order:
-            // (same logic used in getRelationshipLink)
-            // 1. Explicit relationship name from schema (e.g. "salesperson" for user_id)
-            // 2. Key with _id stripped (e.g. "user" from "user_id")
-            // 3. Key with current_ stripped
-            // 4. Domain name lowercase
-            // 5. Original key as-is
-            const candidateKeys = [];
-
-            if (fieldDef.relationship) {
-                candidateKeys.push(fieldDef.relationship);
+    const raw = record[key] ?? '';
+    if (raw === '' || raw === null || raw === undefined) return '—';
+    const fd = props.fieldsSchema[key];
+    if (fd?.enum && raw !== '') return getEnumLabel(key, raw);
+    if (fd) {
+        const t = fd.type || 'text';
+        if (t === 'tel')      return formatPhoneNumber(raw);
+        if (t === 'date')     return formatDate(raw);
+        if (t === 'datetime') return formatDateTime(raw);
+        if (t === 'rating')   return `${raw || 0}/5`;
+        if (t === 'currency') return $formatCurrency(raw);
+        if (t === 'record' && fd.typeDomain) {
+            const candidates = [];
+            if (fd.relationship) candidates.push(fd.relationship);
+            let inf = key;
+            if (inf.endsWith('_id')) inf = inf.slice(0,-3);
+            if (inf.startsWith('current_')) inf = inf.slice(8);
+            if (inf.endsWith('s')) inf = inf.slice(0,-1);
+            candidates.push(inf, key.replace('_id',''), key.replace('current_',''), fd.typeDomain.toLowerCase(), key);
+            for (const c of candidates) {
+                const rel = record[c];
+                if (rel && typeof rel === 'object' && rel.display_name) return rel.display_name;
             }
-
-            let inferredKey = key;
-            if (inferredKey.endsWith('_id')) inferredKey = inferredKey.slice(0, -3);
-            if (inferredKey.startsWith('current_')) inferredKey = inferredKey.slice(8);
-            if (inferredKey.endsWith('s')) inferredKey = inferredKey.slice(0, -1);
-            candidateKeys.push(inferredKey);
-
-            candidateKeys.push(
-                key.replace('_id', ''),
-                key.replace('current_', ''),
-                fieldDef.typeDomain.toLowerCase(),
-                key,
-            );
-
-            for (const candidate of candidateKeys) {
-                const rel = record[candidate];
-                if (rel && typeof rel === 'object' && rel.display_name) {
-                    return rel.display_name;
-                }
-            }
-
-            // Fallback to showing the raw value if relationship data isn't available
-            return rawValue;
+            return raw;
         }
     }
-    
-    // Auto-detect Laravel timestamp fields (created_at, updated_at, deleted_at, etc.)
-    // These typically end with '_at' and contain ISO datetime strings
-    if (key.endsWith('_at') && typeof rawValue === 'string' && rawValue.includes('T')) {
-        return formatDateTime(rawValue);
+    if (key.endsWith('_at') && typeof raw === 'string' && raw.includes('T')) return formatDateTime(raw);
+    if (typeof raw === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(raw)) return formatDateTime(raw);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return formatDate(raw);
     }
-    
-    // Auto-detect date-like strings (ISO format)
-    if (typeof rawValue === 'string') {
-        // Check if it looks like a date/datetime string
-        const datePattern = /^\d{4}-\d{2}-\d{2}/;
-        const datetimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
-        
-        if (datetimePattern.test(rawValue)) {
-            return formatDateTime(rawValue);
-        } else if (datePattern.test(rawValue) && rawValue.length <= 10) {
-            return formatDate(rawValue);
-        }
-    }
-    
-    return rawValue;
+    return raw;
 };
 
-// Returns an href string if the cell is a loaded record relationship, null otherwise.
 const getRelationshipLink = (record, column) => {
-    const fieldDef = props.fieldsSchema[column.key];
-    if (!fieldDef || fieldDef.type !== 'record' || !fieldDef.typeDomain) return null;
-
-    // Resolve the loaded relationship object using the same candidate key logic
-    const candidateKeys = [];
-    if (fieldDef.relationship) candidateKeys.push(fieldDef.relationship);
-
-    let inferred = column.key;
-    if (inferred.endsWith('_id')) inferred = inferred.slice(0, -3);
-    if (inferred.startsWith('current_')) inferred = inferred.slice(8);
-    if (inferred.endsWith('s')) inferred = inferred.slice(0, -1);
-    candidateKeys.push(inferred, column.key.replace('_id', ''), fieldDef.typeDomain.toLowerCase(), column.key);
-
-    let relatedRecord = null;
-    for (const k of candidateKeys) {
-        if (record[k] && typeof record[k] === 'object' && record[k].id) {
-            relatedRecord = record[k];
-            break;
-        }
+    const fd = props.fieldsSchema[column.key];
+    if (!fd || fd.type !== 'record' || !fd.typeDomain) return null;
+    const candidates = [];
+    if (fd.relationship) candidates.push(fd.relationship);
+    let inf = column.key;
+    if (inf.endsWith('_id')) inf = inf.slice(0,-3);
+    if (inf.startsWith('current_')) inf = inf.slice(8);
+    if (inf.endsWith('s')) inf = inf.slice(0,-1);
+    candidates.push(inf, column.key.replace('_id',''), fd.typeDomain.toLowerCase(), column.key);
+    let rel = null;
+    for (const k of candidates) {
+        if (record[k] && typeof record[k] === 'object' && record[k].id) { rel = record[k]; break; }
     }
-    if (!relatedRecord?.id) return null;
-
-    // Convert PascalCase typeDomain to kebab-plural route prefix:
-    // Customer -> customers, WorkOrder -> work-orders, AssetUnit -> asset-units
-    const routePrefix = fieldDef.typeDomain
-        .replace(/([A-Z])/g, (m, l, offset) => offset === 0 ? l.toLowerCase() : '-' + l.toLowerCase())
-        + 's';
-
-    try {
-        return route(`${routePrefix}.show`, relatedRecord.id);
-    } catch {
-        return null;
-    }
+    if (!rel?.id) return null;
+    const prefix = fd.typeDomain.replace(/([A-Z])/g, (m,l,o) => o === 0 ? l.toLowerCase() : '-'+l.toLowerCase()) + 's';
+    try { return route(`${prefix}.show`, rel.id); } catch { return null; }
 };
 
-const hasEnumColor = (column, record) => {
-    const key = typeof column === 'string' ? column : column.key;
-    const rawValue = record[key] ?? '';
-    const option = getEnumOption(key, rawValue);
-    return option && option.color;
+const hasEnumColor  = (column, record) => !!getEnumOption(column.key ?? column, record[column.key ?? column])?.color;
+const getColumnLabel = (col) => col.label || props.fieldsSchema[col.key]?.label || col.key;
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+const getShowUrl = (id) => {
+    if (!id) return '#';
+    try { return route(`${props.recordType}.show`, buildResourceRouteParams(props.recordType, id, props.extraRouteParams)); }
+    catch { return '#'; }
 };
 
-const getColumnLabel = (column) => {
-    // Use label from column definition if available
-    if (column.label) {
-        return column.label;
-    }
-    // Fallback to fieldsSchema label
-    if (props.fieldsSchema[column.key]?.label) {
-        return props.fieldsSchema[column.key].label;
-    }
-    // Fallback to key
-    return column.key;
-};
-
-const getShowUrl = (recordId) => {
-    if (!recordId) {
-        console.error('Invalid recordId passed to getShowUrl:', recordId);
-        return '#';
-    }
-    try {
-        return route(
-            `${props.recordType}.show`,
-            buildResourceRouteParams(props.recordType, recordId, props.extraRouteParams)
-        );
-    } catch (error) {
-        console.error('Error generating route for', props.recordType, 'and recordId', recordId, error);
-        return '#';
-    }
-};
-
-const getEditUrl = (recordId) => {
-    return route(
-        `${props.recordType}.edit`,
-        buildResourceRouteParams(props.recordType, recordId, props.extraRouteParams)
-    );
-};
-
-const handleRecordCreated = (recordId) => {
-    createdRecordId.value = recordId;
-    showCreateModal.value = false;
-    showSuccessModal.value = true;
-    
-    // Reload the page data to show the new record
-    router.reload({ only: ['records'] });
-};
-
-const viewRecord = () => {
-    if (createdRecordId.value) {
-        window.location.href = getShowUrl(createdRecordId.value);
-    }
-};
-
-const backToPage = () => {
-    showSuccessModal.value = false;
-    createdRecordId.value = null;
-};
-
+// ── Create / success ──────────────────────────────────────────────────────────
 const handleCreateClick = () => {
-    console.log(props.schema?.allow_create_modal);
     if (props.createModal === false || props.schema?.allow_create_modal === false) {
-        const createRoute = route(`${props.recordType}.create`, props.extraRouteParams);
-        window.location.href = createRoute;
+        window.location.href = route(`${props.recordType}.create`, props.extraRouteParams);
     } else {
         showCreateModal.value = true;
     }
 };
 
-const toggleSelectAll = () => {
-    if (selectAll.value) {
-        props.records.data.forEach(record => selectedRecords.value.add(record.id));
-    } else {
-        selectedRecords.value.clear();
-    }
+const handleRecordCreated = (id) => {
+    createdRecordId.value = id;
+    showCreateModal.value = false;
+    showSuccessModal.value = true;
+    router.reload({ only: ['records'] });
 };
 
-const toggleRecordSelection = (recordId) => {
-    if (selectedRecords.value.has(recordId)) {
-        selectedRecords.value.delete(recordId);
-    } else {
-        selectedRecords.value.add(recordId);
-    }
-    // Update select all checkbox state
+const viewRecord  = () => { if (createdRecordId.value) window.location.href = getShowUrl(createdRecordId.value); };
+const backToPage  = () => { showSuccessModal.value = false; createdRecordId.value = null; };
+
+// ── Selection ─────────────────────────────────────────────────────────────────
+const toggleSelectAll = () => {
+    if (selectAll.value) props.records.data.forEach(r => selectedRecords.value.add(r.id));
+    else selectedRecords.value.clear();
+};
+const toggleRecordSelection = (id) => {
+    if (selectedRecords.value.has(id)) selectedRecords.value.delete(id);
+    else selectedRecords.value.add(id);
     selectAll.value = selectedRecords.value.size === props.records.data.length && props.records.data.length > 0;
 };
+const isRecordSelected = (id) => selectedRecords.value.has(id);
 
-const isRecordSelected = (recordId) => {
-    return selectedRecords.value.has(recordId);
-};
-
+// ── View modal ────────────────────────────────────────────────────────────────
 const handleViewOnPage = async (record) => {
-    // Fetch the full record from the server
     isLoadingRecord.value = true;
     showViewModal.value = true;
-
     try {
-        const response = await axios.get(
+        const res = await axios.get(
             route(`${props.recordType}.show`, buildResourceRouteParams(props.recordType, record.id, props.extraRouteParams)),
-            {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-            }
+            { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } }
         );
-        
-        // Extract the record and imageUrls from the JSON response
-        if (response.data && response.data.record) {
-            selectedRecord.value = response.data.record;
-            selectedRecordImageUrls.value = response.data.imageUrls || {};
-        } else {
-            // Fallback to the partial record if full record not available
-            selectedRecord.value = record;
-            selectedRecordImageUrls.value = {};
-        }
-    } catch (error) {
-        console.error('Error fetching record:', error);
-        // Fallback to the partial record on error
+        selectedRecord.value = res.data?.record ?? record;
+        selectedRecordImageUrls.value = res.data?.imageUrls ?? {};
+    } catch {
         selectedRecord.value = record;
         selectedRecordImageUrls.value = {};
     } finally {
@@ -491,13 +206,9 @@ const handleViewOnPage = async (record) => {
     }
 };
 
-const handleNavigateToItem = (recordId) => {
-    const url = getShowUrl(recordId);
-    if (url !== '#') {
-        window.location.href = url;
-    } else {
-        console.error('Could not generate valid URL for recordId:', recordId);
-    }
+const handleNavigateToItem = (id) => {
+    const url = getShowUrl(id);
+    if (url !== '#') window.location.href = url;
 };
 
 const closeViewModal = () => {
@@ -506,617 +217,353 @@ const closeViewModal = () => {
     selectedRecordImageUrls.value = {};
 };
 
-const handleRecordUpdated = (updatedRecord) => {
-    // Find and update the record in the table
-    if (updatedRecord && updatedRecord.id) {
-        const recordIndex = props.records.data.findIndex(r => r.id === updatedRecord.id);
-        if (recordIndex !== -1) {
-            // Update the record in place
-            Object.assign(props.records.data[recordIndex], updatedRecord);
-        }
+const handleRecordUpdated = (updated) => {
+    if (updated?.id) {
+        const idx = props.records.data.findIndex(r => r.id === updated.id);
+        if (idx !== -1) Object.assign(props.records.data[idx], updated);
     }
-    // Close the modal
     closeViewModal();
 };
 
-// Watch for records data changes to update select all state
-watch(() => props.records.data, () => {
-    if (props.records.data.length === 0) {
-        selectAll.value = false;
-    } else {
-        selectAll.value = selectedRecords.value.size === props.records.data.length;
-    }
-}, { immediate: true });
-
-// Filter functions
+// ── Filters ───────────────────────────────────────────────────────────────────
 const parseFiltersFromUrl = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const filters = [];
-    
-    // Parse filters from URL (format: ?filters=[{field,operator,value}])
-    const filtersParam = urlParams.get('filters');
-    if (filtersParam) {
-        try {
-            const parsed = JSON.parse(decodeURIComponent(filtersParam));
-            if (Array.isArray(parsed)) {
-                filters.push(...parsed);
-            }
-        } catch (e) {
-            console.error('Error parsing filters from URL:', e);
-        }
-    }
-    
-    return filters;
+    const p = new URLSearchParams(window.location.search).get('filters');
+    if (!p) return [];
+    try { const f = JSON.parse(decodeURIComponent(p)); return Array.isArray(f) ? f : []; } catch { return []; }
 };
 
 const applyFilters = (filters) => {
     activeFilters.value = filters;
     showFiltersModal.value = false;
-    
-    // Build query params
     const params = new URLSearchParams(window.location.search);
-    
-    // Remove existing filters param
     params.delete('filters');
-    
-    // Add new filters if any
-    if (filters.length > 0) {
-        params.set('filters', encodeURIComponent(JSON.stringify(filters)));
-    }
-    
-    // Navigate with new params
-    const queryString = params.toString();
-    router.get(window.location.pathname + (queryString ? '?' + queryString : ''), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
+    if (filters.length) params.set('filters', encodeURIComponent(JSON.stringify(filters)));
+    const qs = params.toString();
+    router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
 };
 
-const removeFilter = (index) => {
-    const newFilters = [...activeFilters.value];
-    newFilters.splice(index, 1);
-    applyFilters(newFilters);
-};
-
-const clearAllFilters = () => {
-    applyFilters([]);
-    clearSearch();
-};
+const removeFilter  = (i) => { const f = [...activeFilters.value]; f.splice(i,1); applyFilters(f); };
+const clearAllFilters = () => { applyFilters([]); clearSearch(); };
 
 const getFilterLabel = (filter) => {
-    const fieldConfig = props.fieldsSchema[filter.field] || {};
-    const fieldLabel = fieldConfig.label || filter.field;
-    
-    let valueLabel = '';
-    if (filter.operator === 'between') {
-        if (typeof filter.value === 'object') {
-            valueLabel = `${filter.value.start || filter.value.min} - ${filter.value.end || filter.value.max}`;
-        }
-    } else if (['is_empty', 'is_not_empty', 'today', 'this_week', 'this_month', 'is_true', 'is_false'].includes(filter.operator)) {
-        valueLabel = '';
-    } else {
-        // For select fields, get the label from enum options
-        if (fieldConfig.enum && props.enumOptions[fieldConfig.enum]) {
-            const option = props.enumOptions[fieldConfig.enum].find(opt => 
-                String(opt.id) === String(filter.value) || String(opt.value) === String(filter.value)
-            );
-            valueLabel = option ? option.name : filter.value;
-        } else {
-            valueLabel = filter.value;
-        }
+    const fc = props.fieldsSchema[filter.field] ?? {};
+    const fl = fc.label || filter.field;
+    let vl = '';
+    if (filter.operator === 'between' && typeof filter.value === 'object') {
+        vl = `${filter.value.start ?? filter.value.min} - ${filter.value.end ?? filter.value.max}`;
+    } else if (!['is_empty','is_not_empty','today','this_week','this_month','is_true','is_false'].includes(filter.operator)) {
+        if (fc.enum && props.enumOptions[fc.enum]) {
+            const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(filter.value) || String(o.value) === String(filter.value));
+            vl = o ? o.name : filter.value;
+        } else { vl = filter.value; }
     }
-    
-    const operatorLabels = {
-        'contains': 'contains',
-        'equals': 'is',
-        'starts_with': 'starts with',
-        'ends_with': 'ends with',
-        'is_empty': 'is empty',
-        'is_not_empty': 'is not empty',
-        'not_equals': 'is not',
-        'any_of': 'is any of',
-        'none_of': 'is none of',
-        'before': 'before',
-        'after': 'after',
-        'between': 'between',
-        'today': 'is today',
-        'this_week': 'is this week',
-        'this_month': 'is this month',
-        'greater_than': 'greater than',
-        'less_than': 'less than',
-        'is_true': 'is true',
-        'is_false': 'is false',
-    };
-    
-    const operatorLabel = operatorLabels[filter.operator] || filter.operator;
-    
-    return `${fieldLabel} ${operatorLabel}${valueLabel ? ` ${valueLabel}` : ''}`;
+    const ops = { contains:'contains', equals:'is', starts_with:'starts with', ends_with:'ends with',
+                  is_empty:'is empty', is_not_empty:'is not empty', not_equals:'is not', any_of:'is any of',
+                  none_of:'is none of', before:'before', after:'after', between:'between', today:'is today',
+                  this_week:'is this week', this_month:'is this month', greater_than:'>', less_than:'<',
+                  is_true:'is true', is_false:'is false' };
+    return `${fl} ${ops[filter.operator] ?? filter.operator}${vl ? ` ${vl}` : ''}`;
 };
 
-// Search functions
-const handleSearch = (event) => {
-    event.preventDefault();
-    applySearch(searchQuery.value);
-};
-
-const applySearch = (query) => {
-    // Build query params from current URL to preserve filters
+// ── Search ────────────────────────────────────────────────────────────────────
+const handleSearch = (e) => { e.preventDefault(); applySearch(searchQuery.value); };
+const applySearch  = (q) => {
     const params = new URLSearchParams(window.location.search);
-    
-    // Update search param
-    if (query && query.trim()) {
-        params.set('search', query.trim());
-    } else {
-        params.delete('search');
-    }
-    
-    // Navigate with new params (preserves filters)
-    const queryString = params.toString();
-    router.get(window.location.pathname + (queryString ? '?' + queryString : ''), {}, {
-        preserveState: true,
-        preserveScroll: true,
-    });
+    if (q?.trim()) params.set('search', q.trim()); else params.delete('search');
+    const qs = params.toString();
+    router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
 };
+const clearSearch = () => { searchQuery.value = ''; applySearch(''); };
 
-const clearSearch = () => {
-    searchQuery.value = '';
-    applySearch('');
-};
+watch(() => props.records.data, () => {
+    selectAll.value = props.records.data.length > 0 && selectedRecords.value.size === props.records.data.length;
+}, { immediate: true });
 
-// Initialize filters and search from URL on mount
 onMounted(() => {
     activeFilters.value = parseFiltersFromUrl();
-    
-    // Get search query from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const searchParam = urlParams.get('search');
-    if (searchParam) {
-        searchQuery.value = searchParam;
-    }
+    const s = new URLSearchParams(window.location.search).get('search');
+    if (s) searchQuery.value = s;
 });
 </script>
 
 <template>
-    <section class="bg-gray-50 dark:bg-gray-900 w-full flex flex-col">
-        <div class="w-full grow">
-            <div class="bg-white dark:bg-gray-800 relative shadow-md sm:rounded-lg overflow-hidden h-full flex flex-col">
-                <div class="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4 pb-0">
-                    <div class="w-full md:w-1/2">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                            {{ pluralTitle }}
-                        </h2>
-                    </div>
+    <section class="w-full flex flex-col">
+        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
 
-                    <div class="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
-                        <button
-                            @click="handleCreateClick"
-                            class="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
-                        >
-                            <svg class="h-3.5 w-3.5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                                <path clip-rule="evenodd" fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
-                            </svg>
-                            Add {{ recordTitle }}
-                        </button>
-                    </div>
-                </div>
-                <!-- Search and Filters Section - Always visible -->
-                <div class="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4">
-                    <div class="w-full md:w-1/2">
-                        <form @submit="handleSearch" class="w-full md:max-w-sm flex-1 md:mr-4">
-                            <label for="default-search" class="text-sm font-medium text-gray-900 sr-only dark:text-white">Search</label>
-                            <div class="relative">
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg aria-hidden="true" class="w-6 h-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                </div>
-                                <input 
-                                    type="search" 
-                                    id="default-search" 
-                                    v-model="searchQuery"
-                                    @input="(e) => { if (!e.target.value) clearSearch(); }"
-                                    class="block w-full p-2 pl-10 pr-20 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden" 
-                                    placeholder="Search by name..." 
-                                />
-                                <div class="absolute inset-y-0 right-0 flex items-center">
-                                    <button 
-                                        v-if="searchQuery"
-                                        @click="clearSearch"
-                                        type="button"
-                                        class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mr-1"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                    <button 
-                                        type="submit" 
-                                        class="text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-r-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
-                                    >
-                                        Search
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
+            <!-- Header -->
+            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
+                <button @click="handleCreateClick"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                    <span class="material-icons text-[16px]">add</span>
+                    Add {{ recordTitle }}
+                </button>
+            </div>
 
-                    <div class="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
-                        <button
-                            @click="showFiltersModal = true"
-                            class="flex w-full items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700 sm:w-auto"
-                        >
-                            <svg class="h-3.5 w-3.5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <!-- Search + filters bar -->
+            <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-700/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <form @submit="handleSearch" class="flex-1 min-w-0">
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
-                            Filters
-                            <span v-if="activeFilters.length > 0" class="ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded-full">
-                                {{ activeFilters.length }}
-                            </span>
-                        </button>
+                        </div>
+                        <input type="search" v-model="searchQuery"
+                               @input="(e) => { if (!e.target.value) clearSearch(); }"
+                               placeholder="Search..."
+                               class="block w-full pl-9 pr-20 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden" />
+                        <div class="absolute inset-y-0 right-0 flex items-center">
+                            <button v-if="searchQuery" @click="clearSearch" type="button"
+                                    class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mr-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                            <button type="submit"
+                                    class="h-full px-3 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-r-lg transition-colors">
+                                Search
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div v-if="activeFilters.length > 0 || searchQuery" class="flex flex-wrap items-center gap-2 border-t border-b border-gray-200 dark:border-gray-700 p-4">
-                    <!-- Search Pill -->
-                    <span
-                        v-if="searchQuery"
-                        class="inline-flex items-center bg-primary-100 border border-primary-500 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 text-xs font-medium ps-1.5 pe-0.5 py-0.5 rounded gap-1"
-                    >
-                        <span>Search: {{ searchQuery }}</span>
-                        <button
-                            @click="clearSearch"
-                            type="button"
-                            class="inline-flex items-center p-0.5 text-sm bg-transparent rounded-xs hover:bg-primary-200 dark:hover:bg-primary-800/50"
-                            aria-label="Remove search"
-                        >
-                            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 17.94 6M18 18 6.06 6"/>
-                            </svg>
-                            <span class="sr-only">Remove search</span>
-                        </button>
+                </form>
+                <button @click="showFiltersModal = true"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                    Filters
+                    <span v-if="activeFilters.length" class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full">
+                        {{ activeFilters.length }}
                     </span>
-                    <!-- Filter Pills -->
-                    <span
-                        v-for="(filter, index) in activeFilters"
-                        :key="index"
-                        class="inline-flex items-center bg-primary-100 border border-primary-500 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 text-xs font-medium ps-1.5 pe-0.5 py-0.5 rounded gap-1"
-                    >
-                        <span>{{ getFilterLabel(filter) }}</span>
-                        <button
-                            @click="removeFilter(index)"
-                            type="button"
-                            class="inline-flex items-center p-0.5 text-sm bg-transparent rounded-xs hover:bg-primary-200 dark:hover:bg-primary-800/50"
-                            aria-label="Remove"
-                        >
-                            <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
-                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 17.94 6M18 18 6.06 6"/>
-                            </svg>
-                            <span class="sr-only">Remove filter</span>
-                        </button>
-                    </span>
+                </button>
+            </div>
+
+            <!-- Active filter pills -->
+            <div v-if="activeFilters.length || searchQuery" class="px-5 py-2.5 border-b border-gray-50 dark:border-gray-700/60 flex flex-wrap gap-1.5">
+                <span v-if="searchQuery"
+                      class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400">
+                    Search: {{ searchQuery }}
+                    <button @click="clearSearch" class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </span>
+                <span v-for="(filter, i) in activeFilters" :key="i"
+                      class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400">
+                    {{ getFilterLabel(filter) }}
+                    <button @click="removeFilter(i)" class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors">
+                        <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </span>
+            </div>
+
+            <!-- Filtered-out empty state -->
+            <div v-if="showFilteredOutState" class="flex flex-col items-center justify-center py-20 px-4">
+                <div class="flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                    <svg class="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
                 </div>
-
-
-                <!-- Filtered Out State -->
-                <div v-if="showFilteredOutState" class="flex flex-col items-center justify-center py-16 px-4 h-full">
-                    <div class="flex items-center justify-center w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
-                        <svg class="w-10 h-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                        </svg>
-                    </div>
-                    <h3 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                        No records match your criteria
-                    </h3>
-                    <p class="mb-6 text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
-                        Try adjusting your filters or remove them to see all records.
-                    </p>
-                    <div class="flex items-center gap-3">
-                        <button
-                            @click="clearAllFilters"
-                            class="flex items-center justify-center text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 focus:outline-none dark:focus:ring-gray-700"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            Clear All Filters
-                        </button>
-                        <button
-                            @click="showFiltersModal = true"
-                            class="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
-                        >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            Adjust Filters
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Empty State (No records and no filters) -->
-                <div v-else-if="showEmptyState" class="flex flex-col items-center justify-center py-16 px-4 h-full">
-                    <div class="flex items-center justify-center w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full mb-4">
-                        <svg class="w-10 h-10 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
-                        </svg>
-                    </div>
-                    <h3 class="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-                        No {{ recordType }} yet
-                    </h3>
-                    <p class="mb-6 text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
-                        Get started by creating your first {{ recordTitle }} to begin managing your data.
-                    </p>
-                    <button
-                        @click="handleCreateClick"
-                        class="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800"
-                    >
-                        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"></path>
-                        </svg>
-                        Create your first {{ recordTitle }}
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">No records match your criteria</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">Try adjusting or removing your filters.</p>
+                <div class="flex items-center gap-2">
+                    <button @click="clearAllFilters"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Clear all
+                    </button>
+                    <button @click="showFiltersModal = true"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        Adjust filters
                     </button>
                 </div>
-
-                <!-- Table with Data -->
-                <div v-else class="overflow-x-auto grow">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th scope="col" class="px-4 py-3 w-12">
-                                    <input
-                                        type="checkbox"
-                                        v-model="selectAll"
-                                        @change="toggleSelectAll"
-                                        class="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                                    />
-                                </th>
-                                <th v-for="column in columns" :key="column.key" scope="col" class="px-4 py-3">
-                                    {{ getColumnLabel(column) }}
-                                </th>
-                                <th scope="col"
-                                    class="px-4 py-3 w-20  right-0 z-10
-                                           bg-gradient-to-r from-gray-50/0 to-gray-50/100
-                                           dark:from-gray-700/0 dark:to-gray-700/100">
-                                    <span class="sr-only">Actions</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="record in records.data" :key="record.id" class="border-b dark:border-gray-700">
-                                <td class="px-4 py-2">
-                                    <input
-                                        type="checkbox"
-                                        :checked="isRecordSelected(record.id)"
-                                        @change="toggleRecordSelection(record.id)"
-                                        class="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                                    />
-                                </td>
-                                <td v-for="column in columns" :key="column.key" class="px-4 py-2 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                                    <template v-if="column.key === 'id'">
-                                        <Link
-                                            :href="getShowUrl(record.id)"
-                                            class="font-mono text-primary-600 dark:text-primary-400 hover:underline"
-                                            @click.stop
-                                        >
-                                            {{ getRecordValue(record, column) }}
-                                        </Link>
-                                    </template>
-                                    <template v-else-if="column.key === 'display_name'">
-                                        <a
-                                            :href="getShowUrl(record.id)"
-                                            target="_blank"
-                                            class="font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
-                                        >
-                                            {{ getRecordValue(record, column) || '—' }}
-                                        </a>
-                                    </template>
-                                    <template v-else-if="column.key === 'contact_roles'">
-                                        <div class="flex flex-wrap gap-1">
-                                            <span
-                                                v-if="record.contact_roles?.lead"
-                                                class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                                            >
-                                                Lead
-                                            </span>
-                                            <span
-                                                v-if="record.contact_roles?.customer"
-                                                class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
-                                            >
-                                                Customer
-                                            </span>
-                                            <span
-                                                v-if="record.contact_roles?.vendor"
-                                                class="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
-                                            >
-                                                Vendor
-                                            </span>
-                                            <span
-                                                v-if="!record.contact_roles?.lead && !record.contact_roles?.customer && !record.contact_roles?.vendor"
-                                                class="text-gray-400 dark:text-gray-500"
-                                            >
-                                                —
-                                            </span>
-                                        </div>
-                                    </template>
-                                    <template v-else-if="hasEnumColor(column, record)">
-                                        <div class="flex items-center">
-                                            <div
-                                                :class="[getColorClass(getEnumOption(column.key, record[column.key])?.color), 'w-3 h-3 mr-2 border rounded-full']"
-                                            ></div>
-                                            {{ getRecordValue(record, column) }}
-                                        </div>
-                                    </template>
-                                    <template v-else-if="props.fieldsSchema[column.key]?.type === 'rating'">
-                                        <div class="flex items-center space-x-1">
-                                            <template v-for="star in 5" :key="star">
-                                                <svg
-                                                    class="w-4 h-4"
-                                                    :class="star <= record[column.key] ? 'text-yellow-400' : 'text-gray-300'"
-                                                    fill="currentColor"
-                                                    viewBox="0 0 20 20"
-                                                >
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                </svg>
-                                            </template>
-                                            <!-- <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                                                {{ record[column.key] || 0 }}/5
-                                            </span> -->
-                                        </div>
-                                    </template>
-                                    <template v-else-if="props.fieldsSchema[column.key]?.type === 'record' && getRelationshipLink(record, column)">
-                                        <Link
-                                            :href="getRelationshipLink(record, column)"
-                                            class="text-primary-600 dark:text-primary-400 hover:underline font-medium"
-                                            @click.stop
-                                        >
-                                            {{ getRecordValue(record, column) }}
-                                        </Link>
-                                    </template>
-                                    <template v-else>
-                                        {{ getRecordValue(record, column) }}
-                                    </template>
-                                </td>
-                                <td class="px-4 py-2  right-0  z-10
-                                            bg-gradient-to-r from-gray-50/0 to-gray-50/100
-                                            dark:from-gray-8800/0 dark:to-gray-800/100">
-                                    <div class="flex items-center space-x-2">
-                                        <button
-                                            @click="handleViewOnPage(record)"
-                                            class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                                            title="View on page"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            @click="handleNavigateToItem(record.id)"
-                                            class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                                            title="Navigate to item"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="!hasRecords">
-                                <td :colspan="columns.length + 3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                    No records found for this page
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                <nav v-if="records.links && records.links.length > 3" class="flex flex-col md:flex-row justify-between items-start md:items-center space-y-3 md:space-y-0 p-4" aria-label="Table navigation">
-                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400">
-                        Showing
-                        <span class="font-semibold text-gray-900 dark:text-white">{{ records.from }}</span>
-                        to
-                        <span class="font-semibold text-gray-900 dark:text-white">{{ records.to }}</span>
-                        of
-                        <span class="font-semibold text-gray-900 dark:text-white">{{ records.total }}</span>
-                    </span>
-                    <div class="inline-flex items-stretch -space-x-px">
-                        <template v-for="(link, index) in records.links" :key="index">
-                            <Link
-                                v-if="link.url"
-                                :href="link.url"
-                                v-html="link.label"
-                                :class="[
-                                    'flex items-center justify-center text-sm py-2 px-3 leading-tight',
-                                    link.active
-                                        ? 'z-10 text-primary-600 bg-primary-50 border border-primary-300 hover:bg-primary-100 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white'
-                                        : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white',
-                                    index === 0 ? 'rounded-l-lg' : '',
-                                    index === records.links.length - 1 ? 'rounded-r-lg' : ''
-                                ]"
-                            />
-                            <span
-                                v-else
-                                v-html="link.label"
-                                :class="[
-                                    'flex items-center justify-center text-sm py-2 px-3 leading-tight text-gray-500 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400',
-                                    index === 0 ? 'rounded-l-lg' : '',
-                                    index === records.links.length - 1 ? 'rounded-r-lg' : ''
-                                ]"
-                            />
-                        </template>
-                    </div>
-                </nav>
             </div>
+
+            <!-- Empty state -->
+            <div v-else-if="showEmptyState" class="flex flex-col items-center justify-center py-20 px-4">
+                <div class="flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                    <svg class="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">No {{ recordType }} yet</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">Get started by creating your first {{ recordTitle }}.</p>
+                <button @click="handleCreateClick"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                    <span class="material-icons text-[16px]">add</span>
+                    Create your first {{ recordTitle }}
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div v-else class="overflow-x-auto grow">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                            <th class="px-4 py-3 w-10">
+                                <input type="checkbox" v-model="selectAll" @change="toggleSelectAll"
+                                       class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500 dark:bg-gray-700"/>
+                            </th>
+                            <th v-for="col in columns" :key="col.key"
+                                class="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {{ getColumnLabel(col) }}
+                            </th>
+                            <th class="px-4 py-3 w-20"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                        <tr v-for="record in records.data" :key="record.id"
+                            class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                            <td class="px-4 py-3">
+                                <input type="checkbox" :checked="isRecordSelected(record.id)" @change="toggleRecordSelection(record.id)"
+                                       class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500 dark:bg-gray-700"/>
+                            </td>
+
+                            <td v-for="col in columns" :key="col.key" class="px-4 py-3 text-gray-900 dark:text-white whitespace-nowrap">
+                                <!-- ID -->
+                                <template v-if="col.key === 'id'">
+                                    <Link :href="getShowUrl(record.id)" class="font-mono text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                                        {{ getRecordValue(record, col) }}
+                                    </Link>
+                                </template>
+                                <!-- Display name -->
+                                <template v-else-if="col.key === 'display_name'">
+                                    <a :href="getShowUrl(record.id)" target="_blank"
+                                       class="font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                                        {{ getRecordValue(record, col) || '—' }}
+                                    </a>
+                                </template>
+                                <!-- Contact roles -->
+                                <template v-else-if="col.key === 'contact_roles'">
+                                    <div class="flex flex-wrap gap-1">
+                                        <span v-if="record.contact_roles?.lead"
+                                              class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-200">Lead</span>
+                                        <span v-if="record.contact_roles?.customer"
+                                              class="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-200">Customer</span>
+                                        <span v-if="record.contact_roles?.vendor"
+                                              class="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-200">Vendor</span>
+                                        <span v-if="!record.contact_roles?.lead && !record.contact_roles?.customer && !record.contact_roles?.vendor"
+                                              class="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                                    </div>
+                                </template>
+                                <!-- Enum with color dot -->
+                                <template v-else-if="hasEnumColor(col, record)">
+                                    <div class="flex items-center gap-1.5">
+                                        <div :class="[getColorClass(getEnumOption(col.key, record[col.key])?.color), 'w-2 h-2 rounded-full shrink-0']"></div>
+                                        <span>{{ getRecordValue(record, col) }}</span>
+                                    </div>
+                                </template>
+                                <!-- Rating stars -->
+                                <template v-else-if="props.fieldsSchema[col.key]?.type === 'rating'">
+                                    <div class="flex items-center gap-0.5">
+                                        <template v-for="s in 5" :key="s">
+                                            <svg class="w-3.5 h-3.5" :class="s <= record[col.key] ? 'text-amber-400' : 'text-gray-200 dark:text-gray-600'" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                            </svg>
+                                        </template>
+                                    </div>
+                                </template>
+                                <!-- Record relationship link -->
+                                <template v-else-if="props.fieldsSchema[col.key]?.type === 'record' && getRelationshipLink(record, col)">
+                                    <Link :href="getRelationshipLink(record, col)" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
+                                        {{ getRecordValue(record, col) }}
+                                    </Link>
+                                </template>
+                                <!-- Default -->
+                                <template v-else>
+                                    <span class="text-sm">{{ getRecordValue(record, col) }}</span>
+                                </template>
+                            </td>
+
+                            <!-- Row actions -->
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-1">
+                                    <button @click="handleViewOnPage(record)"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                                            title="Quick view">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </button>
+                                    <button @click="handleNavigateToItem(record.id)"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                                            title="Open record">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-if="!hasRecords">
+                            <td :colspan="columns.length + 3" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No records found
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <nav v-if="records.links?.length > 3"
+                 class="px-5 py-3.5 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    Showing <span class="font-semibold text-gray-900 dark:text-white">{{ records.from }}</span>
+                    to <span class="font-semibold text-gray-900 dark:text-white">{{ records.to }}</span>
+                    of <span class="font-semibold text-gray-900 dark:text-white">{{ records.total }}</span>
+                </span>
+                <div class="flex gap-1">
+                    <template v-for="(link, i) in records.links" :key="i">
+                        <Link v-if="link.url" :href="link.url" v-html="link.label"
+                              :class="['flex items-center justify-center px-3 py-1 text-xs rounded-lg border transition-colors',
+                                       link.active
+                                           ? 'bg-primary-600 text-white border-primary-600'
+                                           : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700']"/>
+                        <span v-else v-html="link.label"
+                              class="flex items-center justify-center px-3 py-1 text-xs border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 rounded-lg"/>
+                    </template>
+                </div>
+            </nav>
         </div>
 
         <!-- Create Modal -->
         <Modal :show="showCreateModal" @close="showCreateModal = false" :max-width="modalMaxWidth">
-            <!-- Modal header (fixed) -->
-            <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    Create {{ recordTitle }}
-                </h3>
-                <button
-                    @click="showCreateModal = false"
-                    type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Create {{ recordTitle }}</h3>
+                <button @click="showCreateModal = false" type="button"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <span class="material-icons text-[20px]">close</span>
                 </button>
             </div>
-
-            <!-- Modal body (scrollable) -->
             <div class="overflow-y-auto flex-1">
-                <component
-                    :is="recordFormComponent"
-                    :schema="formSchema"
-                    :fields-schema="fieldsSchema"
-                    :record-type="recordType"
-                    :record-title="recordTitle"
-                    :enum-options="enumOptions"
-                    :extra-route-params="extraRouteParams"
-                    :initial-data="initialCreateData"
-                    :available-specs="createAvailableSpecs"
-                    mode="create"
-                    :prevent-redirect="true"
-                    @created="handleRecordCreated"
-                    @submit="() => {}"
-                    @cancel="showCreateModal = false"
-                />
+                <component :is="recordFormComponent"
+                           :schema="formSchema" :fields-schema="fieldsSchema" :record-type="recordType"
+                           :record-title="recordTitle" :enum-options="enumOptions" :extra-route-params="extraRouteParams"
+                           :initial-data="initialCreateData" :available-specs="createAvailableSpecs"
+                           mode="create" :prevent-redirect="true"
+                           @created="handleRecordCreated" @submit="() => {}" @cancel="showCreateModal = false"/>
             </div>
         </Modal>
 
         <!-- Success Modal -->
-        <Modal :show="showSuccessModal" @close="backToPage" max-width="md">
-            <div class="p-6 text-center">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900">
-                    <svg class="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        <Modal :show="showSuccessModal" @close="backToPage" max-width="sm">
+            <div class="p-8 text-center">
+                <div class="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
                 </div>
-                <h3 class="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-                    Record Created
-                </h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    {{ recordTitle }} has been successfully created.
-                </p>
-                <div class="mt-6 flex items-center justify-center space-x-3">
-                    <button
-                        @click="viewRecord"
-                        type="button"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                    >
-                        View Record
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">{{ recordTitle }} created</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Successfully created.</p>
+                <div class="flex items-center justify-center gap-3">
+                    <button @click="viewRecord" type="button"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        View record
                     </button>
-                    <button
-                        @click="backToPage"
-                        type="button"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                    >
-                        Back to Page
+                    <button @click="backToPage" type="button"
+                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                        Back
                     </button>
                 </div>
             </div>
@@ -1124,65 +571,34 @@ onMounted(() => {
 
         <!-- View/Edit Modal -->
         <Modal :show="showViewModal" @close="closeViewModal" :max-width="modalMaxWidth">
-            <!-- Modal header (fixed) -->
-            <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ selectedRecord ? `View ${recordTitle}` : '' }}
-                </h3>
-                <button
-                    @click="closeViewModal"
-                    type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ selectedRecord ? `View ${recordTitle}` : '' }}</h3>
+                <button @click="closeViewModal" type="button"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                    <span class="material-icons text-[20px]">close</span>
                 </button>
             </div>
-
-            <!-- Modal body (scrollable) -->
             <div class="overflow-y-auto flex-1">
-                <div v-if="isLoadingRecord" class="flex items-center justify-center py-12">
-                    <div class="text-center">
-                        <svg class="animate-spin h-8 w-8 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Loading record...</p>
-                    </div>
+                <div v-if="isLoadingRecord" class="flex items-center justify-center py-16">
+                    <svg class="animate-spin w-8 h-8 text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
                 </div>
-                <component
-                    :is="recordFormComponent"
-                    v-else-if="selectedRecord"
-                    :schema="formSchema"
-                    :fields-schema="fieldsSchema"
-                    :record="selectedRecord"
-                    :record-type="recordType"
-                    :record-title="recordTitle"
-                    :enum-options="enumOptions"
-                    :extra-route-params="extraRouteParams"
-                    :image-urls="selectedRecordImageUrls"
-                    mode="edit"
-                    :prevent-redirect="true"
-                    @updated="handleRecordUpdated"
-                    @submit="closeViewModal"
-                    @cancel="closeViewModal"
-                />
+                <component v-else-if="selectedRecord" :is="recordFormComponent"
+                           :schema="formSchema" :fields-schema="fieldsSchema" :record="selectedRecord"
+                           :record-type="recordType" :record-title="recordTitle" :enum-options="enumOptions"
+                           :extra-route-params="extraRouteParams" :image-urls="selectedRecordImageUrls"
+                           mode="edit" :prevent-redirect="true"
+                           @updated="handleRecordUpdated" @submit="closeViewModal" @cancel="closeViewModal"/>
             </div>
         </Modal>
 
         <!-- Filters Modal -->
         <Modal :show="showFiltersModal" @close="showFiltersModal = false" max-width="4xl">
             <div class="p-6">
-                <FiltersModal
-                    :fields-schema="fieldsSchema"
-                    :enum-options="enumOptions"
-                    :columns="columns"
-                    :active-filters="activeFilters"
-                    @apply="applyFilters"
-                    @close="showFiltersModal = false"
-                />
+                <FiltersModal :fields-schema="fieldsSchema" :enum-options="enumOptions" :columns="columns"
+                              :active-filters="activeFilters" @apply="applyFilters" @close="showFiltersModal = false"/>
             </div>
         </Modal>
     </section>

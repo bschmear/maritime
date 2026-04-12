@@ -239,16 +239,16 @@ const colSort = (col) => {
 
                             <div class="flex flex-wrap items-center gap-2 w-full">
 
-                                <!-- Type multi-select dropdown -->
-                                <div class="relative" ref="typeDropdownRef">
+<!-- Type multi-select dropdown -->
+<div class="relative" ref="typeDropdownRef">
                                     <button
                                         @click="typeDropdownOpen = !typeDropdownOpen"
-                                        class="btn btn-outline sm inline-flex items-center gap-1.5 min-w-32"
-                                        :class="selectedTypes.length > 0 ? 'border-primary-500 text-primary-600 dark:text-primary-400' : ''"
+                                        class="btn btn-secondary sm inline-flex items-center gap-1.5 min-w-32"
+                                        :class="selectedTypes.length > 0 ? 'btn-primary' : 'btn-primary'"
                                     >
                                         <span>Type</span>
                                         <span v-if="selectedTypes.length > 0"
-                                            class="inline-flex items-center justify-center w-5 h-5 text-sm font-semibold rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+                                            class="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold rounded-full bg-white/20 text-white">
                                             {{ selectedTypes.length }}
                                         </span>
                                         <span class="material-icons text-base leading-none ml-auto">
@@ -279,12 +279,12 @@ const colSort = (col) => {
                                 <div class="relative" ref="statusDropdownRef">
                                     <button
                                         @click="statusDropdownOpen = !statusDropdownOpen"
-                                        class="btn btn-outline sm inline-flex items-center gap-1.5 min-w-32"
-                                        :class="selectedStatuses.length > 0 ? 'border-primary-500 text-primary-600 dark:text-primary-400' : ''"
+                                        class="btn btn-secondary sm inline-flex items-center gap-1.5 min-w-32 btn-primary"
+                                        :class="selectedStatuses.length > 0 ? 'btn-primary' : 'btn-primary' "
                                     >
                                         <span>Status</span>
                                         <span v-if="selectedStatuses.length > 0"
-                                            class="inline-flex items-center justify-center w-5 h-5 text-sm font-semibold rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+                                            class="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold rounded-full bg-white/20 text-white">
                                             {{ selectedStatuses.length }}
                                         </span>
                                         <span class="material-icons text-base leading-none ml-auto">
@@ -310,7 +310,6 @@ const colSort = (col) => {
                                         </label>
                                     </div>
                                 </div>
-
                                 <!-- User filter (single select, kept as-is) -->
                                 <select
                                     v-if="users.length > 1"

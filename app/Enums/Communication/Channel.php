@@ -12,6 +12,7 @@ enum Channel: string
     case Email = 'email';
     case InPerson = 'in_person';
     case Other = 'other';
+    case Survey = 'survey';
 
     public function id(): int
     {
@@ -24,6 +25,7 @@ enum Channel: string
             self::Email => 6,
             self::InPerson => 7,
             self::Other => 8,
+            self::Survey => 9,
         };
     }
 
@@ -38,6 +40,7 @@ enum Channel: string
             6 => self::Email,
             7 => self::InPerson,
             8 => self::Other,
+            9 => self::Survey,
             default => null,
         };
     }
@@ -53,6 +56,7 @@ enum Channel: string
             self::Email => 'Email',
             self::InPerson => 'In Person',
             self::Other => 'Other',
+            self::Survey => 'Survey',
         };
     }
 
@@ -67,6 +71,7 @@ enum Channel: string
             self::Email => 'gray',
             self::InPerson => 'purple',
             self::Other => 'yellow',
+            self::Survey => 'teal',
         };
     }
 
@@ -81,6 +86,7 @@ enum Channel: string
             self::Email => 'bg-gray-200 dark:text-white dark:bg-gray-900',
             self::InPerson => 'bg-purple-200 dark:text-white dark:bg-purple-900',
             self::Other => 'bg-yellow-200 dark:text-white dark:bg-yellow-900',
+            self::Survey => 'bg-teal-200 dark:text-white dark:bg-teal-900',
         };
     }
 

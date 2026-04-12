@@ -261,4 +261,32 @@ class Contact extends Model
     {
         return $query->where('assigned_user_id', $userId);
     }
+
+    /**
+     * Find a contact by primary or secondary email (case-insensitive).
+     */
+    public static function findByEmailCaseInsensitive(?string $email): ?self
+    {
+        if ($email === null || trim($email) === '') {
+            return null;
+        }
+
+        $normalized = strtolower(trim($email));
+
+        $byPrimary = static::query()
+            ->whereNotNull('email')
+            ->where('email', '!=', '')
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$normalized])
+            ->first();
+
+        if ($byPrimary) {
+            return $byPrimary;
+        }
+
+        return static::query()
+            ->whereNotNull('secondary_email')
+            ->where('secondary_email', '!=', '')
+            ->whereRaw('LOWER(TRIM(secondary_email)) = ?', [$normalized])
+            ->first();
+    }
 }

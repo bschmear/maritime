@@ -3,13 +3,16 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import PublicSurveyLayout from '@/Layouts/PublicSurveyLayout.vue';
+import SurveyAdminControls from '@/Components/surveys/SurveyAdminControls.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 
 const props = defineProps({
     survey: { type: Object, required: true },
     recipientData: { type: Object, default: null },
     submitUrl: { type: String, required: true },
-    surveyColor: { type: String, default: '#2563eb' },
+    surveyColor: { type: String, default: '#14c2ad' },
+    /** App default brand hex (matches Survey::getEffectiveColor default path). */
+    defaultSurveyBrand: { type: String, default: '#14c2ad' },
     embed: { type: Boolean, default: false },
     canEdit: { type: Boolean, default: false },
     adminLinks: { type: Object, default: null },
@@ -33,13 +36,12 @@ const submitted = ref(false);
 const submitting = ref(false);
 const submissionMessage = ref('');
 const submitError = ref('');
+const showDuplicateModal = ref(false);
 const showResults = ref(false);
 const userAnswers = ref([]);
 const aggregateResults = ref([]);
 const startTime = ref(null);
 const localSurveyColor = ref(props.surveyColor);
-const colorSaving = ref(false);
-const colorError = ref('');
 
 onMounted(() => {
     startTime.value = Date.now();
@@ -59,6 +61,18 @@ const queryAid = computed(() => {
 });
 
 const effectiveColor = computed(() => localSurveyColor.value || props.surveyColor);
+
+const adminInitialColorScheme = computed(() => {
+    const s = props.survey?.color_scheme;
+    if (s === 'team' && !props.account?.brand_color) {
+        return 'default';
+    }
+    return s === 'custom' || s === 'team' || s === 'default' ? s : 'default';
+});
+
+const adminInitialCustomColor = computed(
+    () => props.survey?.custom_color || props.defaultSurveyBrand,
+);
 
 const pageDescription = computed(
     () => props.survey.public_description || props.survey.description || '',
@@ -118,10 +132,12 @@ const progress = computed(() => {
 });
 
 watch(progress, (p) => {
-    const bar = document.getElementById('progress-bar');
-    const text = document.getElementById('progress-text');
-    if (bar) bar.style.width = `${p}%`;
-    if (text) text.textContent = `${p}%`;
+    document.querySelectorAll('[data-survey-progress-bar]').forEach((el) => {
+        el.style.width = `${p}%`;
+    });
+    document.querySelectorAll('[data-survey-progress-text]').forEach((el) => {
+        el.textContent = `${p}%`;
+    });
 });
 
 function setRating(questionId, rating) {
@@ -164,6 +180,34 @@ const agentAvatarSrc = computed(() => {
         return a;
     }
     return null;
+});
+
+const recipientGreetingName = computed(() => {
+    const r = props.recipientData;
+    if (!r) return '';
+    if (r.name && String(r.name).trim()) return String(r.name).trim();
+    return [r.first_name, r.last_name].filter(Boolean).join(' ').trim();
+});
+
+const estimatedMinutes = computed(() => props.survey.estimated_time ?? 5);
+
+const heroGradientStyle = computed(() => {
+    const c = effectiveColor.value;
+    return {
+        background: `linear-gradient(to bottom right, ${c}, color-mix(in srgb, ${c} 72%, black))`,
+    };
+});
+
+const agentInitial = computed(() => {
+    const n = props.agent?.display_name || props.agent?.email || 'A';
+    const ch = String(n).trim().charAt(0);
+    return ch ? ch.toUpperCase() : 'A';
+});
+
+const surveyMarkInitial = computed(() => {
+    const t = props.survey?.title || 'S';
+    const ch = String(t).trim().charAt(0);
+    return ch ? ch.toUpperCase() : 'S';
 });
 
 async function submitSurvey() {
@@ -215,8 +259,11 @@ async function submitSurvey() {
     } catch (e) {
         console.error(e);
         const data = e.response?.data;
-        if (data?.message) {
-            submitError.value = data.message;
+        const msg = data?.message || '';
+        if (msg.toLowerCase().includes('already submitted')) {
+            showDuplicateModal.value = true;
+        } else if (msg) {
+            submitError.value = msg;
         } else if (data?.errors) {
             const first = Object.values(data.errors).flat()[0];
             submitError.value = first || 'Please check your answers and try again.';
@@ -228,28 +275,9 @@ async function submitSurvey() {
     }
 }
 
-async function saveSurveyColor(customColor) {
-    if (!props.adminLinks?.updateColor || !props.canEdit) return;
-    colorError.value = '';
-    colorSaving.value = true;
-    try {
-        const response = await axios.put(
-            props.adminLinks.updateColor,
-            {
-                survey_id: props.survey.uuid,
-                color_scheme: 'custom',
-                custom_color: customColor,
-            },
-            { headers: { Accept: 'application/json' } },
-        );
-        if (response.data.success && response.data.data?.effective_color) {
-            localSurveyColor.value = response.data.data.effective_color;
-        }
-    } catch (e) {
-        const msg = e.response?.data?.message;
-        colorError.value = msg || 'Could not update color.';
-    } finally {
-        colorSaving.value = false;
+function onAdminColorPreview(hex) {
+    if (hex && typeof hex === 'string') {
+        localSurveyColor.value = hex;
     }
 }
 </script>
@@ -261,109 +289,299 @@ async function saveSurveyColor(customColor) {
         <meta name="robots" content="noindex, nofollow" />
     </Head>
 
-    <PublicSurveyLayout :survey-color="effectiveColor" :embed="embed">
-        <!-- Admin strip -->
-        <div
+    <PublicSurveyLayout :embed="embed">
+        <SurveyAdminControls
             v-if="canEdit && adminLinks"
-            class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm dark:border-amber-900/50 dark:bg-amber-950/40"
-        >
-            <p class="mb-3 font-medium text-amber-900 dark:text-amber-100">Survey admin</p>
-            <div class="flex flex-wrap items-center gap-3">
-                <a
-                    :href="adminLinks.edit"
-                    class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100 dark:bg-gray-900 dark:text-amber-50 dark:ring-amber-800"
+            :survey-id="survey.uuid"
+            :edit-url="adminLinks.edit"
+            :analytics-url="adminLinks.analytics"
+            :update-route="adminLinks.updateColor"
+            :can-customize-colors="true"
+            :initial-color-scheme="adminInitialColorScheme"
+            :initial-custom-color="adminInitialCustomColor"
+            :default-color="defaultSurveyBrand"
+            :team-color="account?.brand_color || null"
+            :current-color="surveyColor"
+            :embed="embed"
+            @preview="onAdminColorPreview"
+        />
+
+        <!-- Marketing hero (full page only) -->
+        <div v-if="!embed" class="relative text-white" :style="heroGradientStyle">
+            <header class="relative z-10">
+                <nav class="border-b border-white/10">
+                    <div class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-6">
+                        <div class="flex items-center gap-3">
+                            <div
+                                v-if="account?.logo_url"
+                                class="timeline-logo rounded-lg bg-white p-2 shadow-lg"
+                            >
+                                <img :src="account.logo_url" alt="" class="max-h-8 w-auto object-contain" />
+                            </div>
+                            <div
+                                v-else
+                                class="flex h-10 w-10 items-center justify-center rounded-lg bg-white/20 text-lg font-bold shadow-md backdrop-blur-sm"
+                            >
+                                {{ surveyMarkInitial }}
+                            </div>
+                        </div>
+                        <div v-if="agent?.phone && agentPhoneDisplay" class="hidden text-right sm:block">
+                            <a
+                                :href="`tel:${String(agent.phone).replace(/\D/g, '')}`"
+                                class="text-white transition-opacity hover:opacity-90"
+                            >
+                                <div class="text-xs opacity-90">Contact</div>
+                                <div class="text-base font-semibold">{{ agentPhoneDisplay }}</div>
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+
+            <div class="mx-auto max-w-4xl px-4 py-12 text-center md:py-16">
+                <div class="mb-6">
+                    <span
+                        class="inline-flex items-center rounded-full border border-white/20 bg-blue-500/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm"
+                    >
+                        <svg class="mr-1.5 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"
+                            />
+                            <path
+                                fill-rule="evenodd"
+                                d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
+                                clip-rule="evenodd"
+                            />
+                        </svg>
+                        Survey
+                    </span>
+                </div>
+                <h1 class="mb-4 text-4xl font-bold leading-tight md:text-5xl">
+                    {{ survey.title }}
+                </h1>
+                <p
+                    v-if="pageDescription"
+                    class="mx-auto max-w-2xl text-lg leading-relaxed text-blue-100 md:text-xl"
                 >
-                    Edit survey
-                </a>
-                <a
-                    :href="adminLinks.analytics"
-                    class="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100 dark:bg-gray-900 dark:text-amber-50 dark:ring-amber-800"
+                    {{ pageDescription }}
+                </p>
+                <div class="mt-6 flex flex-wrap items-center justify-center gap-6 text-sm text-blue-100">
+                    <div class="flex items-center">
+                        <svg class="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                fill-rule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                                clip-rule="evenodd"
+                            />
+                        </svg>
+                        Takes ~{{ estimatedMinutes }} minutes
+                    </div>
+                    <div class="flex items-center">
+                        <svg class="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                                fill-rule="evenodd"
+                                d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clip-rule="evenodd"
+                            />
+                        </svg>
+                        Your responses are confidential
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative">
+                <svg
+                    class="h-12 w-full md:h-16"
+                    viewBox="0 0 1440 48"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    preserveAspectRatio="none"
                 >
-                    Analytics
-                </a>
-                <label class="inline-flex items-center gap-2 text-amber-900 dark:text-amber-100">
-                    <span class="whitespace-nowrap">Accent</span>
-                    <input
-                        type="color"
-                        :value="localSurveyColor"
-                        class="h-8 w-14 cursor-pointer rounded border border-amber-300 bg-white p-0.5"
-                        @change="saveSurveyColor($event.target.value)"
+                    <path
+                        d="M0 48H1440V0C1440 0 1140 48 720 48C300 48 0 0 0 0V48Z"
+                        class="fill-gray-50 dark:fill-gray-900"
                     />
-                    <span v-if="colorSaving" class="text-xs text-amber-800 dark:text-amber-200">Saving…</span>
-                </label>
-            </div>
-            <p v-if="colorError" class="mt-2 text-xs text-red-600 dark:text-red-400">{{ colorError }}</p>
-        </div>
-
-        <!-- Progress (full page only) -->
-        <div v-if="!embed && !submitted" class="mb-8">
-            <div class="mb-2 flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                <span>Progress</span>
-                <span id="progress-text">{{ progress }}%</span>
-            </div>
-            <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div
-                    id="progress-bar"
-                    class="h-full rounded-full transition-all duration-300"
-                    :style="{ width: `${progress}%`, backgroundColor: effectiveColor }"
-                />
+                </svg>
             </div>
         </div>
 
-        <!-- Hero / header -->
-        <header v-if="!embed" class="mb-8 text-center">
-            <img
-                v-if="account?.logo_url"
-                :src="account.logo_url"
-                alt=""
-                class="mx-auto mb-4 h-12 w-auto object-contain"
-            />
-            <h1 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-                {{ survey.title }}
-            </h1>
-            <p
-                v-if="pageDescription"
-                class="mx-auto mt-3 max-w-2xl text-base text-gray-600 dark:text-gray-300"
-            >
-                {{ pageDescription }}
-            </p>
-        </header>
-        <header v-else class="mb-4 border-b border-gray-200 pb-3 dark:border-gray-700">
+        <!-- Embed: slim header -->
+        <header v-if="embed" class="mb-4 border-b border-gray-200 pb-3 dark:border-gray-700">
             <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ survey.title }}</h1>
         </header>
 
-        <!-- Agent card (full only) -->
-        <div
-            v-if="!embed && agent?.display_name"
-            class="mb-8 flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:flex-row sm:items-start"
-        >
-            <div
-                v-if="agentAvatarSrc"
-                class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-full ring-2 ring-gray-100 dark:ring-gray-600"
-            >
-                <img :src="agentAvatarSrc" alt="" class="h-full w-full object-cover" />
-            </div>
-            <div class="text-center sm:text-left">
-                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Your contact</p>
-                <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ agent.display_name }}</p>
-                <p v-if="agentPhoneDisplay" class="mt-1">
-                    <a
-                        :href="`tel:${String(agent.phone).replace(/\D/g, '')}`"
-                        class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+        <!-- Main shell -->
+        <div :class="embed ? '' : '-mt-px bg-gray-50 dark:bg-gray-900'">
+            <div :class="embed ? '' : 'mx-auto max-w-7xl px-4 py-8 md:py-12'">
+                <div
+                    :class="
+                        embed
+                            ? ''
+                            : 'grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-6'
+                    "
+                >
+                    <!-- Sidebar (full page, before submit) -->
+                    <aside
+                        v-if="!embed && !submitted"
+                        class="order-2 space-y-6 lg:sticky lg:top-8 lg:col-span-1 lg:order-1 lg:self-start"
                     >
-                        {{ agentPhoneDisplay }}
-                    </a>
-                </p>
-                <p v-if="agent.email" class="mt-0.5 text-sm text-gray-600 dark:text-gray-300">
-                    {{ agent.email }}
-                </p>
-            </div>
-        </div>
+                        <div
+                            v-if="agent?.display_name"
+                            class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <div class="relative p-6 pb-16 text-center" :style="heroGradientStyle">
+                                <h3 class="text-lg font-semibold text-white">Your contact</h3>
+                                <p class="text-sm text-white/90">Available to help you</p>
+                            </div>
+                            <div class="relative -mt-12 mb-4 flex justify-center">
+                                <div class="relative">
+                                    <img
+                                        v-if="agentAvatarSrc"
+                                        :src="agentAvatarSrc"
+                                        :alt="agent.display_name"
+                                        class="h-24 w-24 rounded-full border-4 border-white object-cover shadow-xl dark:border-gray-800"
+                                    />
+                                    <div
+                                        v-else
+                                        class="flex h-24 w-24 items-center justify-center rounded-full border-4 border-white bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-bold text-white shadow-xl dark:border-gray-800"
+                                    >
+                                        {{ agentInitial }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-6 pb-6 text-center">
+                                <h4 class="mb-1 text-xl font-bold text-gray-900 dark:text-white">
+                                    {{ agent.display_name }}
+                                </h4>
+                                <div class="mt-4 space-y-3 text-left">
+                                    <a
+                                        v-if="agent.phone && agentPhoneDisplay"
+                                        :href="`tel:${String(agent.phone).replace(/\D/g, '')}`"
+                                        class="group flex items-center rounded-lg bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:bg-gray-700/50 dark:hover:bg-gray-700"
+                                    >
+                                        <div
+                                            class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30"
+                                        >
+                                            <span class="material-icons text-blue-600 dark:text-blue-400">phone</span>
+                                        </div>
+                                        <div class="ml-3 min-w-0 flex-1">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Phone</p>
+                                            <p class="break-all text-sm font-medium text-gray-900 dark:text-white">
+                                                {{ agentPhoneDisplay }}
+                                            </p>
+                                        </div>
+                                    </a>
+                                    <a
+                                        v-if="agent.email"
+                                        :href="`mailto:${agent.email}`"
+                                        class="group flex items-center rounded-lg bg-gray-50 p-3 transition-colors hover:bg-gray-100 dark:bg-gray-700/50 dark:hover:bg-gray-700"
+                                    >
+                                        <div
+                                            class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30"
+                                        >
+                                            <span class="material-icons text-green-600 dark:text-green-400">email</span>
+                                        </div>
+                                        <div class="ml-3 min-w-0 flex-1">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                                            <p class="break-all text-sm font-medium text-gray-900 dark:text-white">
+                                                {{ agent.email }}
+                                            </p>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
 
-        <div id="SurveyForm" class="mx-auto max-w-2xl">
+                        <div
+                            class="rounded-xl border border-blue-200 bg-blue-50 p-6 dark:border-blue-800 dark:bg-blue-900/20"
+                        >
+                            <div class="flex items-start">
+                                <span class="material-icons flex-shrink-0 text-blue-600 dark:text-blue-400">help</span>
+                                <div class="ml-3">
+                                    <h4 class="mb-1 text-sm font-semibold text-blue-900 dark:text-blue-300">
+                                        Need help?
+                                    </h4>
+                                    <p class="text-sm text-blue-800 dark:text-blue-400">
+                                        If you have questions about this survey, use the contact information
+                                        {{ agent?.display_name ? 'above' : 'from your invitation' }}.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="hidden rounded-xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800 lg:block"
+                        >
+                            <h4 class="mb-3 flex items-center text-sm font-semibold text-gray-900 dark:text-white">
+                                <span class="material-icons mr-2 text-blue-600 text-[20px]">check_circle</span>
+                                Survey progress
+                            </h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600 dark:text-gray-400">Completion</span>
+                                    <span
+                                        data-survey-progress-text
+                                        class="font-medium text-gray-900 dark:text-white"
+                                    >{{ progress }}%</span>
+                                </div>
+                                <div class="h-2.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                    <div
+                                        data-survey-progress-bar
+                                        class="h-2.5 rounded-full transition-all duration-300"
+                                        :style="{ width: `${progress}%`, backgroundColor: effectiveColor }"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <!-- Form column -->
+                    <div
+                        id="SurveyForm"
+                        class="w-full"
+                        :class="
+                            embed
+                                ? ''
+                                : submitted
+                                  ? 'order-1 mx-auto max-w-2xl lg:col-span-3 lg:order-2'
+                                  : 'order-1 lg:col-span-2 lg:order-2'
+                        "
+                    >
+                        <div
+                            v-if="!embed && recipientGreetingName && !submitted"
+                            class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+                        >
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <span class="material-icons mr-1 align-middle text-base text-blue-600 dark:text-blue-400">
+                                    person
+                                </span>
+                                Hello,
+                                <strong>{{ recipientGreetingName }}</strong>
+                                ! We have pre-filled your information to save you time.
+                            </p>
+                        </div>
+
+                        <div v-if="!embed && !submitted" class="mb-6 lg:hidden">
+                            <div class="mb-2 flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                                <span>Progress</span>
+                                <span
+                                    data-survey-progress-text
+                                    class="font-medium text-gray-900 dark:text-white"
+                                >{{ progress }}%</span>
+                            </div>
+                            <div class="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                <div
+                                    data-survey-progress-bar
+                                    class="h-2 rounded-full transition-all duration-300"
+                                    :style="{ width: `${progress}%`, backgroundColor: effectiveColor }"
+                                />
+                            </div>
+                        </div>
+
             <form
                 v-if="!submitted"
-                class="space-y-8 rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800 sm:p-8"
+                class="space-y-8 rounded-xl border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800 md:p-8"
+                :class="embed ? 'rounded-lg shadow-md' : ''"
                 @submit.prevent="submitSurvey"
             >
                 <p
@@ -568,7 +786,10 @@ async function saveSurveyColor(customColor) {
                 </button>
             </form>
 
-            <div v-else class="rounded-lg bg-white p-8 shadow-sm dark:bg-gray-800">
+            <div
+                v-else
+                class="rounded-xl border border-gray-200 bg-white p-8 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+            >
                 <div class="mb-6 text-center">
                     <div
                         class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900"
@@ -673,7 +894,85 @@ async function saveSurveyColor(customColor) {
                     </a>
                 </div>
             </div>
+                    </div>
+                </div>
+            </div>
         </div>
+        <!-- Already-submitted modal -->
+        <Transition name="modal-fade">
+            <div
+                v-if="showDuplicateModal"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="dup-modal-title"
+                @click.self="showDuplicateModal = false"
+            >
+                <!-- Backdrop -->
+                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showDuplicateModal = false" />
+
+                <!-- Panel -->
+                <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+                    <!-- Colour bar -->
+                    <div
+                        class="h-1.5 w-full rounded-t-2xl"
+                        :style="{ backgroundColor: effectiveColor }"
+                    />
+
+                    <div class="px-8 pb-8 pt-6">
+                        <!-- Icon -->
+                        <div class="mb-5 flex justify-center">
+                            <div
+                                class="flex h-14 w-14 items-center justify-center rounded-full"
+                                :style="{ backgroundColor: effectiveColor + '20' }"
+                            >
+                                <svg
+                                    class="h-7 w-7"
+                                    :style="{ color: effectiveColor }"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <h2
+                            id="dup-modal-title"
+                            class="mb-2 text-center text-xl font-bold text-gray-900 dark:text-white"
+                        >
+                            Already submitted
+                        </h2>
+
+                        <p class="mb-1 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <span class="font-medium text-gray-700 dark:text-gray-200">{{ survey.title }}</span>
+                        </p>
+
+                        <p class="mt-3 text-center text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                            It looks like a response has already been recorded for this survey.
+                            If you believe this is a mistake, please reach out to the sender.
+                        </p>
+
+                        <div class="mt-7 flex justify-center">
+                            <button
+                                type="button"
+                                class="rounded-lg px-6 py-2.5 text-sm font-semibold text-white shadow transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                                :style="{ backgroundColor: effectiveColor }"
+                                @click="showDuplicateModal = false"
+                            >
+                                Got it
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Transition>
     </PublicSurveyLayout>
 </template>
 
@@ -686,5 +985,17 @@ async function saveSurveyColor(customColor) {
     50% {
         opacity: 0.7;
     }
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+    opacity: 0;
+    transform: scale(0.96);
 }
 </style>

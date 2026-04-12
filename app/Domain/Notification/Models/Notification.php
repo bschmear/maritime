@@ -2,9 +2,9 @@
 
 namespace App\Domain\Notification\Models;
 
+use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Domain\User\Models\User;
 
 class Notification extends Model
 {
@@ -20,6 +20,7 @@ class Notification extends Model
 
     protected $casts = [
         'read_at' => 'datetime',
+        'route_params' => 'array',
     ];
 
     /**
@@ -34,7 +35,7 @@ class Notification extends Model
 
         // If route_params is a scalar value, treat it as a single ID parameter
         // For service tickets, the parameter name is 'serviceticket'
-        if (is_scalar($this->route_params) && !empty($this->route_params)) {
+        if (is_scalar($this->route_params) && ! empty($this->route_params)) {
             return ['serviceticket' => $this->route_params];
         }
 
@@ -49,7 +50,7 @@ class Notification extends Model
     public function markAsRead()
     {
         $this->update([
-            'read_at' => now()
+            'read_at' => now(),
         ]);
     }
 }
