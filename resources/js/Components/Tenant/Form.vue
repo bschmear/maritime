@@ -493,7 +493,7 @@ const toggleMultiEnumValue = (fieldKey, optionId) => {
     const i = arr.indexOf(id);
     if (i >= 0) {
         arr.splice(i, 1);
-    } else {
+        } else {
         arr.push(id);
     }
     form[fieldKey] = arr;
@@ -560,7 +560,7 @@ const getEnumOptions = (fieldKey) => {
 const getEnumLabel = (fieldKey, value) => {
     const options = getEnumOptions(fieldKey);
     const valueStr = value != null ? String(value) : '';
-    const option = options.find(opt =>
+    const option = options.find(opt => 
         String(opt.id) === valueStr || String(opt.value) === valueStr ||
         opt.id === value || opt.value === value
     );
@@ -582,7 +582,7 @@ const getRecordDisplayName = (fieldKey, value) => {
         const relationshipName = relationshipKeyOnRecord(fieldKey, fieldDef);
         const relatedRecord = props.record[relationshipName];
         if (relatedRecord?.display_name) return relatedRecord.display_name;
-    }
+        }
     return getEnumLabel(fieldKey, value);
 };
 
@@ -653,8 +653,8 @@ const isFieldVisible = (field) => {
             case 'is_not_empty': return currentValue && currentValue !== '';
             default:
                 return typeof value === 'boolean' ? boolCurrent === value : currentValue === value;
+                }
         }
-    }
     return true;
 };
 
@@ -721,7 +721,7 @@ const formatPhoneNumber = (value) => {
     const numbers = value.replace(/\D/g, '');
     if (numbers.length <= 3) return numbers;
     if (numbers.length <= 6) return `(${numbers.slice(0, 3)}) ${numbers.slice(3)}`;
-    return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
+        return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
 };
 const unformatPhoneNumber = (value) => value ? value.replace(/\D/g, '') : '';
 const handlePhoneInput = (fieldKey, event) => {
@@ -815,7 +815,7 @@ const prepareFormData = () => {
 const handleSubmit = () => {
     const rawData = prepareFormData();
     const hasFiles = Object.values(rawData).some(val => val instanceof File || val instanceof Blob);
-
+    
     if (isCreateMode.value) {
         if (props.preventRedirect) {
             isProcessing.value = true;
@@ -849,7 +849,7 @@ const handleSubmit = () => {
                     if (!recordId) {
                         const urlMatch = page?.url?.match(/\/(\d+)$/);
                         if (urlMatch) recordId = urlMatch[1];
-                    }
+                        }
                     if (recordId) emit('created', recordId);
                     emit('submit');
                 },
@@ -895,11 +895,11 @@ const handleSubmit = () => {
                     buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams)
                 ),
                 {
-                    preserveScroll: true,
+                preserveScroll: true,
                     onSuccess: () => {
-                        emit('submit');
-                        router.reload({ only: ['record', 'imageUrls'] });
-                    },
+                    emit('submit');
+                    router.reload({ only: ['record', 'imageUrls'] });
+                },
                 }
             );
         }
@@ -907,8 +907,8 @@ const handleSubmit = () => {
 };
 
 const handleCancel = () => {
-    form.reset();
-    emit('cancel');
+        form.reset();
+        emit('cancel');
 };
 
 const submitForm = () => handleSubmit();
@@ -934,7 +934,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                         >
                             <span>{{ group.label }}</span>
                             <svg class="w-6 h-6 shrink-0 transition-transform duration-200"
-                                 :class="openSections[group.key] ? 'rotate-180' : ''"
+                                :class="openSections[group.key] ? 'rotate-180' : ''"
                                  fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                             </svg>
@@ -1077,20 +1077,20 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                             <!-- Address Group -->
                             <div v-if="group.is_address && hasAddressTags(group)" class="mb-4 grid sm:grid-cols-12 gap-4">
                                 <div class="sm:col-span-6">
-                                    <AddressAutocomplete
-                                        :street="getAddressFieldValue(group, 'street')"
-                                        :unit="getAddressFieldValue(group, 'unit')"
-                                        :city="getAddressFieldValue(group, 'city')"
-                                        :state="getAddressFieldValue(group, 'state')"
-                                        :state-code="getAddressFieldValue(group, 'state_code')"
-                                        :postal-code="getAddressFieldValue(group, 'postal_code')"
-                                        :country="getAddressFieldValue(group, 'country')"
-                                        :country-code="getAddressFieldValue(group, 'country_code')"
-                                        :latitude="getAddressFieldValue(group, 'latitude')"
-                                        :longitude="getAddressFieldValue(group, 'longitude')"
+                                <AddressAutocomplete
+                                    :street="getAddressFieldValue(group, 'street')"
+                                    :unit="getAddressFieldValue(group, 'unit')"
+                                    :city="getAddressFieldValue(group, 'city')"
+                                    :state="getAddressFieldValue(group, 'state')"
+                                    :state-code="getAddressFieldValue(group, 'state_code')"
+                                    :postal-code="getAddressFieldValue(group, 'postal_code')"
+                                    :country="getAddressFieldValue(group, 'country')"
+                                    :country-code="getAddressFieldValue(group, 'country_code')"
+                                    :latitude="getAddressFieldValue(group, 'latitude')"
+                                    :longitude="getAddressFieldValue(group, 'longitude')"
                                         :disabled="!isEditMode"
-                                        @update="(data) => updateAddressFields(group, data)"
-                                    />
+                                    @update="(data) => updateAddressFields(group, data)"
+                                />
                                 </div>
                             </div>
 
@@ -1098,21 +1098,21 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                             <div v-else class="grid gap-4 sm:grid-cols-12">
                                 <template v-for="field in group.filteredFields" :key="field?.key">
                                     <div v-if="field && isFieldVisible(field)" :class="getFieldColSpan(field)">
-                                        <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-bold text-gray-900 dark:text-white">
-                                            {{ getFieldLabel(field.key) }}
+                                    <label :for="getFieldId(field.key)" class="block mb-2 text-sm font-bold text-gray-900 dark:text-white">
+                                        {{ getFieldLabel(field.key) }}
                                             <span v-if="getFieldType(field.key) === 'datetime' || getFieldType(field.key) === 'date'"
                                                   class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
-                                                ({{ accountTimezoneLabel }})
-                                            </span>
-                                            <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
-                                        </label>
+                                            ({{ accountTimezoneLabel }})
+                                        </span>
+                                        <span v-if="isFieldRequired(field)" class="text-red-500">*</span>
+                                    </label>
 
-                                        <!-- View Mode -->
-                                        <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
+                                    <!-- View Mode -->
+                                    <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
                                             <span v-if="getFieldType(field.key) === 'textarea'" class="whitespace-pre-wrap">{{ getFieldValue(field.key) || '—' }}</span>
                                             <div v-else-if="getFieldType(field.key) === 'boolean' || getFieldType(field.key) === 'checkbox'" class="flex items-center">
                                                 <label class="select-none w-full text-sm font-medium">{{ getFieldValue(field.key) ? 'Yes' : 'No' }}</label>
-                                            </div>
+                                        </div>
                                             <span v-else-if="getFieldType(field.key) === 'record'">{{ getRecordDisplayName(field.key, getFieldValue(field.key)) }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'select' && getFieldDefinition(field.key).enum">{{ getEnumLabel(field.key, getFieldValue(field.key)) || '—' }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'multi_enum'">{{ getMultiEnumDisplay(field.key) }}</span>
@@ -1120,52 +1120,52 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                             <span v-else-if="getFieldType(field.key) === 'datetime'">{{ formatDateTime(getFieldValue(field.key)) || '—' }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'date'">{{ formatDate(getFieldValue(field.key)) || '—' }}</span>
                                             <span v-else-if="getFieldType(field.key) === 'time'">{{ getFieldValue(field.key) || '—' }}</span>
-                                            <span v-else-if="getFieldType(field.key) === 'rating'">
-                                                <div class="flex items-center space-x-1">
-                                                    <template v-for="star in 5" :key="star">
+                                        <span v-else-if="getFieldType(field.key) === 'rating'">
+                                            <div class="flex items-center space-x-1">
+                                                <template v-for="star in 5" :key="star">
                                                         <svg class="w-4 h-4" :class="star <= getFieldValue(field.key) ? 'text-yellow-400' : 'text-gray-300'" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                        </svg>
-                                                    </template>
+                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                    </svg>
+                                                </template>
                                                     <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">{{ getFieldValue(field.key) || 0 }}/5</span>
-                                                </div>
-                                            </span>
-                                            <span v-else-if="getFieldType(field.key) === 'file'">
+                                            </div>
+                                        </span>
+                                        <span v-else-if="getFieldType(field.key) === 'file'">
                                                 <span v-if="getFieldValue(field.key)" class="text-sm text-blue-600 dark:text-blue-400 underline">{{ getFileName(getFieldValue(field.key)) }}</span>
                                                 <span v-else class="text-sm text-gray-500 dark:text-gray-400">No file uploaded</span>
-                                            </span>
-                                            <div v-else-if="getFieldType(field.key) === 'image'">
+                                        </span>
+                                        <div v-else-if="getFieldType(field.key) === 'image'">
                                                 <img v-if="getImageSource(field.key)" :src="getImageSource(field.key)" class="h-32 w-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700" alt="Image" @error="$event.target.style.display='none'" />
                                                 <span v-else class="text-sm text-gray-500 dark:text-gray-400">No image</span>
-                                            </div>
-                                            <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg max-h-[400px] overflow-y-auto">
-                                                <div v-html="getFieldValue(field.key) || '—'"></div>
-                                            </div>
-                                            <span v-else-if="getFieldType(field.key) === 'morph'">
-                                                <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
-                                                    <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">{{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}</span>
-                                                    <span class="text-gray-400">→</span>
-                                                    <span class="text-sm">{{ record.relatable?.display_name || '—' }}</span>
-                                                </span>
-                                                <span v-else class="text-sm text-gray-500 dark:text-gray-400">Not assigned</span>
-                                            </span>
-                                            <span v-else-if="getFieldType(field.key) === 'currency'">
-                                                {{ getFieldValue(field.key) !== null && getFieldValue(field.key) !== undefined
-                                                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(getFieldValue(field.key))
-                                                    : '—' }}
-                                            </span>
-                                            <span v-else>{{ getFieldValue(field.key) || '—' }}</span>
                                         </div>
+                                        <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg max-h-[400px] overflow-y-auto">
+                                            <div v-html="getFieldValue(field.key) || '—'"></div>
+                                        </div>
+                                        <span v-else-if="getFieldType(field.key) === 'morph'">
+                                            <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
+                                                    <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded">{{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}</span>
+                                                <span class="text-gray-400">→</span>
+                                                <span class="text-sm">{{ record.relatable?.display_name || '—' }}</span>
+                                            </span>
+                                                <span v-else class="text-sm text-gray-500 dark:text-gray-400">Not assigned</span>
+                                        </span>
+                                        <span v-else-if="getFieldType(field.key) === 'currency'">
+                                            {{ getFieldValue(field.key) !== null && getFieldValue(field.key) !== undefined
+                                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(getFieldValue(field.key))
+                                                    : '—' }}
+                                        </span>
+                                            <span v-else>{{ getFieldValue(field.key) || '—' }}</span>
+                                    </div>
 
-                                        <!-- Edit Mode -->
-                                        <div v-else>
+                                    <!-- Edit Mode -->
+                                    <div v-else>
                                             <div v-if="getFieldType(field.key) === 'multi_enum'" class="flex flex-wrap gap-3 rounded-lg border border-gray-300 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-800">
                                                 <label
-                                                    v-for="option in getEnumOptions(field.key)"
-                                                    :key="option.id"
+                                                v-for="option in getEnumOptions(field.key)"
+                                                :key="option.id"
                                                     class="flex cursor-pointer items-center gap-2 text-sm text-gray-800 dark:text-gray-200"
                                                 >
-                                                    <input
+                                        <input
                                                         type="checkbox"
                                                         class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                                                         :checked="isMultiEnumSelected(field.key, option.id)"
@@ -1176,7 +1176,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                             </div>
                                             <div v-else-if="getFieldType(field.key) === 'tel'" class="relative">
                                                 <input :id="getFieldId(field.key)" type="tel" :value="getFormattedPhoneValue(field.key)" @input="handlePhoneInput(field.key, $event)" @blur="handlePhoneInput(field.key, $event)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" placeholder="(123) 456-7890" />
-                                            </div>
+                                        </div>
                                             <NumberInput v-else-if="getFieldType(field.key) === 'number'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :min="getFieldDefinition(field.key).min" :max="getFieldDefinition(field.key).max" :step="getFieldDefinition(field.key).step || 1" :allow-decimals="getFieldDefinition(field.key).allow_decimals !== false" :is-year="getFieldDefinition(field.key).isYear === true" />
                                             <CurrencyInput v-else-if="getFieldType(field.key) === 'currency'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" />
                                             <input v-else-if="['text', 'email'].includes(getFieldType(field.key))" :id="getFieldId(field.key)" v-model="form[field.key]" :type="getFieldType(field.key)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" />
@@ -1194,26 +1194,26 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                                 <input :id="getFieldId(field.key)" type="file" @change="handleFileInput(field.key, $event)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :accept="getFieldDefinition(field.key).accept || '*/*'" class="input-style" />
                                                 <div v-if="form[field.key] && typeof form[field.key] === 'string'" class="text-sm text-gray-600 dark:text-gray-400">Current file: <span class="font-medium">{{ getFileName(form[field.key]) }}</span></div>
                                             </div>
-                                            <div v-else-if="getFieldType(field.key) === 'image'" class="space-y-4">
-                                                <div v-if="getImageSource(field.key)" class="relative w-32 h-32 group">
+                                        <div v-else-if="getFieldType(field.key) === 'image'" class="space-y-4">
+                                            <div v-if="getImageSource(field.key)" class="relative w-32 h-32 group">
                                                     <img :src="getImageSource(field.key)" class="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-gray-700" alt="Preview" />
                                                     <button v-if="!isFieldDisabled(field.key)" type="button" @click="form[field.key] = null; delete imagePreviews[field.key]" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                    </button>
-                                                </div>
-                                                <div v-if="!getImageSource(field.key) || !isFieldDisabled(field.key)">
-                                                    <input :id="getFieldId(field.key)" type="file" @change="handleImageInput(field.key, $event)" :required="isFieldRequired(field) && !form[field.key]" :disabled="isFieldDisabled(field.key)" accept="image/*" class="input-style" />
-                                                </div>
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                </button>
                                             </div>
+                                            <div v-if="!getImageSource(field.key) || !isFieldDisabled(field.key)">
+                                                    <input :id="getFieldId(field.key)" type="file" @change="handleImageInput(field.key, $event)" :required="isFieldRequired(field) && !form[field.key]" :disabled="isFieldDisabled(field.key)" accept="image/*" class="input-style" />
+                                            </div>
+                                        </div>
                                             <MorphSelect v-else-if="getFieldType(field.key) === 'morph'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[getFieldDefinition(field.key).id_field]" v-model:selected-type="form[field.key]" :disabled="isFieldDisabled(field.key)" :initial-display-name="getMorphRelatedDisplayName(field.key)" />
                                             <TipTapEditor v-else-if="getFieldType(field.key) === 'wysiwyg'" :id="getFieldId(field.key)" v-model="form[field.key]" :error="form.errors[field.key]" :show-anchor="getFieldDefinition(field.key).show_anchor" />
                                             <label :for="getFieldId(field.key)" v-else-if="getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean'" class="flex items-center ps-4 bg-gray-50 border border-gray-300 text-gray-900 rounded-lg py-3.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                                 <input type="hidden" :name="field.key" :value="0" />
                                                 <input :id="getFieldId(field.key)" v-model="form[field.key]" type="checkbox" :name="field.key" :true-value="1" :false-value="0" :disabled="isFieldDisabled(field.key)" class="w-4 h-4 border border-default-medium rounded-sm bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft" />
-                                            </label>
+                                        </label>
                                             <p v-if="getFieldDefinition(field.key).help" class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ getFieldDefinition(field.key).help }}</p>
                                             <p v-if="form.errors[field.key]" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ form.errors[field.key] }}</p>
-                                        </div>
+                                    </div>
                                     </div>
                                 </template>
                             </div>

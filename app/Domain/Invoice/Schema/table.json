@@ -1,5 +1,54 @@
 {
+    "allow_create_modal": false,
     "columns": [
-
+        {
+            "key": "id",
+            "label": "#",
+            "sortable": true
+        },
+        {
+            "key": "display_name",
+            "label": "Invoice",
+            "sortable": true,
+            "isKey": true
+        },
+        {
+            "key": "status",
+            "label": "Status",
+            "sortable": true
+        },
+        {
+            "key": "customer_name",
+            "label": "Customer",
+            "sortable": true
+        },
+        {
+            "key": "total",
+            "label": "Total",
+            "sortable": true
+        },
+        {
+            "key": "amount_due",
+            "label": "Due",
+            "sortable": true
+        },
+        {
+            "key": "due_at",
+            "label": "Due date",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ],
+    "filters": [
+        {
+            "key": "status",
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\Invoice\\Status"
+        }
     ]
 }

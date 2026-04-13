@@ -57,9 +57,9 @@ const eventShowHref = (ev) =>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
                 <div class="flex flex-col gap-3 mt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                         {{ record.display_name }}
-                    </h2>
+            </h2>
                     <div class="flex flex-wrap items-center gap-2">
                         <Link
                             :href="route('boat-shows.events.create', showKey)"
