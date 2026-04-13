@@ -1,8 +1,9 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import InvoiceLineItemsEditor from '@/Components/Tenant/InvoiceLineItemsEditor.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, nextTick, ref, watch } from 'vue';
@@ -95,7 +96,10 @@ const form = useForm({
     ),
     payment_term:        resolveEnumId(
         PAYMENT_TERM_ENUM_KEY,
-        props.record?.payment_term ?? props.initialData?.payment_term ?? 'due_on_receipt',
+        props.record?.payment_term
+            ?? props.initialData?.payment_term
+            ?? props.account?.default_payment_term
+            ?? 'due_on_receipt',
     ),
     due_at:
         props.record?.due_at
@@ -125,7 +129,9 @@ const form = useForm({
 });
 
 const lineItemsRef = ref(null);
-const lineItemsReadonly = computed(() => isView.value || props.mode === 'edit');
+const lineItemsReadonly = computed(
+    () => isView.value || props.mode === 'edit' || !!form.transaction_id,
+);
 const lineItemsInitialItems = computed(() => {
     if (props.record?.items?.length) return props.record.items;
     return props.initialData?.items ?? [];
@@ -149,6 +155,9 @@ const applyPrefillPayload = async (d) => {
     if (d.billing_state !== undefined) form.billing_state = d.billing_state ?? '';
     if (d.billing_postal !== undefined) form.billing_postal = d.billing_postal ?? '';
     if (d.billing_country !== undefined) form.billing_country = d.billing_country ?? '';
+    if (d.payment_term != null) {
+        form.payment_term = resolveEnumId(PAYMENT_TERM_ENUM_KEY, d.payment_term);
+    }
 
     relationOverlay.value = {
         ...(d.contact ? { contact: d.contact } : {}),
@@ -177,8 +186,11 @@ watch(
 // ── Address helpers ──────────────────────────────────────────────────────────
 const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
 
-const showAddressConfirm = ref(false);
-const pendingCustomerAddress = ref(null);
+const showAddressPicker = ref(false);
+const contactAddresses = ref([]);
+const isFetchingAddresses = ref(false);
+const addressPickerContactId = ref(null);
+const postingContactAddress = ref(false);
 
 const applyAddressToForm = (src) => {
     form.billing_address_line1 = src.billing_address_line1 || src.address_line_1 || '';
@@ -189,7 +201,7 @@ const applyAddressToForm = (src) => {
     form.billing_country       = src.billing_country       || src.country        || '';
 };
 
-const handleContactSelected = (contact) => {
+const fillCustomerFromContact = (contact) => {
     const name =
         contact.display_name
         || [contact.first_name, contact.last_name].filter(Boolean).join(' ')
@@ -199,22 +211,79 @@ const handleContactSelected = (contact) => {
     if (contact.email) form.customer_email = contact.email;
     const phone = contact.phone || contact.mobile;
     if (phone) form.customer_phone = phone;
-
-    const street = contact.address_line_1 || contact.billing_address_line1 || '';
-    if (!street) return;
-    pendingCustomerAddress.value = contact;
-    showAddressConfirm.value = true;
 };
 
-const confirmUseBillingAddress = () => {
-    applyAddressToForm(pendingCustomerAddress.value);
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
+const fetchContactAddressesForPicker = async (contactId) => {
+    isFetchingAddresses.value = true;
+    contactAddresses.value = [];
+    try {
+        const res = await fetch(route('contacts.addresses.index', { contact: contactId }), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+        if (res.ok) {
+            const data = await res.json();
+            contactAddresses.value = data.addresses ?? [];
+        }
+    } catch {
+        contactAddresses.value = [];
+    } finally {
+        isFetchingAddresses.value = false;
+    }
 };
 
-const dismissAddressConfirm = () => {
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
+const handleContactSelected = async (contact) => {
+    if (!contact?.id) return;
+
+    fillCustomerFromContact(contact);
+    addressPickerContactId.value = contact.id;
+    showAddressPicker.value = true;
+    await fetchContactAddressesForPicker(contact.id);
+};
+
+/** Re-open the contact address modal from the billing section (same picker as on contact change). */
+const openBillingContactAddressPicker = async () => {
+    if (!form.contact_id || isView.value) return;
+    addressPickerContactId.value = form.contact_id;
+    showAddressPicker.value = true;
+    await fetchContactAddressesForPicker(form.contact_id);
+};
+
+const selectContactAddress = (addr) => {
+    applyAddressToForm(addr);
+    dismissAddressPicker();
+};
+
+const dismissAddressPicker = () => {
+    showAddressPicker.value = false;
+    contactAddresses.value = [];
+    addressPickerContactId.value = null;
+};
+
+const onInvoiceContactAddressSaved = (payload) => {
+    if (!addressPickerContactId.value) return;
+    postingContactAddress.value = true;
+    router.post(route('contacts.addresses.store', addressPickerContactId.value), payload, {
+        preserveScroll: true,
+        onFinish: () => {
+            postingContactAddress.value = false;
+        },
+        onSuccess: () => {
+            applyAddressToForm({
+                address_line_1: payload.address_line_1,
+                address_line_2: payload.address_line_2 ?? null,
+                city: payload.city,
+                state: payload.state,
+                postal_code: payload.postal_code,
+                country: payload.country,
+            });
+            dismissAddressPicker();
+        },
+    });
 };
 
 const handleAddressUpdate = (data) => {
@@ -260,7 +329,7 @@ const statusBadgeClass = computed(() => {
 });
 
 // ── Styles ───────────────────────────────────────────────────────────────────
-const inputClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+const inputClass = 'w-full input-style';
 const textareaClass = `${inputClass} resize-none`;
 const disabledClass = 'opacity-60 cursor-not-allowed';
 
@@ -323,7 +392,7 @@ const handleCancel = () => {
 
                         <div class="p-6 space-y-6">
 
-                            <!-- Customer & Relations -->
+                            <!-- Customer & Relations + Invoice details -->
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
@@ -376,13 +445,11 @@ const handleCancel = () => {
                                     </div>
                                 </div>
 
-                                <!-- Invoice Details -->
                                 <div class="space-y-4">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Invoice Details
+                                        Invoice details
                                     </h3>
 
-                                    <!-- Status -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Status <span class="text-red-500">*</span>
@@ -393,9 +460,8 @@ const handleCancel = () => {
                                         <p v-if="form.errors.status" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.status }}</p>
                                     </div>
 
-                                    <!-- Due Date -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due Date</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Due date</label>
                                         <input
                                             type="date"
                                             v-model="form.due_at"
@@ -405,17 +471,14 @@ const handleCancel = () => {
                                         <p v-if="form.errors.due_at" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.due_at }}</p>
                                     </div>
 
-                                    <!-- Payment Term -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Payment Terms</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Payment terms</label>
                                         <select v-model="form.payment_term" :disabled="isView" :class="[inputClass, isView ? disabledClass : '']">
-                                            <option value="">— Select —</option>
-                                            <option v-for="opt in paymentTermOptions" :key="opt.id ?? opt.value" :value="opt.value ?? opt.id">{{ opt.name }}</option>
+                                            <option v-for="opt in paymentTermOptions" :key="opt.id" :value="opt.id">{{ opt.name }}</option>
                                         </select>
                                         <p v-if="form.errors.payment_term" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.payment_term }}</p>
                                     </div>
 
-                                    <!-- Currency -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Currency</label>
                                         <select
@@ -477,13 +540,24 @@ const handleCancel = () => {
 
                             <!-- Billing Address -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
-                                <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                         Billing Address
                                     </h3>
-                                    <span v-if="isFetchingTaxRate" class="text-xs text-primary-600 dark:text-primary-400 animate-pulse">
-                                        Fetching tax rate…
-                                    </span>
+                                    <div class="flex items-center gap-3">
+                                        <button
+                                            v-if="!isView && form.contact_id"
+                                            type="button"
+                                            class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                            @click="openBillingContactAddressPicker"
+                                        >
+                                            <span class="material-icons text-[16px]">person_pin_circle</span>
+                                            Choose from contact
+                                        </button>
+                                        <span v-if="isFetchingTaxRate" class="text-xs text-primary-600 dark:text-primary-400 animate-pulse">
+                                            Fetching tax rate…
+                                        </span>
+                                    </div>
                                 </div>
                                 <AddressAutocomplete
                                     :street="form.billing_address_line1"
@@ -498,11 +572,18 @@ const handleCancel = () => {
                                 />
                             </div>
 
+                            <p
+                                v-if="!isView && form.transaction_id"
+                                class="text-sm text-yellow-500 dark:text-yellow-400 -mt-2 mb-2"
+                            >
+                                Line items come from this transaction and can’t be edited on the invoice.
+                            </p>
                             <InvoiceLineItemsEditor
                                 ref="lineItemsRef"
                                 :form="form"
                                 :readonly="lineItemsReadonly"
                                 :initial-items="lineItemsInitialItems"
+                                :show-totals-panel="false"
                             />
                         </div>
                     </div>
@@ -511,7 +592,7 @@ const handleCancel = () => {
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Notes</h2>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Visible to the customer on the invoice</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Visible to the customer on the invoice</p>
                         </div>
                         <div class="p-6">
                             <textarea
@@ -645,6 +726,50 @@ const handleCancel = () => {
                         </div>
                     </div>
 
+                    <!-- Line-item totals (same fields as editor; lives in sidebar on invoice form) -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
+                            <span class="text-sm font-semibold text-white">Invoice totals</span>
+                        </div>
+                        <div class="p-5 space-y-2 text-sm">
+                            <div class="flex justify-between gap-2">
+                                <span class="text-gray-500 dark:text-gray-400">Subtotal (lines)</span>
+                                <span class="font-medium text-gray-900 dark:text-white text-right">{{ formatCurrency(form.subtotal) }}</span>
+                            </div>
+                            <div class="flex justify-between gap-2">
+                                <span class="text-gray-500 dark:text-gray-400">Tax ({{ Number(form.tax_rate) || 0 }}%)</span>
+                                <span class="font-medium text-gray-900 dark:text-white text-right">{{ formatCurrency(form.tax_total) }}</span>
+                            </div>
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-gray-500 dark:text-gray-400">Fees</span>
+                                <input
+                                    v-if="!lineItemsReadonly"
+                                    v-model.number="form.fees_total"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    :class="[inputClass, 'w-28 py-1.5 text-right text-sm']"
+                                >
+                                <span v-else class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(form.fees_total) }}</span>
+                            </div>
+                            <div class="flex justify-between gap-2 text-base font-bold border-t border-gray-200 dark:border-gray-600 pt-3 text-gray-900 dark:text-white">
+                                <span>Total</span>
+                                <span>{{ formatCurrency(form.total) }}</span>
+                            </div>
+                            <div v-if="!lineItemsReadonly" class="pt-3 border-t border-gray-200 dark:border-gray-600">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Tax rate (%)</label>
+                                <input
+                                    v-model.number="form.tax_rate"
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    max="100"
+                                    :class="inputClass"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Invoice Summary -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
@@ -660,7 +785,7 @@ const handleCancel = () => {
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-500 dark:text-gray-400">Payment Terms</span>
                                 <span class="text-gray-900 dark:text-white font-medium">
-                                    {{ paymentTermOptions.find(o => (o.value ?? o.id) == form.payment_term)?.name ?? '—' }}
+                                    {{ paymentTermOptions.find(o => o.id == form.payment_term)?.name ?? '—' }}
                                 </span>
                             </div>
                             <div v-if="form.due_at" class="flex justify-between items-center">
@@ -717,9 +842,7 @@ const handleCancel = () => {
             </div>
         </form>
 
-        <!-- ============================
-             Billing Address Confirm Modal
-             ============================ -->
+        <!-- Contact billing address picker / add address -->
         <Teleport to="body">
             <Transition
                 enter-active-class="transition ease-out duration-150"
@@ -730,38 +853,93 @@ const handleCancel = () => {
                 leave-to-class="opacity-0"
             >
                 <div
-                    v-if="showAddressConfirm && pendingCustomerAddress"
+                    v-if="showAddressPicker"
                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-                    @click.self="dismissAddressConfirm"
+                    @click.self="dismissAddressPicker"
                 >
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-                        <div class="flex items-start gap-3 px-6 pt-6 pb-4">
-                            <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
-                                <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">location_on</span>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div class="flex items-start justify-between gap-3 px-6 pt-6 pb-4">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Billing address</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        <template v-if="isFetchingAddresses">Loading addresses…</template>
+                                        <template v-else-if="contactAddresses.length > 0">Select one of this contact’s saved addresses</template>
+                                        <template v-else>This contact has no saved addresses yet. Add one to save it on the contact and use it here.</template>
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use contact's address?</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Set this as the billing address for the invoice</p>
-                            </div>
-                        </div>
-                        <div class="mx-6 mb-5 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
-                            <p v-if="pendingCustomerAddress.address_line_1" class="font-medium">{{ pendingCustomerAddress.address_line_1 }}</p>
-                            <p v-if="pendingCustomerAddress.address_line_2" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.address_line_2 }}</p>
-                            <p>
-                                <span v-if="pendingCustomerAddress.city">{{ pendingCustomerAddress.city }}, </span>
-                                <span v-if="pendingCustomerAddress.state">{{ pendingCustomerAddress.state }} </span>
-                                <span v-if="pendingCustomerAddress.postal_code">{{ pendingCustomerAddress.postal_code }}</span>
-                            </p>
-                            <p v-if="pendingCustomerAddress.country" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.country }}</p>
-                        </div>
-                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                            <button type="button" @click="dismissAddressConfirm"
-                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                                No, keep blank
+                            <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-0.5" @click="dismissAddressPicker">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
                             </button>
-                            <button type="button" @click="confirmUseBillingAddress"
-                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
-                                Yes, use this address
+                        </div>
+
+                        <div v-if="isFetchingAddresses" class="flex justify-center py-12">
+                            <svg class="w-8 h-8 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                        </div>
+
+                        <div v-else-if="contactAddresses.length > 0" class="px-6 pb-2 space-y-2 max-h-80 overflow-y-auto">
+                            <button
+                                v-for="addr in contactAddresses"
+                                :key="addr.id"
+                                type="button"
+                                class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors group"
+                                @click="selectContactAddress(addr)"
+                            >
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="text-sm space-y-0.5">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ addr.address_line_1 }}</p>
+                                            <span
+                                                v-if="addr.is_primary"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                            >Primary</span>
+                                            <span
+                                                v-if="addr.label"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                                            >{{ addr.label }}</span>
+                                        </div>
+                                        <p v-if="addr.address_line_2" class="text-gray-500 dark:text-gray-400">{{ addr.address_line_2 }}</p>
+                                        <p class="text-gray-600 dark:text-gray-300">
+                                            <span v-if="addr.city">{{ addr.city }}<span v-if="addr.state || addr.postal_code">, </span></span>
+                                            <span v-if="addr.state">{{ addr.state }} </span>
+                                            <span v-if="addr.postal_code">{{ addr.postal_code }}</span>
+                                        </p>
+                                        <p v-if="addr.country" class="text-gray-500 dark:text-gray-400">{{ addr.country }}</p>
+                                    </div>
+                                    <svg class="w-4 h-4 flex-shrink-0 text-gray-300 group-hover:text-primary-500 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div v-else class="px-6 pb-2 space-y-4">
+                            <ContactAddressAutocomplete
+                                :disabled="postingContactAddress"
+                                button-label="Add address to contact"
+                                @saved="onInvoiceContactAddressSaved"
+                            />
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 mt-2">
+                            <button
+                                type="button"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                @click="dismissAddressPicker"
+                            >
+                                Skip, fill manually
                             </button>
                         </div>
                     </div>

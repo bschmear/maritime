@@ -21,6 +21,8 @@ const props = defineProps({
     readonly: { type: Boolean, default: false },
     /** Rows from transaction prefill or invoice record.items */
     initialItems: { type: Array, default: () => [] },
+    /** When false, subtotal/tax/fees/total and tax rate are rendered by the parent (e.g. invoice sidebar). */
+    showTotalsPanel: { type: Boolean, default: true },
 });
 
 const normalizeTaxable = (v) => v !== false && v !== 0 && v !== '0' && v !== 'false';
@@ -803,51 +805,52 @@ function buildItemsForSubmitInternal(taxRatePercent) {
             </div>
         </div>
 
-        <!-- ─── Invoice totals ───────────────────────────────────── -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Invoice totals</h4>
-            <div class="max-w-sm ml-auto space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Subtotal (lines)</span>
-                    <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.subtotal) }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Tax ({{ Number(form.tax_rate) || 0 }}%)</span>
-                    <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.tax_total) }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-500 dark:text-gray-400">Fees</span>
-                    <input
-                        v-if="!readonly"
-                        v-model.number="form.fees_total"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        class="input-style w-28 py-1 text-right text-sm"
-                    >
-                    <span v-else class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.fees_total) }}</span>
-                </div>
-                <div class="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-600 pt-2 text-gray-900 dark:text-white">
-                    <span>Total</span>
-                    <span>{{ formatMoney(form.total) }}</span>
+        <!-- ─── Invoice totals + tax rate (optional; parent can render in sidebar) ─── -->
+        <template v-if="showTotalsPanel">
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Invoice totals</h4>
+                <div class="max-w-sm ml-auto space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">Subtotal (lines)</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.subtotal) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500 dark:text-gray-400">Tax ({{ Number(form.tax_rate) || 0 }}%)</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.tax_total) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500 dark:text-gray-400">Fees</span>
+                        <input
+                            v-if="!readonly"
+                            v-model.number="form.fees_total"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="input-style w-28 py-1 text-right text-sm"
+                        >
+                        <span v-else class="font-medium text-gray-900 dark:text-white">{{ formatMoney(form.fees_total) }}</span>
+                    </div>
+                    <div class="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-600 pt-2 text-gray-900 dark:text-white">
+                        <span>Total</span>
+                        <span>{{ formatMoney(form.total) }}</span>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- ─── Tax rate ─────────────────────────────────────────── -->
-        <div v-if="!readonly" class="flex flex-wrap gap-4 items-end">
-            <div>
-                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tax rate (%)</label>
-                <input
-                    v-model.number="form.tax_rate"
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    max="100"
-                    class="input-style w-32 py-2 text-sm"
-                >
+            <div v-if="!readonly" class="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tax rate (%)</label>
+                    <input
+                        v-model.number="form.tax_rate"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        max="100"
+                        class="input-style w-32 py-2 text-sm"
+                    >
+                </div>
             </div>
-        </div>
+        </template>
 
         <AddonSelect v-model:open="showAddonModal" accent="primary" @picked="onAddonPicked" />
 

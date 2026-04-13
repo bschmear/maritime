@@ -52,12 +52,12 @@ const statusBadgeClass = computed(() => {
         return opt.bgClass;
     }
     const map = {
-        draft: 'bg-gray-100 text-gray-700',
-        sent: 'bg-blue-100 text-blue-800',
-        viewed: 'bg-purple-100 text-purple-800',
-        partial: 'bg-yellow-100 text-yellow-900',
-        paid: 'bg-green-100 text-green-800',
-        void: 'bg-slate-200 text-slate-600',
+        draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
+        sent: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+        viewed: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+        partial: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200',
+        paid: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+        void: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
     };
     const v = typeof s === 'string' ? s : opts.find(o => o.id == s)?.value;
     return map[v] ?? map.draft;
@@ -122,7 +122,7 @@ const discountCell = (item) => {
 </script>
 
 <template>
-    <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8 text-gray-900">
+    <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
         <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-4 min-w-0">
                 <img
@@ -131,7 +131,7 @@ const discountCell = (item) => {
                     alt=""
                     class="h-10 w-auto max-w-[160px] object-contain"
                 >
-                <div v-else class="text-lg font-semibold text-gray-900">
+                <div v-else class="text-lg font-semibold text-gray-900 dark:text-white">
                     {{ accountDisplayName }}
                 </div>
             </div>
@@ -142,45 +142,48 @@ const discountCell = (item) => {
             </span>
         </div>
 
-        <div class="mt-6 flex flex-col gap-1 border-y border-gray-100 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 class="text-xl font-bold text-gray-900">
+        <div class="mt-6 flex flex-col gap-1 border-y border-gray-100 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">
                 {{ record.display_name || `Invoice #${record.sequence ?? record.id}` }}
             </h1>
-            <time class="text-base text-gray-500">
+            <time class="text-base text-gray-500 dark:text-gray-400">
                 Date: {{ formatDate(record.created_at) }}
             </time>
         </div>
 
         <div class="mt-8 flex flex-col gap-8 sm:flex-row sm:justify-between">
             <div class="sm:w-64">
-                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">From</h2>
-                <address class="not-italic text-sm text-gray-700 space-y-0.5">
+                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">From</h2>
+                <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
                     <template v-for="(line, idx) in fromLines" :key="idx">
-                        <span class="block" :class="idx === 0 ? 'font-semibold text-gray-900' : ''">{{ line }}</span>
+                        <span
+                            class="block"
+                            :class="idx === 0 ? 'font-semibold text-gray-900 dark:text-white' : ''"
+                        >{{ line }}</span>
                     </template>
                 </address>
             </div>
             <div class="sm:w-64">
-                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Bill to</h2>
-                <address class="not-italic text-sm text-gray-700 space-y-0.5">
-                    <span v-if="record.customer_name" class="block font-semibold text-gray-900">{{ record.customer_name }}</span>
+                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bill to</h2>
+                <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
+                    <span v-if="record.customer_name" class="block font-semibold text-gray-900 dark:text-white">{{ record.customer_name }}</span>
                     <span v-if="record.customer_email" class="block">{{ record.customer_email }}</span>
-                    <span v-if="record.customer_phone" class="block text-gray-500">{{ record.customer_phone }}</span>
+                    <span v-if="record.customer_phone" class="block text-gray-500 dark:text-gray-400">{{ record.customer_phone }}</span>
                     <template v-if="record.billing_address_line1">
                         <span class="mt-1 block">{{ record.billing_address_line1 }}</span>
                         <span v-if="record.billing_address_line2" class="block">{{ record.billing_address_line2 }}</span>
                         <span class="block">
                             {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
                         </span>
-                        <span v-if="record.billing_country" class="block text-gray-500">{{ record.billing_country }}</span>
+                        <span v-if="record.billing_country" class="block text-gray-500 dark:text-gray-400">{{ record.billing_country }}</span>
                     </template>
                 </address>
             </div>
         </div>
 
-        <div class="mt-8 overflow-x-auto rounded-lg border border-gray-100">
-            <table class="w-full text-left text-sm font-medium text-gray-900">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+        <div class="mt-8 overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-700">
+            <table class="w-full text-left text-sm font-medium text-gray-900 dark:text-gray-100">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
                     <tr>
                         <th class="px-4 py-3 font-semibold sm:px-6">Item</th>
                         <th class="px-4 py-3 font-semibold sm:px-6">Qty</th>
@@ -194,23 +197,23 @@ const discountCell = (item) => {
                         <tr
                             v-for="item in lineItems"
                             :key="item.id"
-                            class="border-b border-gray-100 bg-white"
+                            class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800"
                         >
                             <th scope="row" class="px-4 py-4 align-top font-medium sm:px-6">
                                 <div class="space-y-1">
                                     <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-base text-gray-900">{{ itemPrimaryLabel(item) }}</span>
+                                        <span class="text-base text-gray-900 dark:text-white">{{ itemPrimaryLabel(item) }}</span>
                                         <span
                                             v-if="itemableBadge(item)"
-                                            class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                                            class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                                         >
                                             {{ itemableBadge(item) }}
                                         </span>
                                     </div>
-                                    <div v-if="itemSecondary(item)" class="text-xs font-normal text-gray-500">
+                                    <div v-if="itemSecondary(item)" class="text-xs font-normal text-gray-500 dark:text-gray-400">
                                         {{ itemSecondary(item) }}
                                     </div>
-                                    <div v-if="itemableName(item)" class="text-xs text-gray-600">
+                                    <div v-if="itemableName(item)" class="text-xs text-gray-600 dark:text-gray-400">
                                         {{ itemableName(item) }}
                                     </div>
                                 </div>
@@ -224,7 +227,7 @@ const discountCell = (item) => {
                         </tr>
                     </template>
                     <tr v-else>
-                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-400">
+                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                             No line items
                         </td>
                     </tr>
@@ -233,44 +236,44 @@ const discountCell = (item) => {
         </div>
 
         <div class="ms-auto mt-6 max-w-xs">
-            <h3 class="mb-3 font-semibold text-gray-900">Summary</h3>
+            <h3 class="mb-3 font-semibold text-gray-900 dark:text-white">Summary</h3>
             <ul class="space-y-2 text-sm">
                 <li class="flex justify-between">
-                    <span class="text-gray-500">Subtotal</span>
-                    <span class="font-medium text-gray-900">{{ formatCurrency(record.subtotal) }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
+                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.subtotal) }}</span>
                 </li>
                 <li
                     v-if="record.discount_total && parseFloat(record.discount_total) !== 0"
                     class="flex justify-between"
                 >
-                    <span class="text-gray-500">Discount</span>
-                    <span class="font-medium text-green-700">-{{ formatCurrency(record.discount_total) }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Discount</span>
+                    <span class="font-medium text-green-700 dark:text-green-400">-{{ formatCurrency(record.discount_total) }}</span>
                 </li>
                 <li class="flex justify-between">
-                    <span class="text-gray-500">Tax</span>
-                    <span class="font-medium text-gray-900">{{ formatCurrency(record.tax_total) }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Tax</span>
+                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.tax_total) }}</span>
                 </li>
                 <li
                     v-if="record.fees_total && parseFloat(record.fees_total) !== 0"
                     class="flex justify-between"
                 >
-                    <span class="text-gray-500">Fees</span>
-                    <span class="font-medium text-gray-900">{{ formatCurrency(record.fees_total) }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">Fees</span>
+                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.fees_total) }}</span>
                 </li>
-                <li class="flex justify-between border-t border-gray-100 pt-3 text-base font-bold text-gray-900">
+                <li class="flex justify-between border-t border-gray-100 pt-3 text-base font-bold text-gray-900 dark:border-gray-700 dark:text-white">
                     <span>Total</span>
                     <span>{{ formatCurrency(record.total) }}</span>
                 </li>
                 <li
                     v-if="record.amount_paid && parseFloat(record.amount_paid) !== 0"
-                    class="flex justify-between text-green-700"
+                    class="flex justify-between text-green-700 dark:text-green-400"
                 >
                     <span>Amount paid</span>
                     <span>-{{ formatCurrency(record.amount_paid) }}</span>
                 </li>
                 <li
                     v-if="record.amount_due != null"
-                    class="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-primary-600"
+                    class="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-primary-600 dark:border-gray-700 dark:text-primary-400"
                 >
                     <span>Amount due</span>
                     <span>{{ formatCurrency(record.amount_due) }}</span>
@@ -278,13 +281,13 @@ const discountCell = (item) => {
             </ul>
         </div>
 
-        <div v-if="record.notes" class="mt-8 border-t border-gray-100 pt-6">
-            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Notes</h3>
-            <p class="whitespace-pre-line text-sm text-gray-600">{{ record.notes }}</p>
+        <div v-if="record.notes" class="mt-8 border-t border-gray-100 pt-6 dark:border-gray-700">
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</h3>
+            <p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{{ record.notes }}</p>
         </div>
 
-        <div class="mt-6 text-xs text-gray-500">
-            <span class="font-medium text-gray-600">Terms:</span>
+        <div class="mt-6 text-xs text-gray-500 dark:text-gray-400">
+            <span class="font-medium text-gray-600 dark:text-gray-300">Terms:</span>
             {{ paymentTermLabel }}
         </div>
     </div>

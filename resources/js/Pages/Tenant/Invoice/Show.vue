@@ -141,7 +141,7 @@ const contractShowHref = computed(() =>
 
         <div class="w-full">
             <div class="grid grid-cols-12 gap-4 p-4">
-                <div class="col-span-12 2xl:col-span-9">
+                <div class="col-span-12 xl:col-span-9">
                     <InvoiceDocumentBody
                         :record="record"
                         :account="account"
@@ -150,7 +150,7 @@ const contractShowHref = computed(() =>
                     />
                 </div>
 
-                <div class="col-span-12 2xl:col-span-3">
+                <div class="col-span-12 xl:col-span-3">
                     <div class="space-y-4 rounded-lg bg-white p-4 shadow-md dark:bg-gray-800 sm:space-y-6 md:p-6">
                         <div
                             v-if="record.paid_at"
