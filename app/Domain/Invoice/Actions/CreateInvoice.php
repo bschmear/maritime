@@ -19,40 +19,40 @@ class CreateInvoice
         unset($data['items']);
 
         $validated = Validator::make($data, [
-            'contact_id' => ['required', 'integer', 'exists:contacts,id'],
-            'transaction_id' => ['nullable', 'integer'],
-            'contract_id' => ['nullable', 'integer'],
-            'status' => ['nullable', 'string', 'max:255'],
-            'currency' => ['nullable', 'string', 'max:3'],
-            'payment_term' => ['nullable'],
-            'due_at' => ['nullable', 'date'],
-            'customer_name' => ['nullable', 'string', 'max:255'],
-            'customer_email' => ['nullable', 'email', 'max:255'],
-            'customer_phone' => ['nullable', 'string', 'max:50'],
+            'contact_id'            => ['required', 'integer', 'exists:contacts,id'],
+            'transaction_id'        => ['nullable', 'integer'],
+            'contract_id'           => ['nullable', 'integer'],
+            'status'                => ['nullable', 'string', 'max:255'],
+            'currency'              => ['nullable', 'string', 'max:3'],
+            'payment_term'          => ['nullable'],
+            'due_at'                => ['nullable', 'date'],
+            'customer_name'         => ['nullable', 'string', 'max:255'],
+            'customer_email'        => ['nullable', 'email', 'max:255'],
+            'customer_phone'        => ['nullable', 'string', 'max:50'],
             'billing_address_line1' => ['nullable', 'string', 'max:255'],
             'billing_address_line2' => ['nullable', 'string', 'max:255'],
-            'billing_city' => ['nullable', 'string', 'max:255'],
-            'billing_state' => ['nullable', 'string', 'max:255'],
-            'billing_postal' => ['nullable', 'string', 'max:50'],
-            'billing_country' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'billing_city'          => ['nullable', 'string', 'max:255'],
+            'billing_state'         => ['nullable', 'string', 'max:255'],
+            'billing_postal'        => ['nullable', 'string', 'max:50'],
+            'billing_country'       => ['nullable', 'string', 'max:255'],
+            'notes'                 => ['nullable', 'string'],
         ])->validate();
 
         $validated['payment_term'] = self::normalizePaymentTerm($validated['payment_term'] ?? null);
 
         try {
             // Calculate invoice-level totals from line items.
-            $subtotal = 0.0;
+            $subtotal      = 0.0;
             $discountTotal = 0.0;
-            $taxTotal = 0.0;
+            $taxTotal      = 0.0;
 
             foreach ($items as $item) {
-                $qty = (float) ($item['quantity'] ?? 1);
-                $price = (float) ($item['unit_price'] ?? 0);
-                $discount = (float) ($item['discount'] ?? 0);
-                $itemSub = ($qty * $price) - $discount;
+                $qty      = (float) ($item['quantity']   ?? 1);
+                $price    = (float) ($item['unit_price'] ?? 0);
+                $discount = (float) ($item['discount']   ?? 0);
+                $itemSub  = ($qty * $price) - $discount;
 
-                $subtotal += $itemSub;
+                $subtotal      += $itemSub;
                 $discountTotal += $discount;
 
                 if (! empty($item['taxable']) && ! empty($item['tax_rate'])) {
@@ -63,13 +63,13 @@ class CreateInvoice
             $total = $subtotal + $taxTotal;
 
             $payload = array_merge($validated, [
-                'status' => $validated['status'] ?? 'draft',
-                'currency' => $validated['currency'] ?? 'USD',
-                'subtotal' => round($subtotal, 2),
-                'tax_total' => round($taxTotal, 2),
+                'status'         => $validated['status']   ?? 'draft',
+                'currency'       => $validated['currency'] ?? 'USD',
+                'subtotal'       => round($subtotal,      2),
+                'tax_total'      => round($taxTotal,      2),
                 'discount_total' => round($discountTotal, 2),
-                'total' => round($total, 2),
-                'amount_due' => round($total, 2),
+                'total'          => round($total,         2),
+                'amount_due'     => round($total,         2),
             ]);
 
             $record = RecordModel::create($payload);
@@ -77,46 +77,44 @@ class CreateInvoice
             // Create line items — InvoiceItem::booted() auto-calculates subtotal/tax_amount/total.
             foreach ($items as $position => $item) {
                 InvoiceItem::create([
-                    'invoice_id' => $record->id,
+                    'invoice_id'          => $record->id,
                     'transaction_item_id' => $item['transaction_item_id'] ?? null,
-                    'itemable_type' => $item['itemable_type'] ?? null,
-                    'itemable_id' => isset($item['itemable_id']) ? (int) $item['itemable_id'] : null,
-                    'name' => $item['name'] ?? '',
-                    'description' => $item['description'] ?? null,
-                    'quantity' => (float) ($item['quantity'] ?? 1),
-                    'unit_price' => (float) ($item['unit_price'] ?? 0),
-                    'discount' => (float) ($item['discount'] ?? 0),
-                    'taxable' => (bool) ($item['taxable'] ?? false),
-                    'tax_rate' => (float) ($item['tax_rate'] ?? 0),
-                    'position' => $item['position'] ?? $position,
+                    'name'                => $item['name']        ?? '',
+                    'description'         => $item['description'] ?? null,
+                    'quantity'            => (float) ($item['quantity']   ?? 1),
+                    'unit_price'          => (float) ($item['unit_price'] ?? 0),
+                    'discount'            => (float) ($item['discount']   ?? 0),
+                    'taxable'             => (bool)  ($item['taxable']    ?? false),
+                    'tax_rate'            => (float) ($item['tax_rate']   ?? 0),
+                    'position'            => $item['position'] ?? $position,
                 ]);
             }
 
             return [
                 'success' => true,
-                'record' => $record,
+                'record'  => $record,
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in CreateInvoice', [
                 'error' => $e->getMessage(),
-                'data' => $data,
+                'data'  => $data,
             ]);
 
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record' => null,
+                'record'  => null,
             ];
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateInvoice', [
                 'error' => $e->getMessage(),
-                'data' => $data,
+                'data'  => $data,
             ]);
 
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
-                'record' => null,
+                'record'  => null,
             ];
         }
     }

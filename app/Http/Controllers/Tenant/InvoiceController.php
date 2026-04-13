@@ -9,10 +9,7 @@ use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Transaction\Models\Transaction;
-use App\Mail\InvoiceViewRequest;
-use App\Models\AccountSettings;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends RecordController
 {
@@ -36,14 +33,7 @@ class InvoiceController extends RecordController
 
     public function index(Request $request)
     {
-        return parent::index($request);
-    }
-
-    protected function appendShowRelationships(array &$relationships): void
-    {
-        foreach (RecordModel::documentEagerLoads() as $key => $callback) {
-            $relationships[$key] = $callback;
-        }
+        return inertia('Tenant/Invoice/Index');
     }
 
     public function show(Request $request, $id)
@@ -262,27 +252,27 @@ class InvoiceController extends RecordController
     //     return redirect()->route('contracts.show', $contract);
     // }
 
-    public function sendToCustomer(Request $request, int $invoice)
+    public function sendToCustomer(int $invoice)
     {
-        $validated = $request->validate([
-            'email' => ['nullable', 'email'],
-        ]);
+        // $settings = AccountSettings::getCurrent();
+        // $record = Contract::query()
+        //     ->where('account_settings_id', $settings->id)
+        //     ->with(['customer', 'transaction'])
+        //     ->findOrFail($contract);
 
-        $settings = AccountSettings::getCurrent();
-        $record = RecordModel::query()
-            ->with(['contact' => fn ($q) => $q->select(['id', 'email', 'display_name'])])
-            ->findOrFail($invoice);
+        // $customerEmail = $record->customer?->email
+        //     ?? $record->transaction?->customer_email;
 
-        $to = $validated['email'] ?? $record->customer_email ?? $record->contact?->email;
-        if (! $to) {
-            return back()->with('error', 'No customer email found for this invoice.');
-        }
+        // if (! $customerEmail) {
+        //     return back()->with('error', 'No customer email found for this contract.');
+        // }
 
-        $viewUrl = route('invoices.view', $record->uuid);
-        $record->markAsSent();
-        Mail::to($to)->send(new InvoiceViewRequest($record->fresh(), $settings, $viewUrl));
+        // $record->update(['status' => ContractStatus::PendingApproval->value]);
 
-        return back()->with('success', 'Invoice link sent to '.$to);
+        // $reviewUrl = route('contracts.review', $record->uuid);
+        // Mail::to($customerEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
+
+        // return back()->with('success', 'Contract sent to ' . $customerEmail);
     }
 
     // public function destroy(int $invoice)

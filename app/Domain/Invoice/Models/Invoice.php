@@ -2,24 +2,18 @@
 
 namespace App\Domain\Invoice\Models;
 
-use App\Domain\Asset\Models\Asset;
-use App\Domain\InventoryItem\Models\InventoryItem;
-use App\Domain\InvoiceItem\Models\InvoiceItem;
-use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class Invoice extends Model
 {
     use HasDocuments, SoftDeletes;
 
     protected $table = 'invoices';
-
     protected $appends = ['display_name'];
 
     protected $fillable = [
@@ -81,44 +75,16 @@ class Invoice extends Model
         'sent_at' => 'datetime',
         'viewed_at' => 'datetime',
         'paid_at' => 'datetime',
-    ];
+    ];    
+
 
     protected static function booted()
     {
-        static::creating(function ($invoice) {
-            if (empty($invoice->uuid)) {
-                $invoice->uuid = (string) Str::uuid();
-            }
+        static::creating(function ($delivery) {
             $next = (int) (DB::table('invoices')->max('sequence') ?? 999);
-            $invoice->sequence = $next + 1;
+            $delivery->sequence = $next + 1;
         });
-    }
-
-    /**
-     * Eager loads for invoice document UIs (tenant show, public view, emails).
-     *
-     * @return array<string, callable>
-     */
-    public static function documentEagerLoads(): array
-    {
-        return [
-            'items' => fn ($q) => $q->orderBy('position')->orderBy('id')->with([
-                'itemable' => function (MorphTo $morph) {
-                    $morph->constrain([
-                        Asset::class => fn ($query) => $query->select(['id', 'display_name', 'name']),
-                        InventoryItem::class => fn ($query) => $query->select(['id', 'display_name', 'name']),
-                    ]);
-                },
-            ]),
-            'transaction' => fn ($q) => $q->select(['id', 'sequence', 'subsidiary_id', 'location_id'])
-                ->with([
-                    'subsidiary' => fn ($sq) => $sq->select(['id', 'display_name']),
-                    'location' => fn ($lq) => $lq->select(['id', 'display_name']),
-                ]),
-            'contract' => fn ($q) => $q->select(['id', 'sequence']),
-            'contact' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile']),
-        ];
-    }
+    } 
 
     /*
     |--------------------------------------------------------------------------
@@ -178,35 +144,26 @@ class Invoice extends Model
 
     public function markAsSent(): void
     {
-        $data = ['sent_at' => now()];
-        if ($this->status === 'draft') {
-            $data['status'] = 'sent';
-        }
-        $this->update($data);
+        $this->update([
+            'status' => 'sent',
+            'sent_at' => now(),
+        ]);
     }
 
     public function markAsViewed(): void
     {
-        if ($this->status === 'void') {
-            return;
-        }
-
-        $data = [];
-        if (! $this->viewed_at) {
-            $data['viewed_at'] = now();
-        }
-        if (in_array($this->status, ['draft', 'sent'], true)) {
-            $data['status'] = 'viewed';
-        }
-        if ($data !== []) {
-            $this->update($data);
+        if (!$this->viewed_at) {
+            $this->update([
+                'status' => 'viewed',
+                'viewed_at' => now(),
+            ]);
         }
     }
 
     public function applyPayment(float $amount): void
     {
         $newPaid = $this->amount_paid + $amount;
-        $newDue = max(0, $this->total - $newPaid);
+        $newDue  = max(0, $this->total - $newPaid);
 
         $status = match (true) {
             $newDue <= 0 => 'paid',
@@ -216,9 +173,9 @@ class Invoice extends Model
 
         $this->update([
             'amount_paid' => $newPaid,
-            'amount_due' => $newDue,
-            'status' => $status,
-            'paid_at' => $newDue <= 0 ? now() : $this->paid_at,
+            'amount_due'  => $newDue,
+            'status'      => $status,
+            'paid_at'     => $newDue <= 0 ? now() : $this->paid_at,
         ]);
     }
 
@@ -229,7 +186,7 @@ class Invoice extends Model
 
     public function isOverdue(): bool
     {
-        return $this->due_at && $this->due_at->isPast() && ! $this->isPaid();
+        return $this->due_at && $this->due_at->isPast() && !$this->isPaid();
     }
 
     /*
@@ -250,6 +207,7 @@ class Invoice extends Model
 
     public function getDisplayNameAttribute()
     {
-        return 'INV-'.($this->sequence ?: $this->id ?: '???');
+        return 'INV-' . ($this->sequence ?: $this->id ?: '???');
     }
+
 }

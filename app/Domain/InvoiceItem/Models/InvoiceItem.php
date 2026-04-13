@@ -4,7 +4,6 @@ namespace App\Domain\InvoiceItem\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class InvoiceItem extends Model
 {
@@ -36,14 +35,14 @@ class InvoiceItem extends Model
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
-        'unit_price' => 'decimal:2',
-        'discount' => 'decimal:2',
-        'subtotal' => 'decimal:2',
-        'tax_rate' => 'decimal:3',
-        'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
-        'taxable' => 'boolean',
+        'quantity'     => 'decimal:2',
+        'unit_price'   => 'decimal:2',
+        'discount'     => 'decimal:2',
+        'subtotal'     => 'decimal:2',
+        'tax_rate'     => 'decimal:3',
+        'tax_amount'   => 'decimal:2',
+        'total'        => 'decimal:2',
+        'taxable'      => 'boolean',
     ];
 
     /*
@@ -57,11 +56,6 @@ class InvoiceItem extends Model
         return $this->belongsTo(
             \App\Domain\Invoice\Models\Invoice::class
         );
-    }
-
-    public function itemable(): MorphTo
-    {
-        return $this->morphTo();
     }
 
     /*
@@ -80,9 +74,9 @@ class InvoiceItem extends Model
             $taxAmount = round($subtotal * ($this->tax_rate / 100), 2);
         }
 
-        $this->subtotal = $subtotal;
+        $this->subtotal   = $subtotal;
         $this->tax_amount = $taxAmount;
-        $this->total = $subtotal + $taxAmount;
+        $this->total      = $subtotal + $taxAmount;
     }
 
     /*

@@ -248,10 +248,6 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
                 } elseif ($fieldDef['typeDomain'] === 'Customer') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'contact_id'])
@@ -288,43 +284,43 @@ class RecordController extends BaseController
             $customHandled = $this->applyCustomSearch($query, trim($searchQuery));
 
             if (! $customHandled) {
-                // Check if display_name column exists, otherwise search in typical display name fields
-                $tableName = $this->recordModel->getTable();
-                $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
-                    ->hasColumn($tableName, 'display_name');
+            // Check if display_name column exists, otherwise search in typical display name fields
+            $tableName = $this->recordModel->getTable();
+            $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+                ->hasColumn($tableName, 'display_name');
 
-                if ($hasDisplayName) {
-                    $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
+            if ($hasDisplayName) {
+                $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
+            } else {
+                // Search in fields that typically make up display names
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                if ($this->domainName === 'AssetUnit') {
+                    // For AssetUnit, also search in the joined assets table
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
+                } elseif ($this->domainName === 'InventoryUnit') {
+                    // For InventoryUnit, also search in the joined inventory_items table
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
                 } else {
-                    // Search in fields that typically make up display names
-                    $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
-                    if ($this->domainName === 'AssetUnit') {
-                        // For AssetUnit, also search in the joined assets table
-                        $query->where(function ($q) use ($searchTerm) {
-                            $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
-                        });
-                    } elseif ($this->domainName === 'InventoryUnit') {
-                        // For InventoryUnit, also search in the joined inventory_items table
-                        $query->where(function ($q) use ($searchTerm) {
-                            $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
-                        });
-                    } else {
-                        $query->where(function ($q) use ($searchTerm) {
-                            $q->whereRaw('LOWER(serial_number) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(hin) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
-                        });
-                    }
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->whereRaw('LOWER(serial_number) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(hin) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(sku) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
+                    });
                 }
+            }
             } // end !customHandled
         }
 
@@ -342,41 +338,41 @@ class RecordController extends BaseController
 
         // Order: ?sort=&direction= from table schema (sortable defaults true), else defaults below
         if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns)) {
-            $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
-                ->hasColumn($tableName, 'display_name');
+        $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+            ->hasColumn($tableName, 'display_name');
 
-            if ($hasDisplayName) {
-                $query->orderByRaw('LOWER('.$tableName.'.display_name) ASC');
+        if ($hasDisplayName) {
+            $query->orderByRaw('LOWER('.$tableName.'.display_name) ASC');
+        } else {
+            // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
+            if ($this->domainName === 'AssetUnit') {
+                // Override select to use table prefixes to avoid ambiguous column errors
+                $prefixedColumns = array_map(function ($col) {
+                    // Prefix all columns that belong to the asset_units table
+                    $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+
+                    return in_array($col, $tableColumns) ? 'asset_units.'.$col : $col;
+                }, $actualColumns);
+                $query->select($prefixedColumns)
+                    ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
+                    ->orderBy('assets.display_name')
+                    ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
+            } elseif ($this->domainName === 'InventoryUnit') {
+                // Override select to use table prefixes to avoid ambiguous column errors
+                $prefixedColumns = array_map(function ($col) {
+                    // Prefix all columns that belong to the inventory_units table
+                    $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+
+                    return in_array($col, $tableColumns) ? 'inventory_units.'.$col : $col;
+                }, $actualColumns);
+                $query->select($prefixedColumns)
+                    ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
+                    ->orderBy('inventory_items.display_name')
+                    ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
             } else {
-                // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
-                if ($this->domainName === 'AssetUnit') {
-                    // Override select to use table prefixes to avoid ambiguous column errors
-                    $prefixedColumns = array_map(function ($col) {
-                        // Prefix all columns that belong to the asset_units table
-                        $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-
-                        return in_array($col, $tableColumns) ? 'asset_units.'.$col : $col;
-                    }, $actualColumns);
-                    $query->select($prefixedColumns)
-                        ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
-                        ->orderBy('assets.display_name')
-                        ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
-                } elseif ($this->domainName === 'InventoryUnit') {
-                    // Override select to use table prefixes to avoid ambiguous column errors
-                    $prefixedColumns = array_map(function ($col) {
-                        // Prefix all columns that belong to the inventory_units table
-                        $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-
-                        return in_array($col, $tableColumns) ? 'inventory_units.'.$col : $col;
-                    }, $actualColumns);
-                    $query->select($prefixedColumns)
-                        ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
-                        ->orderBy('inventory_items.display_name')
-                        ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
-                } else {
-                    $query->orderBy($tableName.'.created_at', 'desc');
-                }
+                $query->orderBy($tableName.'.created_at', 'desc');
             }
+        }
         }
 
         $perPage = $request->get('per_page', 15);
@@ -531,10 +527,6 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
-                            } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
-                                $relationships[$relationshipName] = function ($query) {
-                                    $query->select(['id', 'sequence']);
-                                };
                             } elseif ($fieldDef['typeDomain'] === 'Customer') {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'contact_id'])
@@ -608,11 +600,6 @@ class RecordController extends BaseController
         }
     }
 
-    /**
-     * Merge extra eager loads before {@see show()} loads the record. Override in domain controllers (e.g. invoices).
-     */
-    protected function appendShowRelationships(array &$relationships): void {}
-
     public function show(Request $request, $id)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
@@ -642,10 +629,6 @@ class RecordController extends BaseController
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
                     $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
@@ -700,8 +683,6 @@ class RecordController extends BaseController
         if ($hasSpecsGroup) {
             $relationships['specValues'] = fn ($q) => $q->with('definition');
         }
-
-        $this->appendShowRelationships($relationships);
 
         // Load the record with relationships
         $record = $this->recordModel
@@ -779,10 +760,6 @@ class RecordController extends BaseController
                 } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                     // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
                     $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
@@ -964,10 +941,6 @@ class RecordController extends BaseController
                             } elseif ($fieldDef['typeDomain'] === 'Qualification') {
                                 // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
                                 $selectFields = ['id', 'sequence'];
-                                $relationships[$relationshipName] = function ($query) {
-                                    $query->select(['id', 'sequence']);
-                                };
-                            } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };

@@ -74,9 +74,9 @@ class SurveyController extends Controller
         }
 
         if ($filterStatus === Status::Active->value) {
-            $query->where('status', true);
+                $query->where('status', true);
         } elseif ($filterStatus === Status::Draft->value) {
-            $query->where('status', false);
+                $query->where('status', false);
         } elseif ($filterStatus === Status::Archived->value) {
             // No archived column on surveys yet; keep filter consistent with UI until schema supports it.
             $query->whereRaw('1 = 0');
@@ -177,12 +177,12 @@ class SurveyController extends Controller
         $weeklyResponses = $survey->responses()
             ->where('created_at', '>=', now()->subWeek())
             ->count();
-
+            
         $totalResponses = $survey->responses_count;
         $completionRate = $totalResponses > 0
             ? round(($survey->responses()->whereNotNull('submitted_at')->count() / $totalResponses) * 100)
             : 0;
-
+            
         $avgRating = null;
         $ratingQIds = $survey->questions()->where('type', 'rating')->pluck('id');
         if ($ratingQIds->isNotEmpty()) {
@@ -473,8 +473,8 @@ class SurveyController extends Controller
             $survey->questions()->whereNotIn('id', $keptIds)->delete();
         }
 
-        return response()->json($survey->load('questions'));
-    }
+            return response()->json($survey->load('questions'));
+        }
 
     public function destroy(Request $request): mixed
     {
@@ -484,7 +484,7 @@ class SurveyController extends Controller
         $survey = Survey::where('uuid', $uuid)->firstOrFail();
         $survey->delete();
 
-        if ($request->expectsJson()) {
+            if ($request->expectsJson()) {
             return response()->json(['message' => 'Survey deleted successfully.']);
         }
 
@@ -506,7 +506,7 @@ class SurveyController extends Controller
 
         return redirect()->route('surveysIndex')->with('success', 'Surveys deleted successfully.');
     }
-
+    
     public function clone(Request $request): mixed
     {
         $getId = $request->get('id');
@@ -562,8 +562,8 @@ class SurveyController extends Controller
                 'visibility' => $s->visibility,
             ]);
 
-        return response()->json([
-            'success' => true,
+                return response()->json([
+                    'success' => true,
             'surveys' => $surveys,
             'users' => $this->usersForSelect(),
             'current_user_id' => $tenantUserId,
@@ -619,7 +619,7 @@ class SurveyController extends Controller
      */
     public function convertSurveyResponse(Request $request): RedirectResponse|JsonResponse
     {
-        $validated = $request->validate([
+            $validated = $request->validate([
             'response_id' => ['required', 'integer', 'exists:survey_responses,id'],
             'target' => ['required', 'in:lead,contact'],
         ]);
@@ -659,7 +659,7 @@ class SurveyController extends Controller
                     'notes' => $this->surveyResponseConversionNotes($response),
                 ]);
                 $contactId = $result['record']->id ?? null;
-            } else {
+                    } else {
                 $result = app(CreateLead::class)([
                     'first_name' => $response->first_name ?: 'Unknown',
                     'last_name' => $response->last_name ?: 'Respondent',

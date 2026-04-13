@@ -25,7 +25,7 @@ const emit = defineEmits(['saved', 'cancelled', 'cancel']);
 const isView = computed(() => props.mode === 'show');
 
 const STATUS_ENUM_KEY = 'App\\Enums\\Invoice\\Status';
-const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Terms';
+const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Term';
 
 const statusOptions = computed(() => props.enumOptions?.[STATUS_ENUM_KEY] ?? []);
 const paymentTermOptions = computed(() => props.enumOptions?.[PAYMENT_TERM_ENUM_KEY] ?? []);
@@ -131,12 +131,13 @@ const formatCurrency = (value) =>
 const statusBadgeClass = computed(() => {
     const status = statusOptions.value.find(o => o.id == form.status)?.value ?? form.status ?? '';
     const map = {
-        draft:   'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-        sent:    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-        viewed:  'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-        partial: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
-        paid:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-        void:    'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+        draft:     'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+        sent:      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+        viewed:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+        paid:      'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        overdue:   'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+        cancelled: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
+        void:      'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
     };
     return map[status] ?? map.draft;
 });

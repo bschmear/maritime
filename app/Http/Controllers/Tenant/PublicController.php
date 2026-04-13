@@ -5,12 +5,9 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
-use App\Domain\Invoice\Models\Invoice;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Estimate\EstimateStatus;
-use App\Enums\Invoice\Status as InvoiceStatus;
-use App\Enums\Payments\Terms;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
@@ -509,28 +506,6 @@ class PublicController extends Controller
         }
 
         return $key;
-    }
-
-    public function viewInvoice(Request $request, string $uuid)
-    {
-        $invoice = Invoice::query()
-            ->where('uuid', $uuid)
-            ->with(Invoice::documentEagerLoads())
-            ->firstOrFail();
-
-        $invoice->markAsViewed();
-
-        $account = AccountSettings::getCurrent();
-
-        return Inertia::render('Tenant/Public/InvoiceView', [
-            'record' => $invoice,
-            'account' => $account,
-            'logoUrl' => $account->logo_url ?? null,
-            'enumOptions' => [
-                Terms::class => Terms::options(),
-                InvoiceStatus::class => InvoiceStatus::options(),
-            ],
-        ]);
     }
 
     private function buildLineItems(Estimate $estimate): array
