@@ -6,6 +6,7 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\Transaction\Models\Transaction;
+use App\Enums\Payments\Currency;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class BuildInvoicePrefillFromTransaction
@@ -24,9 +25,9 @@ class BuildInvoicePrefillFromTransaction
                     'itemable' => function (MorphTo $morph) {
                         $morph->constrain([
                             Asset::class => fn ($query) => $query
-                                ->select(['id', 'display_name', 'name', 'year', 'make_id'])
+                                ->select(['id', 'display_name', 'year', 'make_id'])
                                 ->with(['make' => fn ($m) => $m->select(['id', 'display_name'])]),
-                            InventoryItem::class => fn ($query) => $query->select(['id', 'display_name', 'name', 'sku']),
+                            InventoryItem::class => fn ($query) => $query->select(['id', 'display_name', 'sku']),
                         ]);
                     },
                     'estimateLineItem' => fn ($q2) => $q2
@@ -45,7 +46,7 @@ class BuildInvoicePrefillFromTransaction
         $initialData = [
             'transaction_id' => $transaction->id,
             'contact_id' => $customer?->contact_id,
-            'currency' => $transaction->currency ?? 'USD',
+            'currency' => Currency::toStoredValue($transaction->currency ?? 'USD') ?? 'USD',
             'tax_rate' => (float) ($transaction->tax_rate ?? 0),
             'discount_total' => (float) ($transaction->discount_total ?? 0),
             'fees_total' => (float) ($transaction->fees_total ?? 0),
@@ -64,8 +65,17 @@ class BuildInvoicePrefillFromTransaction
             ];
         }
 
+        $initialData['transaction'] = [
+            'id' => $transaction->id,
+            'display_name' => $transaction->display_name,
+        ];
+
         if ($transaction->contract) {
             $initialData['contract_id'] = $transaction->contract->id;
+            $initialData['contract'] = [
+                'id' => $transaction->contract->id,
+                'display_name' => $transaction->contract->display_name,
+            ];
         }
 
         $initialData['customer_name'] = $transaction->customer_name

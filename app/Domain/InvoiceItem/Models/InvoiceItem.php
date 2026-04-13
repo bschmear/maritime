@@ -2,6 +2,7 @@
 
 namespace App\Domain\InvoiceItem\Models;
 
+use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -33,6 +34,7 @@ class InvoiceItem extends Model
 
         'itemable_type',
         'itemable_id',
+        'asset_variant_id',
     ];
 
     protected $casts = [
@@ -62,6 +64,11 @@ class InvoiceItem extends Model
     public function itemable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function assetVariant(): BelongsTo
+    {
+        return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
     }
 
     /*

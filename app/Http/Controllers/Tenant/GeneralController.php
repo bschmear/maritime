@@ -39,10 +39,16 @@ class GeneralController extends BaseController
         $recordModel = 'App\Domain\\'.$domainName.'\Models\\'.$domainName;
         $recordModel = new $recordModel;
 
+        // Models whose display_name is a virtual accessor (not a real DB column).
+        // Schema::hasColumn() can return a false-positive for these (e.g. when the
+        // system DB has a homonymous table), so we force-exclude them here.
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification'];
+
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
-        $hasDisplayNameColumn = \Schema::connection($recordModel->getConnectionName())
-            ->hasColumn($tableName, 'display_name');
+        $hasDisplayNameColumn = ! in_array($typeKey, $virtualDisplayNameTypes, true)
+            && \Schema::connection($recordModel->getConnectionName())
+                ->hasColumn($tableName, 'display_name');
 
         $columns = ['id'];
         if ($hasDisplayNameColumn) {
@@ -59,6 +65,9 @@ class GeneralController extends BaseController
                 $columns[] = 'serial_number';
                 $columns[] = 'hin';
                 $columns[] = 'sku';
+            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
+                // display_name is computed from `sequence` (e.g. "DL-1001")
+                $columns[] = 'sequence';
             }
         }
 
@@ -174,6 +183,15 @@ class GeneralController extends BaseController
                         $q->orWhere($contactTable.'.id', '=', (int) $trim);
                     }
                 });
+            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
+                // display_name is virtual ("DL-1001"); search by sequence number
+                $searchTerm = trim($searchQuery);
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('CAST(sequence AS TEXT) LIKE ?', ['%'.$searchTerm.'%']);
+                    if (ctype_digit($searchTerm)) {
+                        $q->orWhere('sequence', '=', (int) $searchTerm);
+                    }
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -242,6 +260,9 @@ class GeneralController extends BaseController
             } elseif ($typeKey === 'addon') {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
+            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('sequence', $dir);
             } else {
                 // Default ordering for other models without display_name column
                 $query->orderBy('created_at', 'desc');

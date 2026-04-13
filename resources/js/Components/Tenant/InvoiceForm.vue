@@ -1,9 +1,11 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import InvoiceLineItemsEditor from '@/Components/Tenant/InvoiceLineItemsEditor.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -18,6 +20,7 @@ const props = defineProps({
         validator: (v) => ['create', 'edit', 'show'].includes(v),
     },
     initialData: { type: Object, default: () => ({}) },
+    transaction: { type: Object, default: null },
 });
 
 const emit = defineEmits(['saved', 'cancelled', 'cancel']);
@@ -26,9 +29,14 @@ const isView = computed(() => props.mode === 'show');
 
 const STATUS_ENUM_KEY = 'App\\Enums\\Invoice\\Status';
 const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Terms';
+const CURRENCY_ENUM_KEY = 'App\\Enums\\Payments\\Currency';
 
 const statusOptions = computed(() => props.enumOptions?.[STATUS_ENUM_KEY] ?? []);
 const paymentTermOptions = computed(() => props.enumOptions?.[PAYMENT_TERM_ENUM_KEY] ?? []);
+const currencyOptions = computed(() => {
+    const list = props.enumOptions?.[CURRENCY_ENUM_KEY] ?? [];
+    return list.length ? list : [{ id: 1, value: 'USD', name: 'US Dollar' }];
+});
 
 const resolveEnumId = (enumKey, value) => {
     if (value == null) return value;
@@ -40,29 +48,131 @@ const resolveEnumId = (enumKey, value) => {
     return value;
 };
 
-const pseudoRecord = computed(() =>
-    props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null)
-);
+/** Merged into pseudoRecord so RecordSelect shows labels after JSON prefill (contact / transaction / contract). */
+const relationOverlay = ref({});
+
+const pseudoRecord = computed(() => {
+    const base = props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null);
+    const overlay = relationOverlay.value;
+    if (base && Object.keys(overlay).length > 0) {
+        return { ...base, ...overlay };
+    }
+    if (!base && Object.keys(overlay).length > 0) {
+        return { ...overlay };
+    }
+    return base;
+});
+
+const dueAtDefaultYmd = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+};
+
+const resolveCurrencyValue = (raw) => {
+    if (raw == null || raw === '') return 'USD';
+    const opts = currencyOptions.value;
+    if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(String(raw)))) {
+        const opt = opts.find((o) => o.id == raw);
+        return opt?.value ?? 'USD';
+    }
+    const hit = opts.find((o) => o.value === raw);
+    return hit?.value ?? (typeof raw === 'string' && raw.length <= 3 ? raw : 'USD');
+};
+
+const inferTaxRateFromItems = (items) => {
+    const row = (items || []).find((i) => i.taxable && Number(i.tax_rate) > 0);
+    return row != null ? Number(row.tax_rate) : 0;
+};
 
 const form = useForm({
-    customer_id:           props.record?.customer_id           ?? props.initialData?.customer_id           ?? null,
-    transaction_id:        props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
-    contract_id:           props.record?.contract_id           ?? props.initialData?.contract_id           ?? null,
-    status:                resolveEnumId(STATUS_ENUM_KEY, props.record?.status ?? props.initialData?.status ?? 'draft'),
-    currency:              props.record?.currency              ?? props.initialData?.currency              ?? 'USD',
-    payment_term:          props.record?.payment_term          ?? props.initialData?.payment_term          ?? '1',
-    due_at:                props.record?.due_at                ?? props.initialData?.due_at                ?? '',
-    customer_name:         props.record?.customer_name         ?? props.initialData?.customer_name         ?? '',
-    customer_email:        props.record?.customer_email        ?? props.initialData?.customer_email        ?? '',
-    customer_phone:        props.record?.customer_phone        ?? props.initialData?.customer_phone        ?? '',
+    contact_id:            props.record?.contact_id            ?? props.initialData?.contact_id            ?? null,
+    transaction_id:      props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
+    contract_id:         props.record?.contract_id           ?? props.initialData?.contract_id           ?? null,
+    status:              resolveEnumId(STATUS_ENUM_KEY, props.record?.status ?? props.initialData?.status ?? 'draft'),
+    currency: resolveCurrencyValue(
+        props.record?.currency ?? props.initialData?.currency ?? 'USD',
+    ),
+    payment_term:        resolveEnumId(
+        PAYMENT_TERM_ENUM_KEY,
+        props.record?.payment_term ?? props.initialData?.payment_term ?? 'due_on_receipt',
+    ),
+    due_at:
+        props.record?.due_at
+        ?? props.initialData?.due_at
+        ?? (props.mode === 'create' ? dueAtDefaultYmd() : ''),
+    customer_name:       props.record?.customer_name         ?? props.initialData?.customer_name         ?? '',
+    customer_email:      props.record?.customer_email        ?? props.initialData?.customer_email        ?? '',
+    customer_phone:      props.record?.customer_phone        ?? props.initialData?.customer_phone        ?? '',
     billing_address_line1: props.record?.billing_address_line1 ?? props.initialData?.billing_address_line1 ?? '',
     billing_address_line2: props.record?.billing_address_line2 ?? props.initialData?.billing_address_line2 ?? '',
-    billing_city:          props.record?.billing_city          ?? props.initialData?.billing_city          ?? '',
-    billing_state:         props.record?.billing_state         ?? props.initialData?.billing_state         ?? '',
-    billing_postal:        props.record?.billing_postal        ?? props.initialData?.billing_postal        ?? '',
-    billing_country:       props.record?.billing_country       ?? props.initialData?.billing_country       ?? '',
-    notes:                 props.record?.notes                 ?? props.initialData?.notes                 ?? '',
+    billing_city:        props.record?.billing_city          ?? props.initialData?.billing_city          ?? '',
+    billing_state:       props.record?.billing_state         ?? props.initialData?.billing_state         ?? '',
+    billing_postal:      props.record?.billing_postal        ?? props.initialData?.billing_postal        ?? '',
+    billing_country:     props.record?.billing_country       ?? props.initialData?.billing_country       ?? '',
+    notes:               props.record?.notes                 ?? props.initialData?.notes                 ?? '',
+    tax_rate:
+        props.initialData?.tax_rate != null
+            ? Number(props.initialData.tax_rate)
+            : inferTaxRateFromItems(props.record?.items ?? []),
+    subtotal:            props.record?.subtotal              ?? props.initialData?.subtotal              ?? '0',
+    tax_total:           props.record?.tax_total             ?? props.initialData?.tax_total             ?? '0',
+    total:               props.record?.total                 ?? props.initialData?.total                 ?? '0',
+    fees_total:
+        props.record?.fees_total != null
+            ? Number(props.record.fees_total)
+            : Number(props.initialData?.fees_total ?? 0),
 });
+
+const lineItemsRef = ref(null);
+const lineItemsReadonly = computed(() => isView.value || props.mode === 'edit');
+const lineItemsInitialItems = computed(() => {
+    if (props.record?.items?.length) return props.record.items;
+    return props.initialData?.items ?? [];
+});
+
+const applyPrefillPayload = async (d) => {
+    if (d == null || typeof d !== 'object') return;
+    if (d.contact_id != null) form.contact_id = d.contact_id;
+    if (d.transaction_id != null) form.transaction_id = d.transaction_id;
+    if (d.contract_id != null) form.contract_id = d.contract_id;
+    if (d.currency != null) form.currency = resolveCurrencyValue(d.currency);
+    if (d.tax_rate != null) form.tax_rate = Number(d.tax_rate);
+    if (d.fees_total != null) form.fees_total = Number(d.fees_total);
+    if (d.notes !== undefined) form.notes = d.notes ?? '';
+    if (d.customer_name !== undefined) form.customer_name = d.customer_name ?? '';
+    if (d.customer_email !== undefined) form.customer_email = d.customer_email ?? '';
+    if (d.customer_phone !== undefined) form.customer_phone = d.customer_phone ?? '';
+    if (d.billing_address_line1 !== undefined) form.billing_address_line1 = d.billing_address_line1 ?? '';
+    if (d.billing_address_line2 !== undefined) form.billing_address_line2 = d.billing_address_line2 ?? '';
+    if (d.billing_city !== undefined) form.billing_city = d.billing_city ?? '';
+    if (d.billing_state !== undefined) form.billing_state = d.billing_state ?? '';
+    if (d.billing_postal !== undefined) form.billing_postal = d.billing_postal ?? '';
+    if (d.billing_country !== undefined) form.billing_country = d.billing_country ?? '';
+
+    relationOverlay.value = {
+        ...(d.contact ? { contact: d.contact } : {}),
+        ...(d.transaction ? { transaction: d.transaction } : {}),
+        ...(d.contract ? { contract: d.contract } : {}),
+    };
+
+    await nextTick();
+    await nextTick();
+    lineItemsRef.value?.hydrateFromItems(d.items ?? [], { preserveIds: false });
+};
+
+watch(
+    () => form.transaction_id,
+    async (tid) => {
+        if (props.mode !== 'create' || isView.value || !tid) return;
+        try {
+            const { data } = await axios.get(route('invoices.prefill-from-transaction', tid));
+            await applyPrefillPayload(data);
+        } catch (e) {
+            console.error(e);
+        }
+    },
+);
 
 // ── Address helpers ──────────────────────────────────────────────────────────
 const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
@@ -79,14 +189,20 @@ const applyAddressToForm = (src) => {
     form.billing_country       = src.billing_country       || src.country        || '';
 };
 
-const handleCustomerSelected = (customer) => {
-    if (customer.name)  form.customer_name  = customer.name;
-    if (customer.email) form.customer_email = customer.email;
-    if (customer.phone) form.customer_phone = customer.phone;
+const handleContactSelected = (contact) => {
+    const name =
+        contact.display_name
+        || [contact.first_name, contact.last_name].filter(Boolean).join(' ')
+        || contact.name
+        || '';
+    if (name) form.customer_name = name;
+    if (contact.email) form.customer_email = contact.email;
+    const phone = contact.phone || contact.mobile;
+    if (phone) form.customer_phone = phone;
 
-    const street = customer.address_line_1 || customer.billing_address_line1 || '';
+    const street = contact.address_line_1 || contact.billing_address_line1 || '';
     if (!street) return;
-    pendingCustomerAddress.value = customer;
+    pendingCustomerAddress.value = contact;
     showAddressConfirm.value = true;
 };
 
@@ -111,14 +227,16 @@ const handleAddressUpdate = (data) => {
 };
 
 watch(() => form.billing_state, async (newState) => {
-    if (newState) {
-        await fetchTaxRate({
-            state:       newState,
-            city:        form.billing_city          || undefined,
-            postal_code: form.billing_postal        || undefined,
-            line1:       form.billing_address_line1 || undefined,
-            country:     form.billing_country       || undefined,
-        });
+    if (!newState) return;
+    const rate = await fetchTaxRate({
+        state:       newState,
+        city:        form.billing_city          || undefined,
+        postal_code: form.billing_postal        || undefined,
+        line1:       form.billing_address_line1 || undefined,
+        country:     form.billing_country       || undefined,
+    });
+    if (rate != null && !Number.isNaN(Number(rate))) {
+        form.tax_rate = Number(rate);
     }
 });
 
@@ -149,6 +267,14 @@ const disabledClass = 'opacity-60 cursor-not-allowed';
 // ── Submit ───────────────────────────────────────────────────────────────────
 const submit = () => {
     if (isView.value) return;
+    form.transform((data) => {
+        const statusOpt = statusOptions.value.find((o) => o.id == data.status);
+        const next = { ...data, status: statusOpt?.value ?? data.status };
+        if (props.mode === 'create') {
+            next.items = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? [];
+        }
+        return next;
+    });
     if (props.mode === 'edit') {
         form.put(route('invoices.update', props.record.id), {
             onSuccess: () => emit('saved'),
@@ -201,24 +327,24 @@ const handleCancel = () => {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Customer &amp; Relations
+                                        Contact &amp; relations
                                     </h3>
 
-                                    <!-- Customer -->
+                                    <!-- Contact -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Customer <span class="text-red-500">*</span>
+                                            Contact <span class="text-red-500">*</span>
                                         </label>
                                         <RecordSelect
-                                            id="customer_id"
-                                            :field="fieldsSchema?.customer_id || { type: 'relationship', relationship_type: 'customers', label: 'Customer', required: true }"
-                                            v-model="form.customer_id"
+                                            id="contact_id"
+                                            :field="fieldsSchema?.contact_id || { type: 'record', typeDomain: 'Contact', label: 'Contact', required: true }"
+                                            v-model="form.contact_id"
                                             :record="pseudoRecord"
-                                            field-key="customer_id"
+                                            field-key="contact_id"
                                             :disabled="isView"
-                                            @record-selected="handleCustomerSelected"
+                                            @record-selected="handleContactSelected"
                                         />
-                                        <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
+                                        <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
                                     </div>
 
                                     <!-- Transaction -->
@@ -226,7 +352,7 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Transaction</label>
                                         <RecordSelect
                                             id="transaction_id"
-                                            :field="fieldsSchema?.transaction_id || { type: 'relationship', relationship_type: 'transactions', label: 'Transaction' }"
+                                            :field="fieldsSchema?.transaction_id || { type: 'record', typeDomain: 'Transaction', label: 'Transaction' }"
                                             v-model="form.transaction_id"
                                             :record="pseudoRecord"
                                             field-key="transaction_id"
@@ -240,7 +366,7 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Contract</label>
                                         <RecordSelect
                                             id="contract_id"
-                                            :field="fieldsSchema?.contract_id || { type: 'relationship', relationship_type: 'contracts', label: 'Contract' }"
+                                            :field="fieldsSchema?.contract_id || { type: 'record', typeDomain: 'Contract', label: 'Contract' }"
                                             v-model="form.contract_id"
                                             :record="pseudoRecord"
                                             field-key="contract_id"
@@ -292,13 +418,15 @@ const handleCancel = () => {
                                     <!-- Currency -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Currency</label>
-                                        <input
-                                            type="text"
+                                        <select
                                             v-model="form.currency"
                                             :disabled="isView"
                                             :class="[inputClass, isView ? disabledClass : '']"
-                                            placeholder="USD"
-                                        />
+                                        >
+                                            <option v-for="opt in currencyOptions" :key="opt.value" :value="opt.value">
+                                                {{ opt.name }}
+                                            </option>
+                                        </select>
                                         <p v-if="form.errors.currency" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.currency }}</p>
                                     </div>
                                 </div>
@@ -369,6 +497,13 @@ const handleCancel = () => {
                                     @update="handleAddressUpdate"
                                 />
                             </div>
+
+                            <InvoiceLineItemsEditor
+                                ref="lineItemsRef"
+                                :form="form"
+                                :readonly="lineItemsReadonly"
+                                :initial-items="lineItemsInitialItems"
+                            />
                         </div>
                     </div>
 
@@ -605,7 +740,7 @@ const handleCancel = () => {
                                 <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">location_on</span>
                             </div>
                             <div>
-                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use customer's address?</h3>
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use contact's address?</h3>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Set this as the billing address for the invoice</p>
                             </div>
                         </div>

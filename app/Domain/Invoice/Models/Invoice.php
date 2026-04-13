@@ -105,10 +105,11 @@ class Invoice extends Model
             'items' => fn ($q) => $q->orderBy('position')->orderBy('id')->with([
                 'itemable' => function (MorphTo $morph) {
                     $morph->constrain([
-                        Asset::class => fn ($query) => $query->select(['id', 'display_name', 'name']),
-                        InventoryItem::class => fn ($query) => $query->select(['id', 'display_name', 'name']),
+                        Asset::class => fn ($query) => $query->select(['id', 'display_name']),
+                        InventoryItem::class => fn ($query) => $query->select(['id', 'display_name']),
                     ]);
                 },
+                'assetVariant' => fn ($q2) => $q2->select(['id', 'name', 'display_name']),
             ]),
             'transaction' => fn ($q) => $q->select(['id', 'sequence', 'subsidiary_id', 'location_id'])
                 ->with([

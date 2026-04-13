@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
+import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
@@ -253,8 +254,21 @@ const emptyAssetForm = () => ({
     description: '',
     taxable: true,
     addons: [],
+    has_variants: false,
+    asset_variant_id: null,
+    variant_display_name: '',
+    asset_description: '',
 });
 const assetForm = ref(emptyAssetForm());
+
+const assetFormVariantId = computed({
+    get: () => assetForm.value.asset_variant_id,
+    set: (v) => { assetForm.value.asset_variant_id = v; },
+});
+const assetFormVariantDisplayName = computed({
+    get: () => assetForm.value.variant_display_name,
+    set: (v) => { assetForm.value.variant_display_name = v; },
+});
 
 const fetchAssets = async (resetPage = false) => {
     if (resetPage) assetCurrentPage.value = 1;
@@ -302,9 +316,26 @@ const selectAsset = (asset) => {
     assetForm.value.year = asset.year || '';
     assetForm.value.make = asset.make?.display_name || '';
     assetForm.value.unit_price = Number(asset.default_price) || 0;
+    assetForm.value.has_variants = Boolean(asset.has_variants);
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
+    assetForm.value.asset_description = (asset.description || '').trim() || '';
+};
+const clearSelectedAssetForChange = () => {
+    assetForm.value.itemable_id = null;
+    assetForm.value.asset_id = null;
+    assetForm.value.name = '';
+    assetForm.value.has_variants = false;
+    assetForm.value.asset_variant_id = null;
+    assetForm.value.variant_display_name = '';
+    assetForm.value.asset_description = '';
 };
 const saveAssetItem = () => {
     if (!assetForm.value.itemable_id) return;
+    if (assetForm.value.has_variants && !assetForm.value.asset_variant_id) {
+        window.alert('This asset uses variants — select a variant before saving the line.');
+        return;
+    }
     if (editingAssetIndex.value !== null) {
         assetItems.value[editingAssetIndex.value] = { ...assetForm.value };
     } else {
@@ -995,7 +1026,10 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-3">
                                 <div class="font-medium text-gray-900 dark:text-white text-sm">{{ asset.name }}</div>
                                 <div v-if="asset.year || asset.make" class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{{ [asset.year, asset.make].filter(Boolean).join(' ') }}</div>
-                                <div v-if="asset.description" class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{{ asset.description }}</div>
+                                <div v-if="asset.variant_display_name" class="flex items-center gap-1 mt-0.5">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Variant</span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ asset.variant_display_name }}</span>
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ +asset.quantity }}</td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(asset.unit_price) }}</td>
@@ -1149,7 +1183,7 @@ const handleCancel = () => emit('cancel');
                                 <div class="font-medium text-gray-900 dark:text-white text-sm">{{ inv.name }}</div>
                                 <span v-if="inv._txnLineType === 'line'" class="inline-block mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">Legacy line</span>
                                 <div v-if="inv.sku" class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">SKU: {{ inv.sku }}</div>
-                                <div v-if="inv.description" class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{{ inv.description }}</div>
+                                <!-- <div v-if="inv.description" class="text-sm text-gray-400 dark:text-gray-500 mt-0.5">{{ inv.description }}</div> -->
                             </td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ +inv.quantity }}</td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(inv.unit_price) }}</td>
@@ -1501,78 +1535,171 @@ const handleCancel = () => emit('cancel');
 
         <!-- ─── Add/Edit Asset Modal ─────────────────────────────────────── -->
         <Teleport to="body">
-            <Transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-                <div v-if="showAssetModal" class="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 pb-8">
-                    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAssetModal = false"></div>
-                    <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-                        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ editingAssetIndex !== null ? 'Edit Asset' : 'Add Asset' }}</h3>
-                            <button type="button" @click="showAssetModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
+            <div
+                v-if="showAssetModal"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                @click.self="showAssetModal = false"
+            >
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            {{ assetForm.asset_id && editingAssetIndex !== null ? 'Edit Asset' : 'Add Asset' }}
+                        </h3>
+                        <button @click="showAssetModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto p-6 space-y-5">
+
+                        <!-- Search (shown when no asset selected) -->
+                        <div v-if="!assetForm.itemable_id">
+                            <div class="relative mb-3">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    v-model="assetSearchQuery"
+                                    @input="debouncedFetchAssets"
+                                    type="text"
+                                    placeholder="Search assets by name, year, or make..."
+                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            <div v-if="assetIsLoading" class="flex justify-center py-8">
+                                <svg class="w-6 h-6 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                </svg>
+                            </div>
+
+                            <div v-else-if="assetRecords.length > 0" class="space-y-1.5 max-h-56 overflow-y-auto">
+                                <button
+                                    v-for="asset in assetRecords"
+                                    :key="asset.id"
+                                    type="button"
+                                    @click="selectAsset(asset)"
+                                    class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all group"
+                                >
+                                    <div class="flex items-center justify-between gap-3">
+                                        <div>
+                                            <div class="font-medium text-gray-900 dark:text-white text-sm group-hover:text-primary-700 dark:group-hover:text-primary-300">
+                                                {{ asset.display_name }}
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
+                                                <span v-if="asset.year">{{ asset.year }}</span>
+                                                <span v-if="asset.make?.display_name">{{ asset.make.display_name }}</span>
+                                                <span v-if="asset.default_price">{{ formatMoney(asset.default_price) }}</span>
+                                            </div>
+                                        </div>
+                                        <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                        </svg>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <div v-else class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                                {{ assetSearchQuery.trim() ? 'No assets match your search' : 'No assets available' }}
+                            </div>
+
+                            <div v-if="assetTotalPages > 1" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                <button type="button" @click="assetCurrentPage--; fetchAssets()" :disabled="assetCurrentPage <= 1" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">← Prev</button>
+                                <span class="text-xs text-gray-400">Page {{ assetCurrentPage }} / {{ assetTotalPages }}</span>
+                                <button type="button" @click="assetCurrentPage++; fetchAssets()" :disabled="assetCurrentPage >= assetTotalPages" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">Next →</button>
+                            </div>
                         </div>
-                        <div class="overflow-y-auto p-6 space-y-5 flex-1">
-                            <!-- Search -->
-                            <div v-if="editingAssetIndex === null">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Assets</label>
-                                <input v-model="assetSearchQuery" @input="debouncedFetchAssets" type="text" placeholder="Search by name, year, make…" class="input-style" />
-                                <div v-if="assetIsLoading" class="mt-2 text-xs text-gray-500">Loading…</div>
-                                <div v-else-if="assetRecords.length" class="mt-2 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
-                                    <button
-                                        v-for="asset in assetRecords" :key="asset.id"
-                                        type="button"
-                                        @click="selectAsset(asset)"
-                                        class="w-full px-4 py-2.5 text-left text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
-                                        :class="assetForm.asset_id === asset.id ? 'bg-blue-50 dark:bg-blue-900/20 font-semibold' : ''"
-                                    >
-                                        <span class="font-medium text-gray-900 dark:text-white">{{ asset.display_name }}</span>
-                                        <span v-if="asset.year || asset.make?.display_name" class="ml-2 text-gray-400 text-xs">{{ [asset.year, asset.make?.display_name].filter(Boolean).join(' ') }}</span>
-                                    </button>
-                                </div>
-                                <div v-else-if="assetSearchQuery" class="mt-2 text-xs text-gray-400">No assets found.</div>
-                                <div v-if="assetTotalPages > 1" class="mt-2 flex gap-2 justify-end">
-                                    <button type="button" :disabled="assetCurrentPage <= 1" @click="assetCurrentPage--; fetchAssets()" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40">Prev</button>
-                                    <span class="text-xs text-gray-500 self-center">{{ assetCurrentPage }} / {{ assetTotalPages }}</span>
-                                    <button type="button" :disabled="assetCurrentPage >= assetTotalPages" @click="assetCurrentPage++; fetchAssets()" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 disabled:opacity-40">Next</button>
-                                </div>
-                            </div>
-                            <!-- Selected asset name -->
-                            <div v-if="assetForm.asset_id">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                                <input v-model="assetForm.name" type="text" class="input-style" />
-                            </div>
-                            <div v-if="assetForm.asset_id" class="grid grid-cols-2 gap-4">
+
+                        <!-- Selected asset + details form -->
+                        <div v-if="assetForm.itemable_id" class="space-y-4">
+                            <div class="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                                    <input v-model.number="assetForm.quantity" type="number" min="1" step="1" class="input-style" />
+                                    <div class="font-medium text-primary-900 dark:text-primary-200 text-sm">{{ assetForm.name }}</div>
+                                    <div class="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
+                                        {{ [assetForm.year, assetForm.make].filter(Boolean).join(' · ') || 'No details' }}
+                                    </div>
+                                </div>
+                                <button
+                                    v-if="editingAssetIndex === null"
+                                    type="button"
+                                    @click="clearSelectedAssetForChange"
+                                    class="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
+                                >
+                                    Change
+                                </button>
+                            </div>
+
+                            <AssetLineVariantSelect
+                                v-if="assetForm.has_variants && assetForm.itemable_id"
+                                v-model="assetFormVariantId"
+                                v-model:variant-display-name="assetFormVariantDisplayName"
+                                :asset-id="assetForm.asset_id"
+                                :has-variants="assetForm.has_variants"
+                                :asset-description="assetForm.asset_description"
+                                :apply-default-price="true"
+                                @update:unit-price="assetForm.unit_price = $event"
+                            />
+
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                        <input type="number" v-model="assetForm.unit_price" min="0" step="0.01"
+                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unit Price</label>
-                                    <input v-model.number="assetForm.unit_price" type="number" min="0" step="0.01" class="input-style" />
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Discount</label>
+                                    <div class="relative">
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                        <input type="number" v-model="assetForm.discount" min="0" step="0.01"
+                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                    </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discount</label>
-                                    <input v-model.number="assetForm.discount" type="number" min="0" step="0.01" class="input-style" />
-                                </div>
-                                <div class="flex items-center gap-3 pt-5">
-                                    <input id="asset-taxable" v-model="assetForm.taxable" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                    <label for="asset-taxable" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Taxable</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
+                                    <input type="number" v-model="assetForm.quantity" min="1" step="1"
+                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 </div>
                             </div>
-                            <div v-if="assetForm.asset_id">
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
-                                <textarea v-model="assetForm.description" rows="2" class="input-style resize-none"></textarea>
+
+                            <div class="flex items-center gap-3 px-1">
+                                <input id="asset-taxable" v-model="assetForm.taxable" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                <label for="asset-taxable" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">Taxable</label>
                             </div>
-                        </div>
-                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                            <button type="button" @click="showAssetModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
-                            <button type="button" @click="saveAssetItem" :disabled="!assetForm.asset_id" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg transition-colors">
-                                {{ editingAssetIndex !== null ? 'Update' : 'Add Asset' }}
-                            </button>
+
+                            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <span class="text-sm text-gray-600 dark:text-gray-400">Line Total</span>
+                                <span class="text-base font-bold text-gray-900 dark:text-white">
+                                    {{ formatMoney((Number(assetForm.unit_price || 0) * Number(assetForm.quantity || 0)) - Number(assetForm.discount || 0)) }}
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
+                                <textarea v-model="assetForm.description" rows="2"
+                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                    placeholder="Optional notes for this asset..." />
+                            </div>
                         </div>
                     </div>
+
+                    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                        <button type="button" @click="showAssetModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                        <button type="button" @click="saveAssetItem" :disabled="!assetForm.itemable_id"
+                            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
+                            {{ editingAssetIndex !== null ? 'Update Asset' : 'Add Asset' }}
+                        </button>
+                    </div>
                 </div>
-            </Transition>
+            </div>
         </Teleport>
 
         <!-- ─── Add/Edit Inventory Item Modal ────────────────────────────── -->

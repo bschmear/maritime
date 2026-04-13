@@ -39,7 +39,8 @@
   
     "currency": {
       "label": "Currency",
-      "type": "text",
+      "type": "select",
+      "enum": "App\\Enums\\Payments\\Currency",
       "default": "USD"
     },
   

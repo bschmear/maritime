@@ -5,6 +5,7 @@ namespace App\Domain\Invoice\Actions;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Enums\Invoice\Status as InvoiceStatus;
+use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +44,8 @@ class CreateInvoice
         $validated['payment_term'] = self::normalizePaymentTerm($validated['payment_term'] ?? null);
 
         $validated['status'] = InvoiceStatus::tryFromStored($validated['status'] ?? 'draft')?->value ?? 'draft';
+
+        $validated['currency'] = PaymentsCurrency::toStoredValue($validated['currency'] ?? null) ?? 'USD';
 
         try {
             // Calculate invoice-level totals from line items.
@@ -87,6 +90,7 @@ class CreateInvoice
                     'transaction_item_id' => $item['transaction_item_id'] ?? null,
                     'itemable_type' => $item['itemable_type'] ?? null,
                     'itemable_id' => isset($item['itemable_id']) ? (int) $item['itemable_id'] : null,
+                    'asset_variant_id' => ! empty($item['asset_variant_id']) ? (int) $item['asset_variant_id'] : null,
                     'name' => $item['name'] ?? '',
                     'description' => $item['description'] ?? null,
                     'quantity' => (float) ($item['quantity'] ?? 1),
