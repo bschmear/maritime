@@ -50,5 +50,31 @@
             "type": "select",
             "enum": "App\\Enums\\Invoice\\Status"
         }
+    ],
+    "stats": [
+        {
+            "key": "draft",
+            "label": "Draft",
+            "badge_label": "Draft",
+            "color": "gray"
+        },
+        {
+            "key": "pending",
+            "label": "Outstanding",
+            "badge_label": "Outstanding",
+            "color": "amber"
+        },
+        {
+            "key": "overdue",
+            "label": "Overdue",
+            "badge_label": "Overdue",
+            "color": "red"
+        },
+        {
+            "key": "paid",
+            "label": "Paid",
+            "badge_label": "Paid",
+            "color": "green"
+        }
     ]
 }

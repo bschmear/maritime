@@ -114,7 +114,18 @@ class Invoice extends Model
             'transaction' => fn ($q) => $q->select(['id', 'sequence', 'subsidiary_id', 'location_id'])
                 ->with([
                     'subsidiary' => fn ($sq) => $sq->select(['id', 'display_name']),
-                    'location' => fn ($lq) => $lq->select(['id', 'display_name']),
+                    'location' => fn ($lq) => $lq->select([
+                        'id',
+                        'display_name',
+                        'phone',
+                        'email',
+                        'address_line_1',
+                        'address_line_2',
+                        'city',
+                        'state',
+                        'postal_code',
+                        'country',
+                    ]),
                 ]),
             'contract' => fn ($q) => $q->select(['id', 'sequence']),
             'contact' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile']),

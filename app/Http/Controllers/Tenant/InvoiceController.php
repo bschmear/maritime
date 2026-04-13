@@ -12,6 +12,7 @@ use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Transaction\Models\Transaction;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -45,6 +46,80 @@ class InvoiceController extends RecordController
         foreach (RecordModel::documentEagerLoads() as $key => $callback) {
             $relationships[$key] = $callback;
         }
+    }
+
+    protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
+    {
+        return redirect()
+            ->route('invoices.show', $id)
+            ->with('success', 'Invoice updated successfully.');
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * Stat keys are declared in {@see RecordModel} table schema {@code stats} (see table.json).
+     *
+     * Supported fields per stat:
+     * - aggregate: "count" (default) or "sum"
+     * - column: DB column to sum when aggregate is sum (alias: sum_column)
+     * - scope: filter preset; defaults to {@code key} if omitted (draft, pending, outstanding, overdue, paid, paid_mtd, void)
+     */
+    protected function indexTableStats(Request $request, $query, ?array $schema): array
+    {
+        if (! is_array($schema) || empty($schema['stats']) || ! is_array($schema['stats'])) {
+            return [];
+        }
+
+        $sumColumns = ['total', 'amount_due', 'amount_paid', 'subtotal', 'tax_total', 'fees_total', 'discount_total'];
+
+        $out = [];
+        foreach ($schema['stats'] as $def) {
+            $key = $def['key'] ?? null;
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+
+            $scope = $def['scope'] ?? $key;
+            if (! is_string($scope) || $scope === '') {
+                $scope = $key;
+            }
+
+            $q = clone $query;
+            $this->applyInvoiceStatScope($q, $scope);
+
+            $aggregate = strtolower((string) ($def['aggregate'] ?? 'count'));
+            if ($aggregate === 'sum') {
+                $column = (string) ($def['column'] ?? $def['sum_column'] ?? 'total');
+                if (! in_array($column, $sumColumns, true)) {
+                    $out[$key] = 0.0;
+
+                    continue;
+                }
+                $out[$key] = round((float) $q->sum($column), 2);
+            } else {
+                $out[$key] = $q->count();
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\App\Domain\Invoice\Models\Invoice>  $query
+     */
+    private function applyInvoiceStatScope($query, string $scope): void
+    {
+        match ($scope) {
+            'draft' => $query->where('status', 'draft'),
+            'pending', 'outstanding' => $query->whereIn('status', ['sent', 'viewed', 'partial']),
+            'overdue' => $query->overdue(),
+            'paid' => $query->where('status', 'paid'),
+            'paid_mtd' => $query->where('status', 'paid')
+                ->whereRaw('COALESCE(paid_at, updated_at) >= ?', [now()->startOfMonth()->startOfDay()]),
+            'void' => $query->where('status', 'void'),
+            default => $query->whereRaw('0 = 1'),
+        };
     }
 
     public function show(Request $request, $id)
@@ -193,7 +268,21 @@ class InvoiceController extends RecordController
 
         $settings = AccountSettings::getCurrent();
         $record = RecordModel::query()
-            ->with(['contact' => fn ($q) => $q->select(['id', 'email', 'display_name'])])
+            ->with([
+                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name']),
+                'transaction' => fn ($q) => $q->select(['id', 'subsidiary_id', 'location_id']),
+                'transaction.subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'transaction.location' => fn ($q) => $q->select([
+                    'id',
+                    'display_name',
+                    'phone',
+                    'email',
+                    'address_line_1',
+                    'city',
+                    'state',
+                    'postal_code',
+                ]),
+            ])
             ->findOrFail($invoice);
 
         $to = $validated['email'] ?? $record->customer_email ?? $record->contact?->email;
@@ -203,7 +292,27 @@ class InvoiceController extends RecordController
 
         $viewUrl = route('invoices.view', $record->uuid);
         $record->markAsSent();
-        Mail::to($to)->send(new InvoiceViewRequest($record->fresh(), $settings, $viewUrl));
+
+        $record = RecordModel::query()
+            ->whereKey($record->id)
+            ->with([
+                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name']),
+                'transaction' => fn ($q) => $q->select(['id', 'subsidiary_id', 'location_id']),
+                'transaction.subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'transaction.location' => fn ($q) => $q->select([
+                    'id',
+                    'display_name',
+                    'phone',
+                    'email',
+                    'address_line_1',
+                    'city',
+                    'state',
+                    'postal_code',
+                ]),
+            ])
+            ->firstOrFail();
+
+        Mail::to($to)->send(new InvoiceViewRequest($record, $settings, $viewUrl));
 
         return back()->with('success', 'Invoice link sent to '.$to);
     }

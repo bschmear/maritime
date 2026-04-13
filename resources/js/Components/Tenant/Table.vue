@@ -21,6 +21,8 @@ const props = defineProps({
     extraRouteParams:    { type: Object, default: () => ({}) },
     initialCreateData:   { type: Object, default: () => ({}) },
     createAvailableSpecs:{ type: Array,  default: () => [] },
+    /** Merged with page.props.stats; used with schema.stats for optional stat cards */
+    stats:               { type: Object, default: () => ({}) },
 });
 
 const showCreateModal  = ref(false);
@@ -44,6 +46,81 @@ const { $formatCurrency } = getCurrentInstance().appContext.config.globalPropert
 
 const recordFormComponent = computed(() => props.recordType === 'assets' ? AssetForm : Form);
 const columns     = computed(() => props.schema?.columns ?? []);
+/** All stat defs (including `hidden: true` used only for subtitle_key / backend values). */
+const statCardDefsAll = computed(() => {
+    const raw = props.schema?.stats;
+    return Array.isArray(raw) ? raw : [];
+});
+
+/** Cards rendered in the grid (hidden defs still contribute to resolvedStats). */
+const statCardDefs = computed(() => statCardDefsAll.value.filter((s) => s.hidden !== true));
+
+const resolvedStats = computed(() => ({
+    ...(page.props.stats ?? {}),
+    ...props.stats,
+}));
+
+const statNumericValue = (key) => {
+    const v = resolvedStats.value?.[key];
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * Renders a stat value using schema: aggregate count vs sum, format currency/number.
+ */
+const displayStatValue = (st) => {
+    const raw = resolvedStats.value?.[st.key];
+    const aggregate = (st.aggregate || 'count').toString().toLowerCase();
+    if (aggregate === 'sum') {
+        const n = raw == null || raw === '' ? NaN : Number(raw);
+        const num = Number.isFinite(n) ? n : 0;
+        const fmt = (st.format || 'currency').toString().toLowerCase();
+        if (fmt === 'currency' && typeof $formatCurrency === 'function') {
+            return $formatCurrency(num);
+        }
+        if (fmt === 'number') {
+            return num.toLocaleString('en-US', { maximumFractionDigits: 2 });
+        }
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return String(Math.round(statNumericValue(st.key)));
+};
+
+const quickFilterKey = (qf) => (qf?.field ?? qf?.key ?? '');
+
+/** Pill/badge on stat cards (Flowbite-style). */
+const statBadgeClass = (color) => {
+    const c = (color || 'gray').toString().toLowerCase();
+    const m = {
+        green: 'rounded-sm bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-300',
+        red: 'rounded-sm bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900 dark:text-red-300',
+        yellow: 'rounded-sm bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        amber: 'rounded-sm bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+        gray: 'rounded-sm bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+        blue: 'rounded-sm bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+        primary: 'rounded-sm bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900 dark:text-primary-300',
+        teal: 'rounded-sm bg-teal-100 px-2.5 py-0.5 text-xs font-medium text-teal-800 dark:bg-teal-900 dark:text-teal-300',
+        purple: 'rounded-sm bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+        orange: 'rounded-sm bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+    };
+    return m[c] ?? m.gray;
+};
+
+/** Optional second line, e.g. "350 invoices", driven by `subtitle_key` → another stat key. */
+const statSubtitleLine = (st) => {
+    const sk = st.subtitle_key;
+    if (!sk || typeof sk !== 'string') {
+        return null;
+    }
+    const n = Math.round(statNumericValue(sk));
+    const unit = (st.subtitle_unit || 'invoices').toString().toLowerCase();
+    if (unit === 'invoice' || unit === 'invoices') {
+        const word = n === 1 ? 'invoice' : 'invoices';
+        return `${n.toLocaleString('en-US')} ${word}`;
+    }
+    return `${n.toLocaleString('en-US')} ${unit}`;
+};
 const modalMaxWidth = computed(() => props.formSchema?.settings?.max_width ?? '4xl');
 const hasRecords  = computed(() => props.records.data?.length > 0);
 const showEmptyState = computed(() => !hasRecords.value && !activeFilters.value.length && !searchQuery.value);
@@ -238,14 +315,23 @@ const getQuickFieldDef = (field) => {
     return schema[field] ?? {};
 };
 
-const getQuickFilterOptions = (fieldKey) => {
+const getQuickFilterOptions = (qf) => {
+    const fieldKey = quickFilterKey(qf);
+    if (qf?.enum && props.enumOptions[qf.enum]) {
+        return props.enumOptions[qf.enum];
+    }
     const fd = getQuickFieldDef(fieldKey);
-    if (fd.enum && props.enumOptions[fd.enum]) return props.enumOptions[fd.enum];
+    if (fd.enum && props.enumOptions[fd.enum]) {
+        return props.enumOptions[fd.enum];
+    }
     return [];
 };
 
 // Active values for a quick filter field (extracted from activeFilters)
 const getQuickActiveValues = (fieldKey) => {
+    if (!fieldKey) {
+        return [];
+    }
     const f = activeFilters.value.find(f => f.field === fieldKey && (f.operator === 'any_of' || f.operator === 'equals'));
     if (!f) return [];
     return Array.isArray(f.value) ? f.value.map(String) : (f.value ? [String(f.value)] : []);
@@ -388,7 +474,33 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section class="w-full flex flex-col">
+    <section class="w-full flex flex-col space-y-4">
+        <!-- Optional stat cards (defined in table.json schema.stats; values from page props stats) -->
+        <div
+            v-if="statCardDefs.length"
+            class="grid grid-cols-2 gap-4 lg:grid-cols-4"
+        >
+            <div
+                v-for="st in statCardDefs"
+                :key="st.key"
+                class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800"
+            >
+                <span
+                    class="inline-block"
+                    :class="statBadgeClass(st.color)"
+                >{{ st.badge_label ?? st.label ?? st.key }}</span>
+                <h2 class="text-2xl font-bold leading-none text-gray-900 tabular-nums dark:text-white">
+                    {{ displayStatValue(st) }}
+                </h2>
+                <p
+                    v-if="statSubtitleLine(st)"
+                    class="text-sm text-gray-500 dark:text-gray-400"
+                >
+                    {{ statSubtitleLine(st) }}
+                </p>
+            </div>
+        </div>
+
         <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
 
             <!-- Header -->
@@ -401,80 +513,93 @@ onUnmounted(() => {
                 </button>
             </div>
 
-            <!-- Search + filters bar -->
-            <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-700/60 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <form @submit="handleSearch" class="flex-1 min-w-0">
-                    <div class="relative">
+            <!-- Search (max width) left; quick filters + Filters on the right -->
+            <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-700/60 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <form
+                    @submit="handleSearch"
+                    class="w-full min-w-0 max-w-96 shrink-0"
+                >
+                    <div class="relative w-full">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
-                        <input type="search" v-model="searchQuery"
-                               @input="(e) => { if (!e.target.value) clearSearch(); }"
-                               placeholder="Search..."
-                               class="block w-full pl-9 pr-20 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden" />
+                        <input
+                            type="search"
+                            v-model="searchQuery"
+                            @input="(e) => { if (!e.target.value) clearSearch(); }"
+                            placeholder="Search..."
+                            class="block w-full min-w-0 pl-9 pr-20 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                        >
                         <div class="absolute inset-y-0 right-0 flex items-center">
-                            <button v-if="searchQuery" @click="clearSearch" type="button"
-                                    class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mr-1">
+                            <button
+                                v-if="searchQuery"
+                                type="button"
+                                class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mr-1"
+                                @click="clearSearch"
+                            >
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
                             </button>
-                            <button type="submit"
-                                    class="h-full px-3 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-r-lg transition-colors">
+                            <button
+                                type="submit"
+                                class="h-full px-3 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-r-lg transition-colors"
+                            >
                                 Search
                             </button>
                         </div>
                     </div>
                 </form>
 
+                <div class="flex flex-wrap items-center gap-2 sm:justify-end sm:min-w-0 sm:flex-1">
                 <!-- Quick filters (defined in schema.filters) -->
                 <template v-if="quickFilterDefs.length">
                     <div
                         v-for="qf in quickFilterDefs"
-                        :key="qf.field"
+                        :key="quickFilterKey(qf)"
                         class="relative shrink-0"
                         data-quick-filter
                     >
                         <button
                             type="button"
-                            @click.stop="toggleQuickFilterDropdown(qf.field)"
+                            @click.stop="toggleQuickFilterDropdown(quickFilterKey(qf))"
                             :class="[
                                 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
-                                getQuickActiveValues(qf.field).length
+                                getQuickActiveValues(quickFilterKey(qf)).length
                                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
                                     : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
                             ]"
                         >
-                            {{ qf.label ?? qf.field }}
+                            {{ qf.label ?? quickFilterKey(qf) }}
                             <span
-                                v-if="getQuickActiveValues(qf.field).length"
+                                v-if="getQuickActiveValues(quickFilterKey(qf)).length"
                                 class="px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full"
                             >
-                                {{ getQuickActiveValues(qf.field).length }}
+                                {{ getQuickActiveValues(quickFilterKey(qf)).length }}
                             </span>
-                            <svg class="w-3.5 h-3.5 opacity-60" :class="openQuickFilter === qf.field ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-3.5 h-3.5 opacity-60" :class="openQuickFilter === quickFilterKey(qf) ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
 
                         <!-- Dropdown panel -->
                         <div
-                            v-if="openQuickFilter === qf.field"
+                            v-if="openQuickFilter === quickFilterKey(qf)"
                             class="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden"
                         >
                             <div class="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/60">
                                 <label
-                                    v-for="opt in getQuickFilterOptions(qf.field)"
+                                    v-for="opt in getQuickFilterOptions(qf)"
                                     :key="opt.id ?? opt.value"
                                     class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                 >
                                     <input
                                         type="checkbox"
                                         :value="opt.id ?? opt.value"
-                                        :checked="getQuickActiveValues(qf.field).includes(String(opt.id ?? opt.value))"
-                                        @change="toggleQuickValue(qf.field, opt.id ?? opt.value)"
+                                        :checked="getQuickActiveValues(quickFilterKey(qf)).includes(String(opt.id ?? opt.value))"
+                                        @change="toggleQuickValue(quickFilterKey(qf), opt.id ?? opt.value)"
                                         class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500"
                                     />
                                     <div v-if="opt.color" class="flex items-center gap-1.5">
@@ -484,10 +609,10 @@ onUnmounted(() => {
                                     <span v-else class="text-sm text-gray-900 dark:text-white">{{ opt.name ?? opt.label ?? opt.value }}</span>
                                 </label>
                             </div>
-                            <div v-if="getQuickActiveValues(qf.field).length" class="px-3 py-2 border-t border-gray-100 dark:border-gray-700/60">
+                            <div v-if="getQuickActiveValues(quickFilterKey(qf)).length" class="px-3 py-2 border-t border-gray-100 dark:border-gray-700/60">
                                 <button
                                     type="button"
-                                    @click="clearQuickFilter(qf.field)"
+                                    @click="clearQuickFilter(quickFilterKey(qf))"
                                     class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                                 >
                                     Clear
@@ -498,8 +623,11 @@ onUnmounted(() => {
                 </template>
 
                 <!-- Advanced filters button -->
-                <button @click="showFiltersModal = true"
-                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0">
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0"
+                    @click="showFiltersModal = true"
+                >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
                     </svg>
@@ -508,6 +636,7 @@ onUnmounted(() => {
                         {{ activeFilters.length }}
                     </span>
                 </button>
+                </div>
             </div>
 
             <!-- Active filter pills -->

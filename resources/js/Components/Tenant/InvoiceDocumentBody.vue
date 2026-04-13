@@ -23,20 +23,44 @@ const accountDisplayName = computed(() =>
     props.account?.settings?.business_name ?? props.account?.business_name ?? 'Company'
 );
 
-const fromLines = computed(() => {
-    const t = props.record?.transaction;
+const transaction = computed(() => props.record?.transaction ?? null);
+
+/** Company title: subsidiary from linked transaction, else account name. */
+const companyName = computed(
+    () => transaction.value?.subsidiary?.display_name ?? accountDisplayName.value,
+);
+
+const companyLocation = computed(() => transaction.value?.location ?? null);
+
+const companyAddressLines = computed(() => {
+    const loc = companyLocation.value;
+    if (!loc) {
+        return [];
+    }
     const lines = [];
-    if (t?.subsidiary?.display_name) {
-        lines.push(t.subsidiary.display_name);
+    if (loc.display_name) {
+        lines.push(loc.display_name);
     }
-    if (t?.location?.display_name) {
-        lines.push(t.location.display_name);
+    const a1 = loc.address_line_1 ?? loc.address_line1;
+    if (a1) {
+        lines.push(a1);
     }
-    if (lines.length) {
-        return lines;
+    const a2 = loc.address_line_2 ?? loc.address_line2;
+    if (a2) {
+        lines.push(a2);
     }
-    return [accountDisplayName.value];
+    const cityLine = [loc.city, loc.state, loc.postal_code].filter(Boolean).join(', ');
+    if (cityLine) {
+        lines.push(cityLine);
+    }
+    if (loc.country) {
+        lines.push(loc.country);
+    }
+    return lines;
 });
+
+const companyPhone = computed(() => companyLocation.value?.phone ?? null);
+const companyEmail = computed(() => companyLocation.value?.email ?? null);
 
 const statusLabel = computed(() => {
     const opts = props.enumOptions?.[STATUS_ENUM_KEY] ?? [];
@@ -80,13 +104,16 @@ const formatCurrency = (value) =>
 const formatDate = (val) =>
     val ? new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
 
-const itemPrimaryLabel = (item) => item.name ?? item.description ?? '—';
+const itemPrimaryLabel = (item) => item.name ?? '—';
 
-const itemSecondary = (item) => {
-    if (item.name && item.description && item.description !== item.name) {
-        return item.description;
+const assetVariantOf = (item) => item.asset_variant ?? item.assetVariant ?? null;
+
+const variantLabel = (item) => {
+    const v = assetVariantOf(item);
+    if (!v) {
+        return null;
     }
-    return null;
+    return v.display_name ?? v.name ?? null;
 };
 
 const itemableBadge = (item) => {
@@ -122,66 +149,81 @@ const discountCell = (item) => {
 </script>
 
 <template>
-    <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8 text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
-        <div class="flex items-start justify-between gap-4">
-            <div class="flex items-start gap-4 min-w-0">
-                <img
-                    v-if="logoUrl"
-                    :src="logoUrl"
-                    alt=""
-                    class="h-10 w-auto max-w-[160px] object-contain"
+    <div
+        class="invoice-document-for-print rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8 text-gray-900 print:border-0 print:shadow-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+    >
+        <div class="flex items-start justify-between gap-4 ">
+            <div class="flex min-w-0 items-start gap-4 sm:gap-6">
+                <div v-if="logoUrl" class="shrink-0">
+                    <img
+                        :src="logoUrl"
+                        alt=""
+                        class="h-16 w-auto max-w-[200px] object-contain"
+                    >
+                </div>
+                <div
+                    v-else
+                    class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700"
                 >
-                <div v-else class="text-lg font-semibold text-gray-900 dark:text-white">
-                    {{ accountDisplayName }}
+                    <span class="material-icons text-3xl text-gray-400 dark:text-gray-500">business</span>
+                </div>
+                <div class="min-w-0 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+                        {{ companyName }}
+                    </h1>
+                    <template v-if="companyAddressLines.length">
+                        <p
+                            v-for="(line, idx) in companyAddressLines"
+                            :key="idx"
+                            class="leading-snug"
+                        >
+                            {{ line }}
+                        </p>
+                    </template>
+                    <p v-if="companyPhone" class="flex items-center gap-1.5 pt-0.5">
+                        <span class="material-icons text-base text-gray-400">phone</span>
+                        {{ companyPhone }}
+                    </p>
+                    <p v-if="companyEmail" class="flex items-center gap-1.5">
+                        <span class="material-icons text-base text-gray-400">email</span>
+                        {{ companyEmail }}
+                    </p>
                 </div>
             </div>
             <span
-                :class="['inline-flex shrink-0 px-3 py-1 rounded-full text-sm font-semibold', statusBadgeClass]"
+                :class="['inline-flex h-fit shrink-0 rounded-full px-3 py-1 text-sm font-semibold print:hidden', statusBadgeClass]"
             >
                 {{ statusLabel }}
             </span>
         </div>
 
-        <div class="mt-6 flex flex-col gap-1 border-y border-gray-100 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
-            <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+        <div class="mt-6 flex flex-col gap-1 border-y border-gray-100 py-4 print:border-0 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white">
                 {{ record.display_name || `Invoice #${record.sequence ?? record.id}` }}
-            </h1>
+            </h2>
             <time class="text-base text-gray-500 dark:text-gray-400">
                 Date: {{ formatDate(record.created_at) }}
             </time>
         </div>
 
-        <div class="mt-8 flex flex-col gap-8 sm:flex-row sm:justify-between">
-            <div class="sm:w-64">
-                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">From</h2>
-                <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
-                    <template v-for="(line, idx) in fromLines" :key="idx">
-                        <span
-                            class="block"
-                            :class="idx === 0 ? 'font-semibold text-gray-900 dark:text-white' : ''"
-                        >{{ line }}</span>
-                    </template>
-                </address>
-            </div>
-            <div class="sm:w-64">
-                <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bill to</h2>
-                <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
-                    <span v-if="record.customer_name" class="block font-semibold text-gray-900 dark:text-white">{{ record.customer_name }}</span>
-                    <span v-if="record.customer_email" class="block">{{ record.customer_email }}</span>
-                    <span v-if="record.customer_phone" class="block text-gray-500 dark:text-gray-400">{{ record.customer_phone }}</span>
-                    <template v-if="record.billing_address_line1">
-                        <span class="mt-1 block">{{ record.billing_address_line1 }}</span>
-                        <span v-if="record.billing_address_line2" class="block">{{ record.billing_address_line2 }}</span>
-                        <span class="block">
-                            {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
-                        </span>
-                        <span v-if="record.billing_country" class="block text-gray-500 dark:text-gray-400">{{ record.billing_country }}</span>
-                    </template>
-                </address>
-            </div>
+        <div class="mt-8 max-w-xl">
+            <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bill to</h2>
+            <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
+                <span v-if="record.customer_name" class="block font-semibold text-gray-900 dark:text-white">{{ record.customer_name }}</span>
+                <span v-if="record.customer_email" class="block">{{ record.customer_email }}</span>
+                <span v-if="record.customer_phone" class="block text-gray-500 dark:text-gray-400">{{ record.customer_phone }}</span>
+                <template v-if="record.billing_address_line1">
+                    <span class="mt-1 block">{{ record.billing_address_line1 }}</span>
+                    <span v-if="record.billing_address_line2" class="block">{{ record.billing_address_line2 }}</span>
+                    <span class="block">
+                        {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                    </span>
+                    <span v-if="record.billing_country" class="block text-gray-500 dark:text-gray-400">{{ record.billing_country }}</span>
+                </template>
+            </address>
         </div>
 
-        <div class="mt-8 overflow-x-auto rounded-lg border border-gray-100 dark:border-gray-700">
+        <div class="mt-8 overflow-x-auto rounded-lg border border-gray-100 print:border-0 dark:border-gray-700">
             <table class="w-full text-left text-sm font-medium text-gray-900 dark:text-gray-100">
                 <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
                     <tr>
@@ -197,7 +239,7 @@ const discountCell = (item) => {
                         <tr
                             v-for="item in lineItems"
                             :key="item.id"
-                            class="border-b border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800"
+                            class="border-b border-gray-100 bg-white print:border-0 dark:border-gray-700 dark:bg-gray-800"
                         >
                             <th scope="row" class="px-4 py-4 align-top font-medium sm:px-6">
                                 <div class="space-y-1">
@@ -210,11 +252,9 @@ const discountCell = (item) => {
                                             {{ itemableBadge(item) }}
                                         </span>
                                     </div>
-                                    <div v-if="itemSecondary(item)" class="text-xs font-normal text-gray-500 dark:text-gray-400">
-                                        {{ itemSecondary(item) }}
-                                    </div>
-                                    <div v-if="itemableName(item)" class="text-xs text-gray-600 dark:text-gray-400">
-                                        {{ itemableName(item) }}
+                                    <div v-if="variantLabel(item)" class="text-xs text-gray-600 dark:text-gray-400">
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">Variant:</span>
+                                        {{ variantLabel(item) }}
                                     </div>
                                 </div>
                             </th>
@@ -260,7 +300,7 @@ const discountCell = (item) => {
                     <span class="text-gray-500 dark:text-gray-400">Fees</span>
                     <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.fees_total) }}</span>
                 </li>
-                <li class="flex justify-between border-t border-gray-100 pt-3 text-base font-bold text-gray-900 dark:border-gray-700 dark:text-white">
+                <li class="flex justify-between border-t border-gray-100 pt-3 text-base font-bold text-gray-900 print:border-0 dark:border-gray-700 dark:text-white">
                     <span>Total</span>
                     <span>{{ formatCurrency(record.total) }}</span>
                 </li>
@@ -273,7 +313,7 @@ const discountCell = (item) => {
                 </li>
                 <li
                     v-if="record.amount_due != null"
-                    class="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-primary-600 dark:border-gray-700 dark:text-primary-400"
+                    class="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-800 print:border-0 dark:border-gray-700 dark:text-gray-200"
                 >
                     <span>Amount due</span>
                     <span>{{ formatCurrency(record.amount_due) }}</span>
@@ -281,7 +321,7 @@ const discountCell = (item) => {
             </ul>
         </div>
 
-        <div v-if="record.notes" class="mt-8 border-t border-gray-100 pt-6 dark:border-gray-700">
+        <div v-if="record.notes" class="mt-8 border-t border-gray-100 pt-6 print:border-0 dark:border-gray-700">
             <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</h3>
             <p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{{ record.notes }}</p>
         </div>

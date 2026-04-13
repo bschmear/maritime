@@ -34,6 +34,7 @@ const breadcrumbItems = computed(() => [
                 </h2>
             </div>
         </template>
+        
 
         <Table
             :records="records"

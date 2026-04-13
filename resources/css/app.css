@@ -175,9 +175,137 @@ td.sticky {
      * FIX: reset the overlay to normal flow (`position:static`).
      */
 
-    /* Remove #app's layout height so the contract starts at page top */
-    body:has(.contract-preview-overlay) #app {
+    /* Remove #app's layout height so the preview starts at page top (no blank pages) */
+    body:has(.contract-preview-overlay) #app,
+    body:has(.invoice-preview-overlay) #app {
         display: none !important;
+    }
+
+    /* Invoice preview is Teleported to <body> (same as contract). */
+    .invoice-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+        background: white !important;
+        backdrop-filter: none !important;
+    }
+
+    body:has(.invoice-preview-overlay) .invoice-preview-panel {
+        display: block !important;
+        max-height: none !important;
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+    }
+
+    body:has(.invoice-preview-overlay) .invoice-preview-scroll {
+        display: block !important;
+        flex: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    #invoice-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .invoice-document-for-print {
+        padding: 0 !important;
+        background: #fff !important;
+        color: #111827 !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Beat html.dark … dark:bg-* / dark:text-* on line items and table chrome */
+    .dark .invoice-document-for-print table {
+        color: #111827 !important;
+    }
+
+    .dark .invoice-document-for-print thead {
+        background-color: #f3f4f6 !important;
+        color: #4b5563 !important;
+    }
+
+    .dark .invoice-document-for-print thead th {
+        background-color: #f3f4f6 !important;
+        color: #4b5563 !important;
+    }
+
+    .dark .invoice-document-for-print tbody tr {
+        background-color: #fff !important;
+        border-color: #e5e7eb !important;
+    }
+
+    .dark .invoice-document-for-print tbody th,
+    .dark .invoice-document-for-print tbody td {
+        background-color: #fff !important;
+        color: #111827 !important;
+    }
+
+    .dark .invoice-document-for-print tbody th *,
+    .dark .invoice-document-for-print tbody td * {
+        color: #111827 !important;
+    }
+
+    .dark .invoice-document-for-print tbody th .rounded[class*='bg-gray'],
+    .dark .invoice-document-for-print tbody td .rounded[class*='bg-gray'] {
+        background-color: #f3f4f6 !important;
+        color: #374151 !important;
+    }
+
+    .dark .invoice-document-for-print .material-icons {
+        color: #6b7280 !important;
+    }
+
+    .dark .invoice-document-for-print .text-green-700,
+    .dark .invoice-document-for-print .dark\:text-green-400 {
+        color: #15803d !important;
+    }
+
+    .dark .invoice-document-for-print .text-primary-600,
+    .dark .invoice-document-for-print .dark\:text-primary-400 {
+        color: #4f46e5 !important;
+    }
+
+    .dark .invoice-document-for-print h1,
+    .dark .invoice-document-for-print h2,
+    .dark .invoice-document-for-print h3,
+    .dark .invoice-document-for-print p,
+    .dark .invoice-document-for-print time,
+    .dark .invoice-document-for-print address,
+    .dark .invoice-document-for-print li {
+        color: #111827 !important;
+    }
+
+    .dark .invoice-document-for-print .text-gray-500,
+    .dark .invoice-document-for-print .text-gray-600,
+    .dark .invoice-document-for-print .dark\:text-gray-300,
+    .dark .invoice-document-for-print .dark\:text-gray-400 {
+        color: #4b5563 !important;
+    }
+
+    .dark .invoice-document-for-print .text-gray-400,
+    .dark .invoice-document-for-print .dark\:text-gray-500 {
+        color: #6b7280 !important;
+    }
+
+    .dark .invoice-document-for-print .text-gray-900,
+    .dark .invoice-document-for-print .dark\:text-white {
+        color: #111827 !important;
     }
 
     /* Reset the Teleport overlay from fixed → static flow */
@@ -204,6 +332,8 @@ td.sticky {
 
     #contract-print-root,
     #contract-print-root *,
+    #invoice-print-root,
+    #invoice-print-root *,
     #boat-show-public-print-root,
     #boat-show-public-print-root * {
         visibility: visible;
@@ -221,8 +351,8 @@ td.sticky {
         background: white !important;
     }
 
-    /* Reset page */
-    @page { margin: 0.75in; size: letter; }
+    /* Reset page — modest top/bottom margin (was stacking with hidden layout boxes) */
+    @page { margin: 0.35in 0.45in; size: letter; }
 
     /* Hide screen-only elements */
     .print\:hidden { display: none !important; }

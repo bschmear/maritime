@@ -340,6 +340,8 @@ class RecordController extends BaseController
             }
         }
 
+        $statsBaseQuery = clone $query;
+
         // Order: ?sort=&direction= from table schema (sortable defaults true), else defaults below
         if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns)) {
             $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
@@ -382,12 +384,15 @@ class RecordController extends BaseController
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
 
+        $tableStats = $this->indexTableStats($request, $statsBaseQuery, $schema);
+
         // Return JSON for Inertia / AJAX / JSON requests only
         if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
                 'schema' => $schema,
                 'fieldsSchema' => $fieldsSchema, // Already unwrapped above
+                'stats' => $tableStats,
                 'meta' => [
                     'current_page' => $records->currentPage(),
                     'last_page' => $records->lastPage(),
@@ -398,10 +403,24 @@ class RecordController extends BaseController
         }
 
         // Normal initial page load - return Inertia page
+        $indexProps = $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions);
+        $indexProps['stats'] = $tableStats;
+
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions)
+            $indexProps
         );
+    }
+
+    /**
+     * Optional aggregate counts for table stat cards (see table.json "stats"). Override per domain.
+     * Receives the same filtered query as the index list, before sort/pagination.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    protected function indexTableStats(Request $request, $query, ?array $schema): array
+    {
+        return [];
     }
 
     /**
@@ -609,7 +628,7 @@ class RecordController extends BaseController
     }
 
     /**
-     * Merge extra eager loads before {@see show()} loads the record. Override in domain controllers (e.g. invoices).
+     * Merge extra eager loads before {@see show()} and {@see edit()} load the record. Override in domain controllers (e.g. invoices).
      */
     protected function appendShowRelationships(array &$relationships): void {}
 
@@ -835,6 +854,8 @@ class RecordController extends BaseController
         if ($hasSpecsGroup) {
             $relationships['specValues'] = fn ($q) => $q->with('definition');
         }
+
+        $this->appendShowRelationships($relationships);
 
         // Load the record with relationships
         $record = $this->recordModel->with($relationships)->findOrFail($id);

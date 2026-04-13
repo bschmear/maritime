@@ -70,6 +70,21 @@ const dueAtDefaultYmd = () => {
     return d.toISOString().slice(0, 10);
 };
 
+/** Laravel sends datetimes; `<input type="date">` needs `YYYY-MM-DD`. */
+const toDateInputValue = (val) => {
+    if (val == null || val === '') {
+        return '';
+    }
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+        return val.trim().slice(0, 10);
+    }
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) {
+        return '';
+    }
+    return d.toISOString().slice(0, 10);
+};
+
 const resolveCurrencyValue = (raw) => {
     if (raw == null || raw === '') return 'USD';
     const opts = currencyOptions.value;
@@ -101,10 +116,13 @@ const form = useForm({
             ?? props.account?.default_payment_term
             ?? 'due_on_receipt',
     ),
-    due_at:
-        props.record?.due_at
-        ?? props.initialData?.due_at
-        ?? (props.mode === 'create' ? dueAtDefaultYmd() : ''),
+    due_at: (() => {
+        const raw = props.record?.due_at ?? props.initialData?.due_at;
+        if (raw != null && raw !== '') {
+            return toDateInputValue(raw);
+        }
+        return props.mode === 'create' ? dueAtDefaultYmd() : '';
+    })(),
     customer_name:       props.record?.customer_name         ?? props.initialData?.customer_name         ?? '',
     customer_email:      props.record?.customer_email        ?? props.initialData?.customer_email        ?? '',
     customer_phone:      props.record?.customer_phone        ?? props.initialData?.customer_phone        ?? '',

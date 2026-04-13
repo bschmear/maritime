@@ -3,8 +3,41 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import InvoiceDocumentBody from '@/Components/Tenant/InvoiceDocumentBody.vue';
 import InvoicePreview from '@/Components/Tenant/InvoicePreview.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, getCurrentInstance, ref, watch } from 'vue';
+
+const page = usePage();
+const inertiaApp = getCurrentInstance();
+
+function showToast(type, message) {
+    if (!message) {
+        return;
+    }
+    const root = inertiaApp?.appContext?.app?._instance?.proxy;
+    if (typeof root?.createToast === 'function') {
+        root.createToast(type, String(message));
+    }
+}
+
+watch(
+    () => page.props.flash?.success,
+    (msg) => {
+        if (msg) {
+            showToast('success', msg);
+        }
+    },
+    { immediate: true },
+);
+
+watch(
+    () => page.props.flash?.error,
+    (msg) => {
+        if (msg) {
+            showToast('error', msg);
+        }
+    },
+    { immediate: true },
+);
 
 const props = defineProps({
     record: { type: Object, required: true },
