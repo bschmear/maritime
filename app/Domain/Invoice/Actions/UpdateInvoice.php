@@ -3,6 +3,7 @@
 namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Invoice\Support\InvoicePaymentFields;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
@@ -22,7 +23,7 @@ class UpdateInvoice
             $data['due_at'] = null;
         }
 
-        $validated = Validator::make($data, [
+        $validated = Validator::make($data, array_merge([
             'contact_id' => ['required', 'integer', 'exists:contacts,id'],
             'transaction_id' => ['nullable', 'integer'],
             'contract_id' => ['nullable', 'integer'],
@@ -41,7 +42,21 @@ class UpdateInvoice
             'billing_country' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'fees_total' => ['nullable', 'numeric'],
-        ])->validate();
+        ], InvoicePaymentFields::validationRules()))->validate();
+
+        $paymentNormalized = InvoicePaymentFields::normalizeForPersistence(
+            [
+                'allowed_methods' => $validated['allowed_methods'] ?? null,
+                'surcharge_percent' => $validated['surcharge_percent'] ?? null,
+                'allow_partial_payment' => $validated['allow_partial_payment'] ?? null,
+                'minimum_partial_amount' => $validated['minimum_partial_amount'] ?? null,
+            ],
+            $data
+        );
+
+        foreach (['allowed_methods', 'surcharge_percent', 'allow_partial_payment', 'minimum_partial_amount'] as $k) {
+            unset($validated[$k]);
+        }
 
         try {
             $record = RecordModel::with('items')->findOrFail($id);
@@ -87,7 +102,7 @@ class UpdateInvoice
             $validated['total'] = $total;
             $validated['amount_due'] = $amountDue;
 
-            $record->update($validated);
+            $record->update(array_merge($validated, $paymentNormalized));
 
             return [
                 'success' => true,

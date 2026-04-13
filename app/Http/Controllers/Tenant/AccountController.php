@@ -60,6 +60,13 @@ class AccountController extends Controller
                 'href' => route('locations.index'),
                 'stats' => null,
             ],
+            [
+                'title' => 'Payments',
+                'description' => 'Connect Stripe to accept customer and invoice payments. Configure which payment methods you offer.',
+                'icon' => 'payments',
+                'href' => route('account.payments'),
+                'stats' => null,
+            ],
         ];
 
         return Inertia::render('Tenant/Account/Index', [

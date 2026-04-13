@@ -11,11 +11,18 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    /** Same pattern as InvoicePreview / public InvoiceView (falls back to account.logo_url). */
+    logoUrl: {
+        type: String,
+        default: null,
+    },
     enumOptions: {
         type: Object,
         default: () => ({}),
     },
 });
+
+const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
 
 const emit = defineEmits(['close']);
 
@@ -179,8 +186,8 @@ const handleSendEmail = () => {
                     <div class="flex items-start justify-between">
                         <div class="flex items-start gap-6">
                             <!-- Company Logo -->
-                            <div v-if="account.logo_url" class="flex-shrink-0">
-                                <img :src="account.logo_url" alt="Company Logo" class="h-20 w-auto object-contain" />
+                            <div v-if="effectiveLogoUrl" class="flex-shrink-0">
+                                <img :src="effectiveLogoUrl" alt="Company Logo" class="h-20 w-auto max-w-[150px] object-contain" />
                             </div>
                             <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
                                 <span class="material-icons text-4xl text-gray-400">business</span>

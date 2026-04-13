@@ -3,6 +3,7 @@
 namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Invoice\Support\InvoicePaymentFields;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
@@ -20,7 +21,7 @@ class CreateInvoice
         $items = is_array($data['items'] ?? null) ? $data['items'] : [];
         unset($data['items']);
 
-        $validated = Validator::make($data, [
+        $validated = Validator::make($data, array_merge([
             'contact_id' => ['required', 'integer', 'exists:contacts,id'],
             'transaction_id' => ['nullable', 'integer'],
             'contract_id' => ['nullable', 'integer'],
@@ -39,7 +40,21 @@ class CreateInvoice
             'billing_country' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'fees_total' => ['nullable', 'numeric'],
-        ])->validate();
+        ], InvoicePaymentFields::validationRules()))->validate();
+
+        $paymentNormalized = InvoicePaymentFields::normalizeForPersistence(
+            [
+                'allowed_methods' => $validated['allowed_methods'] ?? null,
+                'surcharge_percent' => $validated['surcharge_percent'] ?? null,
+                'allow_partial_payment' => $validated['allow_partial_payment'] ?? null,
+                'minimum_partial_amount' => $validated['minimum_partial_amount'] ?? null,
+            ],
+            $data
+        );
+
+        foreach (['allowed_methods', 'surcharge_percent', 'allow_partial_payment', 'minimum_partial_amount'] as $k) {
+            unset($validated[$k]);
+        }
 
         $validated['payment_term'] = self::normalizePaymentTerm($validated['payment_term'] ?? null);
 
@@ -70,7 +85,7 @@ class CreateInvoice
             $feesTotal = (float) ($validated['fees_total'] ?? 0);
             $total = $subtotal + $taxTotal + $feesTotal;
 
-            $payload = array_merge($validated, [
+            $payload = array_merge($validated, $paymentNormalized, [
                 'status' => $validated['status'] ?? 'draft',
                 'currency' => $validated['currency'] ?? 'USD',
                 'subtotal' => round($subtotal, 2),

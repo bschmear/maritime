@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Http\Controllers\Controller;
-use App\Models\PaymentAccount;
+use App\Models\AccountSettings;
 use App\Services\Payments\StripeService;
 use Illuminate\Http\Request;
 
@@ -11,41 +12,41 @@ class StripeController extends Controller
 {
     public function connect(StripeService $stripeService)
     {
-        $tenant = auth()->user()->tenant;
-        $settings = $tenant->accountSettings;
+        $settings = AccountSettings::getCurrent();
+        $config = PaymentConfiguration::forStripe($settings);
 
-        // Create Stripe account
-        $account = $stripeService->createConnectedAccount();
+        if (! $config->stripe_account_id) {
+            $account = $stripeService->createConnectedAccount();
+            $config->update([
+                'stripe_account_id' => $account->id,
+                'meta' => array_merge($config->meta ?? [], [
+                    'connect_created_at' => now()->toIso8601String(),
+                ]),
+            ]);
+            $stripeService->applyAccountPayloadToConfiguration($config->fresh(), $account->toArray());
+        } else {
+            $stripeService->ensureRequestedCapabilities($config->stripe_account_id);
+        }
 
-        // Save to DB
-        $paymentAccount = PaymentAccount::create([
-            'account_settings_id' => $settings->id,
-            'provider' => 'stripe',
-            'external_account_id' => $account->id,
-        ]);
+        $url = $stripeService->createOnboardingLink($config->stripe_account_id);
 
-        // Generate onboarding link
-        $url = $stripeService->createOnboardingLink($account->id);
-
-        return redirect($url);
+        return redirect()->away($url);
     }
 
     public function return(Request $request, StripeService $stripeService)
     {
-        $tenant = auth()->user()->tenant;
-        $settings = $tenant->accountSettings;
+        $config = PaymentConfiguration::forStripe(AccountSettings::getCurrent());
+        $stripeService->syncAccount($config);
 
-        $account = PaymentAccount::where('account_settings_id', $settings->id)
-            ->where('provider', 'stripe')
-            ->firstOrFail();
-
-        $stripeService->syncAccount($account);
-
-        return redirect('/settings/payments')->with('success', 'Stripe connected');
+        return redirect()
+            ->route('account.payments')
+            ->with('success', 'Stripe account updated.');
     }
 
     public function refresh()
     {
-        return redirect('/settings/payments')->with('error', 'Stripe onboarding expired. Try again.');
+        return redirect()
+            ->route('account.payments')
+            ->with('error', 'Stripe onboarding expired. Try again.');
     }
 }

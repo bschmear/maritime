@@ -269,7 +269,7 @@ const signaturePadOptions = {
                         <div class="flex items-start justify-between">
                             <div class="flex items-start gap-6">
                                 <div v-if="logoUrl" class="flex-shrink-0">
-                                    <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto object-contain" />
+                                    <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
                                 </div>
                                 <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
                                     <span class="material-icons text-4xl text-gray-400">business</span>

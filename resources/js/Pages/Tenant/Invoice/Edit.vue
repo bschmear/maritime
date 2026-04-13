@@ -12,6 +12,7 @@ const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
+    enabledPaymentMethods: { type: Array, default: () => [] },
 });
 
 const breadcrumbItems = computed(() => [
@@ -47,6 +48,7 @@ const handleCancel = () => {
                 :enum-options="enumOptions"
                 :account="account"
                 :timezones="timezones"
+                :enabled-payment-methods="enabledPaymentMethods"
                 mode="edit"
                 @cancel="handleCancel"
             />

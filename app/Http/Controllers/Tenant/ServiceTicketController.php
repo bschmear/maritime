@@ -406,9 +406,22 @@ class ServiceTicketController extends BaseController
                 $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
                 if (class_exists($modelClass)) {
                     try {
-                        $records = $domainName === 'Customer'
-                            ? Customer::queryOrderedByContactDisplayName()->get()
-                            : $modelClass::select('id', 'display_name')->get();
+                        if ($domainName === 'Customer') {
+                            $records = Customer::queryOrderedByContactDisplayName()->get();
+                        } elseif ($domainName === 'AssetUnit') {
+                            $records = \App\Domain\AssetUnit\Models\AssetUnit::query()
+                                ->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                                ->with(['asset' => fn ($q) => $q->select(['id', 'display_name'])])
+                                ->orderBy('id')
+                                ->get();
+                        } elseif ($domainName === 'Qualification') {
+                            $records = $modelClass::query()
+                                ->select(['id', 'sequence'])
+                                ->orderBy('sequence')
+                                ->get();
+                        } else {
+                            $records = $modelClass::select('id', 'display_name')->get();
+                        }
                         $enumOptions[$fieldKey] = $records->map(fn ($r) => [
                             'id' => $r->id,
                             'name' => $r->display_name,

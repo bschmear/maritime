@@ -60,6 +60,11 @@ class Invoice extends Model
         'notes',
         'meta',
 
+        'allowed_methods',
+        'surcharge_percent',
+        'allow_partial_payment',
+        'minimum_partial_amount',
+
         'sent_at',
         'viewed_at',
         'paid_at',
@@ -76,6 +81,11 @@ class Invoice extends Model
         'amount_due' => 'decimal:2',
 
         'meta' => 'array',
+        'allowed_methods' => 'array',
+
+        'surcharge_percent' => 'decimal:2',
+        'allow_partial_payment' => 'boolean',
+        'minimum_partial_amount' => 'decimal:2',
 
         'due_at' => 'datetime',
         'sent_at' => 'datetime',

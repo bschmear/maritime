@@ -738,7 +738,7 @@ class RecordController extends BaseController
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
         if ($request->ajax() && ! $request->header('X-Inertia')) {
-            return response()->json([
+            return response()->json(array_merge([
                 'record' => $record,
                 'recordType' => $this->recordType,
                 'recordTitle' => $this->recordTitle,
@@ -750,11 +750,11 @@ class RecordController extends BaseController
                 'account' => $account,
                 'timezones' => Timezone::options(),
                 'availableSpecs' => $availableSpecs,
-            ]);
+            ], $this->showPageExtraProps($record)));
         }
 
         // Return Inertia response (for navigation and partial reloads)
-        return inertia('Tenant/'.$this->domainName.'/Show', [
+        return inertia('Tenant/'.$this->domainName.'/Show', array_merge([
             'record' => $record,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -766,7 +766,17 @@ class RecordController extends BaseController
             'account' => $account,
             'timezones' => Timezone::options(),
             'availableSpecs' => $availableSpecs,
-        ]);
+        ], $this->showPageExtraProps($record)));
+    }
+
+    /**
+     * Extra Inertia/JSON props for the generic record show page (subclasses may override).
+     *
+     * @param  \Illuminate\Database\Eloquent\Model  $record
+     */
+    protected function showPageExtraProps($record): array
+    {
+        return [];
     }
 
     public function edit($id)
@@ -869,7 +879,7 @@ class RecordController extends BaseController
         // Get account settings for timezone display (cached)
         $account = \App\Models\AccountSettings::getCurrent();
 
-        return inertia('Tenant/'.$this->domainName.'/Edit', [
+        return inertia('Tenant/'.$this->domainName.'/Edit', array_merge([
             'record' => $record,
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
@@ -879,7 +889,17 @@ class RecordController extends BaseController
             'account' => $account,
             'timezones' => Timezone::options(),
             'availableSpecs' => $availableSpecs,
-        ]);
+        ], $this->editPageExtraProps($record)));
+    }
+
+    /**
+     * Extra Inertia props for the generic record edit page (subclasses may override).
+     *
+     * @param  \Illuminate\Database\Eloquent\Model  $record
+     */
+    protected function editPageExtraProps($record): array
+    {
+        return [];
     }
 
     /**

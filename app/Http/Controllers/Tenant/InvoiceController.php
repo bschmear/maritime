@@ -9,6 +9,7 @@ use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
@@ -46,6 +47,25 @@ class InvoiceController extends RecordController
         foreach (RecordModel::documentEagerLoads() as $key => $callback) {
             $relationships[$key] = $callback;
         }
+    }
+
+    protected function enabledPaymentMethodsForInertia(): array
+    {
+        return PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount();
+    }
+
+    protected function editPageExtraProps($record): array
+    {
+        return [
+            'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+        ];
+    }
+
+    protected function showPageExtraProps($record): array
+    {
+        return [
+            'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+        ];
     }
 
     protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
@@ -221,6 +241,7 @@ class InvoiceController extends RecordController
             'timezones' => \App\Enums\Timezone::options(),
             'initialData' => $initialData,
             'transaction' => $transactionData,
+            'enabledPaymentMethods' => PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount(),
         ]);
     }
 

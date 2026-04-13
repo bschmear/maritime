@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Actions\FulfillPublicInvoiceCheckoutSession;
 use App\Domain\Invoice\Models\Invoice;
+use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Estimate\EstimateStatus;
@@ -14,7 +16,9 @@ use App\Enums\Payments\Terms;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
+use App\Services\Payments\StripeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -42,7 +46,8 @@ class PublicController extends Controller
             ->firstOrFail();
 
         $account = AccountSettings::getCurrent();
-        $logoUrl = $this->resolveLogoUrl($ticket, $account);
+        // Match public invoice branding (account logo only; not subsidiary-specific).
+        $logoUrl = $account->logo_url ?? null;
 
         $recordArray = $ticket->toArray();
         $recordArray['created_at'] = $ticket->created_at?->toISOString();
@@ -511,16 +516,30 @@ class PublicController extends Controller
         return $key;
     }
 
-    public function viewInvoice(Request $request, string $uuid)
+    public function viewInvoice(Request $request, string $uuid, FulfillPublicInvoiceCheckoutSession $fulfillCheckout)
     {
         $invoice = Invoice::query()
             ->where('uuid', $uuid)
             ->with(Invoice::documentEagerLoads())
             ->firstOrFail();
 
+        $sessionId = $request->query('session_id');
+        if (is_string($sessionId) && str_starts_with($sessionId, 'cs_')) {
+            $result = $fulfillCheckout($invoice, $sessionId);
+            if ($result['ok']) {
+                return redirect()->route('invoices.view', ['uuid' => $uuid])
+                    ->with('success', 'Thank you — your payment was received.');
+            }
+
+            return redirect()->route('invoices.view', ['uuid' => $uuid])
+                ->with('error', $result['message'] ?? 'Payment could not be confirmed.');
+        }
+
         $invoice->markAsViewed();
+        $invoice = $invoice->fresh(Invoice::documentEagerLoads()) ?? $invoice;
 
         $account = AccountSettings::getCurrent();
+        $canPayOnline = $this->invoiceCanPayOnline($invoice);
 
         return Inertia::render('Tenant/Public/InvoiceView', [
             'record' => $invoice,
@@ -530,7 +549,120 @@ class PublicController extends Controller
                 Terms::class => Terms::options(),
                 InvoiceStatus::class => InvoiceStatus::options(),
             ],
+            'canPayOnline' => $canPayOnline,
+            'paymentConstraints' => [
+                'allow_partial_payment' => (bool) $invoice->allow_partial_payment,
+                'minimum_partial_amount' => $invoice->minimum_partial_amount !== null
+                    ? (float) $invoice->minimum_partial_amount
+                    : null,
+                'amount_due' => (float) $invoice->amount_due,
+                'amount_paid' => (float) $invoice->amount_paid,
+                'surcharge_percent' => (float) ($invoice->surcharge_percent ?? 0),
+            ],
         ]);
+    }
+
+    public function startInvoicePayment(Request $request, string $uuid, StripeService $stripe)
+    {
+        $invoice = Invoice::query()->where('uuid', $uuid)->firstOrFail();
+        $invoice->refresh();
+
+        if (! $this->invoiceCanPayOnline($invoice)) {
+            return back()->with('error', 'This invoice cannot be paid online.');
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $principal = round((float) $validated['amount'], 2);
+        $amountDue = round((float) $invoice->amount_due, 2);
+
+        if ($principal > $amountDue + 0.01) {
+            return back()->withErrors(['amount' => 'Amount cannot exceed the balance due.']);
+        }
+
+        if (! $invoice->allow_partial_payment && abs($principal - $amountDue) > 0.02) {
+            return back()->withErrors(['amount' => 'This invoice must be paid in full.']);
+        }
+
+        if ($invoice->allow_partial_payment && $invoice->minimum_partial_amount !== null) {
+            $min = round((float) $invoice->minimum_partial_amount, 2);
+            if ($principal + 0.0001 < $min) {
+                return back()->withErrors([
+                    'amount' => 'Amount must be at least '.number_format($min, 2).'.',
+                ]);
+            }
+        }
+
+        $surchargePct = (float) ($invoice->surcharge_percent ?? 0);
+        $surcharge = round($principal * $surchargePct / 100, 2);
+        $total = round($principal + $surcharge, 2);
+        $totalCents = (int) round($total * 100);
+
+        if ($totalCents < 50) {
+            return back()->withErrors(['amount' => 'Amount is below the minimum card charge.']);
+        }
+
+        $config = PaymentConfiguration::forStripe();
+
+        if (! $this->invoiceAcceptsCardOnline($invoice)) {
+            return back()->with('error', 'Card payment is not enabled for this invoice.');
+        }
+
+        $base = route('invoices.view', ['uuid' => $invoice->uuid]);
+        $successUrl = $base.(str_contains($base, '?') ? '&' : '?').'session_id={CHECKOUT_SESSION_ID}';
+        $cancelUrl = $base;
+
+        try {
+            $checkoutUrl = $stripe->createInvoiceCheckoutSession(
+                $config,
+                $invoice,
+                $totalCents,
+                [
+                    'principal' => number_format($principal, 2, '.', ''),
+                    'surcharge' => number_format($surcharge, 2, '.', ''),
+                ],
+                $successUrl,
+                $cancelUrl,
+            );
+        } catch (\Throwable $e) {
+            Log::error('Invoice checkout create failed', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Could not start payment. Please try again later.');
+        }
+
+        return Inertia::location($checkoutUrl);
+    }
+
+    private function invoiceAcceptsCardOnline(Invoice $invoice): bool
+    {
+        $enabled = collect(PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount())
+            ->pluck('code')
+            ->all();
+        $onInvoice = $invoice->allowed_methods;
+        $allowed = $onInvoice === null
+            ? $enabled
+            : array_values(array_intersect($onInvoice, $enabled));
+
+        return in_array('credit_card', $allowed, true);
+    }
+
+    private function invoiceCanPayOnline(Invoice $invoice): bool
+    {
+        if (in_array($invoice->status, ['void', 'paid', 'draft'], true)) {
+            return false;
+        }
+        if ((float) $invoice->amount_due <= 0) {
+            return false;
+        }
+
+        $config = PaymentConfiguration::forStripe();
+
+        return $config->stripeReadyForCharges() && $this->invoiceAcceptsCardOnline($invoice);
     }
 
     private function buildLineItems(Estimate $estimate): array

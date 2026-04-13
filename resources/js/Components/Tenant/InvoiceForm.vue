@@ -22,6 +22,7 @@ const props = defineProps({
     },
     initialData: { type: Object, default: () => ({}) },
     transaction: { type: Object, default: null },
+    enabledPaymentMethods: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['saved', 'cancelled', 'cancel']);
@@ -101,6 +102,26 @@ const inferTaxRateFromItems = (items) => {
     return row != null ? Number(row.tax_rate) : 0;
 };
 
+const buildInitialAllowedMethods = () => {
+    const list = props.enabledPaymentMethods || [];
+    const codes = new Set(list.map((m) => m.code));
+    const raw = props.record?.allowed_methods;
+    let arr = [];
+    if (Array.isArray(raw)) {
+        arr = raw.filter((c) => typeof c === 'string' && codes.has(c));
+    }
+    if (arr.length > 0) {
+        return arr;
+    }
+    if (props.mode === 'create') {
+        return list.map((m) => m.code);
+    }
+    if (props.mode === 'edit' && (raw === null || raw === undefined)) {
+        return list.map((m) => m.code);
+    }
+    return [];
+};
+
 const form = useForm({
     contact_id:            props.record?.contact_id            ?? props.initialData?.contact_id            ?? null,
     transaction_id:      props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
@@ -144,6 +165,17 @@ const form = useForm({
         props.record?.fees_total != null
             ? Number(props.record.fees_total)
             : Number(props.initialData?.fees_total ?? 0),
+
+    allowed_methods: buildInitialAllowedMethods(),
+    allow_partial_payment: props.record?.allow_partial_payment ?? false,
+    surcharge_percent:
+        props.record?.surcharge_percent != null && props.record?.surcharge_percent !== ''
+            ? Number(props.record.surcharge_percent)
+            : '',
+    minimum_partial_amount:
+        props.record?.minimum_partial_amount != null && props.record?.minimum_partial_amount !== ''
+            ? Number(props.record.minimum_partial_amount)
+            : '',
 });
 
 const lineItemsRef = ref(null);
@@ -187,6 +219,25 @@ const applyPrefillPayload = async (d) => {
     await nextTick();
     lineItemsRef.value?.hydrateFromItems(d.items ?? [], { preserveIds: false });
 };
+
+const toggleAllowedMethod = (code, checked) => {
+    const set = new Set(form.allowed_methods || []);
+    if (checked) {
+        set.add(code);
+    } else {
+        set.delete(code);
+    }
+    form.allowed_methods = [...set];
+};
+
+watch(
+    () => form.allow_partial_payment,
+    (v) => {
+        if (!v) {
+            form.minimum_partial_amount = '';
+        }
+    },
+);
 
 watch(
     () => form.transaction_id,
@@ -333,16 +384,18 @@ const formatCurrency = (value) =>
         ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '$0.00';
 
-const statusBadgeClass = computed(() => {
+    const statusBadgeClass = computed(() => {
     const status = statusOptions.value.find(o => o.id == form.status)?.value ?? form.status ?? '';
+
     const map = {
-        draft:   'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+        draft:   'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
         sent:    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-        viewed:  'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-        partial: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
+        viewed:  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+        partial: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
         paid:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-        void:    'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+        void:    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     };
+
     return map[status] ?? map.draft;
 });
 
@@ -357,6 +410,18 @@ const submit = () => {
     form.transform((data) => {
         const statusOpt = statusOptions.value.find((o) => o.id == data.status);
         const next = { ...data, status: statusOpt?.value ?? data.status };
+        next.allow_partial_payment = Boolean(next.allow_partial_payment);
+        next.surcharge_percent =
+            next.surcharge_percent === '' || next.surcharge_percent == null
+                ? null
+                : Number(next.surcharge_percent);
+        next.minimum_partial_amount =
+            !next.allow_partial_payment || next.minimum_partial_amount === '' || next.minimum_partial_amount == null
+                ? null
+                : Number(next.minimum_partial_amount);
+        next.allowed_methods = Array.isArray(next.allowed_methods)
+            ? next.allowed_methods.filter((c) => typeof c === 'string' && c !== '')
+            : [];
         if (props.mode === 'create') {
             next.items = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? [];
         }
@@ -513,6 +578,117 @@ const handleCancel = () => {
                                 </div>
                             </div>
 
+                            <!-- Customer payment (full width below Contact & relations + Invoice details) -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 w-full space-y-4">
+                                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Customer payment
+                                </h3>
+                                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+                                    <div class="lg:col-span-7 space-y-4">
+                                        <p
+                                            v-if="!enabledPaymentMethods?.length"
+                                            class="text-sm text-gray-500 dark:text-gray-400"
+                                        >
+                                            No payment methods are enabled for this account. Enable methods under
+                                            Account → Payments.
+                                        </p>
+                                        <div v-else class="space-y-2">
+                                            <p class="text-sm text-gray-600 dark:text-gray-300">
+                                                Payment methods accepted on this invoice
+                                            </p>
+                                            <div class="flex flex-wrap gap-x-6 gap-y-2">
+                                                <label
+                                                    v-for="m in enabledPaymentMethods"
+                                                    :key="m.code"
+                                                    class="inline-flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                                        :checked="form.allowed_methods.includes(m.code)"
+                                                        :disabled="isView"
+                                                        @change="toggleAllowedMethod(m.code, $event.target.checked)"
+                                                    >
+                                                    <span>{{ m.label }}</span>
+                                                </label>
+                                            </div>
+                                            <p v-if="form.errors.allowed_methods" class="text-xs text-red-600 dark:text-red-400">
+                                                {{ form.errors.allowed_methods }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="lg:col-span-5 space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                                Payment surcharge (%)
+                                            </label>
+                                            <input
+                                                v-model="form.surcharge_percent"
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.01"
+                                                :disabled="isView"
+                                                placeholder="Optional"
+                                                :class="[inputClass, isView ? disabledClass : '']"
+                                            >
+                                            <p v-if="form.errors.surcharge_percent" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                                {{ form.errors.surcharge_percent }}
+                                            </p>
+                                        </div>
+
+                                        <label class="inline-flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+                                            <input
+                                                v-model="form.allow_partial_payment"
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                                :disabled="isView"
+                                            >
+                                            Allow partial payments
+                                        </label>
+                                        <p v-if="form.errors.allow_partial_payment" class="text-xs text-red-600 dark:text-red-400">
+                                            {{ form.errors.allow_partial_payment }}
+                                        </p>
+
+                                        <div v-if="form.allow_partial_payment">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                                Minimum partial amount
+                                            </label>
+                                            <input
+                                                v-model="form.minimum_partial_amount"
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                placeholder="Optional"
+                                                :disabled="isView"
+                                                :class="[inputClass, isView ? disabledClass : '']"
+                                            >
+                                            <p v-if="form.errors.minimum_partial_amount" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                                {{ form.errors.minimum_partial_amount }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notes -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                    Notes
+                                </h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                    Visible to the customer on the invoice
+                                </p>
+                                <textarea
+                                    v-model="form.notes"
+                                    rows="4"
+                                    :disabled="isView"
+                                    :class="[textareaClass, isView ? disabledClass : '']"
+                                    placeholder="Add a note or message for the customer..."
+                                />
+                                <p v-if="form.errors.notes" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.notes }}</p>
+                            </div>
+
                             <!-- Customer Snapshot -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
@@ -603,24 +779,6 @@ const handleCancel = () => {
                                 :initial-items="lineItemsInitialItems"
                                 :show-totals-panel="false"
                             />
-                        </div>
-                    </div>
-
-                    <!-- Notes Card -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Notes</h2>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Visible to the customer on the invoice</p>
-                        </div>
-                        <div class="p-6">
-                            <textarea
-                                v-model="form.notes"
-                                rows="4"
-                                :disabled="isView"
-                                :class="[textareaClass, isView ? disabledClass : '']"
-                                placeholder="Add a note or message for the customer..."
-                            />
-                            <p v-if="form.errors.notes" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.notes }}</p>
                         </div>
                     </div>
 

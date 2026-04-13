@@ -37,6 +37,8 @@ const props = defineProps({
     },
 });
 
+const logoUrl = computed(() => props.account?.logo_url ?? null);
+
 const breadcrumbItems = computed(() => {
     return [
         { label: 'Home', href: route('dashboard') },
@@ -395,6 +397,7 @@ const linkedTransaction = computed(() => {
                 <ServiceTicketPreview
                     :record="record"
                     :account="account"
+                    :logo-url="logoUrl"
                     :enum-options="enumOptions"
                     @close="closePreview"
                 />

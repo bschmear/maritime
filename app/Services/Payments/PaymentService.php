@@ -2,25 +2,22 @@
 
 namespace App\Services\Payments;
 
-use App\Models\PaymentAccount;
+use App\Domain\Payment\Models\PaymentConfiguration;
+use App\Models\AccountSettings;
 
 class PaymentService
 {
-    public function createCheckout($tenant, int $amount, string $type = 'full')
+    public function createCheckout(int $amountCents, string $type = 'full'): string
     {
-        $settings = $tenant->accountSettings;
+        $settings = AccountSettings::getCurrent();
+        $provider = $settings->payment_provider ?? 'stripe';
 
-        $provider = $settings->payment_provider;
+        if ($provider !== 'stripe') {
+            throw new \RuntimeException('Unsupported payment provider.');
+        }
 
-        $paymentAccount = PaymentAccount::where('account_settings_id', $settings->id)
-            ->where('provider', $provider)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $configuration = PaymentConfiguration::forCurrentAccount($settings);
 
-        return match ($provider) {
-            'stripe' => app(StripeService::class)
-                ->createCheckout($paymentAccount, $amount, $type),
-            default => throw new \Exception('Unsupported payment provider'),
-        };
+        return app(StripeService::class)->createCheckout($configuration, $amountCents, $type);
     }
 }

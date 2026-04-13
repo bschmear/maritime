@@ -34,6 +34,7 @@ use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OperationsController;
 use App\Http\Controllers\Tenant\OpportunityController;
+use App\Http\Controllers\Tenant\PaymentConfigurationController;
 use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
@@ -83,14 +84,25 @@ Route::middleware([
     });
 
     Route::post('/stripe/webhook', function (\Illuminate\Http\Request $request) {
-        $event = json_decode($request->getContent());
-        if ($event->type === 'account.updated') {
-            $account = $event->data->object;
-            \App\Models\PaymentAccount::where('external_account_id', $account->id)
-                ->update([
-                    'charges_enabled' => $account->charges_enabled,
-                    'payouts_enabled' => $account->payouts_enabled,
-                ]);
+        $payload = json_decode($request->getContent(), true);
+        $type = $payload['type'] ?? null;
+        if ($type === 'account.updated') {
+            $obj = $payload['data']['object'] ?? [];
+            $accountId = $obj['id'] ?? null;
+            if ($accountId) {
+                $config = \App\Domain\Payment\Models\PaymentConfiguration::query()
+                    ->where('stripe_account_id', $accountId)
+                    ->first();
+                if ($config) {
+                    app(\App\Services\Payments\StripeService::class)->applyAccountPayloadToConfiguration($config, $obj);
+                }
+
+                \App\Models\PaymentAccount::where('external_account_id', $accountId)
+                    ->update([
+                        'charges_enabled' => (bool) ($obj['charges_enabled'] ?? false),
+                        'payouts_enabled' => (bool) ($obj['payouts_enabled'] ?? false),
+                    ]);
+            }
         }
 
         return response()->json(['status' => 'success']);
@@ -112,6 +124,9 @@ Route::middleware([
     Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
 
     Route::get('/invoices/{uuid}/view', [PublicController::class, 'viewInvoice'])->name('invoices.view');
+    Route::post('/invoices/{uuid}/pay', [PublicController::class, 'startInvoicePayment'])
+        ->middleware('throttle:20,1')
+        ->name('invoices.pay');
 
     Route::get('/boat-show-events/{uuid}/public', [PublicBoatShowEventController::class, 'showcase'])
         ->name('boat-show-events.public.showcase');
@@ -139,6 +154,13 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        Route::get('/payments/success', function () {
+            return redirect()->route('account.payments')->with('success', 'Payment completed.');
+        })->name('payments.success');
+        Route::get('/payments/cancel', function () {
+            return redirect()->route('account.payments')->with('error', 'Payment cancelled.');
+        })->name('payments.cancel');
 
         Route::get('/stripe/connect', [StripeController::class, 'connect'])->name('stripe.connect');
         Route::get('/stripe/return', [StripeController::class, 'return'])->name('stripe.return');
@@ -421,6 +443,8 @@ Route::middleware([
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
+            Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');
+            Route::patch('/payments/methods', [PaymentConfigurationController::class, 'updateMethod'])->name('payments.methods');
         });
 
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');

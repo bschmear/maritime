@@ -92,7 +92,7 @@ Thanks,<br>
         <div class="section">
             <div class="section-title">Service Ticket Details:</div>
             <div class="info-row"><strong>Ticket Number:</strong> #{{ $serviceTicket->service_ticket_number }}</div>
-            <div class="info-row"><strong>Created:</strong> {{ $serviceTicket->created_at->format('F j, Y') }}</div>
+            <div class="info-row"><strong>Created:</strong> {{ optional($serviceTicket->created_at)->format('F j, Y') ?? '—' }}</div>
             @if($serviceTicket->assetUnit)
                 <div class="info-row"><strong>Asset:</strong> {{ $serviceTicket->assetUnit->display_name }}</div>
             @endif

@@ -28,6 +28,18 @@ const visiblePrimaryLinks = computed(() =>
     primaryNavLinks.filter((item) => route().has(item.routeName)),
 );
 
+/** Central app has `home`; tenant subdomains often only expose portal/dashboard routes. */
+const guestLogoHref = computed(() => {
+    if (route().has('home')) {
+        return route('home');
+    }
+    if (route().has('portal.login')) {
+        return route('portal.login');
+    }
+
+    return '/';
+});
+
 const isNavActive = (matchNames) => matchNames.some((name) => route().current(name));
 
 const closeMobileMenu = () => {
@@ -53,7 +65,7 @@ onMounted(() => {
             <div class="relative flex h-16 items-center justify-between gap-3">
                 <!-- Logo (left) -->
                 <div class="flex shrink-0 items-center z-20">
-                    <Link :href="isAuthenticated() ? route('dashboard') : route('home')">
+                    <Link :href="isAuthenticated() ? route('dashboard') : guestLogoHref">
                         <ApplicationLogo
                             class="block h-9 w-auto fill-current text-gray-800 dark:text-white-100"
                         />

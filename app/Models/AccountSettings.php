@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Casts\PaymentTermsCast;
+use App\Domain\Payment\Models\PaymentConfiguration;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AccountSettings extends Model
 {
@@ -106,6 +108,11 @@ class AccountSettings extends Model
     /**
      * Boot method
      */
+    public function paymentConfigurations(): HasMany
+    {
+        return $this->hasMany(PaymentConfiguration::class, 'account_settings_id');
+    }
+
     protected static function boot()
     {
         parent::boot();

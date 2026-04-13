@@ -153,7 +153,7 @@
 
                 <div class="detail-row">
                     <span class="detail-label">Date Issued</span>
-                    <span class="detail-value">{{ $contract->created_at->format('F j, Y') }}</span>
+                    <span class="detail-value">{{ optional($contract->created_at)->format('F j, Y') ?? '—' }}</span>
                 </div>
 
                 @if($contract->transaction?->customer_email)

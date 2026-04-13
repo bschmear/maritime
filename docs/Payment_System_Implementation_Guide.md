@@ -16,40 +16,43 @@ The system is designed to:
 
 ---
 
-## Current State
+## Two different Stripe uses (do not conflate)
 
-We have completed:
+| Context | Where it lives | Purpose |
+|--------|----------------|---------|
+| **Platform / SaaS billing** | Central app, Laravel Cashier, `STRIPE_KEY` / `STRIPE_SECRET` | Bill tenants for Maritime **subscriptions** |
+| **Tenant customer payments** | Each **tenant database**, Stripe **Connect** Express | Tenants collect money from **their customers** (e.g. invoices) |
 
-### 1. `account_settings` update
+Tenant payment tables (`payments_configurations`, `payments`, etc.) and [`PaymentConfiguration`](app/Domain/Payment/Models/PaymentConfiguration.php) are **only** for the second row. They must **not** store or replace platform subscription credentials.
 
-Added:
-
-- `payment_provider` (default: `stripe`)
-
-This determines the **active/default provider** for the tenant.
+Connect flows use the **same platform secret** in env to call Stripe’s API with the connected account id (`stripe_account` header / option); charges settle on the connected account.
 
 ---
 
-### 2. `payment_accounts` table
+## Current State
 
-This stores provider-specific connection data.
+### 1. `account_settings`
 
-#### Key Fields
+- `payment_provider` (default: `stripe`) — which provider the tenant prefers for **customer** checkout (when implemented end-to-end).
 
-- `account_settings_id` → tenant linkage
-- `provider` → `stripe`, `quickbooks`, etc.
-- `external_account_id`
-  - Stripe: `stripe_account_id`
-  - QuickBooks: `realm_id`
-- `data` (JSON)
-  - Stores provider-specific metadata (tokens, email, etc.)
-- `charges_enabled`
-- `payouts_enabled`
-- `connected_at`
+### 2. `payments_configurations` (tenant DB) — **canonical for Connect**
 
-#### Important Concept
+Stores per–account-settings processor configuration:
 
-> This table allows multiple providers per tenant without changing schema.
+- `account_settings_id` → links to the tenant’s `account_settings` row
+- `processor` → `stripe` | `quickbooks`
+- Stripe Connect: `stripe_account_id`, `stripe_charges_enabled`, `stripe_payouts_enabled`, optional `meta` (e.g. `details_submitted`, `email`, `connected_at`)
+- `payment_methods_config` + `processor_payment_methods` — catalog of method codes and per-configuration toggles
+
+UI: **Account → Payments** (`route('account.payments')`), [`PaymentConfigurationController`](app/Http/Controllers/Tenant/PaymentConfigurationController.php), Connect via [`StripeController`](app/Http/Controllers/Tenant/StripeController.php) + [`StripeService`](app/Services/Payments/StripeService.php). Resolve the active config with [`PaymentConfiguration::forCurrentAccount()`](app/Domain/Payment/Models/PaymentConfiguration.php) or `forStripe()` (Stripe-specific).
+
+### 3. `payment_accounts` (legacy)
+
+Older table used by early scaffolding. New Connect state should live in `payments_configurations`. [`PaymentConfiguration::forStripe()`](app/Domain/Payment/Models/PaymentConfiguration.php) can **hydrate from** a legacy `payment_accounts` row once when creating the new record. The tenant webhook still updates `PaymentAccount` for backwards compatibility until that table is removed.
+
+### 4. Webhooks (`POST /stripe/webhook` on tenant host)
+
+`account.updated` updates **`PaymentConfiguration`** (and legacy **`PaymentAccount`**) when `stripe_account_id` matches. **Stripe signature verification** should be added before production; Connect may use a dedicated endpoint or signing secret—document your chosen pattern in ops runbooks.
 
 ---
 

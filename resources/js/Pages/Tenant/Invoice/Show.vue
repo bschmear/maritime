@@ -43,6 +43,7 @@ const props = defineProps({
     record: { type: Object, required: true },
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
+    enabledPaymentMethods: { type: Array, default: () => [] },
 });
 
 const STATUS_ENUM_KEY = 'App\\Enums\\Invoice\\Status';
@@ -73,21 +74,6 @@ const paymentTermLabel = computed(() => {
     );
     return opt?.name ?? raw ?? '—';
 });
-
-const STATUS_TEXT = {
-    gray: 'text-gray-700 dark:text-gray-300',
-    blue: 'text-blue-700 dark:text-blue-300',
-    yellow: 'text-yellow-700 dark:text-yellow-300',
-    green: 'text-green-700 dark:text-green-300',
-    red: 'text-red-700 dark:text-red-300',
-    orange: 'text-orange-700 dark:text-orange-300',
-    purple: 'text-purple-700 dark:text-purple-300',
-    slate: 'text-slate-700 dark:text-slate-300',
-};
-
-const statusTextClass = computed(
-    () => STATUS_TEXT[statusInfo.value?.color] ?? 'text-gray-700 dark:text-gray-300',
-);
 
 const formatCurrency = (value) =>
     value != null && value !== ''
@@ -121,6 +107,60 @@ const transactionShowHref = computed(() =>
 const contractShowHref = computed(() =>
     props.record.contract_id ? route('contracts.show', props.record.contract_id) : null,
 );
+
+const methodLabelByCode = computed(() => {
+    const map = new Map();
+    for (const m of props.enabledPaymentMethods || []) {
+        if (m?.code) {
+            map.set(m.code, m.label ?? m.code);
+        }
+    }
+    return map;
+});
+
+/** Matches invoice form: null stored = all enabled methods for the account. */
+const acceptedPaymentMethodsText = computed(() => {
+    const list = props.enabledPaymentMethods || [];
+    const raw = props.record?.allowed_methods;
+    if (raw == null) {
+        if (!list.length) {
+            return 'None enabled in account settings';
+        }
+        return list.map((m) => m.label ?? m.code).join(', ');
+    }
+    if (!Array.isArray(raw) || raw.length === 0) {
+        return 'None selected';
+    }
+    return raw
+        .map((code) => (typeof code === 'string' ? methodLabelByCode.value.get(code) ?? code : code))
+        .join(', ');
+});
+
+const surchargePercentText = computed(() => {
+    const v = props.record?.surcharge_percent;
+    if (v == null || v === '') {
+        return null;
+    }
+    const n = Number(v);
+    if (Number.isNaN(n) || n === 0) {
+        return null;
+    }
+    return `${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}%`;
+});
+
+const partialPaymentSummary = computed(() => {
+    if (!props.record?.allow_partial_payment) {
+        return { allowed: false, minimumText: null };
+    }
+    const min = props.record?.minimum_partial_amount;
+    if (min == null || min === '' || Number(min) === 0) {
+        return { allowed: true, minimumText: null };
+    }
+    return {
+        allowed: true,
+        minimumText: formatCurrency(min),
+    };
+});
 </script>
 
 <template>
@@ -272,14 +312,48 @@ const contractShowHref = computed(() =>
                                     {{ record.currency || 'USD' }}
                                 </span>
                             </li>
-                            <li v-if="record.amount_due != null" class="flex items-start gap-2">
-                                <span class="material-icons shrink-0 text-[20px]">account_balance_wallet</span>
-                                <span>
-                                    <span class="font-medium text-gray-900 dark:text-white">Amount due:</span>
-                                    <span :class="['font-bold', statusTextClass]">{{ formatCurrency(record.amount_due) }}</span>
-                                </span>
-                            </li>
                         </ul>
+
+                        <div class="border-t border-gray-100 pt-4 dark:border-gray-700">
+                            <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
+                                Payment
+                            </h3>
+                            <ul class="max-w-md space-y-3 border-b border-gray-100 pb-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                <li class="flex items-start gap-2">
+                                    <span class="material-icons shrink-0 text-[20px]">account_balance</span>
+                                    <span>
+                                        <span class="font-medium text-gray-900 dark:text-white">Accepted methods:</span>
+                                        {{ acceptedPaymentMethodsText }}
+                                    </span>
+                                </li>
+                                <li v-if="surchargePercentText" class="flex items-start gap-2">
+                                    <span class="material-icons shrink-0 text-[20px]">percent</span>
+                                    <span>
+                                        <span class="font-medium text-gray-900 dark:text-white">Surcharge:</span>
+                                        {{ surchargePercentText }}
+                                    </span>
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <span class="material-icons shrink-0 text-[20px]">pie_chart</span>
+                                    <span>
+                                        <span class="font-medium text-gray-900 dark:text-white">Partial payments:</span>
+                                        {{ partialPaymentSummary.allowed ? 'Allowed' : 'Not allowed' }}
+                                        <template v-if="partialPaymentSummary.allowed && partialPaymentSummary.minimumText">
+                                            <span class="text-gray-600 dark:text-gray-300">
+                                                (min. {{ partialPaymentSummary.minimumText }})
+                                            </span>
+                                        </template>
+                                    </span>
+                                </li>
+                                <li v-if="record.amount_due != null" class="flex items-start gap-2 border-t border-gray-100 pt-3 dark:border-gray-600">
+                                    <span class="material-icons shrink-0 text-[20px]">account_balance_wallet</span>
+                                    <span>
+                                        <span class="font-medium text-gray-900 dark:text-white">Amount due:</span>
+                                        <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(record.amount_due) }}</span>
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
 
                         <ol class="relative ms-2 border-s border-gray-200 dark:border-gray-700">
                             <li class="mb-4 ms-6">
