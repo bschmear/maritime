@@ -3,7 +3,6 @@ import { useForm } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
-import { lineItemPreTaxTotal, lineVariantDisplay } from '@/Utils/lineItemsFromEstimate';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -19,7 +18,6 @@ const props = defineProps({
         validator: (v) => ['create', 'edit', 'show'].includes(v),
     },
     initialData: { type: Object, default: () => ({}) },
-    transaction: { type: Object, default: null },
 });
 
 const emit = defineEmits(['saved', 'cancelled', 'cancel']);
@@ -42,63 +40,17 @@ const resolveEnumId = (enumKey, value) => {
     return value;
 };
 
-/**
- * RecordSelect resolves labels via `relatedFromParentRecord(record, fieldKey)` (e.g. record.contact).
- * Merge `initialData` with the deal `transaction` prop so transaction_id + `transaction` stay aligned
- * even if the payload shape varies, and embedded stubs are always available on first paint.
- */
-const recordForSelects = computed(() => {
-    if (props.record) {
-        return props.record;
-    }
-    const raw =
-        props.initialData && typeof props.initialData === 'object' && !Array.isArray(props.initialData)
-            ? props.initialData
-            : {};
-    const merged = { ...raw };
-
-    if (props.transaction?.id) {
-        merged.transaction_id = merged.transaction_id ?? props.transaction.id;
-        merged.transaction = merged.transaction ?? {
-            id: props.transaction.id,
-            display_name: props.transaction.display_name,
-        };
-    }
-
-    return Object.keys(merged).length > 0 ? merged : null;
-});
-
-/** Deal-originated create: contact / transaction / contract are fixed. */
-const lockDealRelations = computed(
-    () => !isView.value && props.mode === 'create' && Boolean(props.transaction?.id)
+const pseudoRecord = computed(() =>
+    props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null)
 );
-
-/** Line items copied from a deal cannot be edited on create. */
-const lockLineItems = computed(
-    () => !isView.value && props.mode === 'create' && (Boolean(props.transaction?.id) || Boolean(props.initialData?.transaction_id)),
-);
-
-const normalizeItem = (item) => ({
-    transaction_item_id: item.transaction_item_id ?? null,
-    name:                item.name                ?? '',
-    description:         item.description         ?? '',
-    quantity:            parseFloat(item.quantity)   || 1,
-    unit_price:          parseFloat(item.unit_price) || 0,
-    discount:            parseFloat(item.discount)   || 0,
-    taxable:             item.taxable !== false && item.taxable !== 0 && item.taxable !== '0',
-    tax_rate:            parseFloat(item.tax_rate)   || 0,
-    position:            item.position ?? 0,
-    estimate_line_item:  item.estimate_line_item ?? item.estimateLineItem ?? null,
-    addons:              Array.isArray(item.addons) ? item.addons : [],
-});
 
 const form = useForm({
-    contact_id:            props.record?.contact_id            ?? props.initialData?.contact_id            ?? null,
+    customer_id:           props.record?.customer_id           ?? props.initialData?.customer_id           ?? null,
     transaction_id:        props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
     contract_id:           props.record?.contract_id           ?? props.initialData?.contract_id           ?? null,
     status:                resolveEnumId(STATUS_ENUM_KEY, props.record?.status ?? props.initialData?.status ?? 'draft'),
     currency:              props.record?.currency              ?? props.initialData?.currency              ?? 'USD',
-    payment_term:          props.record?.payment_term          ?? props.initialData?.payment_term          ?? 'due_on_receipt',
+    payment_term:          props.record?.payment_term          ?? props.initialData?.payment_term          ?? '1',
     due_at:                props.record?.due_at                ?? props.initialData?.due_at                ?? '',
     customer_name:         props.record?.customer_name         ?? props.initialData?.customer_name         ?? '',
     customer_email:        props.record?.customer_email        ?? props.initialData?.customer_email        ?? '',
@@ -110,15 +62,13 @@ const form = useForm({
     billing_postal:        props.record?.billing_postal        ?? props.initialData?.billing_postal        ?? '',
     billing_country:       props.record?.billing_country       ?? props.initialData?.billing_country       ?? '',
     notes:                 props.record?.notes                 ?? props.initialData?.notes                 ?? '',
-    items:                 (props.record?.items ?? props.initialData?.items ?? []).map(normalizeItem),
 });
 
 // ── Address helpers ──────────────────────────────────────────────────────────
 const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
 
-const showAddressPicker = ref(false);
-const contactAddresses = ref([]);
-const isFetchingAddresses = ref(false);
+const showAddressConfirm = ref(false);
+const pendingCustomerAddress = ref(null);
 
 const applyAddressToForm = (src) => {
     form.billing_address_line1 = src.billing_address_line1 || src.address_line_1 || '';
@@ -129,64 +79,26 @@ const applyAddressToForm = (src) => {
     form.billing_country       = src.billing_country       || src.country        || '';
 };
 
-const fetchContactAddresses = async (contactId) => {
-    if (!contactId) return [];
-    isFetchingAddresses.value = true;
-    try {
-        const res = await fetch(route('contacts.addresses.index', { contact: contactId }), {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-        });
-        if (res.ok) {
-            const data = await res.json();
-            return data.addresses ?? [];
-        }
-    } catch {
-        // user can still type the address manually
-    } finally {
-        isFetchingAddresses.value = false;
-    }
-    return [];
+const handleCustomerSelected = (customer) => {
+    if (customer.name)  form.customer_name  = customer.name;
+    if (customer.email) form.customer_email = customer.email;
+    if (customer.phone) form.customer_phone = customer.phone;
+
+    const street = customer.address_line_1 || customer.billing_address_line1 || '';
+    if (!street) return;
+    pendingCustomerAddress.value = customer;
+    showAddressConfirm.value = true;
 };
 
-const handleContactSelected = async (contact) => {
-    if (!contact?.id) return;
-    if (contact.display_name) {
-        form.customer_name = contact.display_name;
-    } else if (contact.first_name || contact.last_name) {
-        form.customer_name = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
-    }
-    if (contact.email) form.customer_email = contact.email;
-    if (contact.phone) form.customer_phone = contact.phone;
-    else if (contact.mobile) form.customer_phone = contact.mobile;
-
-    contactAddresses.value = await fetchContactAddresses(contact.id);
-    if (contactAddresses.value.length > 0) {
-        showAddressPicker.value = true;
-    }
+const confirmUseBillingAddress = () => {
+    applyAddressToForm(pendingCustomerAddress.value);
+    showAddressConfirm.value = false;
+    pendingCustomerAddress.value = null;
 };
 
-const openSavedAddressPicker = async () => {
-    if (!form.contact_id || isView.value) return;
-    contactAddresses.value = await fetchContactAddresses(form.contact_id);
-    if (contactAddresses.value.length > 0) {
-        showAddressPicker.value = true;
-    }
-};
-
-const selectContactAddress = (addr) => {
-    applyAddressToForm(addr);
-    showAddressPicker.value = false;
-    contactAddresses.value = [];
-};
-
-const dismissAddressPicker = () => {
-    showAddressPicker.value = false;
-    contactAddresses.value = [];
+const dismissAddressConfirm = () => {
+    showAddressConfirm.value = false;
+    pendingCustomerAddress.value = null;
 };
 
 const handleAddressUpdate = (data) => {
@@ -219,13 +131,12 @@ const formatCurrency = (value) =>
 const statusBadgeClass = computed(() => {
     const status = statusOptions.value.find(o => o.id == form.status)?.value ?? form.status ?? '';
     const map = {
-        draft:     'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-        sent:      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-        viewed:    'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-        paid:      'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-        overdue:   'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-        cancelled: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
-        void:      'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
+        draft:   'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+        sent:    'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+        viewed:  'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+        partial: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
+        paid:    'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+        void:    'bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-400',
     };
     return map[status] ?? map.draft;
 });
@@ -234,79 +145,6 @@ const statusBadgeClass = computed(() => {
 const inputClass = 'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent';
 const textareaClass = `${inputClass} resize-none`;
 const disabledClass = 'opacity-60 cursor-not-allowed';
-
-// ── Line items ───────────────────────────────────────────────────────────────
-const addItem = () => {
-    form.items.push(normalizeItem({
-        name: '',
-        description: '',
-        quantity: 1,
-        unit_price: 0,
-        discount: 0,
-        taxable: false,
-        tax_rate: 0,
-        position: form.items.length,
-        addons: [],
-        estimate_line_item: null,
-    }));
-};
-
-const removeItem = (index) => {
-    form.items.splice(index, 1);
-};
-
-const computedSubtotal = computed(() =>
-    form.items.reduce((sum, item) => {
-        const qty   = parseFloat(item.quantity)   || 0;
-        const price = parseFloat(item.unit_price) || 0;
-        const disc  = parseFloat(item.discount)   || 0;
-        return sum + (qty * price) - disc;
-    }, 0)
-);
-
-const computedDiscountTotal = computed(() =>
-    form.items.reduce((sum, item) => sum + (parseFloat(item.discount) || 0), 0)
-);
-
-const computedTaxTotal = computed(() =>
-    form.items.reduce((sum, item) => {
-        const qty   = parseFloat(item.quantity)   || 0;
-        const price = parseFloat(item.unit_price) || 0;
-        const disc  = parseFloat(item.discount)   || 0;
-        const sub   = (qty * price) - disc;
-        return sum + (item.taxable && item.tax_rate
-            ? Math.round(sub * (parseFloat(item.tax_rate) / 100) * 100) / 100
-            : 0);
-    }, 0)
-);
-
-const computedTotal = computed(() => computedSubtotal.value + computedTaxTotal.value);
-
-const linePreTax = (item) => lineItemPreTaxTotal(item);
-
-const lineTaxAmount = (item) => {
-    const sub = linePreTax(item);
-    const taxable = item.taxable !== false && item.taxable !== 0 && item.taxable !== '0';
-    if (!taxable || !item.tax_rate) return 0;
-    return Math.round(sub * (parseFloat(item.tax_rate) / 100) * 100) / 100;
-};
-
-const lineTotalInclTax = (item) => linePreTax(item) + lineTaxAmount(item);
-
-const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
-
-const addonTaxAmount = (addon, parentLine) => {
-    const taxable = addon.taxable !== false && addon.taxable !== 0 && addon.taxable !== '0';
-    if (!taxable) return 0;
-    const rate = parseFloat(addon.tax_rate ?? parentLine.tax_rate ?? 0) || 0;
-    if (!rate) return 0;
-    return Math.round(addonPreTaxTotal(addon) * (rate / 100) * 100) / 100;
-};
-
-const variantLabel = (item) => {
-    const label = lineVariantDisplay(item);
-    return label && label !== '—' ? label : '—';
-};
 
 // ── Submit ───────────────────────────────────────────────────────────────────
 const submit = () => {
@@ -363,24 +201,24 @@ const handleCancel = () => {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Contact &amp; Relations
+                                        Customer &amp; Relations
                                     </h3>
 
-                                    <!-- Contact -->
+                                    <!-- Customer -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            Contact <span class="text-red-500">*</span>
+                                            Customer <span class="text-red-500">*</span>
                                         </label>
                                         <RecordSelect
-                                            id="contact_id"
-                                            :field="fieldsSchema?.contact_id || { typeDomain: 'Contact', label: 'Contact', required: true, relationship: 'contact' }"
-                                            v-model="form.contact_id"
-                                            :record="recordForSelects"
-                                            field-key="contact_id"
-                                            :disabled="isView || lockDealRelations"
-                                            @record-selected="handleContactSelected"
+                                            id="customer_id"
+                                            :field="fieldsSchema?.customer_id || { type: 'relationship', relationship_type: 'customers', label: 'Customer', required: true }"
+                                            v-model="form.customer_id"
+                                            :record="pseudoRecord"
+                                            field-key="customer_id"
+                                            :disabled="isView"
+                                            @record-selected="handleCustomerSelected"
                                         />
-                                        <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
+                                        <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
                                     </div>
 
                                     <!-- Transaction -->
@@ -388,11 +226,11 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Transaction</label>
                                         <RecordSelect
                                             id="transaction_id"
-                                            :field="fieldsSchema?.transaction_id || { typeDomain: 'Transaction', label: 'Transaction' }"
+                                            :field="fieldsSchema?.transaction_id || { type: 'relationship', relationship_type: 'transactions', label: 'Transaction' }"
                                             v-model="form.transaction_id"
-                                            :record="recordForSelects"
+                                            :record="pseudoRecord"
                                             field-key="transaction_id"
-                                            :disabled="isView || lockDealRelations"
+                                            :disabled="isView"
                                         />
                                         <p v-if="form.errors.transaction_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.transaction_id }}</p>
                                     </div>
@@ -402,11 +240,11 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Contract</label>
                                         <RecordSelect
                                             id="contract_id"
-                                            :field="fieldsSchema?.contract_id || { typeDomain: 'Contract', label: 'Contract' }"
+                                            :field="fieldsSchema?.contract_id || { type: 'relationship', relationship_type: 'contracts', label: 'Contract' }"
                                             v-model="form.contract_id"
-                                            :record="recordForSelects"
+                                            :record="pseudoRecord"
                                             field-key="contract_id"
-                                            :disabled="isView || lockDealRelations"
+                                            :disabled="isView"
                                         />
                                         <p v-if="form.errors.contract_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contract_id }}</p>
                                     </div>
@@ -534,165 +372,6 @@ const handleCancel = () => {
                         </div>
                     </div>
 
-                    <!-- Line Items Card -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Line Items</h2>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Products and services to invoice</p>
-                            </div>
-                            <button
-                                v-if="!isView"
-                                type="button"
-                                @click="addItem"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg hover:bg-primary-100 dark:hover:bg-primary-900/50 transition-colors"
-                            >
-                                <span class="material-icons text-[14px]">add</span>
-                                Add Item
-                            </button>
-                        </div>
-
-                        <!-- Item rows -->
-                        <div v-if="form.items.length > 0" class="divide-y divide-gray-100 dark:divide-gray-700/60">
-                            <div v-for="(item, index) in form.items" :key="index" class="p-5 space-y-3">
-
-                                <!-- Name + remove -->
-                                <div class="flex items-start gap-2">
-                                    <input
-                                        type="text"
-                                        v-model="item.name"
-                                        placeholder="Item name…"
-                                        :disabled="isView"
-                                        :class="[inputClass, 'flex-1', isView ? disabledClass : '']"
-                                    />
-                                    <button
-                                        v-if="!isView"
-                                        type="button"
-                                        @click="removeItem(index)"
-                                        class="mt-0.5 shrink-0 p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                        title="Remove item"
-                                    >
-                                        <span class="material-icons text-[18px]">delete_outline</span>
-                                    </button>
-                                </div>
-
-                                <!-- Description -->
-                                <input
-                                    type="text"
-                                    v-model="item.description"
-                                    placeholder="Description (optional)"
-                                    :disabled="isView"
-                                    :class="[inputClass, isView ? disabledClass : '']"
-                                />
-
-                                <!-- Qty / Unit price / Discount / Line total -->
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <div>
-                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Qty</label>
-                                        <input
-                                            type="number"
-                                            v-model.number="item.quantity"
-                                            min="0"
-                                            step="0.01"
-                                            :disabled="isView"
-                                            :class="[inputClass, isView ? disabledClass : '']"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit Price</label>
-                                        <input
-                                            type="number"
-                                            v-model.number="item.unit_price"
-                                            min="0"
-                                            step="0.01"
-                                            :disabled="isView"
-                                            :class="[inputClass, isView ? disabledClass : '']"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Discount ($)</label>
-                                        <input
-                                            type="number"
-                                            v-model.number="item.discount"
-                                            min="0"
-                                            step="0.01"
-                                            :disabled="isView"
-                                            :class="[inputClass, isView ? disabledClass : '']"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Line Total</label>
-                                        <span class="block py-2 text-sm font-semibold text-gray-900 dark:text-white">
-                                            {{ formatCurrency(itemLineTotal(item)) }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <!-- Taxable toggle + tax rate -->
-                                <div class="flex items-center gap-4">
-                                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer select-none">
-                                        <input
-                                            type="checkbox"
-                                            v-model="item.taxable"
-                                            :disabled="isView"
-                                            class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
-                                        />
-                                        Taxable
-                                    </label>
-                                    <div v-if="item.taxable" class="flex items-center gap-2">
-                                        <input
-                                            type="number"
-                                            v-model.number="item.tax_rate"
-                                            min="0"
-                                            max="100"
-                                            step="0.001"
-                                            placeholder="Rate"
-                                            :disabled="isView"
-                                            :class="[inputClass, 'w-24', isView ? disabledClass : '']"
-                                        />
-                                        <span class="text-xs text-gray-500 dark:text-gray-400">%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Empty state -->
-                        <div v-else class="py-10 text-center">
-                            <span class="material-icons text-[44px] text-gray-300 dark:text-gray-600 block mb-2">receipt_long</span>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">No line items yet</p>
-                            <button
-                                v-if="!isView"
-                                type="button"
-                                @click="addItem"
-                                class="mt-3 text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                            >
-                                Add your first item
-                            </button>
-                        </div>
-
-                        <!-- Totals summary footer -->
-                        <div v-if="form.items.length > 0" class="px-6 py-4 bg-gray-50 dark:bg-gray-700/30 border-t border-gray-200 dark:border-gray-700">
-                            <ul class="space-y-1.5 text-sm max-w-xs ms-auto">
-                                <li class="flex justify-between text-gray-500 dark:text-gray-400">
-                                    <span>Subtotal</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(computedSubtotal) }}</span>
-                                </li>
-                                <li v-if="computedDiscountTotal > 0" class="flex justify-between text-gray-500 dark:text-gray-400">
-                                    <span>Discount</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">-{{ formatCurrency(computedDiscountTotal) }}</span>
-                                </li>
-                                <li v-if="computedTaxTotal > 0" class="flex justify-between text-gray-500 dark:text-gray-400">
-                                    <span>Tax</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(computedTaxTotal) }}</span>
-                                </li>
-                                <li class="flex justify-between font-bold text-gray-900 dark:text-white pt-2.5 border-t border-gray-200 dark:border-gray-700">
-                                    <span>Total</span>
-                                    <span>{{ formatCurrency(computedTotal) }}</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-
                     <!-- Notes Card -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -804,7 +483,7 @@ const handleCancel = () => {
                 <div class="lg:col-span-4 space-y-6">
 
                     <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
                         <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <span class="text-sm font-semibold text-white">Actions</span>
                         </div>
@@ -855,7 +534,6 @@ const handleCancel = () => {
                                     {{ new Date(form.due_at).toLocaleDateString() }}
                                 </span>
                             </div>
-                            <!-- Live totals from items (create/edit), stored totals (show) -->
                             <template v-if="record">
                                 <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-600">
                                     <span class="text-gray-500 dark:text-gray-400">Total</span>
@@ -866,44 +544,10 @@ const handleCancel = () => {
                                     <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(record.amount_due) }}</span>
                                 </div>
                             </template>
-                            <template v-else-if="form.items.length > 0">
-                                <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-600">
-                                    <span class="text-gray-500 dark:text-gray-400">Items</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ form.items.length }}</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-gray-500 dark:text-gray-400">Total</span>
-                                    <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(computedTotal) }}</span>
-                                </div>
-                            </template>
                             <div class="pt-1 text-xs text-gray-400 dark:text-gray-500 text-right">
                                 {{ form.currency || 'USD' }}
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Transaction Details (when sourced from a transaction) -->
-                    <div v-if="transaction" class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
-                            <span class="text-sm font-semibold text-white">Source Transaction</span>
-                        </div>
-                        <ul class="p-5 space-y-3 text-sm">
-                            <li class="flex items-start gap-2">
-                                <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">receipt</span>
-                                <span class="text-gray-500 dark:text-gray-400 shrink-0">Deal</span>
-                                <span class="text-gray-900 dark:text-white font-medium ms-auto text-right">{{ transaction.display_name }}</span>
-                            </li>
-                            <li v-if="transaction.subsidiary" class="flex items-start gap-2">
-                                <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">business</span>
-                                <span class="text-gray-500 dark:text-gray-400 shrink-0">Subsidiary</span>
-                                <span class="text-gray-900 dark:text-white font-medium ms-auto text-right">{{ transaction.subsidiary.display_name }}</span>
-                            </li>
-                            <li v-if="transaction.location" class="flex items-start gap-2">
-                                <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">location_on</span>
-                                <span class="text-gray-500 dark:text-gray-400 shrink-0">Location</span>
-                                <span class="text-gray-900 dark:text-white font-medium ms-auto text-right">{{ transaction.location.display_name }}</span>
-                            </li>
-                        </ul>
                     </div>
 
                     <!-- Read-only invoice meta (show mode) -->

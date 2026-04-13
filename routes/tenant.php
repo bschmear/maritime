@@ -111,6 +111,8 @@ Route::middleware([
     Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
     Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
 
+    Route::get('/invoices/{uuid}/view', [PublicController::class, 'viewInvoice'])->name('invoices.view');
+
     Route::get('/boat-show-events/{uuid}/public', [PublicBoatShowEventController::class, 'showcase'])
         ->name('boat-show-events.public.showcase');
     Route::get('/boat-show-events/{uuid}/print', [PublicBoatShowEventController::class, 'printFlyer'])
@@ -222,6 +224,7 @@ Route::middleware([
         });
 
         Route::prefix('invoices')->name('invoices.')->group(function () {
+            Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
         });
 

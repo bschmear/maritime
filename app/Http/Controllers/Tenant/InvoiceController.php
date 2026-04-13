@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
-use App\Domain\Contact\Models\Contact;
-use App\Domain\Customer\Models\Customer;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Transaction\Models\Transaction;
+use App\Mail\InvoiceViewRequest;
+use App\Models\AccountSettings;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends RecordController
 {
@@ -33,23 +36,30 @@ class InvoiceController extends RecordController
 
     public function index(Request $request)
     {
-        return inertia('Tenant/Invoice/Index');
+        return parent::index($request);
+    }
+
+    protected function appendShowRelationships(array &$relationships): void
+    {
+        foreach (RecordModel::documentEagerLoads() as $key => $callback) {
+            $relationships[$key] = $callback;
+        }
     }
 
     public function show(Request $request, $id)
     {
-        return inertia('Tenant/Invoice/Show');
+        return parent::show($request, $id);
     }
 
     public function create()
     {
-        $req          = request();
-        $formSchema   = $this->getFormSchema();
+        $req = request();
+        $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
-        $enumOptions  = $this->getEnumOptions();
-        $account      = \App\Models\AccountSettings::getCurrent();
+        $enumOptions = $this->getEnumOptions();
+        $account = \App\Models\AccountSettings::getCurrent();
 
-        $initialData     = [];
+        $initialData = [];
         $transactionData = null;
 
         if ($transactionId = $req->query('transaction_id')) {
@@ -75,39 +85,39 @@ class InvoiceController extends RecordController
 
             if ($transaction) {
                 $customer = $transaction->customer;
-                $contact  = $customer?->contact;
+                $contact = $customer?->contact;
 
                 $initialData['transaction_id'] = $transaction->id;
-                $initialData['contact_id']     = $customer?->contact_id
+                $initialData['contact_id'] = $customer?->contact_id
                     ?? ($req->query('contact_id') ? (int) $req->query('contact_id') : null);
-                $initialData['currency']       = $transaction->currency ?? 'USD';
+                $initialData['currency'] = $transaction->currency ?? 'USD';
 
                 if ($transaction->contract) {
                     $initialData['contract_id'] = $transaction->contract->id;
-                    $initialData['contract']    = [
-                        'id'           => $transaction->contract->id,
+                    $initialData['contract'] = [
+                        'id' => $transaction->contract->id,
                         'display_name' => $transaction->contract->display_name,
                     ];
                 }
 
                 $initialData['transaction'] = [
-                    'id'           => $transaction->id,
+                    'id' => $transaction->id,
                     'display_name' => $transaction->display_name,
                 ];
 
                 if ($contact) {
                     $initialData['contact'] = [
-                        'id'           => $contact->id,
+                        'id' => $contact->id,
                         'display_name' => $contact->display_name,
-                        'first_name'   => $contact->first_name,
-                        'last_name'    => $contact->last_name,
-                        'email'        => $contact->email,
-                        'phone'        => $contact->phone,
-                        'mobile'       => $contact->mobile,
+                        'first_name' => $contact->first_name,
+                        'last_name' => $contact->last_name,
+                        'email' => $contact->email,
+                        'phone' => $contact->phone,
+                        'mobile' => $contact->mobile,
                     ];
                 }
 
-                $initialData['customer_name']  = $transaction->customer_name
+                $initialData['customer_name'] = $transaction->customer_name
                     ?? $customer?->display_name
                     ?? $contact?->display_name
                     ?? '';
@@ -128,42 +138,42 @@ class InvoiceController extends RecordController
 
                     return [
                         'transaction_item_id' => $item->id,
-                        'name'                => $item->name         ?? '',
-                        'description'         => $item->description ?? '',
-                        'quantity'            => (float) ($item->quantity   ?? 1),
-                        'unit_price'          => (float) ($item->unit_price ?? 0),
-                        'discount'            => (float) ($item->discount   ?? 0),
-                        'taxable'             => (bool) ($item->taxable    ?? false),
-                        'tax_rate'            => (float) ($item->tax_rate   ?? 0),
-                        'position'            => $item->position ?? 0,
-                        'addons'              => $item->addons->map(fn ($a) => [
-                            'id'       => $a->id,
-                            'name'     => $a->name,
-                            'price'    => (float) ($a->price ?? 0),
+                        'name' => $item->name ?? '',
+                        'description' => $item->description ?? '',
+                        'quantity' => (float) ($item->quantity ?? 1),
+                        'unit_price' => (float) ($item->unit_price ?? 0),
+                        'discount' => (float) ($item->discount ?? 0),
+                        'taxable' => (bool) ($item->taxable ?? false),
+                        'tax_rate' => (float) ($item->tax_rate ?? 0),
+                        'position' => $item->position ?? 0,
+                        'addons' => $item->addons->map(fn ($a) => [
+                            'id' => $a->id,
+                            'name' => $a->name,
+                            'price' => (float) ($a->price ?? 0),
                             'quantity' => (int) ($a->quantity ?? 1),
-                            'taxable'  => (bool) ($a->taxable ?? true),
+                            'taxable' => (bool) ($a->taxable ?? true),
                             'tax_rate' => $a->tax_rate !== null ? (float) $a->tax_rate : null,
-                            'notes'    => $a->notes,
+                            'notes' => $a->notes,
                         ])->values()->all(),
-                        'estimate_line_item'  => $eli ? [
-                            'id'                 => $eli->id,
-                            'asset_variant_id'   => $eli->asset_variant_id,
-                            'asset_variant'      => $eli->relationLoaded('assetVariant') && $eli->assetVariant ? [
-                                'id'           => $eli->assetVariant->id,
+                        'estimate_line_item' => $eli ? [
+                            'id' => $eli->id,
+                            'asset_variant_id' => $eli->asset_variant_id,
+                            'asset_variant' => $eli->relationLoaded('assetVariant') && $eli->assetVariant ? [
+                                'id' => $eli->assetVariant->id,
                                 'display_name' => $eli->assetVariant->display_name,
-                                'name'         => $eli->assetVariant->name,
+                                'name' => $eli->assetVariant->name,
                             ] : null,
                         ] : null,
                     ];
                 })->values()->all();
 
                 $transactionData = [
-                    'id'           => $transaction->id,
+                    'id' => $transaction->id,
                     'display_name' => $transaction->display_name,
-                    'subsidiary'   => $transaction->subsidiary
+                    'subsidiary' => $transaction->subsidiary
                         ? ['id' => $transaction->subsidiary->id, 'display_name' => $transaction->subsidiary->display_name]
                         : null,
-                    'location'     => $transaction->location
+                    'location' => $transaction->location
                         ? ['id' => $transaction->location->id, 'display_name' => $transaction->location->display_name]
                         : null,
                 ];
@@ -175,13 +185,13 @@ class InvoiceController extends RecordController
                 ->find((int) $cid);
             if ($contactRow) {
                 $initialData['contact'] = [
-                    'id'           => $contactRow->id,
+                    'id' => $contactRow->id,
                     'display_name' => $contactRow->display_name,
-                    'first_name'   => $contactRow->first_name,
-                    'last_name'    => $contactRow->last_name,
-                    'email'        => $contactRow->email,
-                    'phone'        => $contactRow->phone,
-                    'mobile'       => $contactRow->mobile,
+                    'first_name' => $contactRow->first_name,
+                    'last_name' => $contactRow->last_name,
+                    'email' => $contactRow->email,
+                    'phone' => $contactRow->phone,
+                    'mobile' => $contactRow->mobile,
                 ];
             }
         } elseif ($custId = $req->query('customer_id')) {
@@ -193,26 +203,26 @@ class InvoiceController extends RecordController
                     ->find($c->contact_id);
                 if ($contactRow) {
                     $initialData['contact'] = [
-                        'id'           => $contactRow->id,
+                        'id' => $contactRow->id,
                         'display_name' => $contactRow->display_name,
-                        'first_name'   => $contactRow->first_name,
-                        'last_name'    => $contactRow->last_name,
-                        'email'        => $contactRow->email,
-                        'phone'        => $contactRow->phone,
-                        'mobile'       => $contactRow->mobile,
+                        'first_name' => $contactRow->first_name,
+                        'last_name' => $contactRow->last_name,
+                        'email' => $contactRow->email,
+                        'phone' => $contactRow->phone,
+                        'mobile' => $contactRow->mobile,
                     ];
                 }
             }
         }
 
         return inertia('Tenant/Invoice/Create', [
-            'formSchema'   => $formSchema,
+            'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions'  => $enumOptions,
-            'account'      => $account,
-            'timezones'    => \App\Enums\Timezone::options(),
-            'initialData'  => $initialData,
-            'transaction'  => $transactionData,
+            'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => \App\Enums\Timezone::options(),
+            'initialData' => $initialData,
+            'transaction' => $transactionData,
         ]);
     }
 
@@ -252,27 +262,27 @@ class InvoiceController extends RecordController
     //     return redirect()->route('contracts.show', $contract);
     // }
 
-    public function sendToCustomer(int $invoice)
+    public function sendToCustomer(Request $request, int $invoice)
     {
-        // $settings = AccountSettings::getCurrent();
-        // $record = Contract::query()
-        //     ->where('account_settings_id', $settings->id)
-        //     ->with(['customer', 'transaction'])
-        //     ->findOrFail($contract);
+        $validated = $request->validate([
+            'email' => ['nullable', 'email'],
+        ]);
 
-        // $customerEmail = $record->customer?->email
-        //     ?? $record->transaction?->customer_email;
+        $settings = AccountSettings::getCurrent();
+        $record = RecordModel::query()
+            ->with(['contact' => fn ($q) => $q->select(['id', 'email', 'display_name'])])
+            ->findOrFail($invoice);
 
-        // if (! $customerEmail) {
-        //     return back()->with('error', 'No customer email found for this contract.');
-        // }
+        $to = $validated['email'] ?? $record->customer_email ?? $record->contact?->email;
+        if (! $to) {
+            return back()->with('error', 'No customer email found for this invoice.');
+        }
 
-        // $record->update(['status' => ContractStatus::PendingApproval->value]);
+        $viewUrl = route('invoices.view', $record->uuid);
+        $record->markAsSent();
+        Mail::to($to)->send(new InvoiceViewRequest($record->fresh(), $settings, $viewUrl));
 
-        // $reviewUrl = route('contracts.review', $record->uuid);
-        // Mail::to($customerEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
-
-        // return back()->with('success', 'Contract sent to ' . $customerEmail);
+        return back()->with('success', 'Invoice link sent to '.$to);
     }
 
     // public function destroy(int $invoice)
