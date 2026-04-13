@@ -33,68 +33,89 @@ const proceedToCart = () => {
     <AppLayout>
         <Head title="Choose Your Plan" />
 
-        <div class="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-navy-900 dark:to-navy-800 py-12">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <!-- Header -->
-                <div class="text-center mb-12">
-                    <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-4">
-                        Choose Your Plan
+        <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <!-- Hero (aligned with blog) -->
+            <section class="relative border-b border-gray-200 dark:border-gray-800 bg-secondary-50 dark:bg-gray-900 py-16 sm:py-20">
+                <div class="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-secondary-200/50 bg-secondary-100 px-4 py-2 text-sm font-medium text-secondary-700 backdrop-blur-sm dark:border-secondary-700/50 dark:bg-secondary-900/50 dark:text-secondary-300">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Pricing</span>
+                    </div>
+                    <h1 class="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+                        Choose your
+                        <span class="text-secondary-600 dark:text-secondary-400">plan</span>
                     </h1>
-                    <p class="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                    <p class="mx-auto max-w-2xl text-xl text-gray-600 dark:text-gray-300">
                         Select the perfect plan for your needs. All plans include a 14-day free trial.
                     </p>
                 </div>
+            </section>
 
+            <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
                 <!-- Billing Toggle -->
-                <div class="flex justify-center mb-12">
-                    <div class="inline-flex items-center bg-white dark:bg-navy-800 rounded-full p-1 shadow-md">
+                <div class="mb-12 flex justify-center">
+                    <div class="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                         <button
+                            type="button"
                             @click="billingCycle = 'monthly'"
                             :class="[
-                                'px-6 py-2 rounded-full font-semibold transition-all duration-200',
+                                'rounded-full px-6 py-2 font-semibold transition-all duration-200',
                                 billingCycle === 'monthly'
-                                    ? 'bg-primary-600 text-white shadow-lg'
-                                    : 'text-gray-700 dark:text-white-400 hover:text-gray-900 dark:hover:text-white-100'
+                                    ? 'bg-primary-600 text-white shadow-md'
+                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white',
                             ]"
                         >
                             Monthly
                         </button>
                         <button
+                            type="button"
                             @click="billingCycle = 'annual'"
                             :class="[
-                                'px-6 py-2 rounded-full font-semibold transition-all duration-200 flex items-center gap-2',
+                                'flex items-center gap-2 rounded-full px-6 py-2 font-semibold transition-all duration-200',
                                 billingCycle === 'annual'
-                                    ? 'bg-primary-600 text-white shadow-lg'
-                                    : 'text-gray-700 dark:text-white-400 hover:text-gray-900 dark:hover:text-white-100'
+                                    ? 'bg-primary-600 text-white shadow-md'
+                                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white',
                             ]"
                         >
                             Annual
-                            <span class="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">Save 20%</span>
+                            <span class="rounded-full bg-secondary-600 px-2 py-0.5 text-xs font-bold text-white dark:bg-secondary-500">Save 20%</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Plans Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-6 mb-12">
+                <div class="mb-12 grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6">
                     <div
                         v-for="plan in plans"
                         :key="plan.id"
+                        role="button"
+                        tabindex="0"
                         @click="selectPlan(plan.id)"
+                        @keydown.enter.prevent="selectPlan(plan.id)"
+                        @keydown.space.prevent="selectPlan(plan.id)"
                         :class="[
-                            'relative bg-white dark:bg-navy-800 rounded-3xl shadow-xl overflow-hidden transition-all duration-300 hover:shadow-2xl',
+                            'relative cursor-pointer overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg transition-all duration-300 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none',
                             selectedPlan === plan.id
-                                ? 'ring-4 ring-primary-500 scale-105'
-                                : 'hover:scale-105 hover:shadow-2xl',
-                            plan.popular ? 'md:scale-110' : ''
+                                ? 'ring-2 ring-secondary-500 ring-offset-2 ring-offset-gray-50 dark:ring-secondary-400 dark:ring-offset-gray-900 md:scale-[1.02]'
+                                : 'hover:-translate-y-1 hover:shadow-xl dark:hover:border-gray-600',
+                            plan.popular ? 'md:scale-[1.03]' : '',
                         ]"
                     >
                         <!-- Popular Badge -->
-                        <div v-if="plan.popular" class="absolute top-0 right-0 bg-primary-500 text-white text-xs font-bold px-4 py-1 rounded-bl-2xl">
+                        <div
+                            v-if="plan.popular"
+                            class="absolute right-0 top-0 rounded-bl-xl bg-secondary-600 px-4 py-1.5 text-xs font-bold text-white dark:bg-secondary-500"
+                        >
                             MOST POPULAR
                         </div>
 
                         <!-- Selected Badge -->
-                        <div v-if="selectedPlan === plan.id" class="absolute top-4 left-4 bg-green-500 text-white rounded-full p-2">
+                        <div
+                            v-if="selectedPlan === plan.id"
+                            class="absolute left-4 top-4 rounded-full bg-secondary-600 p-2 text-white shadow-md dark:bg-secondary-500"
+                        >
                             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
@@ -147,10 +168,10 @@ const proceedToCart = () => {
                 </div>
 
                 <!-- Action Buttons -->
-                <div class="flex justify-center gap-4">
+                <div class="flex flex-wrap justify-center gap-4">
                     <Link
                         :href="route('home')"
-                        class="px-8 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
+                        class="rounded-xl border-2 border-gray-300 bg-white px-8 py-3 font-semibold text-gray-700 shadow-md transition-all duration-200 hover:border-secondary-500 hover:bg-secondary-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-secondary-500 dark:hover:bg-gray-700"
                     >
                         Back to Home
                     </Link>
@@ -159,10 +180,10 @@ const proceedToCart = () => {
                         @click="proceedToCart"
                         :disabled="!selectedPlan"
                         :class="[
-                            'px-8 py-3 rounded-xl font-semibold transition-all duration-200',
+                            'rounded-xl px-8 py-3 font-semibold transition-all duration-200',
                             selectedPlan
-                                ? 'bg-primary-500 text-white hover:shadow-lg hover:scale-105'
-                                : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+                                ? 'bg-primary-600 text-white shadow-md hover:bg-primary-700 hover:shadow-lg'
+                                : 'cursor-not-allowed bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-500',
                         ]"
                     >
                         Continue to Cart

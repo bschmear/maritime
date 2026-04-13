@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -75,6 +76,8 @@ class PostController extends Controller
             $post->tags()->sync($validated['tags']);
         }
 
+        PublicPageCache::forgetWelcomeBlogPosts();
+
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post created successfully.');
     }
@@ -122,6 +125,8 @@ class PostController extends Controller
             $post->tags()->sync($validated['tags']);
         }
 
+        PublicPageCache::forgetWelcomeBlogPosts();
+
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post updated successfully.');
     }
@@ -129,6 +134,8 @@ class PostController extends Controller
     public function destroy(Post $post): RedirectResponse
     {
         $post->delete();
+
+        PublicPageCache::forgetWelcomeBlogPosts();
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post deleted successfully.');

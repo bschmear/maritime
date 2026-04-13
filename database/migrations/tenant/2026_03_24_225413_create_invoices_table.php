@@ -14,7 +14,10 @@ return new class extends Migration
             // Relationships
             $table->unsignedBigInteger('transaction_id')->nullable()->index();
             $table->unsignedBigInteger('contract_id')->nullable()->index();
-            $table->unsignedBigInteger('customer_id')->index();
+            $table->foreignId('contact_id')
+                ->constrained('contacts')
+                ->cascadeOnUpdate()
+                ->restrictOnDelete();
         
             // Identity
             $table->uuid('uuid')->unique();

@@ -568,7 +568,7 @@ onUnmounted(() => {
 
             <!-- Table -->
             <div v-else class="overflow-x-auto grow">
-                <table class="w-full text-sm text-left">
+                <table class="w-full text-sm text-left table-auto">
                     <thead>
                         <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                             <th class="px-4 py-3 w-10">
@@ -576,19 +576,26 @@ onUnmounted(() => {
                                        class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500 dark:bg-gray-700"/>
                             </th>
                             <th v-for="col in columns" :key="col.key"
-                                class="px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                class="px-4 py-3 min-w-[11rem] text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300 whitespace-nowrap">
                                 <button
                                     v-if="isColumnSortable(col)"
                                     type="button"
                                     @click="toggleSort(col)"
-                                    class="inline-flex items-center gap-1 -mx-1 px-1 py-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-800 dark:hover:text-gray-200 transition-colors text-left w-full min-w-0"
+                                    class="inline-flex items-center gap-1.5 -mx-1 px-1.5 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 hover:text-gray-900 dark:hover:text-white transition-colors text-left"
                                 >
-                                    <span class="truncate">{{ getColumnLabel(col) }}</span>
-                                    <span v-if="sortKey === col.key" class="shrink-0 text-primary-600 dark:text-primary-400" aria-hidden="true">
-                                        {{ sortDir === 'asc' ? '↑' : '↓' }}
-                                    </span>
+                                    <span>{{ getColumnLabel(col) }}</span>
+                                    <span
+                                        v-if="sortKey === col.key"
+                                        class="material-icons shrink-0 text-[20px] leading-none text-primary-600 dark:text-primary-400"
+                                        aria-hidden="true"
+                                    >{{ sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                                    <span
+                                        v-else
+                                        class="material-icons shrink-0 text-[20px] leading-none text-gray-400 dark:text-gray-500 opacity-70"
+                                        aria-hidden="true"
+                                    >unfold_more</span>
                                 </button>
-                                <span v-else class="block truncate">{{ getColumnLabel(col) }}</span>
+                                <span v-else class="block">{{ getColumnLabel(col) }}</span>
                             </th>
                             <th class="px-4 py-3 w-20"><span class="sr-only">Actions</span></th>
                         </tr>

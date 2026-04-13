@@ -1,8 +1,9 @@
 {
-    "customer_id": {
-      "label": "Customer",
+    "contact_id": {
+      "label": "Contact",
       "type": "record",
-      "typeDomain": "Customer",
+      "typeDomain": "Contact",
+      "relationship": "contact",
       "required": true,
       "create": true
     },
@@ -45,8 +46,8 @@
     "payment_term": {
       "label": "Payment Terms",
       "type": "select",
-      "enum": "App\\Enums\\Payments\\Term",
-      "default": "1"
+      "enum": "App\\Enums\\Payments\\Terms",
+      "default": "due_on_receipt"
     },
   
     "due_at": {

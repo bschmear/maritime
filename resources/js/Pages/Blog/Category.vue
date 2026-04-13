@@ -15,14 +15,7 @@ defineProps({
 
     <AppLayout>
         <!-- Hero Section -->
-        <section class="relative overflow-hidden bg-gradient-to-br from-secondary-100 via-purple-50 to-pink-100 dark:from-gray-900 dark:via-secondary-950 dark:to-purple-950 py-20">
-            <!-- Background decoration -->
-            <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute -top-40 -right-40 w-80 h-80 bg-purple-400 dark:bg-purple-600 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-40 dark:opacity-30 animate-blob"></div>
-                <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary-400 dark:bg-secondary-600 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-xl opacity-40 dark:opacity-30 animate-blob animation-delay-2000"></div>
-                <div class="absolute top-20 right-1/4 w-60 h-60 bg-cyan-400 dark:bg-cyan-600 rounded-full mix-blend-multiply dark:mix-blend-normal filter blur-3xl opacity-25 dark:opacity-20 animate-blob animation-delay-1000"></div>
-            </div>
-
+        <section class="relative border-b border-gray-200 dark:border-gray-800 bg-secondary-50 dark:bg-gray-900 py-20">
             <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
                     <Link
@@ -36,7 +29,7 @@ defineProps({
                     </Link>
                     
                     <!-- Category Badge -->
-                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-secondary-600 to-purple-600 text-white rounded-full text-sm font-semibold mb-6 shadow-lg">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-secondary-600 text-white rounded-full text-sm font-semibold mb-6 shadow-md">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                         </svg>
@@ -44,7 +37,7 @@ defineProps({
                     </div>
 
                     <h1 class="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
-                        <span class="bg-gradient-to-r from-secondary-600 via-purple-600 to-pink-600 dark:from-secondary-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                        <span class="text-secondary-600 dark:text-secondary-400">
                             {{ category.name }}
                         </span>
                     </h1>
@@ -80,7 +73,7 @@ defineProps({
                                 :alt="post.title"
                                 class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                             />
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </Link>
 
                         <div class="p-6">
@@ -101,7 +94,7 @@ defineProps({
                             </div>
 
                             <Link :href="`/blog/${post.slug}`">
-                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-secondary-600 group-hover:to-purple-600 group-hover:bg-clip-text transition-all duration-300">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-secondary-600 dark:group-hover:text-secondary-400 transition-colors duration-300">
                                     {{ post.title }}
                                 </h3>
                             </Link>
@@ -130,7 +123,7 @@ defineProps({
 
                 <!-- No Results -->
                 <div v-else class="text-center py-16 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-secondary-100 to-purple-100 dark:from-secondary-900 dark:to-purple-900 rounded-full mb-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-secondary-100 dark:bg-secondary-900/50 rounded-full mb-4 border border-secondary-200 dark:border-secondary-700">
                         <svg class="w-8 h-8 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -139,7 +132,7 @@ defineProps({
                     <p class="text-gray-600 dark:text-gray-400 mb-6">Check back later for new content</p>
                     <Link
                         :href="route('blog')"
-                        class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-secondary-600 to-purple-600 hover:from-secondary-700 hover:to-purple-700 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                        class="inline-flex items-center gap-2 px-6 py-3 bg-secondary-600 hover:bg-secondary-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -157,7 +150,7 @@ defineProps({
                     >
                         Previous
                     </Link>
-                    <span class="px-5 py-2.5 bg-gradient-to-r from-secondary-100 to-purple-100 dark:from-secondary-900 dark:to-purple-900 text-secondary-700 dark:text-secondary-300 rounded-lg font-semibold border border-secondary-200 dark:border-secondary-700">
+                    <span class="px-5 py-2.5 bg-secondary-100 dark:bg-secondary-900/50 text-secondary-800 dark:text-secondary-300 rounded-lg font-semibold border border-secondary-200 dark:border-secondary-700">
                         Page {{ posts.current_page }} of {{ posts.last_page }}
                     </span>
                     <Link

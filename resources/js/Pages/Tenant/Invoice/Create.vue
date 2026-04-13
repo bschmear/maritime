@@ -12,6 +12,7 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     initialData: { type: Object, default: () => ({}) },
+    transaction: { type: Object, default: null },
 });
 
 const breadcrumbItems = computed(() => [
@@ -47,6 +48,7 @@ const handleCancel = () => {
                 :account="account"
                 :timezones="timezones"
                 :initial-data="initialData"
+                :transaction="transaction"
                 mode="create"
                 @cancel="handleCancel"
             />

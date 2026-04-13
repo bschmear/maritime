@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,6 +49,8 @@ class PlansController extends Controller
 
         Plan::create($validated);
 
+        PublicPageCache::forgetPricingPlans();
+
         return redirect()->route('kiosk.plans.index')
             ->with('success', 'Plan created successfully.');
     }
@@ -89,6 +92,8 @@ class PlansController extends Controller
 
         $plan->update($validated);
 
+        PublicPageCache::forgetPricingPlans();
+
         return redirect()->route('kiosk.plans.index')
             ->with('success', 'Plan updated successfully.');
     }
@@ -96,6 +101,8 @@ class PlansController extends Controller
     public function destroy(Plan $plan): RedirectResponse
     {
         $plan->delete();
+
+        PublicPageCache::forgetPricingPlans();
 
         return redirect()->route('kiosk.plans.index')
             ->with('success', 'Plan deleted successfully.');

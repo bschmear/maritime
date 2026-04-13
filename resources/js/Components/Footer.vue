@@ -1,5 +1,9 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const page = usePage();
+const appName = computed(() => page.props.app.name);
 
 const currentYear = new Date().getFullYear();
 </script>
@@ -14,43 +18,44 @@ const currentYear = new Date().getFullYear();
 
                 <!-- Company Info -->
                 <div class="col-span-1 md:col-span-2">
-                    <h3 class="text-lg font-semibold text-white-100 dark:text-white">
-                        {{ $page.props.app?.name || 'Your Company' }}
+                    <h3 class="text-xl font-semibold text-white-100 dark:text-white">
+                        {{ appName }}
                     </h3>
-                    <p class="mt-3 text-sm text-white-400 dark:text-white-400 leading-relaxed max-w-md">
-                        Complete CRM solution for boat dealerships. Manage leads, track inventory, and close more deals with our specialized platform built for the marine industry.
+                    <p class="mt-3 max-w-md text-md leading-relaxed text-white-400 dark:text-white-400">
+                        The operating system for modern boat dealerships. From first lead to final delivery,
+                        {{ appName }} keeps your inventory, deals, and operations fully connected.
                     </p>
                 </div>
 
                 <!-- Quick Links -->
                 <div>
-                    <h4 class="text-sm font-semibold uppercase tracking-wider text-white-200 dark:text-white-200">
+                    <h4 class="text-md font-semibold uppercase tracking-wider text-white-200 dark:text-white-200">
                         Quick Links
                     </h4>
                     <ul class="mt-4 space-y-2.5">
                         <li v-if="route().has('home')">
                             <Link
                                 :href="route('home')"
-                                class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors"
+                                class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors"
                             >Home</Link>
                         </li>
                         <li>
-                            <a href="#how-it-works" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
-                                How It Works
+                            <a href="/about" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
+                                About Us
                             </a>
                         </li>
                         <li>
-                            <a href="#pricing" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
+                            <a href="/pricing" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
                                 Pricing
                             </a>
                         </li>
                         <li>
-                            <a href="/blog" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
+                            <a href="/blog" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
                                 Blog
                             </a>
                         </li>
                         <li v-if="route().has('dashboard')">
-                            <Link :href="route('dashboard')" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
+                            <Link :href="route('dashboard')" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
                                 Dashboard
                             </Link>
                         </li>
@@ -59,15 +64,15 @@ const currentYear = new Date().getFullYear();
 
                 <!-- Support -->
                 <div>
-                    <h4 class="text-sm font-semibold uppercase tracking-wider text-white-200 dark:text-white-200">
+                    <h4 class="text-md font-semibold uppercase tracking-wider text-white-200 dark:text-white-200">
                         Support
                     </h4>
                     <ul class="mt-4 space-y-2.5">
-                        <li><a href="#faq" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">FAQ</a></li>
-                        <li><a href="#" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Help Center</a></li>
-                        <li><a href="#" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Contact Us</a></li>
-                        <li><a href="#" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Privacy Policy</a></li>
-                        <li><a href="#" class="text-sm text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Terms of Service</a></li>
+                        <li><a href="/faq" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">FAQ</a></li>
+                        <!-- <li><a href="/help-center" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Help Center</a></li> -->
+                        <li><a href="/contact" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Contact Us</a></li>
+                        <li><a href="/privacy" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Privacy Policy</a></li>
+                        <li><a href="/terms" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">Terms of Service</a></li>
                     </ul>
                 </div>
 
@@ -77,8 +82,8 @@ const currentYear = new Date().getFullYear();
             <div class="mt-12 border-t border-navy-800 dark:border-navy-950 pt-6">
                 <div class="flex flex-col items-center justify-between gap-6 sm:flex-row">
 
-                    <p class="text-sm text-white-500 dark:text-white-500">
-                        &copy; {{ currentYear }} {{ $page.props.app?.name || 'Your Company' }}. All rights reserved.
+                    <p class="text-md text-white-500 dark:text-white-500">
+                        &copy; {{ currentYear }} {{ appName }}. All rights reserved.
                     </p>
 
                     <!-- Social Links -->

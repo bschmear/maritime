@@ -233,7 +233,7 @@ const stepperSteps = computed(() => {
         label: 'Invoice',
         icon:  'receipt_long',
         state: 'todo',
-        href:  route('invoices.create') + `?transaction_id=${props.record.id}&customer_id=${props.record.customer_id || ''}`,
+        href:  route('invoices.create') + `?transaction_id=${props.record.id}&contact_id=${props.record.customer?.contact_id || ''}`,
         createLabel: 'Create Invoice',
     });
 
@@ -719,7 +719,7 @@ const confirmAddStep = () => {
                                 <!-- Invoice -->
                                 <div>
                                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice</p>
-                                    <a :href="route('invoices.create') + `?transaction_id=${record.id}&customer_id=${record.customer_id || ''}`"
+                                    <a :href="route('invoices.create') + `?transaction_id=${record.id}&contact_id=${record.customer?.contact_id || ''}`"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
                                         <span class="material-icons text-sm">add</span>
                                         Create Invoice

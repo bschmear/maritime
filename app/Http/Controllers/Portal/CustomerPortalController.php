@@ -28,7 +28,7 @@ class CustomerPortalController extends Controller
             ->take(5)
             ->get();
 
-        $invoices = Invoice::where('customer_id', $customer->id)
+        $invoices = Invoice::where('contact_id', $customer->contact_id)
             ->latest()
             ->take(5)
             ->get();
@@ -47,7 +47,7 @@ class CustomerPortalController extends Controller
             'counts' => [
                 'estimates' => Estimate::where('customer_id', $customer->id)
                     ->where('status', '!=', EstimateStatus::Draft->id())->count(),
-                'invoices' => Invoice::where('customer_id', $customer->id)->count(),
+                'invoices' => Invoice::where('contact_id', $customer->contact_id)->count(),
                 'serviceTickets' => ServiceTicket::where('customer_id', $customer->id)->count(),
                 'documents' => $customer->documents()->count(),
             ],
@@ -184,7 +184,7 @@ class CustomerPortalController extends Controller
     {
         $customer = Auth::guard('customer')->user();
 
-        $invoices = Invoice::where('customer_id', $customer->id)
+        $invoices = Invoice::where('contact_id', $customer->contact_id)
             ->latest()
             ->paginate(15);
 

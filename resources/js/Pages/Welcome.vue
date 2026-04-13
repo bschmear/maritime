@@ -609,7 +609,7 @@
                             <!-- Author & Read More -->
                             <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-navy-700">
                                 <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                    <div class="w-8 h-8 bg-secondary-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                                         {{ post.author.charAt(0) }}
                                     </div>
                                     <span class="text-sm text-gray-700 dark:text-white-300 font-medium">
@@ -634,7 +634,7 @@
                 <div class="text-center">
                     <a
                         href="/blog"
-                        class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-700 hover:to-secondary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                        class="inline-flex items-center gap-2 px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
                     >
                         <span>View All Articles</span>
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

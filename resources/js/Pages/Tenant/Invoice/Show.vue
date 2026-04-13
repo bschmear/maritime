@@ -11,7 +11,7 @@ const props = defineProps({
 });
 
 const STATUS_ENUM_KEY = 'App\\Enums\\Invoice\\Status';
-const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Term';
+const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Terms';
 
 const statusOptions = computed(() => props.enumOptions?.[STATUS_ENUM_KEY] ?? []);
 const paymentTermOptions = computed(() => props.enumOptions?.[PAYMENT_TERM_ENUM_KEY] ?? []);

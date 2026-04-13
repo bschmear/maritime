@@ -48,6 +48,13 @@ Route::get('/blog/tag', [BlogController::class, 'tag'])->name('blogTag');
 Route::get('/blog/{slug}', [BlogController::class, 'post'])->name('blogPostShow');
 
 
+Route::get('/faq', [PageController::class, 'faq'])->name('faq');
+// Route::get('/help-center', [PageController::class, 'help-center'])->name('help-center');
+Route::get('/contact', [PageController::class, 'contact'])->name('contact');
+Route::post('/contact', [PageController::class, 'contactStore'])
+    ->middleware('throttle:10,1')
+    ->name('contact.store');
+Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy');
 

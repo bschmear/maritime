@@ -3,6 +3,7 @@
 namespace App\Domain\Contract\Actions;
 
 use App\Domain\Contract\Models\Contract as RecordModel;
+use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Payments\Terms;
 use App\Models\AccountSettings;
 use App\Support\ContractEnumMapper;

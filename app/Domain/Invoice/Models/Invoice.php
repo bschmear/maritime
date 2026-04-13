@@ -19,7 +19,7 @@ class Invoice extends Model
     protected $fillable = [
         'transaction_id',
         'contract_id',
-        'customer_id',
+        'contact_id',
 
         'uuid',
         'sequence',
@@ -107,9 +107,9 @@ class Invoice extends Model
         return $this->belongsTo(\App\Domain\Contract\Models\Contract::class);
     }
 
-    public function customer(): BelongsTo
+    public function contact(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
+        return $this->belongsTo(\App\Domain\Contact\Models\Contact::class);
     }
 
     /*

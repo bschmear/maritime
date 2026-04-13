@@ -470,30 +470,45 @@
         }
     };
     
-    // Watch for props changes (when editing existing record)
-    watch(() => props.modelValue, (newValue) => {
-        selectedRecordId.value = newValue;
-    });
-    
-    // Initialize selectedRecordName from various sources
-    watch(() => [props.record, props.fieldKey, props.enumOptions, props.modelValue], () => {
-        if (props.modelValue && !selectedRecordName.value) {
+    // Keep id + label in sync with v-model and parent `record` (embedded relation stubs).
+    watch(
+        () => [props.record, props.fieldKey, props.enumOptions, props.modelValue],
+        () => {
+            const mv = props.modelValue;
+
+            if (mv === null || mv === undefined || mv === '') {
+                selectedRecordId.value = null;
+                selectedRecordName.value = '';
+                return;
+            }
+
+            selectedRecordId.value = mv;
+
             if (props.record && props.fieldKey) {
                 const relatedRecord = relatedFromParentRecord(props.record, props.fieldKey);
-                if (relatedRecord && typeof relatedRecord === 'object') {
+                if (
+                    relatedRecord
+                    && typeof relatedRecord === 'object'
+                    && relatedRecord.id != null
+                    && relatedRecord.id == mv
+                ) {
                     selectedRecordName.value = getRecordDisplayName(relatedRecord);
                     return;
                 }
             }
 
             if (props.enumOptions && props.enumOptions.length > 0) {
-                const option = props.enumOptions.find(o => o.id === props.modelValue || o.value === props.modelValue);
+                const option = props.enumOptions.find(o => o.id == mv || o.value == mv);
                 if (option) {
                     selectedRecordName.value = option.name || option.display_name || '';
+                    return;
                 }
             }
-        }
-    }, { immediate: true });
+
+            // Modal/dropdown selection may have set selectedRecordName; do not clear it here.
+        },
+        { immediate: true },
+    );
     </script>
     
     <template>

@@ -30,7 +30,9 @@ return [
     'aws_url' => env('AWS_PUBLIC_URL', null),
     'api_key' => env('OPENAI_API_KEY', ''),
     'app_brand' => '#2663eb',
-
+    // Use ?: so empty .env values don’t override defaults (empty string is invalid for Mail::to).
+    'legal_email' => env('LEGAL_EMAIL') ?: 'contact@helmful.com',
+    'contact_email' => env('CONTACT_EMAIL') ?: 'contact@helmful.com',
     'timezone' => 'UTC',
     'locale' => env('APP_LOCALE', 'en'),
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Faq;
+use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,6 +64,8 @@ class FaqController extends Controller
 
         $faq->update($validated);
 
+        PublicPageCache::forgetFaqs();
+
         return redirect()->route('kiosk.faqs.index')
             ->with('success', 'FAQ updated successfully.');
     }
@@ -70,6 +73,8 @@ class FaqController extends Controller
     public function destroy(Faq $faq): RedirectResponse
     {
         $faq->delete();
+
+        PublicPageCache::forgetFaqs();
 
         return redirect()->route('kiosk.faqs.index')
             ->with('success', 'FAQ deleted successfully.');
