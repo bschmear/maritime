@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Invoice\Actions\ApplyManualInvoicePayment;
 use App\Domain\Invoice\Actions\BuildInvoicePrefillFromTransaction;
 use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
@@ -15,6 +16,7 @@ use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends RecordController
@@ -47,6 +49,32 @@ class InvoiceController extends RecordController
         foreach (RecordModel::documentEagerLoads() as $key => $callback) {
             $relationships[$key] = $callback;
         }
+
+        $relationships['payments'] = fn ($q) => $q
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->with([
+                'recordedBy' => fn ($rq) => $rq->select(['id', 'display_name']),
+            ]);
+    }
+
+    public function applyManualPayment(Request $request, $invoice): RedirectResponse
+    {
+        $id = $invoice instanceof RecordModel ? $invoice->getKey() : (int) $invoice;
+        $model = RecordModel::query()->findOrFail($id);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method_code' => ['required', 'string', 'in:check,cash,wire,ach'],
+            'reference_number' => ['nullable', 'string', 'max:255'],
+            'memo' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        (new ApplyManualInvoicePayment)($model, $validated, Auth::id());
+
+        return redirect()
+            ->route('invoices.show', $model)
+            ->with('success', 'Payment recorded.');
     }
 
     protected function enabledPaymentMethodsForInertia(): array

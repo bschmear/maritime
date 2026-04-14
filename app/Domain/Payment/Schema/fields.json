@@ -1,5 +1,50 @@
 {
-    "fields": [
-
-    ]
+  "invoice_id": {
+    "label": "Invoice",
+    "type": "record",
+    "typeDomain": "Invoice",
+    "relationship": "invoice"
+  },
+  "payment_method_code": {
+    "label": "Payment method",
+    "type": "select",
+    "enum": "App\\Enums\\Payments\\PaymentMethod",
+    "required": true
+  },
+  "status": {
+    "label": "Status",
+    "type": "text"
+  },
+  "processor": {
+    "label": "Processor",
+    "type": "select",
+    "enum": "App\\Enums\\Payments\\PaymentProcessor",
+    "required": true
+  },
+  "amount": {
+    "label": "Amount",
+    "type": "currency"
+  },
+  "net_amount": {
+    "label": "Net amount",
+    "type": "currency"
+  },
+  "paid_at": {
+    "label": "Paid at",
+    "type": "datetime"
+  },
+  "reference_number": {
+    "label": "Reference #",
+    "type": "text"
+  },
+  "memo": {
+    "label": "Memo",
+    "type": "textarea"
+  },
+  "recorded_by_user_id": {
+    "label": "Recorded by",
+    "type": "record",
+    "typeDomain": "User",
+    "relationship": "recorded_by"
+  }
 }

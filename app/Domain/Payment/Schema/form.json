@@ -4,16 +4,20 @@
   },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+      "label": "Payment details",
+      "fields": [
+        { "key": "invoice_id", "required": true },
+        { "key": "amount", "required": true },
+        { "key": "payment_method_code", "required": true },
+        { "key": "processor", "required": true },
+        { "key": "paid_at" },
+        { "key": "reference_number" },
+        { "key": "memo" }
+      ]
     },
     "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+      "label": "Secondary",
+      "fields": []
     }
   }
 }

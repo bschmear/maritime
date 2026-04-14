@@ -168,6 +168,11 @@ class Invoice extends Model
         return $this->belongsTo(\App\Domain\Contact\Models\Contact::class);
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Payment\Models\Payment::class);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Scopes

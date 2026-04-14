@@ -2,6 +2,14 @@
   "settings": {
     "max_width": "4xl"
   },
+  "sublists": [
+    {
+      "label": "Payments",
+      "domain": "Payment",
+      "modelRelationship": "payments",
+      "readOnly": true
+    }
+  ],
   "form": {
     "primary": {
         "label": "Primary",

@@ -35,6 +35,7 @@ use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OperationsController;
 use App\Http\Controllers\Tenant\OpportunityController;
 use App\Http\Controllers\Tenant\PaymentConfigurationController;
+use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
@@ -252,7 +253,18 @@ Route::middleware([
         Route::prefix('invoices')->name('invoices.')->group(function () {
             Route::get('/prefill-from-transaction/{transaction}', [InvoiceController::class, 'prefillFromTransaction'])->name('prefill-from-transaction');
             Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
+            Route::post('/{invoice}/apply-manual-payment', [InvoiceController::class, 'applyManualPayment'])->name('apply-manual-payment');
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
+        });
+
+        Route::prefix('payments')->name('payments.')->group(function () {
+            Route::get('/', [PaymentController::class, 'index'])->name('index');
+            Route::get('/create/eligible-invoices', [PaymentController::class, 'eligibleInvoicesForCreate'])->name('create.eligible-invoices');
+            Route::get('/create', [PaymentController::class, 'create'])->name('create');
+            Route::post('/', [PaymentController::class, 'store'])->name('store');
+            Route::get('/{payment}/edit', [PaymentController::class, 'edit'])->name('edit');
+            Route::put('/{payment}', [PaymentController::class, 'update'])->name('update');
+            Route::get('/{payment}', [PaymentController::class, 'show'])->name('show');
         });
 
         Route::prefix('workorders')->name('workorders.')->group(function () {

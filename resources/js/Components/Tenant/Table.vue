@@ -506,7 +506,8 @@ onUnmounted(() => {
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
-                <button @click="handleCreateClick"
+                <button v-if="!schema?.hide_create_button"
+                        @click="handleCreateClick"
                         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                     <span class="material-icons text-[16px]">add</span>
                     Add {{ recordTitle }}
@@ -687,8 +688,15 @@ onUnmounted(() => {
                     </svg>
                 </div>
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">No {{ recordType }} yet</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">Get started by creating your first {{ recordTitle }}.</p>
-                <button @click="handleCreateClick"
+                <p v-if="!schema?.hide_create_button"
+                   class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">
+                    Get started by creating your first {{ recordTitle }}.
+                </p>
+                <p v-else class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">
+                    There are no payments to show yet. Payments appear when customers pay online or when you record a manual payment on an invoice.
+                </p>
+                <button v-if="!schema?.hide_create_button"
+                        @click="handleCreateClick"
                         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                     <span class="material-icons text-[16px]">add</span>
                     Create your first {{ recordTitle }}
@@ -750,6 +758,12 @@ onUnmounted(() => {
                                        class="font-medium text-primary-600 dark:text-primary-400 hover:underline">
                                         {{ getRecordValue(record, col) || '—' }}
                                     </a>
+                                </template>
+                                <!-- Primary key column (e.g. payment sequence) -->
+                                <template v-else-if="col.isKey">
+                                    <Link :href="getShowUrl(record.id)" class="font-mono text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                                        {{ getRecordValue(record, col) || '—' }}
+                                    </Link>
                                 </template>
                                 <!-- Contact roles -->
                                 <template v-else-if="col.key === 'contact_roles'">

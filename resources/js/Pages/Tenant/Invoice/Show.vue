@@ -2,7 +2,9 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import InvoicePreview from '@/Components/Tenant/InvoicePreview.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import Sublist from '@/Components/Tenant/Sublist.vue';
+import Modal from '@/Components/Modal.vue';
+import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, ref, watch } from 'vue';
 
 const page = usePage();
@@ -22,6 +24,8 @@ const props = defineProps({
     enumOptions:           { type: Object, default: () => ({}) },
     account:               { type: Object, default: null },
     enabledPaymentMethods: { type: Array,  default: () => [] },
+    formSchema:            { type: Object, default: () => ({}) },
+    domainName:            { type: String, default: 'Invoice' },
 });
 
 const STATUS_ENUM_KEY       = 'App\\Enums\\Invoice\\Status';
@@ -160,6 +164,51 @@ const sendToCustomer = () => {
     if (!confirm('Email the customer a link to view this invoice?')) return;
     router.post(route('invoices.send-to-customer', props.record.id));
 };
+
+const visibleSublists = computed(() => props.formSchema?.sublists ?? []);
+
+const showRecordPaymentModal = ref(false);
+
+const paymentForm = useForm({
+    amount: '',
+    payment_method_code: 'check',
+    reference_number: '',
+    memo: '',
+});
+
+const manualMethodOptions = [
+    { value: 'check', label: 'Check' },
+    { value: 'cash', label: 'Cash' },
+    { value: 'wire', label: 'Wire transfer' },
+    { value: 'ach', label: 'ACH / bank transfer' },
+];
+
+const canRecordManualPayment = computed(() => {
+    const s = props.record?.status;
+    if (['void', 'draft', 'paid'].includes(s)) return false;
+    const due = parseFloat(props.record?.amount_due);
+    return !Number.isNaN(due) && due > 0.009;
+});
+
+const openRecordPaymentModal = () => {
+    paymentForm.reset();
+    paymentForm.clearErrors();
+    const due = props.record?.amount_due;
+    paymentForm.amount = due != null && due !== '' ? Number(due).toFixed(2) : '';
+    paymentForm.payment_method_code = 'check';
+    paymentForm.reference_number = '';
+    paymentForm.memo = '';
+    showRecordPaymentModal.value = true;
+};
+
+const submitManualPayment = () => {
+    paymentForm.post(route('invoices.apply-manual-payment', props.record.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showRecordPaymentModal.value = false;
+        },
+    });
+};
 </script>
 
 <template>
@@ -191,6 +240,13 @@ const sendToCustomer = () => {
                                 @click="sendToCustomer">
                             <span class="material-icons text-[16px]">send</span>
                             Send to customer
+                        </button>
+                        <button v-if="canRecordManualPayment"
+                                type="button"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-800 dark:text-gray-100 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded-lg transition-colors"
+                                @click="openRecordPaymentModal">
+                            <span class="material-icons text-[16px]">payments</span>
+                            Record payment
                         </button>
                         <a :href="route('invoices.edit', record.id)"
                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
@@ -625,6 +681,66 @@ const sendToCustomer = () => {
 
                 </div>
             </div>
+
+            <Sublist
+                v-if="visibleSublists.length > 0 && domainName"
+                class="mt-6"
+                :parent-record="record"
+                :parent-domain="domainName"
+                :sublists="visibleSublists"
+            />
         </div>
+
+        <Modal :show="showRecordPaymentModal" max-width="lg" @close="showRecordPaymentModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Record manual payment</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                    Apply check, cash, wire, or ACH to this invoice. The customer balance and invoice status will update.
+                </p>
+                <form class="space-y-4" @submit.prevent="submitManualPayment">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
+                        <input v-model="paymentForm.amount"
+                               type="text"
+                               inputmode="decimal"
+                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
+                               required>
+                        <p v-if="paymentForm.errors.amount" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ paymentForm.errors.amount }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Method</label>
+                        <select v-model="paymentForm.payment_method_code"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm">
+                            <option v-for="opt in manualMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reference # <span class="normal-case font-normal text-gray-400">(optional)</span></label>
+                        <input v-model="paymentForm.reference_number"
+                               type="text"
+                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
+                               placeholder="Check number, confirmation, etc.">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Memo <span class="normal-case font-normal text-gray-400">(optional)</span></label>
+                        <textarea v-model="paymentForm.memo"
+                                  rows="2"
+                                  class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                                @click="showRecordPaymentModal = false">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
+                                :disabled="paymentForm.processing">
+                            {{ paymentForm.processing ? 'Saving…' : 'Record payment' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </Modal>
     </TenantLayout>
 </template>

@@ -1,5 +1,69 @@
 {
-    "columns": [
-
-    ]
+  "allow_create_modal": false,
+  "hide_create_button": false,
+  "columns": [
+    {
+      "key": "sequence",
+      "label": "Payment #",
+      "sortable": true,
+      "isKey": true
+    },
+    {
+      "key": "invoice_id",
+      "label": "Invoice",
+      "sortable": false
+    },
+    {
+      "key": "paid_at",
+      "label": "Date",
+      "sortable": true
+    },
+    {
+      "key": "payment_method_code",
+      "label": "Method",
+      "sortable": true
+    },
+    {
+      "key": "processor",
+      "label": "Processor",
+      "sortable": true
+    },
+    {
+      "key": "amount",
+      "label": "Amount",
+      "sortable": true
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "sortable": true
+    },
+    {
+      "key": "reference_number",
+      "label": "Reference",
+      "sortable": false
+    },
+    {
+      "key": "recorded_by_user_id",
+      "label": "Recorded by",
+      "sortable": false
+    }
+  ],
+  "stats": [
+    {
+      "key": "total",
+      "label": "All payments",
+      "color": "gray"
+    },
+    {
+      "key": "manual",
+      "label": "Manual",
+      "color": "amber"
+    },
+    {
+      "key": "stripe",
+      "label": "Stripe",
+      "color": "primary"
+    }
+  ]
 }

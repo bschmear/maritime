@@ -5,7 +5,7 @@ import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
 import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
-import { ref, computed, onMounted, getCurrentInstance } from 'vue';
+import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
 
@@ -334,7 +334,8 @@ const applyFilters = (filters) => {
         && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
         && activeTab.value.domain !== 'Document' 
         && activeTab.value.sublistKind !== 'morphCommunication'
-        && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
+        && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')
+        && !activeTab.value.readOnly) {
         fetchSublistData(activeTab.value);
     }
 };
@@ -462,6 +463,44 @@ const fetchSublistData = async (sublist, page = 1) => {
             }
         } catch (error) {
             console.error(`Error loading ${sublist.modelRelationship}:`, error);
+            sublistData.value = [];
+        } finally {
+            isLoadingSublist.value = false;
+        }
+        return;
+    }
+
+    // Invoice payments: rows come from the parent record; schema from payments.index (for columns / field types).
+    if (
+        sublist.domain === 'Payment'
+        && sublist.modelRelationship === 'payments'
+        && props.parentDomain === 'Invoice'
+    ) {
+        isLoadingSublist.value = true;
+        try {
+            const relationshipData = props.parentRecord.payments || [];
+            const sorted = Array.isArray(relationshipData)
+                ? [...relationshipData].sort((a, b) => {
+                    const ta = a.paid_at ? new Date(a.paid_at).getTime() : 0;
+                    const tb = b.paid_at ? new Date(b.paid_at).getTime() : 0;
+                    return tb - ta;
+                })
+                : [];
+            sublistData.value = sorted;
+            sublistPagination.value = null;
+
+            const routePlural = getDomainPlural(sublist.domain);
+            const schemaResponse = await axios.get(route(`${routePlural}.index`), {
+                params: { per_page: 1, page: 1 },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+            sublistTableSchema.value = schemaResponse.data.schema || null;
+            sublistFieldsSchema.value = schemaResponse.data.fieldsSchema || {};
+        } catch (error) {
+            console.error('Error loading invoice payments sublist:', error);
             sublistData.value = [];
         } finally {
             isLoadingSublist.value = false;
@@ -1010,7 +1049,8 @@ const handleSublistItemCreated = async (recordId) => {
         if (activeTab.value 
             && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
             && activeTab.value.domain !== 'Document'
-            && activeTab.value.sublistKind !== 'morphCommunication') {
+            && activeTab.value.sublistKind !== 'morphCommunication'
+            && !activeTab.value.readOnly) {
             fetchSublistData(activeTab.value);
         }
     }
@@ -1106,7 +1146,8 @@ const navigateToRecord = (item) => {
 // Inline editing for select fields
 const handleInlineSelectChange = async (item, fieldKey, newValue) => {
     if (!activeTab.value) return;
-    
+    if (activeTab.value.readOnly) return;
+
     // Don't update if value is the same
     if (item[fieldKey] == newValue) {
         return;
@@ -1162,7 +1203,8 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
             && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
             && activeTab.value.domain !== 'Document' 
             && activeTab.value.sublistKind !== 'morphCommunication'
-            && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')) {
+            && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')
+            && !activeTab.value.readOnly) {
             await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
         }
     } finally {
@@ -1186,6 +1228,25 @@ onMounted(() => {
         handleTabChange(props.sublists[0]);
     }
 });
+
+watch(
+    () => props.parentRecord.payments,
+    (payments) => {
+        if (
+            activeTab.value?.domain === 'Payment'
+            && activeTab.value?.modelRelationship === 'payments'
+            && props.parentDomain === 'Invoice'
+        ) {
+            const list = Array.isArray(payments) ? payments : [];
+            sublistData.value = [...list].sort((a, b) => {
+                const ta = a.paid_at ? new Date(a.paid_at).getTime() : 0;
+                const tb = b.paid_at ? new Date(b.paid_at).getTime() : 0;
+                return tb - ta;
+            });
+        }
+    },
+    { deep: true },
+);
 </script>
 
 <template>
@@ -1275,7 +1336,7 @@ onMounted(() => {
                 <!-- Data Table -->
                 <div v-else-if="sublistData.length > 0 || activeFilters.length > 0">
                     <!-- Toolbar -->
-                    <div class="flex flex-col gap-3 p-4 sm:p-5 ">
+                    <div v-if="!activeTab?.readOnly" class="flex flex-col gap-3 p-4 sm:p-5 ">
                         <!-- Action Buttons -->
                         <div class="flex justify-between items-center">
                             <button
@@ -1301,7 +1362,7 @@ onMounted(() => {
                                 Add New {{ activeTab?.label || 'Record' }}
                             </button>
                         </div>
-                        
+
                         <!-- Active Filters -->
                         <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center gap-2 mt-2">
                             <span
@@ -1330,7 +1391,7 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div v-if="sublistData.length > 0" class="overflow-x-auto">
+                    <div v-if="sublistData.length > 0" class="overflow-x-auto" :class="{ 'pt-4 sm:pt-5 px-4 sm:px-5': activeTab?.readOnly }">
                     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
@@ -1342,7 +1403,7 @@ onMounted(() => {
                                     {{ column.label }}
                                 </th>
                                 
-                                <th class="px-6 py-3 text-right ">
+                                <th v-if="!activeTab?.readOnly" class="px-6 py-3 text-right ">
                                     <!-- Actions -->
                                 </th>
                             </tr>
@@ -1434,7 +1495,7 @@ onMounted(() => {
                                     </template>
                                 </td>
                                 <!-- Actions Column -->
-                                <td class="px-6 py-4">
+                                <td v-if="!activeTab?.readOnly" class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-2">
                                         <!-- Edit Button -->
                                         <button
@@ -1515,6 +1576,7 @@ onMounted(() => {
                         No {{ activeTab?.label || 'records' }} found.
                     </div>
                     <button
+                        v-if="!activeTab?.readOnly"
                         @click="openSublistCreateModal"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                     >
