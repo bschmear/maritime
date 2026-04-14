@@ -26,6 +26,7 @@ enum RecordType: string
     case ServiceTicket = 'serviceticket';
     case Notification = 'notification';
     case Survey = 'survey';
+    case Payment = 'payment';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -55,6 +56,7 @@ enum RecordType: string
             self::ServiceTicket => 'ServiceTicket',
             self::Notification => 'Notification',
             self::Survey => 'Survey',
+            self::Payment => 'Payment',
         };
     }
 
@@ -86,6 +88,7 @@ enum RecordType: string
             self::ServiceTicket => 'App\\Domain\\ServiceTicket',
             self::Notification => 'App\\Domain\\Notification',
             self::Survey => 'App\\Domain\\Survey',
+            self::Payment => 'App\\Domain\\Payment',
         };
     }
 
@@ -117,6 +120,7 @@ enum RecordType: string
             self::ServiceTicket => 'Service Ticket',
             self::Notification => 'Notification',
             self::Survey => 'Survey',
+            self::Payment => 'Payment',
         };
     }
 
@@ -148,6 +152,7 @@ enum RecordType: string
             self::ServiceTicket => 'servicetickets',
             self::Notification => 'notifications',
             self::Survey => 'surveys',
+            self::Payment => 'payments',
         };
     }
 

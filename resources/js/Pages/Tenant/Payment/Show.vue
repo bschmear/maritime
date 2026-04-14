@@ -76,20 +76,20 @@ const statusClass = computed(() =>
                                 {{ paymentLabel }}
                             </h2>
                             <span
-                                class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize"
+                                class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold capitalize"
                                 :class="statusClass"
                             >
                                 {{ payment.status }}
                             </span>
                         </div>
-                        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">
                             {{ formatDateTime(payment.paid_at) }}
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <Link
                             :href="route('payments.edit', payment.id)"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -99,7 +99,7 @@ const statusClass = computed(() =>
                         <Link
                             v-if="invoice?.id"
                             :href="route('invoices.show', invoice.id)"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -119,27 +119,27 @@ const statusClass = computed(() =>
                 <!-- Amount card -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                     <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Amount</span>
+                        <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Amount</span>
                     </div>
                     <div class="p-5">
                         <div class="flex items-baseline gap-2 mb-4">
                             <span class="text-3xl font-semibold text-gray-900 dark:text-white">
                                 {{ formatCurrency(payment.amount) }}
                             </span>
-                            <span class="text-sm text-gray-400 dark:text-gray-500">{{ payment.currency || 'USD' }}</span>
+                            <span class="text-md text-gray-400 dark:text-gray-500">{{ payment.currency || 'USD' }}</span>
                         </div>
                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             <div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Net received</div>
-                                <div class="text-base font-semibold text-gray-900 dark:text-white">{{ formatCurrency(payment.net_amount) }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400 mb-0.5">Net received</div>
+                                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ formatCurrency(payment.net_amount) }}</div>
                             </div>
                             <div v-if="hasSurcharge">
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Surcharge</div>
-                                <div class="text-base font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(payment.surcharge_amount) }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400 mb-0.5">Surcharge</div>
+                                <div class="text-lg font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(payment.surcharge_amount) }}</div>
                             </div>
                             <div>
-                                <div class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Currency</div>
-                                <div class="text-base font-medium text-gray-900 dark:text-white">{{ payment.currency || 'USD' }}</div>
+                                <div class="text-sm text-gray-500 dark:text-gray-400 mb-0.5">Currency</div>
+                                <div class="text-lg font-medium text-gray-900 dark:text-white">{{ payment.currency || 'USD' }}</div>
                             </div>
                         </div>
                     </div>
@@ -151,10 +151,10 @@ const statusClass = computed(() =>
                     class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden"
                 >
                     <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Memo</span>
+                        <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Memo</span>
                     </div>
                     <div class="p-5">
-                        <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line leading-relaxed">{{ payment.memo }}</p>
+                        <p class="text-md text-gray-800 dark:text-gray-200 whitespace-pre-line leading-relaxed">{{ payment.memo }}</p>
                     </div>
                 </div>
 
@@ -164,20 +164,20 @@ const statusClass = computed(() =>
                     class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden"
                 >
                     <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice</span>
+                        <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice</span>
                         <Link
                             :href="route('invoices.show', invoice.id)"
-                            class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
                         >
                             View invoice →
                         </Link>
                     </div>
                     <div class="p-5">
-                        <div class="text-sm font-semibold text-gray-900 dark:text-white mb-1">{{ invoiceLabel }}</div>
-                        <div v-if="invoice.customer_name" class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        <div class="text-md font-semibold text-gray-900 dark:text-white mb-1">{{ invoiceLabel }}</div>
+                        <div v-if="invoice.customer_name" class="text-md text-gray-500 dark:text-gray-400 mb-3">
                             {{ invoice.customer_name }}
                         </div>
-                        <div class="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
                             <span>
                                 Status:
                                 <span class="font-medium text-gray-800 dark:text-gray-200 capitalize">{{ invoice.status }}</span>
@@ -202,14 +202,14 @@ const statusClass = computed(() =>
                 <!-- Payment details -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                     <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Payment details</span>
+                        <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Payment details</span>
                     </div>
                     <dl class="divide-y divide-gray-50 dark:divide-gray-700/60">
                         <div class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Status</dt>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Status</dt>
                             <dd>
                                 <span
-                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold capitalize"
+                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-semibold capitalize"
                                     :class="statusClass"
                                 >
                                     {{ payment.status }}
@@ -217,28 +217,28 @@ const statusClass = computed(() =>
                             </dd>
                         </div>
                         <div class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Method</dt>
-                            <dd class="text-sm font-medium text-gray-900 dark:text-white text-right">{{ payment.payment_method_code || '—' }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Method</dt>
+                            <dd class="text-md font-medium text-gray-900 dark:text-white text-right">{{ payment.payment_method_code || '—' }}</dd>
                         </div>
                         <div class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Processor</dt>
-                            <dd class="text-sm font-medium text-gray-900 dark:text-white capitalize text-right">{{ payment.processor || '—' }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Processor</dt>
+                            <dd class="text-md font-medium text-gray-900 dark:text-white capitalize text-right">{{ payment.processor || '—' }}</dd>
                         </div>
                         <div v-if="payment.reference_number" class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Reference #</dt>
-                            <dd class="text-sm font-medium text-gray-900 dark:text-white text-right">{{ payment.reference_number }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Reference #</dt>
+                            <dd class="text-md font-medium text-gray-900 dark:text-white text-right">{{ payment.reference_number }}</dd>
                         </div>
                         <div v-if="payment.processor_transaction_id" class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Processor ref</dt>
-                            <dd class="font-mono text-xs text-gray-700 dark:text-gray-300 text-right break-all">{{ payment.processor_transaction_id }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Processor ref</dt>
+                            <dd class="font-mono text-sm text-gray-700 dark:text-gray-300 text-right break-all">{{ payment.processor_transaction_id }}</dd>
                         </div>
                         <div v-if="recordedBy" class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Recorded by</dt>
-                            <dd class="text-sm font-medium text-gray-900 dark:text-white text-right">{{ recordedBy.display_name || '—' }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Recorded by</dt>
+                            <dd class="text-md font-medium text-gray-900 dark:text-white text-right">{{ recordedBy.display_name || '—' }}</dd>
                         </div>
                         <div class="flex items-start justify-between gap-3 px-5 py-3">
-                            <dt class="text-xs text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Date</dt>
-                            <dd class="text-sm font-medium text-gray-900 dark:text-white text-right">{{ formatDateTime(payment.paid_at) }}</dd>
+                            <dt class="text-sm text-gray-500 dark:text-gray-400 pt-0.5 shrink-0">Date</dt>
+                            <dd class="text-md font-medium text-gray-900 dark:text-white text-right">{{ formatDateTime(payment.paid_at) }}</dd>
                         </div>
                     </dl>
                 </div>
@@ -246,20 +246,20 @@ const statusClass = computed(() =>
                 <!-- Summary -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                     <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                        <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Summary</span>
+                        <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Summary</span>
                     </div>
                     <div class="p-5 space-y-2">
-                        <div class="flex justify-between items-center text-sm">
+                        <div class="flex justify-between items-center text-md">
                             <span class="text-gray-500 dark:text-gray-400">Principal</span>
                             <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(payment.amount) }}</span>
                         </div>
-                        <div v-if="hasSurcharge" class="flex justify-between items-center text-sm">
+                        <div v-if="hasSurcharge" class="flex justify-between items-center text-md">
                             <span class="text-gray-500 dark:text-gray-400">Surcharge</span>
                             <span class="text-gray-700 dark:text-gray-300">+ {{ formatCurrency(payment.surcharge_amount) }}</span>
                         </div>
                         <div class="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700">
-                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Net received</span>
-                            <span class="text-lg font-semibold text-gray-900 dark:text-white">{{ formatCurrency(payment.net_amount) }}</span>
+                            <span class="text-md font-semibold text-gray-700 dark:text-gray-300">Net received</span>
+                            <span class="text-xl font-semibold text-gray-900 dark:text-white">{{ formatCurrency(payment.net_amount) }}</span>
                         </div>
                     </div>
                 </div>
