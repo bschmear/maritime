@@ -6,6 +6,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Location extends Model
 {
@@ -47,6 +48,14 @@ class Location extends Model
         return $this->belongsToMany(
             \App\Domain\Subsidiary\Models\Subsidiary::class,
             'location_subsidiary'
+        )->withTimestamps();
+    }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            User::class,
+            'location_user'
         )->withTimestamps();
     }
 

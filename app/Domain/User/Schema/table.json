@@ -13,6 +13,10 @@
             "label": "Role"
         },
         {
+            "key": "is_technician",
+            "label": "Technician"
+        },
+        {
             "key": "mobile_phone",
             "label": "Mobile Phone"
         }

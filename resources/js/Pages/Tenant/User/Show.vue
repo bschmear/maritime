@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
@@ -35,12 +36,26 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    domainName: {
+        type: String,
+        default: 'User',
+    },
+    account: {
+        type: Object,
+        default: null,
+    },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 const formRef = ref(null);
+
+const sublists = computed(() => props.formSchema?.sublists || []);
 
 const handleEdit = () => {
     isEditMode.value = true;
@@ -297,8 +312,8 @@ const breadcrumbItems = computed(() => {
                             </h3>
                         </div>
                     </div>
-                    <div class="px-6 py-6">
-                        <div v-if="record.role" class="space-y-4">
+                    <div class="px-6 py-6 space-y-4">
+                        <div v-if="record.role">
                             <div>
                                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                                     Current Role
@@ -331,8 +346,8 @@ const breadcrumbItems = computed(() => {
                                 </button>
                             </div>
                         </div>
-                        <div v-else class="text-center py-8">
-                            <div class="inline-flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full mb-3">
+                        <div v-else class="text-center py-4">
+                            <div class="inline-flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-full mb-3 mx-auto">
                                 <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
@@ -341,8 +356,26 @@ const breadcrumbItems = computed(() => {
                                 No role assigned
                             </p>
                         </div>
+
+                        <div :class="record.role ? 'pt-4 border-t border-gray-200 dark:border-gray-700' : ''">
+                            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                Technician
+                            </dt>
+                            <dd>
+                                <span
+                                    :class="record.is_technician ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'"
+                                    class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold"
+                                >
+                                    {{ record.is_technician ? 'Yes' : 'No' }}
+                                </span>
+                            </dd>
+                        </div>
                     </div>
                 </div>
+            </div>
+
+            <div v-if="!isEditMode && sublists.length > 0 && domainName" class="mt-6">
+                <Sublist :parent-record="record" :parent-domain="domainName" :sublists="sublists" />
             </div>
         </div>
 

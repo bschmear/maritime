@@ -41,8 +41,20 @@
                 },
                 {
                     "key": "avatar"
+                },
+                {
+                    "key": "is_technician",
+                    "required": false
                 }
             ]
         }
-    }
+    },
+    "sublists": [
+        {
+            "label": "Locations",
+            "domain": "Location",
+            "modelRelationship": "locations",
+            "relationshipType": "ManyToMany"
+        }
+    ]
 }

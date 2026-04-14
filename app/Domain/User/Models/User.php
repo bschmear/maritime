@@ -2,13 +2,14 @@
 
 namespace App\Domain\User\Models;
 
+use App\Domain\Notification\Models\Notification;
+use App\Domain\Role\Models\Role;
+use App\Domain\Task\Models\Task;
+use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Domain\Task\Models\Task;
-use App\Domain\Role\Models\Role;
-use App\Domain\Notification\Models\Notification;
-use App\Models\Concerns\HasDocuments;
 
 class User extends Model
 {
@@ -24,9 +25,14 @@ class User extends Model
         'office_phone',
         'mobile_phone',
         'current_role',
+        'is_technician',
     ];
 
     protected $with = ['role'];
+
+    protected $casts = [
+        'is_technician' => 'boolean',
+    ];
 
     /**
      * The role this user currently has.
@@ -41,7 +47,7 @@ class User extends Model
      */
     public function getFullNameAttribute(): string
     {
-        return trim($this->first_name . ' ' . $this->last_name);
+        return trim($this->first_name.' '.$this->last_name);
     }
 
     /**
@@ -63,7 +69,15 @@ class User extends Model
             \App\Domain\Subsidiary\Models\Subsidiary::class,
             'subsidiary_user'
         )->withPivot(['primary'])
-        ->withTimestamps();
+            ->withTimestamps();
+    }
+
+    public function locations(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            \App\Domain\Location\Models\Location::class,
+            'location_user'
+        )->withTimestamps();
     }
 
     /**
@@ -73,5 +87,4 @@ class User extends Model
     {
         return $this->hasMany(Notification::class, 'assigned_to_user_id');
     }
-
 }

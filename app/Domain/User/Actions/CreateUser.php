@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\User\Actions;
 
 use App\Domain\User\Models\User as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class CreateUser
@@ -16,11 +17,12 @@ class CreateUser
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'bio' => 'nullable|string|max:1000',
-            'avatar' => 'nullable|integer'
+            'avatar' => 'nullable|integer',
+            'is_technician' => 'sometimes|boolean',
         ])->validate();
 
         try {
-            $validated['display_name'] = trim($validated['first_name'] . ' ' . $validated['last_name']);
+            $validated['display_name'] = trim($validated['first_name'].' '.$validated['last_name']);
             $fieldsToSave = array_merge($data, $validated);
             $record = RecordModel::create($fieldsToSave);
 
@@ -31,8 +33,9 @@ class CreateUser
         } catch (QueryException $e) {
             Log::error('Database query error in CreateUser', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -41,8 +44,9 @@ class CreateUser
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateUser', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

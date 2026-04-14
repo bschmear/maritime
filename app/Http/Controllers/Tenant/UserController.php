@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Concerns\HasImageSupport;
-use App\Http\Controllers\Tenant\RecordController;
-use App\Domain\User\Models\User as RecordModel;
 use App\Domain\User\Actions\CreateUser as CreateAction;
-use App\Domain\User\Actions\UpdateUser as UpdateAction;
 use App\Domain\User\Actions\DeleteUser as DeleteAction;
+use App\Domain\User\Actions\UpdateUser as UpdateAction;
+use App\Domain\User\Models\User as RecordModel;
+use App\Http\Controllers\Concerns\HasImageSupport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -16,6 +15,7 @@ class UserController extends RecordController
     use HasImageSupport;
 
     protected $recordType = 'User';
+
     protected $table = null;
 
     public function __construct(Request $request)
@@ -25,10 +25,10 @@ class UserController extends RecordController
             $request,
             'users',
             'User',
-            new RecordModel(),
-            new CreateAction(),
-            new UpdateAction(),
-            new DeleteAction(),
+            new RecordModel,
+            new CreateAction,
+            new UpdateAction,
+            new DeleteAction,
             'User' // Domain name for schema lookup
         );
     }
@@ -44,7 +44,7 @@ class UserController extends RecordController
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
-        if (!in_array('id', $columns)) {
+        if (! in_array('id', $columns)) {
             $columns[] = 'id';
         }
 
@@ -52,8 +52,8 @@ class UserController extends RecordController
 
         // Apply search query (fuzzy search on display_name, case-insensitive)
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+        if ($searchQuery && ! empty(trim($searchQuery))) {
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
         }
 
         // Apply filters from query parameters
@@ -84,7 +84,7 @@ class UserController extends RecordController
         $records = $query->paginate($perPage);
 
         // Return JSON for AJAX requests (needed for sublists to get schema)
-        if ($request->ajax() && !$request->header('X-Inertia')) {
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
                 'schema' => $schema,
@@ -100,7 +100,8 @@ class UserController extends RecordController
 
         // For now, always return Inertia response for navigation
         $pluralTitle = Str::plural($this->recordTitle);
-        return inertia('Tenant/' . $this->domainName . '/Index', [
+
+        return inertia('Tenant/'.$this->domainName.'/Index', [
             'records' => $records,
             'schema' => $schema,
             'formSchema' => $formSchema,
@@ -113,38 +114,10 @@ class UserController extends RecordController
     }
 
     /**
-     * Show a specific user with role relationship loaded.
+     * Show a specific user (uses {@see RecordController::show} so sublists and record relations load consistently).
      */
     public function show(Request $request, $id)
     {
-        $fieldsSchema = $this->getFieldsSchema();
-        $record = $this->recordModel->with($this->getRelationshipsToLoad($fieldsSchema))->findOrFail($id);
-        $formSchema = $this->getFormSchema();
-        $fieldsSchema = $this->getFieldsSchema();
-        $enumOptions = $this->getEnumOptions();
-
-        $imgUrls = $this->getImageUrls($record, $fieldsSchema);
-
-        // If it's a non-Inertia AJAX request, return JSON
-        if (($request->wantsJson() || $request->ajax()) && !$request->header('X-Inertia')) {
-            return response()->json([
-                'record' => $record,
-                'recordType' => $this->recordType,
-                'formSchema' => $formSchema,
-                'fieldsSchema' => $fieldsSchema,
-                'enumOptions' => $enumOptions,
-                'imageUrls' => $imgUrls,
-            ]);
-        }
-
-        return inertia('Tenant/' . $this->domainName . '/Show', [
-            'record' => $record,
-            'recordType' => $this->recordType,
-            'recordTitle' => $this->recordTitle,
-            'formSchema' => $formSchema,
-            'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $enumOptions,
-            'imageUrls' => $imgUrls,
-        ]);
+        return parent::show($request, $id);
     }
 }

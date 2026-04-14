@@ -56,5 +56,11 @@
         "relationship": "role",
         "validation": "nullable|exists:roles,id",
         "help": "The user's current role in the system"
+    },
+    "is_technician": {
+        "label": "Technician",
+        "type": "boolean",
+        "validation": "sometimes|boolean",
+        "help": "When enabled, this user is treated as a technician (e.g. for scheduling and assignments)"
     }
 }

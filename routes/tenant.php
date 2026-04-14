@@ -40,6 +40,7 @@ use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\RoleController;
+use App\Http\Controllers\Tenant\SchedulingController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
@@ -260,6 +261,9 @@ Route::middleware([
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
+        Route::prefix('scheduling')->name('scheduling.')->group(function () {
+            Route::resource('/', SchedulingController::class)->parameters(['' => 'scheduling']);
+        });
 
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
@@ -454,6 +458,9 @@ Route::middleware([
         // These need to be registered for each resource that supports many-to-many relationships
         Route::post('/locations/{location}/attach', [LocationController::class, 'attachRelationship'])->name('locations.attach');
         Route::post('/locations/{location}/detach', [LocationController::class, 'detachRelationship'])->name('locations.detach');
+
+        Route::post('/users/{user}/attach', [UserController::class, 'attachRelationship'])->name('users.attach');
+        Route::post('/users/{user}/detach', [UserController::class, 'detachRelationship'])->name('users.detach');
 
         Route::post('/subsidiaries/{subsidiary}/attach', [SubsidiaryController::class, 'attachRelationship'])->name('subsidiaries.attach');
         Route::post('/subsidiaries/{subsidiary}/detach', [SubsidiaryController::class, 'detachRelationship'])->name('subsidiaries.detach');
