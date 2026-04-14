@@ -262,6 +262,8 @@ Route::middleware([
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
         Route::prefix('scheduling')->name('scheduling.')->group(function () {
+            Route::post('update-item', [SchedulingController::class, 'updateItem'])->name('update-item');
+            Route::post('defaults', [SchedulingController::class, 'updateDefaults'])->name('update-defaults');
             Route::resource('/', SchedulingController::class)->parameters(['' => 'scheduling']);
         });
 

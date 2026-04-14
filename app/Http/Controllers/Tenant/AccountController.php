@@ -92,6 +92,8 @@ class AccountController extends Controller
             'service_ticket_signed_notify_user_id' => 'nullable|exists:users,id',
             'default_payment_terms' => 'nullable|string|max:20000',
             'default_delivery_terms' => 'nullable|string|max:20000',
+            'workday_hours' => 'required|integer|min:4|max:10',
+            'start_time' => 'required|date_format:H:i',
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -117,6 +119,10 @@ class AccountController extends Controller
         $account->default_payment_term = $validated['default_payment_term'] ?? Terms::DueOnReceipt->value;
         $account->default_payment_terms = $validated['default_payment_terms'] ?? null;
         $account->default_delivery_terms = $validated['default_delivery_terms'] ?? null;
+        $account->workday_hours = $validated['workday_hours'];
+        $startTime = $validated['start_time'];
+        $account->start_time = strlen($startTime) === 5 ? $startTime.':00' : $startTime;
+        $account->allow_overlap = $request->boolean('allow_overlap');
 
         $account->save();
 

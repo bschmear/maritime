@@ -30,6 +30,12 @@ const defaultContractTermsFallback = 'This agreement outlines the terms and cond
 const defaultPaymentTermsFallback = 'Payment is due as specified in the contract. Please remit promptly.';
 const defaultDeliveryTermsFallback = 'Delivery will be scheduled according to contract terms. Customer will be notified in advance.';
 
+function timeInputValue(value) {
+    if (!value) return '08:00';
+    const s = String(value);
+    return s.length >= 5 ? s.slice(0, 5) : '08:00';
+}
+
 const form = useForm({
     logo: null,
     default_timezone: props.account?.timezone || 'America/Chicago',
@@ -41,6 +47,9 @@ const form = useForm({
     default_payment_term: props.account?.default_payment_term ?? 'due_on_receipt',
     default_payment_terms: props.account?.default_payment_terms ?? defaultPaymentTermsFallback,
     default_delivery_terms: props.account?.default_delivery_terms ?? defaultDeliveryTermsFallback,
+    workday_hours: parseInt(props.account?.workday_hours, 10) || 6,
+    start_time: timeInputValue(props.account?.start_time),
+    allow_overlap: !!props.account?.allow_overlap,
 });
 
 const logoPreview = ref(props.account?.logo_url || null);
@@ -93,6 +102,7 @@ const submit = () => {
     form.transform((data) => ({
         ...data,
         estimate_threshold_percent: parseInt(data.estimate_threshold_percent, 10),
+        workday_hours: parseInt(data.workday_hours, 10),
     })).post(route('account.update'), {
         preserveScroll: true,
     });
@@ -301,6 +311,76 @@ const submit = () => {
                                     </p>
                                     <p v-if="form.errors.brand_color" class="mt-1 text-xs text-red-600 dark:text-red-400">
                                         {{ form.errors.brand_color }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scheduling defaults -->
+                        <div class="p-6 border-t border-b border-gray-200 dark:border-gray-700">
+                            <div class="flex items-center gap-3 mb-6">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                                    <span class="material-icons text-amber-600 dark:text-amber-400">
+                                        calendar_view_week
+                                    </span>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                        Scheduling board defaults
+                                    </h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        Initial workday length, start hour, and overlap behavior for the service yard schedule
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+                                <div>
+                                    <label for="workday_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Workday hours
+                                    </label>
+                                    <select
+                                        id="workday_hours"
+                                        v-model.number="form.workday_hours"
+                                        class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    >
+                                        <option v-for="h in [4, 5, 6, 7, 8, 9, 10]" :key="h" :value="h">
+                                            {{ h }} hrs
+                                        </option>
+                                    </select>
+                                    <p v-if="form.errors.workday_hours" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        {{ form.errors.workday_hours }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label for="start_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Workday start time
+                                    </label>
+                                    <input
+                                        id="start_time"
+                                        v-model="form.start_time"
+                                        type="time"
+                                        class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Hour aligns with the schedule toolbar (6:00–9:00 AM presets).
+                                    </p>
+                                    <p v-if="form.errors.start_time" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        {{ form.errors.start_time }}
+                                    </p>
+                                </div>
+                                <div class="flex flex-col justify-end">
+                                    <label class="flex items-center gap-3 cursor-pointer select-none">
+                                        <input
+                                            v-model="form.allow_overlap"
+                                            type="checkbox"
+                                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                        />
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Allow overlapping assignments by default
+                                        </span>
+                                    </label>
+                                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        Staff can still change overlap on the board for their session.
                                     </p>
                                 </div>
                             </div>

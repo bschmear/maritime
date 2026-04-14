@@ -5,6 +5,28 @@ import SchedulerGrid from '@/Components/Tenant/SchedulerGrid.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
+const props = defineProps({
+    technicians: {
+        type: Array,
+        default: () => [],
+    },
+    workOrders: {
+        type: Array,
+        default: () => [],
+    },
+    locations: {
+        type: Array,
+        default: () => ['All Locations'],
+    },
+    scheduleDefaults: {
+        type: Object,
+        default: () => ({
+            workday_hours: 6,
+            workday_start_hour: 8,
+            allow_overlap: false,
+        }),
+    },
+});
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -24,7 +46,11 @@ const breadcrumbItems = computed(() => [
                 </h2>
             </div>
         </template>
-        <SchedulerGrid />
-
+        <SchedulerGrid
+            :technicians="technicians"
+            :work-orders="workOrders"
+            :locations="locations"
+            :schedule-defaults="scheduleDefaults"
+        />
     </TenantLayout>
 </template>

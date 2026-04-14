@@ -28,7 +28,8 @@ function isSameDay(a, b) {
 </script>
 
 <script setup>
-import { ref, computed } from 'vue'
+import axios from 'axios'
+import { ref, computed, watch, getCurrentInstance } from 'vue'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 const props = defineProps({
@@ -38,63 +39,198 @@ const props = defineProps({
    */
   technicians: {
     type: Array,
-    default: () => [
-      { id: 1, name: 'Jake Rivera',  location: 'Marina Bay' },
-      { id: 2, name: 'Maria Chen',   location: 'Harbor North' },
-      { id: 3, name: 'Devon Okafor', location: 'Marina Bay' },
-      { id: 4, name: 'Priya Nair',   location: 'Dockside South' },
-      { id: 5, name: 'Sam Kowalski', location: 'Harbor North' },
-    ],
+    default: () => [],
   },
 
   /**
    * Work orders / deliveries.
    * NOTE: end_date is NOT used — computed from start_date + planned_hours + hoursPerDay.
-   * Shape: { id, title, type: 'work_order'|'delivery', technician_id, start_date: 'YYYY-MM-DD', status, planned_hours }
+   * Shape: { id, title, type, technician_id, start_date, scheduled_at_local (Y-m-d\\TH:i), status, planned_hours, record_id, record_type }
+   * id may be a string (e.g. wo-12, dlv-4) to avoid collisions between domains.
    */
   workOrders: {
     type: Array,
-    default: () => {
-      const ws = getWeekStart(new Date())
-      const d = n => fmt(addDays(ws, n))
-      return [
-        { id: 1,  title: 'WO-1042 Engine Service',    type: 'work_order', technician_id: 1, start_date: d(0),  status: 'in_progress', planned_hours: 8  },
-        { id: 2,  title: 'DEL-204 Marina Drop',        type: 'delivery',   technician_id: 1, start_date: d(3),  status: 'pending',     planned_hours: 3  },
-        { id: 3,  title: 'WO-1055 Hull Repair',        type: 'work_order', technician_id: 1, start_date: d(5),  status: 'pending',     planned_hours: 10 },
-        { id: 4,  title: 'WO-1038 Electrical Refit',   type: 'work_order', technician_id: 2, start_date: d(0),  status: 'in_progress', planned_hours: 12 },
-        { id: 5,  title: 'DEL-198 Customer Pickup',    type: 'delivery',   technician_id: 2, start_date: d(4),  status: 'pending',     planned_hours: 2  },
-        { id: 6,  title: 'WO-1061 Bilge Pump',         type: 'work_order', technician_id: 3, start_date: d(1),  status: 'pending',     planned_hours: 5  },
-        { id: 7,  title: 'WO-1063 Annual Service',     type: 'work_order', technician_id: 3, start_date: d(3),  status: 'pending',     planned_hours: 18 },
-        { id: 8,  title: 'WO-1029 Gelcoat Restore',    type: 'work_order', technician_id: 4, start_date: d(-2), status: 'in_progress', planned_hours: 16 },
-        { id: 9,  title: 'DEL-211 Boat Show',          type: 'delivery',   technician_id: 4, start_date: d(4),  status: 'pending',     planned_hours: 4  },
-        { id: 10, title: 'WO-1047 Trailer Hitch',      type: 'work_order', technician_id: 5, start_date: d(2),  status: 'completed',   planned_hours: 6  },
-        { id: 11, title: 'WO-1058 Canvas Repl.',       type: 'work_order', technician_id: 5, start_date: d(5),  status: 'pending',     planned_hours: 20 },
-      ]
-    },
+    default: () => [],
   },
 
   /** Location filter options. First entry treated as "show all". */
   locations: {
     type: Array,
-    default: () => ['All Locations', 'Marina Bay', 'Harbor North', 'Dockside South'],
+    default: () => ['All Locations'],
+  },
+
+  /** Defaults from account_settings (workday_hours, workday_start_hour 6–9, allow_overlap). */
+  scheduleDefaults: {
+    type: Object,
+    default: () => ({
+      workday_hours: 6,
+      workday_start_hour: 8,
+      allow_overlap: false,
+    }),
   },
 })
 
-const emit = defineEmits([
-  /** Emitted when a work order is moved. Payload: updated work order (includes computed end_date). */
-  'update:workOrder',
-])
+const inertiaApp = getCurrentInstance()
+
+function showToast(type, message) {
+  if (!message) return
+  const root = inertiaApp?.appContext?.app?._instance?.proxy
+  if (typeof root?.createToast === 'function') {
+    root.createToast(type, String(message))
+  }
+}
 
 // ─── State ────────────────────────────────────────────────────────────────────
-const localOrders    = ref(props.workOrders.map(o => ({ ...o })))
+const localOrders = ref([])
+
+watch(
+  () => props.workOrders,
+  (rows) => {
+    localOrders.value = Array.isArray(rows) ? rows.map((o) => ({ ...o })) : []
+  },
+  { deep: true, immediate: true }
+)
+
 const weekStart      = ref(getWeekStart(new Date()))
-const hoursPerDay    = ref(6)
-const workdayStart   = ref(8)
-const locationFilter = ref(props.locations[0])
-const selectedWo     = ref(null)
+const hoursPerDay    = ref(props.scheduleDefaults?.workday_hours ?? 6)
+const workdayStart   = ref(props.scheduleDefaults?.workday_start_hour ?? 8)
+const allowOverlap   = ref(!!props.scheduleDefaults?.allow_overlap)
+const locationFilter = ref(props.locations[0] ?? 'All Locations')
+
+watch(
+  () => props.scheduleDefaults,
+  (d) => {
+    if (!d || typeof d !== 'object') return
+    if (d.workday_hours != null) hoursPerDay.value = Number(d.workday_hours)
+    if (d.workday_start_hour != null) workdayStart.value = Number(d.workday_start_hour)
+    if (d.allow_overlap != null) allowOverlap.value = !!d.allow_overlap
+  },
+  { deep: true }
+)
+
+watch(
+  () => props.locations,
+  (locs) => {
+    const list = Array.isArray(locs) && locs.length ? locs : ['All Locations']
+    if (!list.includes(locationFilter.value)) {
+      locationFilter.value = list[0]
+    }
+  },
+  { deep: true }
+)
+
+const selectedWo = ref(null)
+const modalScheduledAtLocal = ref('')
+const isSavingSchedule = ref(false)
 const dragging       = ref(null)
 const dragOverCell   = ref(null)
-const allowOverlap   = ref(false)
+
+watch(
+  () => selectedWo.value,
+  (w) => {
+    if (w) {
+      modalScheduledAtLocal.value =
+        w.scheduled_at_local || `${w.start_date}T08:00`
+    }
+  }
+)
+
+const recordShowUrl = computed(() => {
+  const w = selectedWo.value
+  if (!w?.record_id) return null
+  return w.record_type === 'delivery'
+    ? route('deliveries.show', w.record_id)
+    : route('workorders.show', w.record_id)
+})
+
+function mergeDayAndTime(dayStr, scheduledAtLocal) {
+  const timePart =
+    scheduledAtLocal && scheduledAtLocal.includes('T')
+      ? scheduledAtLocal.split('T')[1]
+      : '08:00'
+  const t = timePart.length === 5 ? `${timePart}:00` : timePart
+  return `${dayStr}T${t}`
+}
+
+function applyServerItem(item) {
+  const idx = localOrders.value.findIndex((row) => row.id === item.id)
+  if (idx !== -1) {
+    localOrders.value[idx] = { ...item }
+  }
+}
+
+function schedulePayload(row) {
+  return mergeDayAndTime(
+    row.start_date,
+    row.scheduled_at_local || `${row.start_date}T08:00`
+  )
+}
+
+let scheduleDefaultsSaveTimer = null
+
+function persistScheduleDefaults() {
+  clearTimeout(scheduleDefaultsSaveTimer)
+  scheduleDefaultsSaveTimer = setTimeout(async () => {
+    scheduleDefaultsSaveTimer = null
+    try {
+      const { data } = await axios.post(route('scheduling.update-defaults'), {
+        workday_hours: hoursPerDay.value,
+        workday_start_hour: workdayStart.value,
+        allow_overlap: allowOverlap.value,
+      })
+      if (!data.success) {
+        throw new Error(data.message || 'Could not save schedule settings.')
+      }
+      showToast('success', 'Schedule preferences saved.')
+    } catch (e) {
+      const d = e.response?.data
+      let msg = d?.message || e.message || 'Could not save schedule settings.'
+      if (d?.errors && typeof d.errors === 'object') {
+        const first = Object.values(d.errors).flat()[0]
+        if (first) msg = first
+      }
+      showToast('error', msg)
+    }
+  }, 300)
+}
+
+async function persistSchedule(row) {
+  const { data } = await axios.post(route('scheduling.update-item'), {
+    record_type: row.record_type,
+    record_id: row.record_id,
+    technician_id: row.technician_id,
+    scheduled_at: schedulePayload(row),
+  })
+
+  if (!data.success || !data.item) {
+    throw new Error(data.message || 'Save failed')
+  }
+  applyServerItem(data.item)
+  showToast(
+    'success',
+    row.record_type === 'delivery'
+      ? 'Delivery schedule updated.'
+      : 'Work order schedule updated.'
+  )
+  return data.item
+}
+
+async function saveScheduleFromModal() {
+  if (!selectedWo.value || isSavingSchedule.value) return
+  isSavingSchedule.value = true
+  try {
+    const w = { ...selectedWo.value }
+    w.scheduled_at_local = modalScheduledAtLocal.value
+    w.start_date = modalScheduledAtLocal.value.split('T')[0]
+    const item = await persistSchedule(w)
+    selectedWo.value = { ...item }
+    modalScheduledAtLocal.value = item.scheduled_at_local
+  } catch (e) {
+    window.alert(e.response?.data?.message || e.message || 'Could not save schedule.')
+  } finally {
+    isSavingSchedule.value = false
+  }
+}
 
 // ─── Week helpers ─────────────────────────────────────────────────────────────
 const weekDays = computed(() =>
@@ -115,11 +251,24 @@ const goToToday = () => { weekStart.value = getWeekStart(new Date()) }
 const isToday   = day => isSameDay(day, new Date())
 
 // ─── Filtered technicians ─────────────────────────────────────────────────────
-const filteredTechs = computed(() =>
-  locationFilter.value === props.locations[0]
-    ? props.technicians
-    : props.technicians.filter(t => t.location === locationFilter.value)
-)
+// Backend sends comma-separated location names per technician; match membership, not ===.
+const allLocationsLabel = computed(() => props.locations[0] ?? 'All Locations')
+
+function technicianMatchesLocationFilter(tech, selectedLoc) {
+  if (selectedLoc === allLocationsLabel.value) {
+    return true
+  }
+  const raw = tech.location
+  if (!raw || raw === '—') {
+    return false
+  }
+  return raw.split(',').map((s) => s.trim()).filter(Boolean).includes(selectedLoc)
+}
+
+const filteredTechs = computed(() => {
+  const selected = locationFilter.value
+  return props.technicians.filter((t) => technicianMatchesLocationFilter(t, selected))
+})
 
 // ─── Computed end date ────────────────────────────────────────────────────────
 // end_date = start_date + ceil(planned_hours / hoursPerDay) - 1
@@ -196,10 +345,23 @@ function initials(name) {
 }
 
 const STATUS_COLORS = {
-  pending:     '#F59E0B',
+  // Legacy / generic
+  pending: '#F59E0B',
   in_progress: '#60A5FA',
-  completed:   '#34D399',
-  cancelled:   '#9CA3AF',
+  completed: '#34D399',
+  cancelled: '#9CA3AF',
+  // Work orders (App\Enums\WorkOrder\Status)
+  draft: '#9CA3AF',
+  open: '#93C5FD',
+  scheduled: '#818CF8',
+  waiting: '#A8A29E',
+  blocked: '#F87171',
+  closed: '#64748B',
+  // Deliveries (App\Enums\Deliveries\Status)
+  confirmed: '#A78BFA',
+  en_route: '#38BDF8',
+  delivered: '#34D399',
+  rescheduled: '#FBBF24',
 }
 
 // ─── Drag & drop ──────────────────────────────────────────────────────────────
@@ -226,7 +388,7 @@ function onCellDragLeave(event) {
   if (!event.currentTarget.contains(event.relatedTarget))
     dragOverCell.value = null
 }
-function onDrop(techId, dayStr, event) {
+async function onDrop(techId, dayStr, event) {
   event.preventDefault()
   if (!dragging.value) return
   const { wo } = dragging.value
@@ -235,10 +397,30 @@ function onDrop(techId, dayStr, event) {
     dragOverCell.value = null
     return
   }
-  const updated = { ...wo, technician_id: techId, start_date: dayStr }
-  const idx = localOrders.value.findIndex(w => w.id === wo.id)
-  if (idx !== -1) localOrders.value[idx] = updated
-  emit('update:workOrder', { ...updated, end_date: computedEndDate(updated) })
+  const idx = localOrders.value.findIndex((w) => w.id === wo.id)
+  if (idx === -1) {
+    dragging.value     = null
+    dragOverCell.value = null
+    return
+  }
+
+  const mergedLocal = mergeDayAndTime(dayStr, wo.scheduled_at_local)
+  const prev = { ...localOrders.value[idx] }
+  const optimistic = {
+    ...wo,
+    technician_id: techId,
+    start_date: dayStr,
+    scheduled_at_local: mergedLocal,
+  }
+  localOrders.value[idx] = optimistic
+
+  try {
+    await persistSchedule(optimistic)
+  } catch (e) {
+    localOrders.value[idx] = prev
+    window.alert(e.response?.data?.message || e.message || 'Could not save schedule.')
+  }
+
   dragging.value     = null
   dragOverCell.value = null
 }
@@ -256,8 +438,8 @@ function cellDragClass(techId, dayStr) {
   <div class="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden grow flex flex-col">
 
     <!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
-    <div class="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-
+    <div class="flex flex-col gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+      <div class="flex items-center justify-between flex-wrap gap-2">
       <!-- Week nav -->
       <div class="flex items-center gap-2">
         <button
@@ -280,9 +462,8 @@ function cellDragClass(techId, dayStr) {
         >Today</button>
       </div>
 
-      <!-- Controls + legend -->
+      <!-- Controls -->
       <div class="flex items-center flex-wrap gap-4">
-
         <div class="flex items-center gap-1.5">
           <span class="text-sm text-gray-500 dark:text-gray-400">Location</span>
           <select
@@ -298,6 +479,7 @@ function cellDragClass(techId, dayStr) {
           <select
             v-model.number="hoursPerDay"
             class="text-sm px-2 pr-6 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
+            @change="persistScheduleDefaults"
           >
             <option v-for="h in [4,5,6,7,8,9,10]" :key="h" :value="h">{{ h }} hrs</option>
           </select>
@@ -308,12 +490,12 @@ function cellDragClass(techId, dayStr) {
           <select
             v-model.number="workdayStart"
             class="text-sm px-2 pr-6 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
+            @change="persistScheduleDefaults"
           >
             <option v-for="h in [6,7,8,9]" :key="h" :value="h">{{ h }}:00 AM</option>
           </select>
         </div>
 
-        <!-- Allow overlap toggle -->
         <label
           class="flex items-center gap-2 cursor-pointer select-none"
           title="When on, items can be dragged onto days that are already full"
@@ -323,7 +505,7 @@ function cellDragClass(techId, dayStr) {
             type="button"
             role="switch"
             :aria-checked="allowOverlap"
-            @click="allowOverlap = !allowOverlap"
+            @click="allowOverlap = !allowOverlap; persistScheduleDefaults()"
             :class="[
               'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1',
               allowOverlap ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-600',
@@ -337,23 +519,23 @@ function cellDragClass(techId, dayStr) {
             />
           </button>
         </label>
+      </div>
+      </div>
 
-        <!-- Legend -->
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-sm bg-primary-600 dark:bg-primary-500 shrink-0"></span>
-            <span class="text-sm text-gray-500 dark:text-gray-400">Work Order</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-sm bg-secondary-500 dark:bg-secondary-400 shrink-0"></span>
-            <span class="text-sm text-gray-500 dark:text-gray-400">Delivery</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-sm shrink-0 border-2 border-dashed border-amber-400"></span>
-            <span class="text-sm text-gray-500 dark:text-gray-400">Overlapping</span>
-          </div>
+      <!-- Legend (own row) -->
+      <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 dark:border-gray-600 pt-3 mt-2">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-sm bg-primary-600 dark:bg-primary-500 shrink-0"></span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Work Order</span>
         </div>
-
+        <div class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-sm bg-secondary-500 dark:bg-secondary-400 shrink-0"></span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Delivery</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-sm shrink-0 border-2 border-dashed border-amber-400"></span>
+          <span class="text-sm text-gray-500 dark:text-gray-400">Overlapping</span>
+        </div>
       </div>
     </div>
 
@@ -392,7 +574,7 @@ function cellDragClass(techId, dayStr) {
           <tr
             v-for="tech in filteredTechs"
             :key="tech.id"
-            class="border-b border-gray-50 dark:border-gray-700/60 last:border-b-0"
+            class="border-b border-gray-50 dark:border-gray-700/60 "
           >
             <!-- Technician label -->
             <td class="w-36 px-3 py-2 border-r border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 align-middle">
@@ -536,12 +718,18 @@ function cellDragClass(techId, dayStr) {
           <!-- Body -->
           <div class="grid grid-cols-2 gap-2 p-4">
 
-            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2.5">
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Start date</p>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">
-                {{ fmtDateShort(selectedWo.start_date) }}
+            <div class="col-span-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2.5">
+              <label class="block text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5">
+                Scheduled start
+              </label>
+              <input
+                v-model="modalScheduledAtLocal"
+                type="datetime-local"
+                class="w-full text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-3 py-2 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+              <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                Saved to the {{ selectedWo.record_type === 'delivery' ? 'delivery' : 'work order' }} when you click Save.
               </p>
-              <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">from data</p>
             </div>
 
             <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2.5">
@@ -612,13 +800,34 @@ function cellDragClass(techId, dayStr) {
           </div>
 
           <!-- Footer -->
-          <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-            <button
-              @click="selectedWo = null"
-              class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
+            <a
+              v-if="recordShowUrl"
+              :href="recordShowUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
             >
-              Close
-            </button>
+              Open record in new tab
+            </a>
+            <span v-else class="text-xs text-gray-400"> </span>
+            <div class="flex items-center gap-2 ms-auto">
+              <button
+                type="button"
+                :disabled="isSavingSchedule"
+                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                @click="saveScheduleFromModal"
+              >
+                {{ isSavingSchedule ? 'Saving…' : 'Save' }}
+              </button>
+              <button
+                type="button"
+                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                @click="selectedWo = null"
+              >
+                Close
+              </button>
+            </div>
           </div>
 
         </div>

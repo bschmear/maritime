@@ -1,12 +1,12 @@
 <?php
+
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
-use App\Http\Controllers\Tenant\RecordController;
-use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrder\Actions\CreateWorkOrder as CreateAction;
-use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
 use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
+use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
+use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use Illuminate\Http\Request;
@@ -21,10 +21,10 @@ class WorkOrderController extends RecordController
             $request,
             $recordType->plural(),
             $recordType->title(),
-            new RecordModel(),
-            new CreateAction(),
-            new UpdateAction(),
-            new DeleteAction(),
+            new RecordModel,
+            new CreateAction,
+            new UpdateAction,
+            new DeleteAction,
             'WorkOrder' // Explicitly set domain name
         );
     }
@@ -33,7 +33,7 @@ class WorkOrderController extends RecordController
     {
         // Get current user first
         $currentUser = Auth::user();
-        
+
         // Get base data from parent controller logic
         $columns = $this->getSchemaColumns();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
@@ -55,7 +55,7 @@ class WorkOrderController extends RecordController
             }
         }
 
-        if (!in_array('id', $actualColumns)) {
+        if (! in_array('id', $actualColumns)) {
             $actualColumns[] = 'id';
         }
 
@@ -81,13 +81,13 @@ class WorkOrderController extends RecordController
 
         // Apply search
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+        if ($searchQuery && ! empty(trim($searchQuery))) {
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
         }
 
         // Apply user filtering - DEFAULT to current user if no filter is set
         $userParam = $request->get('user');
-        
+
         // If no user parameter is provided, default to current user
         if ($userParam === null) {
             $query->where('assigned_user_id', $currentUser->id);
@@ -112,7 +112,7 @@ class WorkOrderController extends RecordController
         $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
-// dd($records);
+        // dd($records);
         // Get other users (excluding current user)
         $users = \App\Domain\User\Models\User::select('id', 'display_name')
             ->where('id', '!=', $currentUser->id)
@@ -150,7 +150,7 @@ class WorkOrderController extends RecordController
 
         $pluralTitle = \Illuminate\Support\Str::plural($this->recordTitle);
 
-        return inertia('Tenant/' . $this->domainName . '/Index', [
+        return inertia('Tenant/'.$this->domainName.'/Index', [
             'records' => $records,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -185,9 +185,25 @@ class WorkOrderController extends RecordController
                     $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                              ->with(['asset' => function ($q) {
-                                  $q->select(['id', 'display_name']);
-                              }]);
+                            ->with(['asset' => function ($q) {
+                                $q->select(['id', 'display_name']);
+                            }]);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
+                    $selectFields = ['id', 'sequence'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'contact_id'])
+                            ->with(['contact' => function ($q) {
+                                $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                            }]);
                     };
                 } else {
                     $selectFields[] = 'display_name';
@@ -199,7 +215,7 @@ class WorkOrderController extends RecordController
 
                 $selectFields = array_unique($selectFields);
 
-                if (!isset($relationships[$relationshipName])) {
+                if (! isset($relationships[$relationshipName])) {
                     $relationships[$relationshipName] = function ($query) use ($selectFields) {
                         $query->select($selectFields);
                     };
@@ -252,7 +268,7 @@ class WorkOrderController extends RecordController
 
         $account = \App\Models\AccountSettings::getCurrent();
 
-        return inertia('Tenant/' . $this->domainName . '/Edit', [
+        return inertia('Tenant/'.$this->domainName.'/Edit', [
             'record' => $record,
             'recordType' => $this->recordType,
             'formSchema' => $this->getFormSchema(),
@@ -306,9 +322,9 @@ class WorkOrderController extends RecordController
                 'location',
                 'assetUnit' => function ($query) {
                     $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                          ->with(['asset' => function ($q) {
-                              $q->select(['id', 'display_name']);
-                          }]);
+                        ->with(['asset' => function ($q) {
+                            $q->select(['id', 'display_name']);
+                        }]);
                 },
             ])->find($serviceTicketId);
 
@@ -347,7 +363,7 @@ class WorkOrderController extends RecordController
             }
         }
 
-        return inertia('Tenant/' . $this->domainName . '/Create', [
+        return inertia('Tenant/'.$this->domainName.'/Create', [
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
@@ -433,7 +449,7 @@ class WorkOrderController extends RecordController
             }
         }
 
-        return inertia('Tenant/' . $this->domainName . '/Show', [
+        return inertia('Tenant/'.$this->domainName.'/Show', [
             'record' => $recordArray,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -481,7 +497,7 @@ class WorkOrderController extends RecordController
                 $calculator = app(\App\Services\WorkOrderCalculator::class);
                 $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
                 if ($workOrder) {
-                    if (!empty($serviceItems)) {
+                    if (! empty($serviceItems)) {
                         $this->createServiceItems($workOrderId, $serviceItems);
                     } else {
                         // Recalculate totals even without service items
@@ -522,7 +538,7 @@ class WorkOrderController extends RecordController
         $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
         if ($workOrder) {
             // Update service items if provided
-            if (!empty($serviceItems)) {
+            if (! empty($serviceItems)) {
                 $this->updateServiceItems($id, $serviceItems);
             } else {
                 // Recalculate totals even without service item changes
@@ -551,7 +567,7 @@ class WorkOrderController extends RecordController
                 'default_hours',
                 'billable',
                 'warranty_eligible',
-                'billing_type'
+                'billing_type',
             ])
             ->when($query, function ($q) use ($query) {
                 $q->where(function ($subQuery) use ($query) {
@@ -570,7 +586,7 @@ class WorkOrderController extends RecordController
                 'last_page' => $serviceItems->lastPage(),
                 'per_page' => $serviceItems->perPage(),
                 'total' => $serviceItems->total(),
-            ]
+            ],
         ]);
     }
 
@@ -581,7 +597,7 @@ class WorkOrderController extends RecordController
     protected function validateThreshold(int $serviceTicketId, array $serviceItems, float $taxRate): ?string
     {
         $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($serviceTicketId);
-        if (!$ticket) {
+        if (! $ticket) {
             return null; // No ticket to validate against
         }
 
@@ -603,7 +619,7 @@ class WorkOrderController extends RecordController
             $billable = $item['billable'] ?? true;
             $warranty = $item['warranty'] ?? false;
 
-            if (!$billable || $warranty) {
+            if (! $billable || $warranty) {
                 continue;
             }
 
@@ -648,6 +664,7 @@ class WorkOrderController extends RecordController
 
         // Fallback: get the latest work order for current tenant
         $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::latest()->first();
+
         return $workOrder ? $workOrder->id : null;
     }
 
@@ -775,7 +792,7 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
 
-        return inertia('Tenant/' . $this->domainName . '/Public', [
+        return inertia('Tenant/'.$this->domainName.'/Public', [
             'record' => $recordArray,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -788,5 +805,4 @@ class WorkOrderController extends RecordController
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
         ]);
     }
-
 }

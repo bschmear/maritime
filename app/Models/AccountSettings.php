@@ -30,12 +30,17 @@ class AccountSettings extends Model
         'default_payment_term',
         'default_payment_terms',
         'default_delivery_terms',
+        'workday_hours',
+        'start_time',
+        'allow_overlap',
     ];
 
     protected $casts = [
         'logo_file_size' => 'integer',
         'week_starts_on_monday' => 'boolean',
         'auto_assign_work_orders' => 'boolean',
+        'workday_hours' => 'integer',
+        'allow_overlap' => 'boolean',
         'settings' => 'array',
         'default_payment_term' => PaymentTermsCast::class,
     ];
@@ -62,6 +67,9 @@ class AccountSettings extends Model
                 'week_starts_on_monday' => false,
                 'auto_assign_work_orders' => false,
                 'brand_color' => '#3B82F6', // Blue-500
+                'workday_hours' => 6,
+                'start_time' => '08:00:00',
+                'allow_overlap' => false,
             ]);
         }
 
