@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
+use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Enums\Estimate\EstimateStatus;
+use App\Enums\Invoice\Status as InvoiceStatus;
+use App\Enums\Payments\Terms;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,46 +26,46 @@ class CustomerPortalController extends Controller
 
     public function index(Request $request): Response
     {
-        $customer = Auth::guard('customer')->user();
+        ['contact' => $contact, 'customerId' => $customerId, 'customerProfile' => $customerProfile] = $this->portalContext();
 
-        $estimates = Estimate::where('customer_id', $customer->id)
-            ->where('status', '!=', EstimateStatus::Draft->id())
+        $estimates = $this->estimatesForCustomer($customerId)
             ->latest()
             ->take(5)
             ->get();
 
-        $invoices = Invoice::where('contact_id', $customer->contact_id)
+        $invoices = Invoice::where('contact_id', $contact->id)
+            ->whereIn('status', InvoiceStatus::customerPortalValues())
             ->latest()
             ->take(5)
             ->get();
 
-        $serviceTickets = ServiceTicket::where('customer_id', $customer->id)
+        $serviceTickets = $this->serviceTicketsForCustomer($customerId)
             ->latest()
             ->take(5)
             ->get();
 
         return Inertia::render('Portal/Overview', [
-            'customer' => $customer->only('id', 'display_name', 'first_name', 'last_name', 'email'),
+            'customer' => $contact->only('id', 'display_name', 'first_name', 'last_name', 'email'),
             'recentEstimates' => $estimates,
             'recentInvoices' => $invoices,
             'recentServiceTickets' => $serviceTickets,
             'estimateStatuses' => EstimateStatus::options(),
             'counts' => [
-                'estimates' => Estimate::where('customer_id', $customer->id)
-                    ->where('status', '!=', EstimateStatus::Draft->id())->count(),
-                'invoices' => Invoice::where('contact_id', $customer->contact_id)->count(),
-                'serviceTickets' => ServiceTicket::where('customer_id', $customer->id)->count(),
-                'documents' => $customer->documents()->count(),
+                'estimates' => $this->estimatesForCustomer($customerId)->count(),
+                'invoices' => Invoice::where('contact_id', $contact->id)
+                    ->whereIn('status', InvoiceStatus::customerPortalValues())
+                    ->count(),
+                'serviceTickets' => $this->serviceTicketsForCustomer($customerId)->count(),
+                'documents' => $customerProfile ? $customerProfile->documents()->count() : 0,
             ],
         ]);
     }
 
     public function estimates(Request $request): Response
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerId' => $customerId] = $this->portalContext();
 
-        $estimates = Estimate::where('customer_id', $customer->id)
-            ->where('status', '!=', EstimateStatus::Draft->id())
+        $estimates = $this->estimatesForCustomer($customerId)
             ->with(['primaryVersion:id,estimate_id,subtotal,tax,total'])
             ->latest()
             ->paginate(15);
@@ -72,10 +78,14 @@ class CustomerPortalController extends Controller
 
     public function estimateShow(Request $request, int $id): Response
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerId' => $customerId] = $this->portalContext();
 
         $estimate = Estimate::where('id', $id)
-            ->where('customer_id', $customer->id)
+            ->when(
+                $customerId !== null,
+                fn ($q) => $q->where('customer_id', $customerId),
+                fn ($q) => $q->whereRaw('0 = 1'),
+            )
             ->with([
                 'primaryVersion.lineItems' => fn ($q) => $q->with([
                     'addons',
@@ -119,10 +129,14 @@ class CustomerPortalController extends Controller
 
     public function approveEstimate(Request $request, int $id)
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerId' => $customerId] = $this->portalContext();
 
         $estimate = Estimate::where('id', $id)
-            ->where('customer_id', $customer->id)
+            ->when(
+                $customerId !== null,
+                fn ($q) => $q->where('customer_id', $customerId),
+                fn ($q) => $q->whereRaw('0 = 1'),
+            )
             ->where('status', '!=', EstimateStatus::Approved->id())
             ->firstOrFail();
 
@@ -152,10 +166,14 @@ class CustomerPortalController extends Controller
 
     public function declineEstimate(Request $request, int $id)
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerId' => $customerId] = $this->portalContext();
 
         $estimate = Estimate::where('id', $id)
-            ->where('customer_id', $customer->id)
+            ->when(
+                $customerId !== null,
+                fn ($q) => $q->where('customer_id', $customerId),
+                fn ($q) => $q->whereRaw('0 = 1'),
+            )
             ->where('status', '!=', EstimateStatus::Declined->id())
             ->firstOrFail();
 
@@ -182,9 +200,10 @@ class CustomerPortalController extends Controller
 
     public function invoices(Request $request): Response
     {
-        $customer = Auth::guard('customer')->user();
+        $contact = $this->portalContext()['contact'];
 
-        $invoices = Invoice::where('contact_id', $customer->contact_id)
+        $invoices = Invoice::where('contact_id', $contact->id)
+            ->whereIn('status', InvoiceStatus::customerPortalValues())
             ->latest()
             ->paginate(15);
 
@@ -193,11 +212,51 @@ class CustomerPortalController extends Controller
         ]);
     }
 
+    public function invoiceShow(Request $request, Invoice $invoice): Response
+    {
+        $contact = $this->portalContext()['contact'];
+
+        abort_if((int) $invoice->contact_id !== (int) $contact->id, 403);
+
+        abort_unless(
+            in_array($invoice->status, InvoiceStatus::customerPortalValues(), true),
+            403,
+            'This invoice is not available in the portal.',
+        );
+
+        $invoice->load(Invoice::documentEagerLoads());
+        $invoice->markAsViewed();
+        $invoice = $invoice->fresh(Invoice::documentEagerLoads()) ?? $invoice;
+
+        $account = AccountSettings::getCurrent();
+        $canPayOnline = InvoicePayOnline::canPayOnline($invoice);
+
+        return Inertia::render('Portal/InvoiceShow', [
+            'record' => $invoice,
+            'account' => $account,
+            'logoUrl' => $account->logo_url ?? null,
+            'enumOptions' => [
+                Terms::class => Terms::options(),
+                InvoiceStatus::class => InvoiceStatus::options(),
+            ],
+            'canPayOnline' => $canPayOnline,
+            'paymentConstraints' => [
+                'allow_partial_payment' => (bool) $invoice->allow_partial_payment,
+                'minimum_partial_amount' => $invoice->minimum_partial_amount !== null
+                    ? (float) $invoice->minimum_partial_amount
+                    : null,
+                'amount_due' => (float) $invoice->amount_due,
+                'amount_paid' => (float) $invoice->amount_paid,
+                'surcharge_percent' => (float) ($invoice->surcharge_percent ?? 0),
+            ],
+        ]);
+    }
+
     public function serviceTickets(Request $request): Response
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerId' => $customerId] = $this->portalContext();
 
-        $serviceTickets = ServiceTicket::where('customer_id', $customer->id)
+        $serviceTickets = $this->serviceTicketsForCustomer($customerId)
             ->latest()
             ->paginate(15);
 
@@ -208,20 +267,57 @@ class CustomerPortalController extends Controller
 
     public function documents(Request $request): Response
     {
-        $customer = Auth::guard('customer')->user();
+        ['customerProfile' => $customerProfile] = $this->portalContext();
 
-        $documents = $customer->documents()
-            ->latest()
-            ->paginate(15);
+        $documents = $customerProfile
+            ? $customerProfile->documents()->latest()->paginate(15)
+            : new LengthAwarePaginator([], 0, 15, 1, [
+                'path' => $request->url(),
+                'pageName' => 'page',
+            ]);
 
         return Inertia::render('Portal/Documents', [
             'documents' => $documents,
         ]);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * @return array{contact: Contact, customerProfile: ?Customer, customerId: ?int}
+     */
+    private function portalContext(): array
+    {
+        /** @var Contact $contact */
+        $contact = Auth::guard('customer')->user();
+        $contact->loadMissing('customer');
+        $customerProfile = $contact->customer;
+
+        return [
+            'contact' => $contact,
+            'customerProfile' => $customerProfile,
+            'customerId' => $customerProfile?->id,
+        ];
+    }
+
+    private function estimatesForCustomer(?int $customerId): \Illuminate\Database\Eloquent\Builder
+    {
+        return Estimate::query()
+            ->when(
+                $customerId !== null,
+                fn ($q) => $q->where('customer_id', $customerId),
+                fn ($q) => $q->whereRaw('0 = 1'),
+            )
+            ->where('status', '!=', EstimateStatus::Draft->id());
+    }
+
+    private function serviceTicketsForCustomer(?int $customerId): \Illuminate\Database\Eloquent\Builder
+    {
+        return ServiceTicket::query()
+            ->when(
+                $customerId !== null,
+                fn ($q) => $q->where('customer_id', $customerId),
+                fn ($q) => $q->whereRaw('0 = 1'),
+            );
+    }
 
     private function buildLineItems(Estimate $estimate): array
     {

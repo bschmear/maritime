@@ -4,8 +4,10 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+
+const page = usePage();
 
 const props = defineProps({
     record:         { type: Object, required: true },
@@ -24,6 +26,7 @@ const props = defineProps({
 const showDeleteModal = ref(false);
 const isDeleting      = ref(false);
 const postingAddress  = ref(false);
+const sendingPortal   = ref(false);
 
 const contactLabel = computed(() => {
     const r = props.record;
@@ -47,6 +50,11 @@ const breadcrumbItems = computed(() => [
 const hasLead     = computed(() => (props.record.leads?.length ?? 0) > 0);
 const hasCustomer = computed(() => !!props.record.customer?.id);
 const hasVendors  = computed(() => (props.record.vendors?.length ?? 0) > 0);
+
+/** New customer form with this contact (and address) pre-filled — see CustomerController::create. */
+const createCustomerWithContactHref = computed(
+    () => `${route('customers.create')}?contact_id=${props.record.id}`,
+);
 
 const primaryAddress = computed(() => {
     const list = props.record.addresses ?? [];
@@ -144,6 +152,19 @@ const customerRows = computed(() => {
 });
 
 
+const sendPortalLink = () => {
+    if (! props.record.email || sendingPortal.value) {
+        return;
+    }
+    sendingPortal.value = true;
+    router.post(route('contacts.send-portal-link', props.record.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            sendingPortal.value = false;
+        },
+    });
+};
+
 const confirmDelete = () => {
     isDeleting.value = true;
     router.delete(route(`${props.recordType}.destroy`, props.record.id), {
@@ -174,6 +195,17 @@ const confirmDelete = () => {
                             <span class="material-icons text-[16px]">delete</span>
                             Delete
                         </button>
+                     <!--    <button
+                            v-if="record.email"
+                            type="button"
+                            :disabled="sendingPortal"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            title="Email portal sign-in and registration links to this contact"
+                            @click="sendPortalLink"
+                        >
+                            <span class="material-icons text-[16px]">outgoing_mail</span>
+                            {{ sendingPortal ? 'Sending…' : 'Portal email' }}
+                        </button> -->
                         <Link :href="editHref" class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                             <span class="material-icons text-[16px]">edit</span>
                             Edit
@@ -184,6 +216,12 @@ const confirmDelete = () => {
         </template>
 
         <div class="mx-auto flex w-full flex-col space-y-6 ">
+            <div v-if="page.props.flash?.success" class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
+                {{ page.props.flash.success }}
+            </div>
+            <div v-if="page.props.flash?.error" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+                {{ page.props.flash.error }}
+            </div>
 
             <!-- Hero -->
             <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 dark:from-primary-700 dark:via-primary-800 dark:to-primary-950 shadow-lg">
@@ -201,11 +239,11 @@ const confirmDelete = () => {
                         <div class="space-y-2.5">
                             <h1 class="text-2xl sm:text-3xl font-bold text-white leading-tight">{{ contactLabel }}</h1>
                             <div class="flex flex-wrap gap-1.5">
-                                <span v-if="record.type" class="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white capitalize">{{ record.type }}</span>
-                                <span v-if="hasLead"     class="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2.5 py-0.5 text-xs font-semibold text-amber-100"><span class="material-icons text-[11px]">trending_up</span> Lead</span>
-                                <span v-if="hasCustomer" class="inline-flex items-center gap-1 rounded-full bg-green-400/30 px-2.5 py-0.5 text-xs font-semibold text-green-100"><span class="material-icons text-[11px]">shopping_bag</span> Customer</span>
-                                <span v-if="hasVendors" class="inline-flex items-center gap-1 rounded-full bg-blue-400/30 px-2.5 py-0.5 text-xs font-semibold text-blue-100"><span class="material-icons text-[11px]">storefront</span> Vendor</span>
-                                <span v-if="record.inactive" class="inline-flex items-center gap-1 rounded-full bg-red-400/30 px-2.5 py-0.5 text-xs font-semibold text-red-100"><span class="material-icons text-[11px]">pause_circle</span> Inactive</span>
+                                <span v-if="record.type" class="inline-flex items-center rounded-full bg-white/15 px-2.5 py-0.5 text-md font-medium text-white capitalize">{{ record.type }}</span>
+                                <span v-if="hasLead"     class="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2.5 py-0.5 text-md font-semibold text-amber-100"><span class="material-icons text-[11px]">trending_up</span> Lead</span>
+                                <span v-if="hasCustomer" class="inline-flex items-center gap-1 rounded-full bg-green-400/30 px-2.5 py-0.5 text-md font-semibold text-green-100"><span class="material-icons text-[11px]">shopping_bag</span> Customer</span>
+                                <span v-if="hasVendors" class="inline-flex items-center gap-1 rounded-full bg-blue-400/30 px-2.5 py-0.5 text-md font-semibold text-blue-100"><span class="material-icons text-[11px]">storefront</span> Vendor</span>
+                                <span v-if="record.inactive" class="inline-flex items-center gap-1 rounded-full bg-red-400/30 px-2.5 py-0.5 text-md font-semibold text-red-100"><span class="material-icons text-[11px]">pause_circle</span> Inactive</span>
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-2">
@@ -231,7 +269,7 @@ const confirmDelete = () => {
                     <!-- Contact information -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contact information</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contact information</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
                             <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
@@ -309,7 +347,7 @@ const confirmDelete = () => {
                     <!-- Company -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
                             <div class="px-5 py-3.5 flex items-center gap-3">
@@ -339,7 +377,7 @@ const confirmDelete = () => {
                     <!-- Primary address (all addresses in Addresses sublist below) -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Primary address</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Primary address</span>
                             <ContactAddressAutocomplete
                                 :disabled="postingAddress"
                                 @saved="onContactAddressSaved"
@@ -349,7 +387,7 @@ const confirmDelete = () => {
                             <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_on</span>
                             <div v-if="primaryAddress" class="min-w-0 flex-1 text-sm text-gray-900 dark:text-white leading-relaxed">
                                 <div v-if="primaryAddress.label" class="flex flex-wrap items-center gap-2 mb-1.5">
-                                    <span class="text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-0.5">{{ primaryAddress.label }}</span>
+                                    <span class="text-md font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-full px-2 py-0.5">{{ primaryAddress.label }}</span>
                                 </div>
                                 <p v-if="primaryAddress.address_line_1">{{ primaryAddress.address_line_1 }}</p>
                                 <p v-if="primaryAddress.address_line_2">{{ primaryAddress.address_line_2 }}</p>
@@ -365,7 +403,7 @@ const confirmDelete = () => {
                     <!-- Notes -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</span>
                         </div>
                         <div class="px-5 py-4 flex items-start gap-3">
                             <span class="material-icons text-[18px] text-gray-400 mt-0.5 shrink-0">notes</span>
@@ -377,8 +415,8 @@ const confirmDelete = () => {
                     <!-- Customer profile -->
                     <div v-if="hasCustomer" class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Customer profile</span>
-                            <Link v-if="record.customer?.id" :href="route('customers.show', record.customer.id)" class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">Open customer →</Link>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Customer profile</span>
+                            <Link v-if="record.customer?.id" :href="route('customers.show', record.customer.id)" class="text-md font-medium text-primary-600 dark:text-primary-400 hover:underline">Open customer →</Link>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2">
                             <div v-for="row in customerRows" :key="row.label" class="px-5 py-3.5 border-b border-gray-50 dark:border-gray-700/60 last:border-b-0 odd:sm:border-r odd:sm:border-gray-50 odd:dark:sm:border-gray-700/60">
@@ -397,65 +435,116 @@ const confirmDelete = () => {
                         <!-- Record info -->
                         <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden ">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Record info</span>
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Record info</span>
                             </div>
                             <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
 
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">flag</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Contact status</span>
-                                    <span class="text-xs font-medium" :class="recordStatusDisplay !== '—' ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ recordStatusDisplay }}</span>
+                                    <span class="text-md font-medium" :class="recordStatusDisplay !== '—' ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ recordStatusDisplay }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">flag</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Stage</span>
-                                    <span class="text-xs font-medium" :class="recordStageDisplay !== '—' ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ recordStageDisplay }}</span>
+                                    <span class="text-md font-medium" :class="recordStageDisplay !== '—' ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ recordStageDisplay }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">travel_explore</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Source</span>
-                                    <span class="text-xs font-medium" :class="record.source ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ record.source || '—' }}</span>
+                                    <span class="text-md font-medium" :class="record.source ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ record.source || '—' }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">person_pin</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Assigned to</span>
-                                    <span class="text-xs font-medium" :class="assignedUserName ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ assignedUserName || '—' }}</span>
+                                    <span class="text-md font-medium" :class="assignedUserName ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ assignedUserName || '—' }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">calendar_today</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Created</span>
-                                    <span class="text-xs text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
+                                    <span class="text-md text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">update</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Updated</span>
-                                    <span class="text-xs text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
+                                    <span class="text-md text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
                                 </li>
                             </ul>
+                        </div>
+
+                        <!-- Customer portal -->
+                        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Customer portal</span>
+                            </div>
+                            <div class="px-5 py-4 space-y-3">
+                                <p class="text-md text-gray-600 dark:text-gray-300 leading-relaxed">
+                                    Email this contact a link to your customer portal with short instructions: how to <strong>create an account</strong> (first visit) or <strong>sign in</strong>, using their primary email.
+                                </p>
+                                <ul class="text-md text-gray-500 dark:text-gray-400 space-y-3 list-disc pl-4">
+                                    <li>The message goes to the <strong>primary email</strong> on this contact.</li>
+                                    <li v-if="hasCustomer">
+                                        <strong>Create account</strong> in the portal email works for this contact because they are already linked as a <strong>customer</strong> with that email.
+                                    </li>
+                                    <li v-else class="marker:text-gray-400">
+                                        <span class="block -ml-1 pl-1">
+                                            <strong>Create account</strong> succeeds only when this contact is already linked as a <strong>customer</strong> with that email. If they are not a customer yet, set that up first or they will need to contact you.
+                                        </span>
+                                        <Link
+                                            :href="createCustomerWithContactHref"
+                                            class="mt-2 ml-1 inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 dark:border-primary-800/60 dark:bg-primary-900/30 dark:text-primary-200 dark:hover:bg-primary-900/50 no-underline"
+                                        >
+                                            <span class="material-icons text-[18px]">person_add</span>
+                                            Create customer profile
+                                        </Link>
+                                        <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
+                                            Opens the new customer form with this contact and primary address pre-filled.
+                                        </span>
+                                    </li>
+                                </ul>
+                                <button
+                                    type="button"
+                                    :disabled="!record.email || sendingPortal"
+                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    @click="sendPortalLink"
+                                >
+                                    <span class="material-icons text-[18px]">mail</span>
+                                    {{ sendingPortal ? 'Sending…' : 'Send portal email' }}
+                                </button>
+                                <p v-if="!record.email" class="text-md text-amber-700 dark:text-amber-400/90">
+                                    Add a primary email on this contact to send the portal message.
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Roles -->
                         <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Roles</span>
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Roles</span>
                             </div>
                             <ul class="divide-y divide-gray-50 dark:divide-gray-700/60">
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px]" :class="hasLead ? 'text-amber-500' : 'text-gray-300 dark:text-gray-600'">trending_up</span>
                                     <span class="text-sm flex-1" :class="hasLead ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Lead</span>
-                                    <Link v-if="record.leads?.[0]?.id" :href="route('leads.show', record.leads[0].id)" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View</Link>
-                                    <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                    <Link v-if="record.leads?.[0]?.id" :href="route('leads.show', record.leads[0].id)" class="text-md text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                                    <span v-else class="text-md text-gray-300 dark:text-gray-600">—</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px]" :class="hasCustomer ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'">shopping_bag</span>
                                     <span class="text-sm flex-1" :class="hasCustomer ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Customer</span>
-                                    <Link v-if="record.customer?.id" :href="route('customers.show', record.customer.id)" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">View</Link>
-                                    <span v-else class="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                    <Link v-if="record.customer?.id" :href="route('customers.show', record.customer.id)" class="text-md text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                                    <Link
+                                        v-else
+                                        :href="createCustomerWithContactHref"
+                                        class="text-md font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                    >
+                                        Create
+                                    </Link>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px]" :class="hasVendors ? 'text-blue-500' : 'text-gray-300 dark:text-gray-600'">storefront</span>
                                     <span class="text-sm flex-1" :class="hasVendors ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Vendor</span>
-                                    <span class="text-xs text-gray-300 dark:text-gray-600">{{ hasVendors ? record.vendors.length : '—' }}</span>
+                                    <span class="text-md text-gray-300 dark:text-gray-600">{{ hasVendors ? record.vendors.length : '—' }}</span>
                                 </li>
                             </ul>
                         </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AccountSettings;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -90,8 +91,26 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $customer = $request->user('customer');
+        $contact = $request->user('customer');
 
-        return $customer ? $customer->only('id', 'display_name', 'first_name', 'last_name', 'email') : null;
+        if (! $contact) {
+            return null;
+        }
+
+        $contact->loadMissing(['customer.subsidiary']);
+
+        $account = AccountSettings::getCurrent();
+        $subsidiary = $contact->customer?->subsidiary;
+
+        return array_merge(
+            $contact->only('id', 'display_name', 'first_name', 'last_name', 'email'),
+            [
+                'portal_brand' => [
+                    'account_logo_url' => $account->logo_url,
+                    'subsidiary_display_name' => $subsidiary?->display_name,
+                    'subsidiary_logo_url' => $subsidiary?->logo_url,
+                ],
+            ],
+        );
     }
 }

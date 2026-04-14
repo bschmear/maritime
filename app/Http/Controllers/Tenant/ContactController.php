@@ -15,6 +15,7 @@ use App\Domain\Document\Models\Document;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Mail\ContactPortalLink;
 use App\Models\AccountSettings;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -22,6 +23,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -620,6 +622,29 @@ class ContactController extends Controller
         });
 
         return back()->with('success', 'Address added.');
+    }
+
+    public function sendPortalLink(int $contact): RedirectResponse
+    {
+        $record = Contact::query()->findOrFail($contact);
+
+        $email = trim((string) ($record->email ?? ''));
+        if ($email === '') {
+            return back()->with('error', 'This contact does not have a primary email address.');
+        }
+
+        $hasCustomerProfile = $record->customer()->exists();
+
+        $tenant = tenant();
+        $domain = $tenant?->domains->first()?->domain;
+        $root = $domain ? 'https://'.$domain : rtrim((string) config('app.url'), '/');
+        $loginUrl = $root.'/portal/login';
+        $registerUrl = $root.'/portal/register';
+
+        $settings = AccountSettings::getCurrent();
+        Mail::to($email)->send(new ContactPortalLink($record, $settings, $loginUrl, $registerUrl, $hasCustomerProfile));
+
+        return back()->with('success', 'Portal links sent to '.$email.'.');
     }
 
     public function destroy(int $contact)

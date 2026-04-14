@@ -1,6 +1,12 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
+defineProps({
+    status: { type: String, default: null },
+    logoUrl: { type: String, default: null },
+    companyName: { type: String, default: 'Customer Portal' },
+});
+
 const form = useForm({
     email: '',
     password: '',
@@ -27,8 +33,21 @@ const submit = () => {
         <div class="relative max-w-md w-full">
             <!-- Header -->
             <div class="text-center mb-8">
-                <div class="mx-auto w-14 h-14 bg-primary-600 rounded-xl flex items-center justify-center mb-4">
-                    <span class="material-icons text-white text-2xl">person_add</span>
+                <div class="mx-auto mb-4 flex h-16 max-w-[220px] items-center justify-center">
+                    <img
+                        v-if="logoUrl"
+                        :src="logoUrl"
+                        :alt="companyName"
+                        class="max-h-16 w-auto max-w-full object-contain rounded-xl bg-white p-2 shadow-sm ring-1 ring-gray-100"
+                    />
+                    <div
+                        v-else
+                        class="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-secondary-400 to-secondary-700 shadow-md"
+                    >
+                        <span class="text-xl font-semibold leading-none text-white">
+                            {{ companyName?.charAt(0) ?? 'C' }}
+                        </span>
+                    </div>
                 </div>
                 <h1 class="text-2xl font-bold text-gray-900 mb-1">Create Portal Account</h1>
                 <p class="text-gray-500 text-sm">Use the email address your provider has on file for you</p>

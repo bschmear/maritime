@@ -7,19 +7,19 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\PortalAccess\Models\PortalAccess;
 use App\Domain\Score\Models\Score;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
-class Customer extends Authenticatable
+class Customer extends Model
 {
-    use HasDocuments, Notifiable;
+    use HasDocuments;
 
     protected $table = 'customer_profiles';
 
@@ -62,17 +62,11 @@ class Customer extends Authenticatable
         'updated_at',
     ];
 
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
     protected $casts = [
         'status_id' => 'integer',
         'source_id' => 'integer',
         'priority_id' => 'integer',
         'purchase_timeline' => 'string',
-        'email_verified_at' => 'datetime',
         'last_contacted_at' => 'date',
         'next_followup_at' => 'date',
         'has_trade_in' => 'boolean',
@@ -96,11 +90,29 @@ class Customer extends Authenticatable
         'contract_end' => 'date',
         'first_purchase_at' => 'date',
         'last_purchase_at' => 'date',
+        'subsidiary_id' => 'integer',
     ];
+
+    /**
+     * Default subsidiary for programmatic customer_profile creation (estimates, migrations, etc.).
+     */
+    public static function defaultSubsidiaryId(): ?int
+    {
+        return Subsidiary::query()
+            ->where('inactive', false)
+            ->orderBy('id')
+            ->value('id')
+            ?? Subsidiary::query()->orderBy('id')->value('id');
+    }
 
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    public function subsidiary(): BelongsTo
+    {
+        return $this->belongsTo(Subsidiary::class);
     }
 
     /**
@@ -150,11 +162,6 @@ class Customer extends Authenticatable
         return $this->hasMany(ContactAddress::class, 'contact_id', 'contact_id');
     }
 
-    public function hasPortalAccount(): bool
-    {
-        return ! is_null($this->password);
-    }
-
     public function tasks()
     {
         return $this->morphMany(Task::class, 'relatable');
@@ -188,6 +195,11 @@ class Customer extends Authenticatable
     public function estimates()
     {
         return $this->hasMany(\App\Domain\Estimate\Models\Estimate::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(\App\Domain\Invoice\Models\Invoice::class);
     }
 
     public function assigned_user()
@@ -401,6 +413,8 @@ class Customer extends Authenticatable
             'preferred_contact_time',
             'notes',
             'inactive',
+            // Set by CreateCustomer / UpdateCustomer from inactive; lives on contacts, not customer_profiles
+            'status',
         ];
     }
 

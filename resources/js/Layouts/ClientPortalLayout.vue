@@ -1,12 +1,35 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     title: { type: String, required: false },
     companyName: { type: String, default: 'Acme Corp' },
     companyLogo: { type: String, default: null },
 });
+
+const page = usePage();
+
+const customer = computed(() => page.props.auth?.customer ?? null);
+
+/** From server when logged into portal; subsidiary logo first, then account. */
+const portalBrand = computed(() => customer.value?.portal_brand ?? null);
+
+const sidebarLogoUrl = computed(
+    () =>
+        portalBrand.value?.subsidiary_logo_url ||
+        portalBrand.value?.account_logo_url ||
+        props.companyLogo ||
+        null,
+);
+
+/** Only show a title under the logo when the customer has a subsidiary name. */
+const sidebarTitleName = computed(() => {
+    const n = portalBrand.value?.subsidiary_display_name;
+    return typeof n === 'string' && n.trim() !== '' ? n.trim() : null;
+});
+
+const sidebarLogoAlt = computed(() => sidebarTitleName.value || 'Customer portal');
 
 const mobileMenuOpen = ref(false);
 
@@ -25,8 +48,6 @@ const isActive = (href) => {
         return false;
     }
 };
-
-const customer = usePage().props.auth?.customer;
 </script>
 
 <template>
@@ -40,9 +61,9 @@ const customer = usePage().props.auth?.customer;
             <div class="flex items-center gap-3 px-5 pt-6 pb-5">
                 <div class="flex-shrink-0">
                     <img
-                        v-if="companyLogo"
-                        :src="companyLogo"
-                        :alt="companyName"
+                        v-if="sidebarLogoUrl"
+                        :src="sidebarLogoUrl"
+                        :alt="sidebarLogoAlt"
                         class="w-[38px] h-[38px] rounded-lg object-contain bg-white p-0.5"
                     />
                     <div
@@ -50,15 +71,21 @@ const customer = usePage().props.auth?.customer;
                         class="w-[38px] h-[38px] rounded-lg bg-gradient-to-br from-secondary-400 to-secondary-700 flex items-center justify-center"
                     >
                         <span class="text-white text-lg font-semibold leading-none">
-                            {{ companyName?.charAt(0) ?? 'C' }}
+                            {{ sidebarTitleName?.charAt(0) ?? 'C' }}
                         </span>
                     </div>
                 </div>
-                <div class="flex flex-col gap-px overflow-hidden">
-                    <span class="font-semibold text-sm text-white truncate tracking-tight">
-                        {{ companyName }}
+                <div class="flex flex-col gap-px overflow-hidden min-w-0">
+                    <span
+                        v-if="sidebarTitleName"
+                        class="font-semibold text-sm text-white truncate tracking-tight"
+                    >
+                        {{ sidebarTitleName }}
                     </span>
-                    <span class="text-[10px] font-normal text-white/40 uppercase tracking-widest">
+                    <span
+                        class="text-[10px] font-normal text-white/40 uppercase tracking-widest"
+                        :class="{ 'mt-0.5': sidebarTitleName }"
+                    >
                         Customer Portal
                     </span>
                 </div>

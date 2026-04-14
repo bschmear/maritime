@@ -30,6 +30,7 @@ class CreateCustomer
             if ($existingContactId !== null) {
                 Validator::make($data, [
                     'contact_id' => ['required', 'integer', 'exists:contacts,id'],
+                    'subsidiary_id' => ['required', 'integer', 'exists:subsidiaries,id'],
                 ])->validate();
                 $fieldsToSave = $data;
             } else {
@@ -39,6 +40,7 @@ class CreateCustomer
                     'email' => ['nullable', 'email', 'max:255'],
                     'phone' => ['nullable', 'string', 'max:50'],
                     'notes' => ['nullable', 'string'],
+                    'subsidiary_id' => ['required', 'integer', 'exists:subsidiaries,id'],
                 ])->validate();
 
                 $fieldsToSave = array_merge($data, $validated);

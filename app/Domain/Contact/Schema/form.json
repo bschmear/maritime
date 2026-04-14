@@ -130,6 +130,11 @@
       "modelRelationship": "vendors",
       "relationshipType": "ManyToMany"
     },
+      {
+      "label": "Opportunities",
+      "domain": "Opportunity",
+      "modelRelationship": "opportunities"
+    },
     {
       "label": "Activity",
       "domain": "Communication",

@@ -104,6 +104,16 @@ function buildFormGroups(formSchema) {
     return out;
 }
 
+/** When creating a customer for an existing contact, skip contact/company (shown in summary) but keep all profile rows. */
+const LINKED_CONTACT_CUSTOMER_FORM_GROUP_KEYS = [
+    'customer_profile',
+    'budget',
+    'account_info',
+    'billing_tax',
+    'contract_dates',
+    'loyalty',
+];
+
 const initialFormGroups = buildFormGroups(props.formSchema);
 const isLinkedContactCreateStatic =
     props.mode === 'create' &&
@@ -112,7 +122,7 @@ const isLinkedContactCreateStatic =
 
 const keysForInitialForm = (() => {
     const groups = isLinkedContactCreateStatic
-        ? initialFormGroups.filter((g) => g.key === 'customer_profile')
+        ? initialFormGroups.filter((g) => LINKED_CONTACT_CUSTOMER_FORM_GROUP_KEYS.includes(g.key))
         : initialFormGroups;
     const set = new Set();
     for (const g of groups) {
@@ -137,7 +147,7 @@ const isLinkedContactCreate = computed(
 
 const displayFormGroups = computed(() => {
     if (isLinkedContactCreate.value) {
-        return formGroups.value.filter((g) => g.key === 'customer_profile');
+        return formGroups.value.filter((g) => LINKED_CONTACT_CUSTOMER_FORM_GROUP_KEYS.includes(g.key));
     }
     return formGroups.value;
 });
@@ -185,6 +195,16 @@ const enumOptionsFor = (key) => {
 };
 
 const pseudoRecord = computed(() => props.record ?? (Object.keys(props.initialData || {}).length ? props.initialData : null));
+
+const selectUsesStoredEnumId = (key) =>
+    key === 'status_id' || key === 'payment_terms';
+
+const selectOptionValue = (key, opt) => {
+    if (selectUsesStoredEnumId(key)) {
+        return opt.id;
+    }
+    return opt.value !== undefined && opt.value !== null ? opt.value : opt.id;
+};
 
 function defaultValueForField(key) {
     const def = fieldDef(key);
@@ -246,7 +266,7 @@ function initialValuesFromProps() {
                             String(o.value) === String(v),
                     );
                     if (hit) {
-                        values[key] = ['stage_id', 'status_id', 'source_id', 'priority_id'].includes(key)
+                        values[key] = selectUsesStoredEnumId(key)
                             ? hit.id
                             : hit.value !== undefined && hit.value !== null
                               ? hit.value
@@ -301,20 +321,13 @@ const headerSubtitle = computed(() => {
         return 'Customer profile and related records';
     }
     if (props.mode === 'edit') {
-        return 'Update customer and contact details';
+        return 'Update customer and contact details — addresses are edited on the contact record.';
     }
     if (isLinkedContactCreate.value) {
-        return 'Add a customer profile for this contact — CRM fields below.';
+        return 'Add a customer profile for this contact — profile, billing, and contract fields below. Mailing address stays on the contact record.';
     }
-    return 'Create a customer profile and linked contact';
+    return 'Create a customer profile and linked contact. Add addresses on the contact after saving.';
 });
-
-const selectOptionValue = (key, opt) => {
-    if (['stage_id', 'status_id', 'source_id', 'priority_id'].includes(key)) {
-        return opt.id;
-    }
-    return opt.value !== undefined && opt.value !== null ? opt.value : opt.id;
-};
 
 const isFullWidthField = (key) => fieldDef(key).type === 'textarea';
 
@@ -335,19 +348,13 @@ const submit = () => {
     for (const k of [
         'assigned_user_id',
         'status_id',
-        'source_id',
-        'priority_id',
-        'lead_score',
-        'budget_min',
-        'budget_max',
-        'trade_in_value',
         'preferred_contact_method',
         'preferred_contact_time',
         'credit_limit',
         'payment_terms',
         'loyalty_points',
-        'last_contacted_at',
-        'next_followup_at',
+        'budget_min',
+        'budget_max',
         'contract_start',
         'contract_end',
         'first_purchase_at',

@@ -81,4 +81,20 @@ enum Status: string
             'bgClass' => $case->bgClass(),
         ], self::cases());
     }
+
+    /**
+     * Invoice statuses shown in the customer portal (draft is internal only).
+     *
+     * @return list<string>
+     */
+    public static function customerPortalValues(): array
+    {
+        return [
+            self::Sent->value,
+            self::Viewed->value,
+            self::Partial->value,
+            self::Paid->value,
+            self::Void->value,
+        ];
+    }
 }

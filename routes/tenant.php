@@ -176,6 +176,9 @@ Route::middleware([
         Route::prefix('contacts')->name('contacts.')->group(function () {
             Route::get('{contact}/addresses', [ContactController::class, 'indexAddresses'])->name('addresses.index');
             Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
+            Route::post('{contact}/send-portal-link', [ContactController::class, 'sendPortalLink'])
+                ->middleware('throttle:15,1')
+                ->name('send-portal-link');
             Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
         });
 

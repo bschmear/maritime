@@ -1,6 +1,6 @@
 <script setup>
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
     invoices: Object,
@@ -29,7 +29,14 @@ defineProps({
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         <tr v-for="inv in invoices.data" :key="inv.id" class="hover:bg-gray-50 transition-colors">
-                            <td class="px-5 py-3 font-medium text-gray-900">{{ inv.invoice_number || `#${inv.id}` }}</td>
+                            <td class="px-5 py-3 font-medium text-gray-900">
+                                <Link
+                                    :href="route('portal.invoices.show', inv.id)"
+                                    class="text-primary-600 hover:text-primary-700 no-underline"
+                                >
+                                    {{ inv.display_name || `Invoice #${inv.id}` }}
+                                </Link>
+                            </td>
                             <td class="px-5 py-3">
                                 <span
                                     class="text-xs font-medium px-2 py-1 rounded-full"

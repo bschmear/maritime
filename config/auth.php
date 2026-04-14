@@ -70,8 +70,8 @@ return [
         ],
 
         'customers' => [
-            'driver' => 'eloquent_contact_email',
-            'model' => App\Domain\Customer\Models\Customer::class,
+            'driver' => 'eloquent',
+            'model' => App\Domain\Contact\Models\Contact::class,
         ],
     ],
 

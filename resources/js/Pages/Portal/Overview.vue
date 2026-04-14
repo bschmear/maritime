@@ -115,15 +115,15 @@ const statCards = [
                 </div>
                 <div v-if="recentInvoices?.length" class="divide-y divide-gray-50">
                     <div v-for="inv in recentInvoices" :key="inv.id" class="px-5 py-3 hover:bg-gray-50 transition-colors">
-                        <div class="flex items-center justify-between">
+                        <Link class="flex items-center justify-between" :href="route('portal.invoices.show', inv.id)">
                             <div>
-                                <p class="text-sm font-medium text-gray-900">{{ inv.invoice_number || `Invoice #${inv.id}` }}</p>
+                                <p class="text-sm font-medium text-gray-900">{{ inv.display_name || `Invoice #${inv.id}` }}</p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ inv.created_at }}</p>
                             </div>
                             <span class="text-sm font-semibold text-gray-900">
                                 {{ inv.total ? `$${Number(inv.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-' }}
                             </span>
-                        </div>
+                        </Link>
                     </div>
                 </div>
                 <div v-else class="px-5 py-8 text-center text-sm text-gray-400">No invoices yet</div>

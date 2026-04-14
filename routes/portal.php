@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Portal\CustomerAuthController;
+use App\Http\Controllers\Portal\CustomerPortalController;
+use App\Http\Controllers\Portal\CustomerRegistrationController;
+use App\Http\Controllers\Tenant\PortalController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-
-use App\Http\Controllers\Tenant\PortalController;
-use App\Http\Controllers\Portal\CustomerAuthController;
-use App\Http\Controllers\Portal\CustomerRegistrationController;
-use App\Http\Controllers\Portal\CustomerPortalController;
 
 Route::middleware([
     'web',
@@ -38,6 +37,7 @@ Route::middleware([
         Route::post('/estimates/{id}/approve', [CustomerPortalController::class, 'approveEstimate'])->name('estimate.approve');
         Route::post('/estimates/{id}/decline', [CustomerPortalController::class, 'declineEstimate'])->name('estimate.decline');
         Route::get('/invoices', [CustomerPortalController::class, 'invoices'])->name('invoices');
+        Route::get('/invoices/{invoice}', [CustomerPortalController::class, 'invoiceShow'])->name('invoices.show');
         Route::get('/service-tickets', [CustomerPortalController::class, 'serviceTickets'])->name('servicetickets');
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');

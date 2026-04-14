@@ -165,6 +165,17 @@ const submitDecline = () => {
                     </div>
                 </div>
 
+                <div
+                    class="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5 text-sm text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+                    role="status"
+                >
+                    <span class="material-icons text-lg shrink-0 text-amber-600 dark:text-amber-400">info</span>
+                    <p class="leading-snug">
+                        <span class="font-semibold">Tax notice.</span>
+                        This estimate does not include tax. Any applicable taxes will be calculated and shown on your final invoice or agreement.
+                    </p>
+                </div>
+
                 <!-- Customer Contact & Billing Address -->
                 <div v-if="estimate.customer_name || estimate.customer_email || estimate.customer_phone || estimate.billing_address_line1 || estimate.billing_city" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-100 text-sm">
                     <div v-if="estimate.customer_name || estimate.customer_email || estimate.customer_phone">

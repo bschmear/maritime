@@ -27,6 +27,7 @@ class UpdateCustomer
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
+            'subsidiary_id' => ['required', 'integer', 'exists:subsidiaries,id'],
         ])->validate();
 
         try {

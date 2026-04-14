@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Portal;
 
-use App\Domain\Customer\Models\Customer;
+use App\Domain\Contact\Models\Contact;
 use App\Http\Controllers\Controller;
+use App\Models\AccountSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +17,14 @@ class CustomerRegistrationController extends Controller
 {
     public function create(): Response
     {
+        $account = AccountSettings::getCurrent();
+        $settings = is_array($account->settings) ? $account->settings : [];
+        $companyName = $settings['business_name'] ?? 'Customer Portal';
+
         return Inertia::render('Portal/Register', [
             'status' => session('status'),
+            'logoUrl' => $account->logo_url ?? null,
+            'companyName' => $companyName,
         ]);
     }
 
@@ -28,27 +35,30 @@ class CustomerRegistrationController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $customer = Customer::query()
-            ->whereHas('contact', fn ($q) => $q->where('email', $request->email))
-            ->first();
+        $contact = Contact::findByEmailCaseInsensitive($request->input('email'));
 
-        if (! $customer) {
+        if (! $contact) {
             return back()->withErrors([
                 'email' => 'No customer account was found with that email address. Please contact us for access.',
             ]);
         }
 
-        if ($customer->hasPortalAccount()) {
+        if (! $contact->customer) {
+            return back()->withErrors([
+                'email' => 'No customer account was found with that email address. Please contact us for access.',
+            ]);
+        }
+
+        if ($contact->hasPortalAccount()) {
             return back()->withErrors([
                 'email' => 'An account already exists for this email. Please log in instead.',
             ]);
         }
 
-        $customer->update([
-            'password' => Hash::make($request->password),
-        ]);
+        $contact->password = Hash::make($request->password);
+        $contact->save();
 
-        Auth::guard('customer')->login($customer);
+        Auth::guard('customer')->login($contact);
 
         $request->session()->regenerate();
 

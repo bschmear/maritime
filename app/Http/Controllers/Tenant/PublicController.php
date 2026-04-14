@@ -7,6 +7,7 @@ use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Actions\FulfillPublicInvoiceCheckoutSession;
 use App\Domain\Invoice\Models\Invoice;
+use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Enums\Contract\ContractStatus;
@@ -539,7 +540,7 @@ class PublicController extends Controller
         $invoice = $invoice->fresh(Invoice::documentEagerLoads()) ?? $invoice;
 
         $account = AccountSettings::getCurrent();
-        $canPayOnline = $this->invoiceCanPayOnline($invoice);
+        $canPayOnline = InvoicePayOnline::canPayOnline($invoice);
 
         return Inertia::render('Tenant/Public/InvoiceView', [
             'record' => $invoice,
@@ -567,7 +568,7 @@ class PublicController extends Controller
         $invoice = Invoice::query()->where('uuid', $uuid)->firstOrFail();
         $invoice->refresh();
 
-        if (! $this->invoiceCanPayOnline($invoice)) {
+        if (! InvoicePayOnline::canPayOnline($invoice)) {
             return back()->with('error', 'This invoice cannot be paid online.');
         }
 
@@ -636,33 +637,6 @@ class PublicController extends Controller
         }
 
         return Inertia::location($checkoutUrl);
-    }
-
-    private function invoiceAcceptsCardOnline(Invoice $invoice): bool
-    {
-        $enabled = collect(PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount())
-            ->pluck('code')
-            ->all();
-        $onInvoice = $invoice->allowed_methods;
-        $allowed = $onInvoice === null
-            ? $enabled
-            : array_values(array_intersect($onInvoice, $enabled));
-
-        return in_array('credit_card', $allowed, true);
-    }
-
-    private function invoiceCanPayOnline(Invoice $invoice): bool
-    {
-        if (in_array($invoice->status, ['void', 'paid', 'draft'], true)) {
-            return false;
-        }
-        if ((float) $invoice->amount_due <= 0) {
-            return false;
-        }
-
-        $config = PaymentConfiguration::forStripe();
-
-        return $config->stripeReadyForCharges() && $this->invoiceAcceptsCardOnline($invoice);
     }
 
     private function buildLineItems(Estimate $estimate): array
