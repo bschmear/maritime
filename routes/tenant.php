@@ -40,6 +40,7 @@ use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
+use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SchedulingController;
 use App\Http\Controllers\Tenant\ScoreController;
@@ -507,6 +508,24 @@ Route::middleware([
             Route::get('/survey/response', [SurveyController::class, 'showResponse'])->name('surveyResponseShow');
             Route::post('/survey/response/convert', [SurveyController::class, 'convertSurveyResponse'])->name('surveyResponseConvert');
             Route::post('/survey/response/convert-to-lead', [SurveyController::class, 'convertResponseToLead'])->name('surveyResponseConvertToLead');
+        });
+
+        Route::prefix('reports')->name('reports.')->group(function () {
+
+            // Financial
+            Route::get('/pnl', [ReportsController::class, 'pnl'])->name('pnl');
+            Route::get('/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('balance-sheet');
+            Route::get('/cash-flow', [ReportsController::class, 'cashFlow'])->name('cash-flow');
+            Route::get('/sales-tax-liability', [ReportsController::class, 'salesTaxLiability'])->name('sales-tax-liability');
+            Route::get('/sales-tax-payable', [ReportsController::class, 'salesTaxPayable'])->name('sales-tax-payable');
+
+            // Sales
+            Route::get('/sales-by-customer', [ReportsController::class, 'salesByCustomer'])->name('sales-by-customer');
+            Route::get('/sales-by-customer/{contact}/invoices', [ReportsController::class, 'salesByCustomerInvoices'])
+                ->name('sales-by-customer.invoices');
+            Route::get('/sales-by-item-summary', [ReportsController::class, 'salesByItemSummary'])->name('sales-by-item-summary');
+            Route::get('/sales-by-item-detail', [ReportsController::class, 'salesByItemDetail'])->name('sales-by-item-detail');
+
         });
 
         Route::prefix('notifications')

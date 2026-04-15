@@ -116,7 +116,29 @@ const secondaryNavItems = ref([
             { name: 'Payments', href: 'payments.index' }
         ]
     },
-
+    {
+        name: 'Reports',
+        children: [
+            {
+                name: 'Financial',
+                children: [
+                    { name: 'Profit & Loss', href: 'reports.pnl' },
+                    { name: 'Balance Sheet', href: 'reports.balance-sheet' },
+                    { name: 'Cash Flow', href: 'reports.cash-flow' },
+                    { name: 'Sales Tax Liability', href: 'reports.sales-tax-liability' },
+                    { name: 'Sales Tax Payable', href: 'reports.sales-tax-payable' }
+                ]
+            },
+            {
+                name: 'Sales',
+                children: [
+                    { name: 'Sales by Customer', href: 'reports.sales-by-customer' },
+                    { name: 'Sales by Item (Summary)', href: 'reports.sales-by-item-summary' },
+                    { name: 'Sales by Item (Detail)', href: 'reports.sales-by-item-detail' }
+                ]
+            }
+        ]
+    },
     {
         name: 'Operations',
         children: [
