@@ -393,7 +393,7 @@ const linkedTransaction = computed(() => {
 
         <!-- Preview Modal -->
         <Teleport to="body">
-            <div v-if="showPreview" class="fixed inset-0 z-[100] overflow-y-auto">
+            <div v-if="showPreview" class="service-ticket-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
                 <ServiceTicketPreview
                     :record="record"
                     :account="account"

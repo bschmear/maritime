@@ -179,7 +179,7 @@ const handleSendEmail = () => {
         </div>
 
         <!-- Printable Document -->
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+        <div id="service-ticket-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
             <div class="bg-white shadow-lg print:shadow-none">
                 <!-- Company Header -->
                 <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2">

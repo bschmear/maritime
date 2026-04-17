@@ -172,72 +172,8 @@ const signaturePadOptions = {
     <Head :title="`Service Ticket ${record.service_ticket_number}`" />
 
     <div class="min-h-screen bg-gray-100">
-        <!-- ======================== APPROVED STATE ======================== -->
-        <div v-if="isApproved" class="min-h-screen flex flex-col">
-            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
-                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-                    <div class="bg-green-600 px-8 py-10 text-center">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
-                            <span class="material-icons text-white text-4xl">check_circle</span>
-                        </div>
-                        <h1 class="text-2xl font-bold text-white">Service Ticket Approved</h1>
-                        <p class="text-green-100 mt-2">
-                            Thank you for approving service ticket <strong>{{ record.service_ticket_number }}</strong>
-                        </p>
-                    </div>
-                        <div class="px-8 py-8 space-y-4">
-                        <!-- Signature display -->
-                        <div v-if="record.signature_url" class="flex justify-center">
-                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                <img :src="record.signature_url" alt="Your Signature" class="max-h-24 w-auto" />
-                            </div>
-                        </div>
-                        <div v-else-if="record.signature_method === 5 && record.customer_signature" class="flex justify-center">
-                            <div class="bg-gray-50 border border-gray-200 rounded-lg px-8 py-4">
-                                <p class="signature-cursive text-3xl text-gray-900">{{ record.customer_signature }}</p>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span class="text-gray-500">Approved on</span>
-                                <p class="font-medium text-gray-900">{{ formatDateTime(record.signed_at) }}</p>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Signed by</span>
-                                <p class="font-medium text-gray-900">{{ record.signed_name || '—' }}</p>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Total</span>
-                                <p class="font-medium text-gray-900">{{ formatCurrency(grandTotal) }}</p>
-                            </div>
-                            <div>
-                                <span class="text-gray-500">Ticket</span>
-                                <p class="font-medium text-gray-900">{{ record.service_ticket_number }}</p>
-                            </div>
-                        </div>
-                        <div class="pt-4 border-t border-gray-200">
-                            <p class="text-sm text-gray-600">
-                                A confirmation will be sent to your email on file. If you have any questions,
-                                please contact us<span v-if="record.location?.phone"> at {{ record.location.phone }}</span>.
-                            </p>
-                        </div>
-                        <div class="flex justify-center pt-2 print:hidden">
-                            <button
-                                @click="handlePrint"
-                                class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-sm">print</span>
-                                Print Copy
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- ======================== DECLINED STATE ======================== -->
-        <div v-else-if="isDeclined" class="min-h-screen flex flex-col">
+        <div v-if="isDeclined" class="min-h-screen flex flex-col">
             <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
                     <div class="bg-red-600 px-8 py-10 text-center">
@@ -259,9 +195,23 @@ const signaturePadOptions = {
             </div>
         </div>
 
-        <!-- ======================== REVIEW STATE ======================== -->
+        <!-- ==================== REVIEW / APPROVED STATE ==================== -->
         <div v-else>
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+            <div id="service-ticket-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+                <!-- Approved Banner (screen + print) -->
+                <div
+                    v-if="isApproved"
+                    class="mb-4 bg-green-600 text-white rounded-t-lg px-6 py-4 flex items-center gap-4 print:rounded-none print:bg-white print:text-green-700 print:border-2 print:border-green-600 print:mb-0"
+                >
+                    <span class="material-icons text-3xl">check_circle</span>
+                    <div class="flex-1">
+                        <h2 class="text-lg font-bold leading-tight">Service Ticket Approved</h2>
+                        <p class="text-sm text-green-50 print:text-green-700">
+                            Approved on {{ formatDateTime(record.signed_at) }}<span v-if="record.signed_name"> by {{ record.signed_name }}</span>
+                        </p>
+                    </div>
+                </div>
+
                 <div class="bg-white shadow-lg print:shadow-none">
 
                     <!-- Company Header -->
@@ -452,8 +402,36 @@ const signaturePadOptions = {
                         </div>
                     </div>
 
-                    <!-- ==================== AUTHORIZATION SECTION ==================== -->
-                    <div class="px-8 py-8 border-t-2 border-gray-900 print:hidden">
+                    <!-- ==================== SIGNATURE (APPROVED STATE) ==================== -->
+                    <div
+                        v-if="isApproved && (record.signature_url || (record.signature_method === 5 && record.customer_signature))"
+                        class="px-8 py-6 border-t border-gray-200"
+                    >
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Signature</h2>
+                        <div class="flex items-start gap-6 flex-wrap">
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <img
+                                    v-if="record.signature_url"
+                                    :src="record.signature_url"
+                                    alt="Customer Signature"
+                                    class="max-h-24 w-auto"
+                                />
+                                <p
+                                    v-else
+                                    class="signature-cursive text-3xl text-gray-900"
+                                >
+                                    {{ record.customer_signature }}
+                                </p>
+                            </div>
+                            <div class="text-sm text-gray-600 space-y-1 pt-1">
+                                <div><span class="text-gray-500">Signed by:</span> <span class="font-medium text-gray-900">{{ record.signed_name || '—' }}</span></div>
+                                <div><span class="text-gray-500">Date:</span> <span class="font-medium text-gray-900">{{ formatDateTime(record.signed_at) }}</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ==================== AUTHORIZATION SECTION (REVIEW ONLY) ==================== -->
+                    <div v-if="canAct" class="px-8 py-8 border-t-2 border-gray-900 print:hidden">
                         <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
                         <!-- Acknowledgement Text -->
@@ -658,6 +636,17 @@ const signaturePadOptions = {
                             Questions? Call us at {{ formatPhoneNumber(record.location.phone) }}
                         </p>
                     </div>
+                </div>
+
+                <!-- Print button (approved state, screen only) -->
+                <div v-if="isApproved" class="mt-6 flex justify-center print:hidden">
+                    <button
+                        @click="handlePrint"
+                        class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm"
+                    >
+                        <span class="material-icons text-sm">print</span>
+                        Print Copy
+                    </button>
                 </div>
             </div>
         </div>

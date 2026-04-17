@@ -177,8 +177,30 @@ td.sticky {
 
     /* Remove #app's layout height so the preview starts at page top (no blank pages) */
     body:has(.contract-preview-overlay) #app,
-    body:has(.invoice-preview-overlay) #app {
+    body:has(.invoice-preview-overlay) #app,
+    body:has(.service-ticket-preview-overlay) #app {
         display: none !important;
+    }
+
+    /* Service ticket preview is Teleported to <body> (same as contract/invoice). */
+    .service-ticket-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+        background: white !important;
+    }
+
+    #service-ticket-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     /* Invoice preview is Teleported to <body> (same as contract). */
@@ -334,6 +356,8 @@ td.sticky {
     #contract-print-root *,
     #invoice-print-root,
     #invoice-print-root *,
+    #service-ticket-print-root,
+    #service-ticket-print-root *,
     #boat-show-public-print-root,
     #boat-show-public-print-root * {
         visibility: visible;
