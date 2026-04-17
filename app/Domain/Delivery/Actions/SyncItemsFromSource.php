@@ -123,11 +123,12 @@ class SyncItemsFromSource
                 return ! empty($item->asset_unit_id);
             })->values()->map(function (TransactionItem $item) {
                 $unit = $item->assetUnit;
+
                 return $this->payloadFromUnit(
                     $unit,
                     name: $item->name ?? ($unit?->display_name ?? 'Asset'),
                     description: $item->description ?? null,
-                    quantity: (float) ($item->quantity ?? 1),
+                    quantity: 1,
                     unitPrice: (float) ($item->unit_price ?? 0),
                     assetVariantId: $item->asset_variant_id ?? ($unit?->asset_variant_id ?? null),
                     itemable: $item,

@@ -1,10 +1,8 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import Modal from '@/Components/Modal.vue';
-import DeliveryForm from '@/Components/Tenant/DeliveryForm.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
     deliveries: { type: Object, default: () => ({ data: [] }) },
@@ -13,33 +11,75 @@ const props = defineProps({
     stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     filters: { type: Object, default: () => ({}) },
     fieldsSchema: { type: Object, default: () => ({}) },
-    enumOptions:  { type: Object, default: () => ({}) },
+    enumOptions: { type: Object, default: () => ({}) },
 });
 
-const showCreateModal  = ref(false);
-const showSuccessModal = ref(false);
-const createdRecordId = ref(null);
+const ALLOWED_STATUSES = ['scheduled', 'confirmed', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
+const DEFAULT_STATUSES = ['scheduled', 'en_route', 'rescheduled'];
 
-const openCreateModal = () => {
-    showCreateModal.value = true;
-};
-
-const onDeliverySaved = (id) => {
-    showCreateModal.value = false;
-    createdRecordId.value = id;
-    showSuccessModal.value = true;
-};
-
-const viewCreatedRecord = () => {
-    if (createdRecordId.value) {
-        router.visit(route('deliveries.show', createdRecordId.value));
+const parseInitialStatuses = (filters) => {
+    const s = filters?.status;
+    if (s === 'all') {
+        return [...ALLOWED_STATUSES];
     }
+    if (Array.isArray(s) && s.length) {
+        const cleaned = s.filter((x) => ALLOWED_STATUSES.includes(x));
+        return cleaned.length ? cleaned : [...DEFAULT_STATUSES];
+    }
+    if (typeof s === 'string' && s !== '' && s !== 'all') {
+        return ALLOWED_STATUSES.includes(s) ? [s] : [...DEFAULT_STATUSES];
+    }
+    return [...DEFAULT_STATUSES];
 };
 
-const closeSuccessModal = () => {
-    showSuccessModal.value = false;
-    createdRecordId.value = null;
-    router.reload();
+const selectedStatuses = ref(parseInitialStatuses(props.filters));
+const searchQuery = ref(props.filters?.search ?? '');
+
+watch(
+    () => props.filters,
+    (f) => {
+        searchQuery.value = f?.search ?? '';
+        selectedStatuses.value = parseInitialStatuses(f);
+    },
+    { deep: true },
+);
+
+const applyStatusFilter = () => {
+    const params = {};
+    if (searchQuery.value?.trim()) {
+        params.search = searchQuery.value.trim();
+    }
+    const sel = selectedStatuses.value;
+    const allSelected = ALLOWED_STATUSES.every((x) => sel.includes(x));
+    const noneSelected = sel.length === 0;
+    if (allSelected || noneSelected) {
+        params.status = 'all';
+    } else {
+        params.status = [...sel];
+    }
+    router.get(route('deliveries.index'), params, { preserveState: true, preserveScroll: true, replace: true });
+};
+
+let searchDebounce = null;
+watch(searchQuery, () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => applyStatusFilter(), 350);
+});
+
+const clearSearch = () => {
+    clearTimeout(searchDebounce);
+    searchQuery.value = '';
+    applyStatusFilter();
+};
+
+const showDeliveryFilterPills = computed(
+    () => !!(searchQuery.value?.trim()) || selectedStatuses.value.length > 0,
+);
+
+const removeStatusPill = (statusId) => {
+    const str = String(statusId);
+    selectedStatuses.value = selectedStatuses.value.map(String).filter((s) => s !== str);
+    applyStatusFilter();
 };
 
 const breadcrumbItems = computed(() => [
@@ -106,18 +146,71 @@ const calendarTitle = computed(() => {
 });
 
 const statusConfig = {
-    scheduled:  { label: 'Scheduled',  bg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',   icon: 'schedule',         dot: 'bg-blue-500' },
-    en_route:   { label: 'En Route',   bg: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300', icon: 'local_shipping', dot: 'bg-yellow-500' },
-    delivered:  { label: 'Delivered',  bg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',  icon: 'check_circle',     dot: 'bg-green-500' },
-    cancelled:  { label: 'Cancelled',  bg: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',          icon: 'cancel',           dot: 'bg-red-500' },
-    rescheduled:{ label: 'Rescheduled',bg: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',icon: 'event_repeat',    dot: 'bg-purple-500' },
+    scheduled: { label: 'Scheduled', bg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300', icon: 'schedule', dot: 'bg-blue-500' },
+    confirmed: { label: 'Confirmed', bg: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300', icon: 'task_alt', dot: 'bg-indigo-500' },
+    en_route: { label: 'En Route', bg: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300', icon: 'local_shipping', dot: 'bg-yellow-500' },
+    delivered: { label: 'Delivered', bg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300', icon: 'check_circle', dot: 'bg-green-500' },
+    cancelled: { label: 'Cancelled', bg: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300', icon: 'cancel', dot: 'bg-red-500' },
+    rescheduled: { label: 'Rescheduled', bg: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300', icon: 'event_repeat', dot: 'bg-purple-500' },
 };
 
 const getStatus = (s) => statusConfig[s] || statusConfig.scheduled;
 
-const selectedStatus = ref('all');
-const searchQuery = ref('');
-const viewMode = ref('timeline');
+/** Full Tailwind classes for filter dots (avoid dynamic `bg-${color}-500` in template). */
+const STATUS_FILTER_DOT = {
+    scheduled: 'bg-blue-500',
+    confirmed: 'bg-indigo-500',
+    en_route: 'bg-yellow-500',
+    delivered: 'bg-green-500',
+    cancelled: 'bg-red-500',
+    rescheduled: 'bg-purple-500',
+};
+
+const statusFilterOptions = computed(() =>
+    ALLOWED_STATUSES.map((id) => ({
+        id,
+        name: getStatus(id).label,
+        dotClass: STATUS_FILTER_DOT[id] ?? 'bg-gray-500',
+    })),
+);
+
+const openStatusFilter = ref(false);
+
+const toggleStatusFilterDropdown = () => {
+    openStatusFilter.value = !openStatusFilter.value;
+};
+
+const handleStatusFilterClickOutside = (e) => {
+    if (!e.target.closest('[data-status-quick-filter]')) {
+        openStatusFilter.value = false;
+    }
+};
+
+const statusSelectionCount = computed(() => selectedStatuses.value.length);
+
+const statusFilterButtonActive = computed(() => selectedStatuses.value.length > 0);
+
+const toggleStatusValue = (statusId) => {
+    const str = String(statusId);
+    const cur = selectedStatuses.value.map(String);
+    const next = cur.includes(str) ? cur.filter((v) => v !== str) : [...cur, str];
+    selectedStatuses.value = next;
+    applyStatusFilter();
+};
+
+const clearStatusFilter = () => {
+    selectedStatuses.value = [];
+    applyStatusFilter();
+    openStatusFilter.value = false;
+};
+
+onMounted(() => {
+    document.addEventListener('click', handleStatusFilterClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleStatusFilterClickOutside);
+});
 </script>
 
 <template>
@@ -215,7 +308,13 @@ const viewMode = ref('timeline');
                     </div>
 
                     <!-- Timeline -->
-                    <div class="p-6 space-y-0">
+                    <div v-if="!todayDeliveries.length" class="px-6 py-16 flex flex-col items-center justify-center text-center">
+                        <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center mb-4">
+                            <span class="material-icons text-4xl text-gray-400 dark:text-gray-500">event_busy</span>
+                        </div>
+                        <p class="text-base font-medium text-gray-900 dark:text-white">No deliveries scheduled for today</p>
+                    </div>
+                    <div v-else class="p-6 space-y-0">
                         <div
                             v-for="(delivery, idx) in todayDeliveries"
                             :key="delivery.id"
@@ -400,28 +499,123 @@ const viewMode = ref('timeline');
                             />
                         </div>
 
-                        <!-- Status filter -->
-                        <select
-                            v-model="selectedStatus"
-                            class="block py-2 px-3 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="all">All Statuses</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="en_route">En Route</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
-                            <option value="rescheduled">Rescheduled</option>
-                        </select>
+                        <!-- Status quick filter (same pattern as Table.vue) -->
+                        <div class="relative shrink-0 w-full sm:w-auto" data-status-quick-filter>
+                            <button
+                                type="button"
+                                @click.stop="toggleStatusFilterDropdown"
+                                :class="[
+                                    'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors w-full sm:w-auto justify-center sm:justify-start',
+                                    statusFilterButtonActive
+                                        ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
+                                ]"
+                            >
+                                Status
+                                <span
+                                    v-if="statusSelectionCount"
+                                    class="px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full"
+                                >
+                                    {{ statusSelectionCount }}
+                                </span>
+                                <svg
+                                    class="w-3.5 h-3.5 opacity-60 shrink-0"
+                                    :class="openStatusFilter ? 'rotate-180' : ''"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <div
+                                v-if="openStatusFilter"
+                                class="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 z-50 min-w-[200px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden"
+                            >
+                                <div class="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/60">
+                                    <label
+                                        v-for="opt in statusFilterOptions"
+                                        :key="opt.id"
+                                        class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            :value="opt.id"
+                                            :checked="selectedStatuses.map(String).includes(String(opt.id))"
+                                            @change="toggleStatusValue(opt.id)"
+                                            class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500"
+                                        />
+                                        <div class="flex items-center gap-1.5 min-w-0">
+                                            <span class="w-2 h-2 rounded-full shrink-0" :class="opt.dotClass" />
+                                            <span class="text-sm text-gray-900 dark:text-white truncate">{{ opt.name }}</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div
+                                    v-if="statusSelectionCount"
+                                    class="px-3 py-2 border-t border-gray-100 dark:border-gray-700/60"
+                                >
+                                    <button
+                                        type="button"
+                                        @click="clearStatusFilter"
+                                        class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- New Delivery -->
-                    <button
-                        @click="openCreateModal"
+                    <Link
+                        :href="route('deliveries.create')"
                         class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-md flex-shrink-0"
                     >
                         <span class="material-icons text-lg">add</span>
                         <span>New Delivery</span>
-                    </button>
+                    </Link>
+                </div>
+
+                <!-- Active filter pills (same pattern as Table.vue) -->
+                <div
+                    v-if="showDeliveryFilterPills"
+                    class="px-6 py-2.5 border-b border-gray-50 dark:border-gray-700/60 flex flex-wrap gap-1.5"
+                >
+                    <span
+                        v-if="searchQuery?.trim()"
+                        class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400"
+                    >
+                        Search: {{ searchQuery.trim() }}
+                        <button
+                            type="button"
+                            @click="clearSearch"
+                            class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors"
+                            aria-label="Clear search"
+                        >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </span>
+                    <span
+                        v-for="sid in selectedStatuses"
+                        :key="String(sid)"
+                        class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400"
+                    >
+                        {{ getStatus(sid).label }}
+                        <button
+                            type="button"
+                            @click="removeStatusPill(sid)"
+                            class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors"
+                            :aria-label="'Remove ' + getStatus(sid).label + ' from status filter'"
+                        >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </span>
                 </div>
 
                 <!-- Table -->
@@ -491,56 +685,6 @@ const viewMode = ref('timeline');
             </div>
 
         </div>
-
-        <!-- ── Create Delivery Modal ───────────────────────────── -->
-        <Modal :show="showCreateModal" @close="showCreateModal = false" max-width="4xl">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-5">
-                    <div class="flex items-center gap-3">
-                        <div class="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                            <span class="material-icons text-blue-600 dark:text-blue-400">add_location_alt</span>
-                        </div>
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">New Delivery</h2>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Schedule a vessel delivery</p>
-                        </div>
-                    </div>
-                    <button @click="showCreateModal = false"
-                        class="h-8 w-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        <span class="material-icons">close</span>
-                    </button>
-                </div>
-
-                <DeliveryForm
-                    v-if="showCreateModal"
-                    :fields-schema="fieldsSchema"
-                    :enum-options="enumOptions"
-                    @saved="onDeliverySaved"
-                    @cancelled="showCreateModal = false"
-                />
-            </div>
-        </Modal>
-
-        <!-- ── Success Modal ───────────────────────────────────── -->
-        <Modal :show="showSuccessModal" @close="closeSuccessModal" max-width="sm">
-            <div class="p-6 text-center">
-                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
-                    <span class="material-icons text-3xl text-green-600 dark:text-green-400">check_circle</span>
-                </div>
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">Delivery Created</h3>
-                <p class="text-md text-gray-500 dark:text-gray-400 mb-6">The delivery has been scheduled successfully.</p>
-                <div class="flex justify-center gap-3">
-                    <button @click="closeSuccessModal"
-                        class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Back to List
-                    </button>
-                    <button @click="viewCreatedRecord"
-                        class="px-4 py-2 text-md font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
-                        View Delivery
-                    </button>
-                </div>
-            </div>
-        </Modal>
 
     </TenantLayout>
 </template>

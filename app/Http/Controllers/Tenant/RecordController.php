@@ -242,8 +242,8 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                    // Accessor display_name (e.g. CTR- / DLV- prefix from sequence), not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
@@ -544,8 +544,8 @@ class RecordController extends BaseController
                                             $q->select(['id', 'display_name']);
                                         }]);
                                 };
-                            } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                                // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                                // Accessor display_name from sequence, not a DB column
                                 $selectFields = ['id', 'sequence'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
@@ -658,8 +658,8 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                    // Accessor display_name from sequence, not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
@@ -805,8 +805,8 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                    // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                    // Accessor display_name from sequence, not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
@@ -1002,8 +1002,8 @@ class RecordController extends BaseController
                                             $q->select(['id', 'display_name']);
                                         }]);
                                 };
-                            } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                                // Qualification uses an accessor for display_name (computed from sequence/id), not a real column
+                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                                // Accessor display_name from sequence, not a DB column
                                 $selectFields = ['id', 'sequence'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);

@@ -713,7 +713,7 @@ const confirmAddStep = () => {
                                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs delivery</p>
                                     <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.needs_delivery ? 'Yes' : 'No' }}</p>
                                     <template v-if="record.needs_delivery">
-                                        <a :href="route('deliveries.create')"
+                                        <a :href="route('deliveries.create', { transaction_id: record.id })"
                                             class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
                                             <span class="material-icons text-md">add</span>
                                             Schedule Delivery

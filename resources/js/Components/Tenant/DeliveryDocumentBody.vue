@@ -41,64 +41,60 @@ const formatDateTime = (v) => {
 <template>
     <div class="bg-white">
         <!-- Header -->
-        <div class="border-b-4 border-gray-900 px-8 py-6">
-            <div class="flex items-start justify-between gap-6">
-                <div class="flex items-start gap-6">
-                    <div v-if="account?.logo_url" class="flex-shrink-0">
-                        <img :src="account.logo_url" alt="Company Logo" class="h-20 w-auto object-contain" />
+        <div class="border-b-2 border-gray-900 px-6 py-3">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                    <div v-if="account?.logo_url" class="flex-shrink-0 max-w-[100px]">
+                        <img :src="account.logo_url" alt="" class="max-h-10 w-full object-contain object-left" />
                     </div>
-                    <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
-                        <span class="material-icons text-4xl text-gray-400">business</span>
+                    <div v-else class="flex-shrink-0 h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
+                        <span class="material-icons text-xl text-gray-400">business</span>
                     </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">
+                    <div class="min-w-0">
+                        <h1 class="text-base font-bold text-gray-900 leading-tight truncate">
                             {{ record.subsidiary?.display_name || account?.name || 'Company Name' }}
                         </h1>
-                        <div class="mt-1 text-sm text-gray-600 space-y-0.5">
+                        <div class="mt-0.5 text-[11px] text-gray-600 leading-snug space-y-0">
                             <p v-if="account?.phone">{{ account.phone }}</p>
                             <p v-if="account?.email">{{ account.email }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-sm font-medium text-gray-600 uppercase tracking-wide">Delivery</div>
-                    <div class="text-3xl font-bold text-gray-900 font-mono">{{ record.display_name }}</div>
-                    <div class="text-sm text-gray-600 mt-1">{{ formatDate(record.scheduled_at ?? record.created_at) }}</div>
+                <div class="text-right flex-shrink-0">
+                    <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Delivery</div>
+                    <div class="text-lg font-bold text-gray-900 font-mono leading-tight">{{ record.display_name }}</div>
+                    <div class="text-[11px] text-gray-600 mt-0.5">{{ formatDate(record.scheduled_at ?? record.created_at) }}</div>
                 </div>
             </div>
         </div>
 
-        <!-- Customer + Deliver To -->
-        <div class="px-8 py-6 bg-gray-50 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Customer</div>
-                <div class="bg-white rounded border border-gray-200 p-4 space-y-1">
-                    <div class="font-semibold text-gray-900">
-                        {{ record.customer?.display_name || record.customer?.contact?.display_name || '—' }}
-                    </div>
-                    <div v-if="record.customer?.contact?.email" class="text-sm text-gray-600">{{ record.customer.contact.email }}</div>
-                    <div v-if="record.customer?.contact?.phone" class="text-sm text-gray-600">{{ record.customer.contact.phone }}</div>
+        <!-- Customer + Deliver To (single row) -->
+        <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 grid grid-cols-2 gap-4 text-xs">
+            <div class="min-w-0">
+                <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer</div>
+                <div class="font-semibold text-gray-900 leading-snug">
+                    {{ record.customer?.display_name || record.customer?.contact?.display_name || '—' }}
                 </div>
+                <div v-if="record.customer?.contact?.email" class="text-gray-600 truncate">{{ record.customer.contact.email }}</div>
+                <div v-if="record.customer?.contact?.phone" class="text-gray-600">{{ record.customer.contact.phone }}</div>
             </div>
-            <div>
-                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Deliver To</div>
-                <div class="bg-white rounded border border-gray-200 p-4 text-sm text-gray-700 space-y-0.5">
-                    <div v-if="record.delivery_location?.name" class="font-semibold text-gray-900">
-                        {{ record.delivery_location.name }}
-                    </div>
-                    <div v-if="record.address_line_1">{{ record.address_line_1 }}</div>
-                    <div v-if="record.address_line_2">{{ record.address_line_2 }}</div>
-                    <div v-if="record.city || record.state || record.postal_code">
-                        <span v-if="record.city">{{ record.city }}</span><span v-if="record.state">, {{ record.state }}</span>
-                        <span v-if="record.postal_code"> {{ record.postal_code }}</span>
-                    </div>
-                    <div v-if="!record.address_line_1 && !record.city" class="text-gray-400 italic">No address recorded</div>
+            <div class="min-w-0 border-l border-gray-200 pl-4">
+                <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Deliver To</div>
+                <div v-if="record.delivery_location?.name || record.deliveryLocation?.display_name || record.deliveryLocation?.name" class="font-semibold text-gray-900">
+                    {{ record.delivery_location?.name ?? record.deliveryLocation?.display_name ?? record.deliveryLocation?.name }}
                 </div>
+                <div v-if="record.address_line_1" class="text-gray-800 leading-snug">{{ record.address_line_1 }}</div>
+                <div v-if="record.address_line_2" class="text-gray-700">{{ record.address_line_2 }}</div>
+                <div v-if="record.city || record.state || record.postal_code" class="text-gray-700">
+                    <span v-if="record.city">{{ record.city }}</span><span v-if="record.state">, {{ record.state }}</span>
+                    <span v-if="record.postal_code"> {{ record.postal_code }}</span>
+                </div>
+                <div v-if="!record.address_line_1 && !record.city" class="text-gray-400 italic">No address recorded</div>
             </div>
         </div>
 
         <!-- Schedule -->
-        <div class="px-8 py-5 border-t border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="px-6 py-3 border-t border-gray-200 grid grid-cols-3 gap-3 text-xs">
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scheduled</div>
                 <div class="text-sm text-gray-900">{{ formatDateTime(record.scheduled_at) }}</div>
@@ -114,8 +110,8 @@ const formatDateTime = (v) => {
         </div>
 
         <!-- Assets -->
-        <div class="px-8 py-6 border-t border-gray-200">
-            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Assets</div>
+        <div class="px-6 py-3 border-t border-gray-200">
+            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Assets</div>
             <div v-if="!items.length" class="text-sm text-gray-500 italic">No assets recorded for this delivery.</div>
             <table v-else class="min-w-full border border-gray-200 text-sm">
                 <thead class="bg-gray-50 text-gray-600">
@@ -123,7 +119,6 @@ const formatDateTime = (v) => {
                         <th class="px-3 py-2 text-left font-semibold">Asset</th>
                         <th class="px-3 py-2 text-left font-semibold">Variant</th>
                         <th class="px-3 py-2 text-left font-semibold">Unit / Serial</th>
-                        <th class="px-3 py-2 text-right font-semibold">Qty</th>
                         <th class="px-3 py-2 text-center font-semibold">Delivered</th>
                     </tr>
                 </thead>
@@ -134,7 +129,6 @@ const formatDateTime = (v) => {
                         </td>
                         <td class="px-3 py-2 text-gray-700">{{ itemVariantLabel(item) ?? '—' }}</td>
                         <td class="px-3 py-2 text-gray-700">{{ itemUnitLabel(item) ?? '—' }}</td>
-                        <td class="px-3 py-2 text-right text-gray-700">{{ Number(item.quantity ?? 1) }}</td>
                         <td class="px-3 py-2 text-center">
                             <span
                                 class="inline-flex items-center justify-center w-5 h-5 border-2 border-gray-900 rounded-sm"
@@ -151,26 +145,26 @@ const formatDateTime = (v) => {
         </div>
 
         <!-- Customer notes -->
-        <div v-if="record.customer_notes" class="px-8 py-6 border-t border-gray-200">
-            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</div>
-            <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.customer_notes }}</p>
+        <div v-if="record.customer_notes" class="px-6 py-3 border-t border-gray-200">
+            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</div>
+            <p class="text-xs text-gray-700 whitespace-pre-line">{{ record.customer_notes }}</p>
         </div>
 
         <!-- Signature block -->
-        <div class="px-8 py-6 border-t-2 border-gray-900">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="px-6 py-4 border-t-2 border-gray-900">
+            <div class="grid grid-cols-2 gap-6">
                 <div>
-                    <div class="border-b-2 border-gray-900 h-20"></div>
-                    <div class="text-sm text-gray-600 mt-1">Customer Signature</div>
+                    <div class="border-b-2 border-gray-900 h-14"></div>
+                    <div class="text-[11px] text-gray-600 mt-1">Customer Signature</div>
                 </div>
                 <div>
-                    <div class="border-b-2 border-gray-900 h-20"></div>
-                    <div class="text-sm text-gray-600 mt-1">Date</div>
+                    <div class="border-b-2 border-gray-900 h-14"></div>
+                    <div class="text-[11px] text-gray-600 mt-1">Date</div>
                 </div>
             </div>
-            <div class="mt-6">
+            <div class="mt-4">
                 <div class="border-b border-gray-900"></div>
-                <div class="text-sm text-gray-600 mt-1">Print Name</div>
+                <div class="text-[11px] text-gray-600 mt-1">Print Name</div>
             </div>
         </div>
     </div>

@@ -39,6 +39,8 @@ const model = defineModel({
 const props = defineProps({
     /** When true, the "Change" asset button is hidden (we are editing an existing line). */
     editing: { type: Boolean, default: false },
+    /** Delivery lines are always quantity 1 — hide the field and keep totals in sync. */
+    hideQuantity: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['save', 'close']);
@@ -164,8 +166,19 @@ const formatCurrency = (value) =>
         ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '$0.00';
 
-const lineTotal = computed(() =>
-    (Number(model.value.unit_price || 0) * Number(model.value.quantity || 0)) - Number(model.value.discount || 0),
+const effectiveQty = computed(() => (props.hideQuantity ? 1 : Number(model.value.quantity || 0)));
+
+const lineTotal = computed(
+    () => Number(model.value.unit_price || 0) * effectiveQty.value - Number(model.value.discount || 0),
+);
+
+watch(
+    () => [open.value, props.hideQuantity],
+    () => {
+        if (open.value && props.hideQuantity) {
+            model.value.quantity = 1;
+        }
+    },
 );
 
 const close = () => {
@@ -305,7 +318,7 @@ const save = () => {
                             :variant-id="model.has_variants ? model.asset_variant_id : null"
                         />
 
-                        <div class="grid grid-cols-3 gap-4">
+                        <div :class="hideQuantity ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
                                 <div class="relative">
@@ -322,7 +335,7 @@ const save = () => {
                                         class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 </div>
                             </div>
-                            <div>
+                            <div v-if="!hideQuantity">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
                                 <input type="number" v-model="model.quantity" min="1" step="1"
                                     class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />

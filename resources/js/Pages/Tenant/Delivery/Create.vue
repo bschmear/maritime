@@ -7,6 +7,8 @@ import { computed } from 'vue';
 
 const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
+    /** Initial form state when opening from a transaction or work order (see DeliveryController::create). */
+    prefill: { type: Object, default: null },
     customerAddresses: { type: Array, default: () => [] },
     account: { type: Object, default: null },
 });
@@ -30,7 +32,7 @@ const breadcrumbItems = computed(() => [
         </template>
 
         <DeliveryForm
-            :record="null"
+            :record="prefill"
             mode="create"
             :enum-options="enumOptions"
             :customer-addresses="customerAddresses"

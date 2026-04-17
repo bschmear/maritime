@@ -148,7 +148,7 @@ const secondaryNavItems = ref([
                 name: 'Deliveries',
                 children: [
                     { name: 'All Deliveries', href: 'deliveries.index' },
-                    { name: 'Locations', href: 'delivery-locations.index' },
+                    { name: 'Common Locations', href: 'delivery-locations.index' },
                     { name: 'Templates', href: 'delivery-checklist-templates.index' }
                 ]
             },

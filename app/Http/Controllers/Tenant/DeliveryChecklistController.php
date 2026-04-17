@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Http\Controllers\Controller;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
 use App\Domain\DeliveryChecklistItem\Models\DeliveryChecklistItem;
 use App\Domain\DeliveryChecklistTemplate\Models\DeliveryChecklistTemplate;
-use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 class DeliveryChecklistController extends Controller
@@ -55,7 +55,7 @@ class DeliveryChecklistController extends Controller
         } elseif ($request->items) {
             foreach ($request->items as $itemData) {
                 $category = DeliveryChecklistCategory::firstOrCreate([
-                    'name' => $itemData['category']
+                    'name' => $itemData['category'],
                 ], [
                     'color' => 'blue',
                 ]);
@@ -87,7 +87,7 @@ class DeliveryChecklistController extends Controller
         ]);
 
         $category = DeliveryChecklistCategory::firstOrCreate([
-            'name' => $validated['category']
+            'name' => $validated['category'],
         ], [
             'color' => 'blue',
         ]);
@@ -119,20 +119,46 @@ class DeliveryChecklistController extends Controller
         }
 
         $validated = $request->validate([
-            'completed' => 'boolean',
+            'completed' => 'sometimes|boolean',
+            'label' => 'sometimes|required|string|max:255',
+            'category' => 'sometimes|required|string',
+            'is_required' => 'sometimes|boolean',
         ]);
 
-        if ($request->completed && !$item->completed) {
-            $validated['completed_at'] = now();
-            $validated['completed_by'] = auth()->id();
-        } elseif (!$request->completed) {
-            $validated['completed_at'] = null;
-            $validated['completed_by'] = null;
+        $updates = [];
+
+        if ($request->has('label')) {
+            $updates['label'] = $validated['label'];
         }
 
-        $item->update($validated);
+        if ($request->has('is_required')) {
+            $updates['is_required'] = (bool) $validated['is_required'];
+        }
 
-        return response()->json($item->load('completedBy'));
+        if ($request->has('category')) {
+            $category = DeliveryChecklistCategory::firstOrCreate([
+                'name' => $validated['category'],
+            ], [
+                'color' => 'blue',
+            ]);
+            $updates['category_id'] = $category->id;
+        }
+
+        if ($request->has('completed')) {
+            $completed = (bool) $request->completed;
+            $updates['completed'] = $completed;
+            if ($completed && ! $item->completed) {
+                $updates['completed_at'] = now();
+                $updates['completed_by'] = auth()->id();
+            } elseif (! $completed) {
+                $updates['completed_at'] = null;
+                $updates['completed_by'] = null;
+            }
+        }
+
+        $item->update($updates);
+
+        return response()->json($item->load(['completedBy', 'category']));
     }
 
     /**

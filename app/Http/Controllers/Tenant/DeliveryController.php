@@ -7,12 +7,10 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
 use App\Domain\Delivery\Actions\MarkDeliveryItemDelivered;
-use App\Domain\Delivery\Actions\SyncItemsFromSource;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
-use App\Domain\DeliveryLocation\Models\DeliveryLocation;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use Illuminate\Http\Request;
@@ -41,12 +39,16 @@ class DeliveryController extends RecordController
     */
     public function index(Request $request)
     {
+        $allowedStatuses = ['scheduled', 'confirmed', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
+        $defaultStatuses = ['scheduled', 'en_route', 'rescheduled'];
+
+        $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
+
         $query = RecordModel::with(['customer', 'assetUnit', 'technician'])
             ->when($request->search, fn ($q, $s) => $q->whereHas('customer', fn ($q) => $q->where('name', 'like', "%{$s}%"))
                 ->orWhereHas('assetUnit', fn ($q) => $q->where('name', 'like', "%{$s}%"))
             )
-            ->when($request->status && $request->status !== 'all', fn ($q, $s) => $q->where('status', $s)
-            )
+            ->when($statusesForQuery !== null, fn ($q) => $q->whereIn('status', $statusesForQuery))
             ->latest('scheduled_at');
 
         $todayDeliveries = RecordModel::with(['customer', 'assetUnit', 'technician'])
@@ -72,10 +74,39 @@ class DeliveryController extends RecordController
             'todayDeliveries' => $todayDeliveries,
             'upcomingDeliveries' => $upcomingDeliveries,
             'stats' => $stats,
-            'filters' => $request->only(['search', 'status']),
+            'filters' => [
+                'search' => $request->input('search'),
+                'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
+            ],
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
             'enumOptions' => $this->getEnumOptions(),
         ]);
+    }
+
+    /**
+     * @param  list<string>  $allowedStatuses
+     * @param  list<string>  $defaultStatuses
+     * @return list<string>|null null = no status filter (all statuses)
+     */
+    private function resolveDeliveryIndexStatuses(Request $request, array $allowedStatuses, array $defaultStatuses): ?array
+    {
+        $raw = $request->input('status');
+
+        if ($raw === 'all') {
+            return null;
+        }
+
+        if (is_array($raw)) {
+            $picked = array_values(array_intersect($allowedStatuses, $raw));
+
+            return count($picked) > 0 ? $picked : null;
+        }
+
+        if (is_string($raw) && $raw !== '') {
+            return in_array($raw, $allowedStatuses, true) ? [$raw] : $defaultStatuses;
+        }
+
+        return $defaultStatuses;
     }
 
     /*
@@ -176,6 +207,7 @@ class DeliveryController extends RecordController
 
         return response()->json([
             'customer_id' => $customer->id,
+            'contact_id' => $customer->contact_id,
             'name' => $customer->display_name,
             'address' => [
                 'address_line_1' => $customer->address_line_1,
@@ -194,6 +226,15 @@ class DeliveryController extends RecordController
     public function create()
     {
         $account = \App\Models\AccountSettings::getCurrent();
+        $prefill = $this->deliveryCreatePrefill(request());
+
+        $customerAddresses = [];
+        if ($prefill && ! empty($prefill['customer_id'])) {
+            $customer = Customer::query()->find($prefill['customer_id']);
+            if ($customer) {
+                $customerAddresses = $customer->addresses()->get()->all();
+            }
+        }
 
         return Inertia::render('Tenant/Delivery/Create', [
             'recordType' => 'deliveries',
@@ -201,6 +242,8 @@ class DeliveryController extends RecordController
             'domainName' => 'Delivery',
             'enumOptions' => $this->getEnumOptions(),
             'account' => $account,
+            'prefill' => $prefill,
+            'customerAddresses' => $customerAddresses,
         ]);
     }
 
@@ -400,7 +443,7 @@ class DeliveryController extends RecordController
                         'asset_variant_id' => $i->asset_variant_id,
                         'name' => $i->name ?? $i->assetUnit?->display_name ?? 'Asset',
                         'description' => $i->description,
-                        'quantity' => (float) ($i->quantity ?? 1),
+                        'quantity' => 1,
                         'unit_price' => (float) ($i->unit_price ?? 0),
                         'asset_unit' => $i->assetUnit,
                         'asset_variant' => $i->assetVariant,
@@ -465,7 +508,6 @@ class DeliveryController extends RecordController
         return Inertia::render('Tenant/Delivery/Print', [
             'record' => $record,
             'account' => $account,
-            'enumOptions' => $this->getEnumOptions(),
             'checklistItems' => $checklistItems,
         ]);
     }
@@ -475,6 +517,98 @@ class DeliveryController extends RecordController
     | Helpers
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Build initial delivery form state when opening create with ?transaction_id= or ?work_order_id=.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function deliveryCreatePrefill(Request $request): ?array
+    {
+        if ($request->filled('transaction_id')) {
+            $source = Transaction::with([
+                'items.assetUnit.asset',
+                'items.assetVariant',
+                'customer.contact',
+            ])->find((int) $request->input('transaction_id'));
+
+            if (! $source) {
+                return null;
+            }
+
+            $items = collect($source->items)
+                ->filter(fn ($i) => ! empty($i->asset_unit_id))
+                ->values()
+                ->map(function ($i) {
+                    return [
+                        'asset_unit_id' => $i->asset_unit_id,
+                        'asset_variant_id' => $i->asset_variant_id,
+                        'name' => $i->name ?? $i->assetUnit?->display_name ?? 'Asset',
+                        'description' => $i->description,
+                        'quantity' => 1,
+                        'unit_price' => (float) ($i->unit_price ?? 0),
+                        'asset_unit' => $i->assetUnit,
+                        'asset_variant' => $i->assetVariant,
+                    ];
+                })
+                ->all();
+
+            return [
+                'customer_id' => $source->customer_id,
+                'transaction_id' => $source->id,
+                'customer' => [
+                    'id' => $source->customer_id,
+                    'display_name' => $source->customer?->display_name,
+                    'contact' => $source->customer?->contact ? [
+                        'display_name' => $source->customer->contact->display_name,
+                    ] : null,
+                ],
+                'transaction' => [
+                    'id' => $source->id,
+                    'display_name' => $source->display_name,
+                ],
+                'items' => $items,
+            ];
+        }
+
+        if ($request->filled('work_order_id')) {
+            $source = WorkOrder::with(['assetUnit.asset', 'customer.contact'])->find((int) $request->input('work_order_id'));
+
+            if (! $source || ! $source->assetUnit) {
+                return null;
+            }
+
+            $unit = $source->assetUnit;
+
+            return [
+                'customer_id' => $source->customer_id,
+                'work_order_id' => $source->id,
+                'customer' => [
+                    'id' => $source->customer_id,
+                    'display_name' => $source->customer?->display_name,
+                    'contact' => $source->customer?->contact ? [
+                        'display_name' => $source->customer->contact->display_name,
+                    ] : null,
+                ],
+                'work_order' => [
+                    'id' => $source->id,
+                    'display_name' => 'WO-'.($source->work_order_number ?? $source->id),
+                ],
+                'items' => [[
+                    'asset_unit_id' => $unit->id,
+                    'asset_variant_id' => $unit->asset_variant_id ?? null,
+                    'name' => $unit->display_name ?? 'Asset',
+                    'description' => null,
+                    'quantity' => 1,
+                    'unit_price' => 0,
+                    'asset_unit' => $unit,
+                    'asset_variant' => null,
+                ]],
+            ];
+        }
+
+        return null;
+    }
 
     protected function deliveryDetailRelationships(): array
     {

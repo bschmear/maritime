@@ -77,7 +77,7 @@ class DeliveryLocationController extends BaseController
     public function edit(DeliveryLocation $deliveryLocation)
     {
         return Inertia::render('Tenant/DeliveryLocation/Edit', [
-            'record' => $deliveryLocation,
+            'record' => $deliveryLocation->load('subsidiary'),
         ]);
     }
 

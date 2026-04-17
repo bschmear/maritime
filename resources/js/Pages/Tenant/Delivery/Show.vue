@@ -32,20 +32,54 @@ const newChecklistItems = ref([]);
 const isLoadingChecklist = ref(false);
 
 const showAddItemModal = ref(false);
+const editingChecklistItem = ref(null);
 const newItemLabel = ref('');
 const newItemCategory = ref('');
 const newItemRequired = ref(false);
 
 /* ─── Status ─── */
-const STATUS_STYLES = {
-    scheduled: { label: 'Scheduled', cls: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
-    confirmed: { label: 'Confirmed', cls: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200' },
-    en_route: { label: 'En Route', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' },
-    delivered: { label: 'Delivered', cls: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
-    cancelled: { label: 'Cancelled', cls: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
-    rescheduled: { label: 'Rescheduled', cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200' },
+const isSigned = computed(() => !!props.record?.signed_at);
+
+const deliveryStatusOptions = computed(() => props.enumOptions?.delivery_status || [
+    { id: 'scheduled', name: 'Scheduled' },
+    { id: 'confirmed', name: 'Confirmed' },
+    { id: 'en_route', name: 'En Route' },
+    { id: 'delivered', name: 'Delivered' },
+    { id: 'cancelled', name: 'Cancelled' },
+    { id: 'rescheduled', name: 'Rescheduled' },
+]);
+
+const statusOptionValue = (o) => o.value ?? o.id;
+const statusOptionLabel = (o) => o.name ?? o.label ?? String(statusOptionValue(o));
+
+const statusOptionsForSelect = computed(() => {
+    const opts = Array.isArray(deliveryStatusOptions.value) ? [...deliveryStatusOptions.value] : [];
+    const vals = new Set(opts.map(o => statusOptionValue(o)));
+    const cur = props.record?.status;
+    if (cur && !vals.has(cur)) {
+        opts.unshift({ id: cur, name: cur });
+    }
+    return opts;
+});
+
+const statusUpdating = ref(false);
+
+const updateDeliveryStatus = async (event) => {
+    const el = event?.target;
+    const newStatus = el?.value;
+    if (!newStatus || newStatus === props.record?.status || isSigned.value) return;
+    statusUpdating.value = true;
+    try {
+        await axios.put(route('deliveries.update', props.record.id), { status: newStatus });
+        router.reload({ only: ['record'] });
+    } catch (e) {
+        console.error(e);
+        alert(e?.response?.data?.message ?? 'Failed to update status.');
+        if (el) el.value = props.record.status;
+    } finally {
+        statusUpdating.value = false;
+    }
 };
-const statusInfo = computed(() => STATUS_STYLES[props.record?.status] ?? { label: props.record?.status ?? 'Unknown', cls: 'bg-gray-100 text-gray-700' });
 
 /* ─── Formatting helpers ─── */
 const formatDateTime = (v) => {
@@ -182,8 +216,6 @@ const itemsByCategory = computed(() => {
     return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
 });
 
-const isSigned = computed(() => !!props.record?.signed_at);
-
 const openChecklistModal = () => {
     showChecklistModal.value = true;
     checklistCreationMode.value = 'template';
@@ -218,23 +250,49 @@ const saveChecklist = async () => {
 };
 
 const addChecklistItemToDelivery = () => {
+    editingChecklistItem.value = null;
     newItemLabel.value = '';
     newItemCategory.value = props.categories.length > 0 ? props.categories[0].name : '';
     newItemRequired.value = false;
     showAddItemModal.value = true;
 };
-const closeAddItemModal = () => { showAddItemModal.value = false; };
+const editChecklistItemOnDelivery = (item) => {
+    editingChecklistItem.value = item;
+    newItemLabel.value = item.label ?? '';
+    newItemCategory.value = item.category?.name
+        ?? (props.categories.length > 0 ? props.categories[0].name : '');
+    newItemRequired.value = !!item.is_required;
+    showAddItemModal.value = true;
+};
+const closeAddItemModal = () => {
+    showAddItemModal.value = false;
+    editingChecklistItem.value = null;
+};
 const saveNewChecklistItem = async () => {
     if (!newItemLabel.value.trim()) return;
     try {
-        await axios.post(route('deliveries.checklist.add-item', { delivery: props.record.id }), {
-            label: newItemLabel.value.trim(),
-            category: newItemCategory.value,
-            is_required: newItemRequired.value,
-        });
-        showAddItemModal.value = false;
+        if (editingChecklistItem.value) {
+            await axios.put(route('deliveries.checklist.update-item', {
+                delivery: props.record.id,
+                item: editingChecklistItem.value.id,
+            }), {
+                label: newItemLabel.value.trim(),
+                category: newItemCategory.value,
+                is_required: newItemRequired.value,
+            });
+        } else {
+            await axios.post(route('deliveries.checklist.add-item', { delivery: props.record.id }), {
+                label: newItemLabel.value.trim(),
+                category: newItemCategory.value,
+                is_required: newItemRequired.value,
+            });
+        }
+        closeAddItemModal();
         router.reload();
-    } catch (e) { console.error(e); alert('Failed to add item.'); }
+    } catch (e) {
+        console.error(e);
+        alert(editingChecklistItem.value ? 'Failed to update item.' : 'Failed to add item.');
+    }
 };
 const removeChecklistItemFromDelivery = async (item) => {
     if (!confirm(`Remove "${item.label}" from checklist?`)) return;
@@ -243,11 +301,16 @@ const removeChecklistItemFromDelivery = async (item) => {
         router.reload();
     } catch (e) { console.error(e); alert('Failed to remove item.'); }
 };
-const setChecklistItemCompleted = async (item, completed) => {
+const toggleChecklistItemCompleted = async (item) => {
+    const next = !item.completed;
+    item.completed = next;
     try {
-        await axios.put(route('deliveries.checklist.update-item', { delivery: props.record.id, item: item.id }), { completed });
-        router.reload();
-    } catch (e) { console.error(e); }
+        await axios.put(route('deliveries.checklist.update-item', { delivery: props.record.id, item: item.id }), { completed: next });
+        router.reload({ only: ['checklistItems'] });
+    } catch (e) {
+        console.error(e);
+        item.completed = !next;
+    }
 };
 
 const breadcrumbItems = computed(() => [
@@ -278,13 +341,37 @@ const deliverToSummary = computed(() => {
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
                 <div class="flex items-center justify-between mt-4 gap-4 flex-wrap">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
                             {{ record?.display_name }}
                         </h2>
-                        <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', statusInfo.cls]">
-                            {{ statusInfo.label }}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <label for="delivery-status-select" class="sr-only">Delivery status</label>
+                            <select
+                                id="delivery-status-select"
+                                :value="record.status"
+                                :disabled="isSigned || statusUpdating"
+                                class="input-style text-sm py-2 min-w-[12rem] max-w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                                @change="updateDeliveryStatus"
+                            >
+                                <option
+                                    v-for="opt in statusOptionsForSelect"
+                                    :key="String(statusOptionValue(opt))"
+                                    :value="statusOptionValue(opt)"
+                                >
+                                    {{ statusOptionLabel(opt) }}
+                                </option>
+                            </select>
+                            <span
+                                v-if="statusUpdating"
+                                class="material-icons text-lg text-primary-600 animate-spin"
+                                aria-hidden="true"
+                            >sync</span>
+                            <span
+                                v-if="isSigned"
+                                class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                            >Locked (signed)</span>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <button
@@ -391,7 +478,6 @@ const deliverToSummary = computed(() => {
                                     <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Asset</th>
                                     <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Variant</th>
                                     <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit / Serial</th>
-                                    <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Qty</th>
                                     <th class="px-4 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Delivered</th>
                                 </tr>
                             </thead>
@@ -402,7 +488,6 @@ const deliverToSummary = computed(() => {
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ itemVariantLabel(item) ?? '—' }}</td>
                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ itemUnitLabel(item) ?? '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-700 dark:text-gray-200">{{ Number(item.quantity ?? 1) }}</td>
                                     <td class="px-4 py-3 text-center">
                                         <label class="inline-flex items-center gap-2 cursor-pointer">
                                             <input
@@ -420,6 +505,17 @@ const deliverToSummary = computed(() => {
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+                <!-- Notes -->
+                <div v-if="record.internal_notes || record.customer_notes" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6 space-y-4">
+                    <div v-if="record.internal_notes">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Internal Notes</div>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.internal_notes }}</p>
+                    </div>
+                    <div v-if="record.customer_notes">
+                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Customer Notes</div>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.customer_notes }}</p>
                     </div>
                 </div>
 
@@ -456,49 +552,61 @@ const deliverToSummary = computed(() => {
                         </div>
                     </div>
 
-                    <div v-if="checklistItems.length > 0" class="p-6 space-y-6">
-                        <div v-for="category in itemsByCategory" :key="category.id">
-                            <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-                                <span class="w-2 h-2 rounded-full mr-2 bg-blue-500"></span>
+                    <div v-if="checklistItems.length > 0" class="divide-y divide-gray-100 dark:divide-gray-700">
+                        <div v-for="category in itemsByCategory" :key="category.id" class="px-6 py-4">
+                            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
                                 {{ category.name }}
+                                <span class="ml-1 text-gray-400 dark:text-gray-500 normal-case font-medium">
+                                    ({{ category.items.filter(i => i.completed).length }}/{{ category.items.length }})
+                                </span>
                             </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div v-for="item in category.items" :key="item.id" class="border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                                    <div class="flex items-start justify-between mb-2 gap-2">
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white flex-1">
-                                            {{ item.label }}
-                                            <span v-if="item.is_required" class="text-red-500">*</span>
-                                        </p>
-                                        <button
-                                            v-if="!isSigned"
-                                            @click="removeChecklistItemFromDelivery(item)"
-                                            class="flex-shrink-0 h-6 w-6 rounded flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            <ul class="space-y-1.5">
+                                <li
+                                    v-for="item in category.items"
+                                    :key="item.id"
+                                    class="group flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                >
+                                    <label class="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            :checked="!!item.completed"
+                                            :disabled="isSigned"
+                                            @change="toggleChecklistItemCompleted(item)"
+                                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                                        />
+                                        <span
+                                            :class="[
+                                                'text-sm flex-1 min-w-0 truncate',
+                                                item.completed
+                                                    ? 'text-gray-400 dark:text-gray-500 line-through'
+                                                    : 'text-gray-900 dark:text-white',
+                                            ]"
                                         >
-                                            <span class="material-icons text-sm">delete</span>
+                                            {{ item.label }}
+                                            <span v-if="item.is_required" class="ml-1 text-red-500">*</span>
+                                        </span>
+                                    </label>
+                                    <div v-if="!isSigned" class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            type="button"
+                                            @click="editChecklistItemOnDelivery(item)"
+                                            class="h-7 w-7 rounded flex items-center justify-center text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                                            aria-label="Edit item"
+                                        >
+                                            <span class="material-icons text-base">edit</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            @click="removeChecklistItemFromDelivery(item)"
+                                            class="h-7 w-7 rounded flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                            aria-label="Remove item"
+                                        >
+                                            <span class="material-icons text-base">delete</span>
                                         </button>
                                     </div>
-                                    <div class="flex gap-2">
-                                        <button
-                                            type="button"
-                                            @click="setChecklistItemCompleted(item, true)"
-                                            :disabled="isSigned"
-                                            :class="[
-                                                'flex-1 px-2 py-1 text-xs font-medium rounded',
-                                                item.completed ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
-                                            ]"
-                                        >✓ True</button>
-                                        <button
-                                            type="button"
-                                            @click="setChecklistItemCompleted(item, false)"
-                                            :disabled="isSigned"
-                                            :class="[
-                                                'flex-1 px-2 py-1 text-xs font-medium rounded',
-                                                !item.completed ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
-                                            ]"
-                                        >✗ False</button>
-                                    </div>
-                                </div>
-                            </div>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                     <div v-else class="px-6 py-8 text-center text-sm text-gray-500">
@@ -506,17 +614,7 @@ const deliverToSummary = computed(() => {
                     </div>
                 </div>
 
-                <!-- Notes -->
-                <div v-if="record.internal_notes || record.customer_notes" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6 space-y-4">
-                    <div v-if="record.internal_notes">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Internal Notes</div>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.internal_notes }}</p>
-                    </div>
-                    <div v-if="record.customer_notes">
-                        <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Customer Notes</div>
-                        <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.customer_notes }}</p>
-                    </div>
-                </div>
+
             </div>
 
             <!-- Sidebar -->
@@ -546,10 +644,27 @@ const deliverToSummary = computed(() => {
                 <!-- Info -->
                 <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
                     <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-4">Delivery Info</h3>
-                    <dl class="text-sm space-y-2">
-                        <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500">Status</dt>
-                            <dd :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', statusInfo.cls]">{{ statusInfo.label }}</dd>
+                    <dl class="text-sm space-y-3">
+                        <div>
+                            <dt class="text-gray-500 mb-1.5">Status</dt>
+                            <dd class="m-0">
+                                <label for="delivery-status-select-sidebar" class="sr-only">Delivery status</label>
+                                <select
+                                    id="delivery-status-select-sidebar"
+                                    :value="record.status"
+                                    :disabled="isSigned || statusUpdating"
+                                    class="input-style w-full text-sm py-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                                    @change="updateDeliveryStatus"
+                                >
+                                    <option
+                                        v-for="opt in statusOptionsForSelect"
+                                        :key="`sb-${String(statusOptionValue(opt))}`"
+                                        :value="statusOptionValue(opt)"
+                                    >
+                                        {{ statusOptionLabel(opt) }}
+                                    </option>
+                                </select>
+                            </dd>
                         </div>
                         <div class="flex justify-between gap-4">
                             <dt class="text-gray-500">Technician</dt>
@@ -647,87 +762,152 @@ const deliverToSummary = computed(() => {
 
         <!-- Checklist template modal -->
         <Modal :show="showChecklistModal" @close="closeChecklistModal" max-width="2xl">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Delivery Checklist</h3>
-                    <button @click="closeChecklistModal" class="text-gray-400 hover:text-gray-600">
-                        <span class="material-icons">close</span>
+            <div class="p-6 text-gray-900 dark:text-gray-100">
+                <div class="flex items-start justify-between gap-3 mb-5">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add delivery checklist</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Start from a template or define items manually.</p>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeChecklistModal"
+                        class="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
+                        aria-label="Close"
+                    >
+                        <span class="material-icons text-xl">close</span>
                     </button>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                     <button
                         type="button"
                         @click="selectChecklistMode('template')"
                         :class="[
-                            'p-4 rounded-lg border-2 text-left',
-                            checklistCreationMode === 'template' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                            'p-4 rounded-xl border-2 text-left transition-colors',
+                            checklistCreationMode === 'template'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/25 dark:border-primary-400'
+                                : 'border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 hover:border-gray-300 dark:hover:border-gray-500',
                         ]"
                     >
-                        <p class="font-semibold text-gray-900">From Template</p>
-                        <p class="text-sm text-gray-500">Use an existing template</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">From template</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Use an existing checklist template</p>
                     </button>
                     <button
                         type="button"
                         @click="selectChecklistMode('scratch')"
                         :class="[
-                            'p-4 rounded-lg border-2 text-left',
-                            checklistCreationMode === 'scratch' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                            'p-4 rounded-xl border-2 text-left transition-colors',
+                            checklistCreationMode === 'scratch'
+                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-400'
+                                : 'border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 hover:border-gray-300 dark:hover:border-gray-500',
                         ]"
                     >
-                        <p class="font-semibold text-gray-900">Create from Scratch</p>
-                        <p class="text-sm text-gray-500">Build a custom checklist</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">From scratch</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Build a custom checklist for this delivery</p>
                     </button>
                 </div>
 
                 <div v-if="checklistCreationMode === 'template'" class="space-y-2">
-                    <select v-model="selectedTemplate" class="block w-full rounded-md border-gray-300">
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Template</label>
+                    <select v-model="selectedTemplate" class="input-style">
                         <option :value="null">Choose a template…</option>
                         <option v-for="t in checklistTemplates" :key="t.id" :value="t">{{ t.name }}</option>
                     </select>
                 </div>
 
-                <div v-if="checklistCreationMode === 'scratch'" class="space-y-2">
-                    <div v-for="(item, idx) in newChecklistItems" :key="idx" class="flex gap-2">
-                        <input v-model="item.label" placeholder="Item label…" class="flex-1 rounded-md border-gray-300" />
-                        <select v-model="item.category" class="rounded-md border-gray-300 w-40">
-                            <option value="Pre Delivery">Pre Delivery</option>
-                            <option value="Upon Delivery">Upon Delivery</option>
+                <div v-if="checklistCreationMode === 'scratch'" class="space-y-3">
+                    <div
+                        v-for="(item, idx) in newChecklistItems"
+                        :key="idx"
+                        class="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-900/30 p-3"
+                    >
+                        <input
+                            v-model="item.label"
+                            type="text"
+                            placeholder="Item label…"
+                            class="input-style flex-1 min-w-0"
+                        />
+                        <select v-model="item.category" class="input-style w-full sm:w-44 shrink-0">
+                            <option value="Pre Delivery">Pre delivery</option>
+                            <option value="Upon Delivery">Upon delivery</option>
                         </select>
-                        <button @click="removeChecklistItem(idx)" class="text-red-600 px-2">
+                        <button
+                            type="button"
+                            @click="removeChecklistItem(idx)"
+                            class="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 shrink-0 self-end sm:self-auto"
+                            aria-label="Remove item"
+                        >
                             <span class="material-icons text-base">delete</span>
                         </button>
                     </div>
-                    <button @click="addChecklistItem" class="text-sm text-blue-600">+ Add item</button>
+                    <button
+                        type="button"
+                        @click="addChecklistItem"
+                        class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                    >
+                        + Add item
+                    </button>
                 </div>
 
-                <div class="mt-4 flex justify-end gap-2">
-                    <button @click="closeChecklistModal" class="px-4 py-2 text-sm text-gray-700 border rounded">Cancel</button>
-                    <button @click="saveChecklist" :disabled="isLoadingChecklist" class="px-4 py-2 text-sm text-white bg-blue-600 rounded">Save</button>
+                <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                    <button
+                        type="button"
+                        @click="closeChecklistModal"
+                        class="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        @click="saveChecklist"
+                        :disabled="isLoadingChecklist"
+                        class="px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {{ isLoadingChecklist ? 'Saving…' : 'Save' }}
+                    </button>
                 </div>
             </div>
         </Modal>
 
         <!-- Single-item modal -->
         <Modal :show="showAddItemModal" @close="closeAddItemModal" max-width="md">
-            <form @submit.prevent="saveNewChecklistItem" class="p-6 space-y-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Add Checklist Item</h3>
+            <form @submit.prevent="saveNewChecklistItem" class="p-6 space-y-4 text-gray-900 dark:text-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ editingChecklistItem ? 'Edit checklist item' : 'Add checklist item' }}
+                </h3>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Label</label>
-                    <input v-model="newItemLabel" required class="w-full rounded-md border-gray-300" />
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Label</label>
+                    <input v-model="newItemLabel" required class="input-style" />
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select v-model="newItemCategory" class="w-full rounded-md border-gray-300">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
+                    <select v-model="newItemCategory" class="input-style w-full">
                         <option v-for="c in categories" :key="c.id" :value="c.name">{{ c.name }}</option>
                     </select>
                 </div>
-                <label class="flex items-center gap-2 text-sm">
-                    <input type="checkbox" v-model="newItemRequired" /> Required
+                <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input
+                        v-model="newItemRequired"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Required
                 </label>
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" @click="closeAddItemModal" class="px-4 py-2 text-sm text-gray-700 border rounded">Cancel</button>
-                    <button type="submit" :disabled="!newItemLabel.trim()" class="px-4 py-2 text-sm text-white bg-blue-600 rounded">Add</button>
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                        type="button"
+                        @click="closeAddItemModal"
+                        class="px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        :disabled="!newItemLabel.trim()"
+                        class="px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {{ editingChecklistItem ? 'Save' : 'Add' }}
+                    </button>
                 </div>
             </form>
         </Modal>
