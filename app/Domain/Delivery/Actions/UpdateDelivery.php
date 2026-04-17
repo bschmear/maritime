@@ -3,7 +3,9 @@
 namespace App\Domain\Delivery\Actions;
 
 use App\Domain\Delivery\Models\Delivery as RecordModel;
+use App\Domain\Delivery\Models\DeliveryItem;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
@@ -13,17 +15,23 @@ class UpdateDelivery
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'customer_id' => 'required|exists:customer_profiles,id',
-            'asset_unit_id' => 'required|exists:asset_units,id',
+            'customer_id' => 'sometimes|required|exists:customer_profiles,id',
+            'asset_unit_id' => 'nullable|exists:asset_units,id',
             'work_order_id' => 'nullable|exists:work_orders,id',
+            'transaction_id' => 'nullable|exists:transactions,id',
             'technician_id' => 'nullable|exists:users,id',
             'subsidiary_id' => 'nullable|exists:subsidiaries,id',
             'location_id' => 'nullable|exists:locations,id',
-            'scheduled_at' => 'required|date',
+            'scheduled_at' => 'sometimes|required|date',
             'estimated_arrival_at' => 'nullable|date|after:scheduled_at',
-            'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
+            'status' => 'sometimes|required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
             'internal_notes' => 'nullable|string|max:5000',
             'customer_notes' => 'nullable|string|max:5000',
+
+            'delivery_to_type' => 'nullable|in:contact_address,delivery_location,custom',
+            'delivery_location_id' => 'nullable|exists:delivery_locations,id',
+            'contact_address_id' => 'nullable|integer',
+
             'address_line_1' => 'nullable|string|max:255',
             'address_line_2' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:100',
@@ -32,21 +40,57 @@ class UpdateDelivery
             'country' => 'nullable|string|max:100',
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
+
+            'items' => 'nullable|array',
+            'items.*.id' => 'nullable|integer',
+            'items.*.asset_unit_id' => 'nullable|exists:asset_units,id',
+            'items.*.asset_variant_id' => 'nullable|exists:asset_variants,id',
+            'items.*.name' => 'nullable|string|max:500',
+            'items.*.description' => 'nullable|string',
+            'items.*.quantity' => 'nullable|numeric|min:0',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
         ])->validate();
 
-        try {
-            $record = RecordModel::findOrFail($id);
-            $record->update($validated);
+        DeliveryAddressFiller::fill($validated);
 
-            return [
-                'success' => true,
-                'record' => $record,
-            ];
+        $items = $validated['items'] ?? null;
+        unset($validated['items']);
+
+        try {
+            return DB::transaction(function () use ($id, $validated, $items) {
+                $record = RecordModel::findOrFail($id);
+                $previousTransactionId = $record->transaction_id;
+                $previousWorkOrderId = $record->work_order_id;
+
+                $record->update($validated);
+
+                if (is_array($items)) {
+                    $this->syncItems($record, $items);
+                } else {
+                    // If the caller toggled the source without sending items, re-sync.
+                    $newTx = $record->transaction_id;
+                    $newWo = $record->work_order_id;
+                    if ($newTx && $newTx !== $previousTransactionId) {
+                        (new SyncItemsFromSource)($record, 'transaction', (int) $newTx);
+                    } elseif ($newWo && $newWo !== $previousWorkOrderId) {
+                        (new SyncItemsFromSource)($record, 'work_order', (int) $newWo);
+                    }
+                }
+
+                $record->load('items');
+                $record->syncStatusFromItems();
+                $record->save();
+
+                return [
+                    'success' => true,
+                    'record' => $record,
+                ];
+            });
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateDelivery', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data,
+                'data' => $validated,
             ]);
 
             return [
@@ -58,7 +102,7 @@ class UpdateDelivery
             Log::error('Unexpected error in UpdateDelivery', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data,
+                'data' => $validated,
             ]);
 
             return [
@@ -67,5 +111,48 @@ class UpdateDelivery
                 'record' => null,
             ];
         }
+    }
+
+    /**
+     * Diff the incoming items against existing ones: update kept rows, create new ones,
+     * delete any existing row whose id isn't present in the payload. Preserves delivered_at.
+     */
+    private function syncItems(RecordModel $record, array $items): void
+    {
+        $keep = [];
+
+        foreach ($items as $index => $row) {
+            $payload = [
+                'delivery_id' => $record->id,
+                'type' => $row['type'] ?? 'asset',
+                'asset_unit_id' => $row['asset_unit_id'] ?? null,
+                'asset_variant_id' => $row['asset_variant_id'] ?? null,
+                'name' => $row['name'] ?? 'Asset',
+                'description' => $row['description'] ?? null,
+                'quantity' => $row['quantity'] ?? 1,
+                'unit_price' => $row['unit_price'] ?? 0,
+                'position' => $index,
+            ];
+
+            if (! empty($row['id'])) {
+                $existing = DeliveryItem::where('delivery_id', $record->id)
+                    ->whereKey($row['id'])
+                    ->first();
+
+                if ($existing) {
+                    $existing->fill($payload)->save();
+                    $keep[] = $existing->id;
+
+                    continue;
+                }
+            }
+
+            $created = DeliveryItem::create($payload);
+            $keep[] = $created->id;
+        }
+
+        DeliveryItem::where('delivery_id', $record->id)
+            ->whereNotIn('id', $keep)
+            ->delete();
     }
 }

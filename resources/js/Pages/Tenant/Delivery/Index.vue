@@ -138,60 +138,60 @@ const viewMode = ref('timeline');
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Scheduled</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">Scheduled</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.scheduled }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-blue-600 dark:text-blue-400">schedule</span>
                         </div>
                     </div>
-                    <p class="mt-3 text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
-                        <span class="material-icons text-sm">arrow_upward</span> 4 added this week
+                    <p class="mt-3 text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+                        <span class="material-icons text-md">arrow_upward</span> 4 added this week
                     </p>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">En Route</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">En Route</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.en_route }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-yellow-600 dark:text-yellow-400">local_shipping</span>
                         </div>
                     </div>
-                    <p class="mt-3 text-xs text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
-                        <span class="material-icons text-sm">radio_button_checked</span> Live now
+                    <p class="mt-3 text-sm text-yellow-600 dark:text-yellow-400 font-medium flex items-center gap-1">
+                        <span class="material-icons text-md">radio_button_checked</span> Live now
                     </p>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Delivered</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">Delivered</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.delivered }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-green-600 dark:text-green-400">inventory</span>
                         </div>
                     </div>
-                    <p class="mt-3 text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
-                        <span class="material-icons text-sm">arrow_upward</span> 94% on-time rate
+                    <p class="mt-3 text-sm text-green-600 dark:text-green-400 font-medium flex items-center gap-1">
+                        <span class="material-icons text-md">arrow_upward</span> 94% on-time rate
                     </p>
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Cancelled</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">Cancelled</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.cancelled }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-red-600 dark:text-red-400">cancel</span>
                         </div>
                     </div>
-                    <p class="mt-3 text-xs text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
-                        <span class="material-icons text-sm">remove</span> This month
+                    <p class="mt-3 text-sm text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
+                        <span class="material-icons text-md">remove</span> This month
                     </p>
                 </div>
             </div>
@@ -206,12 +206,12 @@ const viewMode = ref('timeline');
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                         <div class="flex items-center gap-2">
                             <span class="material-icons text-blue-600 dark:text-blue-400">today</span>
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Today's Schedule</h2>
-                            <span class="ml-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold">
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Today's Schedule</h2>
+                            <span class="ml-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm font-bold">
                                 {{ todayDeliveries.length }}
                             </span>
                         </div>
-                        <span class="text-sm text-gray-400 dark:text-gray-500">{{ new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
+                        <span class="text-md text-gray-400 dark:text-gray-500">{{ new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
                     </div>
 
                     <!-- Timeline -->
@@ -243,36 +243,36 @@ const viewMode = ref('timeline');
                                 <div class="flex items-start justify-between gap-2 mb-2">
                                     <div>
                                         <div class="flex items-center gap-2 mb-1">
-                                            <span class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ delivery.display_name }}</span>
-                                            <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium', getStatus(delivery.status).bg]">
-                                                <span class="material-icons text-xs">{{ getStatus(delivery.status).icon }}</span>
+                                            <span class="text-sm font-mono text-gray-400 dark:text-gray-500">{{ delivery.display_name }}</span>
+                                            <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded text-sm font-medium', getStatus(delivery.status).bg]">
+                                                <span class="material-icons text-sm">{{ getStatus(delivery.status).icon }}</span>
                                                 {{ getStatus(delivery.status).label }}
                                             </span>
                                         </div>
-                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ getCustomerName(delivery) }}</p>
+                                        <p class="text-md font-semibold text-gray-900 dark:text-white">{{ getCustomerName(delivery) }}</p>
                                     </div>
                                     <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors">chevron_right</span>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
                                     <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-sm text-gray-400">directions_boat</span>
+                                        <span class="material-icons text-md text-gray-400">directions_boat</span>
                                         <span class="truncate">{{ getAssetName(delivery) }}</span>
                                     </div>
                                     <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-sm text-gray-400">engineering</span>
+                                        <span class="material-icons text-md text-gray-400">engineering</span>
                                         <span>{{ getTechnicianName(delivery) }}</span>
                                     </div>
                                     <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-sm text-gray-400">schedule</span>
+                                        <span class="material-icons text-md text-gray-400">schedule</span>
                                         <span>{{ formatTime(delivery.scheduled_at) }}</span>
                                     </div>
                                     <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-sm text-gray-400">location_on</span>
+                                        <span class="material-icons text-md text-gray-400">location_on</span>
                                         <span>ETA {{ formatTime(delivery.estimated_arrival_at) }}</span>
                                     </div>
                                     <div v-if="delivery.recipient_name" class="flex items-center gap-1.5 col-span-2">
-                                        <span class="material-icons text-sm text-green-500">how_to_reg</span>
+                                        <span class="material-icons text-md text-green-500">how_to_reg</span>
                                         <span class="text-green-600 dark:text-green-400 font-medium">Signed by {{ delivery.recipient_name }}</span>
                                     </div>
                                 </div>
@@ -287,20 +287,20 @@ const viewMode = ref('timeline');
                     <!-- Mini Calendar -->
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ calendarTitle }}</h3>
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white">{{ calendarTitle }}</h3>
                             <div class="flex gap-1">
                                 <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
-                                    <span class="material-icons text-sm">chevron_left</span>
+                                    <span class="material-icons text-md">chevron_left</span>
                                 </button>
                                 <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
-                                    <span class="material-icons text-sm">chevron_right</span>
+                                    <span class="material-icons text-md">chevron_right</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Day headers -->
                         <div class="grid grid-cols-7 mb-1">
-                            <div v-for="d in ['S','M','T','W','T','F','S']" :key="d" class="text-center text-xs font-medium text-gray-400 dark:text-gray-500 py-1">
+                            <div v-for="d in ['S','M','T','W','T','F','S']" :key="d" class="text-center text-sm font-medium text-gray-400 dark:text-gray-500 py-1">
                                 {{ d }}
                             </div>
                         </div>
@@ -315,7 +315,7 @@ const viewMode = ref('timeline');
                                 <template v-if="cell.day">
                                     <button
                                         :class="[
-                                            'w-7 h-7 rounded-full text-xs font-medium flex items-center justify-center transition-colors',
+                                            'w-7 h-7 rounded-full text-sm font-medium flex items-center justify-center transition-colors',
                                             cell.isToday
                                                 ? 'bg-blue-600 text-white font-bold'
                                                 : cell.count > 0
@@ -339,7 +339,7 @@ const viewMode = ref('timeline');
                         </div>
 
                         <!-- Legend -->
-                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
                             <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span> Today</div>
                             <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> Deliveries</div>
                         </div>
@@ -349,10 +349,10 @@ const viewMode = ref('timeline');
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex-1">
                         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
                             <div class="flex items-center gap-2">
-                                <span class="material-icons text-gray-500 dark:text-gray-400 text-lg">event_upcoming</span>
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Upcoming</h3>
+                                <span class="material-icons text-gray-500 dark:text-gray-400 text-xl">event_upcoming</span>
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Upcoming</h3>
                             </div>
-                            <Link :href="route('deliveries.index')" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">View all</Link>
+                            <Link :href="route('deliveries.index')" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all</Link>
                         </div>
 
                         <div class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -364,14 +364,14 @@ const viewMode = ref('timeline');
                             >
                                 <div :class="['w-2 h-2 rounded-full mt-1.5 flex-shrink-0', getStatus(delivery.status).dot]" />
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-semibold text-gray-800 dark:text-white truncate">{{ getCustomerName(delivery) }}</p>
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ getAssetName(delivery) }}</p>
-                                    <div class="flex items-center gap-1 mt-1 text-xs text-gray-400 dark:text-gray-500">
-                                        <span class="material-icons text-xs">schedule</span>
+                                    <p class="text-sm font-semibold text-gray-800 dark:text-white truncate">{{ getCustomerName(delivery) }}</p>
+                                    <p class="text-sm text-gray-400 dark:text-gray-500 truncate">{{ getAssetName(delivery) }}</p>
+                                    <div class="flex items-center gap-1 mt-1 text-sm text-gray-400 dark:text-gray-500">
+                                        <span class="material-icons text-sm">schedule</span>
                                         {{ formatScheduledShort(delivery.scheduled_at) }}
                                     </div>
                                 </div>
-                                <span :class="['inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0', getStatus(delivery.status).bg]">
+                                <span :class="['inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium flex-shrink-0', getStatus(delivery.status).bg]">
                                     {{ getStatus(delivery.status).label }}
                                 </span>
                             </Link>
@@ -390,20 +390,20 @@ const viewMode = ref('timeline');
                         <!-- Search -->
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <span class="material-icons text-base text-gray-400">search</span>
+                                <span class="material-icons text-lg text-gray-400">search</span>
                             </div>
                             <input
                                 v-model="searchQuery"
                                 type="text"
                                 placeholder="Search deliveries..."
-                                class="block pl-10 pr-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
+                                class="block pl-10 pr-4 py-2 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
                             />
                         </div>
 
                         <!-- Status filter -->
                         <select
                             v-model="selectedStatus"
-                            class="block py-2 px-3 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            class="block py-2 px-3 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="all">All Statuses</option>
                             <option value="scheduled">Scheduled</option>
@@ -417,9 +417,9 @@ const viewMode = ref('timeline');
                     <!-- New Delivery -->
                     <button
                         @click="openCreateModal"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex-shrink-0"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-md flex-shrink-0"
                     >
-                        <span class="material-icons text-base">add</span>
+                        <span class="material-icons text-lg">add</span>
                         <span>New Delivery</span>
                     </button>
                 </div>
@@ -429,34 +429,34 @@ const viewMode = ref('timeline');
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivery #</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asset / Vessel</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Technician</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Scheduled</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Signed</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivery #</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asset / Vessel</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Technician</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Scheduled</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Signed</th>
+                                <th class="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             <tr v-for="delivery in (deliveries?.data ?? [])" :key="delivery.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white">{{ delivery.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</td>
-                                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-[180px] truncate">{{ getAssetName(delivery) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ getTechnicianName(delivery) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ formatDateTime(delivery.scheduled_at) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-md font-mono text-gray-900 dark:text-white">{{ delivery.display_name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</td>
+                                <td class="px-6 py-4 text-md text-gray-500 dark:text-gray-400 max-w-[180px] truncate">{{ getAssetName(delivery) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ getTechnicianName(delivery) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ formatDateTime(delivery.scheduled_at) }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span :class="['inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium', getStatus(delivery.status).bg]">
-                                        <span class="material-icons text-xs">{{ getStatus(delivery.status).icon }}</span>
+                                    <span :class="['inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium', getStatus(delivery.status).bg]">
+                                        <span class="material-icons text-sm">{{ getStatus(delivery.status).icon }}</span>
                                         {{ getStatus(delivery.status).label }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span v-if="delivery.recipient_name" class="material-icons text-sm text-green-500">verified</span>
+                                    <span v-if="delivery.recipient_name" class="material-icons text-md text-green-500">verified</span>
                                     <span v-else class="text-gray-300 dark:text-gray-600">—</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-md">
                                     <Link :href="route('deliveries.show', delivery.id)" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">View</Link>
                                 </td>
                             </tr>
@@ -466,26 +466,26 @@ const viewMode = ref('timeline');
 
                 <!-- Pagination -->
                 <div v-if="(deliveries?.data ?? []).length && deliveries?.total > 0" class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                    <div class="text-md text-gray-500 dark:text-gray-400">
                         Showing {{ (deliveries.current_page - 1) * deliveries.per_page + 1 }}–{{ Math.min(deliveries.current_page * deliveries.per_page, deliveries.total) }} of {{ deliveries.total }} results
                     </div>
                     <div class="flex gap-2">
                         <Link
                             v-if="deliveries.prev_page_url"
                             :href="deliveries.prev_page_url"
-                            class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                            class="px-3 py-1.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                         >
                             Previous
                         </Link>
-                        <button v-else disabled class="px-3 py-1.5 text-sm font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed opacity-50">Previous</button>
+                        <button v-else disabled class="px-3 py-1.5 text-md font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed opacity-50">Previous</button>
                         <Link
                             v-if="deliveries.next_page_url"
                             :href="deliveries.next_page_url"
-                            class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                            class="px-3 py-1.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                         >
                             Next
                         </Link>
-                        <button v-else disabled class="px-3 py-1.5 text-sm font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed opacity-50">Next</button>
+                        <button v-else disabled class="px-3 py-1.5 text-md font-medium text-gray-400 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg cursor-not-allowed opacity-50">Next</button>
                     </div>
                 </div>
             </div>
@@ -501,8 +501,8 @@ const viewMode = ref('timeline');
                             <span class="material-icons text-blue-600 dark:text-blue-400">add_location_alt</span>
                         </div>
                         <div>
-                            <h2 class="text-lg font-bold text-gray-900 dark:text-white">New Delivery</h2>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Schedule a vessel delivery</p>
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">New Delivery</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Schedule a vessel delivery</p>
                         </div>
                     </div>
                     <button @click="showCreateModal = false"
@@ -527,15 +527,15 @@ const viewMode = ref('timeline');
                 <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
                     <span class="material-icons text-3xl text-green-600 dark:text-green-400">check_circle</span>
                 </div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Delivery Created</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">The delivery has been scheduled successfully.</p>
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">Delivery Created</h3>
+                <p class="text-md text-gray-500 dark:text-gray-400 mb-6">The delivery has been scheduled successfully.</p>
                 <div class="flex justify-center gap-3">
                     <button @click="closeSuccessModal"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Back to List
                     </button>
                     <button @click="viewCreatedRecord"
-                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                        class="px-4 py-2 text-md font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
                         View Delivery
                     </button>
                 </div>

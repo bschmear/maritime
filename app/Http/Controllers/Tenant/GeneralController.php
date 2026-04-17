@@ -32,6 +32,8 @@ class GeneralController extends BaseController
             'addon' => 'AddOn',
             // Str::studly('boatmake') is "Boatmake" but the domain / model is BoatMake
             'boatmake' => 'BoatMake',
+            'delivery_location' => 'DeliveryLocation',
+            'deliverylocation' => 'DeliveryLocation',
         ];
         $typeKey = $type !== null && $type !== '' ? strtolower((string) $type) : '';
         $domainName = $typeToDomain[$typeKey] ?? \Illuminate\Support\Str::studly($type);
@@ -42,7 +44,7 @@ class GeneralController extends BaseController
         // Models whose display_name is a virtual accessor (not a real DB column).
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract'];
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -68,6 +70,12 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 // display_name is computed from `sequence` (e.g. "DL-1001", "CTR-10003")
                 $columns[] = 'sequence';
+            } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
+                // display_name accessor falls back to the real `name` column.
+                $columns[] = 'name';
+                $columns[] = 'city';
+                $columns[] = 'state';
+                $columns[] = 'active';
             }
         }
 
@@ -196,6 +204,13 @@ class GeneralController extends BaseController
                         $q->orWhereRaw('LOWER(COALESCE(contract_number, \'\')) LIKE ?', ['%'.strtolower($searchTerm).'%']);
                     }
                 });
+            } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('LOWER(name) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(state, \'\')) LIKE ?', [$searchTerm]);
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -267,6 +282,9 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('sequence', $dir);
+            } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('name', $dir);
             } else {
                 // Default ordering for other models without display_name column
                 $query->orderBy('created_at', 'desc');

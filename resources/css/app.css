@@ -178,8 +178,31 @@ td.sticky {
     /* Remove #app's layout height so the preview starts at page top (no blank pages) */
     body:has(.contract-preview-overlay) #app,
     body:has(.invoice-preview-overlay) #app,
-    body:has(.service-ticket-preview-overlay) #app {
+    body:has(.service-ticket-preview-overlay) #app,
+    body:has(.delivery-preview-overlay) #app {
         display: none !important;
+    }
+
+    /* Delivery preview is Teleported to <body> (same as contract/invoice). */
+    .delivery-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+        background: white !important;
+    }
+
+    #delivery-print-root,
+    #delivery-checklist-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     /* Service ticket preview is Teleported to <body> (same as contract/invoice). */
@@ -359,8 +382,18 @@ td.sticky {
     #service-ticket-print-root,
     #service-ticket-print-root *,
     #boat-show-public-print-root,
-    #boat-show-public-print-root * {
+    #boat-show-public-print-root *,
+    #delivery-print-root,
+    #delivery-print-root *,
+    #delivery-checklist-print-root,
+    #delivery-checklist-print-root * {
         visibility: visible;
+    }
+
+    /* Force a page break between delivery document and checklist when both are present */
+    #delivery-checklist-print-root {
+        break-before: page;
+        page-break-before: always;
     }
 
     #contract-print-root {

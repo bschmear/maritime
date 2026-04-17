@@ -21,6 +21,7 @@ use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\DeliveryChecklistController;
 use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
+use App\Http\Controllers\Tenant\DeliveryLocationController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
@@ -283,11 +284,26 @@ Route::middleware([
             Route::resource('/', SchedulingController::class)->parameters(['' => 'scheduling']);
         });
 
+        // ── Common Delivery Locations ─────────────────────────────────
+        Route::prefix('delivery-locations')->name('delivery-locations.')->group(function () {
+            Route::get('/options', [DeliveryLocationController::class, 'options'])->name('options');
+            Route::get('/', [DeliveryLocationController::class, 'index'])->name('index');
+            Route::get('/create', [DeliveryLocationController::class, 'create'])->name('create');
+            Route::post('/', [DeliveryLocationController::class, 'store'])->name('store');
+            Route::get('/{deliveryLocation}', [DeliveryLocationController::class, 'show'])->name('show');
+            Route::get('/{deliveryLocation}/edit', [DeliveryLocationController::class, 'edit'])->name('edit');
+            Route::match(['put', 'patch'], '/{deliveryLocation}', [DeliveryLocationController::class, 'update'])->name('update');
+            Route::delete('/{deliveryLocation}', [DeliveryLocationController::class, 'destroy'])->name('destroy');
+        });
+
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
+            Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');
+            Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
             Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
+            Route::post('/{delivery}/items/{item}/delivered', [DeliveryController::class, 'markItemDelivered'])->name('items.mark-delivered');
             Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);
         });
 

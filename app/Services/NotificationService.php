@@ -249,8 +249,10 @@ class NotificationService
         $tenant = tenant();
         if ($tenant) {
             $accountModel = Account::where('tenant_id', $tenant->id)->first();
-            if ($accountModel && $accountModel->owner) {
-                return $accountModel->owner;
+            if ($accountModel && $accountModel->owner_id) {
+                // Re-fetch via the domain User model so the declared return type
+                // (?App\Domain\User\Models\User) matches what we hand back.
+                return User::find($accountModel->owner_id);
             }
         }
 

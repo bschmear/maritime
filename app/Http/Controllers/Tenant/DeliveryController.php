@@ -6,9 +6,14 @@ use App\Actions\PublicStorage;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
+use App\Domain\Delivery\Actions\MarkDeliveryItemDelivered;
+use App\Domain\Delivery\Actions\SyncItemsFromSource;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
+use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
+use App\Domain\DeliveryLocation\Models\DeliveryLocation;
+use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -75,19 +80,17 @@ class DeliveryController extends RecordController
 
     /*
     |--------------------------------------------------------------------------
-    | Show (delegate to RecordController with id for route binding)
+    | Show — custom, invoice-style page (no generic Form)
     |--------------------------------------------------------------------------
     */
     public function show(Request $request, $delivery)
     {
-        // Get the delivery ID regardless of whether it's a model or string
-        $deliveryId = $delivery instanceof \App\Domain\Delivery\Models\Delivery ? $delivery->id : $delivery;
+        $deliveryId = $delivery instanceof RecordModel ? $delivery->id : $delivery;
 
-        // Load delivery model for checklist data
-        $deliveryModel = \App\Domain\Delivery\Models\Delivery::findOrFail($deliveryId);
+        $record = RecordModel::with($this->deliveryDetailRelationships())
+            ->findOrFail($deliveryId);
 
-        // Add checklist data
-        $checklistItems = $deliveryModel->checklistItems()
+        $checklistItems = $record->checklistItems()
             ->with(['completedBy', 'category'])
             ->orderBy('category_id')
             ->orderBy('sort_order')
@@ -99,21 +102,25 @@ class DeliveryController extends RecordController
 
         $categories = DeliveryChecklistCategory::orderBy('name')->get();
 
-        // Call parent show to get base data, then add our checklist data
-        return parent::show($request, $deliveryId)->with([
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Delivery/Show', [
+            'record' => $record,
+            'recordType' => 'deliveries',
+            'recordTitle' => 'Delivery',
+            'domainName' => 'Delivery',
+            'enumOptions' => $this->getEnumOptions(),
+            'account' => $account,
             'checklistItems' => $checklistItems,
             'checklistTemplates' => $checklistTemplates,
             'categories' => $categories,
+            'customerAddresses' => $record->customer ? $record->customer->addresses()->get() : [],
         ]);
     }
 
-    public function sendSignatureRequest(Request $request, Delivery $delivery)
+    public function sendSignatureRequest(Request $request, RecordModel $delivery)
     {
-        // Generate or get the signature URL
         $signatureUrl = url("/deliveries/{$delivery->uuid}/review");
-
-        // TODO: Send email to customer with signature request
-        // For now, just return success
 
         return response()->json([
             'message' => 'Signature request sent successfully',
@@ -123,7 +130,7 @@ class DeliveryController extends RecordController
 
     /*
     |--------------------------------------------------------------------------
-    | Create / Store
+    | Create / Store — custom form
     |--------------------------------------------------------------------------
     */
     public function workOrderDetails($workorderId)
@@ -165,7 +172,7 @@ class DeliveryController extends RecordController
 
     public function customerDetails($customerId)
     {
-        $customer = Customer::findOrFail($customerId);
+        $customer = Customer::with('addresses')->findOrFail($customerId);
 
         return response()->json([
             'customer_id' => $customer->id,
@@ -180,37 +187,28 @@ class DeliveryController extends RecordController
                 'latitude' => $customer->latitude,
                 'longitude' => $customer->longitude,
             ],
+            'addresses' => $customer->addresses,
         ]);
     }
 
     public function create()
     {
-        return parent::create();
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Delivery/Create', [
+            'recordType' => 'deliveries',
+            'recordTitle' => 'Delivery',
+            'domainName' => 'Delivery',
+            'enumOptions' => $this->getEnumOptions(),
+            'account' => $account,
+        ]);
     }
 
     public function store(Request $request, PublicStorage $publicStorage)
     {
-        $validated = $request->validate([
-            'customer_id' => 'required|exists:customer_profiles,id',
-            'asset_unit_id' => 'required|exists:asset_units,id',
-            'work_order_id' => 'nullable|exists:work_orders,id',
-            'technician_id' => 'nullable|exists:users,id',
-            'scheduled_at' => 'required|date',
-            'estimated_arrival_at' => 'nullable|date|after:scheduled_at',
-            'status' => 'required|in:scheduled,en_route,rescheduled,confirmed',
-            'internal_notes' => 'nullable|string|max:5000',
-            'customer_notes' => 'nullable|string|max:5000',
-            'address_line_1' => 'nullable|string|max:255',
-            'address_line_2' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'country' => 'nullable|string|max:100',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
-        ]);
+        $payload = $request->all();
 
-        $result = (new CreateAction)($validated);
+        $result = (new CreateAction)($payload);
 
         if (! ($result['success'] ?? true)) {
             $errorMsg = $result['message'] ?? 'Failed to create delivery';
@@ -238,25 +236,39 @@ class DeliveryController extends RecordController
 
     /*
     |--------------------------------------------------------------------------
-    | Edit / Update / Destroy (delegate to RecordController with id)
+    | Edit / Update / Destroy — custom form
     |--------------------------------------------------------------------------
     */
     public function edit($delivery)
     {
-        return redirect()->route('deliveries.show', $delivery->uuid);
+        $deliveryId = $delivery instanceof RecordModel ? $delivery->id : $delivery;
+
+        $record = RecordModel::with($this->deliveryDetailRelationships())
+            ->findOrFail($deliveryId);
+
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Delivery/Edit', [
+            'record' => $record,
+            'recordType' => 'deliveries',
+            'recordTitle' => 'Delivery',
+            'domainName' => 'Delivery',
+            'enumOptions' => $this->getEnumOptions(),
+            'account' => $account,
+            'customerAddresses' => $record->customer ? $record->customer->addresses()->get() : [],
+        ]);
     }
 
     public function update(Request $request, $delivery, PublicStorage $publicStorage)
     {
-        // Handle case where route model binding failed and $delivery is a string ID
-        if (is_string($delivery)) {
+        if (is_string($delivery) || is_numeric($delivery)) {
             $delivery = RecordModel::findOrFail($delivery);
         }
 
-        // Allow quick status-only PATCH (e.g. "Mark En Route" from show page)
+        // Quick status-only PATCH (existing behavior preserved).
         if ($request->has('status') && count($request->keys()) === 1) {
             $request->validate([
-                'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled',
+                'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
             ]);
 
             (new UpdateAction)($delivery->id, ['status' => $request->status]);
@@ -264,13 +276,33 @@ class DeliveryController extends RecordController
             return back()->with('success', 'Status updated.');
         }
 
-        return parent::update($request, $delivery->id, $publicStorage);
+        $result = (new UpdateAction)($delivery->id, $request->all());
+
+        if (! ($result['success'] ?? true)) {
+            $errorMsg = $result['message'] ?? 'Failed to update delivery';
+            if ($request->wantsJson() || $request->header('X-Modal-Request')) {
+                return response()->json(['message' => $errorMsg, 'errors' => ['general' => [$errorMsg]]], 422);
+            }
+
+            return back()->withErrors(['general' => $errorMsg])->withInput();
+        }
+
+        if ($request->wantsJson() || $request->header('X-Modal-Request')) {
+            return response()->json([
+                'success' => true,
+                'recordId' => $delivery->id,
+                'message' => 'Delivery updated.',
+            ]);
+        }
+
+        return redirect()
+            ->route('deliveries.show', $delivery->id)
+            ->with('success', 'Delivery updated.');
     }
 
     public function markAsDelivered(Request $request, $delivery)
     {
-        // Handle case where route model binding failed
-        if (is_string($delivery)) {
+        if (is_string($delivery) || is_numeric($delivery)) {
             $delivery = RecordModel::findOrFail($delivery);
         }
 
@@ -278,21 +310,193 @@ class DeliveryController extends RecordController
             return response()->json(['message' => 'Delivery is already marked as delivered'], 400);
         }
 
-        $delivery->update([
+        // Mark every undelivered item so the status flip is consistent with per-item tracking.
+        $delivery->items()->whereNull('delivered_at')->update([
             'delivered_at' => now(),
-            'status' => 'delivered',
+            'delivered_by_user_id' => optional($request->user())->id,
         ]);
+
+        $delivery->load('items');
+        $delivery->syncStatusFromItems();
+        // Ensure the delivery reflects "delivered" even if it had no items.
+        if ($delivery->status !== 'delivered') {
+            $delivery->status = 'delivered';
+            $delivery->delivered_at = $delivery->delivered_at ?: now();
+        }
+        $delivery->save();
 
         return response()->json(['message' => 'Delivery marked as completed']);
     }
 
     public function destroy($delivery)
     {
-        // Handle case where route model binding failed
-        if (is_string($delivery)) {
-            $delivery = Delivery::findOrFail($delivery);
+        if (is_string($delivery) || is_numeric($delivery)) {
+            $delivery = RecordModel::findOrFail($delivery);
         }
 
         return parent::destroy($delivery->id);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Per-item endpoints
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Toggle a single delivery item's delivered state.
+     */
+    public function markItemDelivered(Request $request, $delivery, $item)
+    {
+        $deliveryId = $delivery instanceof RecordModel ? $delivery->id : $delivery;
+        $itemId = $item instanceof DeliveryItem ? $item->id : $item;
+
+        $deliveryItem = DeliveryItem::where('delivery_id', $deliveryId)
+            ->whereKey($itemId)
+            ->firstOrFail();
+
+        $delivered = (bool) $request->input('delivered', true);
+
+        (new MarkDeliveryItemDelivered)($deliveryItem, optional($request->user())->id, $delivered);
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', $delivered ? 'Item delivered.' : 'Item marked as not delivered.');
+    }
+
+    /**
+     * Preview what items would be synced from a given source (work order or transaction).
+     * Used by the create/edit form before the delivery is saved.
+     */
+    public function sourceItems(Request $request)
+    {
+        $request->validate([
+            'type' => 'required|in:transaction,work_order,workorder',
+            'id' => 'required|integer',
+        ]);
+
+        $type = strtolower($request->input('type'));
+        $id = (int) $request->input('id');
+
+        if ($type === 'transaction') {
+            $source = Transaction::with([
+                'items.assetUnit.asset',
+                'items.assetVariant',
+                'customer.contact',
+            ])->find($id);
+
+            if (! $source) {
+                return response()->json(['items' => []]);
+            }
+
+            $items = collect($source->items)
+                ->filter(fn ($i) => ! empty($i->asset_unit_id))
+                ->values()
+                ->map(function ($i) {
+                    return [
+                        'asset_unit_id' => $i->asset_unit_id,
+                        'asset_variant_id' => $i->asset_variant_id,
+                        'name' => $i->name ?? $i->assetUnit?->display_name ?? 'Asset',
+                        'description' => $i->description,
+                        'quantity' => (float) ($i->quantity ?? 1),
+                        'unit_price' => (float) ($i->unit_price ?? 0),
+                        'asset_unit' => $i->assetUnit,
+                        'asset_variant' => $i->assetVariant,
+                    ];
+                });
+
+            return response()->json([
+                'items' => $items,
+                'customer_id' => $source->customer_id,
+                'source' => [
+                    'id' => $source->id,
+                    'display_name' => $source->display_name,
+                ],
+            ]);
+        }
+
+        // work_order / workorder
+        $source = WorkOrder::with(['assetUnit.asset', 'customer'])->find($id);
+        if (! $source || ! $source->assetUnit) {
+            return response()->json(['items' => []]);
+        }
+
+        $unit = $source->assetUnit;
+
+        return response()->json([
+            'items' => [[
+                'asset_unit_id' => $unit->id,
+                'asset_variant_id' => $unit->asset_variant_id ?? null,
+                'name' => $unit->display_name ?? 'Asset',
+                'description' => null,
+                'quantity' => 1,
+                'unit_price' => 0,
+                'asset_unit' => $unit,
+                'asset_variant' => null,
+            ]],
+            'customer_id' => $source->customer_id,
+            'source' => [
+                'id' => $source->id,
+                'display_name' => 'WO-'.($source->work_order_number ?? $source->id),
+            ],
+        ]);
+    }
+
+    /**
+     * Printable page — delivery document + a separate checklist page.
+     */
+    public function print(Request $request, $delivery)
+    {
+        $deliveryId = $delivery instanceof RecordModel ? $delivery->id : $delivery;
+
+        $record = RecordModel::with($this->deliveryDetailRelationships())
+            ->findOrFail($deliveryId);
+
+        $checklistItems = $record->checklistItems()
+            ->with(['category'])
+            ->orderBy('category_id')
+            ->orderBy('sort_order')
+            ->get();
+
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Delivery/Print', [
+            'record' => $record,
+            'account' => $account,
+            'enumOptions' => $this->getEnumOptions(),
+            'checklistItems' => $checklistItems,
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    protected function deliveryDetailRelationships(): array
+    {
+        return [
+            'customer' => function ($q) {
+                $q->with('contact');
+            },
+            'assetUnit.asset',
+            'assetUnit.assetVariant',
+            'workOrder',
+            'transaction',
+            'technician',
+            'deliveryLocation',
+            'items' => function ($q) {
+                $q->orderBy('position')
+                    ->with([
+                        'assetUnit.asset',
+                        'assetUnit.assetVariant',
+                        'assetVariant',
+                        'deliveredBy',
+                    ]);
+            },
+        ];
     }
 }
