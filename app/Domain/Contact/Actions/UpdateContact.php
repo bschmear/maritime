@@ -71,6 +71,9 @@ class UpdateContact
             'avatar' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
 
+            'stripe_customer_id' => ['nullable', 'string', 'max:255', Rule::unique('contacts', 'stripe_customer_id')->ignore($id)],
+            'quickbooks_customer_id' => ['nullable', 'string', 'max:255', Rule::unique('contacts', 'quickbooks_customer_id')->ignore($id)],
+
             'addresses' => ['nullable', 'array'],
             'addresses.*.label' => ['nullable', 'string', 'max:255'],
             'addresses.*.is_primary' => ['nullable', 'boolean'],

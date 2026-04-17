@@ -69,6 +69,8 @@ class Contact extends Authenticatable
         'facebook',
         'avatar',
         'notes',
+        'stripe_customer_id',
+        'quickbooks_customer_id',
     ];
 
     protected $casts = [
@@ -314,5 +316,73 @@ class Contact extends Authenticatable
     public function hasPortalAccount(): bool
     {
         return ! is_null($this->password);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment-processor customer IDs (paired with email)
+    |--------------------------------------------------------------------------
+    |
+    | {@code stripe_customer_id} and {@code quickbooks_customer_id} are external
+    | IDs issued by those processors. They are tied to a Contact via email, so
+    | use {@see resolveByEmailForProcessor()} to locate (or attach) them before
+    | creating/paying against the matching remote customer record.
+    */
+
+    /**
+     * Find a contact by email and return the current processor customer id (if any).
+     *
+     * @param  'stripe'|'quickbooks'  $processor
+     * @return array{contact: ?self, customer_id: ?string}
+     */
+    public static function resolveByEmailForProcessor(?string $email, string $processor): array
+    {
+        $contact = self::findByEmailCaseInsensitive($email);
+        if ($contact === null) {
+            return ['contact' => null, 'customer_id' => null];
+        }
+
+        $column = match ($processor) {
+            'stripe' => 'stripe_customer_id',
+            'quickbooks' => 'quickbooks_customer_id',
+            default => throw new \InvalidArgumentException("Unsupported processor: {$processor}"),
+        };
+
+        return [
+            'contact' => $contact,
+            'customer_id' => $contact->{$column} ?: null,
+        ];
+    }
+
+    /**
+     * Attach/refresh the processor customer id on this contact. No-op if already set
+     * to the same value.
+     *
+     * @param  'stripe'|'quickbooks'  $processor
+     */
+    public function attachProcessorCustomerId(string $processor, string $customerId): void
+    {
+        $column = match ($processor) {
+            'stripe' => 'stripe_customer_id',
+            'quickbooks' => 'quickbooks_customer_id',
+            default => throw new \InvalidArgumentException("Unsupported processor: {$processor}"),
+        };
+
+        if ($this->{$column} === $customerId) {
+            return;
+        }
+
+        $this->{$column} = $customerId;
+        $this->save();
+    }
+
+    public function scopeWithStripeCustomer($query)
+    {
+        return $query->whereNotNull('stripe_customer_id');
+    }
+
+    public function scopeWithQuickbooksCustomer($query)
+    {
+        return $query->whereNotNull('quickbooks_customer_id');
     }
 }

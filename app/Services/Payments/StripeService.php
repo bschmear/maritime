@@ -7,7 +7,10 @@ use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Models\AccountSettings;
 use Stripe\Account;
 use Stripe\AccountLink;
+use Stripe\Charge;
 use Stripe\Checkout\Session;
+use Stripe\PaymentIntent;
+use Stripe\PaymentMethod;
 use Stripe\Stripe;
 
 class StripeService
@@ -21,9 +24,8 @@ class StripeService
     /**
      * Create Stripe Connect Express account (charges go to connected account).
      *
-     * Requesting {@code card_payments} and {@code transfers} is required or Checkout/charges
-     * on the connected account fail with “card_payments capability” errors until Stripe
-     * activates them after onboarding.
+     * Requesting `card_payments` and `transfers` is required; Checkout/charges on the
+     * connected account fail until Stripe activates `card_payments` after onboarding.
      */
     public function createConnectedAccount(): Account
     {
@@ -32,13 +34,14 @@ class StripeService
             'capabilities' => [
                 'card_payments' => ['requested' => true],
                 'transfers' => ['requested' => true],
+                'us_bank_account_ach_payments' => ['requested' => true],
             ],
         ]);
     }
 
     /**
-     * For accounts created before capabilities were requested, ask Stripe to enable them.
-     * Safe to call repeatedly for “Continue setup” flows.
+     * For accounts created before capabilities were requested, or to recover from partial setup.
+     * Safe to call repeatedly for “Continue setup” / refresh_url flows.
      */
     public function ensureRequestedCapabilities(string $accountId): void
     {
@@ -46,6 +49,7 @@ class StripeService
             'capabilities' => [
                 'card_payments' => ['requested' => true],
                 'transfers' => ['requested' => true],
+                'us_bank_account_ach_payments' => ['requested' => true],
             ],
         ]);
     }
@@ -94,6 +98,7 @@ class StripeService
      * One-time Checkout for a tenant invoice (Stripe Connect destination charges on the connected account).
      *
      * @param  array{principal: string, surcharge: string}  $metadataAmounts  Decimal strings for fulfillment verification
+     * @param  list<string>  $paymentMethodTypes  Stripe types, e.g. `['card']`, `['us_bank_account']`, or both
      */
     public function createInvoiceCheckoutSession(
         PaymentConfiguration $configuration,
@@ -102,6 +107,7 @@ class StripeService
         array $metadataAmounts,
         string $successUrl,
         string $cancelUrl,
+        array $paymentMethodTypes = ['card'],
     ): string {
         if (! $configuration->stripeReadyForCharges()) {
             throw new \RuntimeException('Stripe account is not ready to accept payments.');
@@ -114,8 +120,13 @@ class StripeService
 
         $business = AccountSettings::getCurrent()->business_name ?? 'Merchant';
 
-        $session = Session::create([
-            'payment_method_types' => ['card'],
+        $types = array_values(array_unique($paymentMethodTypes));
+        if ($types === []) {
+            $types = ['card'];
+        }
+
+        $params = [
+            'payment_method_types' => $types,
             'line_items' => [[
                 'price_data' => [
                     'currency' => $currency,
@@ -137,18 +148,76 @@ class StripeService
                 'principal' => $metadataAmounts['principal'],
                 'surcharge' => $metadataAmounts['surcharge'],
             ],
-        ], [
+        ];
+
+        if (in_array('us_bank_account', $types, true)) {
+            $params['payment_method_options'] = [
+                'us_bank_account' => [
+                    'financial_connections' => [
+                        'permissions' => ['payment_method'],
+                    ],
+                ],
+            ];
+        }
+
+        $session = Session::create($params, [
             'stripe_account' => $configuration->stripe_account_id,
         ]);
 
         return $session->url;
     }
 
-    public function retrieveCheckoutSession(PaymentConfiguration $configuration, string $sessionId): Session
+    /**
+     * @param  list<string>  $expand  e.g. `['payment_intent.payment_method']`
+     */
+    public function retrieveCheckoutSession(PaymentConfiguration $configuration, string $sessionId, array $expand = []): Session
     {
-        return Session::retrieve($sessionId, [
-            'stripe_account' => $configuration->stripe_account_id,
-        ]);
+        return $this->retrieveCheckoutSessionForAccount($configuration->stripe_account_id, $sessionId, $expand);
+    }
+
+    /**
+     * @param  list<string>  $expand
+     */
+    public function retrieveCheckoutSessionForAccount(?string $stripeAccountId, string $sessionId, array $expand = []): Session
+    {
+        $opts = [];
+        if ($stripeAccountId) {
+            $opts['stripe_account'] = $stripeAccountId;
+        }
+        if ($expand !== []) {
+            $opts['expand'] = $expand;
+        }
+
+        return Session::retrieve($sessionId, $opts);
+    }
+
+    /**
+     * @param  list<string>  $expand
+     */
+    public function retrievePaymentIntent(PaymentConfiguration $configuration, string $paymentIntentId, array $expand = []): PaymentIntent
+    {
+        $opts = ['stripe_account' => $configuration->stripe_account_id];
+        if ($expand !== []) {
+            $opts['expand'] = $expand;
+        }
+
+        return PaymentIntent::retrieve($paymentIntentId, $opts);
+    }
+
+    public function retrievePaymentMethod(PaymentConfiguration $configuration, string $paymentMethodId): PaymentMethod
+    {
+        return PaymentMethod::retrieve(
+            $paymentMethodId,
+            ['stripe_account' => $configuration->stripe_account_id],
+        );
+    }
+
+    public function retrieveCharge(PaymentConfiguration $configuration, string $chargeId): Charge
+    {
+        return Charge::retrieve(
+            $chargeId,
+            ['stripe_account' => $configuration->stripe_account_id],
+        );
     }
 
     public function syncAccount(PaymentConfiguration $configuration): void
@@ -157,14 +226,21 @@ class StripeService
             return;
         }
 
-        $account = Account::retrieve($configuration->stripe_account_id);
+        try {
+            $account = Account::retrieve($configuration->stripe_account_id, [
+                'expand' => ['capabilities'],
+            ]);
+        } catch (\Throwable) {
+            $account = Account::retrieve($configuration->stripe_account_id);
+        }
+
         $this->applyStripeAccountObjectToConfiguration($configuration, $account);
     }
 
     /**
      * Merge Stripe account fields (e.g. from {@see Account::retrieve} or webhook JSON) into config.
      *
-     * @param  array<string, mixed>  $accountPayload  Stripe Account object as array (e.g. webhook {@code data.object})
+     * @param  array<string, mixed>  $accountPayload  Stripe Account object as array (e.g. webhook `data.object`)
      */
     public function applyAccountPayloadToConfiguration(PaymentConfiguration $configuration, array $accountPayload): void
     {
@@ -178,6 +254,16 @@ class StripeService
             $capabilities = json_decode(json_encode($rawCaps), true) ?: [];
         }
 
+        $cardCap = array_key_exists('card_payments', $capabilities)
+            ? self::normalizeStripeCapabilityValue($capabilities['card_payments'])
+            : null;
+        $transferCap = array_key_exists('transfers', $capabilities)
+            ? self::normalizeStripeCapabilityValue($capabilities['transfers'])
+            : null;
+        $achCap = array_key_exists('us_bank_account_ach_payments', $capabilities)
+            ? self::normalizeStripeCapabilityValue($capabilities['us_bank_account_ach_payments'])
+            : null;
+
         $configuration->update([
             'stripe_charges_enabled' => (bool) ($accountPayload['charges_enabled'] ?? false),
             'stripe_payouts_enabled' => (bool) ($accountPayload['payouts_enabled'] ?? false),
@@ -185,10 +271,36 @@ class StripeService
                 'details_submitted' => $detailsSubmitted,
                 'email' => $accountPayload['email'] ?? $prev['email'] ?? null,
                 'connected_at' => $prev['connected_at'] ?? ($detailsSubmitted ? now()->toIso8601String() : null),
-                'stripe_capability_card_payments' => $capabilities['card_payments'] ?? $prev['stripe_capability_card_payments'] ?? null,
-                'stripe_capability_transfers' => $capabilities['transfers'] ?? $prev['stripe_capability_transfers'] ?? null,
+                'stripe_capability_card_payments' => $cardCap ?? ($prev['stripe_capability_card_payments'] ?? null),
+                'stripe_capability_transfers' => $transferCap ?? ($prev['stripe_capability_transfers'] ?? null),
+                'stripe_capability_us_bank_account_ach_payments' => $achCap ?? ($prev['stripe_capability_us_bank_account_ach_payments'] ?? null),
             ]),
         ]);
+    }
+
+    /**
+     * Stripe returns each capability as a status string or as an object with a `status` field.
+     */
+    private static function normalizeStripeCapabilityValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_array($value)) {
+            if (isset($value['status']) && is_string($value['status'])) {
+                return $value['status'];
+            }
+
+            return null;
+        }
+        if (is_object($value)) {
+            return self::normalizeStripeCapabilityValue(json_decode(json_encode($value), true));
+        }
+
+        return null;
     }
 
     private function applyStripeAccountObjectToConfiguration(PaymentConfiguration $configuration, Account $account): void

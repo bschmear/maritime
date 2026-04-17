@@ -1,28 +1,27 @@
 <?php
 
+use App\Http\Controllers\AccountController;
+use App\Http\Controllers\BlogController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
 use App\Http\Controllers\Kiosk\FaqController;
+use App\Http\Controllers\Kiosk\PlanItemsController;
+use App\Http\Controllers\Kiosk\PlansController;
 use App\Http\Controllers\Kiosk\PostController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
-use App\Http\Controllers\Kiosk\PlansController;
-use App\Http\Controllers\Kiosk\PlanItemsController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\WelcomeController;
-use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\AccountController;
-use App\Http\Controllers\InvitationController;
-use App\Http\Middleware\EnsureKioskAdmin;
-use App\Http\Controllers\BlogController;
 use App\Http\Controllers\PageController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StripeConnectWebhookController;
+use App\Http\Controllers\WelcomeController;
+use App\Http\Middleware\EnsureKioskAdmin;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Kiosk Subdomain Routes (kiosk.example.com)
-Route::domain('kiosk.' . config('app.domain'))->middleware(['auth'])->name('kiosk.')->group(function () {
+Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.')->group(function () {
     Route::middleware([EnsureKioskAdmin::class])->group(function () {
         Route::get('/', [KioskDashboardController::class, 'index'])->name('dashboard');
 
@@ -33,7 +32,6 @@ Route::domain('kiosk.' . config('app.domain'))->middleware(['auth'])->name('kios
         Route::resource('plans', PlansController::class);
         Route::resource('plan-items', PlanItemsController::class);
 
-
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
@@ -41,12 +39,14 @@ Route::domain('kiosk.' . config('app.domain'))->middleware(['auth'])->name('kios
     });
 });
 
+Route::post('/stripe/connect-webhook', StripeConnectWebhookController::class)
+    ->name('stripe.connect.webhook');
+
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog');
 Route::get('/blog/category', [BlogController::class, 'category'])->name('blogCategory');
 Route::get('/blog/tag', [BlogController::class, 'tag'])->name('blogTag');
 Route::get('/blog/{slug}', [BlogController::class, 'post'])->name('blogPostShow');
-
 
 Route::get('/faq', [PageController::class, 'faq'])->name('faq');
 // Route::get('/help-center', [PageController::class, 'help-center'])->name('help-center');
@@ -60,7 +60,7 @@ Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy
 
 // Checkout Routes
 // Route::middleware('guest')->group(function () {
-    Route::get('/pricing', [CheckoutController::class, 'plans'])->name('checkout.plans');
+Route::get('/pricing', [CheckoutController::class, 'plans'])->name('checkout.plans');
 // });
 
 Route::middleware('auth')->group(function () {
@@ -87,7 +87,7 @@ Route::middleware(['auth', 'verified'])
         Route::post('{account}/cancel', [AccountController::class, 'cancelSubscription'])->name('cancel');
 
         Route::get('{account}', [AccountController::class, 'show'])->name('show');
-});
+    });
 // Invitation Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('invitations/{token}', [InvitationController::class, 'show'])->name('invitations.show');

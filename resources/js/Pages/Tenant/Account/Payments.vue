@@ -1,7 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     stripe: {
@@ -45,6 +45,21 @@ const statusClass = computed(() => {
 
 const activeMethodCount = computed(() => props.paymentMethods.filter(m => m.is_enabled).length);
 
+const syncingStripe = ref(false);
+
+function verifyStripeStatus() {
+    if (!props.stripe.account_id || syncingStripe.value) {
+        return;
+    }
+    syncingStripe.value = true;
+    router.post(route('account.payments.sync-stripe'), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            syncingStripe.value = false;
+        },
+    });
+}
+
 function toggleMethod(code, isEnabled) {
     router.patch(
         route('account.payments.methods'),
@@ -60,7 +75,7 @@ function toggleMethod(code, isEnabled) {
     <TenantLayout>
         <template #header>
             <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
+                <div class="min-w-0 flex-1">
                     <Link
                         :href="route('account.index')"
                         class="mb-2 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
@@ -73,6 +88,15 @@ function toggleMethod(code, isEnabled) {
                     </h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         Connect Stripe Express so customers can pay invoices online.
+                    </p>
+                    <p class="mt-2">
+                        <Link
+                            :href="route('account.payments.stripe-info')"
+                            class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        >
+                            <span class="material-icons text-base">help_outline</span>
+                            About Stripe — typical fees
+                        </Link>
                     </p>
                 </div>
             </div>
@@ -214,7 +238,7 @@ function toggleMethod(code, isEnabled) {
                         </div>
                     </div>
 
-                    <div class="mt-4 flex gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+                    <div class="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-4 dark:border-gray-700 sm:flex-row">
                         <a
                             :href="route('stripe.connect')"
                             class="stripe-button flex-1 justify-center"
@@ -222,7 +246,26 @@ function toggleMethod(code, isEnabled) {
                             <span class="material-icons text-base">link</span>
                             {{ stripe.account_id ? 'Continue setup' : 'Connect with Stripe' }}
                         </a>
+                        <button
+                            v-if="stripe.account_id"
+                            type="button"
+                            class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                            :disabled="syncingStripe"
+                            @click="verifyStripeStatus"
+                        >
+                            <span
+                                class="material-icons text-base"
+                                :class="{ 'animate-spin': syncingStripe }"
+                            >{{ syncingStripe ? 'sync' : 'cloud_download' }}</span>
+                            {{ syncingStripe ? 'Checking…' : 'Check status with Stripe' }}
+                        </button>
                     </div>
+                    <p
+                        v-if="stripe.account_id"
+                        class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+                    >
+                        Fetches the latest capability flags from Stripe and updates this page (same data as when you open Payment settings, but with a clear result message).
+                    </p>
 
                     <p class="mt-4 text-xs leading-relaxed text-gray-400 dark:text-gray-500">
                         Funds go directly to your connected account. Platform Stripe is used only to create the connection and process charges on your behalf. This is separate from your Maritime subscription billing.

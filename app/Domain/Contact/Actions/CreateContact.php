@@ -102,6 +102,9 @@ class CreateContact
             'avatar' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
 
+            'stripe_customer_id' => ['nullable', 'string', 'max:255', 'unique:contacts,stripe_customer_id'],
+            'quickbooks_customer_id' => ['nullable', 'string', 'max:255', 'unique:contacts,quickbooks_customer_id'],
+
             /*
             |--------------------------------------------------------------------------
             | Addresses (array support)

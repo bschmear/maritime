@@ -87,30 +87,7 @@ Route::middleware([
         Route::delete('/{portalAccess}', [PortalAccessController::class, 'destroy'])->name('destroy');
     });
 
-    Route::post('/stripe/webhook', function (\Illuminate\Http\Request $request) {
-        $payload = json_decode($request->getContent(), true);
-        $type = $payload['type'] ?? null;
-        if ($type === 'account.updated') {
-            $obj = $payload['data']['object'] ?? [];
-            $accountId = $obj['id'] ?? null;
-            if ($accountId) {
-                $config = \App\Domain\Payment\Models\PaymentConfiguration::query()
-                    ->where('stripe_account_id', $accountId)
-                    ->first();
-                if ($config) {
-                    app(\App\Services\Payments\StripeService::class)->applyAccountPayloadToConfiguration($config, $obj);
-                }
-
-                \App\Models\PaymentAccount::where('external_account_id', $accountId)
-                    ->update([
-                        'charges_enabled' => (bool) ($obj['charges_enabled'] ?? false),
-                        'payouts_enabled' => (bool) ($obj['payouts_enabled'] ?? false),
-                    ]);
-            }
-        }
-
-        return response()->json(['status' => 'success']);
-    });
+    Route::post('/stripe/webhook', [StripeController::class, 'webhook']);
 
     // Public routes — UUID-secured, no auth required
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
@@ -482,7 +459,9 @@ Route::middleware([
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
+            Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');
+            Route::post('/payments/sync-stripe', [PaymentConfigurationController::class, 'syncFromStripe'])->name('payments.sync-stripe');
             Route::patch('/payments/methods', [PaymentConfigurationController::class, 'updateMethod'])->name('payments.methods');
         });
 

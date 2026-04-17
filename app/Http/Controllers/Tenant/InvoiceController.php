@@ -55,6 +55,8 @@ class InvoiceController extends RecordController
             ->orderByDesc('id')
             ->with([
                 'recordedBy' => fn ($rq) => $rq->select(['id', 'display_name']),
+                // `display_name` on Invoice is an accessor (INV-{sequence}); load columns it needs.
+                'invoice' => fn ($iq) => $iq->select(['id', 'sequence']),
             ]);
     }
 

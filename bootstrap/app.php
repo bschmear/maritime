@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -43,6 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'stripe/webhook',
+            'stripe/connect-webhook',
+        ]);
         $middleware->alias([
             'kiosk.domain' => \App\Http\Middleware\EnsureKioskDomain::class,
             'kiosk.admin' => \App\Http\Middleware\EnsureKioskAdmin::class,
@@ -61,7 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if ($isTenant) {
-                return config('app.url') . '/login';
+                return config('app.url').'/login';
             }
 
             return route('login');
@@ -71,6 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->user('customer')) {
                 return '/portal';
             }
+
             return '/';
         });
     })

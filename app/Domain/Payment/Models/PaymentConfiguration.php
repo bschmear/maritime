@@ -94,7 +94,7 @@ class PaymentConfiguration extends Model
                     'payment_method_code' => $code,
                 ],
                 [
-                    'is_enabled' => in_array($code, ['credit_card', 'ach'], true),
+                    'is_enabled' => in_array($code, ['credit_card', 'ach', 'wire'], true),
                 ],
             );
         }
@@ -129,28 +129,40 @@ class PaymentConfiguration extends Model
             return false;
         }
 
-        $card = $this->meta['stripe_capability_card_payments'] ?? null;
+        $card = self::normalizeStripeCapabilityStatus($this->meta['stripe_capability_card_payments'] ?? null);
 
-        // After we have synced from Stripe, require active card_payments (Checkout enforces this).
-        if ($card !== null && $card !== 'active') {
-            return false;
+        // Charges and Checkout on a connected account require `card_payments` to be active.
+        return $card === 'active';
+    }
+
+    private static function normalizeStripeCapabilityStatus(mixed $raw): ?string
+    {
+        if ($raw === null) {
+            return null;
+        }
+        if (is_string($raw)) {
+            return $raw;
+        }
+        if (is_array($raw) && isset($raw['status']) && is_string($raw['status'])) {
+            return $raw['status'];
+        }
+        if (is_object($raw)) {
+            $decoded = json_decode(json_encode($raw), true);
+
+            return is_array($decoded) ? self::normalizeStripeCapabilityStatus($decoded) : null;
         }
 
-        return true;
+        return null;
     }
 
     public function stripeCardPaymentsCapability(): ?string
     {
-        $v = $this->meta['stripe_capability_card_payments'] ?? null;
-
-        return is_string($v) ? $v : null;
+        return self::normalizeStripeCapabilityStatus($this->meta['stripe_capability_card_payments'] ?? null);
     }
 
     public function stripeTransfersCapability(): ?string
     {
-        $v = $this->meta['stripe_capability_transfers'] ?? null;
-
-        return is_string($v) ? $v : null;
+        return self::normalizeStripeCapabilityStatus($this->meta['stripe_capability_transfers'] ?? null);
     }
 
     /**

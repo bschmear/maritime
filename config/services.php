@@ -38,5 +38,15 @@ return [
     'radar' => [
         'secret' => env('RADAR_SECRET'),
         'publishable' => env('RADAR_PUBLISHABLE'),
-    ]
+    ],
+
+    /*
+    | Stripe Connect (optional reference)
+    |----------------------------------------------------------------------
+    | Register this URL once in the Stripe Dashboard (Connect webhooks).
+    | Signing secret for that endpoint → STRIPE_WEBHOOK_SECRET (see config/cashier.php).
+    */
+    'stripe' => [
+        'connect_webhook_url' => env('STRIPE_WEBHOOK'),
+    ],
 ];

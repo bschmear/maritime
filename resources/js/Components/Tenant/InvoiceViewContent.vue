@@ -12,6 +12,10 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     enumOptions: { type: Object, default: () => ({}) },
     canPayOnline: { type: Boolean, default: false },
+    payOnlineUi: {
+        type: Object,
+        default: () => ({ card: false, bank: false, codes: [] }),
+    },
     showPortalPromotion: { type: Boolean, default: true },
     paymentConstraints: {
         type: Object,
@@ -171,6 +175,39 @@ const payDisabled = computed(
         || payForm.processing
         || amountError.value != null,
 );
+
+const payOnlineUiResolved = computed(() => ({
+    card: props.payOnlineUi?.card === true,
+    bank: props.payOnlineUi?.bank === true,
+}));
+
+const paySecureLead = computed(() => {
+    const { card, bank } = payOnlineUiResolved.value;
+    if (card && bank) {
+        return 'Pay securely with card or linked bank account (ACH). You will be redirected to Stripe to complete payment.';
+    }
+    if (bank && !card) {
+        return 'Pay securely with a linked US bank account (ACH / bank transfer). You will be redirected to Stripe to complete payment.';
+    }
+    return 'Pay securely with card. You will be redirected to complete payment.';
+});
+
+const payButtonLabel = computed(() => {
+    if (payForm.processing) {
+        return 'Starting…';
+    }
+    if (!allowPartial.value) {
+        const { card, bank } = payOnlineUiResolved.value;
+        if (card && bank) {
+            return 'Pay online';
+        }
+        if (bank && !card) {
+            return 'Pay with bank';
+        }
+        return 'Pay with card';
+    }
+    return 'Pay now';
+});
 
 const setPayInFull = () => {
     payForm.amount = Math.round(due.value * 100) / 100;
@@ -397,7 +434,7 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
             <template v-if="canPayOnline && due > 0">
                 <div class="mt-5 border-t border-gray-200 pt-5">
                     <p class="text-sm text-gray-600">
-                        Pay securely with card. You will be redirected to complete payment.
+                        {{ paySecureLead }}
                     </p>
 
                     <div v-if="allowPartial" class="mt-4">
@@ -461,7 +498,7 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
                             class="material-icons text-[20px]"
                             :class="{ 'animate-spin': payForm.processing }"
                         >{{ payForm.processing ? 'sync' : 'lock' }}</span>
-                        {{ payForm.processing ? 'Starting…' : (allowPartial ? 'Pay now' : 'Pay with card') }}
+                        {{ payButtonLabel }}
                     </button>
                 </div>
             </template>
@@ -470,7 +507,7 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
                 v-else-if="due > 0"
                 class="mt-5 border-t border-gray-200 pt-4 text-sm text-gray-500"
             >
-                Online card payment isn’t available for this invoice. Use the instructions you
+                Online payment isn’t available for this invoice. Use the instructions you
                 received or contact
                 {{ account?.settings?.business_name ?? account?.business_name ?? 'us' }}.
             </p>

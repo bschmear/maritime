@@ -527,13 +527,26 @@ class PublicController extends Controller
         $sessionId = $request->query('session_id');
         if (is_string($sessionId) && str_starts_with($sessionId, 'cs_')) {
             $result = $fulfillCheckout($invoice, $sessionId);
+            $redirect = redirect()->route('invoices.view', ['uuid' => $uuid]);
+
             if ($result['ok']) {
-                return redirect()->route('invoices.view', ['uuid' => $uuid])
-                    ->with('success', 'Thank you — your payment was received.');
+                return $redirect->with('success', 'Thank you — your payment was received.');
             }
 
-            return redirect()->route('invoices.view', ['uuid' => $uuid])
-                ->with('error', $result['message'] ?? 'Payment could not be confirmed.');
+            $status = $result['status'] ?? null;
+            $message = $result['message'] ?? 'Payment could not be confirmed.';
+
+            if ($status === 'processing') {
+                return $redirect
+                    ->with('info', $message)
+                    ->with('checkout_refresh', true);
+            }
+
+            if ($result['checkout_refresh'] ?? false) {
+                $redirect = $redirect->with('checkout_refresh', true);
+            }
+
+            return $redirect->with('error', $message);
         }
 
         $invoice->markAsViewed();
@@ -541,6 +554,7 @@ class PublicController extends Controller
 
         $account = AccountSettings::getCurrent();
         $canPayOnline = InvoicePayOnline::canPayOnline($invoice);
+        $payOnlineUi = InvoicePayOnline::payOnlineUiFlags($invoice);
 
         return Inertia::render('Tenant/Public/InvoiceView', [
             'record' => $invoice,
@@ -551,6 +565,7 @@ class PublicController extends Controller
                 InvoiceStatus::class => InvoiceStatus::options(),
             ],
             'canPayOnline' => $canPayOnline,
+            'payOnlineUi' => $payOnlineUi,
             'paymentConstraints' => [
                 'allow_partial_payment' => (bool) $invoice->allow_partial_payment,
                 'minimum_partial_amount' => $invoice->minimum_partial_amount !== null
@@ -602,14 +617,16 @@ class PublicController extends Controller
         $totalCents = (int) round($total * 100);
 
         if ($totalCents < 50) {
-            return back()->withErrors(['amount' => 'Amount is below the minimum card charge.']);
+            return back()->withErrors(['amount' => 'Amount is below the minimum for online payment.']);
         }
 
         $config = PaymentConfiguration::forStripe();
 
-        if (! $this->invoiceAcceptsCardOnline($invoice)) {
-            return back()->with('error', 'Card payment is not enabled for this invoice.');
+        if (! InvoicePayOnline::invoiceAcceptsStripeOnline($invoice)) {
+            return back()->with('error', 'Online payment is not enabled for this invoice.');
         }
+
+        $paymentMethodTypes = InvoicePayOnline::stripeCheckoutPaymentMethodTypes($invoice);
 
         $base = route('invoices.view', ['uuid' => $invoice->uuid]);
         $successUrl = $base.(str_contains($base, '?') ? '&' : '?').'session_id={CHECKOUT_SESSION_ID}';
@@ -626,6 +643,7 @@ class PublicController extends Controller
                 ],
                 $successUrl,
                 $cancelUrl,
+                $paymentMethodTypes,
             );
         } catch (\Throwable $e) {
             Log::error('Invoice checkout create failed', [
