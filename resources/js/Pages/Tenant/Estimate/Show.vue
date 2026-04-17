@@ -125,6 +125,23 @@ const assetLineVariantDisplay = (item) => {
     return '—';
 };
 
+/** Inertia may serialize `asset_unit` (snake) or `assetUnit` (camel). */
+const assetLineUnit = (item) => item.asset_unit ?? item.assetUnit;
+
+const assetLineUnitId = (item) => item.asset_unit_id ?? item.assetUnitId ?? null;
+
+/** AssetUnit.display_name is "Asset - SN: 12345"; strip the leading asset name for the table cell. */
+const assetLineUnitDisplay = (item) => {
+    const u = assetLineUnit(item);
+    const raw = u?.display_name;
+    if (raw) {
+        const parts = String(raw).split(' - ');
+        return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+    }
+    const uid = assetLineUnitId(item);
+    return uid ? `Unit #${uid}` : '—';
+};
+
 const inventoryLines = computed(() =>
     lineItems.value.filter(
         (li) => li.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem'
@@ -602,6 +619,7 @@ const confirmDelete = () => {
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
@@ -627,6 +645,15 @@ const confirmDelete = () => {
                                                     class="font-medium text-gray-800 dark:text-gray-200"
                                                 >
                                                     {{ assetLineVariantDisplay(item) }}
+                                                </span>
+                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm">
+                                                <span
+                                                    v-if="assetLineUnitId(item)"
+                                                    class="font-medium text-gray-800 dark:text-gray-200"
+                                                >
+                                                    {{ assetLineUnitDisplay(item) }}
                                                 </span>
                                                 <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                             </td>
@@ -656,7 +683,7 @@ const confirmDelete = () => {
                                             :key="`asset-addon-${index}-${addonIdx}`"
                                             class="bg-primary-50/40 dark:bg-primary-900/10"
                                         >
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="3">
+                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="4">
                                                 ↳ {{ addon.name }}
                                             </td>
                                             <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
@@ -682,7 +709,7 @@ const confirmDelete = () => {
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                        <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
                                             Assets Subtotal
                                         </td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">

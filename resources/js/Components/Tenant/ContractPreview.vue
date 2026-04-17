@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import {
     lineItemPreTaxTotal,
+    lineUnitDisplay,
+    lineUnitId,
     lineVariantDisplay,
     lineVariantId,
     resolveLineItemsForContract,
@@ -302,6 +304,7 @@ const handlePrint = () => {
                                 <tr>
                                     <th class="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-400 text-sm uppercase">Item</th>
                                     <th class="px-3 py-2 text-left text-sm uppercase text-gray-600 dark:text-gray-400 min-w-[6rem]">Variant</th>
+                                    <th class="px-3 py-2 text-left text-sm uppercase text-gray-600 dark:text-gray-400 min-w-[6rem]">Unit</th>
                                     <th class="px-3 py-2 text-center text-sm uppercase text-gray-600 dark:text-gray-400 w-16">Tax</th>
                                     <th class="px-3 py-2 text-right text-sm uppercase text-gray-600 dark:text-gray-400 w-12">Qty</th>
                                     <th class="px-3 py-2 text-right text-sm uppercase text-gray-600 dark:text-gray-400 w-24">Price</th>
@@ -320,6 +323,10 @@ const handlePrint = () => {
                                             <span v-if="lineVariantId(row)" class="font-medium text-gray-800 dark:text-gray-200">{{ lineVariantDisplay(row) }}</span>
                                             <span v-else class="text-gray-400">—</span>
                                         </td>
+                                        <td class="px-3 py-2 align-top text-sm text-gray-600 dark:text-gray-300">
+                                            <span v-if="lineUnitId(row)" class="font-medium text-gray-800 dark:text-gray-200">{{ lineUnitDisplay(row) }}</span>
+                                            <span v-else class="text-gray-400">—</span>
+                                        </td>
                                         <td class="px-3 py-2 text-center text-sm text-gray-600">{{ row.taxable !== false && row.taxable !== 0 ? 'Y' : 'N' }}</td>
                                         <td class="px-3 py-2 text-right text-gray-800 dark:text-gray-200">{{ +row.quantity }}</td>
                                         <td class="px-3 py-2 text-right text-gray-800 dark:text-gray-200">{{ formatCurrency(row.unit_price) }}</td>
@@ -328,6 +335,7 @@ const handlePrint = () => {
                                     </tr>
                                     <tr v-for="addon in (row.addons ?? [])" :key="'a-' + addon.id" class="bg-gray-50/80 dark:bg-gray-900/20">
                                         <td class="px-3 py-1.5 pl-6 text-sm italic text-gray-600 dark:text-gray-400">↳ {{ addon.name || 'Add-on' }}</td>
+                                        <td class="px-3 py-1.5 text-sm text-gray-400">—</td>
                                         <td class="px-3 py-1.5 text-sm text-gray-400">—</td>
                                         <td class="px-3 py-1.5 text-center text-sm text-gray-600">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Y' : 'N' }}</td>
                                         <td class="px-3 py-1.5 text-right text-sm text-gray-800 dark:text-gray-300">{{ +addon.quantity }}</td>
@@ -339,11 +347,11 @@ const handlePrint = () => {
                             </tbody>
                             <tfoot class="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30">
                                 <tr v-if="taxRate > 0">
-                                    <td colspan="6" class="px-3 py-1 text-right text-sm text-gray-500">Tax rate: {{ taxRate }}%</td>
+                                    <td colspan="7" class="px-3 py-1 text-right text-sm text-gray-500">Tax rate: {{ taxRate }}%</td>
                                     <td></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="6" class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-white">Subtotal (lines)</td>
+                                    <td colspan="7" class="px-3 py-2 text-right font-semibold text-gray-900 dark:text-white">Subtotal (lines)</td>
                                     <td class="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</td>
                                 </tr>
                             </tfoot>

@@ -4,17 +4,159 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
+use App\Domain\Location\Models\Location;
+use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ReportsController extends Controller
 {
     public function pnl(Request $request)
     {
-        return Inertia::render('Tenant/Reports/Pnl');
+        $defaultFrom = now()->subDays(29)->toDateString();
+        $defaultTo = now()->toDateString();
+        [$from, $to, $dateFrom, $dateTo] = $this->resolveDateRange($request, $defaultFrom, $defaultTo);
+        $subsidiaryId = $request->integer('subsidiary_id') ?: null;
+        $locationId = $request->integer('location_id') ?: null;
+
+        $boatSalesQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
+        $this->applySubsidiaryLocationFilters($boatSalesQ, $subsidiaryId, $locationId, 'transactions');
+        $boatSales = (float) ($boatSalesQ->sum('invoice_items.total') ?? 0);
+
+        $partsSalesQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
+        $this->applySubsidiaryLocationFilters($partsSalesQ, $subsidiaryId, $locationId, 'transactions');
+        $partsSales = (float) ($partsSalesQ->sum('invoice_items.total') ?? 0);
+
+        // Service ticket items are the canonical source for service billable/cost lines.
+        $serviceRevenueQ = ServiceTicketServiceItem::query()
+            ->join('service_tickets', 'service_tickets.id', '=', 'service_ticket_service_items.service_ticket_id')
+            ->whereBetween('service_tickets.created_at', [$from, $to])
+            ->where('service_ticket_service_items.inactive', false);
+        if ($subsidiaryId !== null) {
+            $serviceRevenueQ->where('service_tickets.subsidiary_id', $subsidiaryId);
+        }
+        if ($locationId !== null) {
+            $serviceRevenueQ->where('service_tickets.location_id', $locationId);
+        }
+        $serviceRevenue = (float) ($serviceRevenueQ->sum('service_ticket_service_items.total_price') ?? 0);
+
+        $boatCostQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->leftJoin('assets', function ($join) {
+                $join->on('assets.id', '=', 'invoice_items.itemable_id')
+                    ->where('invoice_items.itemable_type', '=', \App\Domain\Asset\Models\Asset::class);
+            })
+            ->leftJoin('asset_variants', 'asset_variants.id', '=', 'invoice_items.asset_variant_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
+        $this->applySubsidiaryLocationFilters($boatCostQ, $subsidiaryId, $locationId, 'transactions');
+        $boatCost = (float) ($boatCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(asset_variants.default_cost, assets.default_cost, 0)')) ?? 0);
+
+        $partsCostQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->leftJoin('inventory_items', function ($join) {
+                $join->on('inventory_items.id', '=', 'invoice_items.itemable_id')
+                    ->where('invoice_items.itemable_type', '=', \App\Domain\InventoryItem\Models\InventoryItem::class);
+            })
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
+        $this->applySubsidiaryLocationFilters($partsCostQ, $subsidiaryId, $locationId, 'transactions');
+        $partsCost = (float) ($partsCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(inventory_items.default_cost, 0)')) ?? 0);
+
+        $serviceCostQ = ServiceTicketServiceItem::query()
+            ->join('service_tickets', 'service_tickets.id', '=', 'service_ticket_service_items.service_ticket_id')
+            ->whereBetween('service_tickets.created_at', [$from, $to])
+            ->where('service_ticket_service_items.inactive', false);
+        if ($subsidiaryId !== null) {
+            $serviceCostQ->where('service_tickets.subsidiary_id', $subsidiaryId);
+        }
+        if ($locationId !== null) {
+            $serviceCostQ->where('service_tickets.location_id', $locationId);
+        }
+        $serviceCost = (float) ($serviceCostQ->sum('service_ticket_service_items.total_cost') ?? 0);
+
+        $income = [
+            'boat_sales' => $boatSales,
+            'service_revenue' => $serviceRevenue,
+            'parts_accessories' => $partsSales,
+        ];
+        $totalIncome = array_sum($income);
+
+        $cogs = [
+            'boat_cost' => $boatCost,
+            'service_cost' => $serviceCost,
+            'parts_cost' => $partsCost,
+        ];
+        $totalCogs = array_sum($cogs);
+        $grossProfit = $totalIncome - $totalCogs;
+
+        // Placeholder until expense accounts are mapped.
+        $totalExpenses = 0.0;
+        $netProfit = $grossProfit - $totalExpenses;
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'label' => trim((string) ($s->display_name ?? $s->name ?? ('Subsidiary #'.$s->id))),
+            ])
+            ->values()
+            ->all();
+
+        $locations = Location::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($l) => [
+                'id' => (int) $l->id,
+                'label' => trim((string) ($l->display_name ?? $l->name ?? ('Location #'.$l->id))),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Tenant/Reports/Pnl', [
+            'recordTitle' => 'Profit & Loss',
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'subsidiary_id' => $subsidiaryId,
+                'location_id' => $locationId,
+            ],
+            'dateRange' => sprintf('%s - %s', $from->toDateString(), $to->toDateString()),
+            'options' => [
+                'subsidiaries' => $subsidiaries,
+                'locations' => $locations,
+            ],
+            'report' => [
+                'income' => $income,
+                'total_income' => $totalIncome,
+                'cogs' => $cogs,
+                'total_cogs' => $totalCogs,
+                'gross_profit' => $grossProfit,
+                'total_expenses' => $totalExpenses,
+                'net_profit' => $netProfit,
+            ],
+        ]);
     }
 
     public function balanceSheet(Request $request)
@@ -198,10 +340,10 @@ class ReportsController extends Controller
     /**
      * @return array{0: Carbon, 1: Carbon, 2: string, 3: string}
      */
-    private function resolveDateRange(Request $request): array
+    private function resolveDateRange(Request $request, ?string $defaultFrom = null, ?string $defaultTo = null): array
     {
-        $defaultFrom = now()->startOfYear()->toDateString();
-        $defaultTo = now()->endOfYear()->toDateString();
+        $defaultFrom = $defaultFrom ?: now()->startOfYear()->toDateString();
+        $defaultTo = $defaultTo ?: now()->endOfYear()->toDateString();
 
         $dateFrom = $request->string('date_from')->toString() ?: $defaultFrom;
         $dateTo = $request->string('date_to')->toString() ?: $defaultTo;
@@ -345,5 +487,19 @@ class ReportsController extends Controller
         }
 
         return $base.' - '.$variant;
+    }
+
+    private function applySubsidiaryLocationFilters(
+        QueryBuilder $query,
+        ?int $subsidiaryId,
+        ?int $locationId,
+        string $tableAlias = 'transactions'
+    ): void {
+        if ($subsidiaryId !== null) {
+            $query->where($tableAlias.'.subsidiary_id', $subsidiaryId);
+        }
+        if ($locationId !== null) {
+            $query->where($tableAlias.'.location_id', $locationId);
+        }
     }
 }

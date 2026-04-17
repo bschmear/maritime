@@ -120,6 +120,7 @@ class Invoice extends Model
                     ]);
                 },
                 'assetVariant' => fn ($q2) => $q2->select(['id', 'name', 'display_name']),
+                'assetUnit' => fn ($q2) => $q2->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
             ]),
             'transaction' => fn ($q) => $q->select(['id', 'sequence', 'subsidiary_id', 'location_id'])
                 ->with([

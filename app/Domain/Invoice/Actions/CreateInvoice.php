@@ -106,6 +106,7 @@ class CreateInvoice
                     'itemable_type' => $item['itemable_type'] ?? null,
                     'itemable_id' => isset($item['itemable_id']) ? (int) $item['itemable_id'] : null,
                     'asset_variant_id' => ! empty($item['asset_variant_id']) ? (int) $item['asset_variant_id'] : null,
+                    'asset_unit_id' => ! empty($item['asset_unit_id']) ? (int) $item['asset_unit_id'] : null,
                     'name' => $item['name'] ?? '',
                     'description' => $item['description'] ?? null,
                     'quantity' => (float) ($item['quantity'] ?? 1),

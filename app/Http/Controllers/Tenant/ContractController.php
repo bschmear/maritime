@@ -325,10 +325,13 @@ class ContractController extends BaseController
                 'items' => fn ($q2) => $q2
                     ->with([
                         'addons',
+                        'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
+                        'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                         'estimateLineItem' => fn ($q3) => $q3
-                            ->select(['id', 'asset_variant_id'])
+                            ->select(['id', 'asset_variant_id', 'asset_unit_id'])
                             ->with([
                                 'assetVariant' => fn ($q4) => $q4->select(['id', 'display_name', 'name']),
+                                'assetUnit' => fn ($q4) => $q4->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                             ]),
                     ])
                     ->orderBy('position')
@@ -351,6 +354,7 @@ class ContractController extends BaseController
                             ->with([
                                 'addons',
                                 'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
+                                'assetUnit' => fn ($qau) => $qau->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                             ])
                             ->orderBy('position')
                             ->orderBy('id'),

@@ -3,7 +3,7 @@ import { useForm, router } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
-import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
+import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
@@ -315,13 +315,7 @@ const showAssetModal = ref(false);
 const editingAssetIndex = ref(null);
 const assetItems = ref([]);
 
-const assetSearchQuery = ref('');
-const assetRecords = ref([]);
-const assetCurrentPage = ref(1);
-const assetTotalPages = ref(1);
-const assetIsLoading = ref(false);
-
-const assetForm = ref({
+const emptyAssetForm = () => ({
     itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
     itemable_id: null,
     asset_id: null,
@@ -336,29 +330,13 @@ const assetForm = ref({
     has_variants: false,
     asset_variant_id: null,
     variant_display_name: '',
+    asset_unit_id: null,
+    unit_display_name: '',
     asset_description: '',
     catalog_description: '',
 });
 
-/** Computed bridges for AssetLineVariantSelect (nested ref + defineModel v-model sync). */
-const assetFormVariantId = computed({
-    get: () => assetForm.value.asset_variant_id,
-    set: (v) => {
-        assetForm.value.asset_variant_id = v;
-    },
-});
-const assetFormVariantDisplayName = computed({
-    get: () => assetForm.value.variant_display_name,
-    set: (v) => {
-        assetForm.value.variant_display_name = v;
-    },
-});
-const assetFormCatalogDescription = computed({
-    get: () => assetForm.value.catalog_description,
-    set: (v) => {
-        assetForm.value.catalog_description = v;
-    },
-});
+const assetForm = ref(emptyAssetForm());
 
 const assetBaseLineTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
@@ -375,60 +353,9 @@ const assetSubtotal = computed(() =>
     assetItems.value.reduce((sum, item) => sum + assetLineTotal(item), 0)
 );
 
-const fetchAssets = async (resetPage = false) => {
-    if (resetPage) assetCurrentPage.value = 1;
-    assetIsLoading.value = true;
-    try {
-        const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('type', 'Asset');
-        url.searchParams.append('page', assetCurrentPage.value);
-        url.searchParams.append('per_page', 10);
-        if (assetSearchQuery.value.trim()) url.searchParams.append('search', assetSearchQuery.value.trim());
-        const response = await fetch(url.toString(), {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        assetRecords.value = data.records || data.data || [];
-        assetTotalPages.value = data.meta?.last_page || 1;
-    } catch (err) {
-        console.error('Failed to fetch assets:', err);
-        assetRecords.value = [];
-    } finally {
-        assetIsLoading.value = false;
-    }
-};
-
-const debouncedFetchAssets = debounce(() => fetchAssets(true), 300);
-
 const openAddAssetModal = () => {
     editingAssetIndex.value = null;
-    assetForm.value = {
-        itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
-        itemable_id: null,
-        asset_id: null,
-        name: '',
-        year: '',
-        make: '',
-        quantity: 1,
-        unit_price: 0,
-        discount: 0,
-        notes: '',
-        addons: [],
-        has_variants: false,
-        asset_variant_id: null,
-        variant_display_name: '',
-        asset_description: '',
-        catalog_description: '',
-    };
-    assetSearchQuery.value = '';
-    assetCurrentPage.value = 1;
-    fetchAssets(true);
+    assetForm.value = emptyAssetForm();
     showAssetModal.value = true;
 };
 
@@ -438,29 +365,7 @@ const openEditAssetModal = (index) => {
     showAssetModal.value = true;
 };
 
-const selectAsset = (asset) => {
-    assetForm.value.itemable_id = asset.id;
-    assetForm.value.asset_id = asset.id;
-    assetForm.value.name = asset.display_name;
-    assetForm.value.year = asset.year || '';
-    assetForm.value.make = asset.make?.display_name || '';
-    assetForm.value.unit_price = Number(asset.default_price) || 0;
-    assetForm.value.has_variants = Boolean(asset.has_variants);
-    assetForm.value.asset_variant_id = null;
-    assetForm.value.variant_display_name = '';
-    assetForm.value.asset_description = (asset.description || '').trim() || '';
-    assetForm.value.catalog_description = '';
-    if (!assetForm.value.has_variants) {
-        assetForm.value.catalog_description = assetForm.value.asset_description || '';
-    }
-};
-
 const saveAssetItem = () => {
-    if (!assetForm.value.itemable_id) return;
-    if (assetForm.value.has_variants && !assetForm.value.asset_variant_id) {
-        window.alert('This asset uses variants — select a variant before saving the line.');
-        return;
-    }
     if (editingAssetIndex.value !== null) {
         assetItems.value[editingAssetIndex.value] = { ...assetForm.value };
     } else {
@@ -469,18 +374,15 @@ const saveAssetItem = () => {
     showAssetModal.value = false;
 };
 
-const clearSelectedAssetForChange = () => {
-    assetForm.value.itemable_id = null;
-    assetForm.value.asset_id = null;
-    assetForm.value.name = '';
-    assetForm.value.has_variants = false;
-    assetForm.value.asset_variant_id = null;
-    assetForm.value.variant_display_name = '';
-    assetForm.value.asset_description = '';
-    assetForm.value.catalog_description = '';
-};
-
 const removeAssetItem = (index) => assetItems.value.splice(index, 1);
+
+/** AssetUnit.display_name is "Asset - SN: 12345"; strip the leading asset name for the table cell. */
+const assetUnitIdentifier = (item) => {
+    const raw = item?.unit_display_name;
+    if (!raw) return '';
+    const parts = String(raw).split(' - ');
+    return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+};
 
 // ==============================
 // Add-ons
@@ -630,6 +532,8 @@ onMounted(() => {
                 has_variants: Boolean(asset.has_variants),
                 asset_variant_id: pivotVid,
                 variant_display_name: variantDisplay,
+                asset_unit_id: asset.pivot?.asset_unit_id ?? null,
+                unit_display_name: asset.asset_unit?.display_name || '',
                 asset_description: desc,
                 catalog_description: catalogDesc,
             });
@@ -679,6 +583,9 @@ onMounted(() => {
                 lineData.asset_variant_id = lineItem.asset_variant_id || null;
                 lineData.variant_display_name =
                     lineItem.asset_variant?.display_name || lineItem.asset_variant?.name || '';
+                lineData.asset_unit_id = lineItem.asset_unit_id || null;
+                lineData.unit_display_name =
+                    lineItem.asset_unit?.display_name || '';
                 lineData.catalog_description = '';
                 if (lineData.asset_variant_id && lineItem.asset_variant) {
                     const v = lineItem.asset_variant;
@@ -720,6 +627,7 @@ const submit = () => {
             notes: item.notes || '',
             catalog_description: (item.catalog_description || '').trim() || null,
             asset_variant_id: item.asset_variant_id || null,
+            asset_unit_id: item.asset_unit_id || null,
             position: idx,
             addons: (item.addons || []).map((addon) => ({
                 addon_id: addon.addon_id,
@@ -742,6 +650,7 @@ const submit = () => {
             notes: item.notes || '',
             catalog_description: null,
             asset_variant_id: null,
+            asset_unit_id: null,
             position: assetItems.value.length + idx,
             addons: (item.addons || []).map((addon) => ({
                 addon_id: addon.addon_id,
@@ -802,13 +711,13 @@ const handleCancel = () => emit('cancelled');
                                     <h1 class="text-2xl font-bold text-white">
                                         {{ mode === 'edit' ? 'EDIT ESTIMATE' : 'NEW ESTIMATE' }}
                                     </h1>
-                                    <p class="text-primary-100 text-sm mt-1">
+                                    <p class="text-primary-100 text-md mt-1">
                                         {{ mode === 'edit' ? 'Update estimate details' : 'Create a new customer estimate' }}
                                     </p>
                                 </div>
                                 <div v-if="record?.id" class="text-right">
-                                    <div class="text-primary-200 text-xs font-medium">Estimate #</div>
-                                    <div class="text-white text-lg font-mono">{{ record.display_name || record.id }}</div>
+                                    <div class="text-primary-200 text-sm font-medium">Estimate #</div>
+                                    <div class="text-white text-xl font-mono">{{ record.display_name || record.id }}</div>
                                 </div>
                             </div>
                         </div>
@@ -819,13 +728,13 @@ const handleCancel = () => emit('cancelled');
 
                                 <!-- Left: People -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Contact & Lead
                                     </h3>
 
                                     <!-- Contact (contact-first flow) -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Contact <span class="text-red-500">*</span>
                                         </label>
                                         <RecordSelect
@@ -837,13 +746,13 @@ const handleCancel = () => emit('cancelled');
                                             :disabled="mode === 'view' || (initialData?.opportunity_id && initialData?.contact_id)"
                                             @record-selected="handleContactSelected"
                                         />
-                                        <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
-                                        <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
+                                        <p v-if="form.errors.contact_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
+                                        <p v-if="form.errors.customer_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
                                     </div>
 
                                     <!-- Opportunity -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Opportunity
                                         </label>
                                         <RecordSelect
@@ -854,12 +763,12 @@ const handleCancel = () => emit('cancelled');
                                             field-key="opportunity_id"
                                             :disabled="mode === 'view' || !!initialData?.opportunity_id"
                                         />
-                                        <p v-if="form.errors.opportunity_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.opportunity_id }}</p>
+                                        <p v-if="form.errors.opportunity_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.opportunity_id }}</p>
                                     </div>
 
                                     <!-- Salesperson -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Salesperson
                                         </label>
                                         <RecordSelect
@@ -870,19 +779,19 @@ const handleCancel = () => emit('cancelled');
                                             field-key="user_id"
                                             :disabled="mode === 'view'"
                                         />
-                                        <p v-if="form.errors.user_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.user_id }}</p>
+                                        <p v-if="form.errors.user_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.user_id }}</p>
                                     </div>
                                 </div>
 
                                 <!-- Right: Estimate Details -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Estimate Details
                                     </h3>
 
                                     <!-- Issue Date -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Issue Date
                                         </label>
                                         <input
@@ -891,12 +800,12 @@ const handleCancel = () => emit('cancelled');
                                             :disabled="mode === 'view'"
                                             class="input-style"
                                         />
-                                        <p v-if="form.errors.issue_date" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.issue_date }}</p>
+                                        <p v-if="form.errors.issue_date" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.issue_date }}</p>
                                     </div>
 
                                     <!-- Expiration Date -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Expiration Date
                                         </label>
                                         <input
@@ -905,12 +814,12 @@ const handleCancel = () => emit('cancelled');
                                             :disabled="mode === 'view'"
                                             class="input-style"
                                         />
-                                        <p v-if="form.errors.expiration_date" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.expiration_date }}</p>
+                                        <p v-if="form.errors.expiration_date" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.expiration_date }}</p>
                                     </div>
 
                                     <!-- Tax Rate -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Tax Rate (%)
                                         </label>
                                         <input
@@ -923,12 +832,12 @@ const handleCancel = () => emit('cancelled');
                                             class="input-style"
                                             placeholder="0.00"
                                         />
-                                        <p v-if="form.errors.tax_rate" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.tax_rate }}</p>
+                                        <p v-if="form.errors.tax_rate" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.tax_rate }}</p>
                                     </div>
 
                                     <!-- Subsidiary -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Subsidiary
                                         </label>
                                         <RecordSelect
@@ -939,12 +848,12 @@ const handleCancel = () => emit('cancelled');
                                             field-key="subsidiary_id"
                                             :disabled="mode === 'view'"
                                         />
-                                        <p v-if="form.errors.subsidiary_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
+                                        <p v-if="form.errors.subsidiary_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
                                     </div>
 
                                     <!-- Location -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Location
                                         </label>
                                         <RecordSelect
@@ -955,7 +864,7 @@ const handleCancel = () => emit('cancelled');
                                             field-key="location_id"
                                             :disabled="mode === 'view'"
                                         />
-                                        <p v-if="form.errors.location_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
+                                        <p v-if="form.errors.location_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -963,22 +872,22 @@ const handleCancel = () => emit('cancelled');
                             <!-- Notes & Terms -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
                                     <textarea
                                         v-model="form.notes"
                                         rows="3"
                                         :disabled="mode === 'view'"
-                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                                         placeholder="Internal notes..."
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Terms</label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Terms</label>
                                     <textarea
                                         v-model="form.terms"
                                         rows="3"
                                         :disabled="mode === 'view'"
-                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                                         placeholder="Payment terms and conditions..."
                                     />
                                 </div>
@@ -987,10 +896,10 @@ const handleCancel = () => emit('cancelled');
                             <!-- Billing Address -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <div class="flex items-center justify-between mb-3">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                         Billing Address
                                     </h3>
-                                    <span v-if="isFetchingTaxRate" class="text-xs text-primary-600 dark:text-primary-400 animate-pulse">
+                                    <span v-if="isFetchingTaxRate" class="text-sm text-primary-600 dark:text-primary-400 animate-pulse">
                                         Fetching tax rate…
                                     </span>
                                 </div>
@@ -1016,12 +925,12 @@ const handleCancel = () => emit('cancelled');
                          ============================ -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Assets</h2>
                             <button
                                 v-if="mode !== 'view'"
                                 type="button"
                                 @click="openAddAssetModal"
-                                class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -1031,18 +940,19 @@ const handleCancel = () => emit('cancelled');
                         </div>
 
                         <div v-if="assetItems.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-sm">
+                            <table class="w-full text-md">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
@@ -1051,13 +961,19 @@ const handleCancel = () => emit('cancelled');
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td class="px-4 py-3">
                                                 <div class="font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
-                                                <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
+                                                <div v-if="item.make" class="text-sm text-gray-400 dark:text-gray-500">{{ item.make }}</div>
                                             </td>
-                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-sm">
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300 text-md">
                                                 <AssetLineVariantCell
                                                     :label="item.variant_display_name"
                                                     :has-variants="item.has_variants"
                                                 />
+                                            </td>
+                                            <td class="px-4 py-3 text-md">
+                                                <span v-if="item.asset_unit_id" class="text-gray-700 dark:text-gray-200">
+                                                    {{ assetUnitIdentifier(item) || `Unit #${item.asset_unit_id}` }}
+                                                </span>
+                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                             </td>
                                             <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
@@ -1066,20 +982,20 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetBaseLineTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetBaseLineTotal(item))) }}</td>
+                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetBaseLineTotal(item))) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
                                                     @click="openAddonModal(item)"
-                                                    class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                                    class="inline-flex items-center gap-1 text-sm text-primary-600 dark:text-primary-400 hover:underline"
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                                     </svg>
                                                     Add-ons ({{ (item.addons || []).length }})
                                                 </button>
-                                                <span v-else class="text-xs text-gray-400">{{ (item.addons || []).length }} add-on(s)</span>
+                                                <span v-else class="text-sm text-gray-400">{{ (item.addons || []).length }} add-on(s)</span>
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="flex items-center justify-end gap-1">
@@ -1098,14 +1014,14 @@ const handleCancel = () => emit('cancelled');
                                         </tr>
                                         <!-- Add-ons sub-rows -->
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`asset-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="3">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
                                                 ↳ {{ addon.name }}
                                             </td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
                                             <td class="px-4 py-2"></td>
                                             <td class="px-4 py-2 text-right">
                                                 <button v-if="mode !== 'view'" type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded">
@@ -1119,9 +1035,9 @@ const handleCancel = () => emit('cancelled');
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
-                                        <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
-                                        <td class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSectionTax) }}</td>
+                                        <td colspan="7" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
+                                        <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
+                                        <td class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSectionTax) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
@@ -1132,8 +1048,8 @@ const handleCancel = () => emit('cancelled');
                             <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                             </svg>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No assets added yet</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to attach assets to this estimate</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">No assets added yet</p>
+                            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to attach assets to this estimate</p>
                         </div>
                     </div>
 
@@ -1142,12 +1058,12 @@ const handleCancel = () => emit('cancelled');
                          ============================ -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
                             <button
                                 v-if="mode !== 'view'"
                                 type="button"
                                 @click="openAddItemModal"
-                                class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -1157,17 +1073,17 @@ const handleCancel = () => emit('cancelled');
                         </div>
 
                         <div v-if="inventoryItems.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-sm">
+                            <table class="w-full text-md">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
@@ -1175,27 +1091,27 @@ const handleCancel = () => emit('cancelled');
                                     <template v-for="(item, index) in inventoryItems" :key="index">
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.name }}</td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-sm">{{ item.sku || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(lineBaseTotal(item))) }}</td>
+                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(lineBaseTotal(item))) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
                                                     @click="openAddonModal(item)"
-                                                    class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                                    class="inline-flex items-center gap-1 text-sm text-primary-600 dark:text-primary-400 hover:underline"
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                                     </svg>
                                                     Add-ons ({{ (item.addons || []).length }})
                                                 </button>
-                                                <span v-else class="text-xs text-gray-400">{{ (item.addons || []).length }} add-on(s)</span>
+                                                <span v-else class="text-sm text-gray-400">{{ (item.addons || []).length }} add-on(s)</span>
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="flex items-center justify-end gap-1">
@@ -1214,14 +1130,14 @@ const handleCancel = () => emit('cancelled');
                                         </tr>
                                         <!-- Add-ons sub-rows -->
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`inv-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="2">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="2">
                                                 ↳ {{ addon.name }}
                                             </td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon)) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatCurrency(taxOnPreTax(addonPreTaxTotal(addon))) }}</td>
                                             <td class="px-4 py-2"></td>
                                             <td class="px-4 py-2 text-right">
                                                 <button v-if="mode !== 'view'" type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded">
@@ -1235,9 +1151,9 @@ const handleCancel = () => emit('cancelled');
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</td>
-                                        <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(inventorySubtotal) }}</td>
-                                        <td class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySectionTax) }}</td>
+                                        <td colspan="5" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</td>
+                                        <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(inventorySubtotal) }}</td>
+                                        <td class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySectionTax) }}</td>
                                         <td colspan="2"></td>
                                     </tr>
                                 </tfoot>
@@ -1248,8 +1164,8 @@ const handleCancel = () => emit('cancelled');
                             <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
-                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No parts or accessories added yet</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to attach parts &amp; accessories</p>
+                            <p class="text-md font-medium text-gray-500 dark:text-gray-400">No parts or accessories added yet</p>
+                            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to attach parts &amp; accessories</p>
                         </div>
                     </div>
                 </div>
@@ -1258,256 +1174,100 @@ const handleCancel = () => emit('cancelled');
                      Sidebar
                      ============================ -->
                 <div class="lg:col-span-4 space-y-6">
-
-                    <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
-                        <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-white">Actions</span>
-                        </div>
-
-                        <div class="p-5 space-y-3">
-                            <button
-                                v-if="mode !== 'view'"
-                                type="submit"
-                                :disabled="form.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                            >
-                                <svg v-if="form.processing" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                                </svg>
-                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                </svg>
-                                {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Estimate') }}
-                            </button>
-
-                            <button
-                                type="button"
-                                @click="handleCancel"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Estimate Totals -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
-                            <span class="text-sm font-semibold text-white">Estimate Total</span>
-                        </div>
-                        <div class="p-5 space-y-2.5">
-                            <!-- Assets -->
-                            <template v-if="assetItems.length > 0">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-500 dark:text-gray-400">Assets</span>
-                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
-                                </div>
-                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
-                                    <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
-                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
-                                </div>
-                            </template>
-
-                            <!-- Parts & Accessories -->
-                            <template v-if="inventoryItems.length > 0">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
-                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
-                                </div>
-                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
-                                    <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
-                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
-                                </div>
-                            </template>
-
-                            <div class="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700">
-                                <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
-                                <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
+                    <div class="sticky top-[140px] space-y-6">
+                        <!-- Actions -->
+                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
+                            <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                                <span class="text-md font-semibold text-white">Actions</span>
                             </div>
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-gray-500 dark:text-gray-400">Tax ({{ form.tax_rate }}%)</span>
-                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(taxAmount) }}</span>
+
+                            <div class="p-5 space-y-3">
+                                <button
+                                    v-if="mode !== 'view'"
+                                    type="submit"
+                                    :disabled="form.processing"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                >
+                                    <svg v-if="form.processing" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                    </svg>
+                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Estimate') }}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="handleCancel"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
                             </div>
-                            <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
-                                <span class="text-base font-bold text-gray-900 dark:text-white">Total</span>
-                                <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(grandTotal) }}</span>
+                        </div>
+
+                        <!-- Estimate Totals -->
+                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
+                                <span class="text-md font-semibold text-white">Estimate Total</span>
+                            </div>
+                            <div class="p-5 space-y-2.5">
+                                <!-- Assets -->
+                                <template v-if="assetItems.length > 0">
+                                    <div class="flex justify-between items-center text-md">
+                                        <span class="text-gray-500 dark:text-gray-400">Assets</span>
+                                        <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
+                                    </div>
+                                    <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-md pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                        <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
+                                        <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
+                                    </div>
+                                </template>
+
+                                <!-- Parts & Accessories -->
+                                <template v-if="inventoryItems.length > 0">
+                                    <div class="flex justify-between items-center text-md">
+                                        <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
+                                        <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
+                                    </div>
+                                    <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-md pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                        <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
+                                        <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
+                                    </div>
+                                </template>
+
+                                <div class="flex justify-between items-center text-md pt-2 border-t border-gray-100 dark:border-gray-700">
+                                    <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
+                                    <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-md">
+                                    <span class="text-gray-500 dark:text-gray-400">Tax ({{ form.tax_rate }}%)</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(taxAmount) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                                    <span class="text-lg font-bold text-gray-900 dark:text-white">Total</span>
+                                    <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(grandTotal) }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+
             </div>
         </form>
 
         <!-- ============================
              Asset Modal
              ============================ -->
-        <Teleport to="body">
-            <div
-                v-if="showAssetModal"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-                @click.self="showAssetModal = false"
-            >
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                            {{ assetForm.asset_id && editingAssetIndex !== null ? 'Edit Asset' : 'Add Asset' }}
-                        </h3>
-                        <button @click="showAssetModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div class="flex-1 overflow-y-auto p-6 space-y-5">
-
-                        <!-- Search (shown when no asset selected) -->
-                        <div v-if="!assetForm.itemable_id">
-                            <div class="relative mb-3">
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                    </svg>
-                                </div>
-                                <input
-                                    v-model="assetSearchQuery"
-                                    @input="debouncedFetchAssets"
-                                    type="text"
-                                    placeholder="Search assets by name, year, or make..."
-                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                            </div>
-
-                            <div v-if="assetIsLoading" class="flex justify-center py-8">
-                                <svg class="w-6 h-6 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                </svg>
-                            </div>
-
-                            <div v-else-if="assetRecords.length > 0" class="space-y-1.5 max-h-56 overflow-y-auto">
-                                <button
-                                    v-for="asset in assetRecords"
-                                    :key="asset.id"
-                                    type="button"
-                                    @click="selectAsset(asset)"
-                                    class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all group"
-                                >
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div>
-                                            <div class="font-medium text-gray-900 dark:text-white text-sm group-hover:text-primary-700 dark:group-hover:text-primary-300">
-                                                {{ asset.display_name }}
-                                            </div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
-                                                <span v-if="asset.year">{{ asset.year }}</span>
-                                                <span v-if="asset.make?.display_name">{{ asset.make.display_name }}</span>
-                                                <span v-if="asset.default_price">{{ formatCurrency(asset.default_price) }}</span>
-                                            </div>
-                                        </div>
-                                        <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                        </svg>
-                                    </div>
-                                </button>
-                            </div>
-
-                            <div v-else class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
-                                {{ assetSearchQuery.trim() ? 'No assets match your search' : 'No assets available' }}
-                            </div>
-
-                            <div v-if="assetTotalPages > 1" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                                <button type="button" @click="assetCurrentPage--; fetchAssets()" :disabled="assetCurrentPage <= 1" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">← Prev</button>
-                                <span class="text-xs text-gray-400">Page {{ assetCurrentPage }} / {{ assetTotalPages }}</span>
-                                <button type="button" @click="assetCurrentPage++; fetchAssets()" :disabled="assetCurrentPage >= assetTotalPages" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">Next →</button>
-                            </div>
-                        </div>
-
-                        <!-- Selected asset + details form -->
-                        <div v-if="assetForm.itemable_id" class="space-y-4">
-                            <div class="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
-                                <div>
-                                    <div class="font-medium text-primary-900 dark:text-primary-200 text-sm">{{ assetForm.name }}</div>
-                                    <div class="text-xs text-primary-600 dark:text-primary-400 mt-0.5">
-                                        {{ [assetForm.year, assetForm.make].filter(Boolean).join(' · ') || 'No details' }}
-                                    </div>
-                                </div>
-                                <button
-                                    v-if="editingAssetIndex === null"
-                                    type="button"
-                                    @click="clearSelectedAssetForChange"
-                                    class="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
-                                >
-                                    Change
-                                </button>
-                            </div>
-
-                            <AssetLineVariantSelect
-                                v-if="assetForm.has_variants && assetForm.itemable_id"
-                                v-model="assetFormVariantId"
-                                v-model:variant-display-name="assetFormVariantDisplayName"
-                                v-model:catalog-description="assetFormCatalogDescription"
-                                :asset-id="assetForm.asset_id"
-                                :has-variants="assetForm.has_variants"
-                                :asset-description="assetForm.asset_description"
-                                :sync-catalog-description="true"
-                                :apply-default-price="true"
-                                :show-catalog-preview="true"
-                                @update:unit-price="assetForm.unit_price = $event"
-                            />
-
-                            <div class="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                        <input type="number" v-model="assetForm.unit_price" min="0" step="0.01"
-                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Discount</label>
-                                    <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                        <input type="number" v-model="assetForm.discount" min="0" step="0.01"
-                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
-                                    <input type="number" v-model="assetForm.quantity" min="1" step="1"
-                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
-                                </div>
-                            </div>
-
-                            <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">Line Total</span>
-                                <span class="text-base font-bold text-gray-900 dark:text-white">
-                                    {{ formatCurrency((Number(assetForm.unit_price || 0) * Number(assetForm.quantity || 0)) - Number(assetForm.discount || 0)) }}
-                                </span>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
-                                <textarea v-model="assetForm.notes" rows="2"
-                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                                    placeholder="Optional notes for this asset..." />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        <button type="button" @click="showAssetModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
-                        <button type="button" @click="saveAssetItem" :disabled="!assetForm.itemable_id"
-                            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
-                            {{ editingAssetIndex !== null ? 'Update Asset' : 'Add Asset' }}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
+        <AssetLineModal
+            v-model="assetForm"
+            v-model:open="showAssetModal"
+            :editing="editingAssetIndex !== null"
+            @save="saveAssetItem"
+        />
 
         <!-- ============================
              Inventory Item Modal
@@ -1521,7 +1281,7 @@ const handleCancel = () => emit('cancelled');
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
                             {{ lineItemForm.itemable_id && editingLineIndex !== null ? 'Edit Item' : 'Add Inventory Item' }}
                         </h3>
                         <button @click="showItemModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -1546,7 +1306,7 @@ const handleCancel = () => emit('cancelled');
                                     @input="debouncedFetchItems"
                                     type="text"
                                     placeholder="Search inventory items by name or SKU..."
-                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                    class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                                 />
                             </div>
 
@@ -1567,10 +1327,10 @@ const handleCancel = () => emit('cancelled');
                                 >
                                     <div class="flex items-center justify-between gap-3">
                                         <div>
-                                            <div class="font-medium text-gray-900 dark:text-white text-sm group-hover:text-primary-700 dark:group-hover:text-primary-300">
+                                            <div class="font-medium text-gray-900 dark:text-white text-md group-hover:text-primary-700 dark:group-hover:text-primary-300">
                                                 {{ item.display_name }}
                                             </div>
-                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
+                                            <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
                                                 <span v-if="item.sku">SKU: {{ item.sku }}</span>
                                                 <span v-if="item.default_price">{{ formatCurrency(item.default_price) }}</span>
                                             </div>
@@ -1582,14 +1342,14 @@ const handleCancel = () => emit('cancelled');
                                 </button>
                             </div>
 
-                            <div v-else class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                            <div v-else class="text-center py-8 text-gray-400 dark:text-gray-500 text-md">
                                 {{ itemSearchQuery.trim() ? 'No items match your search' : 'No inventory items available' }}
                             </div>
 
                             <div v-if="itemTotalPages > 1" class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                                <button type="button" @click="itemCurrentPage--; fetchItems()" :disabled="itemCurrentPage <= 1" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">← Prev</button>
-                                <span class="text-xs text-gray-400">Page {{ itemCurrentPage }} / {{ itemTotalPages }}</span>
-                                <button type="button" @click="itemCurrentPage++; fetchItems()" :disabled="itemCurrentPage >= itemTotalPages" class="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">Next →</button>
+                                <button type="button" @click="itemCurrentPage--; fetchItems()" :disabled="itemCurrentPage <= 1" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">← Prev</button>
+                                <span class="text-sm text-gray-400">Page {{ itemCurrentPage }} / {{ itemTotalPages }}</span>
+                                <button type="button" @click="itemCurrentPage++; fetchItems()" :disabled="itemCurrentPage >= itemTotalPages" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-40">Next →</button>
                             </div>
                         </div>
 
@@ -1597,14 +1357,14 @@ const handleCancel = () => emit('cancelled');
                         <div v-if="lineItemForm.itemable_id" class="space-y-4">
                             <div class="flex items-center justify-between p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg">
                                 <div>
-                                    <div class="font-medium text-primary-900 dark:text-primary-200 text-sm">{{ lineItemForm.name }}</div>
-                                    <div class="text-xs text-primary-600 dark:text-primary-400 mt-0.5">{{ lineItemForm.sku || 'No SKU' }}</div>
+                                    <div class="font-medium text-primary-900 dark:text-primary-200 text-md">{{ lineItemForm.name }}</div>
+                                    <div class="text-sm text-primary-600 dark:text-primary-400 mt-0.5">{{ lineItemForm.sku || 'No SKU' }}</div>
                                 </div>
                                 <button
                                     v-if="editingLineIndex === null"
                                     type="button"
                                     @click="lineItemForm.itemable_id = null; lineItemForm.inventory_item_id = null; lineItemForm.name = ''"
-                                    class="text-xs text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
+                                    class="text-sm text-primary-500 hover:text-primary-700 dark:hover:text-primary-300"
                                 >
                                     Change
                                 </button>
@@ -1612,48 +1372,48 @@ const handleCancel = () => emit('cancelled');
 
                             <div class="grid grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-md">$</span>
                                         <input type="number" v-model="lineItemForm.unit_price" min="0" step="0.01"
-                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Discount</label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Discount</label>
                                     <div class="relative">
-                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-md">$</span>
                                         <input type="number" v-model="lineItemForm.discount" min="0" step="0.01"
-                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                            class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
                                     <input type="number" v-model="lineItemForm.quantity" min="1" step="1"
-                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                                        class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 </div>
                             </div>
 
                             <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">Line Total</span>
-                                <span class="text-base font-bold text-gray-900 dark:text-white">
+                                <span class="text-md text-gray-600 dark:text-gray-400">Line Total</span>
+                                <span class="text-lg font-bold text-gray-900 dark:text-white">
                                     {{ formatCurrency((Number(lineItemForm.unit_price || 0) * Number(lineItemForm.quantity || 0)) - Number(lineItemForm.discount || 0)) }}
                                 </span>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
+                                <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
                                 <textarea v-model="lineItemForm.notes" rows="2"
-                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                                    class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                                     placeholder="Optional notes for this item..." />
                             </div>
                         </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                        <button type="button" @click="showItemModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
+                        <button type="button" @click="showItemModal = false" class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                         <button type="button" @click="saveLineItem" :disabled="!lineItemForm.itemable_id"
-                            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
+                            class="px-4 py-2 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
                             {{ editingLineIndex !== null ? 'Update Item' : 'Add Item' }}
                         </button>
                     </div>
@@ -1698,8 +1458,8 @@ const handleCancel = () => emit('cancelled');
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Choose a billing address</h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Select which of the contact's addresses to use</p>
+                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Choose a billing address</h3>
+                                    <p class="text-md text-gray-500 dark:text-gray-400 mt-0.5">Select which of the contact's addresses to use</p>
                                 </div>
                             </div>
                             <button type="button" @click="dismissAddressPicker" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-0.5">
@@ -1719,16 +1479,16 @@ const handleCancel = () => emit('cancelled');
                                 class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors group"
                             >
                                 <div class="flex items-start justify-between gap-2">
-                                    <div class="text-sm space-y-0.5">
+                                    <div class="text-md space-y-0.5">
                                         <div class="flex items-center gap-2">
                                             <p class="font-medium text-gray-900 dark:text-white">{{ addr.address_line_1 }}</p>
                                             <span
                                                 v-if="addr.is_primary"
-                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                                             >Primary</span>
                                             <span
                                                 v-if="addr.label"
-                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
                                             >{{ addr.label }}</span>
                                         </div>
                                         <p v-if="addr.address_line_2" class="text-gray-500 dark:text-gray-400">{{ addr.address_line_2 }}</p>
@@ -1751,7 +1511,7 @@ const handleCancel = () => emit('cancelled');
                             <button
                                 type="button"
                                 @click="dismissAddressPicker"
-                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                             >
                                 Skip, fill manually
                             </button>

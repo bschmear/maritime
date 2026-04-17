@@ -85,6 +85,14 @@ const variantLabel = (item) => {
     return v ? (v.display_name ?? v.name ?? null) : null;
 };
 
+const unitLabel = (item) => {
+    const u = item.asset_unit ?? item.assetUnit ?? null;
+    const raw = u?.display_name;
+    if (!raw) return null;
+    const parts = String(raw).split(' - ');
+    return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+};
+
 const discountCell = (item) => {
     if (item.discount_percent != null) return `${item.discount_percent}%`;
     if (item.discount != null && parseFloat(item.discount) !== 0) return formatCurrency(item.discount);
@@ -428,6 +436,9 @@ const submitManualPayment = () => {
                                             </div>
                                             <div v-if="variantLabel(item)" class="text-xs text-gray-500 dark:text-gray-400">
                                                 Variant: {{ variantLabel(item) }}
+                                            </div>
+                                            <div v-if="unitLabel(item)" class="text-xs text-gray-500 dark:text-gray-400">
+                                                Unit: {{ unitLabel(item) }}
                                             </div>
                                         </td>
                                         <td class="px-5 py-3.5 text-right align-top text-gray-700 dark:text-gray-300">{{ item.quantity ?? 1 }}</td>

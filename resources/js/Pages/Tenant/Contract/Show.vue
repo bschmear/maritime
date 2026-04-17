@@ -5,6 +5,8 @@ import ContractPreview from '@/Components/Tenant/ContractPreview.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     lineItemPreTaxTotal,
+    lineUnitDisplay,
+    lineUnitId,
     lineVariantDisplay,
     lineVariantId,
     resolveLineItemsForContract,
@@ -436,6 +438,7 @@ const closePreview = () => { showPreview.value = false; };
                                             <tr>
                                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs">Item</th>
                                                 <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs min-w-[7rem]">Variant</th>
+                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs min-w-[7rem]">Unit</th>
                                                 <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-20">Taxable</th>
                                                 <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-16">Qty</th>
                                                 <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-28">Unit Price</th>
@@ -460,6 +463,15 @@ const closePreview = () => { showPreview.value = false; };
                                                         </span>
                                                         <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                        <span
+                                                            v-if="lineUnitId(row)"
+                                                            class="font-medium text-gray-800 dark:text-gray-200"
+                                                        >
+                                                            {{ lineUnitDisplay(row) }}
+                                                        </span>
+                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                                    </td>
                                                     <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
                                                         {{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}
                                                     </td>
@@ -476,6 +488,7 @@ const closePreview = () => { showPreview.value = false; };
                                                         <span v-if="addon.notes" class="block text-gray-400 not-italic">{{ addon.notes }}</span>
                                                     </td>
                                                     <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
+                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
                                                     <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">
                                                         {{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}
                                                     </td>
@@ -489,13 +502,13 @@ const closePreview = () => { showPreview.value = false; };
                                         <!-- Totals footer -->
                                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-300 dark:border-gray-600">
                                             <tr v-if="taxRate > 0">
-                                                <td colspan="6" class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                                                <td colspan="7" class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">
                                                     Tax rate: {{ taxRate }}%
                                                 </td>
                                                 <td></td>
                                             </tr>
                                             <tr>
-                                                <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
                                                     Total
                                                 </td>
                                                 <td class="px-4 py-3 text-right text-sm font-bold text-blue-600 dark:text-blue-400">

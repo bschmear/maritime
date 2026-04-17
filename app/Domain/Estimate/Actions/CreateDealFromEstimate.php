@@ -157,6 +157,8 @@ class CreateDealFromEstimate
                         'type' => $type,
                         'itemable_type' => $itemableType,
                         'itemable_id' => $line->itemable_id,
+                        'asset_variant_id' => $line->asset_variant_id ?: null,
+                        'asset_unit_id' => $line->asset_unit_id ?: null,
                         'name' => $line->name ?: 'Line item',
                         'description' => $line->description,
                         'quantity' => $qty,

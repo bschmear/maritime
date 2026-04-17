@@ -9,6 +9,7 @@ use App\Domain\Asset\Models\Asset as RecordModel;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
@@ -336,6 +337,80 @@ class AssetController extends RecordController
         $variant->delete();
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * JSON list of this asset's units, optionally narrowed by variant.
+     *
+     * Mirrors `variantsIndex` but is flat: used by AssetLineUnitSelect in line-item modals
+     * so a user can choose a specific serialized unit and let reports read its cost through
+     * the `assetUnit` relation.
+     */
+    public function unitsIndex(Request $request, RecordModel $asset): JsonResponse
+    {
+        $perPage = (int) $request->get('per_page', 100);
+
+        $query = AssetUnit::query()
+            ->where('asset_id', $asset->id)
+            ->where(function ($q) {
+                $q->whereNull('inactive')->orWhere('inactive', false);
+            });
+
+        if ($request->filled('variant')) {
+            $query->where('asset_variant_id', (int) $request->get('variant'));
+        }
+
+        if ($request->filled('search')) {
+            $term = trim((string) $request->get('search'));
+            if ($term !== '') {
+                $like = '%'.$term.'%';
+                $query->where(function ($q) use ($like) {
+                    $q->where('serial_number', 'like', $like)
+                        ->orWhere('hin', 'like', $like)
+                        ->orWhere('sku', 'like', $like);
+                });
+            }
+        }
+
+        $records = $query->with([
+                'asset:id,display_name',
+                'assetVariant:id,display_name,name',
+            ])
+            ->orderByRaw('COALESCE(serial_number, hin, sku, CAST(id AS CHAR)) ASC')
+            ->paginate($perPage);
+
+        $records->getCollection()->transform(function (AssetUnit $unit) {
+            return [
+                'id' => $unit->id,
+                'display_name' => $unit->display_name,
+                'asset_id' => $unit->asset_id,
+                'asset_variant_id' => $unit->asset_variant_id,
+                'serial_number' => $unit->serial_number,
+                'hin' => $unit->hin,
+                'sku' => $unit->sku,
+                'status' => $unit->status,
+                'condition' => $unit->condition,
+                'cost' => $unit->cost,
+                'asking_price' => $unit->asking_price,
+                'variant' => $unit->assetVariant
+                    ? [
+                        'id' => $unit->assetVariant->id,
+                        'display_name' => $unit->assetVariant->display_name,
+                        'name' => $unit->assetVariant->name,
+                    ]
+                    : null,
+            ];
+        });
+
+        return response()->json([
+            'records' => $records->items(),
+            'meta' => [
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'per_page' => $records->perPage(),
+                'total' => $records->total(),
+            ],
+        ]);
     }
 
     private function ensureVariantBelongsToAsset(RecordModel $asset, AssetVariant $variant): void

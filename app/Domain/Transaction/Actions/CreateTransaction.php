@@ -119,6 +119,8 @@ class CreateTransaction
                         'type' => $itemData['type'] ?? 'line',
                         'itemable_type' => $itemData['itemable_type'] ?? null,
                         'itemable_id' => $itemData['itemable_id'] ?? null,
+                        'asset_variant_id' => ! empty($itemData['asset_variant_id']) ? (int) $itemData['asset_variant_id'] : null,
+                        'asset_unit_id' => ! empty($itemData['asset_unit_id']) ? (int) $itemData['asset_unit_id'] : null,
                         'name' => $itemData['name'] ?? 'Item',
                         'description' => $itemData['description'] ?? null,
                         'quantity' => $qty,

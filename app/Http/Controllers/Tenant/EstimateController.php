@@ -186,6 +186,7 @@ class EstimateController extends RecordController
                 'addons.addon:id,name,default_price',
                 'itemable',
                 'assetVariant',
+                'assetUnit',
             ]),
         ]);
         $relationships['revision'] = fn ($q) => $q->select('id', 'sequence', 'revised_from_id');
@@ -241,6 +242,7 @@ class EstimateController extends RecordController
                 'addons.addon:id,name,default_price',
                 'itemable',
                 'assetVariant',
+                'assetUnit',
             ]),
         ]);
         $relationships['contact'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone']);

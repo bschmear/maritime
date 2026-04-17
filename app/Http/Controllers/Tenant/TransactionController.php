@@ -326,10 +326,13 @@ class TransactionController extends BaseController
                     ->with([
                         'addons',
                         'itemable',
+                        'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
+                        'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                         'estimateLineItem' => fn ($q2) => $q2
-                            ->select(['id', 'asset_variant_id'])
+                            ->select(['id', 'asset_variant_id', 'asset_unit_id'])
                             ->with([
                                 'assetVariant' => fn ($q3) => $q3->select(['id', 'display_name', 'name']),
+                                'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                             ]),
                     ])
                     ->orderBy('position')
@@ -346,6 +349,7 @@ class TransactionController extends BaseController
                                     ->with([
                                         'addons',
                                         'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
+                                        'assetUnit' => fn ($qau) => $qau->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                                     ])
                                     ->orderBy('position')
                                     ->orderBy('id'),
@@ -384,7 +388,12 @@ class TransactionController extends BaseController
 
         $record = Transaction::query()
             ->with([
-                'items' => fn ($q) => $q->with(['addons', 'itemable'])->orderBy('position')->orderBy('id'),
+                'items' => fn ($q) => $q->with([
+                    'addons',
+                    'itemable',
+                    'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
+                    'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                ])->orderBy('position')->orderBy('id'),
                 'customer' => Customer::eagerWithContactSelect(),
                 'user' => fn ($q) => $q->select(['id', 'display_name']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence']),

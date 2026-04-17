@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
+import AssetLineUnitSelect from '@/Components/Tenant/AssetLineUnitSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
@@ -258,6 +259,8 @@ const emptyAssetForm = () => ({
     asset_variant_id: null,
     variant_display_name: '',
     asset_description: '',
+    asset_unit_id: null,
+    unit_display_name: '',
 });
 const assetForm = ref(emptyAssetForm());
 
@@ -268,6 +271,14 @@ const assetFormVariantId = computed({
 const assetFormVariantDisplayName = computed({
     get: () => assetForm.value.variant_display_name,
     set: (v) => { assetForm.value.variant_display_name = v; },
+});
+const assetFormUnitId = computed({
+    get: () => assetForm.value.asset_unit_id,
+    set: (v) => { assetForm.value.asset_unit_id = v; },
+});
+const assetFormUnitDisplayName = computed({
+    get: () => assetForm.value.unit_display_name,
+    set: (v) => { assetForm.value.unit_display_name = v; },
 });
 
 const fetchAssets = async (resetPage = false) => {
@@ -320,6 +331,8 @@ const selectAsset = (asset) => {
     assetForm.value.asset_variant_id = null;
     assetForm.value.variant_display_name = '';
     assetForm.value.asset_description = (asset.description || '').trim() || '';
+    assetForm.value.asset_unit_id = null;
+    assetForm.value.unit_display_name = '';
 };
 const clearSelectedAssetForChange = () => {
     assetForm.value.itemable_id = null;
@@ -329,6 +342,8 @@ const clearSelectedAssetForChange = () => {
     assetForm.value.asset_variant_id = null;
     assetForm.value.variant_display_name = '';
     assetForm.value.asset_description = '';
+    assetForm.value.asset_unit_id = null;
+    assetForm.value.unit_display_name = '';
 };
 const saveAssetItem = () => {
     if (!assetForm.value.itemable_id) return;
@@ -435,6 +450,20 @@ onMounted(() => {
     src.forEach((item) => {
         const base = normalizeItemBase(item, isNew);
         if (item.itemable_type === 'App\\Domain\\Asset\\Models\\Asset') {
+            const variantId = item.asset_variant_id
+                ?? item.estimate_line_item?.asset_variant_id
+                ?? null;
+            const variantDisplayName = item.asset_variant?.display_name
+                ?? item.assetVariant?.display_name
+                ?? item.estimate_line_item?.asset_variant?.display_name
+                ?? '';
+            const unitId = item.asset_unit_id
+                ?? item.estimate_line_item?.asset_unit_id
+                ?? null;
+            const unitDisplayName = item.asset_unit?.display_name
+                ?? item.assetUnit?.display_name
+                ?? item.estimate_line_item?.asset_unit?.display_name
+                ?? '';
             assetItems.value.push({
                 ...base,
                 itemable_type: item.itemable_type,
@@ -442,6 +471,12 @@ onMounted(() => {
                 asset_id: item.itemable_id ?? null,
                 year: item.itemable?.year || item.year || '',
                 make: item.itemable?.make?.display_name || item.make || '',
+                has_variants: Boolean(item.itemable?.has_variants || variantId),
+                asset_description: (item.itemable?.description || '').trim() || '',
+                asset_variant_id: variantId,
+                variant_display_name: variantDisplayName,
+                asset_unit_id: unitId,
+                unit_display_name: unitDisplayName,
             });
         } else if (item.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
             inventoryItems.value.push({
@@ -619,6 +654,8 @@ const submit = () => {
                 type: 'asset',
                 itemable_type: item.itemable_type,
                 itemable_id: item.itemable_id || null,
+                asset_variant_id: item.asset_variant_id || null,
+                asset_unit_id: item.asset_unit_id || null,
                 name: item.name,
                 description: item.description || null,
                 quantity: Number(item.quantity) || 1,
@@ -1029,6 +1066,12 @@ const handleCancel = () => emit('cancel');
                                 <div v-if="asset.variant_display_name" class="flex items-center gap-1 mt-0.5">
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Variant</span>
                                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ asset.variant_display_name }}</span>
+                                </div>
+                                <div v-if="asset.asset_unit_id" class="flex items-center gap-1 mt-0.5">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Unit</span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ (asset.unit_display_name || '').split(' - ').slice(1).join(' - ') || asset.unit_display_name || `#${asset.asset_unit_id}` }}
+                                    </span>
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ +asset.quantity }}</td>
@@ -1644,6 +1687,14 @@ const handleCancel = () => emit('cancel');
                                 :asset-description="assetForm.asset_description"
                                 :apply-default-price="true"
                                 @update:unit-price="assetForm.unit_price = $event"
+                            />
+
+                            <AssetLineUnitSelect
+                                v-if="assetForm.itemable_id"
+                                v-model="assetFormUnitId"
+                                v-model:unit-display-name="assetFormUnitDisplayName"
+                                :asset-id="assetForm.asset_id"
+                                :variant-id="assetForm.asset_variant_id"
                             />
 
                             <div class="grid grid-cols-3 gap-4">

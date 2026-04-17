@@ -2,6 +2,7 @@
 
 namespace App\Domain\InvoiceItem\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,6 +36,7 @@ class InvoiceItem extends Model
         'itemable_type',
         'itemable_id',
         'asset_variant_id',
+        'asset_unit_id',
     ];
 
     protected $casts = [
@@ -69,6 +71,11 @@ class InvoiceItem extends Model
     public function assetVariant(): BelongsTo
     {
         return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
+    }
+
+    public function assetUnit(): BelongsTo
+    {
+        return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
     }
 
     /*

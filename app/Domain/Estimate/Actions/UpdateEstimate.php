@@ -97,6 +97,7 @@ class UpdateEstimate
                             'itemable_type' => $lineData['itemable_type'] ?? null,
                             'itemable_id' => $lineData['itemable_id'] ?? null,
                             'asset_variant_id' => ! empty($lineData['asset_variant_id']) ? (int) $lineData['asset_variant_id'] : null,
+                            'asset_unit_id' => ! empty($lineData['asset_unit_id']) ? (int) $lineData['asset_unit_id'] : null,
                             'name' => $lineData['name'] ?? '',
                             'description' => LineItemDescription::merge($lineData),
                             'quantity' => $lineData['quantity'] ?? 1,

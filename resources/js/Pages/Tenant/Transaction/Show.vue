@@ -4,6 +4,8 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import {
     lineItemPreTaxTotal,
+    lineUnitDisplay,
+    lineUnitId,
     lineVariantDisplay,
     lineVariantId,
     resolveLineItemsForTransaction,
@@ -840,6 +842,7 @@ const confirmAddStep = () => {
                                             <tr>
                                                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
                                                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[7rem]">Variant</th>
+                                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[7rem]">Unit</th>
                                                 <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
                                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Qty</th>
                                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
@@ -863,6 +866,15 @@ const confirmAddStep = () => {
                                                         </span>
                                                         <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                        <span
+                                                            v-if="lineUnitId(row)"
+                                                            class="font-medium text-gray-800 dark:text-gray-200"
+                                                        >
+                                                            {{ lineUnitDisplay(row) }}
+                                                        </span>
+                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                                    </td>
                                                     <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">{{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}</td>
                                                     <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
                                                     <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(row.unit_price) }}</td>
@@ -879,6 +891,7 @@ const confirmAddStep = () => {
                                                         ↳ {{ addon.name || 'Add-on' }}
                                                         <span v-if="addon.notes" class="block text-gray-400 dark:text-gray-500 not-italic">{{ addon.notes }}</span>
                                                     </td>
+                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
                                                     <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
                                                     <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}</td>
                                                     <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>

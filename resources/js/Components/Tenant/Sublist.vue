@@ -276,6 +276,18 @@ const formatPhone = (value) => {
     return value;
 };
 
+/**
+ * Eloquent's toArray() applies Str::snake() to relation keys when $snakeAttributes is on
+ * (Laravel default), so a "assetVariant" relationship is serialized as "asset_variant".
+ * Look up both forms so multi-word relationships resolve regardless of serialization shape.
+ */
+const camelToSnake = (str) => String(str).replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+const getRelatedRecord = (item, relationshipName) => {
+    if (!item || !relationshipName) return null;
+    return item[relationshipName] ?? item[camelToSnake(relationshipName)] ?? null;
+};
+
 // Get the display value for a record field
 const getRecordDisplayValue = (item, fieldKey) => {
     const fieldDef = getFieldDef(fieldKey);
@@ -285,7 +297,7 @@ const getRecordDisplayValue = (item, fieldKey) => {
     
     // Get the relationship name
     const relationshipName = fieldDef.relationship || fieldKey.replace('_id', '');
-    const relatedRecord = item[relationshipName];
+    const relatedRecord = getRelatedRecord(item, relationshipName);
     
     if (!relatedRecord || typeof relatedRecord !== 'object') {
         return null;
@@ -306,7 +318,7 @@ const getRecordUrl = (item, fieldKey) => {
     
     // Get the relationship name and related record
     const relationshipName = fieldDef.relationship || fieldKey.replace('_id', '');
-    const relatedRecord = item[relationshipName];
+    const relatedRecord = getRelatedRecord(item, relationshipName);
     
     if (!relatedRecord || !relatedRecord.id) return null;
     

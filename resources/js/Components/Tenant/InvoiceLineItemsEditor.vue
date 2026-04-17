@@ -6,6 +6,7 @@
 import { computed, onMounted, ref, watchEffect } from 'vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
+import AssetLineUnitSelect from '@/Components/Tenant/AssetLineUnitSelect.vue';
 
 const debounce = (fn, delay) => {
     let timer;
@@ -56,6 +57,14 @@ const normalizeItemBase = (item, isNew = false) => ({
         ?? item.assetVariant?.display_name
         ?? item.estimate_line_item?.asset_variant?.name
         ?? item.estimate_line_item?.asset_variant?.display_name
+        ?? '',
+    asset_unit_id: item.asset_unit_id
+        ?? item.assetUnitId
+        ?? item.estimate_line_item?.asset_unit_id
+        ?? null,
+    unit_display_name: item.asset_unit?.display_name
+        ?? item.assetUnit?.display_name
+        ?? item.estimate_line_item?.asset_unit?.display_name
         ?? '',
 });
 
@@ -147,6 +156,12 @@ watchEffect(() => {
     if (String(f.total) !== nextTotal) f.total = nextTotal;
 });
 
+const formatUnitCell = (raw) => {
+    if (!raw) return '';
+    const parts = String(raw).split(' - ');
+    return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+};
+
 const formatMoney = (value) => {
     if (value == null || value === '') return '—';
     const n = parseFloat(value);
@@ -188,6 +203,8 @@ const emptyAssetForm = () => ({
     variant_name: '',
     has_variants: false,
     asset_description: '',
+    asset_unit_id: null,
+    unit_display_name: '',
 });
 const assetForm = ref(emptyAssetForm());
 
@@ -198,6 +215,14 @@ const assetFormVariantId = computed({
 const assetFormVariantDisplayName = computed({
     get: () => assetForm.value.variant_name,
     set: (v) => { assetForm.value.variant_name = v; },
+});
+const assetFormUnitId = computed({
+    get: () => assetForm.value.asset_unit_id,
+    set: (v) => { assetForm.value.asset_unit_id = v; },
+});
+const assetFormUnitDisplayName = computed({
+    get: () => assetForm.value.unit_display_name,
+    set: (v) => { assetForm.value.unit_display_name = v; },
 });
 
 const fetchAssets = async (resetPage = false) => {
@@ -272,6 +297,8 @@ const selectAsset = (asset) => {
     assetForm.value.asset_variant_id = null;
     assetForm.value.variant_name = '';
     assetForm.value.asset_description = (asset.description || '').trim() || '';
+    assetForm.value.asset_unit_id = null;
+    assetForm.value.unit_display_name = '';
 };
 
 const clearSelectedAssetForChange = () => {
@@ -282,6 +309,8 @@ const clearSelectedAssetForChange = () => {
     assetForm.value.asset_variant_id = null;
     assetForm.value.variant_name = '';
     assetForm.value.asset_description = '';
+    assetForm.value.asset_unit_id = null;
+    assetForm.value.unit_display_name = '';
 };
 
 const saveAssetItem = () => {
@@ -444,6 +473,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
             itemable_type: line.itemable_type || null,
             itemable_id: line.itemable_id || null,
             asset_variant_id: line.asset_variant_id || null,
+            asset_unit_id: line.asset_unit_id || null,
             name: line.name,
             description: line.description || null,
             quantity: Number(line.quantity) || 1,
@@ -504,6 +534,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asset</th>
 
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Variant</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Unit</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Qty</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Discount</th>
@@ -527,6 +558,12 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         </td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300"> 
                                             <span v-if="line.variant_name" class="text-sm text-gray-500 dark:text-gray-400">{{ line.variant_name }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">
+                                            <span v-if="line.asset_unit_id" class="text-sm text-gray-500 dark:text-gray-400">
+                                                {{ formatUnitCell(line.unit_display_name) || `Unit #${line.asset_unit_id}` }}
+                                            </span>
+                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                         </td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300"> {{ +line.quantity }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.unit_price) }}</td>
@@ -576,6 +613,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                             ↳ {{ addon.name || 'Add-on' }}
                                             <span v-if="addon.notes" class="block text-gray-400 dark:text-gray-500 not-italic">{{ addon.notes }}</span>
                                         </td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-400"></td>
                                         <td class="px-4 py-2 text-right text-sm text-gray-400"></td>
                                         <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>
                                         <td class="px-4 py-2 text-right">
@@ -631,7 +669,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                         </tbody>
                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-200 dark:border-gray-600">
                             <tr>
-                                <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets subtotal (pre-tax)</td>
+                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets subtotal (pre-tax)</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetTax) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal + computedAssetTax) }}</td>
@@ -965,6 +1003,14 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 :asset-description="assetForm.asset_description"
                                 :apply-default-price="true"
                                 @update:unit-price="assetForm.unit_price = $event"
+                            />
+
+                            <AssetLineUnitSelect
+                                v-if="assetForm.itemable_id"
+                                v-model="assetFormUnitId"
+                                v-model:unit-display-name="assetFormUnitDisplayName"
+                                :asset-id="assetForm.asset_id"
+                                :variant-id="assetForm.asset_variant_id"
                             />
 
                             <div class="grid grid-cols-3 gap-4">

@@ -30,10 +30,13 @@ class BuildInvoicePrefillFromTransaction
                             InventoryItem::class => fn ($query) => $query->select(['id', 'display_name', 'sku']),
                         ]);
                     },
+                    'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
+                    'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                     'estimateLineItem' => fn ($q2) => $q2
-                        ->select(['id', 'asset_variant_id'])
+                        ->select(['id', 'asset_variant_id', 'asset_unit_id'])
                         ->with([
                             'assetVariant' => fn ($q3) => $q3->select(['id', 'display_name', 'name']),
+                            'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                         ]),
                 ])
                 ->orderBy('position')
@@ -101,11 +104,19 @@ class BuildInvoicePrefillFromTransaction
 
         $initialData['items'] = $transaction->items->map(function ($item) {
             $eli = $item->estimateLineItem;
+            $variantId = $item->asset_variant_id ?? $eli?->asset_variant_id;
+            $unitId = $item->asset_unit_id ?? $eli?->asset_unit_id;
+            $variantModel = ($item->relationLoaded('assetVariant') ? $item->assetVariant : null)
+                ?? ($eli?->relationLoaded('assetVariant') ? $eli->assetVariant : null);
+            $unitModel = ($item->relationLoaded('assetUnit') ? $item->assetUnit : null)
+                ?? ($eli?->relationLoaded('assetUnit') ? $eli->assetUnit : null);
 
             return [
                 'transaction_item_id' => $item->id,
                 'itemable_type' => $item->itemable_type,
                 'itemable_id' => $item->itemable_id,
+                'asset_variant_id' => $variantId,
+                'asset_unit_id' => $unitId,
                 'name' => $item->name ?? '',
                 'description' => $item->description ?? '',
                 'quantity' => (float) ($item->quantity ?? 1),
@@ -126,6 +137,17 @@ class BuildInvoicePrefillFromTransaction
                     ],
                     default => null,
                 } : null,
+                'asset_variant' => $variantModel ? [
+                    'id' => $variantModel->id,
+                    'display_name' => $variantModel->display_name,
+                    'name' => $variantModel->name,
+                ] : null,
+                'asset_unit' => $unitModel ? [
+                    'id' => $unitModel->id,
+                    'display_name' => $unitModel->display_name,
+                    'cost' => $unitModel->cost ?? null,
+                    'asset_variant_id' => $unitModel->asset_variant_id ?? null,
+                ] : null,
                 'addons' => $item->addons->map(fn ($a) => [
                     'id' => $a->id,
                     'addon_id' => $a->addon_id,
@@ -139,10 +161,16 @@ class BuildInvoicePrefillFromTransaction
                 'estimate_line_item' => $eli ? [
                     'id' => $eli->id,
                     'asset_variant_id' => $eli->asset_variant_id,
+                    'asset_unit_id' => $eli->asset_unit_id,
                     'asset_variant' => $eli->relationLoaded('assetVariant') && $eli->assetVariant ? [
                         'id' => $eli->assetVariant->id,
                         'display_name' => $eli->assetVariant->display_name,
                         'name' => $eli->assetVariant->name,
+                    ] : null,
+                    'asset_unit' => $eli->relationLoaded('assetUnit') && $eli->assetUnit ? [
+                        'id' => $eli->assetUnit->id,
+                        'display_name' => $eli->assetUnit->display_name,
+                        'cost' => $eli->assetUnit->cost ?? null,
                     ] : null,
                 ] : null,
             ];

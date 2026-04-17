@@ -2,6 +2,8 @@
 
 namespace App\Domain\Transaction\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Estimate\Models\EstimateLineItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,6 +40,16 @@ class TransactionItem extends Model
     public function estimateLineItem(): BelongsTo
     {
         return $this->belongsTo(EstimateLineItem::class, 'estimate_item_id');
+    }
+
+    public function assetVariant(): BelongsTo
+    {
+        return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
+    }
+
+    public function assetUnit(): BelongsTo
+    {
+        return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
     }
 
     public function addons(): HasMany

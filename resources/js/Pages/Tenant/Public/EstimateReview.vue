@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { useForm, Head } from '@inertiajs/vue3';
-import { VueSignaturePad } from 'vue-signature-pad';
 
 const props = defineProps({
     record:  { type: Object, required: true },
@@ -81,9 +80,6 @@ const tax        = computed(() => Number(props.record.tax) || 0);
 const grandTotal = computed(() => Number(props.record.total) || subtotal.value + tax.value);
 const taxRate    = computed(() => Number(props.record.tax_rate) || 0);
 
-const clearSignature = () => signaturePadRef.value?.clearSignature();
-const undoSignature  = () => signaturePadRef.value?.undoSignature();
-
 const submitApproval = () => {
     approvalError.value = '';
 
@@ -102,6 +98,11 @@ const submitDecline = () => {
 
 const handlePrint = () => window.print();
 
+/** Legacy estimates may still have a drawn or typed customer signature on file. */
+const hasLegacySignature = computed(
+    () => !!(props.record.signature_url || (props.record.signed_name && String(props.record.signed_name).trim())),
+);
+
 </script>
 
 <template>
@@ -112,7 +113,7 @@ const handlePrint = () => window.print();
         <!-- ======================== APPROVED STATE ======================== -->
         <div v-if="isApproved" class="min-h-screen flex flex-col">
             <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white py-10 px-4 text-center print:bg-emerald-600">
-                <div class="max-w-2xl mx-auto">
+                <div class="max-w-3xl mx-auto">
                     <div class="flex justify-center mb-4">
                         <span class="material-icons text-5xl">check_circle</span>
                     </div>
@@ -122,9 +123,139 @@ const handlePrint = () => window.print();
                 </div>
             </div>
 
-            <div class="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6">
-                <!-- Signature display -->
+            <div class="flex-1 max-w-3xl mx-auto w-full px-4 py-8 space-y-6">
+                <!-- Company header (read-only, matches review layout for print) -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-5 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="h-10 w-auto object-contain" />
+                            <div>
+                                <p class="text-white font-bold text-lg leading-tight">{{ account?.name ?? 'Company' }}</p>
+                                <p class="text-primary-200 text-sm">Approved estimate</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-primary-200 text-xs">Estimate #</p>
+                            <p class="text-white font-mono font-bold text-xl">{{ record.display_name }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer & Estimate Info -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Estimate Details</h3>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-500 text-xs">Customer</p>
+                            <p class="font-medium text-gray-900">{{ record.customer?.display_name ?? record.customer_name ?? '—' }}</p>
+                            <div v-if="record.customer_email || record.customer_phone" class="mt-1 text-xs text-gray-600 space-y-0.5">
+                                <div v-if="record.customer_email">{{ record.customer_email }}</div>
+                                <div v-if="record.customer_phone">{{ record.customer_phone }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-xs">Sales Contact</p>
+                            <p class="font-medium text-gray-900">{{ record.user?.display_name ?? record.user?.name ?? '—' }}</p>
+                        </div>
+                        <div v-if="record.issue_date">
+                            <p class="text-gray-500 text-xs">Issue Date</p>
+                            <p class="font-medium text-gray-900">{{ formatDate(record.issue_date) }}</p>
+                        </div>
+                        <div v-if="record.expiration_date">
+                            <p class="text-gray-500 text-xs">Valid Until</p>
+                            <p class="font-medium text-gray-900">{{ formatDate(record.expiration_date) }}</p>
+                        </div>
+                        <div v-if="record.billing_address_line1 || record.billing_city" class="col-span-2">
+                            <p class="text-gray-500 text-xs mb-1">Billing Address</p>
+                            <div class="font-medium text-gray-900 space-y-0.5">
+                                <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
+                                <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
+                                <div v-if="record.billing_city || record.billing_state || record.billing_postal">
+                                    {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                                </div>
+                                <div v-if="record.billing_country">{{ record.billing_country }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Line Items -->
+                <div v-if="record.line_items?.length" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line Items</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[6rem]">Variant</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <template v-for="item in record.line_items" :key="item.id">
+                                    <tr>
+                                        <td class="px-6 py-3">
+                                            <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
+                                        </td>
+                                        <td class="px-6 py-3 text-sm text-gray-700">
+                                            <span v-if="lineItemVariantLabel(item)" class="font-medium text-gray-900">
+                                                {{ lineItemVariantLabel(item) }}
+                                            </span>
+                                            <span v-else class="text-gray-400">—</span>
+                                        </td>
+                                        <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
+                                        <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
+                                        <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
+                                    </tr>
+                                    <tr
+                                        v-for="addon in (item.addons || [])"
+                                        :key="'addon-' + addon.id"
+                                        class="bg-gray-50"
+                                    >
+                                        <td class="pl-10 pr-6 py-2 text-sm text-gray-600" colspan="2">
+                                            <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
+                                        </td>
+                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
+                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
+                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addonTotal(addon)) }}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
+                        <div class="ml-auto max-w-xs space-y-1 text-sm">
+                            <div class="flex justify-between text-gray-600">
+                                <span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span>
+                            </div>
+                            <div v-if="taxRate > 0" class="flex justify-between text-gray-600">
+                                <span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span>
+                            </div>
+                            <div class="flex justify-between text-base font-bold text-gray-900 border-t border-gray-300 pt-2 mt-2">
+                                <span>Total</span><span>{{ formatCurrency(grandTotal) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes / Terms -->
+                <div v-if="record.notes || record.terms" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+                    <div v-if="record.notes">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h3>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.notes }}</p>
+                    </div>
+                    <div v-if="record.terms">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Terms &amp; Conditions</h3>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.terms }}</p>
+                    </div>
+                </div>
+
+                <!-- Legacy customer signature (drawn image or typed name), if present -->
+                <div v-if="hasLegacySignature" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Approval Signature</h3>
                     <div v-if="record.signature_url" class="border border-gray-200 rounded-lg p-2 bg-gray-50">
                         <img :src="record.signature_url" alt="Signature" class="max-h-24 mx-auto" />
@@ -133,19 +264,18 @@ const handlePrint = () => window.print();
                         {{ record.signed_name }}
                     </p>
                     <div class="mt-3 text-sm text-gray-500 grid grid-cols-2 gap-2">
-                        <div><span class="font-medium">Signed by:</span> {{ record.signed_name }}</div>
+                        <div><span class="font-medium">Signed by:</span> {{ record.signed_name || '—' }}</div>
                         <div><span class="font-medium">Date:</span> {{ formatDateTime(record.signed_at) }}</div>
+                    </div>
+                    <div v-if="record.approval_note" class="mt-4 pt-4 border-t border-gray-100">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Approval note</p>
+                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.approval_note }}</p>
                     </div>
                 </div>
 
-                <!-- Totals -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Summary</h3>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between text-gray-600"><span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span></div>
-                        <div v-if="taxRate > 0" class="flex justify-between text-gray-600"><span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span></div>
-                        <div class="flex justify-between font-bold text-gray-900 text-base border-t pt-2 mt-2"><span>Total</span><span>{{ formatCurrency(grandTotal) }}</span></div>
-                    </div>
+                <div v-else-if="record.approval_note" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Approval note</h3>
+                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.approval_note }}</p>
                 </div>
 
                 <div class="text-center print:hidden">
@@ -269,7 +399,7 @@ const handlePrint = () => window.print();
                                     <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
                                 </tr>
                                 <tr
-                                    v-for="addon in item.addons"
+                                    v-for="addon in (item.addons || [])"
                                     :key="'addon-' + addon.id"
                                     class="bg-gray-50"
                                 >
