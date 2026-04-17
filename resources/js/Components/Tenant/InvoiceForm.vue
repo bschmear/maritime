@@ -29,6 +29,15 @@ const emit = defineEmits(['saved', 'cancelled', 'cancel']);
 
 const isView = computed(() => props.mode === 'show');
 
+/**
+ * Invoice is being created from an existing Transaction — fields populated by
+ * BuildInvoicePrefillFromTransaction should be read-only so the user can't
+ * drift away from the deal they're invoicing.
+ */
+const fromTransaction = computed(() => props.mode === 'create' && !!props.transaction?.id);
+/** View mode OR a field that's mirrored from the source transaction. */
+const txLocked = computed(() => isView.value || fromTransaction.value);
+
 const STATUS_ENUM_KEY = 'App\\Enums\\Invoice\\Status';
 const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Terms';
 const CURRENCY_ENUM_KEY = 'App\\Enums\\Payments\\Currency';
@@ -50,16 +59,25 @@ const resolveEnumId = (enumKey, value) => {
     return value;
 };
 
-/** Merged into pseudoRecord so RecordSelect shows labels after JSON prefill (contact / transaction / contract). */
-const relationOverlay = ref({});
+/** Relation stubs merged onto `record` / `initialData` for RecordSelect labels (contact / transaction / contract). */
+function relationStubsFromPayload(d) {
+    if (!d || typeof d !== 'object') return {};
+    return {
+        ...(d.contact ? { contact: d.contact } : {}),
+        ...(d.transaction ? { transaction: d.transaction } : {}),
+        ...(d.contract ? { contract: d.contract } : {}),
+    };
+}
+
+const relationOverlay = ref(relationStubsFromPayload(props.initialData));
 
 const pseudoRecord = computed(() => {
     const base = props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null);
-    const overlay = relationOverlay.value;
-    if (base && Object.keys(overlay).length > 0) {
+    const overlay = relationOverlay.value || {};
+    if (base && Object.keys(base).length) {
         return { ...base, ...overlay };
     }
-    if (!base && Object.keys(overlay).length > 0) {
+    if (Object.keys(overlay).length > 0) {
         return { ...overlay };
     }
     return base;
@@ -191,11 +209,12 @@ const applyPrefillPayload = async (d) => {
     if (d == null || typeof d !== 'object') return;
     if (d.contact_id != null) form.contact_id = d.contact_id;
     if (d.transaction_id != null) form.transaction_id = d.transaction_id;
-    if (d.contract_id != null) form.contract_id = d.contract_id;
+    if ('contract_id' in d) {
+        form.contract_id = d.contract_id ?? null;
+    }
     if (d.currency != null) form.currency = resolveCurrencyValue(d.currency);
     if (d.tax_rate != null) form.tax_rate = Number(d.tax_rate);
     if (d.fees_total != null) form.fees_total = Number(d.fees_total);
-    if (d.notes !== undefined) form.notes = d.notes ?? '';
     if (d.customer_name !== undefined) form.customer_name = d.customer_name ?? '';
     if (d.customer_email !== undefined) form.customer_email = d.customer_email ?? '';
     if (d.customer_phone !== undefined) form.customer_phone = d.customer_phone ?? '';
@@ -209,11 +228,16 @@ const applyPrefillPayload = async (d) => {
         form.payment_term = resolveEnumId(PAYMENT_TERM_ENUM_KEY, d.payment_term);
     }
 
+    const stubs = relationStubsFromPayload(d);
     relationOverlay.value = {
-        ...(d.contact ? { contact: d.contact } : {}),
-        ...(d.transaction ? { transaction: d.transaction } : {}),
-        ...(d.contract ? { contract: d.contract } : {}),
+        ...relationOverlay.value,
+        ...stubs,
     };
+    // Full transaction prefill without a linked contract — drop stale contract stub / id.
+    if (d.transaction_id != null && Array.isArray(d.items) && !d.contract) {
+        const { contract: _omit, ...rest } = relationOverlay.value;
+        relationOverlay.value = rest;
+    }
 
     await nextTick();
     await nextTick();
@@ -446,6 +470,26 @@ const handleCancel = () => {
 
 <template>
     <div class="w-full flex flex-col space-y-6">
+        <!-- Banner: creating from transaction ─────────────────────────────── -->
+        <div
+            v-if="fromTransaction"
+            class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 px-4 py-3 flex items-start gap-3"
+        >
+            <span class="material-icons text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">receipt_long</span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                    Creating invoice from Transaction →
+                    <a
+                        :href="route('transactions.show', transaction.id)"
+                        class="underline decoration-dotted hover:text-blue-700 dark:hover:text-blue-100"
+                    >{{ transaction.display_name || `#${transaction.id}` }}</a>
+                </p>
+                <p class="text-xs text-blue-800/80 dark:text-blue-300/80 mt-0.5">
+                    Fields populated from the transaction are locked. To change them, update the transaction or start from a different one.
+                </p>
+            </div>
+        </div>
+
         <form @submit.prevent="submit">
             <div class="grid gap-6 lg:grid-cols-12">
 
@@ -493,7 +537,7 @@ const handleCancel = () => {
                                             v-model="form.contact_id"
                                             :record="pseudoRecord"
                                             field-key="contact_id"
-                                            :disabled="isView"
+                                            :disabled="txLocked"
                                             @record-selected="handleContactSelected"
                                         />
                                         <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
@@ -508,7 +552,7 @@ const handleCancel = () => {
                                             v-model="form.transaction_id"
                                             :record="pseudoRecord"
                                             field-key="transaction_id"
-                                            :disabled="isView"
+                                            :disabled="txLocked"
                                         />
                                         <p v-if="form.errors.transaction_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.transaction_id }}</p>
                                     </div>
@@ -522,7 +566,7 @@ const handleCancel = () => {
                                             v-model="form.contract_id"
                                             :record="pseudoRecord"
                                             field-key="contract_id"
-                                            :disabled="isView"
+                                            :disabled="txLocked"
                                         />
                                         <p v-if="form.errors.contract_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contract_id }}</p>
                                     </div>
@@ -566,8 +610,8 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Currency</label>
                                         <select
                                             v-model="form.currency"
-                                            :disabled="isView"
-                                            :class="[inputClass, isView ? disabledClass : '']"
+                                            :disabled="txLocked"
+                                            :class="[inputClass, txLocked ? disabledClass : '']"
                                         >
                                             <option v-for="opt in currencyOptions" :key="opt.value" :value="opt.value">
                                                 {{ opt.name }}

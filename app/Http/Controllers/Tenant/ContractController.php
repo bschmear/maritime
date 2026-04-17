@@ -109,7 +109,9 @@ class ContractController extends BaseController
                     try {
                         $records = $domainName === 'Customer'
                             ? Customer::queryOrderedByContactDisplayName()->get()
-                            : $modelClass::select('id', 'display_name')->get();
+                            : ($domainName === 'Contract'
+                                ? $modelClass::query()->select(['id', 'sequence'])->orderBy('sequence')->get()
+                                : $modelClass::select('id', 'display_name')->get());
                         $enumOptions[$fieldKey] = $records->map(fn ($r) => [
                             'id' => $r->id,
                             'name' => $r->display_name,

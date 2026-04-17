@@ -210,7 +210,7 @@ const closePreview = () => { showPreview.value = false; };
                             {{ contractLabel }}
                         </h2>
                         <span
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                             :class="[statusInfo.bgClass, statusTextClass]"
                         >
                             {{ statusInfo.name }}
@@ -218,34 +218,34 @@ const closePreview = () => { showPreview.value = false; };
                     </div>
                     <div class="flex items-center gap-2">
                         <Link :href="route('contracts.index')">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                                <span class="material-icons text-base">arrow_back</span>
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                                <span class="material-icons text-lg">arrow_back</span>
                                 Back
                             </button>
                         </Link>
                         <Link v-if="!isSigned" :href="route('contracts.edit', record.id)">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                                <span class="material-icons text-base">edit</span>
+                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-md font-medium text-white hover:bg-blue-700">
+                                <span class="material-icons text-lg">edit</span>
                                 Edit
                             </button>
                         </Link>
                         <button v-if="!isSigned" type="button"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-md font-medium text-white hover:bg-purple-700"
                             @click="openPreview">
-                            <span class="material-icons text-base">visibility</span>
+                            <span class="material-icons text-lg">visibility</span>
                             Preview
                         </button>
                         <button
                             v-if="!isSigned && record.status !== 'cancelled' && record.status !== 'expired'"
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-md font-medium text-white hover:bg-green-700"
                             @click="sendToCustomer"
                         >
-                            <span class="material-icons text-base">send</span>
+                            <span class="material-icons text-lg">send</span>
                             Send to Customer
                         </button>
-                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" @click="deleteContract">
-                            <span class="material-icons text-base">delete</span>
+                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-md font-medium text-white hover:bg-red-700" @click="deleteContract">
+                            <span class="material-icons text-lg">delete</span>
                             Delete
                         </button>
                     </div>
@@ -268,17 +268,17 @@ const closePreview = () => { showPreview.value = false; };
                                 <div class="flex items-center gap-3 mb-1">
                                     <h1 class="text-2xl font-bold text-white">CONTRACT</h1>
                                     <span
-                                        class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                        class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                                         :class="[statusInfo.bgClass, statusTextClass]"
                                     >
                                         {{ statusInfo.name }}
                                     </span>
                                 </div>
-                                <p class="text-blue-100 text-sm">Contract details &amp; terms</p>
+                                <p class="text-blue-100 text-md">Contract details &amp; terms</p>
                             </div>
                             <div class="text-right">
-                                <div class="text-blue-200 text-xs font-medium">Reference</div>
-                                <div class="text-white text-lg font-mono">{{ contractLabel }}</div>
+                                <div class="text-blue-200 text-sm font-medium">Reference</div>
+                                <div class="text-white text-xl font-mono">{{ contractLabel }}</div>
                             </div>
                         </div>
                     </div>
@@ -289,9 +289,9 @@ const closePreview = () => { showPreview.value = false; };
                         <div v-if="isSigned" class="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
                             <span class="material-icons text-green-600 dark:text-green-400">verified</span>
                             <div>
-                                <p class="text-sm font-semibold text-green-800 dark:text-green-200">Contract Signed</p>
-                                <p v-if="record.signed_at" class="text-sm text-green-600 dark:text-green-400">{{ formatDateTime(record.signed_at) }}</p>
-                                <p v-if="record.signed_name" class="text-sm text-green-600 dark:text-green-400">by {{ record.signed_name }}</p>
+                                <p class="text-md font-semibold text-green-800 dark:text-green-200">Contract Signed</p>
+                                <p v-if="record.signed_at" class="text-md text-green-600 dark:text-green-400">{{ formatDateTime(record.signed_at) }}</p>
+                                <p v-if="record.signed_name" class="text-md text-green-600 dark:text-green-400">by {{ record.signed_name }}</p>
                             </div>
                         </div>
 
@@ -299,33 +299,33 @@ const closePreview = () => { showPreview.value = false; };
                         <div v-else-if="isSent" class="flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3">
                             <span class="material-icons text-blue-600 dark:text-blue-400">send</span>
                             <div>
-                                <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Awaiting Signature</p>
-                                <p class="text-sm text-blue-600 dark:text-blue-400">This contract has been sent and is pending customer signature.</p>
+                                <p class="text-md font-semibold text-blue-800 dark:text-blue-200">Awaiting Signature</p>
+                                <p class="text-md text-blue-600 dark:text-blue-400">This contract has been sent and is pending customer signature.</p>
                             </div>
                         </div>
 
                         <!-- Customer & Relations -->
                         <div class="border-gray-200 dark:border-gray-700 pt-2">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Customer &amp; Relations
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</p>
-                                    <Link v-if="record.customer_id" :href="route('customers.show', record.customer_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</p>
+                                    <Link v-if="record.customer_id" :href="route('customers.show', record.customer_id)" class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline">
                                         {{ record.customer?.display_name || '—' }}
                                     </Link>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">—</p>
+                                    <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                 </div>
                                 <div v-if="record.transaction_id">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Transaction</p>
-                                    <Link :href="route('transactions.show', record.transaction_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Transaction</p>
+                                    <Link :href="route('transactions.show', record.transaction_id)" class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline">
                                         {{ record.transaction?.display_name || `#${record.transaction_id}` }}
                                     </Link>
                                 </div>
                                 <div v-if="record.estimate_id">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Originating Estimate</p>
-                                    <Link :href="route('estimates.show', record.estimate_id)" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Originating Estimate</p>
+                                    <Link :href="route('estimates.show', record.estimate_id)" class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline">
                                         {{ record.estimate?.display_name || `#${record.estimate_id}` }}
                                     </Link>
                                 </div>
@@ -334,68 +334,68 @@ const closePreview = () => { showPreview.value = false; };
 
                         <!-- Contract Details -->
                         <div class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Contract Details
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Amount</p>
-                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ formatCurrency(record.total_amount) }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Total Amount</p>
+                                    <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatCurrency(record.total_amount) }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Currency</p>
-                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Currency</p>
+                                    <p class="text-md text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Status</p>
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold" :class="[paymentInfo.bgClass, paymentTextClass]">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Status</p>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold" :class="[paymentInfo.bgClass, paymentTextClass]">
                                         {{ paymentInfo.name }}
                                     </span>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Required</p>
-                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.signature_required ? 'Yes' : 'No' }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Required</p>
+                                    <p class="text-md text-gray-900 dark:text-white">{{ record.signature_required ? 'Yes' : 'No' }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Terms -->
                         <div v-if="record.contract_terms || record.payment_terms || record.delivery_terms || record.payment_term" class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Terms
                             </h3>
                             <div v-if="record.payment_term != null && record.payment_term !== ''" class="mb-6">
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment term</p>
-                                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ paymentTermInfo.name }}</p>
-                                <p v-if="paymentTermInfo.description" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment term</p>
+                                <p class="text-md font-semibold text-gray-900 dark:text-white">{{ paymentTermInfo.name }}</p>
+                                <p v-if="paymentTermInfo.description" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                     {{ paymentTermInfo.description }}
                                 </p>
                             </div>
                             <div v-if="record.contract_terms" class="mb-6">
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contract terms</p>
-                                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.contract_terms }}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contract terms</p>
+                                <p class="text-md text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.contract_terms }}</p>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div v-if="record.payment_terms">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Terms</p>
-                                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.payment_terms }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Terms</p>
+                                    <p class="text-md text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.payment_terms }}</p>
                                 </div>
                                 <div v-if="record.delivery_terms">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Delivery Terms</p>
-                                    <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.delivery_terms }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Delivery Terms</p>
+                                    <p class="text-md text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.delivery_terms }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Billing Address (from linked deal when available) -->
                         <div v-if="hasAddress" class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Billing Address
                             </h3>
-                            <p v-if="billingFromTransaction" class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            <p v-if="billingFromTransaction" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
                                 Sourced from linked deal
                             </p>
-                            <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
+                            <div class="text-md text-gray-900 dark:text-gray-100 space-y-0.5">
                                 <div v-if="billingAddressSource.billing_address_line1">{{ billingAddressSource.billing_address_line1 }}</div>
                                 <div v-if="billingAddressSource.billing_address_line2">{{ billingAddressSource.billing_address_line2 }}</div>
                                 <div v-if="billingAddressSource.billing_city || billingAddressSource.billing_state || billingAddressSource.billing_postal">
@@ -407,25 +407,25 @@ const closePreview = () => { showPreview.value = false; };
 
                         <!-- Notes -->
                         <div v-if="record.notes" class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Notes
                             </h3>
-                            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.notes }}</p>
+                            <p class="text-md text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{{ record.notes }}</p>
                         </div>
 
                         <!-- Line Items (estimate when linked, else deal) -->
                         <div class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Line Items
                                 <span
                                     v-if="lineItemsFromEstimate"
-                                    class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
+                                    class="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
                                 >
                                     from linked estimate
                                 </span>
                                 <span
                                     v-else-if="record.transaction_id"
-                                    class="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
+                                    class="ml-2 text-sm font-normal text-gray-400 dark:text-gray-500 normal-case tracking-normal"
                                 >
                                     from linked deal
                                 </span>
@@ -433,17 +433,17 @@ const closePreview = () => { showPreview.value = false; };
 
                             <div v-if="transactionItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
                                 <div class="inline-block min-w-full align-middle">
-                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-md">
                                         <thead class="bg-gray-50 dark:bg-gray-900/50">
                                             <tr>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs">Item</th>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs min-w-[7rem]">Variant</th>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs min-w-[7rem]">Unit</th>
-                                                <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-20">Taxable</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-16">Qty</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-28">Unit Price</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-24">Tax</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-xs w-28">Total</th>
+                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm">Item</th>
+                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm min-w-[7rem]">Variant</th>
+                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm min-w-[7rem]">Unit</th>
+                                                <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-20">Taxable</th>
+                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-16">Qty</th>
+                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-28">Unit Price</th>
+                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-24">Tax</th>
+                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-28">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -452,9 +452,9 @@ const closePreview = () => { showPreview.value = false; };
                                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                                     <td class="px-4 py-3">
                                                         <div class="font-medium text-gray-900 dark:text-white">{{ row.name }}</div>
-                                                        <div v-if="row.description" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div>
+                                                        <!-- <div v-if="row.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div> -->
                                                     </td>
-                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
                                                         <span
                                                             v-if="lineVariantId(row)"
                                                             class="font-medium text-gray-800 dark:text-gray-200"
@@ -463,7 +463,7 @@ const closePreview = () => { showPreview.value = false; };
                                                         </span>
                                                         <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
-                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
                                                         <span
                                                             v-if="lineUnitId(row)"
                                                             class="font-medium text-gray-800 dark:text-gray-200"
@@ -472,7 +472,7 @@ const closePreview = () => { showPreview.value = false; };
                                                         </span>
                                                         <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                                     </td>
-                                                    <td class="px-4 py-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                                                    <td class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
                                                         {{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}
                                                     </td>
                                                     <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
@@ -483,35 +483,35 @@ const closePreview = () => { showPreview.value = false; };
                                                 <!-- Add-on rows -->
                                                 <tr v-for="addon in (row.addons ?? [])" :key="'addon-' + addon.id"
                                                     class="bg-blue-50/30 dark:bg-blue-900/10">
-                                                    <td class="px-4 py-2 pl-10 text-xs text-gray-600 dark:text-gray-400 italic">
+                                                    <td class="px-4 py-2 pl-10 text-sm text-gray-600 dark:text-gray-400 italic">
                                                         ↳ {{ addon.name || 'Add-on' }}
                                                         <span v-if="addon.notes" class="block text-gray-400 not-italic">{{ addon.notes }}</span>
                                                     </td>
-                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-sm text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
+                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
+                                                    <td class="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
                                                         {{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}
                                                     </td>
-                                                    <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                                    <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                                    <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(taxOnAddon(addon)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(taxOnAddon(addon)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
                                                 </tr>
                                             </template>
                                         </tbody>
                                         <!-- Totals footer -->
                                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-300 dark:border-gray-600">
                                             <tr v-if="taxRate > 0">
-                                                <td colspan="7" class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                                                <td colspan="7" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">
                                                     Tax rate: {{ taxRate }}%
                                                 </td>
                                                 <td></td>
                                             </tr>
                                             <tr>
-                                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">
+                                                <td colspan="7" class="px-4 py-3 text-right text-md font-semibold text-gray-900 dark:text-white">
                                                     Total
                                                 </td>
-                                                <td class="px-4 py-3 text-right text-sm font-bold text-blue-600 dark:text-blue-400">
+                                                <td class="px-4 py-3 text-right text-md font-bold text-blue-600 dark:text-blue-400">
                                                     {{ formatCurrency(lineItemsSubtotal) }}
                                                 </td>
                                             </tr>
@@ -522,7 +522,7 @@ const closePreview = () => { showPreview.value = false; };
 
                             <div v-else class="text-center py-10 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
                                 <span class="material-icons text-4xl text-gray-400 dark:text-gray-600 mb-2 block">receipt_long</span>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                <p class="text-md text-gray-500 dark:text-gray-400">
                                     <template v-if="record.estimate_id && !lineItemsFromEstimate">No line items on the linked estimate</template>
                                     <template v-else-if="record.transaction_id">No line items on the linked deal</template>
                                     <template v-else>No estimate or deal linked for line items</template>
@@ -532,33 +532,33 @@ const closePreview = () => { showPreview.value = false; };
 
                         <!-- Signature Details -->
                         <div v-if="isSigned" class="border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                 Signature Details
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 <div v-if="record.signed_name">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</p>
-                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.signed_name }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</p>
+                                    <p class="text-md text-gray-900 dark:text-white">{{ record.signed_name }}</p>
                                 </div>
                                 <div v-if="record.signed_email">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</p>
-                                    <p class="text-sm text-gray-900 dark:text-white">{{ record.signed_email }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</p>
+                                    <p class="text-md text-gray-900 dark:text-white">{{ record.signed_email }}</p>
                                 </div>
                                 <div v-if="record.signed_at">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</p>
-                                    <p class="text-sm text-gray-900 dark:text-white">{{ formatDateTime(record.signed_at) }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</p>
+                                    <p class="text-md text-gray-900 dark:text-white">{{ formatDateTime(record.signed_at) }}</p>
                                 </div>
                                 <div v-if="record.signed_ip">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</p>
-                                    <p class="text-sm font-mono text-gray-900 dark:text-white">{{ record.signed_ip }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</p>
+                                    <p class="text-md font-mono text-gray-900 dark:text-white">{{ record.signed_ip }}</p>
                                 </div>
                                 <div v-if="record.signature_hash">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Hash</p>
-                                    <p class="text-xs font-mono text-gray-500 dark:text-gray-400 break-all">{{ record.signature_hash }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Hash</p>
+                                    <p class="text-sm font-mono text-gray-500 dark:text-gray-400 break-all">{{ record.signature_hash }}</p>
                                 </div>
                                 <div v-if="record.docusign_envelope_id">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">DocuSign Envelope</p>
-                                    <p class="text-xs font-mono text-gray-500 dark:text-gray-400">{{ record.docusign_envelope_id }}</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">DocuSign Envelope</p>
+                                    <p class="text-sm font-mono text-gray-500 dark:text-gray-400">{{ record.docusign_envelope_id }}</p>
                                 </div>
                             </div>
                         </div>
@@ -573,12 +573,12 @@ const closePreview = () => { showPreview.value = false; };
                 <!-- Status & Dates -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
                     <div class="flex items-center justify-between px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Status</span>
-                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="[statusInfo.bgClass, statusTextClass]">
+                        <span class="text-md font-semibold text-gray-900 dark:text-white">Status</span>
+                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-sm font-semibold" :class="[statusInfo.bgClass, statusTextClass]">
                             {{ statusInfo.name }}
                         </span>
                     </div>
-                    <div class="p-5 space-y-3 text-sm">
+                    <div class="p-5 space-y-3 text-md">
                         <div class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Created</span>
                             <span class="text-gray-900 dark:text-white text-right">{{ formatDateTime(record.created_at) }}</span>
@@ -597,12 +597,12 @@ const closePreview = () => { showPreview.value = false; };
                 <!-- Contract Summary -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
                     <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Contract Summary</span>
+                        <span class="text-md font-semibold text-gray-900 dark:text-white">Contract Summary</span>
                     </div>
-                    <div class="p-5 space-y-3 text-sm">
+                    <div class="p-5 space-y-3 text-md">
                         <div class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Payment Status</span>
-                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" :class="[paymentInfo.bgClass, paymentTextClass]">
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-sm font-semibold" :class="[paymentInfo.bgClass, paymentTextClass]">
                                 {{ paymentInfo.name }}
                             </span>
                         </div>
@@ -610,11 +610,11 @@ const closePreview = () => { showPreview.value = false; };
                             <span class="text-gray-500 dark:text-gray-400">Signature Required</span>
                             <span class="text-gray-900 dark:text-white">{{ record.signature_required ? 'Yes' : 'No' }}</span>
                         </div>
-                        <div class="flex justify-between text-base font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
+                        <div class="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
                             <span class="text-gray-900 dark:text-white">Total</span>
                             <span class="text-blue-600 dark:text-blue-400">{{ formatCurrency(record.total_amount) }}</span>
                         </div>
-                        <div class="pt-1 text-sm text-gray-400 dark:text-gray-500 text-right">
+                        <div class="pt-1 text-md text-gray-400 dark:text-gray-500 text-right">
                             {{ record.currency || 'USD' }}
                         </div>
                     </div>
@@ -623,53 +623,53 @@ const closePreview = () => { showPreview.value = false; };
                 <!-- Related Records -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
                     <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">Related Records</span>
+                        <span class="text-md font-semibold text-gray-900 dark:text-white">Related Records</span>
                     </div>
                     <div class="p-4 space-y-2">
                         <Link v-if="record.transaction_id" :href="route('transactions.show', record.transaction_id)"
                             class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">
                             <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">handshake</span>
+                                <span class="material-icons text-blue-600 dark:text-blue-400 text-xl">handshake</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Transaction</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ record.transaction?.display_name || `#${record.transaction_id}` }}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Transaction</p>
+                                <p class="text-md font-medium text-gray-900 dark:text-white truncate">{{ record.transaction?.display_name || `#${record.transaction_id}` }}</p>
                             </div>
-                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-base transition-colors">chevron_right</span>
+                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
                         </Link>
                         <Link v-if="record.estimate_id" :href="route('estimates.show', record.estimate_id)"
                             class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">
                             <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">description</span>
+                                <span class="material-icons text-blue-600 dark:text-blue-400 text-xl">description</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estimate</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ record.estimate?.display_name || `#${record.estimate_id}` }}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estimate</p>
+                                <p class="text-md font-medium text-gray-900 dark:text-white truncate">{{ record.estimate?.display_name || `#${record.estimate_id}` }}</p>
                             </div>
-                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-base transition-colors">chevron_right</span>
+                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
                         </Link>
                         <Link v-if="record.customer_id" :href="route('customers.show', record.customer_id)"
                             class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">
                             <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">person</span>
+                                <span class="material-icons text-blue-600 dark:text-blue-400 text-xl">person</span>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ record.customer?.display_name || `#${record.customer_id}` }}</p>
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Customer</p>
+                                <p class="text-md font-medium text-gray-900 dark:text-white truncate">{{ record.customer?.display_name || `#${record.customer_id}` }}</p>
                             </div>
-                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-base transition-colors">chevron_right</span>
+                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
                         </Link>
                         <div v-if="record.document_url">
                             <a :href="record.document_url" target="_blank"
                                 class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">
                                 <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
-                                    <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">picture_as_pdf</span>
+                                    <span class="material-icons text-blue-600 dark:text-blue-400 text-xl">picture_as_pdf</span>
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Document</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">View PDF</p>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Document</p>
+                                    <p class="text-md font-medium text-gray-900 dark:text-white">View PDF</p>
                                 </div>
-                                <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-base transition-colors">open_in_new</span>
+                                <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">open_in_new</span>
                             </a>
                         </div>
                     </div>

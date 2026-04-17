@@ -42,7 +42,7 @@ class GeneralController extends BaseController
         // Models whose display_name is a virtual accessor (not a real DB column).
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification'];
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -65,8 +65,8 @@ class GeneralController extends BaseController
                 $columns[] = 'serial_number';
                 $columns[] = 'hin';
                 $columns[] = 'sku';
-            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
-                // display_name is computed from `sequence` (e.g. "DL-1001")
+            } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
+                // display_name is computed from `sequence` (e.g. "DL-1001", "CTR-10003")
                 $columns[] = 'sequence';
             }
         }
@@ -183,13 +183,17 @@ class GeneralController extends BaseController
                         $q->orWhere($contactTable.'.id', '=', (int) $trim);
                     }
                 });
-            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
-                // display_name is virtual ("DL-1001"); search by sequence number
+            } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
+                // display_name is virtual ("DL-…", "CTR-…"); search by sequence (and contract_number for contracts)
                 $searchTerm = trim($searchQuery);
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->whereRaw('CAST(sequence AS TEXT) LIKE ?', ['%'.$searchTerm.'%']);
+                $like = '%'.$searchTerm.'%';
+                $query->where(function ($q) use ($searchTerm, $like, $typeKey) {
+                    $q->whereRaw('CAST(sequence AS TEXT) LIKE ?', [$like]);
                     if (ctype_digit($searchTerm)) {
                         $q->orWhere('sequence', '=', (int) $searchTerm);
+                    }
+                    if ($typeKey === 'contract' && $searchTerm !== '') {
+                        $q->orWhereRaw('LOWER(COALESCE(contract_number, \'\')) LIKE ?', ['%'.strtolower($searchTerm).'%']);
                     }
                 });
             } elseif ($hasDisplayNameColumn) {
@@ -260,7 +264,7 @@ class GeneralController extends BaseController
             } elseif ($typeKey === 'addon') {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
-            } elseif (in_array($typeKey, ['transaction', 'estimate'], true)) {
+            } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('sequence', $dir);
             } else {

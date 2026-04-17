@@ -17,7 +17,9 @@ class BuildInvoicePrefillFromTransaction
     public function __invoke(Transaction $transaction): array
     {
         $transaction->load([
-            'contract' => fn ($q) => $q->select(['id', 'sequence']),
+            // transaction_id is the hasOne foreign key — omitting it causes Laravel to silently
+            // drop the relation, so the invoice create page wouldn't see the linked contract.
+            'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'sequence']),
             'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
             'items' => fn ($q) => $q
                 ->with([
@@ -46,6 +48,8 @@ class BuildInvoicePrefillFromTransaction
         $customer = $transaction->customer;
         $contact = $customer?->contact;
 
+        // Notes intentionally omitted — invoice notes are customer-facing and
+        // authored on the invoice itself, not carried over from the deal.
         $initialData = [
             'transaction_id' => $transaction->id,
             'contact_id' => $customer?->contact_id,
@@ -53,7 +57,6 @@ class BuildInvoicePrefillFromTransaction
             'tax_rate' => (float) ($transaction->tax_rate ?? 0),
             'discount_total' => (float) ($transaction->discount_total ?? 0),
             'fees_total' => (float) ($transaction->fees_total ?? 0),
-            'notes' => $transaction->notes,
         ];
 
         if ($contact) {
@@ -73,8 +76,8 @@ class BuildInvoicePrefillFromTransaction
             'display_name' => $transaction->display_name,
         ];
 
+        $initialData['contract_id'] = $transaction->contract?->id;
         if ($transaction->contract) {
-            $initialData['contract_id'] = $transaction->contract->id;
             $initialData['contract'] = [
                 'id' => $transaction->contract->id,
                 'display_name' => $transaction->contract->display_name,

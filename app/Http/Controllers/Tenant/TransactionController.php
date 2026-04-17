@@ -356,7 +356,8 @@ class TransactionController extends BaseController
                             ]),
                     ]),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
-                'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'contract_number', 'status']),
+                // Full row so Contract::$appends display_name (getDisplayNameAttribute) serializes correctly.
+                'contract',
                 'serviceTickets' => fn ($q) => $q->select(['id', 'transaction_id', 'service_ticket_number', 'status'])->orderByDesc('id')->limit(20),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),

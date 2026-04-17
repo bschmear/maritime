@@ -116,7 +116,7 @@ class CreateContract
 
             if (empty($record->contract_number)) {
                 $record->update([
-                    'contract_number' => 'CT-'.str_pad((string) $record->id, 5, '0', STR_PAD_LEFT),
+                    'contract_number' => 'CT-'.str_pad((string) $record->id, 4, '0', STR_PAD_LEFT),
                 ]);
                 $record->refresh();
             }
