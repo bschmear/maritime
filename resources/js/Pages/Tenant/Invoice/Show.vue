@@ -231,33 +231,33 @@ const submitManualPayment = () => {
                         <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                             {{ invoiceLabel }}
                         </h2>
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                               :class="[statusInfo.bgClass, statusTextClass]">
                             {{ statusInfo.name }}
                         </span>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                                 @click="previewOpen = true">
                             <span class="material-icons text-[16px]">visibility</span>
                             Customer preview
                         </button>
                         <button type="button"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2  text-sm font-medium text-white bg-secondary-600 hover:bg-secondary-700 rounded-lg transition-colors"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2  text-md font-medium text-white bg-secondary-600 hover:bg-secondary-700 rounded-lg transition-colors"
                                 @click="sendToCustomer">
                             <span class="material-icons text-[16px]">send</span>
                             Send to customer
                         </button>
                         <button v-if="canRecordManualPayment"
                                 type="button"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-800 dark:text-gray-100 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded-lg transition-colors"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-gray-800 dark:text-gray-100 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded-lg transition-colors"
                                 @click="openRecordPaymentModal">
                             <span class="material-icons text-[16px]">payments</span>
                             Record payment
                         </button>
                         <a :href="route('invoices.edit', record.id)"
-                           class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                           class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                             <span class="material-icons text-[16px]">edit</span>
                             Edit
                         </a>
@@ -281,14 +281,14 @@ const submitManualPayment = () => {
             <div v-if="isPaid"
                  class="flex items-center gap-3 px-5 py-3.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
                 <span class="material-icons text-green-500 dark:text-green-400">check_circle</span>
-                <p class="text-sm font-medium text-green-800 dark:text-green-200">
+                <p class="text-md font-medium text-green-800 dark:text-green-200">
                     Invoice paid on <span class="font-semibold">{{ formatDate(record.paid_at) }}</span>.
                 </p>
             </div>
             <div v-else-if="isOverdue"
                  class="flex items-center gap-3 px-5 py-3.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
                 <span class="material-icons text-red-500 dark:text-red-400">warning</span>
-                <p class="text-sm font-medium text-red-800 dark:text-red-200">
+                <p class="text-md font-medium text-red-800 dark:text-red-200">
                     This invoice is <span class="font-semibold">overdue</span>. Due date was <span class="font-semibold">{{ formatDate(record.due_at) }}</span>.
                 </p>
             </div>
@@ -305,16 +305,16 @@ const submitManualPayment = () => {
                                 <div>
                                     <div class="flex items-center gap-3 mb-1">
                                         <h1 class="text-2xl font-bold text-white">INVOICE</h1>
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                                               :class="[statusInfo.bgClass, statusTextClass]">
                                             {{ statusInfo.name }}
                                         </span>
                                     </div>
-                                    <p class="text-primary-100 text-sm">Customer invoice details</p>
+                                    <p class="text-primary-100 text-md">Customer invoice details</p>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-primary-200 text-xs font-medium">Reference</div>
-                                    <div class="text-white text-lg font-mono">{{ invoiceLabel }}</div>
+                                    <div class="text-primary-200 text-sm font-medium">Reference</div>
+                                    <div class="text-white text-xl font-mono">{{ invoiceLabel }}</div>
                                 </div>
                             </div>
                         </div>
@@ -324,35 +324,35 @@ const submitManualPayment = () => {
 
                                 <!-- Left: Customer & Billing -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Customer &amp; Billing
                                     </h3>
 
                                     <div v-if="record.customer_name">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</div>
                                         <Link v-if="contactShowHref" :href="contactShowHref"
-                                              class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                                              class="text-md font-medium text-primary-600 dark:text-primary-400 hover:underline">
                                             {{ record.customer_name }}
                                         </Link>
-                                        <div v-else class="text-sm font-medium text-gray-900 dark:text-white">{{ record.customer_name }}</div>
+                                        <div v-else class="text-md font-medium text-gray-900 dark:text-white">{{ record.customer_name }}</div>
                                     </div>
 
                                     <div v-if="record.customer_email">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</div>
                                         <a :href="`mailto:${record.customer_email}`"
-                                           class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                                           class="text-md text-primary-600 dark:text-primary-400 hover:underline">
                                             {{ record.customer_email }}
                                         </a>
                                     </div>
 
                                     <div v-if="record.customer_phone">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Phone</div>
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ record.customer_phone }}</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Phone</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ record.customer_phone }}</div>
                                     </div>
 
                                     <div v-if="record.billing_address_line1 || record.billing_city">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</div>
-                                        <div class="text-sm text-gray-900 dark:text-white space-y-0.5">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</div>
+                                        <div class="text-md text-gray-900 dark:text-white space-y-0.5">
                                             <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
                                             <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
                                             <div v-if="record.billing_city || record.billing_state || record.billing_postal">
@@ -365,34 +365,34 @@ const submitManualPayment = () => {
 
                                 <!-- Right: Invoice details -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Invoice Details
                                     </h3>
 
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice Date</div>
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.created_at) }}</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice Date</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ formatDate(record.created_at) }}</div>
                                     </div>
 
                                     <div v-if="record.due_at">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Due Date</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Due Date</div>
                                         <div class="flex items-center gap-2">
-                                            <div class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.due_at) }}</div>
+                                            <div class="text-md text-gray-900 dark:text-white">{{ formatDate(record.due_at) }}</div>
                                             <span v-if="isOverdue"
-                                                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                                                  class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
                                                 Overdue
                                             </span>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Terms</div>
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ paymentTermLabel }}</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Payment Terms</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ paymentTermLabel }}</div>
                                     </div>
 
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Currency</div>
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Currency</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -400,8 +400,8 @@ const submitManualPayment = () => {
                             <!-- Notes + Terms -->
                             <div v-if="record.notes"
                                  class="border-t border-gray-200 dark:border-gray-700 pt-5">
-                                <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notes</div>
-                                <div class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.notes }}</div>
+                                <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notes</div>
+                                <div class="text-md text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.notes }}</div>
                             </div>
                         </div>
                     </div>
@@ -409,11 +409,11 @@ const submitManualPayment = () => {
                     <!-- Line items -->
                     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Line Items</h2>
+                            <h2 class="text-md font-semibold text-gray-900 dark:text-white">Line Items</h2>
                         </div>
 
                         <div v-if="lineItems.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-sm">
+                            <table class="w-full text-md">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-5 py-3 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
@@ -430,14 +430,14 @@ const submitManualPayment = () => {
                                             <div class="flex flex-wrap items-center gap-2 mb-0.5">
                                                 <span class="font-medium text-gray-900 dark:text-white">{{ item.name ?? '—' }}</span>
                                                 <span v-if="itemableBadge(item)"
-                                                      class="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                      class="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-sm font-medium text-gray-600 dark:text-gray-300">
                                                     {{ itemableBadge(item) }}
                                                 </span>
                                             </div>
-                                            <div v-if="variantLabel(item)" class="text-xs text-gray-500 dark:text-gray-400">
+                                            <div v-if="variantLabel(item)" class="text-sm text-gray-500 dark:text-gray-400">
                                                 Variant: {{ variantLabel(item) }}
                                             </div>
-                                            <div v-if="unitLabel(item)" class="text-xs text-gray-500 dark:text-gray-400">
+                                            <div v-if="unitLabel(item)" class="text-sm text-gray-500 dark:text-gray-400">
                                                 Unit: {{ unitLabel(item) }}
                                             </div>
                                         </td>
@@ -449,28 +449,28 @@ const submitManualPayment = () => {
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr v-if="record.discount_total && parseFloat(record.discount_total) !== 0">
-                                        <td colspan="4" class="px-5 py-2 text-right text-xs text-gray-500 dark:text-gray-400">Discount</td>
-                                        <td class="px-5 py-2 text-right text-xs font-medium text-green-600 dark:text-green-400">-{{ formatCurrency(record.discount_total) }}</td>
+                                        <td colspan="4" class="px-5 py-2 text-right text-sm text-gray-500 dark:text-gray-400">Discount</td>
+                                        <td class="px-5 py-2 text-right text-sm font-medium text-green-600 dark:text-green-400">-{{ formatCurrency(record.discount_total) }}</td>
                                     </tr>
                                     <tr v-if="record.tax_total">
-                                        <td colspan="4" class="px-5 py-2 text-right text-xs text-gray-500 dark:text-gray-400">Tax</td>
-                                        <td class="px-5 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(record.tax_total) }}</td>
+                                        <td colspan="4" class="px-5 py-2 text-right text-sm text-gray-500 dark:text-gray-400">Tax</td>
+                                        <td class="px-5 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(record.tax_total) }}</td>
                                     </tr>
                                     <tr v-if="record.fees_total && parseFloat(record.fees_total) !== 0">
-                                        <td colspan="4" class="px-5 py-2 text-right text-xs text-gray-500 dark:text-gray-400">Fees</td>
-                                        <td class="px-5 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(record.fees_total) }}</td>
+                                        <td colspan="4" class="px-5 py-2 text-right text-sm text-gray-500 dark:text-gray-400">Fees</td>
+                                        <td class="px-5 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(record.fees_total) }}</td>
                                     </tr>
                                     <tr>
-                                        <td colspan="4" class="px-5 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Total</td>
-                                        <td class="px-5 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(record.total) }}</td>
+                                        <td colspan="4" class="px-5 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Total</td>
+                                        <td class="px-5 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(record.total) }}</td>
                                     </tr>
                                     <tr v-if="record.amount_paid && parseFloat(record.amount_paid) !== 0">
-                                        <td colspan="4" class="px-5 py-2 text-right text-xs text-gray-500 dark:text-gray-400">Amount paid</td>
-                                        <td class="px-5 py-2 text-right text-xs font-medium text-green-600 dark:text-green-400">-{{ formatCurrency(record.amount_paid) }}</td>
+                                        <td colspan="4" class="px-5 py-2 text-right text-sm text-gray-500 dark:text-gray-400">Amount paid</td>
+                                        <td class="px-5 py-2 text-right text-sm font-medium text-green-600 dark:text-green-400">-{{ formatCurrency(record.amount_paid) }}</td>
                                     </tr>
                                     <tr v-if="record.amount_due != null">
-                                        <td colspan="4" class="px-5 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">Amount Due</td>
-                                        <td class="px-5 py-3 text-right text-base font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(record.amount_due) }}</td>
+                                        <td colspan="4" class="px-5 py-3 text-right text-md font-bold text-gray-900 dark:text-white">Amount Due</td>
+                                        <td class="px-5 py-3 text-right text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(record.amount_due) }}</td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -478,7 +478,7 @@ const submitManualPayment = () => {
 
                         <div v-else class="flex flex-col items-center justify-center py-12 text-center px-6">
                             <span class="material-icons text-[40px] text-gray-300 dark:text-gray-600 mb-3">receipt_long</span>
-                            <p class="text-sm text-gray-400 dark:text-gray-500">No line items on this invoice</p>
+                            <p class="text-md text-gray-400 dark:text-gray-500">No line items on this invoice</p>
                         </div>
                     </div>
 
@@ -490,23 +490,23 @@ const submitManualPayment = () => {
                     <!-- Actions -->
                     <!-- <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</span>
                         </div>
                         <div class="p-4 space-y-2">
                             <button type="button"
-                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                                     @click="previewOpen = true">
                                 <span class="material-icons text-[16px]">visibility</span>
                                 Customer preview
                             </button>
                             <button type="button"
-                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
                                     @click="sendToCustomer">
                                 <span class="material-icons text-[16px]">send</span>
                                 Send to customer
                             </button>
                             <a :href="route('invoices.edit', record.id)"
-                               class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                               class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                                 <span class="material-icons text-[16px]">edit</span>
                                 Edit invoice
                             </a>
@@ -516,9 +516,9 @@ const submitManualPayment = () => {
                     <!-- Invoice Total -->
                     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice Total</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice Total</span>
                         </div>
-                        <div class="p-4 space-y-2.5 text-sm">
+                        <div class="p-4 space-y-2.5 text-md">
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
                                 <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.subtotal) }}</span>
@@ -538,7 +538,7 @@ const submitManualPayment = () => {
                                 <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.fees_total) }}</span>
                             </div>
                             <div class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-700">
-                                <span class="text-base font-bold text-gray-900 dark:text-white">Total</span>
+                                <span class="text-lg font-bold text-gray-900 dark:text-white">Total</span>
                                 <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(record.total) }}</span>
                             </div>
                             <template v-if="record.amount_paid && parseFloat(record.amount_paid) !== 0">
@@ -550,7 +550,7 @@ const submitManualPayment = () => {
                             <div v-if="record.amount_due != null"
                                  class="flex justify-between items-center pt-2.5 border-t border-gray-100 dark:border-gray-700">
                                 <span class="font-semibold text-gray-900 dark:text-white">Amount Due</span>
-                                <span class="text-base font-bold" :class="isPaid ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'">
+                                <span class="text-lg font-bold" :class="isPaid ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'">
                                     {{ formatCurrency(record.amount_due) }}
                                 </span>
                             </div>
@@ -560,30 +560,30 @@ const submitManualPayment = () => {
                     <!-- Payment -->
                     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Payment</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Payment</span>
                         </div>
-                        <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
+                        <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-md">
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">credit_card</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Terms</span>
-                                <span class="text-xs font-medium text-gray-900 dark:text-white">{{ paymentTermLabel }}</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ paymentTermLabel }}</span>
                             </li>
                             <li class="flex items-start gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">account_balance</span>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-gray-500 dark:text-gray-400">Accepted methods</p>
-                                    <p class="text-xs font-medium text-gray-900 dark:text-white mt-0.5">{{ acceptedPaymentMethodsText }}</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white mt-0.5">{{ acceptedPaymentMethodsText }}</p>
                                 </div>
                             </li>
                             <li v-if="surchargePercentText" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">percent</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Surcharge</span>
-                                <span class="text-xs font-medium text-gray-900 dark:text-white">{{ surchargePercentText }}</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ surchargePercentText }}</span>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">pie_chart</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Partial payments</span>
-                                <span class="text-xs font-medium text-gray-900 dark:text-white">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">
                                     {{ partialPaymentSummary.allowed ? 'Allowed' : 'Not allowed' }}
                                     <template v-if="partialPaymentSummary.allowed && partialPaymentSummary.minimumText">
                                         (min. {{ partialPaymentSummary.minimumText }})
@@ -593,7 +593,7 @@ const submitManualPayment = () => {
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">payments</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Currency</span>
-                                <span class="text-xs font-medium text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</span>
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">{{ record.currency || 'USD' }}</span>
                             </li>
                         </ul>
                     </div>
@@ -601,48 +601,48 @@ const submitManualPayment = () => {
                     <!-- Invoice Info -->
                     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice Info</span>
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Invoice Info</span>
                         </div>
-                        <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
+                        <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-md">
                             <li v-if="contactShowHref" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">person</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Contact</span>
-                                <Link :href="contactShowHref" class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                                <Link :href="contactShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
                             </li>
                             <li v-if="transactionShowHref" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">handshake</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Deal</span>
-                                <Link :href="transactionShowHref" class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                                <Link :href="transactionShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
                             </li>
                             <li v-if="contractShowHref" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">description</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Contract</span>
-                                <Link :href="contractShowHref" class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                                <Link :href="contractShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">calendar_today</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Created</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ formatDate(record.created_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.created_at) }}</span>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">update</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Updated</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ formatDate(record.updated_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.updated_at) }}</span>
                             </li>
                             <li v-if="record.sent_at" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">send</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Sent</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ formatDate(record.sent_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.sent_at) }}</span>
                             </li>
                             <li v-if="record.viewed_at" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">visibility</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Viewed</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ formatDate(record.viewed_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ formatDate(record.viewed_at) }}</span>
                             </li>
                             <li v-if="record.paid_at" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-green-500 shrink-0">check_circle</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Paid</span>
-                                <span class="text-xs font-medium text-green-600 dark:text-green-400">{{ formatDate(record.paid_at) }}</span>
+                                <span class="text-sm font-medium text-green-600 dark:text-green-400">{{ formatDate(record.paid_at) }}</span>
                             </li>
                         </ul>
 
@@ -655,7 +655,7 @@ const submitManualPayment = () => {
                                         <span class="material-icons text-[16px] text-green-500">check_circle</span>
                                     </span>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs font-medium text-gray-900 dark:text-white">Created</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">Created</p>
                                         <time class="text-[11px] text-gray-400">{{ formatDate(record.created_at) }}</time>
                                     </div>
                                 </li>
@@ -664,7 +664,7 @@ const submitManualPayment = () => {
                                         <span class="material-icons text-[16px]" :class="record.sent_at ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'">check_circle</span>
                                     </span>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs font-medium text-gray-900 dark:text-white">Sent</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">Sent</p>
                                         <time class="text-[11px] text-gray-400">{{ record.sent_at ? formatDate(record.sent_at) : 'Pending' }}</time>
                                     </div>
                                 </li>
@@ -673,7 +673,7 @@ const submitManualPayment = () => {
                                         <span class="material-icons text-[16px]" :class="record.viewed_at ? 'text-blue-500' : 'text-gray-300 dark:text-gray-600'">check_circle</span>
                                     </span>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs font-medium text-gray-900 dark:text-white">Viewed</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">Viewed</p>
                                         <time class="text-[11px] text-gray-400">{{ record.viewed_at ? formatDate(record.viewed_at) : 'Not yet' }}</time>
                                     </div>
                                 </li>
@@ -682,7 +682,7 @@ const submitManualPayment = () => {
                                         <span class="material-icons text-[16px]" :class="record.paid_at ? 'text-green-600' : 'text-gray-300 dark:text-gray-600'">check_circle</span>
                                     </span>
                                     <div class="flex items-center justify-between">
-                                        <p class="text-xs font-medium text-gray-900 dark:text-white">Paid</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white">Paid</p>
                                         <time class="text-[11px] text-gray-400">{{ record.paid_at ? formatDate(record.paid_at) : 'Pending' }}</time>
                                     </div>
                                 </li>
@@ -704,48 +704,48 @@ const submitManualPayment = () => {
 
         <Modal :show="showRecordPaymentModal" max-width="lg" @close="showRecordPaymentModal = false">
             <div class="p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Record manual payment</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">Record manual payment</h3>
+                <p class="text-md text-gray-500 dark:text-gray-400 mb-5">
                     Apply check, cash, wire, or ACH to this invoice. The customer balance and invoice status will update.
                 </p>
                 <form class="space-y-4" @submit.prevent="submitManualPayment">
                     <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Amount</label>
                         <input v-model="paymentForm.amount"
                                type="text"
                                inputmode="decimal"
-                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
+                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-md"
                                required>
-                        <p v-if="paymentForm.errors.amount" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ paymentForm.errors.amount }}</p>
+                        <p v-if="paymentForm.errors.amount" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ paymentForm.errors.amount }}</p>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Method</label>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Method</label>
                         <select v-model="paymentForm.payment_method_code"
-                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm">
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-md">
                             <option v-for="opt in manualMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reference # <span class="normal-case font-normal text-gray-400">(optional)</span></label>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Reference # <span class="normal-case font-normal text-gray-400">(optional)</span></label>
                         <input v-model="paymentForm.reference_number"
                                type="text"
-                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"
+                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-md"
                                placeholder="Check number, confirmation, etc.">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Memo <span class="normal-case font-normal text-gray-400">(optional)</span></label>
+                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Memo <span class="normal-case font-normal text-gray-400">(optional)</span></label>
                         <textarea v-model="paymentForm.memo"
                                   rows="2"
-                                  class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm"></textarea>
+                                  class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-md"></textarea>
                     </div>
                     <div class="flex justify-end gap-2 pt-2">
                         <button type="button"
-                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                                class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
                                 @click="showRecordPaymentModal = false">
                             Cancel
                         </button>
                         <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
+                                class="px-4 py-2 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50"
                                 :disabled="paymentForm.processing">
                             {{ paymentForm.processing ? 'Saving…' : 'Record payment' }}
                         </button>
