@@ -49,6 +49,9 @@
           "key": "warranty_eligible"
         },
         {
+          "key": "warranty_type"
+        },
+        {
           "key": "inactive"
         }
       ]

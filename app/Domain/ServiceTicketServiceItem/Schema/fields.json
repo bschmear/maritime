@@ -102,6 +102,14 @@
     "default": false
   },
 
+  "warranty_type": {
+    "label": "Warranty coverage",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicketServiceItem\\WarrantyCoverageType",
+    "nullable": true,
+    "help": "Dealership vs manufacturer when this line is warranty work."
+  },
+
   "sort_order": {
     "label": "Sort Order",
     "type": "number",

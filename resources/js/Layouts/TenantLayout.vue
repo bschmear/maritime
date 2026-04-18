@@ -211,6 +211,7 @@ const secondaryNavItems = ref([
         href: 'account.index',
         children: [
             { name: 'Overview', href: 'account.index' },
+            { name: 'Integrations', href: 'integrations' },
             { name: 'Locations', href: 'locations.index' },
             { name: 'Users', href: 'users.index' },
             { name: 'Roles', href: 'roles.index' },

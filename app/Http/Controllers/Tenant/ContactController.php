@@ -23,6 +23,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -659,5 +660,47 @@ class ContactController extends Controller
 
         return back()
             ->with('error', $result['message'] ?? 'Failed to delete '.$this->recordTitle);
+    }
+
+    /**
+     * Delete multiple contacts in one request (used by table bulk actions).
+     */
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|distinct|exists:contacts,id',
+        ]);
+
+        $deleted = 0;
+        $errors = [];
+
+        DB::transaction(function () use ($validated, &$deleted, &$errors): void {
+            foreach ($validated['ids'] as $id) {
+                $result = ($this->deleteContact)((int) $id);
+                if ($result['success']) {
+                    $deleted++;
+                } else {
+                    $errors[] = $id.': '.($result['message'] ?? 'failed');
+                }
+            }
+        });
+
+        if ($deleted === 0) {
+            return back()->with('error', 'No contacts were deleted.'.(count($errors) ? ' '.implode(' ', $errors) : ''));
+        }
+
+        $message = $deleted === 1
+            ? '1 contact deleted.'
+            : "{$deleted} contacts deleted.";
+
+        if (count($errors)) {
+            Log::warning('Contact bulk delete partial failures', ['errors' => $errors]);
+            $message .= ' Some rows could not be removed.';
+        }
+
+        return redirect()
+            ->route($this->recordType.'.index', $request->only(['role', 'search', 'filters', 'per_page', 'sort', 'direction']))
+            ->with('success', $message);
     }
 }

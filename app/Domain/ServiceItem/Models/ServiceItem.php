@@ -2,6 +2,7 @@
 
 namespace App\Domain\ServiceItem\Models;
 
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Illuminate\Database\Eloquent\Model;
 
 class ServiceItem extends Model
@@ -25,6 +26,7 @@ class ServiceItem extends Model
         'taxable' => 'boolean',
         'billable' => 'boolean',
         'warranty_eligible' => 'boolean',
+        'warranty_type' => WarrantyCoverageType::class,
         'inactive' => 'boolean',
 
         'attributes' => 'array',
@@ -76,15 +78,15 @@ class ServiceItem extends Model
     public function toWorkOrderDefaults(): array
     {
         return [
-            'display_name'     => $this->display_name,
-            'description'      => $this->description,
-            'billing_type'     => $this->billing_type,
-            'unit_price'       => $this->default_rate ?? 0,
-            'unit_cost'        => $this->default_cost ?? 0,
-            'estimated_hours'   => $this->default_hours ?? 1,
-            'taxable'           => $this->taxable,
-            'billable'          => $this->billable,
-            'warranty'          => $this->warranty_eligible,
+            'display_name' => $this->display_name,
+            'description' => $this->description,
+            'billing_type' => $this->billing_type,
+            'unit_price' => $this->default_rate ?? 0,
+            'unit_cost' => $this->default_cost ?? 0,
+            'estimated_hours' => $this->default_hours ?? 1,
+            'taxable' => $this->taxable,
+            'billable' => $this->billable,
+            'warranty' => $this->warranty_eligible,
         ];
     }
 }

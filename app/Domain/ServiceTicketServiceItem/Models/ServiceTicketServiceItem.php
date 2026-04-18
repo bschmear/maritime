@@ -2,6 +2,7 @@
 
 namespace App\Domain\ServiceTicketServiceItem\Models;
 
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +13,7 @@ class ServiceTicketServiceItem extends Model
     protected $fillable = [
         'service_ticket_id', 'service_item_id', 'display_name', 'description',
         'quantity', 'unit_price', 'unit_cost', 'total_price', 'total_cost',
-        'estimated_hours', 'billable', 'warranty',
+        'estimated_hours', 'billable', 'warranty', 'warranty_type',
         'inactive', 'sort_order', 'attributes', 'billing_type',
     ];
 
@@ -26,6 +27,7 @@ class ServiceTicketServiceItem extends Model
         'estimated_hours' => 'decimal:2',
         'billable' => 'boolean',
         'warranty' => 'boolean',
+        'warranty_type' => WarrantyCoverageType::class,
         'inactive' => 'boolean',
         'attributes' => 'array',
     ];

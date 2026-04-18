@@ -49,4 +49,17 @@ return [
     'stripe' => [
         'connect_webhook_url' => env('STRIPE_WEBHOOK'),
     ],
+
+    'mailchimp' => [
+        'client_id' => env('MAILCHIMP_CLIENT_ID'),
+        'client_secret' => env('MAILCHIMP_CLIENT_SECRET'),
+        /*
+         * Single redirect URL registered in Mailchimp (must match this value exactly).
+         * Prefer MAILCHIMP_REDIRECT_URI=https://your-central-host/integrations/mailchimp/oauth/callback
+         * so it matches Mailchimp even when APP_URL uses http by mistake.
+         */
+        'redirect_uri' => \App\Support\MailchimpOAuthRedirect::canonical(),
+        'api_key' => env('MAILCHIMP_API_KEY'),
+        'server_prefix' => env('MAILCHIMP_SERVER_PREFIX'),
+    ],
 ];

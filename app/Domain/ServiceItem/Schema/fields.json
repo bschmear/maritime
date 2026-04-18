@@ -68,6 +68,14 @@
     "default": false
   },
 
+  "warranty_type": {
+    "label": "Default warranty coverage",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicketServiceItem\\WarrantyCoverageType",
+    "nullable": true,
+    "help": "When this service is marked as warranty work on a ticket, pre-select dealership vs manufacturer coverage."
+  },
+
   "inactive": {
     "label": "Inactive",
     "type": "boolean",

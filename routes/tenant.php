@@ -26,6 +26,8 @@ use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\GeneralController;
+use App\Http\Controllers\Tenant\IntegrationController;
+use App\Http\Controllers\Tenant\Integrations\MailchimpController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
@@ -154,6 +156,7 @@ Route::middleware([
         });
 
         Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::post('bulk-destroy', [ContactController::class, 'bulkDestroy'])->name('bulk-destroy');
             Route::get('{contact}/addresses', [ContactController::class, 'indexAddresses'])->name('addresses.index');
             Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
             Route::post('{contact}/send-portal-link', [ContactController::class, 'sendPortalLink'])
@@ -522,6 +525,30 @@ Route::middleware([
             Route::get('/sales-by-item-summary', [ReportsController::class, 'salesByItemSummary'])->name('sales-by-item-summary');
             Route::get('/sales-by-item-detail', [ReportsController::class, 'salesByItemDetail'])->name('sales-by-item-detail');
 
+        });
+
+        Route::prefix('integrations')->group(function () {
+            Route::get('/', [IntegrationController::class, 'index'])->name('integrations');
+
+            Route::prefix('mailchimp')->group(function () {
+                Route::get('/', [MailchimpController::class, 'show'])->name('mailchimp');
+                Route::delete('/', [MailchimpController::class, 'destroy'])->name('mailchimp.destroy');
+                Route::get('/connect', [MailchimpController::class, 'connect'])->name('mailchimp.connect');
+
+                // === LIST MANAGEMENT ===
+                Route::get('/lists', [MailchimpController::class, 'lists'])->name('mailchimp.lists');
+                Route::post('/lists', [MailchimpController::class, 'createList'])->name('mailchimp.createList');
+
+                // === SEGMENT MANAGEMENT (within a list) ===
+                Route::get('/lists/{listId}/segments', [MailchimpController::class, 'segments'])->name('mailchimp.segments');
+                Route::post('/lists/{listId}/segments', [MailchimpController::class, 'createSegment'])->name('mailchimp.createSegment');
+
+                // === PUSH/PULL CONTACTS ===
+                Route::post('/lists/{listId}/push', [MailchimpController::class, 'pushContacts'])->name('mailchimp.pushContact');
+                Route::post('/lists/{listId}/segments/{segmentId}/push', [MailchimpController::class, 'pushToSegment'])->name('mailchimp.pushToSegment');
+
+                Route::get('/lists/pull', [MailchimpController::class, 'pullContacts'])->name('mailchimp.pullContacts');
+            });
         });
 
         Route::prefix('notifications')

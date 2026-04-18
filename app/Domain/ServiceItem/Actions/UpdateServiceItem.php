@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\ServiceItem\Actions;
 
 use App\Domain\ServiceItem\Models\ServiceItem as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateServiceItem
@@ -22,6 +23,7 @@ class UpdateServiceItem
             'taxable' => 'nullable|boolean',
             'billable' => 'nullable|boolean',
             'warranty_eligible' => 'nullable|boolean',
+            'warranty_type' => 'nullable|string|in:dealership,manufacturer',
             'inactive' => 'nullable|boolean',
             'notes' => 'nullable|string',
         ]);
@@ -46,7 +48,7 @@ class UpdateServiceItem
             if (array_key_exists('default_cost', $recordData) && $recordData['default_cost'] === null) {
                 $recordData['default_cost'] = 0;
             }
-            
+
             if (array_key_exists('default_hours', $recordData) && $recordData['default_hours'] === null) {
                 $recordData['default_hours'] = 0;
             }
@@ -70,8 +72,9 @@ class UpdateServiceItem
             Log::error('Database query error in UpdateServiceItem', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -81,8 +84,9 @@ class UpdateServiceItem
             Log::error('Unexpected error in UpdateServiceItem', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

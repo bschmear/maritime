@@ -43,7 +43,7 @@ class ChecklistService
             ->orderBy('id')
             ->first();
 
-        if (!$template) {
+        if (! $template) {
             return null;
         }
 

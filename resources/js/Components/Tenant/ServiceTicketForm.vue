@@ -72,9 +72,16 @@ const serviceItemIsLoading = ref(false);
 // Billing type options from enum
 const billingTypeOptions = computed(() => props.enumOptions?.billing_type || []);
 
+const warrantyCoverageOptions = computed(() => props.enumOptions?.warranty_type || []);
+
 const getBillingTypeLabel = (billingType) => {
     const option = billingTypeOptions.value.find(opt => opt.value === billingType);
     return option?.name || 'Unknown';
+};
+
+const getWarrantyCoverageLabel = (warrantyType) => {
+    const option = warrantyCoverageOptions.value.find(opt => opt.value === warrantyType);
+    return option?.name || '';
 };
 
 // ==============================
@@ -142,6 +149,7 @@ const lineItemForm = ref({
     estimated_hours: 1,
     billable: true,
     warranty: false,
+    warranty_type: null,
     billing_type: null
 });
 
@@ -157,6 +165,7 @@ const addServiceItemLine = () => {
         estimated_hours: 1,
         billable: true,
         warranty: false,
+        warranty_type: null,
         billing_type: null
     };
     selectedServiceItem.value = null;
@@ -179,6 +188,7 @@ const editServiceItemLine = (index) => {
         estimated_hours: item.estimated_hours ?? 1,
         billable: item.billable ?? true,
         warranty: item.warranty ?? false,
+        warranty_type: item.warranty_type ?? null,
         billing_type: item.billing_type ?? null
     };
     selectedServiceItem.value = {
@@ -209,6 +219,7 @@ const selectServiceItem = (item) => {
     lineItemForm.value.estimated_hours = Number(item.default_hours) ?? 1;
     lineItemForm.value.billable = item.billable ?? true;
     lineItemForm.value.warranty = item.warranty_eligible ?? false;
+    lineItemForm.value.warranty_type = item.warranty_type ?? null;
     lineItemForm.value.billing_type = item.billing_type ?? null;
 
     // Set quantity based on billing type
@@ -218,6 +229,10 @@ const selectServiceItem = (item) => {
 };
 
 const saveLineItem = () => {
+    if (lineItemForm.value.warranty && !lineItemForm.value.warranty_type) {
+        alert('Please select dealership or manufacturer warranty when warranty work is checked.');
+        return;
+    }
     if (editingLineIndex.value !== null) {
         lineItems.value[editingLineIndex.value] = { ...lineItemForm.value };
     } else {
@@ -571,6 +586,7 @@ watch(() => props.record?.service_items, (items) => {
             estimated_hours: li.estimated_hours ?? 1,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
+            warranty_type: li.warranty_type ?? null,
             billing_type: li.billing_type ?? null
         }));
     }
@@ -626,6 +642,12 @@ watch(() => lineItemForm.value.billing_type, (newBillingType) => {
     }
 });
 
+watch(() => lineItemForm.value.warranty, (isWarranty) => {
+    if (!isWarranty) {
+        lineItemForm.value.warranty_type = null;
+    }
+});
+
 // ==============================
 // Submit Logic
 // ==============================
@@ -659,6 +681,7 @@ const submit = () => {
             estimated_hours: Number(li.estimated_hours) || 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
+            warranty_type: li.warranty ? (li.warranty_type ?? null) : null,
             billing_type: li.billing_type ? Number(li.billing_type) : null,
             sort_order: idx
         }));
@@ -1094,9 +1117,14 @@ const handleCancel = () => {
                                                             </span>
                                                         </td>
                                                         <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-white">
-                                                            <span v-if="item.warranty" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                                                                <span class="material-icons text-xs mr-1">verified_user</span>
-                                                                Yes
+                                                            <span v-if="item.warranty" class="inline-flex flex-col items-center gap-0.5 px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                                                <span class="inline-flex items-center">
+                                                                    <span class="material-icons text-xs mr-1">verified_user</span>
+                                                                    Yes
+                                                                </span>
+                                                                <span v-if="item.warranty_type" class="text-[10px] font-normal opacity-90">
+                                                                    {{ getWarrantyCoverageLabel(item.warranty_type) }}
+                                                                </span>
                                                             </span>
                                                             <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                                                                 No
@@ -1643,6 +1671,25 @@ const handleCancel = () => {
                                     />
                                     <span class="text-sm text-gray-700 dark:text-gray-300">Warranty Work</span>
                                 </label>
+                            </div>
+
+                            <div v-if="lineItemForm.warranty" class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Warranty coverage
+                                </label>
+                                <select
+                                    v-model="lineItemForm.warranty_type"
+                                    class="input-style"
+                                >
+                                    <option :value="null">-- Select --</option>
+                                    <option
+                                        v-for="option in warrantyCoverageOptions"
+                                        :key="option.id"
+                                        :value="option.value"
+                                    >
+                                        {{ option.name }}
+                                    </option>
+                                </select>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">

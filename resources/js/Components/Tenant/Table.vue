@@ -8,6 +8,8 @@ import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
+const emit = defineEmits(['selection-change']);
+
 const props = defineProps({
     records:             { type: Object, required: true },
     schema:              { type: Object, default: null },
@@ -257,14 +259,20 @@ const viewRecord  = () => { if (createdRecordId.value) window.location.href = ge
 const backToPage  = () => { showSuccessModal.value = false; createdRecordId.value = null; };
 
 // ── Selection ─────────────────────────────────────────────────────────────────
+const emitSelectionChange = () => {
+    emit('selection-change', Array.from(selectedRecords.value));
+};
+
 const toggleSelectAll = () => {
     if (selectAll.value) props.records.data.forEach(r => selectedRecords.value.add(r.id));
     else selectedRecords.value.clear();
+    emitSelectionChange();
 };
 const toggleRecordSelection = (id) => {
     if (selectedRecords.value.has(id)) selectedRecords.value.delete(id);
     else selectedRecords.value.add(id);
     selectAll.value = selectedRecords.value.size === props.records.data.length && props.records.data.length > 0;
+    emitSelectionChange();
 };
 const isRecordSelected = (id) => selectedRecords.value.has(id);
 
@@ -458,6 +466,7 @@ watch(() => page.url, () => {
 
 watch(() => props.records.data, () => {
     selectAll.value = props.records.data.length > 0 && selectedRecords.value.size === props.records.data.length;
+    emitSelectionChange();
 }, { immediate: true });
 
 onMounted(() => {
@@ -470,6 +479,10 @@ onMounted(() => {
 
 onUnmounted(() => {
     document.removeEventListener('click', handleQuickFilterClickOutside);
+});
+
+defineExpose({
+    getSelectedRecordIds: () => Array.from(selectedRecords.value),
 });
 </script>
 

@@ -13,6 +13,7 @@ use App\Http\Controllers\Kiosk\PlansController;
 use App\Http\Controllers\Kiosk\PostController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
+use App\Http\Controllers\MailchimpOAuthController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeConnectWebhookController;
@@ -41,6 +42,10 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
 
 Route::post('/stripe/connect-webhook', StripeConnectWebhookController::class)
     ->name('stripe.connect.webhook');
+
+// Single Mailchimp OAuth redirect for all tenants (MAILCHIMP_REDIRECT_URI must point here).
+Route::get('/integrations/mailchimp/oauth/callback', [MailchimpOAuthController::class, 'callback'])
+    ->name('mailchimp.oauth.callback');
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog');

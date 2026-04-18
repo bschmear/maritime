@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ServiceTicketApprovalRequest;
@@ -123,6 +124,7 @@ class ServiceTicketController extends BaseController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         $account = \App\Models\AccountSettings::getCurrent();
 
@@ -215,11 +217,15 @@ class ServiceTicketController extends BaseController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                ? $li->warranty_type->value
+                : ($li->warranty_type ?? null),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         $account = \App\Models\AccountSettings::getCurrent();
 
@@ -299,11 +305,15 @@ class ServiceTicketController extends BaseController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                ? $li->warranty_type->value
+                : ($li->warranty_type ?? null),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         $account = \App\Models\AccountSettings::getCurrent();
 
@@ -349,7 +359,7 @@ class ServiceTicketController extends BaseController
             ->select([
                 'id', 'display_name', 'code', 'description',
                 'default_rate', 'default_cost', 'default_hours',
-                'billable', 'warranty_eligible', 'billing_type',
+                'billable', 'warranty_eligible', 'warranty_type', 'billing_type',
             ])
             ->when($query, function ($q) use ($query) {
                 $q->where(function ($subQuery) use ($query) {

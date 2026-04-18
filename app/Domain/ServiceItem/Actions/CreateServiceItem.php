@@ -1,10 +1,11 @@
 <?php
+
 namespace App\Domain\ServiceItem\Actions;
 
 use App\Domain\ServiceItem\Models\ServiceItem as RecordModel;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class CreateServiceItem
@@ -22,6 +23,7 @@ class CreateServiceItem
             'taxable' => 'nullable|boolean',
             'billable' => 'nullable|boolean',
             'warranty_eligible' => 'nullable|boolean',
+            'warranty_type' => 'nullable|string|in:dealership,manufacturer',
             'inactive' => 'nullable|boolean',
             'notes' => 'nullable|string',
         ]);
@@ -61,8 +63,9 @@ class CreateServiceItem
         } catch (QueryException $e) {
             Log::error('Database query error in CreateServiceItem', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -71,8 +74,9 @@ class CreateServiceItem
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateServiceItem', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

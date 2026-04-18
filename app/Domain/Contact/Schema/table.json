@@ -1,4 +1,16 @@
 {
+  "settings": {
+    "bulk_actions": [
+      {
+        "label": "Sync with Mailchimp",
+        "action": "syncWithMailchimp"
+      },
+      {
+        "label": "Delete Selected",
+        "action": "bulkDelete"
+      }
+    ]
+  },
   "columns": [
     {
       "key": "display_name",
