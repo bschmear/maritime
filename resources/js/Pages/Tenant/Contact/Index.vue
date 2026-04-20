@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Mailchimp from '@/Components/Tenant/Mailchimp.vue';
+import QuickBooksImport from '@/Components/Tenant/QuickBooksImport.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
@@ -46,6 +47,7 @@ const props = defineProps({
 });
 
 const mailchimpRef = ref(null);
+const quickBooksImportRef = ref(null);
 const selectedTableIds = ref([]);
 const gearMenuOpen = ref(false);
 const gearRootRef = ref(null);
@@ -97,6 +99,12 @@ const handleBulkAction = (item) => {
     if (action === 'syncWithMailchimp') {
         closeGearMenu();
         mailchimpRef.value?.openSyncModal?.();
+        return;
+    }
+
+    if (action === 'importFromQuickbooks') {
+        closeGearMenu();
+        quickBooksImportRef.value?.openImportModal?.();
         return;
     }
 
@@ -218,5 +226,7 @@ const roleLinkClass = (key) => {
             :priorities="mailchimpPriorities"
             :recordtype="mailchimpRecordtype"
         />
+
+        <QuickBooksImport ref="quickBooksImportRef" :record-type="mailchimpEntityType" />
     </TenantLayout>
 </template>

@@ -43,6 +43,7 @@ use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
+use App\Http\Controllers\Tenant\QuickBooksController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SchedulingController;
@@ -146,6 +147,7 @@ Route::middleware([
         })->name('payments.cancel');
 
         Route::get('/stripe/connect', [StripeController::class, 'connect'])->name('stripe.connect');
+        Route::post('/stripe/disconnect', [StripeController::class, 'disconnect'])->name('stripe.disconnect');
         Route::get('/stripe/return', [StripeController::class, 'return'])->name('stripe.return');
         Route::get('/stripe/refresh', [StripeController::class, 'refresh'])->name('stripe.refresh');
 
@@ -463,9 +465,19 @@ Route::middleware([
             Route::get('/', [AccountController::class, 'index'])->name('index');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
+            Route::get('/payments/stripe', [PaymentConfigurationController::class, 'stripePage'])->name('payments.stripe');
+            Route::get('/payments/quickbooks', [PaymentConfigurationController::class, 'quickbooksPage'])->name('payments.quickbooks');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');
             Route::post('/payments/sync-stripe', [PaymentConfigurationController::class, 'syncFromStripe'])->name('payments.sync-stripe');
             Route::patch('/payments/methods', [PaymentConfigurationController::class, 'updateMethod'])->name('payments.methods');
+
+            // QuickBooks Online OAuth bookends (callback lives on the central app domain).
+            Route::get('/payments/quickbooks/connect', [QuickBooksController::class, 'connect'])
+                ->name('payments.quickbooks.connect');
+            Route::post('/payments/quickbooks/disconnect', [QuickBooksController::class, 'disconnect'])
+                ->name('payments.quickbooks.disconnect');
+            Route::post('/payments/quickbooks/import-customers', [QuickBooksController::class, 'importCustomers'])
+                ->name('payments.quickbooks.import-customers');
         });
 
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');

@@ -329,6 +329,9 @@ class Lead extends Model
             'facebook',
             'notes',
             'inactive',
+            'source',
+            'stripe_customer_id',
+            'quickbooks_customer_id',
         ];
     }
 

@@ -16,6 +16,7 @@ use App\Http\Controllers\Kiosk\UserController;
 use App\Http\Controllers\MailchimpOAuthController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\QuickBooksOAuthController;
 use App\Http\Controllers\StripeConnectWebhookController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Middleware\EnsureKioskAdmin;
@@ -46,6 +47,10 @@ Route::post('/stripe/connect-webhook', StripeConnectWebhookController::class)
 // Single Mailchimp OAuth redirect for all tenants (MAILCHIMP_REDIRECT_URI must point here).
 Route::get('/integrations/mailchimp/oauth/callback', [MailchimpOAuthController::class, 'callback'])
     ->name('mailchimp.oauth.callback');
+
+// Single QuickBooks Online OAuth redirect for all tenants (QUICKBOOKS_REDIRECT_URI must point here).
+Route::get('/quickbooks/callback', [QuickBooksOAuthController::class, 'callback'])
+    ->name('quickbooks.oauth.callback');
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog');

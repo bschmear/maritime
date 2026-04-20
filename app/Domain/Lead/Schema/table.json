@@ -1,4 +1,12 @@
 {
+    "settings": {
+        "bulk_actions": [
+            {
+                "label": "Import from QuickBooks",
+                "action": "importFromQuickbooks"
+            }
+        ]
+    },
     "columns": [
       {
         "key": "id",

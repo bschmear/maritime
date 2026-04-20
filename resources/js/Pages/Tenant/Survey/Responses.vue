@@ -351,7 +351,7 @@ const paginate = (url) => {
                                         <button
                                             v-if="showConvertActions(response)"
                                             type="button"
-                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 transition-colors"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 transition-colors"
                                             title="Convert to contact"
                                             @click="convertResponse(response.id, 'contact')">
                                             <span class="material-icons text-[18px]">contact_mail</span>

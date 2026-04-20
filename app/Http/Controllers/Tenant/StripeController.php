@@ -8,14 +8,25 @@ use App\Models\AccountSettings;
 use App\Services\Payments\StripeConnectWebhookHandler;
 use App\Services\Payments\StripeService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class StripeController extends Controller
 {
-    public function connect(StripeService $stripeService)
+    public function connect(StripeService $stripeService): RedirectResponse
     {
         $settings = AccountSettings::getCurrent();
+
+        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
+            return redirect()
+                ->route('account.payments.stripe')
+                ->with(
+                    'error',
+                    'This workspace already uses QuickBooks Online for payments. Disconnect QuickBooks before connecting Stripe.'
+                );
+        }
+
         $config = PaymentConfiguration::forStripe($settings);
 
         if (! $config->stripe_account_id) {
@@ -36,13 +47,50 @@ class StripeController extends Controller
         return redirect()->away($url);
     }
 
-    public function return(Request $request, StripeService $stripeService)
+    /**
+     * Clear Stripe Connect state so the tenant can choose QuickBooks (or reconnect Stripe) instead.
+     */
+    public function disconnect(): RedirectResponse
     {
         $config = PaymentConfiguration::forStripe(AccountSettings::getCurrent());
+
+        if (! $config->stripe_account_id) {
+            return redirect()
+                ->route('account.payments.stripe')
+                ->with('error', 'Stripe is not connected.');
+        }
+
+        $config->update([
+            'stripe_account_id' => null,
+            'stripe_charges_enabled' => false,
+            'stripe_payouts_enabled' => false,
+            'stripe_publishable_key' => null,
+            'stripe_secret_key_enc' => null,
+            'meta' => array_merge($config->meta ?? [], [
+                'stripe_disconnected_at' => now()->toIso8601String(),
+            ]),
+        ]);
+
+        return redirect()
+            ->route('account.payments.stripe')
+            ->with('success', 'Stripe has been disconnected from this workspace.');
+    }
+
+    public function return(Request $request, StripeService $stripeService): RedirectResponse
+    {
+        $settings = AccountSettings::getCurrent();
+
+        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
+            return redirect()
+                ->route('account.payments.stripe')
+                ->with('error', 'QuickBooks Online is active. Disconnect QuickBooks before finishing Stripe setup.');
+        }
+
+        $config = PaymentConfiguration::forStripe($settings);
         $stripeService->syncAccount($config);
 
         return redirect()
-            ->route('account.payments')
+            ->route('account.payments.stripe')
             ->with('success', 'Stripe account updated.');
     }
 
@@ -50,14 +98,22 @@ class StripeController extends Controller
      * Stripe calls this when the onboarding link expires or the user navigates away.
      * Issue a fresh AccountLink so they can continue (same pattern as {@see connect()}).
      */
-    public function refresh(StripeService $stripeService)
+    public function refresh(StripeService $stripeService): RedirectResponse
     {
-        $config = PaymentConfiguration::forStripe(AccountSettings::getCurrent());
+        $settings = AccountSettings::getCurrent();
+
+        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
+            return redirect()
+                ->route('account.payments.stripe')
+                ->with('error', 'QuickBooks Online is active. Disconnect QuickBooks before continuing Stripe setup.');
+        }
+
+        $config = PaymentConfiguration::forStripe($settings);
 
         if (! $config->stripe_account_id) {
             return redirect()
-                ->route('account.payments')
-                ->with('error', 'No Stripe account found. Connect from Account → Payments first.');
+                ->route('account.payments.stripe')
+                ->with('error', 'No Stripe account found. Open Payments → Stripe and connect first.');
         }
 
         $stripeService->ensureRequestedCapabilities($config->stripe_account_id);

@@ -21,6 +21,10 @@ class PaymentConfiguration extends Model
         'stripe_payouts_enabled' => 'boolean',
         'meta' => 'array',
         'qbo_token_expires_at' => 'datetime',
+        // Sensitive provider secrets — Laravel transparently encrypts on write/decrypts on read.
+        'stripe_secret_key_enc' => 'encrypted',
+        'qbo_access_token_enc' => 'encrypted',
+        'qbo_refresh_token_enc' => 'encrypted',
     ];
 
     public function accountSettings(): BelongsTo
@@ -41,6 +45,17 @@ class PaymentConfiguration extends Model
     public static function forCurrentAccount(?AccountSettings $settings = null): self
     {
         return static::forStripe($settings);
+    }
+
+    /**
+     * Whether this account has started (or completed) Stripe Connect for customer payments.
+     * Used with {@see quickbooksConnected()} to enforce a single active processor.
+     */
+    public static function stripeConnectClaimed(?AccountSettings $settings = null): bool
+    {
+        $settings = $settings ?? AccountSettings::getCurrent();
+
+        return (bool) static::forStripe($settings)->stripe_account_id;
     }
 
     /**
@@ -82,6 +97,46 @@ class PaymentConfiguration extends Model
         $config->ensureProcessorPaymentMethods();
 
         return $config;
+    }
+
+    /**
+     * Default QuickBooks Online configuration for the current tenant account settings row.
+     * Creates the row (and pivot rows) when missing. Does not contact Intuit; OAuth state lives
+     * on the row after a successful connect via {@see \App\Services\Payments\QuickBooksOAuthService}.
+     */
+    public static function forQuickbooks(?AccountSettings $settings = null): self
+    {
+        $settings = $settings ?? AccountSettings::getCurrent();
+
+        $config = static::query()
+            ->where('account_settings_id', $settings->id)
+            ->where('processor', 'quickbooks')
+            ->first();
+
+        if ($config !== null) {
+            return $config;
+        }
+
+        $config = static::create([
+            'account_settings_id' => $settings->id,
+            'processor' => 'quickbooks',
+            'label' => 'QuickBooks Online',
+            'is_active' => true,
+            'is_default' => false,
+            'meta' => [],
+        ]);
+
+        $config->ensureProcessorPaymentMethods();
+
+        return $config;
+    }
+
+    /**
+     * QuickBooks Online OAuth has been completed (we hold a refresh token + realm id).
+     */
+    public function quickbooksConnected(): bool
+    {
+        return ! empty($this->qbo_realm_id) && ! empty($this->qbo_refresh_token_enc);
     }
 
     public function ensureProcessorPaymentMethods(): void

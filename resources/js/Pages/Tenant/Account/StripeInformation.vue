@@ -10,7 +10,7 @@ const STRIPE_SECURITY = 'https://stripe.com/docs/security';
 
 const breadcrumbItems = computed(() => [
     { label: 'Account', href: route('account.index') },
-    { label: 'Payment settings', href: route('account.payments') },
+    { label: 'Payments', href: route('account.payments') },
     { label: 'About Stripe' },
 ]);
 </script>
@@ -34,7 +34,7 @@ const breadcrumbItems = computed(() => [
                         class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
                     >
                         <span class="material-icons text-base">arrow_back</span>
-                        Back to payment settings
+                        Back to payments
                     </Link>
                 </div>
             </div>
@@ -76,7 +76,7 @@ const breadcrumbItems = computed(() => [
                 </h3>
                 <div class="mt-3 space-y-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
                     <p>
-                        When you connect Stripe from <strong class="text-gray-800 dark:text-gray-200">Account → Payment settings</strong>, Maritime helps you create or link a
+                        When you connect Stripe from <strong class="text-gray-800 dark:text-gray-200">Account → Payments → Stripe</strong>, Maritime helps you create or link a
                         <strong class="text-gray-800 dark:text-gray-200">Stripe Express</strong> connected account. That account is yours: customers who pay an invoice online complete checkout with Stripe, and the charge is processed on <em>your</em> connected account.
                     </p>
                     <p>

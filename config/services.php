@@ -50,6 +50,24 @@ return [
         'connect_webhook_url' => env('STRIPE_WEBHOOK'),
     ],
 
+    /*
+     * QuickBooks Online (Intuit) OAuth 2.0
+     *----------------------------------------------------------------------
+     * Register a single redirect URL once in the Intuit developer dashboard
+     * (Production keys → Redirect URIs). It must match `services.quickbooks.redirect_uri`
+     * byte-for-byte (scheme, host, path, no trailing slash). Each tenant uses a central
+     * handoff record to map the OAuth `state` back to the originating workspace.
+     *
+     * `environment` controls whether to hit the sandbox or production OAuth + Accounting APIs.
+     */
+    'quickbooks' => [
+        'client_id' => env('QUICKBOOKS_CLIENT_ID'),
+        'client_secret' => env('QUICKBOOKS_CLIENT_SECRET'),
+        'redirect_uri' => env('QUICKBOOKS_REDIRECT_URI'),
+        'environment' => env('QUICKBOOKS_ENVIRONMENT', 'sandbox'),
+        'scopes' => env('QUICKBOOKS_SCOPES', 'com.intuit.quickbooks.accounting'),
+    ],
+
     'mailchimp' => [
         'client_id' => env('MAILCHIMP_CLIENT_ID'),
         'client_secret' => env('MAILCHIMP_CLIENT_SECRET'),

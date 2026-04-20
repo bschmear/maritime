@@ -6,6 +6,10 @@
         "action": "syncWithMailchimp"
       },
       {
+        "label": "Import from QuickBooks",
+        "action": "importFromQuickbooks"
+      },
+      {
         "label": "Delete Selected",
         "action": "bulkDelete"
       }
