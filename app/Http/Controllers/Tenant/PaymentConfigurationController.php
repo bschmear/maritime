@@ -21,53 +21,35 @@ class PaymentConfigurationController extends Controller
     }
 
     /**
-     * Payments hub: current processor, links to Stripe / QuickBooks detail pages (no external API sync).
+     * Payments hub: Stripe Connect, sync-on-load when an account exists, and checkout method toggles.
      */
-    public function index(): Response
+    public function index(StripeService $stripeService): Response
     {
-        $settings = AccountSettings::getCurrent();
-        $stripeConfig = PaymentConfiguration::forStripe($settings);
-        $qbConfig = PaymentConfiguration::forQuickbooks($settings);
-        $qbConnected = $qbConfig->quickbooksConnected();
-        $stripeClaimed = PaymentConfiguration::stripeConnectClaimed($settings);
-        $qbMeta = $qbConfig->meta ?? [];
-
-        $currentProcessor = $qbConnected
-            ? 'quickbooks'
-            : ($stripeClaimed ? 'stripe' : null);
-
-        return Inertia::render('Tenant/Account/Payments', [
-            'current_processor' => $currentProcessor,
-            'stripe' => [
-                'account_id' => $stripeConfig->stripe_account_id,
-                'ready' => $stripeConfig->stripeReadyForCharges(),
-                'status_label' => $this->stripeStatusLabel($stripeConfig),
-            ],
-            'quickbooks' => [
-                'connected' => $qbConnected,
-                'company_name' => $qbMeta['qbo_company_name'] ?? null,
-                'environment' => $qbMeta['qbo_environment'] ?? config('services.quickbooks.environment', 'sandbox'),
-                'status_label' => $qbConnected ? 'Connected' : 'Not connected',
-            ],
-        ]);
+        return Inertia::render('Tenant/Account/Payments', $this->paymentsPageProps($stripeService));
     }
 
     /**
-     * Stripe Connect + checkout method toggles (detail page).
+     * Legacy URL: Stripe detail used to live here: now the same experience as {@see index()}.
      */
-    public function stripePage(StripeService $stripeService): Response
+    public function stripePage(): RedirectResponse
+    {
+        return redirect()->route('account.payments');
+    }
+
+    /**
+     * @return array{current_processor: string|null, stripe: array<string, mixed>, paymentMethods: array<int, array{code: string, label: string, is_enabled: bool}>}
+     */
+    private function paymentsPageProps(StripeService $stripeService): array
     {
         $settings = AccountSettings::getCurrent();
         $stripeConfig = PaymentConfiguration::forStripe($settings);
-        $qbConfig = PaymentConfiguration::forQuickbooks($settings);
-        $qbConnected = $qbConfig->quickbooksConnected();
 
-        if ($stripeConfig->stripe_account_id && ! $qbConnected) {
+        if ($stripeConfig->stripe_account_id) {
             try {
                 $stripeService->syncAccount($stripeConfig);
                 $stripeConfig->refresh();
             } catch (\Throwable $e) {
-                Log::warning('Stripe account sync failed on Stripe payment page', [
+                Log::warning('Stripe account sync failed on Payments page', [
                     'configuration_id' => $stripeConfig->id,
                     'error' => $e->getMessage(),
                 ]);
@@ -90,7 +72,9 @@ class PaymentConfigurationController extends Controller
         $stripeClaimed = PaymentConfiguration::stripeConnectClaimed($settings);
         $meta = $stripeConfig->meta ?? [];
 
-        return Inertia::render('Tenant/Account/Payments/Stripe', [
+        // `current_processor` is legacy; hub is Stripe-only — kept for any older consumers of this prop.
+        return [
+            'current_processor' => $stripeClaimed ? 'stripe' : null,
             'stripe' => [
                 'account_id' => $stripeConfig->stripe_account_id,
                 'charges_enabled' => $stripeConfig->stripe_charges_enabled,
@@ -103,67 +87,11 @@ class PaymentConfigurationController extends Controller
                 'setup_hint' => $stripeConfig->stripeSetupHint(),
                 'status_label' => $this->stripeStatusLabel($stripeConfig),
                 'connected_at' => $meta['connect_created_at'] ?? $meta['connected_at'] ?? null,
-                /** Stripe Connect does not store OAuth expiry in Maritime; UI explains. */
                 'access_token_expires_at' => null,
                 'refresh_token_expires_at' => null,
             ],
             'paymentMethods' => $methods,
-            'can_connect_stripe' => ! $qbConnected,
-            'can_use_stripe_payment_methods' => ! $qbConnected,
-        ]);
-    }
-
-    /**
-     * QuickBooks Online OAuth + company details (detail page).
-     */
-    public function quickbooksPage(Request $request): Response
-    {
-        $settings = AccountSettings::getCurrent();
-        $qbConfig = PaymentConfiguration::forQuickbooks($settings);
-        $qbMeta = $qbConfig->meta ?? [];
-        $qbConnected = $qbConfig->quickbooksConnected();
-        $stripeClaimed = PaymentConfiguration::stripeConnectClaimed($settings);
-
-        $oauthNotice = $this->quickbooksOAuthNotice($request);
-
-        return Inertia::render('Tenant/Account/Payments/Quickbooks', [
-            'quickbooks' => [
-                'connected' => $qbConnected,
-                'realm_id' => $qbConfig->qbo_realm_id,
-                'environment' => $qbMeta['qbo_environment'] ?? config('services.quickbooks.environment', 'sandbox'),
-                'company_name' => $qbMeta['qbo_company_name'] ?? null,
-                'legal_name' => $qbMeta['qbo_legal_name'] ?? null,
-                'country' => $qbMeta['qbo_country'] ?? null,
-                'email' => $qbMeta['qbo_email'] ?? null,
-                'connected_at' => $qbMeta['qbo_connected_at'] ?? null,
-                'token_expires_at' => optional($qbConfig->qbo_token_expires_at)->toIso8601String(),
-                'refresh_token_expires_at' => $qbMeta['qbo_refresh_token_expires_at'] ?? null,
-            ],
-            'can_connect_quickbooks' => ! $stripeClaimed,
-            'oauthNotice' => $oauthNotice,
-        ]);
-    }
-
-    /**
-     * @return array{type: string, message: string}|null
-     */
-    private function quickbooksOAuthNotice(Request $request): ?array
-    {
-        if ($request->boolean('qbo_connected')) {
-            return ['type' => 'success', 'message' => 'QuickBooks Online connected successfully.'];
-        }
-        if ($request->filled('qbo_error')) {
-            return [
-                'type' => 'error',
-                'message' => match ($request->query('qbo_error')) {
-                    'token' => 'QuickBooks did not return a token. Confirm QUICKBOOKS_REDIRECT_URI matches the redirect URL registered in your Intuit app exactly, then try again.',
-                    'stripe_active' => 'QuickBooks was not connected because this workspace already has Stripe. Disconnect Stripe on the Stripe page first, then connect QuickBooks Online.',
-                    default => 'QuickBooks connection failed. Please try again.',
-                },
-            ];
-        }
-
-        return null;
+        ];
     }
 
     private function stripeStatusLabel(PaymentConfiguration $stripeConfig): string
@@ -190,13 +118,6 @@ class PaymentConfigurationController extends Controller
     public function syncFromStripe(StripeService $stripeService): RedirectResponse
     {
         $settings = AccountSettings::getCurrent();
-
-        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
-            return back()->with(
-                'error',
-                'QuickBooks Online is the active payment connection. Disconnect QuickBooks before using Stripe on this page.'
-            );
-        }
 
         $stripeConfig = PaymentConfiguration::forStripe($settings);
 
@@ -234,13 +155,6 @@ class PaymentConfigurationController extends Controller
     public function updateMethod(Request $request)
     {
         $settings = AccountSettings::getCurrent();
-
-        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
-            return back()->with(
-                'error',
-                'Payment method toggles apply to Stripe only. Disconnect QuickBooks Online to manage Stripe payment methods.'
-            );
-        }
 
         $validated = $request->validate([
             'code' => 'required|string|max:50',

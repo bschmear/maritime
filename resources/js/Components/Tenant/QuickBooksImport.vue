@@ -8,7 +8,7 @@ const props = defineProps({
         type: String,
         default: 'contact',
     },
-    /** When true, user picks Contact vs Lead in the modal (e.g. Payments → QuickBooks page). */
+    /** When true, user picks Contact vs Lead in the modal (e.g. Integrations → QuickBooks page). */
     allowTypeChoice: {
         type: Boolean,
         default: false,
@@ -40,7 +40,7 @@ function closeImportModal() {
 function submitImport() {
     submitting.value = true;
     axios
-        .post(route('account.payments.quickbooks.import-customers'), { type: effectiveType.value })
+        .post(route('quickbooks.import-customers'), { type: effectiveType.value })
         .then((res) => {
             closeImportModal();
             window.alert(res.data.message || 'Import queued.');
@@ -107,7 +107,7 @@ defineExpose({ openImportModal, closeImportModal });
                     </div>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
-                    Connect QuickBooks under Account → Payments if you have not already. Large companies may take a few minutes.
+                    Connect QuickBooks under Integrations if you have not already. Large companies may take a few minutes.
                 </p>
             </div>
             <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-4 dark:border-gray-600">

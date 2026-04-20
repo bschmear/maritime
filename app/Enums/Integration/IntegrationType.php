@@ -5,6 +5,7 @@ namespace App\Enums\Integration;
 enum IntegrationType: int
 {
     case MailChimp = 1;
+    case QuickBooks = 2;
 
     public function isEnabled(): bool
     {
@@ -17,6 +18,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'MailChimp',
+            self::QuickBooks => 'QuickBooks Online',
         };
     }
 
@@ -24,6 +26,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'Online platform for sending professional e-mails to mass recipients.',
+            self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Maritime.',
         };
     }
 
@@ -31,6 +34,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'get',
+            self::QuickBooks => 'get',
         };
     }
 
@@ -38,6 +42,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'mailchimp',
+            self::QuickBooks => 'account_balance_wallet',
         };
     }
 
@@ -45,6 +50,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'email',
+            self::QuickBooks => 'accounting',
         };
     }
 
@@ -52,6 +58,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => true,
+            self::QuickBooks => true,
         };
     }
 
@@ -59,6 +66,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'mailchimp',
+            self::QuickBooks => 'quickbooks',
         };
     }
 

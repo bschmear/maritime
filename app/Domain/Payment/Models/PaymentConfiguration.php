@@ -49,7 +49,6 @@ class PaymentConfiguration extends Model
 
     /**
      * Whether this account has started (or completed) Stripe Connect for customer payments.
-     * Used with {@see quickbooksConnected()} to enforce a single active processor.
      */
     public static function stripeConnectClaimed(?AccountSettings $settings = null): bool
     {

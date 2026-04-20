@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Domain\Payment\Models\PaymentConfiguration;
-use App\Models\AccountSettings;
 use App\Models\Tenant;
 use App\Services\Payments\QuickBooksOAuthService;
 use Carbon\Carbon;
@@ -44,7 +42,7 @@ class QuickBooksOAuthController extends Controller
 
         if (! $row || now()->gt(Carbon::parse($row->expires_at))) {
             return response(
-                'This QuickBooks authorization link is invalid or has expired. Open Account → Payments and click Connect again.',
+                'This QuickBooks authorization link is invalid or has expired. Open Integrations → QuickBooks and click Connect again.',
                 410
             )->header('Content-Type', 'text/plain; charset=UTF-8');
         }
@@ -78,19 +76,17 @@ class QuickBooksOAuthController extends Controller
             tenancy()->initialize($tenant);
 
             try {
-                if (PaymentConfiguration::stripeConnectClaimed(AccountSettings::getCurrent())) {
-                    return redirect()->away($this->tenantPaymentsUrl($domain, [
-                        'qbo_error' => 'stripe_active',
-                    ]));
-                }
-
                 $tokens = $oauth->exchangeCode($code, $redirectUri);
 
-                $config = PaymentConfiguration::forQuickbooks(AccountSettings::getCurrent());
                 $companyInfo = $oauth->fetchCompanyInfo($tokens['access_token'], $realmId);
-                $oauth->persistConnection($config, $realmId, $tokens, $companyInfo);
+                $oauth->persistConnectionToIntegration(
+                    (int) $row->tenant_user_profile_id,
+                    $realmId,
+                    $tokens,
+                    $companyInfo
+                );
 
-                return redirect()->away($this->tenantPaymentsUrl($domain, [
+                return redirect()->away($this->tenantQuickbooksUrl($domain, [
                     'qbo_connected' => '1',
                 ]));
             } finally {
@@ -102,16 +98,16 @@ class QuickBooksOAuthController extends Controller
                 'redirect_uri' => $redirectUri,
             ]);
 
-            return redirect()->away($this->tenantPaymentsUrl($domain, [
+            return redirect()->away($this->tenantQuickbooksUrl($domain, [
                 'qbo_error' => 'token',
             ]));
         }
     }
 
-    protected function tenantPaymentsUrl(string $domain, array $query): string
+    protected function tenantQuickbooksUrl(string $domain, array $query): string
     {
         $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
 
-        return $scheme.'://'.$domain.'/account/payments/quickbooks?'.http_build_query($query);
+        return $scheme.'://'.$domain.'/integrations/quickbooks?'.http_build_query($query);
     }
 }

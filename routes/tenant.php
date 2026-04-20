@@ -28,6 +28,7 @@ use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\IntegrationController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
+use App\Http\Controllers\Tenant\Integrations\QuickbooksController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
@@ -43,7 +44,6 @@ use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
-use App\Http\Controllers\Tenant\QuickBooksController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SchedulingController;
@@ -466,18 +466,9 @@ Route::middleware([
             Route::post('/update', [AccountController::class, 'update'])->name('update');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
             Route::get('/payments/stripe', [PaymentConfigurationController::class, 'stripePage'])->name('payments.stripe');
-            Route::get('/payments/quickbooks', [PaymentConfigurationController::class, 'quickbooksPage'])->name('payments.quickbooks');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');
             Route::post('/payments/sync-stripe', [PaymentConfigurationController::class, 'syncFromStripe'])->name('payments.sync-stripe');
             Route::patch('/payments/methods', [PaymentConfigurationController::class, 'updateMethod'])->name('payments.methods');
-
-            // QuickBooks Online OAuth bookends (callback lives on the central app domain).
-            Route::get('/payments/quickbooks/connect', [QuickBooksController::class, 'connect'])
-                ->name('payments.quickbooks.connect');
-            Route::post('/payments/quickbooks/disconnect', [QuickBooksController::class, 'disconnect'])
-                ->name('payments.quickbooks.disconnect');
-            Route::post('/payments/quickbooks/import-customers', [QuickBooksController::class, 'importCustomers'])
-                ->name('payments.quickbooks.import-customers');
         });
 
         Route::get('/records/lookup', [GeneralController::class, 'lookup'])->name('records.lookup');
@@ -560,6 +551,13 @@ Route::middleware([
                 Route::post('/lists/{listId}/segments/{segmentId}/push', [MailchimpController::class, 'pushToSegment'])->name('mailchimp.pushToSegment');
 
                 Route::get('/lists/pull', [MailchimpController::class, 'pullContacts'])->name('mailchimp.pullContacts');
+            });
+
+            Route::prefix('quickbooks')->group(function () {
+                Route::get('/', [QuickbooksController::class, 'show'])->name('quickbooks');
+                Route::delete('/', [QuickbooksController::class, 'destroy'])->name('quickbooks.destroy');
+                Route::get('/connect', [QuickbooksController::class, 'connect'])->name('quickbooks.connect');
+                Route::post('/import-customers', [QuickbooksController::class, 'importCustomers'])->name('quickbooks.import-customers');
             });
         });
 

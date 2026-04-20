@@ -7,10 +7,5 @@ return [
             'supports' => ['cards', 'ach'],
             'onboarding' => 'redirect',
         ],
-        'quickbooks' => [
-            'label' => 'QuickBooks Payments',
-            'supports' => ['invoicing'],
-            'onboarding' => 'oauth',
-        ],
     ],
 ];

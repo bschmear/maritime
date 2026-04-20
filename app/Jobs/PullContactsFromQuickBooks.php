@@ -6,9 +6,11 @@ namespace App\Jobs;
 
 use App\Domain\Contact\Actions\CreateContact;
 use App\Domain\Contact\Models\Contact;
+use App\Domain\Integration\Models\Integration;
 use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Models\Lead;
-use App\Domain\Payment\Models\PaymentConfiguration;
+use App\Enums\Integration\IntegrationSyncStatus;
+use App\Enums\Integration\IntegrationType;
 use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,19 +33,19 @@ class PullContactsFromQuickBooks implements ShouldQueue
         CreateContact $createContact,
         CreateLead $createLead,
     ): void {
-        $config = PaymentConfiguration::forQuickbooks();
+        $integration = Integration::query()
+            ->where('integration_type', IntegrationType::QuickBooks)
+            ->first();
 
-        if (! $config->quickbooksConnected()) {
-            Log::warning('PullContactsFromQuickBooks: QuickBooks not connected');
+        if (! $integration?->access_token || ! $integration->refresh_token) {
+            Log::warning('PullContactsFromQuickBooks: QuickBooks integration not connected');
 
             return;
         }
 
-        $config->update([
-            'meta' => array_merge($config->meta ?? [], [
-                'qbo_import_status' => 'syncing',
-                'qbo_import_error' => null,
-            ]),
+        $integration->update([
+            'sync_status' => IntegrationSyncStatus::Syncing,
+            'sync_error_message' => null,
         ]);
 
         try {
@@ -52,8 +54,8 @@ class PullContactsFromQuickBooks implements ShouldQueue
 
             do {
                 $sql = 'select * from Customer STARTPOSITION '.$start.' MAXRESULTS '.$pageSize;
-                $payload = $oauth->queryAccounting($config, $sql);
-                $config->refresh();
+                $payload = $oauth->queryAccountingForIntegration($integration, $sql);
+                $integration->refresh();
 
                 if (! empty($payload['Fault'])) {
                     $msg = $this->faultMessage($payload['Fault']);
@@ -77,13 +79,11 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 $start += $pageSize;
             } while ($count === $pageSize);
 
-            $config->refresh();
-            $config->update([
-                'meta' => array_merge($config->meta ?? [], [
-                    'qbo_import_status' => 'success',
-                    'qbo_import_error' => null,
-                    'qbo_import_completed_at' => now()->toIso8601String(),
-                ]),
+            $integration->refresh();
+            $integration->update([
+                'sync_status' => IntegrationSyncStatus::Success,
+                'last_synced_at' => now(),
+                'sync_error_message' => null,
             ]);
         } catch (\Throwable $e) {
             Log::error('PullContactsFromQuickBooks failed', [
@@ -92,12 +92,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            $config->refresh();
-            $config->update([
-                'meta' => array_merge($config->meta ?? [], [
-                    'qbo_import_status' => 'failed',
-                    'qbo_import_error' => $e->getMessage(),
-                ]),
+            $integration->refresh();
+            $integration->update([
+                'sync_status' => IntegrationSyncStatus::Failed,
+                'sync_error_message' => $e->getMessage(),
             ]);
 
             throw $e;

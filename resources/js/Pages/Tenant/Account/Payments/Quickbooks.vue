@@ -54,7 +54,7 @@ function disconnectQuickbooks() {
     if (!props.quickbooks?.connected || disconnectingQb.value) return;
     if (!confirm('Disconnect QuickBooks Online from this workspace?')) return;
     disconnectingQb.value = true;
-    router.post(route('account.payments.quickbooks.disconnect'), {}, {
+    router.delete(route('quickbooks.destroy'), {
         preserveScroll: true,
         onFinish: () => {
             disconnectingQb.value = false;
@@ -74,7 +74,22 @@ function disconnectQuickbooks() {
                     QuickBooks Online
                 </h2>
                 <p class="mt-2 text-md text-gray-600 dark:text-gray-400">
-                    Connect your Intuit company for invoicing and customer sync. OAuth tokens are encrypted at rest.
+                    QuickBooks Online is managed under Integrations. This page is legacy; use Integrations → QuickBooks for connect, disconnect, and customer import.
+                </p>
+                <p class="mt-2">
+                    <Link
+                        :href="route('integrations')"
+                        class="text-md font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                    >
+                        Open Integrations
+                    </Link>
+                    <span class="mx-2 text-gray-400">·</span>
+                    <Link
+                        :href="route('quickbooks')"
+                        class="text-md font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                    >
+                        QuickBooks settings
+                    </Link>
                 </p>
                 <Link
                     :href="route('account.payments')"
@@ -229,7 +244,7 @@ function disconnectQuickbooks() {
                 <div class="mt-4 flex flex-col gap-2 border-t border-gray-100 pt-4 dark:border-gray-700 sm:flex-row">
                     <a
                         v-if="can_connect_quickbooks"
-                        :href="route('account.payments.quickbooks.connect')"
+                        :href="route('quickbooks.connect')"
                         class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-md font-medium text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                     >
                         <span class="material-icons text-lg">{{ quickbooks?.connected ? 'sync' : 'link' }}</span>

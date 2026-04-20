@@ -38,6 +38,9 @@ function configureHref(slug) {
     if (slug === 'mailchimp') {
         return route('mailchimp');
     }
+    if (slug === 'quickbooks') {
+        return route('quickbooks');
+    }
     return null;
 }
 </script>

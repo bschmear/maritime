@@ -14,7 +14,7 @@ const props = defineProps({
     },
     quickbooks: {
         type: Object,
-        required: true,
+        default: () => ({}),
     },
 });
 
@@ -41,7 +41,7 @@ const currentStatusDescription = computed(() => {
     if (props.current_processor === 'stripe') {
         return props.stripe?.status_label || 'Stripe';
     }
-    return 'Connect Stripe or QuickBooks on the pages below. Only one can be active at a time.';
+    return 'Connect Stripe for invoice payments. QuickBooks accounting sync lives under Integrations.';
 });
 </script>
 
@@ -117,7 +117,7 @@ const currentStatusDescription = computed(() => {
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Link
-                    :href="route('account.payments.stripe')"
+                    :href="route('account.payments')"
                     class="group flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-700"
                 >
                     <div class="flex items-start justify-between gap-3">
@@ -138,7 +138,7 @@ const currentStatusDescription = computed(() => {
                 </Link>
 
                 <Link
-                    :href="route('account.payments.quickbooks')"
+                    :href="route('quickbooks')"
                     class="group flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-emerald-400 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-emerald-600"
                 >
                     <div class="flex items-start justify-between gap-3">

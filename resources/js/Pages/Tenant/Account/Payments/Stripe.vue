@@ -1,4 +1,8 @@
 <script setup>
+/**
+ * Reserved: full Stripe-only layout (breadcrumbs, long-form copy). Not routed — Account → Payments
+ * uses `Payments.vue`. Kept for reference if we split the hub again.
+ */
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';

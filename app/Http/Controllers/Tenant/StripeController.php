@@ -18,15 +18,6 @@ class StripeController extends Controller
     {
         $settings = AccountSettings::getCurrent();
 
-        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
-            return redirect()
-                ->route('account.payments.stripe')
-                ->with(
-                    'error',
-                    'This workspace already uses QuickBooks Online for payments. Disconnect QuickBooks before connecting Stripe.'
-                );
-        }
-
         $config = PaymentConfiguration::forStripe($settings);
 
         if (! $config->stripe_account_id) {
@@ -56,7 +47,7 @@ class StripeController extends Controller
 
         if (! $config->stripe_account_id) {
             return redirect()
-                ->route('account.payments.stripe')
+                ->route('account.payments')
                 ->with('error', 'Stripe is not connected.');
         }
 
@@ -72,7 +63,7 @@ class StripeController extends Controller
         ]);
 
         return redirect()
-            ->route('account.payments.stripe')
+            ->route('account.payments')
             ->with('success', 'Stripe has been disconnected from this workspace.');
     }
 
@@ -80,17 +71,11 @@ class StripeController extends Controller
     {
         $settings = AccountSettings::getCurrent();
 
-        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
-            return redirect()
-                ->route('account.payments.stripe')
-                ->with('error', 'QuickBooks Online is active. Disconnect QuickBooks before finishing Stripe setup.');
-        }
-
         $config = PaymentConfiguration::forStripe($settings);
         $stripeService->syncAccount($config);
 
         return redirect()
-            ->route('account.payments.stripe')
+            ->route('account.payments')
             ->with('success', 'Stripe account updated.');
     }
 
@@ -102,17 +87,11 @@ class StripeController extends Controller
     {
         $settings = AccountSettings::getCurrent();
 
-        if (PaymentConfiguration::forQuickbooks($settings)->quickbooksConnected()) {
-            return redirect()
-                ->route('account.payments.stripe')
-                ->with('error', 'QuickBooks Online is active. Disconnect QuickBooks before continuing Stripe setup.');
-        }
-
         $config = PaymentConfiguration::forStripe($settings);
 
         if (! $config->stripe_account_id) {
             return redirect()
-                ->route('account.payments.stripe')
+                ->route('account.payments')
                 ->with('error', 'No Stripe account found. Open Payments → Stripe and connect first.');
         }
 
