@@ -1,5 +1,8 @@
+
+Copy
+
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
@@ -32,19 +35,16 @@ defineProps({
         ],
     },
 });
- 
-// ── Hero rulers: vertical = positive at top → negative below (depth down); horizontal = fixed ──
+
+// ── Hero rulers ──
 const DEPTH_STEP_FT = 10;
-/** Extra range so vertical strips don’t run out on tall pages. */
 const STRIP_HALF_STEPS = 80;
 const heroStripTicksFt = Array.from(
     { length: STRIP_HALF_STEPS * 2 + 1 },
     (_, i) => (i - STRIP_HALF_STEPS) * DEPTH_STEP_FT,
 );
-/** Vertical tape: high readings at top, sea level mid-strip, negative below (descending). */
 const heroVerticalStripTicksFt = [...heroStripTicksFt].reverse();
 
-/** Bottom tape: −60′ … +60′ by 10′ steps, full width via flex-1. */
 const HORIZ_HALF_STEPS = 6;
 const heroHorizontalTickFt = Array.from(
     { length: HORIZ_HALF_STEPS * 2 + 1 },
@@ -52,12 +52,18 @@ const heroHorizontalTickFt = Array.from(
 );
 
 const scrollY = ref(0);
-/** Subtle vertical tape motion vs page scroll (depth cue). */
 const VERTICAL_RULER_SCROLL_FACTOR = 0.24;
+/** 0′ on the vertical rulers (and the sea line) sit this far down: 0 = top, 1 = bottom. */
+const HERO_AXIS_ZERO_FRACTION = 0.70;
+
+/** Pixels the hero wave (inner) and vertical rulers are shifted for scroll parallax. */
+const waveParallaxPx = computed(() => scrollY.value * VERTICAL_RULER_SCROLL_FACTOR);
+
 
 const leftRulerViewport = ref(null);
 const leftRulerStrip = ref(null);
 const verticalAlignPx = ref(0);
+
 
 function handleScroll() {
     scrollY.value = window.scrollY;
@@ -75,15 +81,18 @@ function measureHeroRulers() {
                 const z = vStrip.querySelector('.hero-axis-zero');
                 if (z) {
                     const vpr = vVp.getBoundingClientRect();
-                    const zr = z.getBoundingClientRect();
-                    const vc = vpr.top + vpr.height / 2;
+                    const zr  = z.getBoundingClientRect();
+                    // Align strip so 0′ is ~3/4 down the ruler viewport (matches the wave)
+                    const vc = vpr.top + vpr.height * HERO_AXIS_ZERO_FRACTION;
                     const zc = zr.top + zr.height / 2;
                     verticalAlignPx.value += vc - zc;
+
                 }
             }
         });
     });
 }
+
 
 onMounted(() => {
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -103,176 +112,213 @@ onUnmounted(() => {
 
     <AppLayout>
         <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
     <!-- ── HERO ─────────────────────────────────────────────────────────── -->
-    <section class="relative flex min-h-[80vh] flex-col justify-center bg-gray-950">
-            <!-- ── Background: coordinate grid ───────────────────────────── -->
-            <div class="pointer-events-none absolute inset-0 hidden select-none opacity-15 md:block" aria-hidden="true">
-                <div
-                    v-for="n in 9"
-                    :key="'v' + n"
-                    class="absolute top-0 bottom-0 w-px bg-primary-400/20"
-                    :style="{ left: `${(n - 1) * 12.5}%` }"
-                />
-                <div
-                    v-for="n in 7"
-                    :key="'h' + n"
-                    class="absolute left-0 right-0 h-px bg-primary-400/20"
-                    :style="{ top: `${(n - 1) * 16.666}%` }"
-                />
-                <div class="absolute top-0 bottom-0 left-1/4 w-px bg-primary-400/35" />
-                <div class="absolute top-0 bottom-0 left-3/4 w-px bg-primary-400/25" />
-                <div class="absolute left-0 right-0 top-1/3 h-px bg-primary-400/25" />
-            </div>
+    <section class="relative flex min-h-[85vh] flex-col justify-center overflow-hidden bg-white dark:bg-gray-950 px-6 sm:px-16 lg:px-24 border-b border-gray-300/70 dark:border-primary-400/35">
+ 
+ <!-- ── Background: coordinate grid ───────────────────────────── -->
+ <div class="pointer-events-none absolute inset-0 hidden select-none opacity-50 lg:block" aria-hidden="true">
+     <div
+         v-for="n in 9"
+         :key="'v' + n"
+         class="absolute top-0 bottom-0 w-px bg-primary-400/15 dark:bg-primary-400/20"
+         :style="{ left: `${(n - 1) * 12.5}%` }"
+     />
+     <div
+         v-for="n in 7"
+         :key="'h' + n"
+         class="absolute left-0 right-0 h-px bg-primary-400/15 dark:bg-primary-400/20"
+         :style="{ top: `${(n - 1) * 16.666}%` }"
+     />
+     <div class="absolute top-0 bottom-0 left-1/4 w-px bg-primary-400/30 dark:bg-primary-400/35" />
+     <div class="absolute top-0 bottom-0 left-3/4 w-px bg-primary-400/20 dark:bg-primary-400/25" />
+     <div class="absolute left-0 right-0 top-1/3 h-px bg-primary-400/20 dark:bg-primary-400/25" />
+ </div>
 
-        <!-- ── Left ruler: 0′ centered at rest; strip moves up as you scroll (deeper) ── -->
-        <div
-            ref="leftRulerViewport"
-            class="pointer-events-none absolute bottom-16 left-0 top-16 z-10 hidden w-16 overflow-hidden border-r border-primary-400/35 select-none md:block"
-            aria-hidden="true"
-        >
-            <div
-                ref="leftRulerStrip"
-                class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
-                :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
-            >
-                <div
-                    v-for="ft in heroVerticalStripTicksFt"
-                    :key="`L-${ft}`"
-                    class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-primary-400/50"
-                >
-                    <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Right ruler (mirror of left) ── -->
-        <div
-            class="pointer-events-none absolute bottom-16 right-0 top-16 z-10 hidden w-16 overflow-hidden border-l border-primary-400/35 select-none md:block"
-            aria-hidden="true"
-        >
-            <div
-                class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
-                :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
-            >
-                <div
-                    v-for="ft in heroVerticalStripTicksFt"
-                    :key="`R-${ft}`"
-                    class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-primary-400/50"
-                >
-                    <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
-                </div>
-            </div>
-        </div>
-
- <!-- ── Bottom tape: same height as vertical ruler width (w-16), between corner squares ── -->
+ <!-- ── Sea-level wave ─────────────────────────────────────────── -->
  <div
-     class="pointer-events-none absolute bottom-0 left-16 right-16 z-10 hidden h-16 overflow-hidden border-t border-primary-400/35 select-none md:block"
+     class="pointer-events-none absolute left-0 right-0 bottom-0 z-[5] overflow-hidden select-none hidden lg:block"
+     aria-hidden="true"
+     :style="{
+         top: `calc(${HERO_AXIS_ZERO_FRACTION * 90}%)`,
+         height: `calc(100% + 4rem + ${waveParallaxPx}px)`,
+         transform: `translateY(-${waveParallaxPx}px)`,
+     }"
+ >
+     <div class="relative will-change-transform">
+         <svg class="h-full w-full" viewBox="0 0 1440 500" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+             <defs>
+                 <linearGradient id="waveFillLight" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="0%" stop-color="rgb(56 189 248)" stop-opacity="0.18" />
+                     <stop offset="100%" stop-color="rgb(14 165 233)" stop-opacity="0.07" />
+                 </linearGradient>
+                 <linearGradient id="waveFillDark" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="0%" stop-color="rgb(56 189 248)" stop-opacity="0.22" />
+                     <stop offset="100%" stop-color="rgb(2 132 199)" stop-opacity="0.09" />
+                 </linearGradient>
+             </defs>
+             <path class="wave-back" fill="none" stroke="rgb(125 211 252 / 0.25)" stroke-width="2" d="M0,40 C180,20 360,60 540,40 C720,20 900,60 1080,40 C1260,20 1440,40 1440,40" />
+             <path class="wave-front" fill="none" stroke="rgb(56 189 248 / 0.6)" stroke-width="2.5" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38" />
+             <path class="wave-fill dark:hidden" fill="url(#waveFillLight)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,500 L0,500 Z" />
+             <path class="wave-fill hidden dark:block" fill="url(#waveFillDark)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,500 L0,500 Z" />
+         </svg>
+ 
+     </div>
+ </div>
+
+ <!-- ── Left ruler ── -->
+ <div
+     ref="leftRulerViewport"
+     class="pointer-events-none absolute bottom-16 left-0 top-16 z-10 hidden w-16 overflow-hidden border-r border-gray-300/70 dark:border-primary-400/35 select-none lg:block bg-white dark:bg-gray-950"
      aria-hidden="true"
  >
-     <div class="flex h-full w-full flex-row items-center px-1">
+     <div
+         ref="leftRulerStrip"
+         class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
+         :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
+     >
          <div
-             v-for="ft in heroHorizontalTickFt"
-             :key="`H-${ft}`"
-             class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-mono tabular-nums text-primary-400/50"
+             v-for="ft in heroVerticalStripTicksFt"
+             :key="`L-${ft}`"
+             class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50"
+             :class="{ 'text-sky-600 dark:text-sky-400 font-bold': ft === 0 }"
          >
-             <div class="h-2 w-px shrink-0 bg-primary-400/50" />
+             <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
+         </div>
+     </div>
+ </div>
+
+ <!-- ── Right ruler ── -->
+ <div
+     class="pointer-events-none absolute bottom-16 right-0 top-16 z-10 hidden w-16 overflow-hidden border-l border-gray-300/70 dark:border-primary-400/35 select-none lg:block bg-white dark:bg-gray-950"
+     aria-hidden="true"
+ >
+     <div
+         class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
+         :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
+     >
+         <div
+             v-for="ft in heroVerticalStripTicksFt"
+             :key="`R-${ft}`"
+             class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50"
+             :class="{ 'text-sky-600 dark:text-sky-400 font-bold': ft === 0 }"
+         >
+             <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
+         </div>
+     </div>
+ </div>
+
+ <!-- ── Bottom tape ── -->
+ <div class="pointer-events-none absolute bottom-0 left-16 right-16 z-10 hidden h-16 overflow-hidden border-t border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 select-none lg:block" aria-hidden="true">
+     <div class="flex h-full w-full flex-row items-center px-1">
+         <div v-for="ft in heroHorizontalTickFt" :key="`H-${ft}`" class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50">
+             <div class="h-2 w-px shrink-0 bg-gray-400/60 dark:bg-primary-400/50" />
              <span class="text-center leading-none">{{ ft }}′</span>
          </div>
      </div>
  </div>
 
- <!-- ── Frame corners: w-16 h-16 squares (match ruler module), compass flush in corners ── -->
- <div
-     class="pointer-events-none absolute left-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-r border-primary-400/35 bg-gray-950 text-primary-400/80 select-none md:flex"
-     aria-hidden="true"
- >
+ <!-- ── Frame corners ── -->
+ <div class="pointer-events-none absolute left-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-r border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
      <span class="material-icons text-[28px] leading-none">explore</span>
  </div>
- <div
-     class="pointer-events-none absolute right-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-l border-primary-400/35 bg-gray-950 text-primary-400/80 select-none md:flex"
-     aria-hidden="true"
- >
+ <div class="pointer-events-none absolute right-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-l border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
      <span class="material-icons text-[28px] leading-none">explore</span>
  </div>
- <div
-     class="pointer-events-none absolute bottom-0 left-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-r border-primary-400/35 bg-gray-950 text-primary-400/80 select-none md:flex"
-     aria-hidden="true"
- >
+ <div class="pointer-events-none absolute bottom-0 left-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-r border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
      <span class="material-icons text-[28px] leading-none">explore</span>
  </div>
- <div
-     class="pointer-events-none absolute bottom-0 right-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-l border-primary-400/35 bg-gray-950 text-primary-400/80 select-none md:flex"
-     aria-hidden="true"
- >
+ <div class="pointer-events-none absolute bottom-0 right-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-l border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
      <span class="material-icons text-[28px] leading-none">explore</span>
  </div>
-
- <!-- ── Crosshair center mark ─────────────────────────────────── -->
- <!-- <div class="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
-     <div class="relative w-4 h-4 opacity-20">
-         <div class="absolute top-1/2 left-0 right-0 h-px bg-primary-400" />
-         <div class="absolute left-1/2 top-0 bottom-0 w-px bg-primary-400" />
-         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-primary-400" />
-     </div>
- </div> -->
 
  <!-- ── Content ───────────────────────────────────────────────── -->
- <div class="relative z-10 mx-auto  px-6 sm:px-16 lg:px-24 py-24 lg:py-32 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:items-center">
+ <div class="relative z-10 mx-auto max-w-7xl py-24 lg:py-32 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:items-center">
 
      <!-- Left: copy -->
      <div>
-         <!-- Badge -->
-         <div
-             class="mb-8 inline-flex items-center gap-2 rounded-sm border border-primary-700/60 bg-primary-950/80 px-4 py-2 text-xs font-mono uppercase tracking-[0.15em] text-primary-400"
-         >
+         <!-- Badge — glassmorphism blur pill -->
+         <div class="mb-8 inline-flex items-center gap-2
+                     rounded-md
+                     bg-primary-500/10 backdrop-blur-sm
+                     border border-primary-400/25 dark:border-primary-400/20
+                     px-4 py-2
+                     text-xs font-mono uppercase tracking-[0.15em]
+                     text-primary-600 dark:text-primary-400">
              <span class="material-icons text-sm leading-none">anchor</span>
-             <span>Marina &amp; Dealer Platform</span>
+             <span>Boat Dealership CRM</span>
          </div>
 
-         <h1 class="mb-6 text-4xl font-black leading-[1.06] tracking-tight text-white sm:text-5xl lg:text-[3.5rem]">
-             Your marina,<br />
-             <span class="text-primary-400">one steady helm</span>
-         </h1>
+         <h1 class="mb-6 text-4xl font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white sm:text-5xl lg:text-[3.5rem]">
+            Run your dealership,<br />
+            <span class="text-primary-600 dark:text-primary-400">from lead to close</span>
+        </h1>
 
-         <p class="max-w-lg text-lg leading-relaxed text-gray-400">
-             Docks, fleet, service, and sales in one workspace — see what's on the lot,
-             what's in the yard, and what's closing, without chasing spreadsheets.
-         </p>
+        <p class="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+            Track leads, manage inventory, handle service, and close deals — all in one system built specifically for boat dealerships. No spreadsheets. No disconnected tools.
+        </p>
 
-         <!-- Chip tags -->
-         <div class="mt-7 flex flex-wrap gap-2">
-             <span
-                 class="inline-flex items-center gap-1.5 rounded-sm border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-300"
-             >
-                 <span class="material-icons text-sm text-primary-500">directions_boat</span>
-                 Slips &amp; listings
-             </span>
-             <span
-                 class="inline-flex items-center gap-1.5 rounded-sm border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-300"
-             >
-                 <span class="material-icons text-sm text-primary-500">build</span>
-                 Yard &amp; rigging
-             </span>
-             <span
-                 class="inline-flex items-center gap-1.5 rounded-sm border border-gray-700 bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-300"
-             >
-                 <span class="material-icons text-sm text-primary-500">event</span>
-                 Season &amp; events
-             </span>
-         </div>
+
+        <div class="mt-7 grid grid-cols-2
+            rounded-md
+            bg-gray-400/8 dark:bg-white/5
+            backdrop-blur-sm
+            border border-gray-300/60 dark:border-gray-600/40
+            overflow-hidden">
+
+    <!-- Item -->
+    <div class="flex items-center gap-2 px-4 py-3
+                text-sm font-mono text-gray-700 dark:text-gray-300">
+        <span class="material-icons text-sm text-primary-500">contact_phone</span>
+        Leads & pipeline
+    </div>
+
+    <!-- Item -->
+    <div class="flex items-center gap-2 px-4 py-3
+                border-l border-gray-300/60 dark:border-gray-600/40
+                text-sm font-mono text-gray-700 dark:text-gray-300">
+        <span class="material-icons text-sm text-primary-500">directions_boat</span>
+        Inventory & listings
+    </div>
+
+    <!-- Item -->
+    <div class="flex items-center gap-2 px-4 py-3
+                border-t border-gray-300/60 dark:border-gray-600/40
+                text-sm font-mono text-gray-700 dark:text-gray-300">
+        <span class="material-icons text-sm text-primary-500">receipt_long</span>
+        Deals & invoices
+    </div>
+
+    <!-- Item -->
+    <div class="flex items-center gap-2 px-4 py-3
+                border-t border-l border-gray-300/60 dark:border-gray-600/40
+                text-sm font-mono text-gray-700 dark:text-gray-300">
+        <span class="material-icons text-sm text-primary-500">build_circle</span>
+        Service & work orders
+    </div>
+
+</div>
 
          <!-- CTAs -->
          <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
              <Link
                  :href="route('checkout.plans')"
-                 class="inline-flex items-center justify-center gap-2 rounded-sm bg-primary-600 px-8 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-900/40 transition hover:bg-primary-500"
+                 class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
              >
                  <span>Start free trial</span>
                  <span class="material-icons text-base leading-none">arrow_forward</span>
              </Link>
+             <!-- Secondary CTA — glassmorphism blur button -->
              <Link
                  :href="route('contact')"
-                 class="inline-flex items-center justify-center gap-2 rounded-sm border border-gray-700 bg-gray-900 px-8 py-4 text-sm font-bold uppercase tracking-wide text-gray-300 transition hover:border-primary-600 hover:text-white"
+                 class="inline-flex items-center justify-center gap-2 rounded-md
+                        bg-white/60 dark:bg-white/5
+                        backdrop-blur-sm
+                        border border-gray-300/70 dark:border-gray-600/50
+                        px-8 py-4
+                        text-sm font-bold uppercase tracking-wide
+                        text-gray-700 dark:text-gray-300
+                        transition hover:bg-white/80 dark:hover:bg-white/10 hover:border-primary-400 hover:text-primary-700 dark:hover:border-primary-600 dark:hover:text-white"
              >
                  <span class="material-icons text-base leading-none">call</span>
                  <span>Talk to our team</span>
@@ -280,38 +326,41 @@ onUnmounted(() => {
          </div>
      </div>
 
-     <!-- Right: feature highlights -->
+     <!-- Right: feature highlights — glassmorphism blur card -->
      <div class="relative">
-         <!-- Subtle vertical accent line along left edge of card -->
-         <div class="absolute -left-6 top-4 bottom-4 w-px bg-primary-600/40" />
 
-         <div
-             v-for="(item, idx) in heroHighlights"
-             :key="item.title"
-             :class="[
-                 'relative pl-6',
-                 idx > 0 ? 'mt-8 border-t border-gray-800 pt-8' : '',
-             ]"
-         >
-             <!-- Dot on the left accent line -->
+
+         <!-- Frosted glass wrapper card -->
+         <div class="rounded-md
+                     bg-white/50 dark:bg-white/[0.04]
+                     backdrop-blur-sm
+                     border border-gray-200/80 dark:border-white/10
+                     px-6 py-6
+                     shadow-sm shadow-gray-200/50 dark:shadow-black/20">
+
              <div
-                 class="absolute -left-6 top-0 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-gray-950 bg-primary-600 shadow-[0_0_8px_2px_rgba(var(--color-primary-500),0.35)]"
-                 :class="idx === 0 ? 'mt-0' : 'mt-8'"
-             />
+                 v-for="(item, idx) in heroHighlights"
+                 :key="item.title"
+                 :class="[ 'relative lg:pl-2', idx > 0 ? 'mt-6 border-t border-gray-200/70 dark:border-white/8 pt-6' : '', ]"
+             >
+          
 
-             <div class="flex items-start gap-4">
-                 <div
-                     class="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-gray-700 bg-gray-900"
-                 >
-                     <span class="material-icons text-xl leading-none text-primary-400">{{ item.icon }}</span>
-                 </div>
-                 <div>
-                     <h2 class="mb-1.5 text-lg font-bold uppercase tracking-wide text-white">
-                         {{ item.title }}
-                     </h2>
-                     <p class="text-lg leading-relaxed text-gray-400">
-                         {{ item.description }}
-                     </p>
+                 <div class="flex items-start gap-4">
+                     <!-- Icon tile — inner glass tile -->
+                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md
+                                 bg-primary-50/80 dark:bg-primary-950/50
+                                 backdrop-blur-sm
+                                 border border-primary-200/60 dark:border-primary-700/40">
+                         <span class="material-icons text-xl leading-none text-primary-500 dark:text-primary-400">{{ item.icon }}</span>
+                     </div>
+                     <div>
+                         <h2 class="mb-1.5 text-lg font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+                             {{ item.title }}
+                         </h2>
+                         <p class="text-base leading-relaxed text-gray-600 dark:text-gray-400">
+                             {{ item.description }}
+                         </p>
+                     </div>
                  </div>
              </div>
          </div>
@@ -319,11 +368,9 @@ onUnmounted(() => {
  </div>
 
  <!-- ── Bottom fade into next section ─────────────────────────── -->
- <div
-     class="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-950 to-transparent"
-     aria-hidden="true"
- />
+ <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 dark:from-gray-950 to-transparent" aria-hidden="true" />
 </section>
+
 
             <section class="border-b border-gray-200 bg-white px-6 py-20 dark:border-gray-800 dark:bg-gray-900 sm:px-12 lg:px-24">
                 <div class="mx-auto max-w-7xl">
@@ -750,3 +797,31 @@ onUnmounted(() => {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Wave animation — back wave drifts right, front wave drifts left */
+@keyframes waveSlideRight {
+    from { transform: translateX(0); }
+    to   { transform: translateX(50px); }
+}
+@keyframes waveSlideLeft {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50px); }
+}
+
+.wave-back {
+    animation: waveSlideRight 4s ease-in-out infinite alternate;
+    transform-origin: center;
+}
+
+.wave-front {
+    animation: waveSlideLeft 4s ease-in-out infinite alternate;
+    transform-origin: center;
+}
+
+.wave-fill {
+    animation: waveSlideLeft 3s ease-in-out infinite alternate;
+    transform-origin: center;
+}
+</style>
+
