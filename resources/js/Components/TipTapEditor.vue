@@ -10,7 +10,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="editor.chain().focus().toggleBold().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('bold') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('bold') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Bold (Ctrl+B)"
@@ -22,7 +22,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleItalic().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('italic') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('italic') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Italic (Ctrl+I)"
@@ -34,7 +34,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleUnderline().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('underline') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('underline') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Underline (Ctrl+U)"
@@ -46,7 +46,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleStrike().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('strike') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('strike') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Strikethrough"
@@ -63,7 +63,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="editor.chain().focus().toggleHeading({ level: 1 }).run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('heading', { level: 1 }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('heading', { level: 1 }) }"
                             class="px-2.5 py-1.5 text-sm font-bold text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Heading 1"
@@ -73,7 +73,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleHeading({ level: 2 }).run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('heading', { level: 2 }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('heading', { level: 2 }) }"
                             class="px-2.5 py-1.5 text-sm font-bold text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Heading 2"
@@ -83,7 +83,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleHeading({ level: 3 }).run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('heading', { level: 3 }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('heading', { level: 3 }) }"
                             class="px-2.5 py-1.5 text-sm font-bold text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Heading 3"
@@ -93,7 +93,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleHeading({ level: 4 }).run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('heading', { level: 4 }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('heading', { level: 4 }) }"
                             class="px-2.5 py-1.5 text-sm font-bold text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Heading 4"
@@ -108,7 +108,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="editor.chain().focus().toggleBulletList().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('bulletList') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('bulletList') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Bullet List"
@@ -120,7 +120,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleOrderedList().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('orderedList') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('orderedList') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Numbered List"
@@ -143,7 +143,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="editor.chain().focus().toggleBlockquote().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('blockquote') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('blockquote') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Quote"
@@ -156,7 +156,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleCode().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('code') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('code') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Code"
@@ -168,7 +168,7 @@
 
                         <button
                             @click="editor.chain().focus().toggleCodeBlock().run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('codeBlock') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('codeBlock') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Code Block"
@@ -185,7 +185,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="editor.chain().focus().setTextAlign('left').run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive({ textAlign: 'left' }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive({ textAlign: 'left' }) }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Align Left"
@@ -197,7 +197,7 @@
 
                         <button
                             @click="editor.chain().focus().setTextAlign('center').run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive({ textAlign: 'center' }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive({ textAlign: 'center' }) }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Align Center"
@@ -209,7 +209,7 @@
 
                         <button
                             @click="editor.chain().focus().setTextAlign('right').run()"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive({ textAlign: 'right' }) }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive({ textAlign: 'right' }) }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Align Right"
@@ -237,7 +237,7 @@
                     <div class="flex items-center gap-1">
                         <button
                             @click="setLink"
-                            :class="{ 'bg-secondary-100 dark:bg-secondary-900/50 text-secondary-600 dark:text-secondary-400': editor?.isActive('link') }"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('link') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                             type="button"
                             title="Add Link"
@@ -277,7 +277,7 @@
         <!-- Editor -->
         <editor-content
             :editor="editor"
-            class="prose prose-sm sm:prose lg:prose-lg !max-w-none block w-full px-4 py-3 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-lg focus-within:ring-2 focus-within:ring-secondary-500 focus-within:border-secondary-500 dark:focus-within:ring-secondary-400 dark:focus-within:border-secondary-400 min-h-[300px] transition-colors"
+            class="prose prose-sm sm:prose lg:prose-lg !max-w-none block w-full px-4 py-3 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-lg focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 dark:focus-within:ring-primary-400 dark:focus-within:border-primary-400 min-h-[300px] transition-colors"
         />
 
         <InputError v-if="error" class="mt-2" :message="error" />
@@ -377,7 +377,7 @@ onMounted(() => {
             Link.configure({
                 openOnClick: false,
                 HTMLAttributes: {
-                    class: 'text-secondary-600 dark:text-secondary-400 underline hover:text-secondary-800 dark:hover:text-secondary-300'
+                    class: 'text-primary-600 dark:text-primary-400 underline hover:text-primary-800 dark:hover:text-primary-300'
                 },
             }),
             ...(props.showAnchor ? [Anchor] : [])

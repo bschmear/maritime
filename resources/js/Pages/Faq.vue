@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     faqs: {
@@ -10,14 +10,8 @@ const props = defineProps({
     },
 });
 
-const openId = ref(null);
-
 const featured = computed(() => props.faqs.filter((f) => f.featured));
 const rest = computed(() => props.faqs.filter((f) => !f.featured));
-
-function toggle(id) {
-    openId.value = openId.value === id ? null : id;
-}
 </script>
 
 <template>
@@ -39,9 +33,9 @@ function toggle(id) {
 
                 <!-- Hero text -->
                 <div class="relative max-w-3xl pb-16">
-                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-500/10 px-4 py-1.5">
-                        <span class="h-1.5 w-1.5 rounded-full bg-primary-400"></span>
-                        <span class="text-lg font-medium tracking-wide text-primary-300">FAQs</span>
+                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-500/30 bg-primary-500/10 px-4 py-2">
+                        <span class="material-icons text-base leading-none text-primary-300">quiz</span>
+                        <span class="text-sm font-medium tracking-wide text-primary-300">FAQs</span>
                     </div>
                     <h1 class="mb-5 text-5xl font-bold leading-tight tracking-tight text-white sm:text-6xl">
                         Frequently asked questions
@@ -62,30 +56,26 @@ function toggle(id) {
 
             <!-- FAQ content -->
             <section class="px-6 py-16 sm:px-12 lg:px-24">
-                <div class="mx-auto ">
+                <div class="mx-auto max-w-7xl">
                     <div class="grid gap-16 lg:grid-cols-3 lg:gap-24">
 
-                        <!-- Left rail -->
+                        <!-- Left rail: jump links -->
                         <div class="lg:col-span-1">
                             <div class="lg:sticky lg:top-24">
                                 <p class="mb-2 text-sm font-semibold uppercase tracking-widest text-primary-600">Top questions</p>
                                 <h2 class="mb-6 text-2xl font-bold tracking-tight text-gray-950">The essentials</h2>
-                                <nav class="space-y-1">
-                                    <button
+                                <nav v-if="featured.length > 0" class="space-y-1">
+                                    <a
                                         v-for="faq in featured"
                                         :key="faq.id"
-                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition"
-                                        :class="openId === faq.id
-                                            ? 'bg-primary-50 text-primary-700'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
-                                        @click="toggle(faq.id)"
+                                        :href="'#faq-' + faq.id"
+                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                                     >
                                         <span
-                                            class="material-icons text-xl leading-none transition-colors"
-                                            :class="openId === faq.id ? 'text-primary-500' : 'text-primary-200 group-hover:text-primary-300'"
+                                            class="material-icons text-xl leading-none text-primary-200 transition-colors group-hover:text-primary-400"
                                         >chevron_right</span>
                                         <span class="text-lg font-medium leading-snug">{{ faq.question }}</span>
-                                    </button>
+                                    </a>
                                 </nav>
 
                                 <!-- CTA card -->
@@ -104,77 +94,66 @@ function toggle(id) {
                             </div>
                         </div>
 
-                        <!-- Right: accordion -->
+                        <!-- Right: static Q&A -->
                         <div class="lg:col-span-2">
-
-                            <!-- Featured FAQs -->
-                            <div v-if="featured.length > 0" class="mb-10">
-                                <div class="divide-y divide-gray-100">
-                                    <div v-for="faq in featured" :key="faq.id">
-                                        <button
-                                            class="flex w-full items-start gap-4 py-6 text-left transition"
-                                            @click="toggle(faq.id)"
+                            <div v-if="featured.length > 0" class="mb-12 space-y-6">
+                                <div
+                                    v-for="faq in featured"
+                                    :id="'faq-' + faq.id"
+                                    :key="faq.id"
+                                    class="scroll-mt-28 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800/50"
+                                >
+                                    <div class="flex gap-4">
+                                        <div
+                                            class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-900/40"
                                         >
-                                            <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50">
-                                                <span class="material-icons text-base leading-none text-primary-600">star</span>
-                                            </div>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="pr-8 text-lg font-semibold text-gray-900">{{ faq.question }}</p>
-                                                <Transition
-                                                    enter-active-class="transition-all duration-200 ease-out"
-                                                    enter-from-class="opacity-0 -translate-y-1"
-                                                    enter-to-class="opacity-100 translate-y-0"
-                                                    leave-active-class="transition-all duration-150 ease-in"
-                                                    leave-from-class="opacity-100 translate-y-0"
-                                                    leave-to-class="opacity-0 -translate-y-1"
-                                                >
-                                                    <p v-if="openId === faq.id" class="mt-3 text-lg leading-relaxed text-gray-500">
-                                                        {{ faq.answer }}
-                                                    </p>
-                                                </Transition>
-                                            </div>
-                                            <span
-                                                class="material-icons mt-0.5 shrink-0 text-xl leading-none text-primary-300 transition-transform duration-200"
-                                                :class="{ 'rotate-180': openId === faq.id }"
-                                            >expand_more</span>
-                                        </button>
+                                            <span class="material-icons text-base leading-none text-primary-600 dark:text-primary-400"
+                                                >star</span
+                                            >
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                                {{ faq.question }}
+                                            </h3>
+                                            <p class="mt-3 text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+                                                {{ faq.answer }}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Non-featured FAQs -->
                             <div v-if="rest.length > 0">
-                                <p class="mb-4 text-sm font-semibold uppercase tracking-widest text-primary-400">More questions</p>
-                                <div class="divide-y divide-gray-100">
-                                    <div v-for="faq in rest" :key="faq.id">
-                                        <button
-                                            class="flex w-full items-start gap-4 py-6 text-left transition"
-                                            @click="toggle(faq.id)"
-                                        >
-                                            <div class="min-w-0 flex-1">
-                                                <p class="pr-8 text-lg font-semibold text-gray-900">{{ faq.question }}</p>
-                                                <Transition
-                                                    enter-active-class="transition-all duration-200 ease-out"
-                                                    enter-from-class="opacity-0 -translate-y-1"
-                                                    enter-to-class="opacity-100 translate-y-0"
-                                                    leave-active-class="transition-all duration-150 ease-in"
-                                                    leave-from-class="opacity-100 translate-y-0"
-                                                    leave-to-class="opacity-0 -translate-y-1"
+                                <p class="mb-6 text-sm font-semibold uppercase tracking-widest text-primary-600 dark:text-primary-400">
+                                    More questions
+                                </p>
+                                <div class="space-y-6">
+                                    <div
+                                        v-for="faq in rest"
+                                        :id="'faq-' + faq.id"
+                                        :key="faq.id"
+                                        class="scroll-mt-28 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800/50"
+                                    >
+                                        <div class="flex gap-4">
+                                            <div
+                                                class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700/80"
+                                            >
+                                                <span class="material-icons text-base leading-none text-gray-600 dark:text-gray-300"
+                                                    >help_outline</span
                                                 >
-                                                    <p v-if="openId === faq.id" class="mt-3 text-lg leading-relaxed text-gray-500">
-                                                        {{ faq.answer }}
-                                                    </p>
-                                                </Transition>
                                             </div>
-                                            <span
-                                                class="material-icons mt-0.5 shrink-0 text-xl leading-none text-primary-300 transition-transform duration-200"
-                                                :class="{ 'rotate-180': openId === faq.id }"
-                                            >expand_more</span>
-                                        </button>
+                                            <div class="min-w-0 flex-1">
+                                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                                    {{ faq.question }}
+                                                </h3>
+                                                <p class="mt-3 text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+                                                    {{ faq.answer }}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>

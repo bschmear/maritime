@@ -18,7 +18,7 @@ return new class extends Migration
             $table->boolean('featured')->default(false);
             $table->string('short_description')->nullable();
             $table->json('faqs')->nullable();
-            $table->string('cover_image')->default('');
+            $table->string('cover_image')->nullable()->default('');
             $table->boolean('published')->default(false);
             $table->timestamp('published_at')->nullable();
             $table->softDeletes();

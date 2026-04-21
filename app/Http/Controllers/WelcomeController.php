@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Faq;
@@ -15,31 +16,15 @@ class WelcomeController extends Controller
 {
     public function index(): Response
     {
-
+        PublicPageCache::forgetWelcomeBlogPosts();
         $blogPosts = Cache::remember(PublicPageCache::WELCOME_BLOG_POSTS, now()->addHours(12), function () {
-            $featuredPosts = Post::with(['user', 'category'])
-                ->where('published', true)
-                ->where('featured', true)
-                ->orderBy('published_at', 'desc')
-                ->orderBy('created_at', 'desc')
+            $posts = Post::with(['user', 'category'])
+                ->published()
+                ->featured()
+                ->orderByDesc('published_at')
+                ->orderByDesc('created_at')
                 ->take(3)
                 ->get();
-
-            $remainingCount = 3 - $featuredPosts->count();
-
-            if ($remainingCount > 0) {
-                $latestPosts = Post::with(['user', 'category'])
-                    ->where('published', true)
-                    ->where('featured', false)
-                    ->orderBy('published_at', 'desc')
-                    ->orderBy('created_at', 'desc')
-                    ->take($remainingCount)
-                    ->get();
-
-                $posts = $featuredPosts->merge($latestPosts);
-            } else {
-                $posts = $featuredPosts;
-            }
 
             return $posts->map(function ($post) {
                 $wordCount = str_word_count(strip_tags($post->body ?? ''));
@@ -47,14 +32,14 @@ class WelcomeController extends Controller
 
                 return [
                     'id' => $post->id,
+                    'slug' => $post->slug,
                     'title' => $post->title,
                     'excerpt' => $post->short_description ?? Str::limit(strip_tags($post->body ?? ''), 150),
                     'date' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
                     'author' => $post->user->name ?? 'Anonymous',
                     'category' => $post->category->name ?? 'Uncategorized',
-                    'image' => $post->cover_image ?: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=500&fit=crop',
-                    'readTime' => $readTime . ' min read',
-                    'link' => '/blog/' . $post->slug,
+                    'image' => $post->cover_image ?: 'https://images.unsplash.com/vector-1753704660095-8788aa5fa966?w=800&h=500&fit=crop',
+                    'readTime' => $readTime.' min read',
                 ];
             })->values()->all();
         });
@@ -73,7 +58,7 @@ class WelcomeController extends Controller
                             'annual' => $plan->yearly_price ?? 0,
                         ],
                         'features' => $plan->included ?? [],
-                        'cta' => $plan->popular ? 'Start ' . $plan->name . ' Trial' : 'Get ' . $plan->name,
+                        'cta' => $plan->popular ? 'Start '.$plan->name.' Trial' : 'Get '.$plan->name,
                         'ctaLink' => route('checkout.plans', ['plan' => $plan->id, 'billing' => 'monthly']),
                         'popular' => $plan->popular,
                         'seatLimit' => $plan->seat_limit,

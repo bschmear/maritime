@@ -16,7 +16,7 @@ import Footer from '@/Components/Footer.vue';
         </header>
 
         <!-- Page Content -->
-        <main class="flex-grow bg-gray-100  dark:bg-gray-900">
+        <main class="flex-grow bg-slate-100 dark:bg-slate-950">
             <slot />
         </main>
         <Footer />

@@ -47,7 +47,7 @@ const truncate = (text, length = 50) => {
                             @keyup.enter="searchPosts"
                             type="search"
                             placeholder="Search posts..."
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 pr-10"
+                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 pr-10"
                         />
                         <button @click="searchPosts" class="absolute inset-y-0 right-0 flex items-center pr-3">
                             <svg class="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -58,7 +58,7 @@ const truncate = (text, length = 50) => {
                 </div>
                 <Link
                     :href="route('kiosk.posts.create')"
-                    class="inline-flex items-center justify-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-105 whitespace-nowrap"
+                    class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm whitespace-nowrap"
                 >
                     <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -124,13 +124,13 @@ const truncate = (text, length = 50) => {
                                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                                     <span
                                         v-if="post.published"
-                                        class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:text-green-400"
+                                        class="inline-flex items-center rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-300"
                                     >
                                         Published
                                     </span>
                                     <span
                                         v-else
-                                        class="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-500/20 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:text-yellow-400"
+                                        class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700/50 dark:text-gray-300"
                                     >
                                         Draft
                                     </span>
@@ -142,7 +142,7 @@ const truncate = (text, length = 50) => {
                                     <div class="flex items-center justify-end gap-x-3">
                                         <Link
                                             :href="route('kiosk.posts.edit', post.id)"
-                                            class="inline-flex items-center gap-x-1 text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-300 transition-colors"
+                                            class="inline-flex items-center gap-x-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                                         >
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -172,7 +172,7 @@ const truncate = (text, length = 50) => {
                                     <div class="mt-6">
                                         <Link
                                             :href="route('kiosk.posts.create')"
-                                            class="inline-flex items-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                            class="gradient-btn gap-x-2 rounded-lg px-4 py-2 text-sm font-medium"
                                         >
                                             <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

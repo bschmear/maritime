@@ -59,7 +59,7 @@ const submit = () => {
                                     id="question"
                                     v-model="form.question"
                                     type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     placeholder="e.g., What are your business hours?"
                                     required
                                     autofocus
@@ -74,7 +74,7 @@ const submit = () => {
                                     v-model="form.answer"
                                     id="answer"
                                     rows="6"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                                     placeholder="Provide a detailed answer to this question..."
                                     required
                                 />
@@ -89,7 +89,7 @@ const submit = () => {
                                             v-model="form.featured"
                                             id="featured"
                                             type="checkbox"
-                                            class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-secondary-600 focus:ring-secondary-600 dark:focus:ring-secondary-400 bg-white dark:bg-gray-800"
+                                            class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-600 dark:focus:ring-primary-400 bg-white dark:bg-gray-800"
                                         />
                                     </div>
                                     <div class="ml-3">
@@ -115,7 +115,7 @@ const submit = () => {
                         <button
                             type="submit"
                             :disabled="form.processing"
-                            class="inline-flex items-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
                             <svg
                                 v-if="form.processing"

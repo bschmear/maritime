@@ -31,7 +31,7 @@ const deleteCategory = (category) => {
                 </div>
                 <Link
                     :href="route('kiosk.categories.create')"
-                    class="inline-flex items-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-105"
+                    class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm"
                 >
                     <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -78,7 +78,7 @@ const deleteCategory = (category) => {
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-400">
-                                    <span class="inline-flex items-center rounded-full bg-secondary-100 dark:bg-secondary-500/20 px-2.5 py-0.5 text-xs font-medium text-secondary-800 dark:text-secondary-400">
+                                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-300">
                                         {{ category.posts_count || 0 }} posts
                                     </span>
                                 </td>
@@ -86,7 +86,7 @@ const deleteCategory = (category) => {
                                     <div class="flex items-center justify-end gap-x-3">
                                         <Link
                                             :href="route('kiosk.categories.edit', category.id)"
-                                            class="inline-flex items-center gap-x-1 text-secondary-600 dark:text-secondary-400 hover:text-secondary-900 dark:hover:text-secondary-300 transition-colors"
+                                            class="inline-flex items-center gap-x-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                                         >
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -116,7 +116,7 @@ const deleteCategory = (category) => {
                                     <div class="mt-6">
                                         <Link
                                             :href="route('kiosk.categories.create')"
-                                            class="inline-flex items-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all hover:scale-105"
+                                            class="gradient-btn gap-x-2 rounded-lg px-4 py-2 text-sm font-medium"
                                         >
                                             <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

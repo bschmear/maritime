@@ -70,6 +70,8 @@ class PostController extends Controller
         $validated['user_id'] = auth()->id();
         $validated['slug'] = Str::slug($validated['title']);
 
+        $this->ensurePublishedAtWhenPublished($validated);
+
         $post = Post::create($validated);
 
         if (isset($validated['tags'])) {
@@ -119,6 +121,8 @@ class PostController extends Controller
 
         $validated['slug'] = Str::slug($validated['title']);
 
+        $this->ensurePublishedAtWhenPublished($validated);
+
         $post->update($validated);
 
         if (isset($validated['tags'])) {
@@ -139,5 +143,23 @@ class PostController extends Controller
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post deleted successfully.');
+    }
+
+    /**
+     * When marking a post published without a schedule, default published_at to now.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function ensurePublishedAtWhenPublished(array &$validated): void
+    {
+        if (! ($validated['published'] ?? false)) {
+            return;
+        }
+
+        if (! empty($validated['published_at'])) {
+            return;
+        }
+
+        $validated['published_at'] = now();
     }
 }

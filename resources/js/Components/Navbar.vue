@@ -59,7 +59,9 @@ onMounted(() => {
 </script>
 
 <template>
-    <nav class="w-full border-b border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-sm dark:shadow-navy-950/50 z-10 backdrop-blur-sm bg-white/95 dark:bg-navy-900/95">
+    <nav
+        class="sticky top-0 z-30 w-full border-b border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950"
+    >
         <!-- Primary row: full width, centered links on lg+ (md is too cramped for many links) -->
         <div class="w-full px-4 sm:px-6 lg:px-8">
             <div class="relative flex h-16 items-center justify-between gap-3">
@@ -86,7 +88,7 @@ onMounted(() => {
                             :class="
                                 isNavActive(item.match)
                                     ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-navy-800 dark:hover:text-white'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
                             "
                         >
                             {{ item.label }}
@@ -98,7 +100,7 @@ onMounted(() => {
                             :class="
                                 route().current('dashboard')
                                     ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-navy-800 dark:hover:text-white'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
                             "
                         >
                             Dashboard
@@ -123,7 +125,7 @@ onMounted(() => {
                     <button
                         type="button"
                         @click="cycleTheme"
-                        class="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 dark:text-white-400 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-navy-800 hover:text-primary-700 dark:hover:text-white-300 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400"
+                        class="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 dark:text-white-400 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-gray-800 hover:text-primary-700 dark:hover:text-white-300 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400"
                         :title="theme === 'auto' ? 'Theme: Auto' : theme === 'dark' ? 'Theme: Dark' : 'Theme: Light'"
                     >
                         <svg v-if="theme === 'light'" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -143,7 +145,7 @@ onMounted(() => {
                                 <span class="inline-flex rounded-md">
                                     <button
                                         type="button"
-                                        class="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-navy-900 px-3 py-2 text-sm font-medium leading-4 text-gray-600 dark:text-white-400 transition duration-150 ease-in-out hover:text-gray-900 dark:hover:text-white-300 focus:outline-none"
+                                        class="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium leading-4 text-gray-600 dark:text-white-400 transition duration-150 ease-in-out hover:text-gray-900 dark:hover:text-white-300 focus:outline-none"
                                     >
                                         {{ $page.props.auth.user.name }}
                                         <svg
@@ -199,7 +201,7 @@ onMounted(() => {
                     <button
                         type="button"
                         @click="cycleTheme"
-                        class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 dark:text-white-500 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-navy-800 hover:text-gray-600 dark:hover:text-white-400 focus:outline-none"
+                        class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 dark:text-white-500 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-white-400 focus:outline-none"
                     >
                         <svg v-if="theme === 'light'" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -214,7 +216,7 @@ onMounted(() => {
                     <button
                         type="button"
                         @click="showingNavigationDropdown = !showingNavigationDropdown"
-                        class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 dark:text-white-500 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-navy-800 focus:outline-none"
+                        class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 dark:text-white-500 transition duration-150 ease-in-out hover:bg-primary-50 dark:hover:bg-gray-800 focus:outline-none"
                         :aria-expanded="showingNavigationDropdown"
                         aria-controls="navbar-mobile-menu"
                     >
@@ -243,7 +245,7 @@ onMounted(() => {
         <div
             id="navbar-mobile-menu"
             :class="{ block: showingNavigationDropdown, hidden: !showingNavigationDropdown }"
-            class="lg:hidden border-t border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-900"
+            class="lg:hidden border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
         >
             <div class="max-h-[min(70vh,28rem)] overflow-y-auto">
                 <div class="px-2 pb-2 pt-3 space-y-0.5">
@@ -269,7 +271,7 @@ onMounted(() => {
                     </ResponsiveNavLink>
                 </div>
 
-                <div v-if="isAuthenticated()" class="border-t border-gray-200 dark:border-navy-700 px-2 py-3">
+                <div v-if="isAuthenticated()" class="border-t border-gray-200 px-2 py-3 dark:border-gray-800">
                     <div
                         v-if="$page.props.auth.onTrial"
                         class="mx-3 mb-3 flex w-fit items-center gap-2 rounded-lg border border-amber-200 bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
@@ -300,7 +302,7 @@ onMounted(() => {
                     </ResponsiveNavLink>
                 </div>
 
-                <div v-else class="border-t border-gray-200 dark:border-navy-700 px-2 py-3 space-y-1">
+                <div v-else class="space-y-1 border-t border-gray-200 px-2 py-3 dark:border-gray-800">
                     <ResponsiveNavLink
                         v-if="route().has('login')"
                         :href="route('login')"

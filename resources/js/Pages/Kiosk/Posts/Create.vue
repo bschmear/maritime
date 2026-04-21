@@ -67,7 +67,7 @@ const submit = () => {
                                     id="title"
                                     v-model="form.title"
                                     type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     placeholder="Enter an engaging post title..."
                                     required
                                     autofocus
@@ -85,7 +85,7 @@ const submit = () => {
                                     id="short_description"
                                     v-model="form.short_description"
                                     type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     placeholder="Write a compelling summary..."
                                 />
                                 <InputError class="mt-2" :message="form.errors.short_description" />
@@ -108,7 +108,7 @@ const submit = () => {
                                 <select
                                     v-model="form.category_id"
                                     id="category_id"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                 >
                                     <option value="">Select a category</option>
                                     <option v-for="category in categories" :key="category.id" :value="category.id">
@@ -124,7 +124,7 @@ const submit = () => {
                                     id="cover_image"
                                     v-model="form.cover_image"
                                     type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     placeholder="https://..."
                                 />
                                 <InputError class="mt-2" :message="form.errors.cover_image" />
@@ -141,7 +141,7 @@ const submit = () => {
                                         v-for="tag in tags"
                                         :key="tag.id"
                                         class="inline-flex items-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 ring-1 ring-inset ring-gray-300/50 dark:ring-gray-600/50 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                                        :class="{ 'bg-secondary-100 dark:bg-secondary-900/30 ring-secondary-500/50 dark:ring-secondary-500/50 text-secondary-700 dark:text-secondary-300': form.tags.includes(tag.id) }"
+                                        :class="{ 'bg-primary-100 text-primary-800 ring-primary-500/50 dark:bg-primary-900/40 dark:ring-primary-500/50 dark:text-primary-300': form.tags.includes(tag.id) }"
                                     >
                                         <Checkbox
                                             v-model:checked="form.tags"
@@ -185,7 +185,7 @@ const submit = () => {
                                     v-model="form.published_at"
                                     type="datetime-local"
                                     id="published_at"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 dark:focus:border-secondary-400 focus:ring-secondary-500 dark:focus:ring-secondary-400"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                 />
                                 <InputError class="mt-2" :message="form.errors.published_at" />
                             </div>
@@ -203,7 +203,7 @@ const submit = () => {
                         <button
                             type="submit"
                             :disabled="form.processing"
-                            class="inline-flex items-center gap-x-2 rounded-lg bg-gradient-to-r from-primary-500 to-secondary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
                             <svg
                                 v-if="form.processing"
