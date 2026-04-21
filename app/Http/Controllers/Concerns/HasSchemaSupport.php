@@ -353,6 +353,22 @@ trait HasSchemaSupport
                         $relationshipHandled = true;
                     }
 
+                    // Service ticket / customer scoping: show units for this customer OR unassigned (stock) units
+                    if (! $relationshipHandled
+                        && $this->domainName === 'AssetUnit'
+                        && $field === 'customer_id'
+                        && $value !== null
+                        && $value !== ''
+                    ) {
+                        $t = $this->recordModel->getTable();
+                        $cid = (int) $value;
+                        $query->where(function ($q) use ($t, $cid) {
+                            $q->where($t.'.customer_id', '=', $cid)
+                                ->orWhereNull($t.'.customer_id');
+                        });
+                        $relationshipHandled = true;
+                    }
+
                     // If not a special relationship case, handle as normal field
                     if (! $relationshipHandled) {
                         // Case-insensitive for text fields

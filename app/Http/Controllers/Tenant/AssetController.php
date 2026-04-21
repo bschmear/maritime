@@ -360,6 +360,14 @@ class AssetController extends RecordController
             $query->where('asset_variant_id', (int) $request->get('variant'));
         }
 
+        if ($request->filled('customer_id')) {
+            $cid = (int) $request->get('customer_id');
+            $query->where(function ($q) use ($cid) {
+                $q->where('customer_id', $cid)
+                    ->orWhereNull('customer_id');
+            });
+        }
+
         if ($request->filled('search')) {
             $term = trim((string) $request->get('search'));
             if ($term !== '') {
@@ -373,9 +381,9 @@ class AssetController extends RecordController
         }
 
         $records = $query->with([
-                'asset:id,display_name',
-                'assetVariant:id,display_name,name',
-            ])
+            'asset:id,display_name',
+            'assetVariant:id,display_name,name',
+        ])
             ->orderByRaw('COALESCE(serial_number, hin, sku, CAST(id AS CHAR)) ASC')
             ->paginate($perPage);
 

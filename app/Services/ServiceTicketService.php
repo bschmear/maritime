@@ -18,6 +18,8 @@ class ServiceTicketService
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
+        unset($data['created_at'], $data['updated_at']);
+
         $result = (new CreateServiceTicket)($data);
 
         if (! $result['success']) {
@@ -42,6 +44,8 @@ class ServiceTicketService
     {
         $serviceItems = $data['service_items'] ?? null;
         unset($data['service_items']);
+
+        unset($data['created_at'], $data['updated_at']);
 
         $result = (new UpdateServiceTicket)($ticket->id, $data);
 

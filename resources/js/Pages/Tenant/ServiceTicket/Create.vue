@@ -1,9 +1,10 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
 import { Head, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps({
     formSchema: {
@@ -55,12 +56,13 @@ const breadcrumbItems = computed(() => {
 const currentStep = ref(1);
 const totalSteps = 3;
 
-// Step 1: Customer selection
+// Step 1: Customer selection (RecordSelect + same nested customer/contact shape as ServiceTicketForm)
 const selectedCustomer = ref(null);
-const customerSearchQuery = ref('');
-const customerRecords = ref([]);
-const customerIsLoading = ref(false);
+const customerId = ref(null);
 const showCreateCustomerForm = ref(false);
+const customerIsLoading = ref(false);
+/** Suppresses auto-advance when re-syncing customerId after navigating back to step 1 */
+const skipCustomerIdAdvance = ref(false);
 
 // New customer form
 const newCustomerForm = ref({
@@ -88,51 +90,33 @@ const stepProgress = computed(() => {
     return (currentStep.value / totalSteps) * 100;
 });
 
-// ==============================
-// Customer Search & Selection (Step 1)
-// ==============================
-const fetchCustomers = async () => {
-    customerIsLoading.value = true;
-    try {
-        const url = new URL(route('records.lookup'), window.location.origin);
-        url.searchParams.append('type', 'Customer');
-        url.searchParams.append('per_page', '20');
-        if (customerSearchQuery.value.trim()) {
-            url.searchParams.append('search', customerSearchQuery.value.trim());
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-        });
-
-        if (!response.ok) throw new Error(`Failed to fetch customers: ${response.status}`);
-        const data = await response.json();
-        customerRecords.value = data.records || data.data || data || [];
-    } catch (error) {
-        console.error('Error fetching customers:', error);
-        customerRecords.value = [];
-    } finally {
-        customerIsLoading.value = false;
+// Parent `record` stub for RecordSelect (customer + contact for display_name resolution)
+const wizardRecord = computed(() => {
+    const c = selectedCustomer.value;
+    if (!c?.id) {
+        return {};
     }
-};
+    const contact = c.contact;
+    return {
+        customer: {
+            id: c.id,
+            display_name: c.display_name,
+            contact: contact
+                ? { id: contact.id, display_name: contact.display_name }
+                : null,
+        },
+    };
+});
 
-const searchCustomers = () => {
-    fetchCustomers();
-};
-
-const selectCustomer = (customer) => {
-    selectedCustomer.value = customer;
-    // Also load full customer record with relationships for form initialization
-    fetchCustomerDetails(customer.id).then(() => {
-        goToAssetStep();
-    });
-};
+const customerField = computed(
+    () => props.fieldsSchema?.customer_id || {
+        type: 'record',
+        typeDomain: 'Customer',
+        label: 'Customer',
+        required: true,
+        create: true,
+    },
+);
 
 const goToAssetStep = () => {
     currentStep.value = 2;
@@ -140,6 +124,31 @@ const goToAssetStep = () => {
     selectedAssetUnit.value = null;
     fetchAssets();
 };
+
+/**
+ * When customer is chosen in RecordSelect (list pick or "create new" in the picker),
+ * v-model updates. Load full customer (contact, etc.) like RecordController + step 2.
+ */
+watch(customerId, async (id) => {
+    if (skipCustomerIdAdvance.value) {
+        return;
+    }
+    if (currentStep.value !== 1) {
+        return;
+    }
+    if (!id) {
+        selectedCustomer.value = null;
+        return;
+    }
+    const requested = id;
+    await fetchCustomerDetails(requested);
+    if (customerId.value !== requested || currentStep.value !== 1) {
+        return;
+    }
+    if (selectedCustomer.value?.id == requested) {
+        goToAssetStep();
+    }
+});
 
 // ==============================
 // Create New Customer
@@ -179,20 +188,9 @@ const createCustomer = async () => {
         const newCustomer = data.record || data;
 
         if (newCustomer && newCustomer.id) {
-            // Load full customer details for proper form initialization
-            await fetchCustomerDetails(newCustomer.id);
+            customerId.value = newCustomer.id;
             showCreateCustomerForm.value = false;
-            goToAssetStep();
-        } else {
-            await fetchCustomers();
-            const found = customerRecords.value.find(c =>
-                c.display_name === `${newCustomerForm.value.first_name} ${newCustomerForm.value.last_name}`
-            );
-            if (found) {
-                selectedCustomer.value = found;
-                showCreateCustomerForm.value = false;
-                goToAssetStep();
-            }
+            // watch(customerId) loads full record and advances to asset step
         }
     } catch (error) {
         console.error('Error creating customer:', error);
@@ -345,9 +343,15 @@ const proceedToTicketForm = () => {
 // ==============================
 // Navigation
 // ==============================
-const goBackToCustomerStep = () => {
+const goBackToCustomerStep = async () => {
+    skipCustomerIdAdvance.value = true;
     currentStep.value = 1;
     initialFormData.value = null;
+    if (selectedCustomer.value?.id) {
+        customerId.value = selectedCustomer.value.id;
+    }
+    await nextTick();
+    skipCustomerIdAdvance.value = false;
 };
 
 const goBackToAssetStep = () => {
@@ -360,8 +364,6 @@ const handleCancelled = () => {
     router.visit(route('servicetickets.index'));
 };
 
-// Load customers on mount
-fetchCustomers();
 </script>
 
 <template>
@@ -386,7 +388,7 @@ fetchCustomers();
                         </div>
                         <div>
                             <h1 class="text-xl font-bold text-white">Select a Customer</h1>
-                            <p class="text-blue-100 text-sm mt-0.5">Choose an existing customer or create a new one</p>
+                            <p class="text-blue-100 text-sm mt-0.5">Search customers (contact-linked records) or create a new one</p>
                         </div>
                     </div>
 
@@ -428,61 +430,22 @@ fetchCustomers();
                         </button>
                     </div>
 
-                    <!-- Search Existing Customer -->
-                    <div v-if="!showCreateCustomerForm">
-                        <div class="relative mb-4">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <span class="material-icons text-gray-400">search</span>
-                            </div>
-                            <input
-                                v-model="customerSearchQuery"
-                                @input="searchCustomers"
-                                @keyup.enter="searchCustomers"
-                                type="text"
-                                placeholder="Search customers by name, company, email..."
-                                class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                            />
-                        </div>
-
-                        <div v-if="customerIsLoading" class="flex justify-center py-8">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        </div>
-
-                        <div v-else-if="customerRecords.length > 0" class="space-y-2 max-h-96 overflow-y-auto">
-                            <button
-                                v-for="customer in customerRecords"
-                                :key="customer.id"
-                                @click="selectCustomer(customer)"
-                                type="button"
-                                class="w-full text-left p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
-                            >
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <div class="font-medium text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                                            {{ customer.display_name }}
-                                        </div>
-                                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3">
-                                            <span v-if="customer.company">{{ customer.company }}</span>
-                                            <span v-if="customer.email">{{ customer.email }}</span>
-                                            <span v-if="customer.phone">{{ customer.phone }}</span>
-                                        </div>
-                                    </div>
-                                    <span class="material-icons text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
-                                        arrow_forward
-                                    </span>
-                                </div>
-                            </button>
-                        </div>
-
-                        <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
-                            <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">person_search</span>
-                            <p class="text-gray-500 dark:text-gray-400 mb-1">
-                                {{ customerSearchQuery.trim() ? 'No customers found matching your search' : 'No customers available' }}
-                            </p>
-                            <p class="text-sm text-gray-400 dark:text-gray-500">
-                                {{ customerSearchQuery.trim() ? 'Try a different search term or create a new customer' : 'Create a new customer to get started' }}
-                            </p>
-                        </div>
+                    <!-- Same customer picker as ServiceTicketForm (records.lookup + contact display) -->
+                    <div v-if="!showCreateCustomerForm" class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {{ fieldsSchema?.customer_id?.label || 'Customer' }} <span class="text-red-500">*</span>
+                        </label>
+                        <RecordSelect
+                            id="serviceticket_wizard_customer_id"
+                            :field="customerField"
+                            v-model="customerId"
+                            :record="wizardRecord"
+                            :enum-options="enumOptions?.customer_id || []"
+                            field-key="customer_id"
+                        />
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            After you select a customer, the next step opens automatically.
+                        </p>
                     </div>
 
                     <!-- Create New Customer Form -->

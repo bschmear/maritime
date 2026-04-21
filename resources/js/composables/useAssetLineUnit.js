@@ -4,7 +4,7 @@ import { ref } from 'vue';
  * Fetch units for an asset (tenant `assets.units.index` JSON). Pass `variantId`
  * to restrict the list to units of a given variant.
  */
-export async function fetchAssetUnits(assetId, variantId = null) {
+export async function fetchAssetUnits(assetId, variantId = null, customerId = null) {
     if (!assetId) {
         return [];
     }
@@ -13,6 +13,9 @@ export async function fetchAssetUnits(assetId, variantId = null) {
     url.searchParams.set('page', '1');
     if (variantId != null && variantId !== '') {
         url.searchParams.set('variant', String(variantId));
+    }
+    if (customerId != null && customerId !== '') {
+        url.searchParams.set('customer_id', String(customerId));
     }
     const response = await fetch(url.toString(), {
         headers: {
@@ -36,14 +39,14 @@ export function useAssetLineUnit() {
     const unitOptions = ref([]);
     const unitsLoading = ref(false);
 
-    async function loadForAsset(assetId, variantId = null) {
+    async function loadForAsset(assetId, variantId = null, customerId = null) {
         unitOptions.value = [];
         if (!assetId) {
             return;
         }
         unitsLoading.value = true;
         try {
-            unitOptions.value = await fetchAssetUnits(assetId, variantId);
+            unitOptions.value = await fetchAssetUnits(assetId, variantId, customerId);
         } catch (e) {
             console.error(e);
             unitOptions.value = [];

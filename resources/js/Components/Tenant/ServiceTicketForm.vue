@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -489,6 +490,12 @@ Object.keys(props.fieldsSchema).forEach(key => {
     // Skip hidden fields
     if (field.hidden) return;
 
+    // Timestamps are server-managed; never put empty strings in the form or create will send
+    // created_at/updated_at="" and override Eloquent's automatic values.
+    if (key === 'created_at' || key === 'updated_at') {
+        return;
+    }
+
     // Use existing record data if in edit/show mode
     if (props.record && props.record[key] !== undefined) {
         const value = props.record[key];
@@ -605,6 +612,110 @@ watch(() => form.subsidiary_id, (newValue, oldValue) => {
     }
 });
 
+// Equipment: catalog asset → variant → serialized unit (same flow as estimates)
+const showServiceAssetModal = ref(false);
+const serviceAssetLineSummary = ref('');
+
+const emptyServiceAssetForm = () => ({
+    itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
+    itemable_id: null,
+    asset_id: null,
+    name: '',
+    year: '',
+    make: '',
+    quantity: 1,
+    unit_price: 0,
+    discount: 0,
+    notes: '',
+    addons: [],
+    has_variants: false,
+    asset_variant_id: null,
+    variant_display_name: '',
+    asset_unit_id: null,
+    unit_display_name: '',
+    asset_description: '',
+    catalog_description: '',
+});
+
+const serviceAssetForm = ref(emptyServiceAssetForm());
+
+const serviceAssetModalEditing = computed(() => Boolean(form.asset_unit_id));
+
+const hydrateServiceAssetFormFromRecord = () => {
+    const u = props.record?.asset_unit;
+    if (!u) {
+        serviceAssetForm.value = emptyServiceAssetForm();
+        return;
+    }
+    const a = u.asset;
+    const makeName = a?.make?.display_name ?? '';
+    serviceAssetForm.value = {
+        ...emptyServiceAssetForm(),
+        itemable_id: a?.id ?? u.asset_id,
+        asset_id: a?.id ?? u.asset_id,
+        name: a?.display_name || u.display_name || '',
+        year: a?.year ?? '',
+        make: makeName,
+        has_variants: Boolean(a?.has_variants),
+        asset_variant_id: u.asset_variant_id ?? null,
+        variant_display_name:
+            u.asset_variant?.display_name || u.asset_variant?.name || u.variant?.display_name || u.variant?.name || '',
+        asset_unit_id: u.id,
+        unit_display_name: u.display_name || '',
+        asset_description: (a?.description || '').trim() || '',
+    };
+};
+
+const openServiceAssetSelect = () => {
+    if (!form.customer_id) {
+        return;
+    }
+    if (form.asset_unit_id) {
+        if (!serviceAssetForm.value.itemable_id && props.record?.asset_unit) {
+            hydrateServiceAssetFormFromRecord();
+        }
+    } else {
+        serviceAssetForm.value = emptyServiceAssetForm();
+    }
+    showServiceAssetModal.value = true;
+};
+
+const onServiceAssetModalSave = (m) => {
+    const uid = m.asset_unit_id;
+    form.asset_unit_id = uid != null && uid !== '' ? Number(uid) : null;
+    if (form.asset_unit_id) {
+        const parts = [m.name, m.has_variants ? m.variant_display_name : null, m.unit_display_name].filter(Boolean);
+        serviceAssetLineSummary.value = parts.length
+            ? parts.join(' — ')
+            : m.unit_display_name || `Unit #${form.asset_unit_id}`;
+    } else {
+        serviceAssetLineSummary.value = m.name ? `${m.name} (no specific serialized unit)` : '';
+    }
+    showServiceAssetModal.value = false;
+};
+
+const clearServiceAssetSelection = () => {
+    form.asset_unit_id = null;
+    serviceAssetLineSummary.value = '';
+    serviceAssetForm.value = emptyServiceAssetForm();
+};
+
+watch(() => form.customer_id, (newValue, oldValue) => {
+    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
+        clearServiceAssetSelection();
+    }
+});
+
+watch(
+    () => props.record?.asset_unit?.display_name,
+    (name) => {
+        if (name && (props.mode === 'edit' || props.mode === 'create')) {
+            serviceAssetLineSummary.value = name;
+        }
+    },
+    { immediate: true },
+);
+
 // Watch for location changes to auto-populate tax rate
 watch(() => form.location_id, async (newValue, oldValue) => {
     if (formInitialized.value && newValue && newValue !== oldValue) {
@@ -697,6 +808,9 @@ const submit = () => {
                 // For date-only fields, keep as-is
             }
         });
+
+        delete allData.created_at;
+        delete allData.updated_at;
 
         return allData;
     });
@@ -902,24 +1016,54 @@ const handleCancel = () => {
                                             <p v-if="form.errors.location_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                         </div>
 
-                                        <!-- Asset Unit Selection (filtered by customer) -->
+                                        <!-- Equipment: asset → variant → unit (same as estimates), units scoped to customer or unassigned -->
                                         <div v-if="fieldsSchema.asset_unit_id">
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 {{ fieldsSchema.asset_unit_id?.label || 'Asset' }}
                                                 {{ isFieldRequired('asset_unit_id') ? '*' : '' }}
                                             </label>
-                                            <RecordSelect
-                                                v-if="mode !== 'show'"
-                                                :id="'asset_unit_id'"
-                                                :field="fieldsSchema.asset_unit_id"
-                                                v-model="form.asset_unit_id"
-                                                :disabled="isFieldReadonly('asset_unit_id') || !form.customer_id"
-                                                :enum-options="getEnumOptions('asset_unit_id')"
-                                                :record="record"
-                                                field-key="asset_unit_id"
-                                                filter-by="customer_id"
-                                                :filter-value="form.customer_id"
-                                            />
+                                            <template v-if="mode !== 'show'">
+                                                <p v-if="!form.customer_id" class="text-sm text-amber-700 dark:text-amber-300">
+                                                    Select a customer first.
+                                                </p>
+                                                <div v-else class="space-y-2">
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            @click="openServiceAssetSelect"
+                                                            :disabled="isFieldReadonly('asset_unit_id') || isLocked"
+                                                            class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            <span class="material-icons text-base text-primary-600 dark:text-primary-400">inventory_2</span>
+                                                            {{
+                                                                form.asset_unit_id || serviceAssetLineSummary
+                                                                    ? 'Change equipment'
+                                                                    : 'Select equipment'
+                                                            }}
+                                                        </button>
+                                                        <button
+                                                            v-if="(form.asset_unit_id || serviceAssetLineSummary) && !isFieldReadonly('asset_unit_id') && !isLocked"
+                                                            type="button"
+                                                            @click="clearServiceAssetSelection"
+                                                            class="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                    </div>
+                                                    <p
+                                                        v-if="serviceAssetLineSummary"
+                                                        class="text-sm text-gray-900 dark:text-gray-100"
+                                                    >
+                                                        {{ serviceAssetLineSummary }}
+                                                    </p>
+                                                    <p
+                                                        v-else-if="!form.asset_unit_id"
+                                                        class="text-xs text-gray-500 dark:text-gray-400"
+                                                    >
+                                                        Optional: choose catalog asset, variant if applicable, and a serialized unit.
+                                                    </p>
+                                                </div>
+                                            </template>
                                             <p v-else class="text-sm text-gray-900 dark:text-white">
                                                 {{ record?.asset_unit?.display_name || '—' }}
                                             </p>
@@ -1485,6 +1629,17 @@ const handleCancel = () => {
                 </div>
             </form>
         </div>
+
+        <AssetLineModal
+            v-if="fieldsSchema.asset_unit_id"
+            v-model="serviceAssetForm"
+            v-model:open="showServiceAssetModal"
+            :editing="serviceAssetModalEditing"
+            :hide-quantity="true"
+            pick-asset-only
+            :customer-id="form.customer_id"
+            @save="onServiceAssetModalSave"
+        />
 
         <!-- Service Item Selection Modal -->
         <div v-if="showServiceItemModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">

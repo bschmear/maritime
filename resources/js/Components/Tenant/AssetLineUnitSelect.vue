@@ -10,6 +10,10 @@ const props = defineProps({
     assetId: { type: [Number, String], default: null },
     /** Optional variant id; when set, only units for this variant are shown. */
     variantId: { type: [Number, String], default: null },
+    /**
+     * When set (e.g. service ticket), include units for this customer OR unassigned (stock) units.
+     */
+    customerId: { type: [Number, String], default: null },
 });
 
 const { unitOptions, unitsLoading, loadForAsset, clear } = useAssetLineUnit();
@@ -54,13 +58,13 @@ async function onSelectChange(e) {
 }
 
 watch(
-    () => [props.assetId, props.variantId],
-    async ([aid, vid]) => {
+    () => [props.assetId, props.variantId, props.customerId],
+    async ([aid, vid, cid]) => {
         clear();
         if (!aid) {
             return;
         }
-        await loadForAsset(aid, vid);
+        await loadForAsset(aid, vid, cid);
         if (unitId.value != null) {
             const stillValid = unitOptions.value.some((u) => Number(u.id) === Number(unitId.value));
             if (!stillValid) {

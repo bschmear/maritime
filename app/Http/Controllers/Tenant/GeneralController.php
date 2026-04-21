@@ -44,7 +44,9 @@ class GeneralController extends BaseController
         // Models whose display_name is a virtual accessor (not a real DB column).
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation'];
+        // "customer" is a customer_profile row: label and billing-style fields come from the linked contact
+        // (and its primary address), not from columns on customer_profiles.
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -76,21 +78,11 @@ class GeneralController extends BaseController
                 $columns[] = 'city';
                 $columns[] = 'state';
                 $columns[] = 'active';
+            } elseif (strtolower($type) === 'customer') {
+                // display_name and address* accessors need contact + primary address; never select legacy
+                // address columns on this table. Customer::$with loads contact.primaryAddress.
+                $columns[] = 'contact_id';
             }
-        }
-
-        // Include address fields for customers so the frontend can auto-fill billing address
-        if (strtolower($type) === 'customer') {
-            $columns = array_merge($columns, [
-                'address_line_1',
-                'address_line_2',
-                'city',
-                'state',
-                'postal_code',
-                'country',
-                'latitude',
-                'longitude',
-            ]);
         }
 
         // Contacts: lookup search and list UI use name / email fields, not only display_name
@@ -211,6 +203,26 @@ class GeneralController extends BaseController
                         ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$searchTerm])
                         ->orWhereRaw('LOWER(COALESCE(state, \'\')) LIKE ?', [$searchTerm]);
                 });
+            } elseif (strtolower($type) === 'customer') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $trim = trim((string) $searchQuery);
+                $customerTable = $recordModel->getTable();
+                $query->where(function ($q) use ($searchTerm, $trim, $customerTable) {
+                    $q->whereHas('contact', function ($q2) use ($searchTerm) {
+                        $q2->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(first_name, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(last_name, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(company, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$searchTerm])
+                            ->orWhereRaw('LOWER(COALESCE(mobile, \'\')) LIKE ?', [$searchTerm]);
+                    });
+                    if ($trim !== '' && ctype_digit($trim)) {
+                        $q->orWhere($customerTable.'.id', '=', (int) $trim);
+                    } elseif ($trim !== '') {
+                        $q->orWhereRaw('CAST('.$customerTable.'.id AS TEXT) LIKE ?', ['%'.strtolower($trim).'%']);
+                    }
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -285,6 +297,12 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
+            } elseif (strtolower($type) === 'customer') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $t = $recordModel->getTable();
+                $query->leftJoin('contacts', 'contacts.id', '=', $t.'.contact_id')
+                    ->orderBy('contacts.display_name', $dir)
+                    ->select([$t.'.id', $t.'.contact_id']);
             } else {
                 // Default ordering for other models without display_name column
                 $query->orderBy('created_at', 'desc');

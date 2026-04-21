@@ -41,6 +41,14 @@ const props = defineProps({
     editing: { type: Boolean, default: false },
     /** Delivery lines are always quantity 1 — hide the field and keep totals in sync. */
     hideQuantity: { type: Boolean, default: false },
+    /**
+     * Service ticket: pick catalog asset → variant → unit only; hide pricing, discounts, and notes.
+     */
+    pickAssetOnly: { type: Boolean, default: false },
+    /**
+     * Restrict serialized units to this customer's fleet OR unassigned (stock) units.
+     */
+    customerId: { type: [Number, String, null], default: null },
 });
 
 const emit = defineEmits(['save', 'close']);
@@ -206,7 +214,13 @@ const save = () => {
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        {{ model.asset_id && editing ? 'Edit Asset' : 'Add Asset' }}
+                        {{
+                            props.pickAssetOnly
+                                ? (model.asset_id && props.editing ? 'Edit equipment' : 'Select equipment')
+                                : model.asset_id && props.editing
+                                  ? 'Edit Asset'
+                                  : 'Add Asset'
+                        }}
                     </h3>
                     <button type="button" @click="close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,8 +319,8 @@ const save = () => {
                             :has-variants="model.has_variants"
                             :asset-description="model.asset_description"
                             :sync-catalog-description="true"
-                            :apply-default-price="true"
-                            :show-catalog-preview="true"
+                            :apply-default-price="!props.pickAssetOnly"
+                            :show-catalog-preview="!props.pickAssetOnly"
                             @update:unit-price="model.unit_price = $event"
                         />
 
@@ -316,9 +330,13 @@ const save = () => {
                             v-model:unit-display-name="unitDisplayName"
                             :asset-id="model.asset_id"
                             :variant-id="model.has_variants ? model.asset_variant_id : null"
+                            :customer-id="props.customerId"
                         />
 
-                        <div :class="hideQuantity ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'">
+                        <div
+                            v-if="!props.pickAssetOnly"
+                            :class="props.hideQuantity ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'"
+                        >
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Unit Price</label>
                                 <div class="relative">
@@ -335,21 +353,24 @@ const save = () => {
                                         class="w-full pl-7 pr-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                                 </div>
                             </div>
-                            <div v-if="!hideQuantity">
+                            <div v-if="!props.hideQuantity">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span class="text-red-500">*</span></label>
                                 <input type="number" v-model="model.quantity" min="1" step="1"
                                     class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                             </div>
                         </div>
 
-                        <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div
+                            v-if="!props.pickAssetOnly"
+                            class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                        >
                             <span class="text-sm text-gray-600 dark:text-gray-400">Line Total</span>
                             <span class="text-base font-bold text-gray-900 dark:text-white">
                                 {{ formatCurrency(lineTotal) }}
                             </span>
                         </div>
 
-                        <div>
+                        <div v-if="!props.pickAssetOnly">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
                             <textarea v-model="model.notes" rows="2"
                                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
@@ -362,7 +383,15 @@ const save = () => {
                     <button type="button" @click="close" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Cancel</button>
                     <button type="button" @click="save" :disabled="!model.itemable_id"
                         class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors">
-                        {{ editing ? 'Update Asset' : 'Add Asset' }}
+                        {{
+                            props.pickAssetOnly
+                                ? props.editing
+                                    ? 'Update'
+                                    : 'Use this equipment'
+                                : props.editing
+                                  ? 'Update Asset'
+                                  : 'Add Asset'
+                        }}
                     </button>
                 </div>
             </div>
