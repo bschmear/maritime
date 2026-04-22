@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
@@ -35,14 +36,17 @@ class ServiceTicketController extends BaseController
 
     /**
      * Display a listing of service tickets.
+     *
+     * Uses the same JSON `filters` query format as {@see Table}: by default we exclude
+     * "Completed" status (treat as completed = false). Quick filters use multi-select like Estimates.
      */
     public function index(Request $request)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
+        $schema = $this->getTableSchema();
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
-        // Ensure asset unit relationship is loaded for display
         $relationships['assetUnit'] = function ($query) {
             $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
                 ->with(['asset' => function ($q) {
@@ -52,12 +56,53 @@ class ServiceTicketController extends BaseController
                         }]);
                 }]);
         };
-        $query = ServiceTicket::with($relationships);
 
-        // Apply search
+        $completedId = ServiceTicketStatus::Completed->id();
+        // Same as "completed = false": all workflow statuses except Completed. Use any_of so
+        // Table.vue quick filters (multi-select) stay in sync with the URL.
+        $defaultStatusIds = collect(ServiceTicketStatus::cases())
+            ->map(fn (ServiceTicketStatus $s) => $s->id())
+            ->filter(fn (int $id) => $id !== $completedId)
+            ->values()
+            ->all();
+        $defaultFilters = [
+            ['field' => 'status', 'operator' => 'any_of', 'value' => $defaultStatusIds],
+        ];
+
+        if (! $request->has('filters')) {
+            $queryParams = array_filter([
+                'filters' => json_encode($defaultFilters),
+                'search' => $request->get('search'),
+                'page' => $request->get('page'),
+                'sort' => $request->get('sort'),
+                'direction' => $request->get('direction'),
+                'per_page' => $request->get('per_page'),
+            ], fn ($v) => $v !== null && $v !== '');
+
+            return redirect()->route('servicetickets.index', $queryParams);
+        }
+
+        $filtersParam = $request->get('filters');
+        $activeFilters = [];
+        if ($filtersParam !== null && $filtersParam !== '') {
+            try {
+                $activeFilters = json_decode(urldecode((string) $filtersParam), true) ?? [];
+            } catch (\Throwable) {
+                $activeFilters = [];
+            }
+        }
+        if (! is_array($activeFilters)) {
+            $activeFilters = [];
+        }
+
+        $this->domainName = 'ServiceTicket';
+        $this->recordModel = new ServiceTicket;
+
+        $query = ServiceTicket::query()->with($relationships);
+
         $searchQuery = $request->get('search');
-        if ($searchQuery && ! empty(trim($searchQuery))) {
-            $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+        if ($searchQuery && ! empty(trim((string) $searchQuery))) {
+            $searchTerm = '%'.strtolower(trim((string) $searchQuery)).'%';
             $query->where(function ($q) use ($searchTerm) {
                 $q->whereRaw('LOWER(service_tickets.service_ticket_number) LIKE ?', [$searchTerm])
                     ->orWhereHas('customer', function ($customerQuery) use ($searchTerm) {
@@ -70,49 +115,48 @@ class ServiceTicketController extends BaseController
             });
         }
 
-        // Apply status filter
-        $statusParam = $request->get('status');
-        if ($statusParam && $statusParam !== 'all') {
-            $query->where('status', $statusParam);
+        if ($activeFilters !== []) {
+            $query = $this->applyFilters($query, $activeFilters, $fieldsSchema);
         }
 
-        // Apply expedite filter
-        $expediteParam = $request->get('expedite');
-        if ($expediteParam === '1') {
-            $query->where('expedite', true);
+        $table = (new ServiceTicket)->getTable();
+        $sortKey = $request->get('sort');
+        $sortDir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $sortableKeys = collect($schema['columns'] ?? [])
+            ->filter(fn ($c) => ($c['sortable'] ?? true) !== false)
+            ->pluck('key')
+            ->all();
+        $dbColumns = \Schema::connection((new ServiceTicket)->getConnectionName())->getColumnListing($table);
+
+        if ($sortKey && in_array($sortKey, $sortableKeys, true) && in_array($sortKey, $dbColumns, true)) {
+            $query->orderBy($table.'.'.$sortKey, $sortDir);
+        } else {
+            $query->orderBy($table.'.created_at', 'desc');
         }
 
-        // Apply approved filter
-        $approvedParam = $request->get('approved');
-        if ($approvedParam !== null && $approvedParam !== 'all') {
-            $query->where('approved', $approvedParam === '1');
-        }
+        $perPage = (int) $request->get('per_page', 15);
+        $records = $query->paginate($perPage)->withQueryString();
 
-        $query->orderBy('created_at', 'desc');
-        $perPage = $request->get('per_page', 15);
-        $records = $query->paginate($perPage);
-
-        // Stats
         $stats = [
-            'open' => ServiceTicket::whereIn('status', [1, 2, 3])->count(),
-            'approved' => ServiceTicket::where('approved', true)->whereNotIn('status', [6, 7, 8])->count(),
-            'in_progress' => ServiceTicket::where('status', 5)->count(),
+            'open' => ServiceTicket::whereIn('status', [
+                ServiceTicketStatus::Draft->id(),
+                ServiceTicketStatus::Open->id(),
+                ServiceTicketStatus::InProgress->id(),
+            ])->count(),
+            'approved' => ServiceTicket::where('approved', true)
+                ->whereNotIn('status', [ServiceTicketStatus::Closed->id(), ServiceTicketStatus::Cancelled->id()])
+                ->count(),
+            'in_progress' => ServiceTicket::where('status', ServiceTicketStatus::InProgress->id())->count(),
             'needs_reauth' => ServiceTicket::where('requires_reauthorization', true)->where('approved', false)->count(),
         ];
 
         return inertia('Tenant/ServiceTicket/Index', [
             'records' => $records,
-            'schema' => $this->getTableSchema(),
+            'schema' => $schema,
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'stats' => $stats,
-            'filters' => [
-                'status' => $statusParam ?? 'all',
-                'expedite' => $expediteParam ?? null,
-                'approved' => $approvedParam ?? 'all',
-                'search' => $searchQuery ?? '',
-            ],
         ]);
     }
 

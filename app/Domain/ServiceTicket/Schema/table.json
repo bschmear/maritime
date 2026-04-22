@@ -1,9 +1,11 @@
 {
+  "allow_create_modal": false,
   "columns": [
     {
-      "key": "uuid",
-      "label": "Ticket ID",
-      "sortable": true
+      "key": "service_ticket_number",
+      "label": "Ticket #",
+      "sortable": true,
+      "isKey": true
     },
     {
       "key": "customer_id",
@@ -31,16 +33,6 @@
       "sortable": false
     },
     {
-      "key": "subsidiary_id",
-      "label": "Subsidiary",
-      "sortable": false
-    },
-    {
-      "key": "pickup_delivery_requested_at",
-      "label": "Pickup/Delivery",
-      "sortable": true
-    },
-    {
       "key": "estimated_total",
       "label": "Estimate",
       "sortable": true
@@ -51,11 +43,6 @@
       "sortable": true
     },
     {
-      "key": "signed_at",
-      "label": "Signed",
-      "sortable": true
-    },
-    {
       "key": "created_at",
       "label": "Created",
       "sortable": true
@@ -63,8 +50,35 @@
   ],
   "filters": [
     {
-      "field": "inactive",
-      "operator": "is_false"
+      "field": "status",
+      "label": "Status",
+      "type": "multi-select"
+    }
+  ],
+  "stats": [
+    {
+      "key": "open",
+      "label": "Open",
+      "badge_label": "Active",
+      "color": "blue"
+    },
+    {
+      "key": "approved",
+      "label": "Approved",
+      "badge_label": "Approved",
+      "color": "green"
+    },
+    {
+      "key": "in_progress",
+      "label": "In progress",
+      "badge_label": "Working",
+      "color": "yellow"
+    },
+    {
+      "key": "needs_reauth",
+      "label": "Needs reauthorization",
+      "badge_label": "Reauth",
+      "color": "amber"
     }
   ]
 }

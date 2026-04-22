@@ -25,6 +25,11 @@ const props = defineProps({
     createAvailableSpecs:{ type: Array,  default: () => [] },
     /** Merged with page.props.stats; used with schema.stats for optional stat cards */
     stats:               { type: Object, default: () => ({}) },
+    /**
+     * 'table' (default) or 'grid': when 'grid' and a #grid slot is provided, it replaces the
+     * data table (search/filters/stats/pagination stay the same). Use for e.g. service tickets.
+     */
+    resultLayout:        { type: String, default: 'table' },
 });
 
 const showCreateModal  = ref(false);
@@ -519,12 +524,15 @@ defineExpose({
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
-                <button v-if="!schema?.hide_create_button"
-                        @click="handleCreateClick"
-                        class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
-                    <span class="material-icons text-[16px]">add</span>
-                    Add {{ recordTitle }}
-                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <slot name="headerActions" />
+                    <button v-if="!schema?.hide_create_button"
+                            @click="handleCreateClick"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                        <span class="material-icons text-[16px]">add</span>
+                        Add {{ recordTitle }}
+                    </button>
+                </div>
             </div>
 
             <!-- Search (max width) left; quick filters + Filters on the right -->
@@ -716,8 +724,15 @@ defineExpose({
                 </button>
             </div>
 
-            <!-- Table -->
-            <div v-else class="overflow-x-auto grow">
+            <!-- Results: data table, or #grid slot (card layout) when resultLayout is grid -->
+            <div v-else>
+                <div
+                    v-if="resultLayout === 'grid' && $slots.grid"
+                    class="p-4 sm:px-5 sm:pt-0 sm:pb-2"
+                >
+                    <slot name="grid" />
+                </div>
+                <div v-else class="overflow-x-auto grow">
                 <table class="w-full text-sm text-left table-auto">
                     <thead>
                         <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
@@ -848,6 +863,7 @@ defineExpose({
                         </tr>
                     </tbody>
                 </table>
+                </div>
             </div>
 
             <!-- Pagination -->
