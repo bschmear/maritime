@@ -1,12 +1,13 @@
 <?php
+
 namespace App\Domain\WorkOrder\Actions;
 
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Throwable;
 
 class CreateWorkOrder
@@ -51,19 +52,24 @@ class CreateWorkOrder
                     continue;
                 }
                 WorkOrderServiceItem::create([
-                    'work_order_id'   => $record->id,
+                    'billable_to' => $item['billable_to']
+                        ?? (! empty($item['warranty'])
+                            ? (($item['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal')
+                            : 'customer'),
+                    'work_order_id' => $record->id,
                     'service_item_id' => $item['service_item_id'] ?? null,
-                    'display_name'   => $item['display_name'],
-                    'description'    => $item['description'] ?? null,
-                    'quantity'       => $item['quantity'] ?? 1,
-                    'unit_price'     => $item['unit_price'] ?? 0,
-                    'unit_cost'      => $item['unit_cost'] ?? null,
-                    'estimated_hours'=> $item['estimated_hours'] ?? null,
-                    'actual_hours'   => $item['actual_hours'] ?? null,
-                    'billable'       => $item['billable'] ?? true,
-                    'warranty'       => $item['warranty'] ?? false,
-                    'billing_type'   => $item['billing_type'] ?? null,
-                    'sort_order'     => $item['sort_order'] ?? $idx,
+                    'display_name' => $item['display_name'],
+                    'description' => $item['description'] ?? null,
+                    'quantity' => $item['quantity'] ?? 1,
+                    'unit_price' => $item['unit_price'] ?? 0,
+                    'unit_cost' => $item['unit_cost'] ?? null,
+                    'estimated_hours' => $item['estimated_hours'] ?? null,
+                    'actual_hours' => $item['actual_hours'] ?? null,
+                    'billable' => $item['billable'] ?? true,
+                    'warranty' => $item['warranty'] ?? false,
+                    'warranty_type' => ! empty($item['warranty']) ? ($item['warranty_type'] ?? null) : null,
+                    'billing_type' => $item['billing_type'] ?? null,
+                    'sort_order' => $item['sort_order'] ?? $idx,
                 ]);
             }
 
@@ -74,8 +80,9 @@ class CreateWorkOrder
         } catch (QueryException $e) {
             Log::error('Database query error in CreateWorkOrder', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -84,8 +91,9 @@ class CreateWorkOrder
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateWorkOrder', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

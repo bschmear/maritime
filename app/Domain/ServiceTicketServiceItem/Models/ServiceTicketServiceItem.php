@@ -13,7 +13,7 @@ class ServiceTicketServiceItem extends Model
     protected $fillable = [
         'service_ticket_id', 'service_item_id', 'display_name', 'description',
         'quantity', 'unit_price', 'unit_cost', 'total_price', 'total_cost',
-        'estimated_hours', 'billable', 'warranty', 'warranty_type',
+        'estimated_hours', 'billable', 'warranty', 'warranty_type', 'billable_to',
         'inactive', 'sort_order', 'attributes', 'billing_type',
     ];
 
@@ -28,6 +28,7 @@ class ServiceTicketServiceItem extends Model
         'billable' => 'boolean',
         'warranty' => 'boolean',
         'warranty_type' => WarrantyCoverageType::class,
+        'billable_to' => 'string',
         'inactive' => 'boolean',
         'attributes' => 'array',
     ];
@@ -60,6 +61,7 @@ class ServiceTicketServiceItem extends Model
         $unitPrice = (float) ($this->unit_price ?? 0);
         $unitCost = (float) ($this->unit_cost ?? 0);
         $estimatedHours = (float) ($this->estimated_hours ?? 0);
+        $billableTo = $this->billable_to ?: $this->resolveBillableTo();
 
         $totalPrice = 0;
         $totalCost = 0;
@@ -80,13 +82,29 @@ class ServiceTicketServiceItem extends Model
                 break;
         }
 
-        if ($this->warranty) {
+        if ($billableTo === 'internal') {
             $totalPrice = 0;
         }
 
         $this->update([
             'total_price' => $totalPrice,
             'total_cost' => $totalCost,
+            'billable_to' => $billableTo,
         ]);
+    }
+
+    protected function resolveBillableTo(): string
+    {
+        if (! $this->warranty) {
+            return 'customer';
+        }
+
+        $warrantyType = $this->warranty_type instanceof WarrantyCoverageType
+            ? $this->warranty_type->value
+            : $this->warranty_type;
+
+        return $warrantyType === WarrantyCoverageType::Manufacturer->value
+            ? 'manufacturer'
+            : 'internal';
     }
 }

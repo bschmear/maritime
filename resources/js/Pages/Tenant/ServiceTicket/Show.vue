@@ -182,44 +182,44 @@ const linkedTransaction = computed(() => {
                     <!-- Desktop Actions -->
                     <div class="hidden lg:flex items-center gap-2">
                         <Link :href="route('servicetickets.index')">
-                            <button class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-2">arrow_back</span>
+                            <button class="inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-2">arrow_back</span>
                                 Back to List
                             </button>
                         </Link>
                         <!-- Work Order Button -->
                         <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
-                                <span class="material-icons text-sm mr-1">assignment</span>
+                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
+                                <span class="material-icons text-md mr-1">assignment</span>
                                 View Work Order
                             </button>
                         </Link>
                         <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id">
-                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
-                                <span class="material-icons text-sm mr-1">add_circle</span>
+                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
+                                <span class="material-icons text-md mr-1">add_circle</span>
                                 Create Work Order
                             </button>
                         </Link>
                         <button
                             @click="openPreview"
-                            class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
+                            class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
                         >
-                            <span class="material-icons text-sm mr-1">visibility</span>
+                            <span class="material-icons text-md mr-1">visibility</span>
                             Customer Preview
                         </button>
                         <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-1">edit</span>
+                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-1">edit</span>
                                 Edit
                             </button>
                         </Link>
-                        <button v-else disabled class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
-                            <span class="material-icons text-sm mr-1">lock</span>
+                        <button v-else disabled class="inline-flex items-center px-4 py-2.5 text-md font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
+                            <span class="material-icons text-md mr-1">lock</span>
                             Locked
                         </button>
                         <button
                             @click="deleteTicket"
-                            class="inline-flex items-center justify-center px-2 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            class="inline-flex items-center justify-center px-2 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                         >
                             <span class="material-icons">delete_forever</span>
                         </button>
@@ -228,20 +228,20 @@ const linkedTransaction = computed(() => {
                     <!-- Mobile Actions - With Dropdown -->
                     <div class="flex items-center gap-2 lg:hidden">
                         <Link :href="route('servicetickets.index')" class="flex-1">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-2">arrow_back</span>
+                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-2">arrow_back</span>
                                 Back
                             </button>
                         </Link>
                         
                         <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)" class="flex-1">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-1">edit</span>
+                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-1">edit</span>
                                 Edit
                             </button>
                         </Link>
-                        <button v-else disabled class="flex-1 w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
-                            <span class="material-icons text-sm mr-1">lock</span>
+                        <button v-else disabled class="flex-1 w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
+                            <span class="material-icons text-md mr-1">lock</span>
                             Locked
                         </button>
 
@@ -267,26 +267,26 @@ const linkedTransaction = computed(() => {
                                 class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
                             >
                                 <div class="py-1">
-                                    <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <span class="material-icons text-base text-amber-600 dark:text-amber-400">assignment</span>
+                                    <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)" class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <span class="material-icons text-lg text-amber-600 dark:text-amber-400">assignment</span>
                                         <span>View Work Order</span>
                                     </Link>
-                                    <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id" class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <span class="material-icons text-base text-amber-600 dark:text-amber-400">add_circle</span>
+                                    <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id" class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <span class="material-icons text-lg text-amber-600 dark:text-amber-400">add_circle</span>
                                         <span>Create Work Order</span>
                                     </Link>
                                     <button
                                         @click="openPreview(); showActionsMenu = false"
-                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
                                     >
-                                        <span class="material-icons text-base text-purple-600 dark:text-purple-400">visibility</span>
+                                        <span class="material-icons text-lg text-purple-600 dark:text-purple-400">visibility</span>
                                         <span>Customer Preview</span>
                                     </button>
                                     <button
                                         @click="deleteTicket(); showActionsMenu = false"
-                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
+                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
                                     >
-                                        <span class="material-icons text-base">delete_forever</span>
+                                        <span class="material-icons text-lg">delete_forever</span>
                                         <span>Delete Ticket</span>
                                     </button>
                                 </div>
@@ -302,11 +302,11 @@ const linkedTransaction = computed(() => {
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
-                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</span>
+                            <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</span>
                             <div class="flex items-center gap-2">
                                 <select
                                     v-model="selectedStatus"
-                                    class="text-sm px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all flex-1 sm:flex-none"
+                                    class="text-md px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all flex-1 sm:flex-none"
                                     @change="statusChanged = true"
                                 >
                                     <option v-for="status in statusOptions" :key="status.id" :value="status.id">
@@ -316,22 +316,22 @@ const linkedTransaction = computed(() => {
                                 <button
                                     v-if="statusChanged"
                                     @click="updateStatus"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-md font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap"
                                     :disabled="updatingStatus"
                                 >
-                                    <span v-if="updatingStatus" class="material-icons text-sm animate-spin">refresh</span>
-                                    <span v-else class="material-icons text-sm">save</span>
+                                    <span v-if="updatingStatus" class="material-icons text-md animate-spin">refresh</span>
+                                    <span v-else class="material-icons text-md">save</span>
                                     Update
                                 </button>
                             </div>
                         </div>
                         <div class="flex items-center justify-between sm:justify-start gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
-                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Expedite:</span>
-                            <span v-if="record.expedite" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-md text-sm font-semibold shadow-sm whitespace-nowrap">
-                                <span class="material-icons text-base">priority_high</span>
+                            <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Expedite:</span>
+                            <span v-if="record.expedite" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-md text-md font-semibold shadow-sm whitespace-nowrap">
+                                <span class="material-icons text-lg">priority_high</span>
                                 Yes
                             </span>
-                            <span v-else class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-sm font-medium whitespace-nowrap">
+                            <span v-else class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md text-md font-medium whitespace-nowrap">
                                 No
                             </span>
                         </div>
@@ -340,24 +340,24 @@ const linkedTransaction = computed(() => {
                             :href="route('transactions.show', linkedTransaction.id)"
                             class="flex items-center justify-between sm:justify-start gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 sm:py-2.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
                         >
-                            <span class="material-icons text-base text-blue-500 dark:text-blue-400">handshake</span>
-                            <span class="text-sm font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap group-hover:underline">{{ linkedTransaction.title }}</span>
+                            <span class="material-icons text-lg text-blue-500 dark:text-blue-400">handshake</span>
+                            <span class="text-md font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap group-hover:underline">{{ linkedTransaction.title }}</span>
                         </Link>
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
-                            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
+                            <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
                             <div class="flex items-center gap-2">
-                                <span v-if="record.approved" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-md text-sm font-semibold shadow-sm whitespace-nowrap">
-                                    <span class="material-icons text-base">check_circle</span>
+                                <span v-if="record.approved" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-md text-md font-semibold shadow-sm whitespace-nowrap">
+                                    <span class="material-icons text-lg">check_circle</span>
                                     Approved
                                 </span>
                                 <button
                                     v-if="!record.approved"
                                     @click="approveTicket"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md text-md font-medium hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap"
                                     :disabled="approving"
                                 >
-                                    <span v-if="approving" class="material-icons text-sm animate-spin">refresh</span>
-                                    <span v-else class="material-icons text-sm">check_circle</span>
+                                    <span v-if="approving" class="material-icons text-md animate-spin">refresh</span>
+                                    <span v-else class="material-icons text-md">check_circle</span>
                                     Approve
                                 </button>
                             </div>
@@ -365,13 +365,13 @@ const linkedTransaction = computed(() => {
                     </div>
                     <div class="flex flex-row sm:gap-4 lg:gap-6 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                         <div class="flex flex-col flex-1 sm:flex-none">
-                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Created</span>
-                            <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">{{ formatDateTime(record.created_at) }}</span>
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Created</span>
+                            <span class="text-sm sm:text-md font-semibold text-gray-700 dark:text-gray-200">{{ formatDateTime(record.created_at) }}</span>
                         </div>
                         <div class="border-l border-gray-300 dark:border-gray-600 sm:hidden"></div>
                         <div class="flex flex-col flex-1 sm:flex-none">
-                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Updated</span>
-                            <span class="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-200">{{ formatDateTime(record.updated_at) }}</span>
+                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Updated</span>
+                            <span class="text-sm sm:text-md font-semibold text-gray-700 dark:text-gray-200">{{ formatDateTime(record.updated_at) }}</span>
                         </div>
                     </div>
                 </div>

@@ -27,6 +27,7 @@ class UpdateInvoice
             'contact_id' => ['required', 'integer', 'exists:contacts,id'],
             'transaction_id' => ['nullable', 'integer'],
             'contract_id' => ['nullable', 'integer'],
+            'work_order_id' => ['nullable', 'integer', 'exists:work_orders,id'],
             'status' => ['nullable'],
             'currency' => ['nullable', 'string', 'max:3'],
             'payment_term' => ['nullable'],

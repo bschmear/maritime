@@ -8,6 +8,7 @@ use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
 use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Enums\RecordType;
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -242,6 +243,14 @@ class WorkOrderController extends RecordController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                ? $li->warranty_type->value
+                : ($li->warranty_type ?? null),
+            'billable_to' => $li->billable_to ?? (! $li->warranty
+                ? 'customer'
+                : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                    ? 'manufacturer'
+                    : 'internal')),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
@@ -249,6 +258,7 @@ class WorkOrderController extends RecordController
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Load service ticket data if linked
         $serviceTicket = null;
@@ -306,6 +316,7 @@ class WorkOrderController extends RecordController
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Check if creating from a service ticket
         $serviceTicket = null;
@@ -358,6 +369,14 @@ class WorkOrderController extends RecordController
                     'actual_hours' => 0,
                     'billable' => $li->billable,
                     'warranty' => $li->warranty,
+                    'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                        ? $li->warranty_type->value
+                        : ($li->warranty_type ?? null),
+                    'billable_to' => $li->billable_to ?? (! $li->warranty
+                        ? 'customer'
+                        : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                            ? 'manufacturer'
+                            : 'internal')),
                     'billing_type' => $li->billing_type,
                 ])->values()->all();
             }
@@ -427,11 +446,20 @@ class WorkOrderController extends RecordController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                ? $li->warranty_type->value
+                : ($li->warranty_type ?? null),
+            'billable_to' => $li->billable_to ?? (! $li->warranty
+                ? 'customer'
+                : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                    ? 'manufacturer'
+                    : 'internal')),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Load service ticket data if linked
         $serviceTicket = null;
@@ -567,6 +595,7 @@ class WorkOrderController extends RecordController
                 'default_hours',
                 'billable',
                 'warranty_eligible',
+                'warranty_type',
                 'billing_type',
             ])
             ->when($query, function ($q) use ($query) {
@@ -677,6 +706,9 @@ class WorkOrderController extends RecordController
         $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
 
         foreach ($serviceItems as $index => $itemData) {
+            $warranty = $itemData['warranty'] ?? false;
+            $billableTo = $itemData['billable_to']
+                ?? (! $warranty ? 'customer' : (($itemData['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal'));
             $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
                 'work_order_id' => $workOrderId,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
@@ -688,7 +720,9 @@ class WorkOrderController extends RecordController
                 'estimated_hours' => $itemData['estimated_hours'] ?? 0,
                 'actual_hours' => $itemData['actual_hours'] ?? 0,
                 'billable' => $itemData['billable'] ?? true,
-                'warranty' => $itemData['warranty'] ?? false,
+                'warranty' => $warranty,
+                'warranty_type' => $warranty ? ($itemData['warranty_type'] ?? null) : null,
+                'billable_to' => $billableTo,
                 'billing_type' => $itemData['billing_type'] ?? null,
                 'sort_order' => $itemData['sort_order'] ?? $index,
             ]);
@@ -714,6 +748,9 @@ class WorkOrderController extends RecordController
 
         // Create new ones and recalculate
         foreach ($serviceItems as $index => $itemData) {
+            $warranty = $itemData['warranty'] ?? false;
+            $billableTo = $itemData['billable_to']
+                ?? (! $warranty ? 'customer' : (($itemData['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal'));
             $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
                 'work_order_id' => $workOrderId,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
@@ -725,7 +762,9 @@ class WorkOrderController extends RecordController
                 'estimated_hours' => $itemData['estimated_hours'] ?? 0,
                 'actual_hours' => $itemData['actual_hours'] ?? 0,
                 'billable' => $itemData['billable'] ?? true,
-                'warranty' => $itemData['warranty'] ?? false,
+                'warranty' => $warranty,
+                'warranty_type' => $warranty ? ($itemData['warranty_type'] ?? null) : null,
+                'billable_to' => $billableTo,
                 'billing_type' => $itemData['billing_type'] ?? null,
                 'sort_order' => $itemData['sort_order'] ?? $index,
             ]);
@@ -786,11 +825,20 @@ class WorkOrderController extends RecordController
             'actual_hours' => (float) ($li->actual_hours ?? 0),
             'billable' => $li->billable,
             'warranty' => $li->warranty,
+            'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
+                ? $li->warranty_type->value
+                : ($li->warranty_type ?? null),
+            'billable_to' => $li->billable_to ?? (! $li->warranty
+                ? 'customer'
+                : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                    ? 'manufacturer'
+                    : 'internal')),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         return inertia('Tenant/'.$this->domainName.'/Public', [
             'record' => $recordArray,

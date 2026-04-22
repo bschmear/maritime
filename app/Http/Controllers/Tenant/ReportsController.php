@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Domain\Location\Models\Location;
-use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -32,7 +31,9 @@ class ReportsController extends Controller
             ->whereBetween('invoices.created_at', [$from, $to])
             ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
         $this->applySubsidiaryLocationFilters($boatSalesQ, $subsidiaryId, $locationId, 'transactions');
-        $boatSales = (float) ($boatSalesQ->sum('invoice_items.total') ?? 0);
+        $boatSales = (float) ($boatSalesQ
+            ->where('invoice_items.billable_to', '!=', 'internal')
+            ->sum('invoice_items.subtotal') ?? 0);
 
         $partsSalesQ = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -41,20 +42,25 @@ class ReportsController extends Controller
             ->whereBetween('invoices.created_at', [$from, $to])
             ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
         $this->applySubsidiaryLocationFilters($partsSalesQ, $subsidiaryId, $locationId, 'transactions');
-        $partsSales = (float) ($partsSalesQ->sum('invoice_items.total') ?? 0);
+        $partsSales = (float) ($partsSalesQ
+            ->where('invoice_items.billable_to', '!=', 'internal')
+            ->sum('invoice_items.subtotal') ?? 0);
 
-        // Service ticket items are the canonical source for service billable/cost lines.
-        $serviceRevenueQ = ServiceTicketServiceItem::query()
-            ->join('service_tickets', 'service_tickets.id', '=', 'service_ticket_service_items.service_ticket_id')
-            ->whereBetween('service_tickets.created_at', [$from, $to])
-            ->where('service_ticket_service_items.inactive', false);
-        if ($subsidiaryId !== null) {
-            $serviceRevenueQ->where('service_tickets.subsidiary_id', $subsidiaryId);
-        }
-        if ($locationId !== null) {
-            $serviceRevenueQ->where('service_tickets.location_id', $locationId);
-        }
-        $serviceRevenue = (float) ($serviceRevenueQ->sum('service_ticket_service_items.total_price') ?? 0);
+        $serviceRevenueQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.billable_to', '!=', 'internal')
+            ->where(function ($q) {
+                $q->whereNull('invoice_items.itemable_type')
+                    ->orWhereNotIn('invoice_items.itemable_type', [
+                        \App\Domain\Asset\Models\Asset::class,
+                        \App\Domain\InventoryItem\Models\InventoryItem::class,
+                    ]);
+            });
+        $this->applySubsidiaryLocationFilters($serviceRevenueQ, $subsidiaryId, $locationId, 'transactions');
+        $serviceRevenue = (float) ($serviceRevenueQ->sum('invoice_items.subtotal') ?? 0);
 
         $boatCostQ = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -68,7 +74,7 @@ class ReportsController extends Controller
             ->whereBetween('invoices.created_at', [$from, $to])
             ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
         $this->applySubsidiaryLocationFilters($boatCostQ, $subsidiaryId, $locationId, 'transactions');
-        $boatCost = (float) ($boatCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(asset_variants.default_cost, assets.default_cost, 0)')) ?? 0);
+        $boatCost = (float) ($boatCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, asset_variants.default_cost, assets.default_cost, 0)')) ?? 0);
 
         $partsCostQ = DB::table('invoice_items')
             ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
@@ -81,19 +87,22 @@ class ReportsController extends Controller
             ->whereBetween('invoices.created_at', [$from, $to])
             ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
         $this->applySubsidiaryLocationFilters($partsCostQ, $subsidiaryId, $locationId, 'transactions');
-        $partsCost = (float) ($partsCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(inventory_items.default_cost, 0)')) ?? 0);
+        $partsCost = (float) ($partsCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, inventory_items.default_cost, 0)')) ?? 0);
 
-        $serviceCostQ = ServiceTicketServiceItem::query()
-            ->join('service_tickets', 'service_tickets.id', '=', 'service_ticket_service_items.service_ticket_id')
-            ->whereBetween('service_tickets.created_at', [$from, $to])
-            ->where('service_ticket_service_items.inactive', false);
-        if ($subsidiaryId !== null) {
-            $serviceCostQ->where('service_tickets.subsidiary_id', $subsidiaryId);
-        }
-        if ($locationId !== null) {
-            $serviceCostQ->where('service_tickets.location_id', $locationId);
-        }
-        $serviceCost = (float) ($serviceCostQ->sum('service_ticket_service_items.total_cost') ?? 0);
+        $serviceCostQ = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where(function ($q) {
+                $q->whereNull('invoice_items.itemable_type')
+                    ->orWhereNotIn('invoice_items.itemable_type', [
+                        \App\Domain\Asset\Models\Asset::class,
+                        \App\Domain\InventoryItem\Models\InventoryItem::class,
+                    ]);
+            });
+        $this->applySubsidiaryLocationFilters($serviceCostQ, $subsidiaryId, $locationId, 'transactions');
+        $serviceCost = (float) ($serviceCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, 0)')) ?? 0);
 
         $income = [
             'boat_sales' => $boatSales,
@@ -193,22 +202,32 @@ class ReportsController extends Controller
                 'contact_id,
                 MAX(customer_name) as customer_name,
                 COUNT(*) as invoice_count,
-                SUM(total) as total_sales,
                 SUM(subtotal) as total_subtotal,
                 SUM(tax_total) as total_tax,
                 SUM(amount_paid) as total_paid,
                 SUM(amount_due) as total_due'
             )
             ->groupBy('contact_id')
-            ->orderByDesc('total_sales')
+            ->orderByDesc('total_subtotal')
             ->get();
 
+        $revenueByContact = InvoiceItem::query()
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to])
+            ->where('invoice_items.billable_to', '=', 'customer')
+            ->groupBy('invoices.contact_id')
+            ->selectRaw('invoices.contact_id as contact_id, SUM(invoice_items.subtotal) as total_sales')
+            ->pluck('total_sales', 'contact_id');
+
         $rows = $groups->map(function ($group) {
+            $contactId = $group->contact_id ? (int) $group->contact_id : null;
+
             return [
-                'contact_id' => $group->contact_id ? (int) $group->contact_id : null,
+                'contact_id' => $contactId,
                 'customer_name' => trim((string) ($group->customer_name ?? '')) ?: 'Unknown Customer',
                 'invoice_count' => (int) $group->invoice_count,
-                'total_sales' => (float) $group->total_sales,
+                'total_sales' => (float) ($contactId ? ($revenueByContact[$contactId] ?? 0) : 0),
                 'total_subtotal' => (float) $group->total_subtotal,
                 'total_tax' => (float) $group->total_tax,
                 'total_paid' => (float) $group->total_paid,
@@ -388,7 +407,7 @@ class ReportsController extends Controller
                 SUM(invoice_items.quantity) as quantity_total,
                 SUM(invoice_items.subtotal) as subtotal_total,
                 SUM(invoice_items.tax_amount) as tax_total,
-                SUM(invoice_items.total) as total_sales"
+                SUM(CASE WHEN invoice_items.billable_to = 'internal' THEN 0 ELSE invoice_items.subtotal END) as total_sales"
             )
             ->groupByRaw(
                 "CASE
@@ -438,6 +457,7 @@ class ReportsController extends Controller
                     'name',
                     'asset_variant_id',
                     'quantity',
+                    'billable_to',
                     'subtotal',
                     'tax_amount',
                     'total',
@@ -449,7 +469,7 @@ class ReportsController extends Controller
                 'quantity' => (float) $item->quantity,
                 'subtotal' => (float) $item->subtotal,
                 'tax_total' => (float) $item->tax_amount,
-                'total_sales' => (float) $item->total,
+                'total_sales' => (float) (($item->billable_to ?? 'customer') === 'internal' ? 0 : $item->subtotal),
                 'invoice_id' => (int) $item->invoice_id,
                 'invoice_label' => $item->invoice?->display_name ?? ('INV-'.$item->invoice?->sequence),
                 'customer_name' => $item->invoice?->customer_name ?: 'Unknown Customer',

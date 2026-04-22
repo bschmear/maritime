@@ -26,6 +26,16 @@ const props = defineProps({
 });
 
 const normalizeTaxable = (v) => v !== false && v !== 0 && v !== '0' && v !== 'false';
+const normalizeWarrantyType = (v) => (v === 'manufacturer' || v === 'dealership' ? v : null);
+const deriveBillableTo = (item) => {
+    if (item.billable_to === 'customer' || item.billable_to === 'manufacturer' || item.billable_to === 'internal') {
+        return item.billable_to;
+    }
+    const isWarranty = item.is_warranty ?? item.warranty;
+    const warrantyType = item.warranty_type;
+    if (!isWarranty) return 'customer';
+    return warrantyType === 'manufacturer' ? 'manufacturer' : 'internal';
+};
 
 const normalizeAddons = (addons, isNew = false) =>
     (addons || []).map((a) => ({
@@ -44,6 +54,10 @@ const normalizeItemBase = (item, isNew = false) => ({
     quantity: item.quantity ?? 1,
     unit_price: Number(item.unit_price) || 0,
     discount: Number(item.discount) || 0,
+    cost: Number(item.cost ?? item.unit_cost) || 0,
+    is_warranty: Boolean(item.is_warranty ?? item.warranty ?? false),
+    warranty_type: normalizeWarrantyType(item.warranty_type),
+    billable_to: deriveBillableTo(item),
     position: item.position ?? 0,
     taxable: normalizeTaxable(item.taxable ?? true),
     addons: normalizeAddons(item.addons, isNew),
@@ -114,7 +128,9 @@ onMounted(() => {
 
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const lineBaseTotal = (item) =>
-    Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
+    item.billable_to && item.billable_to !== 'customer'
+        ? 0
+        : Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
 const lineAddonsTotal = (item) => (item.addons || []).reduce((s, a) => s + addonPreTaxTotal(a), 0);
 const lineTotal = (item) => lineBaseTotal(item) + lineAddonsTotal(item);
@@ -137,6 +153,22 @@ const lineCoreTotalWithTax = (item) => lineBaseTotal(item) + taxOnItemBase(item)
 const computedSubtotal = computed(() => lines.value.reduce((s, i) => s + lineTotal(i), 0));
 const computedLineItemsTax = computed(() => lines.value.reduce((s, i) => s + itemLineTaxTotal(i), 0));
 const allItemsCount = computed(() => lines.value.length);
+
+watchEffect(() => {
+    lines.value.forEach((line) => {
+        if (!line.is_warranty) {
+            line.warranty_type = null;
+            line.billable_to = 'customer';
+            return;
+        }
+
+        if (line.billable_to !== 'manufacturer' && line.billable_to !== 'internal') {
+            line.billable_to = 'internal';
+        }
+
+        line.warranty_type = line.billable_to === 'manufacturer' ? 'manufacturer' : 'dealership';
+    });
+});
 
 watchEffect(() => {
     const f = props.form;
@@ -188,7 +220,11 @@ const emptyAssetForm = () => ({
     make: '',
     quantity: 1,
     unit_price: 0,
+    cost: 0,
     discount: 0,
+    is_warranty: false,
+    warranty_type: null,
+    billable_to: 'customer',
     notes: '',
     addons: [],
     has_variants: false,
@@ -279,7 +315,11 @@ const emptyLineItemForm = () => ({
     sku: '',
     quantity: 1,
     unit_price: 0,
+    cost: 0,
     discount: 0,
+    is_warranty: false,
+    warranty_type: null,
+    billable_to: 'customer',
     description: '',
     taxable: true,
     addons: [],
@@ -331,6 +371,7 @@ const selectInventoryItem = (inv) => {
     lineItemForm.value.name = inv.display_name;
     lineItemForm.value.sku = inv.sku || '';
     lineItemForm.value.unit_price = Number(inv.default_price) || 0;
+    lineItemForm.value.cost = Number(inv.default_cost) || 0;
 };
 const saveInventoryItem = () => {
     if (!lineItemForm.value.itemable_id) return;
@@ -412,7 +453,11 @@ function buildItemsForSubmitInternal(taxRatePercent) {
             description: line.description || null,
             quantity: Number(line.quantity) || 1,
             unit_price: Number(line.unit_price) || 0,
+            cost: Number(line.cost) || 0,
             discount: Number(line.discount) || 0,
+            is_warranty: !!line.is_warranty,
+            warranty_type: line.is_warranty ? (line.warranty_type ?? null) : null,
+            billable_to: line.billable_to ?? 'customer',
             position: pos++,
             taxable: !!line.taxable,
             tax_rate: line.taxable ? rate : 0,
@@ -472,6 +517,8 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Qty</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Discount</th>
+                                <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Warranty</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Billable To</th>
                                 <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
@@ -502,6 +549,32 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300"> {{ +line.quantity }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.unit_price) }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.discount) }}</td>
+                                        <td class="px-4 py-3 text-center align-middle">
+                                            <input
+                                                v-if="!readonly"
+                                                v-model="line.is_warranty"
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                            />
+                                            <span v-else class="text-xs text-gray-500 dark:text-gray-400">{{ line.is_warranty ? 'Yes' : 'No' }}</span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div v-if="!readonly" class="space-y-1">
+                                                <select v-if="line.is_warranty" v-model="line.billable_to" class="input-style py-1 text-sm">
+                                                    <option value="manufacturer">Manufacturer warranty</option>
+                                                    <option value="internal">Dealership warranty (internal)</option>
+                                                </select>
+                                                <div v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                                    Customer
+                                                </div>
+                                            </div>
+                                            <div v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                                <div v-if="line.is_warranty">
+                                                    {{ line.billable_to === 'manufacturer' ? 'Manufacturer warranty' : 'Dealership warranty (internal)' }}
+                                                </div>
+                                                <div v-else>Customer</div>
+                                            </div>
+                                        </td>
                                         <td class="px-4 py-3 text-center align-middle">
                                             <input
                                                 v-if="!readonly"
@@ -603,7 +676,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                         </tbody>
                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-200 dark:border-gray-600">
                             <tr>
-                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets subtotal (pre-tax)</td>
+                                <td colspan="9" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets subtotal (pre-tax)</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetTax) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal + computedAssetTax) }}</td>
@@ -645,6 +718,8 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Qty</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Discount</th>
+                                <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Warranty</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Billable To</th>
                                 <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
@@ -665,6 +740,32 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ +line.quantity }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.unit_price) }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.discount) }}</td>
+                                        <td class="px-4 py-3 text-center align-middle">
+                                            <input
+                                                v-if="!readonly"
+                                                v-model="line.is_warranty"
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                            />
+                                            <span v-else class="text-xs text-gray-500 dark:text-gray-400">{{ line.is_warranty ? 'Yes' : 'No' }}</span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div v-if="!readonly" class="space-y-1">
+                                                <select v-if="line.is_warranty" v-model="line.billable_to" class="input-style py-1 text-sm">
+                                                    <option value="manufacturer">Manufacturer warranty</option>
+                                                    <option value="internal">Dealership warranty (internal)</option>
+                                                </select>
+                                                <div v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                                    Customer
+                                                </div>
+                                            </div>
+                                            <div v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                                <div v-if="line.is_warranty">
+                                                    {{ line.billable_to === 'manufacturer' ? 'Manufacturer warranty' : 'Dealership warranty (internal)' }}
+                                                </div>
+                                                <div v-else>Customer</div>
+                                            </div>
+                                        </td>
                                         <td class="px-4 py-3 text-center align-middle">
                                             <input
                                                 v-if="!readonly"
@@ -764,7 +865,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                         </tbody>
                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-200 dark:border-gray-600">
                             <tr>
-                                <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts subtotal (pre-tax)</td>
+                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts subtotal (pre-tax)</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedInventorySubtotal) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedInventoryTax) }}</td>
                                 <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedInventorySubtotal + computedInventoryTax) }}</td>

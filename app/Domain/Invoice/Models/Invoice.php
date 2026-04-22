@@ -25,6 +25,7 @@ class Invoice extends Model
     protected $fillable = [
         'transaction_id',
         'contract_id',
+        'work_order_id',
         'contact_id',
 
         'uuid',
@@ -162,6 +163,17 @@ class Invoice extends Model
     public function contract(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\Contract\Models\Contract::class);
+    }
+
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\WorkOrder\Models\WorkOrder::class);
+    }
+
+    // Backward-compatible alias for schema-driven eager loading keyed as `work_order`.
+    public function work_order(): BelongsTo
+    {
+        return $this->workOrder();
     }
 
     public function contact(): BelongsTo

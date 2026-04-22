@@ -128,22 +128,28 @@ const deleteWorkOrder = () => {
 
                     <div class="flex items-center space-x-2">
                         <Link :href="route('workorders.index')" class="w-full">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-2">arrow_back</span>
+                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-2">arrow_back</span>
                                 Back to List
                             </button>
                         </Link>
                         <Link :href="route('workorders.edit', record.id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-sm mr-1">edit</span>
+                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-1">edit</span>
                                 Edit
+                            </button>
+                        </Link>
+                        <Link :href="route('invoices.create') + `?work_order_id=${record.id}`">
+                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
+                                <span class="material-icons text-md mr-1">request_quote</span>
+                                Create Invoice
                             </button>
                         </Link>
 
 
                                 <button
                                     @click="deleteWorkOrder"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                                    class="w-full inline-flex items-center justify-center px-4 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
                                     <span class="material-icons ">delete_forever</span>
                                 </button>
 
@@ -182,28 +188,28 @@ const deleteWorkOrder = () => {
                             <!-- Classification -->
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Type
                                     </label>
-                                    <p class="text-sm text-gray-900 dark:text-white">
+                                    <p class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('type', record.type) }}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Priority
                                     </label>
-                                    <p class="text-sm text-gray-900 dark:text-white">
+                                    <p class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('priority', record.priority) }}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Status
                                     </label>
-                                    <p class="text-sm text-gray-900 dark:text-white">
+                                    <p class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('status', record.status) }}
                                     </p>
                                 </div>
@@ -212,19 +218,19 @@ const deleteWorkOrder = () => {
                             <!-- Timestamps -->
                             <div class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                                         Created
                                     </label>
-                                    <p class="text-sm text-gray-900 dark:text-white">
+                                    <p class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record.created_at) }}
                                     </p>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                                         Last Updated
                                     </label>
-                                    <p class="text-sm text-gray-900 dark:text-white">
+                                    <p class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record.updated_at) }}
                                     </p>
                                 </div>

@@ -102,6 +102,24 @@
     "default": false
   },
 
+  "warranty_type": {
+    "label": "Warranty coverage",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicketServiceItem\\WarrantyCoverageType",
+    "nullable": true
+  },
+
+  "billable_to": {
+    "label": "Billable To",
+    "type": "select",
+    "options": [
+      { "id": "customer", "value": "customer", "name": "Customer" },
+      { "id": "manufacturer", "value": "manufacturer", "name": "Manufacturer" },
+      { "id": "internal", "value": "internal", "name": "Internal" }
+    ],
+    "default": "customer"
+  },
+
   "sort_order": {
     "label": "Sort Order",
     "type": "number",

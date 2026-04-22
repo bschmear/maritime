@@ -86,6 +86,11 @@ class ServiceTicketService
 
         // Create new ones
         foreach ($items as $index => $itemData) {
+            $warranty = $itemData['warranty'] ?? false;
+            $billableTo = $itemData['billable_to']
+                ?? (! $warranty
+                    ? 'customer'
+                    : (($itemData['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal'));
             $lineItem = ServiceTicketServiceItem::create([
                 'service_ticket_id' => $ticket->id,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
@@ -96,10 +101,11 @@ class ServiceTicketService
                 'unit_cost' => $itemData['unit_cost'] ?? 0,
                 'estimated_hours' => $itemData['estimated_hours'] ?? 0,
                 'billable' => $itemData['billable'] ?? true,
-                'warranty' => $itemData['warranty'] ?? false,
-                'warranty_type' => ($itemData['warranty'] ?? false)
+                'warranty' => $warranty,
+                'warranty_type' => $warranty
                     ? ($itemData['warranty_type'] ?? null)
                     : null,
+                'billable_to' => $billableTo,
                 'billing_type' => $itemData['billing_type'] ?? null,
                 'sort_order' => $itemData['sort_order'] ?? $index,
             ]);

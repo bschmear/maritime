@@ -110,6 +110,17 @@
     "help": "Dealership vs manufacturer when this line is warranty work."
   },
 
+  "billable_to": {
+    "label": "Billable To",
+    "type": "select",
+    "options": [
+      { "id": "customer", "value": "customer", "name": "Customer" },
+      { "id": "manufacturer", "value": "manufacturer", "name": "Manufacturer" },
+      { "id": "internal", "value": "internal", "name": "Internal" }
+    ],
+    "default": "customer"
+  },
+
   "sort_order": {
     "label": "Sort Order",
     "type": "number",

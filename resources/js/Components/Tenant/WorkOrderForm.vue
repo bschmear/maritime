@@ -108,9 +108,16 @@ const serviceItemIsLoading = ref(false);
 // Billing type options from enum
 const billingTypeOptions = computed(() => props.enumOptions?.billing_type || []);
 
+const warrantyCoverageOptions = computed(() => props.enumOptions?.warranty_type || []);
+
 const getBillingTypeLabel = (billingType) => {
     const option = billingTypeOptions.value.find(opt => opt.value === billingType);
     return option?.name || 'Unknown';
+};
+
+const getWarrantyCoverageLabel = (warrantyType) => {
+    const option = warrantyCoverageOptions.value.find(opt => opt.value === warrantyType);
+    return option ? option.name : '';
 };
 
 // ==============================
@@ -188,6 +195,7 @@ const lineItemForm = ref({
     actual_hours: null,
     billable: true,
     warranty: false,
+    warranty_type: null,
     billing_type: null
 });
 
@@ -204,6 +212,7 @@ const addServiceItemLine = () => {
         actual_hours: 0,
         billable: true,
         warranty: false,
+        warranty_type: null,
         billing_type: null
     };
     selectedServiceItem.value = null;
@@ -227,6 +236,7 @@ const editServiceItemLine = (index) => {
         actual_hours: item.actual_hours ?? 0,
         billable: item.billable ?? true,
         warranty: item.warranty ?? false,
+        warranty_type: item.warranty_type ?? null,
         billing_type: item.billing_type ?? null
     };
     // For editing, we'll pre-fill the form but allow user to change service item via modal
@@ -239,7 +249,8 @@ const editServiceItemLine = (index) => {
         default_cost: item.unit_cost,
         default_hours: item.estimated_hours,
         billable: item.billable,
-        warranty_eligible: item.warranty
+        warranty_eligible: item.warranty,
+        warranty_type: item.warranty_type
     };
     showServiceItemModal.value = true;
 };
@@ -260,10 +271,15 @@ const selectServiceItem = (item) => {
     lineItemForm.value.actual_hours = 0;
     lineItemForm.value.billable = item.billable ?? true;
     lineItemForm.value.warranty = item.warranty_eligible ?? false;
+    lineItemForm.value.warranty_type = item.warranty_type ?? null;
     lineItemForm.value.billing_type = item.billing_type ?? null;
 };
 
 const saveLineItem = () => {
+    if (lineItemForm.value.warranty && !lineItemForm.value.warranty_type) {
+        alert('Please select dealership or manufacturer warranty when warranty work is checked.');
+        return;
+    }
     if (editingLineIndex.value !== null) {
         lineItems.value[editingLineIndex.value] = { ...lineItemForm.value };
     } else {
@@ -338,6 +354,12 @@ const prevServiceItemPage = () => {
         fetchServiceItems();
     }
 };
+
+watch(() => lineItemForm.value.warranty, (isWarranty) => {
+    if (!isWarranty) {
+        lineItemForm.value.warranty_type = null;
+    }
+});
 
 // ==============================
 // Aggregated Totals
@@ -670,6 +692,7 @@ watch(() => props.record?.service_items, (items) => {
             actual_hours: li.actual_hours ?? 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
+            warranty_type: li.warranty_type ?? null,
             billing_type: li.billing_type ?? null
         }));
     }
@@ -688,6 +711,7 @@ if (props.serviceTicketItems && props.serviceTicketItems.length > 0 && props.mod
         actual_hours: li.actual_hours ?? 0,
         billable: li.billable ?? true,
         warranty: li.warranty ?? false,
+        warranty_type: li.warranty_type ?? null,
         billing_type: li.billing_type ?? null,
     }));
 }
@@ -796,6 +820,7 @@ const submit = () => {
             actual_hours: Number(li.actual_hours) || 0,
             billable: li.billable ?? true,
             warranty: li.warranty ?? false,
+            warranty_type: li.warranty ? (li.warranty_type ?? null) : null,
             billing_type: li.billing_type ? Number(li.billing_type) : null,
             sort_order: idx
         }));
@@ -888,11 +913,11 @@ const handleCancel = () => {
                         <div class="flex items-center justify-between">
                             <div>
                                 <h1 class="text-2xl font-bold text-white">{{ mode === 'edit' ? 'EDIT' : 'WORK ORDER' }}</h1>
-                                <p class="text-blue-100 text-sm mt-1">{{ mode === 'edit' ? 'Update Work Order' : 'Service Request Form' }}</p>
+                                <p class="text-blue-100 text-md mt-1">{{ mode === 'edit' ? 'Update Work Order' : 'Service Request Form' }}</p>
                             </div>
                             <div class="text-right">
-                                <div class="text-white text-sm font-medium">WO #</div>
-                                <div class="text-white text-lg font-mono">{{ form.work_order_number || record?.work_order_number || 'Auto-generated' }}</div>
+                                <div class="text-white text-md font-medium">WO #</div>
+                                <div class="text-white text-xl font-mono">{{ form.work_order_number || record?.work_order_number || 'Auto-generated' }}</div>
                             </div>
                         </div>
                     </div>
@@ -903,15 +928,15 @@ const handleCancel = () => {
                             <div class="flex items-center gap-3">
                                 <span class="material-icons text-amber-600 dark:text-amber-400">link</span>
                                 <div class="flex-1">
-                                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                                    <p class="text-md font-semibold text-amber-800 dark:text-amber-200">
                                         Linked to Service Ticket {{ serviceTicket?.service_ticket_number || record?.service_ticket_id }}
                                     </p>
-                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                    <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">
                                         Customer, location, and asset are sourced from the service ticket.
                                     </p>
                                 </div>
-                                <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-md text-xs font-medium hover:bg-amber-700 transition-colors whitespace-nowrap">
-                                    <span class="material-icons text-sm">open_in_new</span>
+                                <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-md text-sm font-medium hover:bg-amber-700 transition-colors whitespace-nowrap">
+                                    <span class="material-icons text-md">open_in_new</span>
                                     View Ticket
                                 </a>
                             </div>
@@ -920,13 +945,13 @@ const handleCancel = () => {
                         <!-- Customer & Unit Information -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                     Customer Information
                                 </h3>
 
                                 <!-- Customer Selection -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.customer_id?.label || 'Customer' }} {{ isFieldRequired('customer_id') ? '*' : '' }}
                                     </label>
                                     <RecordSelect
@@ -939,14 +964,14 @@ const handleCancel = () => {
                                         :record="pseudoRecord"
                                         field-key="customer_id"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.customer?.display_name || '—' }}
                                     </p>
                                 </div>
 
                                 <!-- Asset Selection -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.asset_unit_id?.label || 'Asset' }}
                                         {{ isFieldRequired('asset_unit_id') ? '*' : '' }}
                                     </label>
@@ -962,14 +987,14 @@ const handleCancel = () => {
                                         filter-by="customer_id"
                                         :filter-value="form.customer_id"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.asset_unit?.display_name || '—' }}
                                     </p>
                                 </div>
 
                                 <!-- Subsidiary Selection -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.subsidiary_id?.label || 'Subsidiary' }}
                                         {{ isFieldRequired('subsidiary_id') ? '*' : '' }}
                                     </label>
@@ -983,14 +1008,14 @@ const handleCancel = () => {
                                         :record="pseudoRecord"
                                         field-key="subsidiary_id"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.subsidiary?.display_name || '—' }}
                                     </p>
                                 </div>
 
                                 <!-- Location Selection -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.location_id?.label || 'Location' }}
                                         {{ isFieldRequired('location_id') ? '*' : '' }}
                                     </label>
@@ -1006,20 +1031,20 @@ const handleCancel = () => {
                                         :filter-by="fieldsSchema.location_id.filterby || null"
                                         :filter-value="getFieldFilterValue('location_id')"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.location?.display_name || '—' }}
                                     </p>
                                 </div>
                             </div>
 
                             <div class="space-y-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                     Assignment & Scheduling
                                 </h3>
 
                                 <!-- Assigned User Selection -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.assigned_user_id?.label || 'Assigned Technician' }}
                                         {{ isFieldRequired('assigned_user_id') ? '*' : '' }}
                                     </label>
@@ -1033,16 +1058,16 @@ const handleCancel = () => {
                                         :record="pseudoRecord"
                                         field-key="assigned_user_id"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.assigned_user?.display_name || 'Unassigned' }}
                                     </p>
                                 </div>
 
                                 <!-- Scheduled Date/Time -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.scheduled_start_at?.label || 'Scheduled Date/Time' }}
-                                        <span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                                             ({{ accountTimezoneLabel }})
                                         </span>
                                         {{ isFieldRequired('scheduled_start_at') ? '*' : '' }}
@@ -1054,16 +1079,16 @@ const handleCancel = () => {
                                         :readonly="isFieldReadonly('scheduled_start_at')"
                                         class="input-style"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record?.scheduled_start_at) }}
                                     </p>
                                 </div>
 
                                 <!-- Due Date -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.due_at?.label || 'Due Date' }}
-                                        <span class="text-xs font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
                                             ({{ accountTimezoneLabel }})
                                         </span>
                                         {{ isFieldRequired('due_at') ? '*' : '' }}
@@ -1075,7 +1100,7 @@ const handleCancel = () => {
                                         :readonly="isFieldReadonly('due_at')"
                                         class="input-style"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record?.due_at) }}
                                     </p>
                                 </div>
@@ -1084,14 +1109,14 @@ const handleCancel = () => {
 
                         <!-- Work Order Details -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
                                 Work Order Details
                             </h3>
 
                             <div class="space-y-4">
                                 <!-- Display Name / Title -->
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.display_name?.label || 'Summary' }} {{ isFieldRequired('display_name') ? '*' : '' }}
                                     </label>
                                     <input
@@ -1103,14 +1128,14 @@ const handleCancel = () => {
                                         class="input-style"
                                         :required="isFieldRequired('display_name')"
                                     />
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ record?.display_name || '—' }}
                                     </p>
                                 </div>
 
                                 <!-- Description -->
                                 <div v-if="mode !== 'show' || record?.description">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.description?.label || 'Description' }}
                                         {{ isFieldRequired('description') ? '*' : '' }}
                                     </label>
@@ -1122,14 +1147,14 @@ const handleCancel = () => {
                                         :readonly="isFieldReadonly('description')"
                                         class="input-style resize-none"
                                     ></textarea>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white whitespace-pre-line leading-relaxed">
+                                    <p v-else class="text-md text-gray-900 dark:text-white whitespace-pre-line leading-relaxed">
                                         {{ record?.description || '—' }}
                                     </p>
                                 </div>
 
                                 <!-- Internal Notes -->
                                 <div v-if="mode !== 'show' || record?.internal_notes">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         {{ fieldsSchema.internal_notes?.label || 'Internal Notes' }}
                                         {{ isFieldRequired('internal_notes') ? '*' : '' }}
                                     </label>
@@ -1141,11 +1166,11 @@ const handleCancel = () => {
                                         :readonly="isFieldReadonly('internal_notes')"
                                         class="input-style resize-none"
                                     ></textarea>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white whitespace-pre-line leading-relaxed">
+                                    <p v-else class="text-md text-gray-900 dark:text-white whitespace-pre-line leading-relaxed">
                                         {{ record?.internal_notes }}
                                     </p>
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        <span class="material-icons text-xs align-middle">lock</span>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="material-icons text-sm align-middle">lock</span>
                                         These notes are internal only and will not appear on customer-facing documents
                                     </p>
                                 </div>
@@ -1155,16 +1180,16 @@ const handleCancel = () => {
                         <!-- Service Items Section -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                     Service Items
                                 </h3>
                                 <button
                                     v-if="mode !== 'show'"
                                     @click="addServiceItemLine"
                                     type="button"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                 >
-                                    <span class="material-icons text-base">add_circle</span>
+                                    <span class="material-icons text-lg">add_circle</span>
                                     Add Item
                                 </button>
                             </div>
@@ -1175,34 +1200,34 @@ const handleCancel = () => {
                                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900/50">
                                     <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Description
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Qty
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Est Hrs
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Act Hrs
                                     </th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Type
                                     </th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Warranty
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Unit Price
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Unit Cost
                                     </th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Line Total
                                     </th>
-                                    <th v-if="mode !== 'show'" class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    <th v-if="mode !== 'show'" class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Actions
                                     </th>
                                     </tr>
@@ -1213,62 +1238,67 @@ const handleCancel = () => {
                                     :key="index"
                                     class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                     >
-                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">
+                                    <td class="px-4 py-3 text-md text-gray-900 dark:text-white font-medium">
                                         {{ item.display_name || item.description }}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-medium">
                                         {{ item.quantity }}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-medium">
                                         {{ item.estimated_hours ?? 0 }}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-medium">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-medium">
                                         <span v-if="item.actual_hours > 0" class="text-blue-600 dark:text-blue-400">
                                         {{ item.actual_hours }}
                                         </span>
                                         <span v-else>{{ item.actual_hours }}</span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    <td class="px-4 py-3 text-md text-gray-900 dark:text-white">
                                         <span
-                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                        class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                                         >
                                         {{ getBillingTypeLabel(item.billing_type) }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-center text-gray-900 dark:text-white">
-                                        <span v-if="item.warranty" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                                            <span class="material-icons text-xs mr-1">verified_user</span>
-                                            Yes
+                                    <td class="px-4 py-3 text-md text-center text-gray-900 dark:text-white">
+                                        <span v-if="item.warranty" class="inline-flex flex-col items-center gap-0.5 px-2 py-0.5 rounded text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                            <span class="inline-flex items-center">
+                                                <span class="material-icons text-sm mr-1">verified_user</span>
+                                                Yes
+                                            </span>
+                                            <span v-if="item.warranty_type" class="text-[10px] font-normal opacity-90">
+                                                {{ getWarrantyCoverageLabel(item.warranty_type) }}
+                                            </span>
                                         </span>
-                                        <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                        <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                                             No
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white">
                                         {{ formatCurrency(item.unit_price) }}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white">
                                         {{ formatCurrency(item.unit_cost) }}
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-900 dark:text-white font-semibold">
+                                    <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-semibold">
                                         {{ formatCurrency(calculateLineItemPrice(item)) }}
                                         </td>
 
-                                    <td v-if="mode !== 'show'" class="px-4 py-3 text-sm text-right">
+                                    <td v-if="mode !== 'show'" class="px-4 py-3 text-md text-right">
                                         <div class="flex items-center justify-end gap-2">
                                         <button
                                             @click="editServiceItemLine(index)"
                                             type="button"
                                             class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                                         >
-                                            <span class="material-icons text-base">edit</span>
+                                            <span class="material-icons text-lg">edit</span>
                                         </button>
                                         <button
                                             @click="removeServiceItemLine(index)"
                                             type="button"
                                             class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
                                         >
-                                            <span class="material-icons text-base">delete</span>
+                                            <span class="material-icons text-lg">delete</span>
                                         </button>
                                         </div>
                                     </td>
@@ -1284,14 +1314,14 @@ const handleCancel = () => {
                             class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700"
                             >
                             <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">No service items added yet</p>
-                            <p v-if="mode !== 'show'" class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to get started</p>
+                            <p class="text-md text-gray-500 dark:text-gray-400">No service items added yet</p>
+                            <p v-if="mode !== 'show'" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Item" to get started</p>
                             </div>
                         </div>
 
                         <!-- Financial Summary -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-6">
+                        <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-6">
                             Financial Summary
                         </h3>
 
@@ -1299,7 +1329,7 @@ const handleCancel = () => {
 
                             <!-- Internal -->
                             <div>
-                            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                                 Internal
                             </h4>
 
@@ -1325,7 +1355,7 @@ const handleCancel = () => {
                                 <span class="font-medium">{{ formatCurrency(lineItemsPartsCost) }}</span>
                                 </div>
 
-                                <div class="flex justify-between text-lg font-semibold border-t pt-3">
+                                <div class="flex justify-between text-xl font-semibold border-t pt-3">
                                 <span>Total Internal Cost</span>
                                 <span>{{ formatCurrency(lineItemsTotalCost) }}</span>
                                 </div>
@@ -1334,7 +1364,7 @@ const handleCancel = () => {
 
                             <!-- Customer -->
                             <div>
-                            <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
                                 Customer
                             </h4>
 
@@ -1352,9 +1382,9 @@ const handleCancel = () => {
                                         type="number"
                                         step="0.01"
                                         min="0"
-                                        class="w-16 px-2 py-1 text-sm text-right bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        class="w-16 px-2 py-1 text-md text-right bg-white dark:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                         />
-                                        <span class="text-sm">%</span>
+                                        <span class="text-md">%</span>
                                     </div>
                                     <span v-else class="font-medium">{{ form.tax_rate ?? 0 }}%</span>
                                 </div>
@@ -1383,7 +1413,7 @@ const handleCancel = () => {
                                         : 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'"
                             >
                                 <div class="flex items-start gap-3">
-                                    <span class="material-icons text-lg mt-0.5"
+                                    <span class="material-icons text-xl mt-0.5"
                                         :class="isOverThreshold
                                             ? 'text-red-600 dark:text-red-400'
                                             : thresholdPercentUsed > 90
@@ -1393,7 +1423,7 @@ const handleCancel = () => {
                                         {{ isOverThreshold ? 'error' : thresholdPercentUsed > 90 ? 'warning' : 'info' }}
                                     </span>
                                     <div class="flex-1">
-                                        <p class="text-sm font-semibold"
+                                        <p class="text-md font-semibold"
                                             :class="isOverThreshold
                                                 ? 'text-red-800 dark:text-red-200'
                                                 : thresholdPercentUsed > 90
@@ -1410,7 +1440,7 @@ const handleCancel = () => {
                                                 Linked to Service Ticket {{ serviceTicket?.service_ticket_number }}
                                             </template>
                                         </p>
-                                        <div class="mt-2 text-sm space-y-1"
+                                        <div class="mt-2 text-md space-y-1"
                                             :class="isOverThreshold
                                                 ? 'text-red-700 dark:text-red-300'
                                                 : thresholdPercentUsed > 90
@@ -1430,7 +1460,7 @@ const handleCancel = () => {
                                                 <span>{{ formatCurrency(lineItemsGrandTotal) }}</span>
                                             </div>
                                         </div>
-                                        <p v-if="isOverThreshold" class="mt-3 text-sm font-medium text-red-800 dark:text-red-200">
+                                        <p v-if="isOverThreshold" class="mt-3 text-md font-medium text-red-800 dark:text-red-200">
                                             You cannot save this work order until a service ticket revision is created and approved.
                                             <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="underline hover:no-underline ml-1">
                                                 Go to Service Ticket
@@ -1445,7 +1475,7 @@ const handleCancel = () => {
 
                         <!-- Flags & Options -->
                         <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
+                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
                                 Additional Options
                             </h3>
 
@@ -1457,7 +1487,7 @@ const handleCancel = () => {
                                         :disabled="isFieldReadonly('billable')"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
                                     />
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ fieldsSchema.billable?.label || 'Billable' }}</span>
+                                    <span class="text-md text-gray-700 dark:text-gray-300">{{ fieldsSchema.billable?.label || 'Billable' }}</span>
                                 </label>
 
                                 <label class="flex items-center gap-2 cursor-pointer">
@@ -1467,19 +1497,19 @@ const handleCancel = () => {
                                         :disabled="isFieldReadonly('warranty')"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
                                     />
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ fieldsSchema.warranty?.label || 'Warranty Work' }}</span>
+                                    <span class="text-md text-gray-700 dark:text-gray-300">{{ fieldsSchema.warranty?.label || 'Warranty Work' }}</span>
                                 </label>
                             </div>
                             <div v-else class="flex flex-wrap gap-3">
-                                <span v-if="record?.billable" class="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
-                                    <span class="material-icons text-sm">check_circle</span>
+                                <span v-if="record?.billable" class="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-md font-medium">
+                                    <span class="material-icons text-md">check_circle</span>
                                     {{ fieldsSchema.billable?.label || 'Billable' }}
                                 </span>
-                                <span v-if="record?.warranty" class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-medium">
-                                    <span class="material-icons text-sm">verified_user</span>
+                                <span v-if="record?.warranty" class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-md font-medium">
+                                    <span class="material-icons text-md">verified_user</span>
                                     {{ fieldsSchema.warranty?.label || 'Warranty Work' }}
                                 </span>
-                                <span v-if="!record?.billable && !record?.warranty" class="text-sm text-gray-500 dark:text-gray-400 italic">
+                                <span v-if="!record?.billable && !record?.warranty" class="text-md text-gray-500 dark:text-gray-400 italic">
                                     No additional flags
                                 </span>
                             </div>
@@ -1500,7 +1530,7 @@ const handleCancel = () => {
                             <div class="space-y-4">
                                 <!-- Type Selection -->
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Type
                                     </label>
                                     <select
@@ -1513,14 +1543,14 @@ const handleCancel = () => {
                                             {{ option.name }}
                                         </option>
                                     </select>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('type', record?.type) }}
                                     </p>
                                 </div>
 
                                 <!-- Priority Selection -->
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Priority
                                     </label>
                                     <div v-if="mode !== 'show'" class="grid grid-cols-2 gap-2">
@@ -1531,13 +1561,13 @@ const handleCancel = () => {
                                             :disabled="isFieldReadonly('priority')"
                                             @click="form.priority = priority.id"
                                             :class="[
-                                                'flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-xs font-medium',
+                                                'flex flex-col items-center gap-1 p-2 rounded-lg border-2 transition-all text-sm font-medium',
                                                 form.priority === priority.id
                                                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                                     : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                                             ]"
                                         >
-                                            <span class="material-icons text-lg" :class="`text-${priority.color}-500`">
+                                            <span class="material-icons text-xl" :class="`text-${priority.color}-500`">
                                                 priority_high
                                             </span>
                                             <span :class="form.priority === priority.id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400'">
@@ -1545,14 +1575,14 @@ const handleCancel = () => {
                                             </span>
                                         </button>
                                     </div>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('priority', record?.priority) }}
                                     </p>
                                 </div>
 
                                 <!-- Status Selection -->
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Status
                                     </label>
                                     <select
@@ -1565,7 +1595,7 @@ const handleCancel = () => {
                                             {{ option.name }}
                                         </option>
                                     </select>
-                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ getEnumLabel('status', record?.status) }}
                                     </p>
                                 </div>
@@ -1574,10 +1604,10 @@ const handleCancel = () => {
                             <!-- Threshold Block Warning -->
                             <div v-if="isOverThreshold" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mt-4">
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="material-icons text-red-600 dark:text-red-400 text-sm">block</span>
-                                    <span class="text-xs font-semibold text-red-800 dark:text-red-200">Save Blocked</span>
+                                    <span class="material-icons text-red-600 dark:text-red-400 text-md">block</span>
+                                    <span class="text-sm font-semibold text-red-800 dark:text-red-200">Save Blocked</span>
                                 </div>
-                                <p class="text-xs text-red-700 dark:text-red-300">
+                                <p class="text-sm text-red-700 dark:text-red-300">
                                     WO total exceeds estimate threshold. Create a revision on the service ticket first.
                                 </p>
                             </div>
@@ -1588,10 +1618,10 @@ const handleCancel = () => {
                                     @click="saveAndOpen"
                                     type="button"
                                     :disabled="form.processing || isOverThreshold"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    <span v-if="form.processing" class="material-icons text-sm mr-2 animate-spin">refresh</span>
-                                    <span v-else class="material-icons text-sm mr-2">check_circle</span>
+                                    <span v-if="form.processing" class="material-icons text-md mr-2 animate-spin">refresh</span>
+                                    <span v-else class="material-icons text-md mr-2">check_circle</span>
                                     {{ mode === 'edit' ? (form.processing ? 'Updating...' : 'Update & Continue') : (form.processing ? 'Creating...' : 'Create & Open') }}
                                 </button>
 
@@ -1599,18 +1629,18 @@ const handleCancel = () => {
                                     @click="saveDraft"
                                     type="button"
                                     :disabled="form.processing || isOverThreshold"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    <span class="material-icons text-sm mr-2">save</span>
+                                    <span class="material-icons text-md mr-2">save</span>
                                     Save as Draft
                                 </button>
 
                                 <button
                                     @click="handleCancel"
                                     type="button"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
                                 >
-                                    <span class="material-icons text-sm mr-2">close</span>
+                                    <span class="material-icons text-md mr-2">close</span>
                                     Cancel
                                 </button>
                         </div>
@@ -1632,7 +1662,7 @@ const handleCancel = () => {
                     <!-- Header -->
                     <div class="px-6 py-4 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-semibold text-white">
+                            <h3 class="text-xl font-semibold text-white">
                                 {{ editingLineIndex !== null ? 'Edit Service Item' : 'Add Service Item' }}
                             </h3>
                             <button @click="cancelLineItem" type="button" class="text-blue-100 hover:text-white transition-colors">
@@ -1645,7 +1675,7 @@ const handleCancel = () => {
                     <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                         <!-- Service Item Selection -->
                         <div v-if="!selectedServiceItem">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
                                 Select a Service Item
                             </label>
 
@@ -1691,7 +1721,7 @@ const handleCancel = () => {
                                 <p class="text-gray-500 dark:text-gray-400 mb-1">
                                     {{ serviceItemSearchQuery.trim() ? 'No service items found' : 'No service items available' }}
                                 </p>
-                                <p v-if="serviceItemSearchQuery.trim()" class="text-sm text-gray-400 dark:text-gray-500">
+                                <p v-if="serviceItemSearchQuery.trim()" class="text-md text-gray-400 dark:text-gray-500">
                                     Try a different search term
                                 </p>
                             </div>
@@ -1701,17 +1731,17 @@ const handleCancel = () => {
                                 <button
                                     @click="prevServiceItemPage"
                                     :disabled="serviceItemCurrentPage === 1"
-                                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                                    class="px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                                 >
                                     Previous
                                 </button>
-                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                <span class="text-md text-gray-700 dark:text-gray-300">
                                     Page {{ serviceItemCurrentPage }} of {{ serviceItemTotalPages }}
                                 </span>
                                 <button
                                     @click="nextServiceItemPage"
                                     :disabled="serviceItemCurrentPage === serviceItemTotalPages"
-                                    class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                                    class="px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
                                 >
                                     Next
                                 </button>
@@ -1724,21 +1754,21 @@ const handleCancel = () => {
                                 <div class="flex items-start justify-between">
                                     <div>
                                         <div class="font-medium text-gray-900 dark:text-white">{{ selectedServiceItem.display_name }}</div>
-                                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
+                                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
                                             <span>{{ selectedServiceItem.code }}</span>
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">
                                                 {{ getBillingTypeLabel(selectedServiceItem.billing_type) }}
                                             </span>
                                         </div>
                                     </div>
-                                    <button @click="selectedServiceItem = null" type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm">
+                                    <button @click="selectedServiceItem = null" type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-md">
                                         Change
                                     </button>
                                 </div>
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Description
                                 </label>
                                 <input
@@ -1750,7 +1780,7 @@ const handleCancel = () => {
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Quantity
                                     </label>
                                     <input
@@ -1763,7 +1793,7 @@ const handleCancel = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Estimated Hours
                                     </label>
                                     <input
@@ -1776,7 +1806,7 @@ const handleCancel = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Actual Hours
                                     </label>
                                     <input
@@ -1789,7 +1819,7 @@ const handleCancel = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Billing Type
                                     </label>
                                     <select
@@ -1812,13 +1842,32 @@ const handleCancel = () => {
                                         type="checkbox"
                                         class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
                                     />
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">Warranty Work</span>
+                                    <span class="text-md text-gray-700 dark:text-gray-300">Warranty Work</span>
                                 </label>
+                            </div>
+
+                            <div v-if="lineItemForm.warranty" class="col-span-2">
+                                <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Warranty coverage
+                                </label>
+                                <select
+                                    v-model="lineItemForm.warranty_type"
+                                    class="input-style"
+                                >
+                                    <option :value="null">-- Select --</option>
+                                    <option
+                                        v-for="option in warrantyCoverageOptions"
+                                        :key="option.id"
+                                        :value="option.value"
+                                    >
+                                        {{ option.name }}
+                                    </option>
+                                </select>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Unit Price
                                     </label>
                                     <div class="relative">
@@ -1834,7 +1883,7 @@ const handleCancel = () => {
                                 </div>
 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Unit Cost
                                     </label>
                                     <div class="relative">
@@ -1852,9 +1901,9 @@ const handleCancel = () => {
 
                             <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                                 <div class="flex justify-between items-center">
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Line Total</span>
-                                    <span class="text-lg font-bold text-gray-900 dark:text-white">
-                                        {{ formatCurrency(lineItemForm.quantity * lineItemForm.unit_price) }}
+                                    <span class="text-md font-medium text-gray-700 dark:text-gray-300">Line Total</span>
+                                    <span class="text-xl font-bold text-gray-900 dark:text-white">
+                                        {{ formatCurrency(calculateLineItemPrice(lineItemForm)) }}
                                     </span>
                                 </div>
                             </div>
@@ -1866,7 +1915,7 @@ const handleCancel = () => {
                         <button
                             @click="cancelLineItem"
                             type="button"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            class="px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
                         >
                             Cancel
                         </button>
@@ -1874,7 +1923,7 @@ const handleCancel = () => {
                             @click="saveLineItem"
                             type="button"
                             :disabled="!selectedServiceItem"
-                            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            class="px-4 py-2 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             {{ editingLineIndex !== null ? 'Update Item' : 'Add Item' }}
                         </button>

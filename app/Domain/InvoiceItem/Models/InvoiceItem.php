@@ -21,7 +21,11 @@ class InvoiceItem extends Model
 
         'quantity',
         'unit_price',
+        'cost',
         'discount',
+        'is_warranty',
+        'warranty_type',
+        'billable_to',
 
         'subtotal',
 
@@ -42,12 +46,16 @@ class InvoiceItem extends Model
     protected $casts = [
         'quantity' => 'decimal:2',
         'unit_price' => 'decimal:2',
+        'cost' => 'decimal:2',
         'discount' => 'decimal:2',
         'subtotal' => 'decimal:2',
         'tax_rate' => 'decimal:3',
         'tax_amount' => 'decimal:2',
         'total' => 'decimal:2',
         'taxable' => 'boolean',
+        'is_warranty' => 'boolean',
+        'warranty_type' => 'string',
+        'billable_to' => 'string',
     ];
 
     /*

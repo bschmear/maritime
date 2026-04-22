@@ -264,6 +264,11 @@ class ServiceTicketController extends BaseController
             'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
                 ? $li->warranty_type->value
                 : ($li->warranty_type ?? null),
+            'billable_to' => $li->billable_to ?? (! $li->warranty
+                ? 'customer'
+                : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                    ? 'manufacturer'
+                    : 'internal')),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
@@ -352,6 +357,11 @@ class ServiceTicketController extends BaseController
             'warranty_type' => $li->warranty_type instanceof WarrantyCoverageType
                 ? $li->warranty_type->value
                 : ($li->warranty_type ?? null),
+            'billable_to' => $li->billable_to ?? (! $li->warranty
+                ? 'customer'
+                : ((($li->warranty_type instanceof WarrantyCoverageType ? $li->warranty_type->value : $li->warranty_type) === 'manufacturer')
+                    ? 'manufacturer'
+                    : 'internal')),
             'billing_type' => $li->billing_type,
         ])->values()->all();
 

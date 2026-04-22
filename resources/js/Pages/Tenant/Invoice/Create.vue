@@ -13,6 +13,7 @@ const props = defineProps({
     timezones: { type: Array, default: () => [] },
     initialData: { type: Object, default: () => ({}) },
     transaction: { type: Object, default: null },
+    workOrder: { type: Object, default: null },
     enabledPaymentMethods: { type: Array, default: () => [] },
 });
 
@@ -50,6 +51,7 @@ const handleCancel = () => {
                 :timezones="timezones"
                 :initial-data="initialData"
                 :transaction="transaction"
+                :work-order="workOrder"
                 :enabled-payment-methods="enabledPaymentMethods"
                 mode="create"
                 @cancel="handleCancel"

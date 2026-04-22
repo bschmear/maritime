@@ -2,6 +2,7 @@
 
 namespace App\Domain\WorkOrderServiceItem\Models;
 
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Illuminate\Database\Eloquent\Model;
 
 class WorkOrderServiceItem extends Model
@@ -22,6 +23,8 @@ class WorkOrderServiceItem extends Model
         'actual_hours',
         'billable',
         'warranty',
+        'warranty_type',
+        'billable_to',
         'inactive',
         'sort_order',
         'attributes',
@@ -29,22 +32,24 @@ class WorkOrderServiceItem extends Model
     ];
 
     protected $casts = [
-        'billing_type'    => 'integer',
+        'billing_type' => 'integer',
 
-        'quantity'        => 'decimal:2',
-        'unit_price'      => 'decimal:2',
-        'unit_cost'       => 'decimal:2',
-        'total_price'     => 'decimal:2',
-        'total_cost'      => 'decimal:2',
+        'quantity' => 'decimal:2',
+        'unit_price' => 'decimal:2',
+        'unit_cost' => 'decimal:2',
+        'total_price' => 'decimal:2',
+        'total_cost' => 'decimal:2',
 
         'estimated_hours' => 'decimal:2',
-        'actual_hours'    => 'decimal:2',
+        'actual_hours' => 'decimal:2',
 
-        'billable'        => 'boolean',
-        'warranty'        => 'boolean',
-        'inactive'        => 'boolean',
+        'billable' => 'boolean',
+        'warranty' => 'boolean',
+        'warranty_type' => WarrantyCoverageType::class,
+        'billable_to' => 'string',
+        'inactive' => 'boolean',
 
-        'attributes'      => 'array',
+        'attributes' => 'array',
     ];
 
     /*
@@ -92,7 +97,7 @@ class WorkOrderServiceItem extends Model
 
     public function getMarginPercentAttribute(): float
     {
-        if (!$this->total_price || $this->total_price == 0) {
+        if (! $this->total_price || $this->total_price == 0) {
             return 0;
         }
 

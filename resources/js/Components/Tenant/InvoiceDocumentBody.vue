@@ -105,6 +105,16 @@ const discountCell = (item) => {
     if (item.discount != null && parseFloat(item.discount) !== 0) return formatCurrency(item.discount);
     return '—';
 };
+
+const isCoveredWarranty = (item) => {
+    const billableTo = item.billable_to ?? 'customer';
+    return billableTo !== 'customer' || !!item.is_warranty;
+};
+
+const customerFacingLineTotal = (item) => {
+    if (isCoveredWarranty(item)) return 0;
+    return item.total ?? item.line_total ?? 0;
+};
 </script>
 
 <template>
@@ -154,9 +164,15 @@ const discountCell = (item) => {
                                 </div>
                             </td>
                             <td class="py-3 text-center align-top text-gray-900">{{ item.quantity ?? 1 }}</td>
-                            <td class="py-3 text-right align-top text-gray-900">{{ formatCurrency(item.unit_price ?? item.price) }}</td>
-                            <td class="py-3 text-center align-top text-gray-900">{{ discountCell(item) }}</td>
-                            <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(item.total ?? item.line_total) }}</td>
+                            <td class="py-3 text-right align-top text-gray-900">
+                                <span v-if="isCoveredWarranty(item)" class="text-sm text-blue-700">Covered under warranty</span>
+                                <span v-else>{{ formatCurrency(item.unit_price ?? item.price) }}</span>
+                            </td>
+                            <td class="py-3 text-center align-top text-gray-900">
+                                <span v-if="isCoveredWarranty(item)">—</span>
+                                <span v-else>{{ discountCell(item) }}</span>
+                            </td>
+                            <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(item)) }}</td>
                         </tr>
                     </template>
                     <tr v-else>
@@ -348,9 +364,15 @@ const discountCell = (item) => {
                                 </div>
                             </th>
                             <td class="px-4 py-4 align-top sm:px-6">{{ item.quantity ?? 1 }}</td>
-                            <td class="px-4 py-4 align-top sm:px-6">{{ formatCurrency(item.unit_price ?? item.price) }}</td>
-                            <td class="px-4 py-4 align-top sm:px-6">{{ discountCell(item) }}</td>
-                            <td class="px-4 py-4 text-right align-top sm:px-6">{{ formatCurrency(item.total ?? item.line_total) }}</td>
+                            <td class="px-4 py-4 align-top sm:px-6">
+                                <span v-if="isCoveredWarranty(item)" class="text-sm text-blue-700 dark:text-blue-300">Covered under warranty</span>
+                                <span v-else>{{ formatCurrency(item.unit_price ?? item.price) }}</span>
+                            </td>
+                            <td class="px-4 py-4 align-top sm:px-6">
+                                <span v-if="isCoveredWarranty(item)">—</span>
+                                <span v-else>{{ discountCell(item) }}</span>
+                            </td>
+                            <td class="px-4 py-4 text-right align-top sm:px-6">{{ formatCurrency(customerFacingLineTotal(item)) }}</td>
                         </tr>
                     </template>
                     <tr v-else>

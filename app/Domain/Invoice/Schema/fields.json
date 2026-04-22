@@ -21,6 +21,14 @@
       "typeDomain": "Contract",
       "nullable": true
     },
+
+  "work_order_id": {
+    "label": "Work Order",
+    "type": "record",
+    "typeDomain": "WorkOrder",
+    "relationship": "workOrder",
+    "nullable": true
+  },
   
     "status": {
       "label": "Status",

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 
 class WorkOrderCalculator
 {
@@ -17,6 +18,7 @@ class WorkOrderCalculator
         $cost = $item->unit_cost ?? 0;
         $estimatedHours = $item->estimated_hours ?? 0;
         $actualHours = $item->actual_hours ?? 0;
+        $billableTo = $item->billable_to ?: $this->resolveBillableTo($item);
 
         // Calculate based on billing type
         switch ($item->billing_type) {
@@ -36,11 +38,27 @@ class WorkOrderCalculator
         }
 
         // Warranty Override
-        if ($item->warranty) {
+        if ($billableTo === 'internal') {
             $item->total_price = 0;
         }
 
+        $item->billable_to = $billableTo;
         $item->save();
+    }
+
+    protected function resolveBillableTo(WorkOrderServiceItem $item): string
+    {
+        if (! $item->warranty) {
+            return 'customer';
+        }
+
+        $warrantyType = $item->warranty_type instanceof WarrantyCoverageType
+            ? $item->warranty_type->value
+            : $item->warranty_type;
+
+        return $warrantyType === WarrantyCoverageType::Manufacturer->value
+            ? 'manufacturer'
+            : 'internal';
     }
 
     /**
@@ -99,7 +117,7 @@ class WorkOrderCalculator
 
         $estimated = $ticket->estimated_total;
 
-        if (!$estimated || $estimated == 0) {
+        if (! $estimated || $estimated == 0) {
             return false;
         }
 

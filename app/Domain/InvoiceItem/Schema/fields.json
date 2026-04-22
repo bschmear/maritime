@@ -66,6 +66,12 @@
       "default": 0,
       "required": true
     },
+
+  "cost": {
+    "label": "Unit Cost",
+    "type": "currency",
+    "default": 0
+  },
   
     "discount": {
       "label": "Discount",
@@ -73,6 +79,30 @@
       "default": 0,
       "help": "Flat discount applied to this line"
     },
+
+  "is_warranty": {
+    "label": "Warranty",
+    "type": "boolean",
+    "default": false
+  },
+
+  "warranty_type": {
+    "label": "Warranty Type",
+    "type": "select",
+    "enum": "App\\Enums\\ServiceTicketServiceItem\\WarrantyCoverageType",
+    "nullable": true
+  },
+
+  "billable_to": {
+    "label": "Billable To",
+    "type": "select",
+    "options": [
+      { "id": "customer", "value": "customer", "name": "Customer" },
+      { "id": "manufacturer", "value": "manufacturer", "name": "Manufacturer" },
+      { "id": "internal", "value": "internal", "name": "Internal" }
+    ],
+    "default": "customer"
+  },
   
     "subtotal": {
       "label": "Subtotal",

@@ -6,12 +6,14 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Invoice\Actions\ApplyManualInvoicePayment;
 use App\Domain\Invoice\Actions\BuildInvoicePrefillFromTransaction;
+use App\Domain\Invoice\Actions\BuildInvoicePrefillFromWorkOrder;
 use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
 use Illuminate\Http\RedirectResponse;
@@ -41,7 +43,64 @@ class InvoiceController extends RecordController
 
     public function index(Request $request)
     {
-        return parent::index($request);
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = $this->getEnumOptions();
+        $schema = $this->getTableSchema();
+        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
+
+        $this->domainName = 'Invoice';
+        $this->recordModel = new RecordModel;
+
+        $query = RecordModel::query()->with($relationships);
+        $activeFilters = $this->resolveFiltersFromRequest($request);
+
+        if ($activeFilters !== []) {
+            $query = $this->applyFilters($query, $activeFilters, $fieldsSchema);
+        }
+
+        $table = (new RecordModel)->getTable();
+        $sortKey = $request->get('sort');
+        $sortDir = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sortableKeys = collect($schema['columns'] ?? [])
+            ->filter(fn ($c) => ($c['sortable'] ?? true) !== false)
+            ->pluck('key')
+            ->all();
+        $dbColumns = \Schema::connection((new RecordModel)->getConnectionName())->getColumnListing($table);
+
+        if ($sortKey && in_array($sortKey, $sortableKeys, true) && in_array($sortKey, $dbColumns, true)) {
+            $query->orderBy($table.'.'.$sortKey, $sortDir);
+        } else {
+            $query->orderBy($table.'.created_at', 'desc');
+        }
+
+        $perPage = (int) $request->get('per_page', 15);
+        $records = $query->paginate($perPage)->withQueryString();
+        $stats = $this->indexTableStats($request, clone $query, $schema);
+
+        return inertia('Tenant/Invoice/Index', [
+            'records' => $records,
+            'schema' => $schema,
+            'formSchema' => $this->getFormSchema(),
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'stats' => $stats,
+        ]);
+    }
+
+    private function resolveFiltersFromRequest(Request $request): array
+    {
+        $filtersParam = $request->get('filters');
+        if ($filtersParam === null || $filtersParam === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode(urldecode((string) $filtersParam), true) ?? [];
+        } catch (\Throwable) {
+            $decoded = [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     protected function appendShowRelationships(array &$relationships): void
@@ -195,6 +254,7 @@ class InvoiceController extends RecordController
 
         $initialData = [];
         $transactionData = null;
+        $workOrderData = null;
 
         if ($transactionId = $req->query('transaction_id')) {
             $transaction = Transaction::query()->find((int) $transactionId);
@@ -225,6 +285,22 @@ class InvoiceController extends RecordController
                         ? ['id' => $transaction->location->id, 'display_name' => $transaction->location->display_name]
                         : null,
                 ];
+            }
+        } elseif ($workOrderId = $req->query('work_order_id')) {
+            $workOrder = WorkOrder::query()->find((int) $workOrderId);
+            if ($workOrder) {
+                $initialData = array_merge($initialData, (new BuildInvoicePrefillFromWorkOrder)($workOrder));
+                $workOrderData = [
+                    'id' => $workOrder->id,
+                    'work_order_number' => $workOrder->work_order_number,
+                    'display_name' => $workOrder->display_name,
+                ];
+            }
+
+            if (empty($initialData['contact_id'])) {
+                return redirect()
+                    ->route('workorders.show', (int) $workOrderId)
+                    ->with('error', 'Work order customer is missing a bill-to contact. Add a customer contact before creating an invoice.');
             }
         } elseif ($cid = $req->query('contact_id')) {
             $initialData['contact_id'] = (int) $cid;
@@ -271,6 +347,7 @@ class InvoiceController extends RecordController
             'timezones' => \App\Enums\Timezone::options(),
             'initialData' => $initialData,
             'transaction' => $transactionData,
+            'workOrder' => $workOrderData,
             'enabledPaymentMethods' => PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount(),
         ]);
     }

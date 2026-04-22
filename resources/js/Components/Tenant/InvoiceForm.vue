@@ -22,6 +22,7 @@ const props = defineProps({
     },
     initialData: { type: Object, default: () => ({}) },
     transaction: { type: Object, default: null },
+    workOrder: { type: Object, default: null },
     enabledPaymentMethods: { type: Array, default: () => [] },
 });
 
@@ -35,6 +36,7 @@ const isView = computed(() => props.mode === 'show');
  * drift away from the deal they're invoicing.
  */
 const fromTransaction = computed(() => props.mode === 'create' && !!props.transaction?.id);
+const fromWorkOrder = computed(() => props.mode === 'create' && !!props.workOrder?.id);
 /** View mode OR a field that's mirrored from the source transaction. */
 const txLocked = computed(() => isView.value || fromTransaction.value);
 
@@ -66,6 +68,7 @@ function relationStubsFromPayload(d) {
         ...(d.contact ? { contact: d.contact } : {}),
         ...(d.transaction ? { transaction: d.transaction } : {}),
         ...(d.contract ? { contract: d.contract } : {}),
+        ...(d.work_order ? { workOrder: d.work_order } : {}),
     };
 }
 
@@ -144,6 +147,7 @@ const form = useForm({
     contact_id:            props.record?.contact_id            ?? props.initialData?.contact_id            ?? null,
     transaction_id:      props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
     contract_id:         props.record?.contract_id           ?? props.initialData?.contract_id           ?? null,
+    work_order_id:       props.record?.work_order_id         ?? props.initialData?.work_order_id         ?? null,
     status:              resolveEnumId(STATUS_ENUM_KEY, props.record?.status ?? props.initialData?.status ?? 'draft'),
     currency: resolveCurrencyValue(
         props.record?.currency ?? props.initialData?.currency ?? 'USD',
@@ -197,8 +201,11 @@ const form = useForm({
 });
 
 const lineItemsRef = ref(null);
+const sourceType = ref(
+    form.work_order_id ? 'work_order' : (form.transaction_id ? 'transaction' : 'transaction'),
+);
 const lineItemsReadonly = computed(
-    () => isView.value || props.mode === 'edit' || !!form.transaction_id,
+    () => isView.value || props.mode === 'edit' || !!form.transaction_id || !!form.work_order_id,
 );
 const lineItemsInitialItems = computed(() => {
     if (props.record?.items?.length) return props.record.items;
@@ -209,8 +216,15 @@ const applyPrefillPayload = async (d) => {
     if (d == null || typeof d !== 'object') return;
     if (d.contact_id != null) form.contact_id = d.contact_id;
     if (d.transaction_id != null) form.transaction_id = d.transaction_id;
+    if (d.work_order_id != null) form.work_order_id = d.work_order_id;
     if ('contract_id' in d) {
         form.contract_id = d.contract_id ?? null;
+    }
+    if ('work_order' in d && d.work_order) {
+        relationOverlay.value = {
+            ...relationOverlay.value,
+            workOrder: d.work_order,
+        };
     }
     if (d.currency != null) form.currency = resolveCurrencyValue(d.currency);
     if (d.tax_rate != null) form.tax_rate = Number(d.tax_rate);
@@ -255,6 +269,34 @@ const toggleAllowedMethod = (code, checked) => {
 };
 
 watch(
+    () => [form.transaction_id, form.work_order_id],
+    ([transactionId, workOrderId]) => {
+        if (transactionId) {
+            sourceType.value = 'transaction';
+            return;
+        }
+        if (workOrderId) {
+            sourceType.value = 'work_order';
+            return;
+        }
+        sourceType.value = 'transaction';
+    },
+    { immediate: true },
+);
+
+watch(
+    () => sourceType.value,
+    (type) => {
+        if (type === 'transaction') {
+            form.work_order_id = null;
+        } else if (type === 'work_order') {
+            form.transaction_id = null;
+            form.contract_id = null;
+        }
+    },
+);
+
+watch(
     () => form.allow_partial_payment,
     (v) => {
         if (!v) {
@@ -266,7 +308,7 @@ watch(
 watch(
     () => form.transaction_id,
     async (tid) => {
-        if (props.mode !== 'create' || isView.value || !tid) return;
+        if (sourceType.value !== 'transaction' || props.mode !== 'create' || isView.value || !tid) return;
         try {
             const { data } = await axios.get(route('invoices.prefill-from-transaction', tid));
             await applyPrefillPayload(data);
@@ -434,6 +476,9 @@ const submit = () => {
     form.transform((data) => {
         const statusOpt = statusOptions.value.find((o) => o.id == data.status);
         const next = { ...data, status: statusOpt?.value ?? data.status };
+        if (sourceType.value === 'work_order' && !next.work_order_id && props.workOrder?.id) {
+            next.work_order_id = props.workOrder.id;
+        }
         next.allow_partial_payment = Boolean(next.allow_partial_payment);
         next.surcharge_percent =
             next.surcharge_percent === '' || next.surcharge_percent == null
@@ -486,6 +531,25 @@ const handleCancel = () => {
                 </p>
                 <p class="text-xs text-blue-800/80 dark:text-blue-300/80 mt-0.5">
                     Fields populated from the transaction are locked. To change them, update the transaction or start from a different one.
+                </p>
+            </div>
+        </div>
+
+        <div
+            v-if="fromWorkOrder"
+            class="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-3 flex items-start gap-3"
+        >
+            <span class="material-icons text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">build</span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+                    Creating invoice from Work Order →
+                    <a
+                        :href="route('workorders.show', workOrder.id)"
+                        class="underline decoration-dotted hover:text-indigo-700 dark:hover:text-indigo-100"
+                    >{{ workOrder.work_order_number ? `#${workOrder.work_order_number}` : (workOrder.display_name || `#${workOrder.id}`) }}</a>
+                </p>
+                <p class="text-xs text-indigo-800/80 dark:text-indigo-300/80 mt-0.5">
+                    Work order details and billable line items were prefilled. You can still adjust this invoice before saving.
                 </p>
             </div>
         </div>
@@ -545,16 +609,57 @@ const handleCancel = () => {
 
                                     <!-- Transaction -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Transaction</label>
-                                        <RecordSelect
-                                            id="transaction_id"
-                                            :field="fieldsSchema?.transaction_id || { type: 'record', typeDomain: 'Transaction', label: 'Transaction' }"
-                                            v-model="form.transaction_id"
-                                            :record="pseudoRecord"
-                                            field-key="transaction_id"
-                                            :disabled="txLocked"
-                                        />
-                                        <p v-if="form.errors.transaction_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.transaction_id }}</p>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Invoice Source</label>
+                                        <div class="inline-flex p-1 bg-gray-100 dark:bg-gray-700 rounded-lg gap-1">
+                                            <button
+                                                type="button"
+                                                @click="sourceType = 'transaction'"
+                                                :disabled="isView"
+                                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                                :class="sourceType === 'transaction'
+                                                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'"
+                                            >
+                                                Transaction
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="sourceType = 'work_order'"
+                                                :disabled="isView"
+                                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                                :class="sourceType === 'work_order'
+                                                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'"
+                                            >
+                                                Work Order
+                                            </button>
+                                        </div>
+
+                                        <div v-if="sourceType === 'transaction'" class="mt-2">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Transaction</label>
+                                            <RecordSelect
+                                                id="transaction_id"
+                                                :field="fieldsSchema?.transaction_id || { type: 'record', typeDomain: 'Transaction', label: 'Transaction' }"
+                                                v-model="form.transaction_id"
+                                                :record="pseudoRecord"
+                                                field-key="transaction_id"
+                                                :disabled="txLocked"
+                                            />
+                                            <p v-if="form.errors.transaction_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.transaction_id }}</p>
+                                        </div>
+
+                                        <div v-else class="mt-2">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Work Order</label>
+                                            <RecordSelect
+                                                id="work_order_id"
+                                                :field="fieldsSchema?.work_order_id || { type: 'record', typeDomain: 'WorkOrder', label: 'Work Order' }"
+                                                v-model="form.work_order_id"
+                                                :record="pseudoRecord"
+                                                field-key="work_order_id"
+                                                :disabled="isView"
+                                            />
+                                            <p v-if="form.errors.work_order_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.work_order_id }}</p>
+                                        </div>
                                     </div>
 
                                     <!-- Contract -->
