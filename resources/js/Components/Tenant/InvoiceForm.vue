@@ -450,6 +450,14 @@ const formatCurrency = (value) =>
         ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '$0.00';
 
+const summarySubtotal = computed(() => Number(form.subtotal || 0));
+const summaryTaxTotal = computed(() => Number(form.tax_total || 0));
+const summaryFeesTotal = computed(() => Number(form.fees_total || 0));
+const summaryDiscountTotal = computed(() => Number(props.record?.discount_total || 0));
+const summaryTotal = computed(() => Number(form.total || 0));
+const summaryAmountPaid = computed(() => Number(props.record?.amount_paid || 0));
+const summaryAmountDue = computed(() => Math.max(0, summaryTotal.value - summaryAmountPaid.value));
+
     const statusBadgeClass = computed(() => {
     const status = statusOptions.value.find(o => o.id == form.status)?.value ?? form.status ?? '';
 
@@ -940,31 +948,31 @@ const handleCancel = () => {
                             <ul class="space-y-2 text-sm max-w-xs ms-auto">
                                 <li class="flex justify-between text-gray-500 dark:text-gray-400">
                                     <span>Subtotal</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.subtotal) }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(summarySubtotal) }}</span>
                                 </li>
                                 <li class="flex justify-between text-gray-500 dark:text-gray-400">
                                     <span>Discount</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">-{{ formatCurrency(record.discount_total) }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">-{{ formatCurrency(summaryDiscountTotal) }}</span>
                                 </li>
                                 <li class="flex justify-between text-gray-500 dark:text-gray-400">
                                     <span>Tax</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.tax_total) }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(summaryTaxTotal) }}</span>
                                 </li>
                                 <li class="flex justify-between text-gray-500 dark:text-gray-400">
                                     <span>Fees</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.fees_total) }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(summaryFeesTotal) }}</span>
                                 </li>
                                 <li class="flex justify-between font-bold text-base text-gray-900 dark:text-white pt-3 border-t border-gray-200 dark:border-gray-700">
                                     <span>Total</span>
-                                    <span>{{ formatCurrency(record.total) }}</span>
+                                    <span>{{ formatCurrency(summaryTotal) }}</span>
                                 </li>
-                                <li v-if="record.amount_paid" class="flex justify-between text-green-600 dark:text-green-400">
+                                <li v-if="summaryAmountPaid > 0" class="flex justify-between text-green-600 dark:text-green-400">
                                     <span>Amount Paid</span>
-                                    <span>{{ formatCurrency(record.amount_paid) }}</span>
+                                    <span>{{ formatCurrency(summaryAmountPaid) }}</span>
                                 </li>
-                                <li v-if="record.amount_due != null" class="flex justify-between font-bold text-primary-600 dark:text-primary-400 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <li class="flex justify-between font-bold text-primary-600 dark:text-primary-400 pt-2 border-t border-gray-200 dark:border-gray-700">
                                     <span>Amount Due</span>
-                                    <span>{{ formatCurrency(record.amount_due) }}</span>
+                                    <span>{{ formatCurrency(summaryAmountDue) }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -1122,11 +1130,11 @@ const handleCancel = () => {
                             <template v-if="record">
                                 <div class="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-600">
                                     <span class="text-gray-500 dark:text-gray-400">Total</span>
-                                    <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(record.total) }}</span>
+                                    <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(summaryTotal) }}</span>
                                 </div>
-                                <div v-if="record.amount_due != null" class="flex justify-between items-center">
+                                <div class="flex justify-between items-center">
                                     <span class="text-gray-500 dark:text-gray-400">Amount Due</span>
-                                    <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(record.amount_due) }}</span>
+                                    <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(summaryAmountDue) }}</span>
                                 </div>
                             </template>
                             <div class="pt-1 text-xs text-gray-400 dark:text-gray-500 text-right">
