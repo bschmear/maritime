@@ -16,11 +16,13 @@ class BuildInvoicePrefillFromWorkOrder
     {
         $workOrder->load([
             'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+            'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
             'assetUnit' => fn ($q) => $q
                 ->select(['id', 'asset_id', 'serial_number', 'hin', 'sku'])
                 ->with(['asset' => fn ($aq) => $aq->select(['id', 'display_name'])]),
             'location' => fn ($q) => $q->select([
                 'id',
+                'display_name',
                 'address_line_1',
                 'address_line_2',
                 'city',
@@ -53,7 +55,22 @@ class BuildInvoicePrefillFromWorkOrder
             'tax_rate' => $taxRate,
             'fees_total' => 0,
             'notes' => $notes,
+            'subsidiary_id' => $workOrder->subsidiary_id,
+            'location_id' => $workOrder->location_id,
         ];
+
+        if ($workOrder->subsidiary) {
+            $initialData['subsidiary'] = [
+                'id' => $workOrder->subsidiary->id,
+                'display_name' => $workOrder->subsidiary->display_name,
+            ];
+        }
+        if ($location) {
+            $initialData['location'] = [
+                'id' => $location->id,
+                'display_name' => $location->display_name,
+            ];
+        }
 
         if ($contact) {
             $initialData['contact'] = [

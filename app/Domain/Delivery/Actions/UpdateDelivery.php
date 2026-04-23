@@ -14,6 +14,8 @@ class UpdateDelivery
 {
     public function __invoke(int $id, array $data): array
     {
+        $data = $this->normalizeTravelInput($data);
+
         $validated = Validator::make($data, [
             'customer_id' => 'sometimes|required|exists:customer_profiles,id',
             'asset_unit_id' => 'nullable|exists:asset_units,id',
@@ -23,7 +25,7 @@ class UpdateDelivery
             'subsidiary_id' => 'nullable|exists:subsidiaries,id',
             'location_id' => 'nullable|exists:locations,id',
             'scheduled_at' => 'sometimes|required|date',
-            'estimated_arrival_at' => 'nullable|date|after:scheduled_at',
+            'estimated_arrival_at' => 'nullable|date',
             'status' => 'sometimes|required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
             'internal_notes' => 'nullable|string|max:5000',
             'customer_notes' => 'nullable|string|max:5000',
@@ -41,6 +43,9 @@ class UpdateDelivery
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
 
+            'time_to_leave_by' => 'nullable|date',
+            'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+
             'items' => 'nullable|array',
             'items.*.id' => 'nullable|integer',
             'items.*.asset_unit_id' => 'nullable|exists:asset_units,id',
@@ -56,11 +61,23 @@ class UpdateDelivery
         $items = $validated['items'] ?? null;
         unset($validated['items']);
 
+        $skipTravelAutoCompute = $this->hasManualTravelInput($data);
+
+        unset($validated['en_route_at']);
+
         try {
-            return DB::transaction(function () use ($id, $validated, $items) {
+            return DB::transaction(function () use ($id, $validated, $items, $skipTravelAutoCompute) {
                 $record = RecordModel::findOrFail($id);
                 $previousTransactionId = $record->transaction_id;
                 $previousWorkOrderId = $record->work_order_id;
+                $oldStatus = $record->status;
+
+                if (isset($validated['status']) && $validated['status'] === 'en_route' && $oldStatus !== 'en_route') {
+                    $validated['en_route_at'] = now();
+                    if ($record->estimated_travel_duration_seconds) {
+                        $validated['estimated_arrival_at'] = now()->addSeconds((int) $record->estimated_travel_duration_seconds);
+                    }
+                }
 
                 $record->update($validated);
 
@@ -81,9 +98,15 @@ class UpdateDelivery
                 $record->syncStatusFromItems();
                 $record->save();
 
+                if (! $skipTravelAutoCompute
+                    && ! in_array($record->status, ['en_route', 'delivered', 'cancelled'], true)) {
+                    app(\App\Domain\Delivery\Actions\ComputeDeliveryTravelEstimates::class)($record);
+                }
+                $record->save();
+
                 return [
                     'success' => true,
-                    'record' => $record,
+                    'record' => $record->fresh(),
                 ];
             });
         } catch (QueryException $e) {
@@ -154,5 +177,41 @@ class UpdateDelivery
         DeliveryItem::where('delivery_id', $record->id)
             ->whereNotIn('id', $keep)
             ->delete();
+    }
+
+    private function normalizeTravelInput(array $data): array
+    {
+        if (array_key_exists('time_to_leave_by', $data) && $data['time_to_leave_by'] === '') {
+            $data['time_to_leave_by'] = null;
+        }
+        if (array_key_exists('estimated_travel_duration_seconds', $data) && $data['estimated_travel_duration_seconds'] === '') {
+            $data['estimated_travel_duration_seconds'] = null;
+        }
+
+        return $data;
+    }
+
+    /**
+     * When the user leaves both fields empty, we still run Google auto-compute when possible.
+     * If either field is set, do not overwrite with Google.
+     */
+    private function hasManualTravelInput(array $data): bool
+    {
+        $tt = $data['time_to_leave_by'] ?? null;
+        if (is_string($tt)) {
+            $tt = trim($tt) === '' ? null : $tt;
+        }
+        if ($tt !== null && $tt !== '') {
+            return true;
+        }
+        if (! array_key_exists('estimated_travel_duration_seconds', $data)) {
+            return false;
+        }
+        $sec = $data['estimated_travel_duration_seconds'];
+        if ($sec === null || $sec === '') {
+            return false;
+        }
+
+        return is_numeric($sec);
     }
 }

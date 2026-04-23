@@ -80,4 +80,8 @@ return [
         'api_key' => env('MAILCHIMP_API_KEY'),
         'server_prefix' => env('MAILCHIMP_SERVER_PREFIX'),
     ],
+
+    'google' => [
+        'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
 ];

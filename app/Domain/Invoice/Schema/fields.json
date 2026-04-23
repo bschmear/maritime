@@ -29,6 +29,22 @@
     "relationship": "workOrder",
     "nullable": true
   },
+
+  "subsidiary_id": {
+    "label": "Subsidiary",
+    "type": "record",
+    "typeDomain": "Subsidiary",
+    "relationship": "subsidiary",
+    "nullable": true
+  },
+
+  "location_id": {
+    "label": "Location",
+    "type": "record",
+    "typeDomain": "Location",
+    "relationship": "location",
+    "nullable": true
+  },
   
     "status": {
       "label": "Status",

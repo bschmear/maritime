@@ -113,6 +113,43 @@ class DeliveryLocationController extends BaseController
      */
     public function options(Request $request)
     {
+        if ($request->filled('id')) {
+            $r = DeliveryLocation::query()->find((int) $request->get('id'));
+            if (! $r) {
+                return response()->json([
+                    'records' => [],
+                    'meta' => [
+                        'current_page' => 1,
+                        'last_page' => 1,
+                        'per_page' => 1,
+                        'total' => 0,
+                    ],
+                ]);
+            }
+
+            return response()->json([
+                'records' => [[
+                    'id' => $r->id,
+                    'display_name' => $r->display_name,
+                    'name' => $r->name,
+                    'address_line_1' => $r->address_line_1,
+                    'address_line_2' => $r->address_line_2,
+                    'city' => $r->city,
+                    'state' => $r->state,
+                    'postal_code' => $r->postal_code,
+                    'country' => $r->country,
+                    'latitude' => $r->latitude,
+                    'longitude' => $r->longitude,
+                ]],
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => 1,
+                    'total' => 1,
+                ],
+            ]);
+        }
+
         $search = trim((string) $request->get('search', ''));
 
         $query = DeliveryLocation::query()->where('active', true);

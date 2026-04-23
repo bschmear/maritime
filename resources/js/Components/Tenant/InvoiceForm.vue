@@ -69,6 +69,8 @@ function relationStubsFromPayload(d) {
         ...(d.transaction ? { transaction: d.transaction } : {}),
         ...(d.contract ? { contract: d.contract } : {}),
         ...(d.work_order ? { workOrder: d.work_order } : {}),
+        ...(d.subsidiary ? { subsidiary: d.subsidiary } : {}),
+        ...(d.location ? { location: d.location } : {}),
     };
 }
 
@@ -148,6 +150,8 @@ const form = useForm({
     transaction_id:      props.record?.transaction_id        ?? props.initialData?.transaction_id        ?? null,
     contract_id:         props.record?.contract_id           ?? props.initialData?.contract_id           ?? null,
     work_order_id:       props.record?.work_order_id         ?? props.initialData?.work_order_id         ?? null,
+    subsidiary_id:       props.record?.subsidiary_id         ?? props.initialData?.subsidiary_id         ?? null,
+    location_id:         props.record?.location_id          ?? props.initialData?.location_id          ?? null,
     status:              resolveEnumId(STATUS_ENUM_KEY, props.record?.status ?? props.initialData?.status ?? 'draft'),
     currency: resolveCurrencyValue(
         props.record?.currency ?? props.initialData?.currency ?? 'USD',
@@ -225,6 +229,18 @@ const applyPrefillPayload = async (d) => {
             ...relationOverlay.value,
             workOrder: d.work_order,
         };
+    }
+    if ('subsidiary_id' in d) {
+        form.subsidiary_id = d.subsidiary_id ?? null;
+    }
+    if ('location_id' in d) {
+        form.location_id = d.location_id ?? null;
+    }
+    if ('subsidiary' in d && d.subsidiary) {
+        relationOverlay.value = { ...relationOverlay.value, subsidiary: d.subsidiary };
+    }
+    if ('location' in d && d.location) {
+        relationOverlay.value = { ...relationOverlay.value, location: d.location };
     }
     if (d.currency != null) form.currency = resolveCurrencyValue(d.currency);
     if (d.tax_rate != null) form.tax_rate = Number(d.tax_rate);
@@ -319,7 +335,7 @@ watch(
 );
 
 // ── Address helpers ──────────────────────────────────────────────────────────
-const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
+const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress('invoices.address-tax-rate');
 
 const showAddressPicker = ref(false);
 const contactAddresses = ref([]);
@@ -682,6 +698,32 @@ const handleCancel = () => {
                                             :disabled="txLocked"
                                         />
                                         <p v-if="form.errors.contract_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contract_id }}</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Subsidiary</label>
+                                        <RecordSelect
+                                            id="invoice_subsidiary_id"
+                                            :field="fieldsSchema?.subsidiary_id || { type: 'record', typeDomain: 'Subsidiary', label: 'Subsidiary' }"
+                                            v-model="form.subsidiary_id"
+                                            :record="pseudoRecord"
+                                            field-key="subsidiary_id"
+                                            :disabled="isView || txLocked"
+                                        />
+                                        <p v-if="form.errors.subsidiary_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Location</label>
+                                        <RecordSelect
+                                            id="invoice_location_id"
+                                            :field="fieldsSchema?.location_id || { type: 'record', typeDomain: 'Location', label: 'Location' }"
+                                            v-model="form.location_id"
+                                            :record="pseudoRecord"
+                                            field-key="location_id"
+                                            :disabled="isView || txLocked"
+                                        />
+                                        <p v-if="form.errors.location_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                     </div>
                                 </div>
 

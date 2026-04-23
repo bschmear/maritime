@@ -26,6 +26,8 @@ class CreateInvoice
             'transaction_id' => ['nullable', 'integer'],
             'contract_id' => ['nullable', 'integer'],
             'work_order_id' => ['nullable', 'integer', 'exists:work_orders,id'],
+            'subsidiary_id' => ['nullable', 'integer', 'exists:subsidiaries,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'status' => ['nullable'],
             'currency' => ['nullable', 'string', 'max:3'],
             'payment_term' => ['nullable'],

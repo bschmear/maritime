@@ -27,6 +27,8 @@ class Invoice extends Model
         'contract_id',
         'work_order_id',
         'contact_id',
+        'subsidiary_id',
+        'location_id',
 
         'uuid',
         'sequence',
@@ -139,6 +141,19 @@ class Invoice extends Model
                         'country',
                     ]),
                 ]),
+            'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+            'location' => fn ($q) => $q->select([
+                'id',
+                'display_name',
+                'phone',
+                'email',
+                'address_line_1',
+                'address_line_2',
+                'city',
+                'state',
+                'postal_code',
+                'country',
+            ]),
             'contract' => fn ($q) => $q->select(['id', 'sequence']),
             'contact' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile']),
         ];
@@ -179,6 +194,16 @@ class Invoice extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\Contact\Models\Contact::class);
+    }
+
+    public function subsidiary(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
     }
 
     public function payments(): HasMany

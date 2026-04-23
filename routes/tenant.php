@@ -235,6 +235,8 @@ Route::middleware([
         });
 
         Route::prefix('invoices')->name('invoices.')->group(function () {
+            // Static routes must come before the resource wildcard {invoice}
+            Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
             Route::get('/prefill-from-transaction/{transaction}', [InvoiceController::class, 'prefillFromTransaction'])->name('prefill-from-transaction');
             Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::post('/{invoice}/apply-manual-payment', [InvoiceController::class, 'applyManualPayment'])->name('apply-manual-payment');
@@ -282,9 +284,11 @@ Route::middleware([
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
             Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');
+            Route::post('/travel-estimate', [DeliveryController::class, 'travelEstimate'])->name('travel-estimate');
             Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
             Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
+            Route::post('/{delivery}/en-route', [DeliveryController::class, 'markEnRoute'])->name('en-route');
             Route::post('/{delivery}/items/{item}/delivered', [DeliveryController::class, 'markItemDelivered'])->name('items.mark-delivered');
             Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);
         });

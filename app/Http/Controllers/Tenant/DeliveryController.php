@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Delivery\Actions\ComputeDeliveryTravelEstimates;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
 use App\Domain\Delivery\Actions\MarkDeliveryItemDelivered;
@@ -11,8 +12,10 @@ use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
+use App\Domain\Location\Models\Location;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -413,6 +416,77 @@ class DeliveryController extends RecordController
      * Preview what items would be synced from a given source (work order or transaction).
      * Used by the create/edit form before the delivery is saved.
      */
+    public function travelEstimate(Request $request, ComputeDeliveryTravelEstimates $compute): JsonResponse
+    {
+
+        // "location_id" => 8
+        // "scheduled_at" => "2026-04-28T21:00"
+        // "address_line_1" => "333 E Wisconsin Ave"
+        // "address_line_2" => null
+        // "city" => "Milwaukee"
+        // "state" => "WI"
+        // "postal_code" => "53202"
+        // "country" => "United States"
+        // "latitude" => "43.0384673"
+        // "longitude" => "-87.9067361"
+
+        $v = $request->validate([
+            'location_id' => 'required|integer|exists:locations,id',
+            'scheduled_at' => 'required|date',
+            'address_line_1' => 'nullable|string|max:255',
+            'address_line_2' => 'nullable|string|max:255',
+            'city' => 'nullable|string|max:100',
+            'state' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
+            'country' => 'nullable|string|max:100',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
+
+        $location = Location::query()->findOrFail($v['location_id']);
+        // dd($location);
+        $result = $compute->previewFromInputs($location, [
+            'address_line_1' => $v['address_line_1'] ?? null,
+            'address_line_2' => $v['address_line_2'] ?? null,
+            'city' => $v['city'] ?? null,
+            'state' => $v['state'] ?? null,
+            'postal_code' => $v['postal_code'] ?? null,
+            'country' => $v['country'] ?? null,
+            'latitude' => $v['latitude'] ?? null,
+            'longitude' => $v['longitude'] ?? null,
+        ], $v['scheduled_at']);
+
+        if ($result === null) {
+            return response()->json(['ok' => false, 'message' => 'Could not compute travel time. Check addresses and API key.']);
+        }
+
+        return response()->json(array_merge(['ok' => true], $result));
+    }
+
+    public function markEnRoute(Request $request, $delivery)
+    {
+        $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
+        $model = RecordModel::query()->findOrFail($id);
+
+        if (! in_array($model->status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
+            return back()->with('error', 'This delivery cannot be marked en route from its current status.');
+        }
+
+        $result = (new UpdateAction)($id, ['status' => 'en_route']);
+
+        if (! ($result['success'] ?? true)) {
+            return back()->with('error', $result['message'] ?? 'Update failed.');
+        }
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['success' => true, 'record' => $result['record'] ?? $model->fresh()]);
+        }
+
+        return redirect()
+            ->route('deliveries.show', $id)
+            ->with('success', 'Marked en route. Estimated arrival time updated.');
+    }
+
     public function sourceItems(Request $request)
     {
         $request->validate([
@@ -428,6 +502,8 @@ class DeliveryController extends RecordController
                 'items.assetUnit.asset',
                 'items.assetVariant',
                 'customer.contact',
+                'subsidiary',
+                'location',
             ])->find($id);
 
             if (! $source) {
@@ -453,6 +529,16 @@ class DeliveryController extends RecordController
             return response()->json([
                 'items' => $items,
                 'customer_id' => $source->customer_id,
+                'subsidiary_id' => $source->subsidiary_id,
+                'location_id' => $source->location_id,
+                'subsidiary' => $source->subsidiary ? [
+                    'id' => $source->subsidiary->id,
+                    'display_name' => $source->subsidiary->display_name,
+                ] : null,
+                'location' => $source->location ? [
+                    'id' => $source->location->id,
+                    'display_name' => $source->location->display_name,
+                ] : null,
                 'source' => [
                     'id' => $source->id,
                     'display_name' => $source->display_name,
@@ -461,7 +547,7 @@ class DeliveryController extends RecordController
         }
 
         // work_order / workorder
-        $source = WorkOrder::with(['assetUnit.asset', 'customer'])->find($id);
+        $source = WorkOrder::with(['assetUnit.asset', 'customer', 'subsidiary', 'location'])->find($id);
         if (! $source || ! $source->assetUnit) {
             return response()->json(['items' => []]);
         }
@@ -480,6 +566,16 @@ class DeliveryController extends RecordController
                 'asset_variant' => null,
             ]],
             'customer_id' => $source->customer_id,
+            'subsidiary_id' => $source->subsidiary_id,
+            'location_id' => $source->location_id,
+            'subsidiary' => $source->subsidiary ? [
+                'id' => $source->subsidiary->id,
+                'display_name' => $source->subsidiary->display_name,
+            ] : null,
+            'location' => $source->location ? [
+                'id' => $source->location->id,
+                'display_name' => $source->location->display_name,
+            ] : null,
             'source' => [
                 'id' => $source->id,
                 'display_name' => 'WO-'.($source->work_order_number ?? $source->id),
@@ -530,6 +626,8 @@ class DeliveryController extends RecordController
                 'items.assetUnit.asset',
                 'items.assetVariant',
                 'customer.contact',
+                'subsidiary',
+                'location',
             ])->find((int) $request->input('transaction_id'));
 
             if (! $source) {
@@ -556,6 +654,8 @@ class DeliveryController extends RecordController
             return [
                 'customer_id' => $source->customer_id,
                 'transaction_id' => $source->id,
+                'subsidiary_id' => $source->subsidiary_id,
+                'location_id' => $source->location_id,
                 'customer' => [
                     'id' => $source->customer_id,
                     'display_name' => $source->customer?->display_name,
@@ -567,12 +667,20 @@ class DeliveryController extends RecordController
                     'id' => $source->id,
                     'display_name' => $source->display_name,
                 ],
+                'subsidiary' => $source->subsidiary ? [
+                    'id' => $source->subsidiary->id,
+                    'display_name' => $source->subsidiary->display_name,
+                ] : null,
+                'location' => $source->location ? [
+                    'id' => $source->location->id,
+                    'display_name' => $source->location->display_name,
+                ] : null,
                 'items' => $items,
             ];
         }
 
         if ($request->filled('work_order_id')) {
-            $source = WorkOrder::with(['assetUnit.asset', 'customer.contact'])->find((int) $request->input('work_order_id'));
+            $source = WorkOrder::with(['assetUnit.asset', 'customer.contact', 'subsidiary', 'location'])->find((int) $request->input('work_order_id'));
 
             if (! $source || ! $source->assetUnit) {
                 return null;
@@ -583,6 +691,8 @@ class DeliveryController extends RecordController
             return [
                 'customer_id' => $source->customer_id,
                 'work_order_id' => $source->id,
+                'subsidiary_id' => $source->subsidiary_id,
+                'location_id' => $source->location_id,
                 'customer' => [
                     'id' => $source->customer_id,
                     'display_name' => $source->customer?->display_name,
@@ -594,6 +704,14 @@ class DeliveryController extends RecordController
                     'id' => $source->id,
                     'display_name' => 'WO-'.($source->work_order_number ?? $source->id),
                 ],
+                'subsidiary' => $source->subsidiary ? [
+                    'id' => $source->subsidiary->id,
+                    'display_name' => $source->subsidiary->display_name,
+                ] : null,
+                'location' => $source->location ? [
+                    'id' => $source->location->id,
+                    'display_name' => $source->location->display_name,
+                ] : null,
                 'items' => [[
                     'asset_unit_id' => $unit->id,
                     'asset_variant_id' => $unit->asset_variant_id ?? null,
@@ -616,6 +734,8 @@ class DeliveryController extends RecordController
             'customer' => function ($q) {
                 $q->with('contact');
             },
+            'subsidiary',
+            'location',
             'assetUnit.asset',
             'assetUnit.assetVariant',
             'workOrder',

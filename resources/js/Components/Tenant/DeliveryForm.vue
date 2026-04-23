@@ -3,6 +3,7 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
+import Modal from '@/Components/Modal.vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
@@ -61,6 +62,14 @@ const toLocalDatetime = (value) => {
     } catch { return ''; }
 };
 
+/** datetime-local is browser-local; convert to ISO UTC for server so "leave by" matches scheduled time. */
+const localDatetimeToUtcIso = (localStr) => {
+    if (!localStr || !String(localStr).trim()) return null;
+    const d = new Date(localStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+};
+
 const mapRecordItem = (it) => ({
     id: it.id ?? null,
     position: it.position ?? 0,
@@ -87,7 +96,6 @@ const form = useForm({
     location_id: initialRecord.location_id ?? null,
     technician_id: initialRecord.technician_id ?? null,
     scheduled_at: toLocalDatetime(initialRecord.scheduled_at) || tomorrowNoon,
-    estimated_arrival_at: toLocalDatetime(initialRecord.estimated_arrival_at) || null,
     status: initialRecord.status ?? 'scheduled',
     delivery_to_type: initialRecord.delivery_to_type ?? 'contact_address',
     contact_address_id: initialRecord.contact_address_id ?? null,
@@ -102,6 +110,8 @@ const form = useForm({
     country: initialRecord.country ?? '',
     latitude: initialRecord.latitude ?? null,
     longitude: initialRecord.longitude ?? null,
+    time_to_leave_by: toLocalDatetime(initialRecord.time_to_leave_by) || '',
+    estimated_travel_duration_seconds: initialRecord.estimated_travel_duration_seconds ?? null,
     items: (initialRecord.items ?? []).map(mapRecordItem),
 });
 
@@ -112,8 +122,13 @@ const selectedWorkOrderLabel = ref(initialRecord.work_order?.display_name ?? '')
 const selectedTransactionLabel = ref(initialRecord.transaction?.display_name ?? '');
 const selectedTechnicianLabel = ref(initialRecord.technician?.name ?? '');
 
+/** Merged with props.record for RecordSelect relation labels (source selection, etc.). */
+const relationOverlay = ref({
+    ...(initialRecord.subsidiary ? { subsidiary: initialRecord.subsidiary } : {}),
+    ...(initialRecord.location ? { location: initialRecord.location } : {}),
+});
 /** Parent row for RecordSelect embedded relation stubs (prefill / edit). */
-const record = computed(() => props.record ?? {});
+const record = computed(() => ({ ...(props.record ?? {}), ...relationOverlay.value }));
 
 const statusOptions = computed(() => props.enumOptions?.delivery_status || [
     { id: 'scheduled', name: 'Scheduled' },
@@ -162,6 +177,13 @@ const loadSourceItems = async (type, id) => {
         }
         if (type === 'transaction') selectedTransactionLabel.value = data.source?.display_name ?? '';
         if (type === 'work_order') selectedWorkOrderLabel.value = data.source?.display_name ?? '';
+        if (data.subsidiary_id != null) form.subsidiary_id = data.subsidiary_id;
+        if (data.location_id != null) form.location_id = data.location_id;
+        relationOverlay.value = {
+            ...relationOverlay.value,
+            ...(data.subsidiary ? { subsidiary: data.subsidiary } : {}),
+            ...(data.location ? { location: data.location } : {}),
+        };
     } catch (err) {
         console.error('Failed to load source items', err);
     } finally {
@@ -235,6 +257,7 @@ onMounted(async () => {
     } catch (err) {
         console.error(err);
     }
+    runTravelPreview();
 });
 
 /* ─── Deliver-to handling ─── */
@@ -485,6 +508,121 @@ const addressSummary = computed(() => {
     const parts = [form.address_line_1, form.city, form.state, form.postal_code].filter(Boolean);
     return parts.join(', ') || '—';
 });
+
+const subsidiaryField = computed(() => ({ type: 'record', typeDomain: 'Subsidiary', label: 'Subsidiary' }));
+const locationField = computed(() => ({ type: 'record', typeDomain: 'Location', label: 'Depart from (location)' }));
+
+const travelPreviewLoading = ref(false);
+const travelPreviewError = ref(null);
+const travelPreview = ref(null);
+const showTravelPrereqModal = ref(false);
+const travelPrereqBlockers = ref([]);
+
+const getTravelPrereqBlockers = () => {
+    const blockers = [];
+    if (!form.location_id) {
+        blockers.push({ key: 'location', label: 'Choose a depart-from location (where you leave for this delivery).' });
+    }
+    if (!form.scheduled_at?.trim()) {
+        blockers.push({ key: 'scheduled', label: 'Select a scheduled arrival time at the destination.' });
+    } else if (!localDatetimeToUtcIso(form.scheduled_at)) {
+        blockers.push({ key: 'scheduled', label: 'Scheduled time is not valid — please re-select the date and time.' });
+    }
+    const hasGeo = form.latitude != null && form.longitude != null;
+    const hasStreet = (form.address_line_1 || '').trim() && (form.city || '').trim() && (form.state || '').trim();
+    if (!hasGeo && !hasStreet) {
+        blockers.push({ key: 'destination', label: 'Set a delivery destination: full address (street, city, state) or a map pin with coordinates.' });
+    }
+    return blockers;
+};
+
+const requestGoogleTravelEstimate = () => {
+    travelPreviewError.value = null;
+    const blockers = getTravelPrereqBlockers();
+    if (blockers.length) {
+        travelPrereqBlockers.value = blockers;
+        showTravelPrereqModal.value = true;
+        return;
+    }
+    runGoogleTravelEstimateRequest();
+};
+
+const runGoogleTravelEstimateRequest = async () => {
+    const scheduledIso = localDatetimeToUtcIso(form.scheduled_at);
+    if (!form.location_id || !scheduledIso) {
+        travelPrereqBlockers.value = getTravelPrereqBlockers();
+        showTravelPrereqModal.value = true;
+        return;
+    }
+    const hasGeo = form.latitude != null && form.longitude != null;
+    const hasStreet = (form.address_line_1 || '').trim() && (form.city || '').trim() && (form.state || '').trim();
+    if (!hasGeo && !hasStreet) {
+        travelPrereqBlockers.value = getTravelPrereqBlockers();
+        showTravelPrereqModal.value = true;
+        return;
+    }
+
+    travelPreviewLoading.value = true;
+    try {
+        const { data } = await axios.post(route('deliveries.travel-estimate'), {
+            location_id: form.location_id,
+            scheduled_at: scheduledIso,
+            address_line_1: form.address_line_1,
+            address_line_2: form.address_line_2,
+            city: form.city,
+            state: form.state,
+            postal_code: form.postal_code,
+            country: form.country,
+            latitude: form.latitude,
+            longitude: form.longitude,
+        });
+        if (data.ok) {
+            travelPreview.value = {
+                duration_seconds: data.duration_seconds,
+                time_to_leave_by: data.time_to_leave_by,
+            };
+            form.estimated_travel_duration_seconds = data.duration_seconds ?? null;
+            form.time_to_leave_by = toLocalDatetime(data.time_to_leave_by) || '';
+        } else {
+            travelPreview.value = null;
+            travelPreviewError.value = data.message || 'Could not estimate travel time.';
+        }
+    } catch (e) {
+        travelPreview.value = null;
+        travelPreviewError.value = e?.response?.data?.message || 'Could not estimate travel time.';
+    } finally {
+        travelPreviewLoading.value = false;
+    }
+};
+
+const formatPreviewLocal = (iso) => {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    } catch {
+        return '—';
+    }
+};
+
+const driveTimeMinutesForInput = computed({
+    get() {
+        const s = form.estimated_travel_duration_seconds;
+        if (s == null || s === '') return '';
+        return String(Math.max(0, Math.round(Number(s) / 60)));
+    },
+    set(v) {
+        if (v === '' || v === null || v === undefined) {
+            form.estimated_travel_duration_seconds = null;
+            return;
+        }
+        const n = typeof v === 'number' ? v : parseFloat(String(v), 10);
+        if (Number.isNaN(n) || n < 0) {
+            form.estimated_travel_duration_seconds = null;
+            return;
+        }
+        form.estimated_travel_duration_seconds = Math.round(n * 60);
+    },
+});
 </script>
 
 <template>
@@ -658,6 +796,44 @@ const addressSummary = computed(() => {
                                             <span class="material-icons text-sm animate-spin">sync</span> Loading source items…
                                         </div>
                                     </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Subsidiary</label>
+                                        <RecordSelect
+                                            id="delivery_subsidiary_id"
+                                            :field="subsidiaryField"
+                                            :record="record"
+                                            v-model="form.subsidiary_id"
+                                            :disabled="sourcePrefillLocked"
+                                            field-key="subsidiary_id"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            Depart from (location)
+                                        </label>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1.5">Used as the starting point for drive time to the delivery address.</p>
+                                        <RecordSelect
+                                            id="delivery_location_id_origin"
+                                            :field="locationField"
+                                            :record="record"
+                                            v-model="form.location_id"
+                                            :disabled="sourcePrefillLocked"
+                                            field-key="location_id"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Technician</label>
+                                        <RecordSelect
+                                            id="technician_id"
+                                            :field="technicianField"
+                                            :record="record"
+                                            v-model="form.technician_id"
+                                            @record-selected="(r) => selectedTechnicianLabel = r?.name ?? ''"
+                                            field-key="technician_id"
+                                        />
+                                    </div>
                                 </div>
 
                                 <!-- Right: Schedule -->
@@ -684,26 +860,82 @@ const addressSummary = computed(() => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Scheduled <span class="text-red-500">*</span>
                                         </label>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                            Target time at the delivery address. Uses your device time zone (same for drive estimates below).
+                                        </p>
                                         <input type="datetime-local" v-model="form.scheduled_at" class="input-style" />
                                         <p v-if="form.errors.scheduled_at" class="mt-1 text-xs text-red-500">{{ form.errors.scheduled_at }}</p>
                                     </div>
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Estimated Arrival</label>
-                                        <input type="datetime-local" v-model="form.estimated_arrival_at" class="input-style" />
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Need to leave by</label>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                Optional. Enter yourself, or use <strong>Calculate with Google Maps</strong> below to suggest times based on the scheduled appointment.
+                                            </p>
+                                            <input type="datetime-local" v-model="form.time_to_leave_by" class="input-style w-full" />
+                                            <p v-if="form.errors.time_to_leave_by" class="mt-1 text-xs text-red-500">{{ form.errors.time_to_leave_by }}</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Est. drive time (minutes)</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="1"
+                                                class="input-style w-full"
+                                                v-model="driveTimeMinutesForInput"
+                                            />
+                                            <p v-if="form.errors.estimated_travel_duration_seconds" class="mt-1 text-xs text-red-500">{{ form.errors.estimated_travel_duration_seconds }}</p>
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Technician</label>
-                                        <RecordSelect
-                                            id="technician_id"
-                                            :field="technicianField"
-                                            :record="record"
-                                            v-model="form.technician_id"
-                                            @record-selected="(r) => selectedTechnicianLabel = r?.name ?? ''"
-                                            field-key="technician_id"
-                                        />
+                                    <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30 p-3 space-y-3">
+                                        <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Drive plan (Google)</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Estimates driving time and a suggested &quot;leave by&quot; time. Uses the same time zone as <strong>Scheduled</strong> and your browser.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            :disabled="travelPreviewLoading"
+                                            class="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-wait"
+                                            @click="requestGoogleTravelEstimate"
+                                        >
+                                            <span
+                                                v-if="travelPreviewLoading"
+                                                class="material-icons text-base animate-spin"
+                                                aria-hidden="true"
+                                            >sync</span>
+                                            <span v-else class="material-icons text-base" aria-hidden="true">map</span>
+                                            {{ travelPreviewLoading ? 'Calculating…' : 'Calculate with Google Maps' }}
+                                        </button>
+                                        <p v-if="travelPreviewLoading" class="text-xs text-gray-500">Calling Google…</p>
+                                        <p v-else-if="travelPreviewError" class="text-xs text-amber-700 dark:text-amber-300">{{ travelPreviewError }}</p>
+                                        <div v-else-if="travelPreview" class="text-sm text-gray-800 dark:text-gray-200 space-y-1.5">
+                                            <p>
+                                                <span class="text-gray-500">Est. drive time:</span>
+                                                <span class="font-medium"> {{ Math.max(1, Math.round(travelPreview.duration_seconds / 60)) }} min</span>
+                                            </p>
+                                            <p>
+                                                <span class="text-gray-500">Suggested leave by:</span>
+                                                <span class="font-medium"> {{ formatPreviewLocal(travelPreview.time_to_leave_by) }}</span>
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                These values are copied into the fields above; save the delivery to keep them.
+                                            </p>
+                                        </div>
                                     </div>
+
+                                    <div v-if="isEdit && props.record?.estimated_arrival_at" class="space-y-1">
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Estimated arrival</label>
+                                        <p class="text-sm text-gray-900 dark:text-white">
+                                            {{ formatPreviewLocal(props.record.estimated_arrival_at) }}
+                                        </p>
+                                        <p class="text-xs text-gray-500">Set when marked En route (departure + stored drive time).</p>
+                                    </div>
+                                    <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                        Estimated arrival is set when this delivery is marked <strong>En route</strong>.
+                                    </p>
+
                                 </div>
                             </div>
 
@@ -985,11 +1217,36 @@ const addressSummary = computed(() => {
             </div>
         </form>
 
+        <Modal :show="showTravelPrereqModal" max-width="md" @close="showTravelPrereqModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Can't calculate drive time yet</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    To estimate travel with Google Maps, complete the following:
+                </p>
+                <ul class="mt-3 list-disc list-inside text-sm text-gray-700 dark:text-gray-200 space-y-1.5">
+                    <li v-for="(b, idx) in travelPrereqBlockers" :key="idx">{{ b.label }}</li>
+                </ul>
+                <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                    Scheduled time and drive estimates use your browser time zone - the same as the <strong>Scheduled</strong> field.
+                </p>
+                <div class="mt-6 flex justify-end">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
+                        @click="showTravelPrereqModal = false"
+                    >
+                        OK
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
         <AssetLineModal
             v-model="assetFormModel"
             v-model:open="showAssetModal"
             :editing="editingIndex !== null"
             hide-quantity
+            is-delivery
             @save="saveAssetItem"
         />
 

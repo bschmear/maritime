@@ -27,10 +27,12 @@ export function useTaxRateByAddress(routeName = 'estimates.address-tax-rate') {
         try {
             const url = new URL(route(routeName), window.location.origin);
             url.searchParams.append('state', fields.state);
-            if (fields.city)        url.searchParams.append('city',        fields.city);
-            if (fields.postal_code) url.searchParams.append('postal_code', fields.postal_code);
-            if (fields.latitude)    url.searchParams.append('latitude',    fields.latitude);
-            if (fields.longitude)   url.searchParams.append('longitude',   fields.longitude);
+            if (fields.city)         url.searchParams.append('city',         fields.city);
+            if (fields.postal_code)  url.searchParams.append('postal_code',  fields.postal_code);
+            if (fields.line1)        url.searchParams.append('line1',       fields.line1);
+            if (fields.country)      url.searchParams.append('country',     fields.country);
+            if (fields.latitude)     url.searchParams.append('latitude',     fields.latitude);
+            if (fields.longitude)    url.searchParams.append('longitude',    fields.longitude);
 
             const response = await fetch(url.toString(), {
                 method: 'GET',

@@ -2,10 +2,8 @@
 
 namespace App\Domain\Delivery\Actions;
 
-use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
-use App\Domain\DeliveryLocation\Models\DeliveryLocation;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +15,8 @@ class CreateDelivery
 {
     public function __invoke(array $data): array
     {
+        $data = $this->normalizeTravelInput($data);
+
         $validated = Validator::make($data, [
             'customer_id' => 'required|exists:customer_profiles,id',
             // Legacy single-asset column (optional now that delivery_items exists).
@@ -27,7 +27,7 @@ class CreateDelivery
             'location_id' => 'nullable|exists:locations,id',
             'technician_id' => 'nullable|exists:users,id',
             'scheduled_at' => 'required|date',
-            'estimated_arrival_at' => 'nullable|date|after:scheduled_at',
+            'estimated_arrival_at' => 'nullable|date',
             'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
             'internal_notes' => 'nullable|string|max:5000',
             'customer_notes' => 'nullable|string|max:5000',
@@ -47,6 +47,9 @@ class CreateDelivery
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
 
+            'time_to_leave_by' => 'nullable|date',
+            'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+
             // Items (optional at create; may be synced from source instead)
             'items' => 'nullable|array',
             'items.*.asset_unit_id' => 'nullable|exists:asset_units,id',
@@ -62,8 +65,12 @@ class CreateDelivery
         $items = $validated['items'] ?? [];
         unset($validated['items']);
 
+        $skipTravelAutoCompute = $this->hasManualTravelInput($data);
+
+        unset($validated['en_route_at']);
+
         try {
-            return DB::transaction(function () use ($validated, $items) {
+            return DB::transaction(function () use ($validated, $items, $skipTravelAutoCompute) {
                 $record = RecordModel::create(array_merge($validated, [
                     'uuid' => (string) Str::uuid(),
                 ]));
@@ -94,9 +101,14 @@ class CreateDelivery
                 $record->syncStatusFromItems();
                 $record->save();
 
+                if (! $skipTravelAutoCompute) {
+                    app(\App\Domain\Delivery\Actions\ComputeDeliveryTravelEstimates::class)($record);
+                }
+                $record->save();
+
                 return [
                     'success' => true,
-                    'record' => $record,
+                    'record' => $record->fresh(),
                 ];
             });
         } catch (QueryException $e) {
@@ -122,5 +134,37 @@ class CreateDelivery
                 'record' => null,
             ];
         }
+    }
+
+    private function normalizeTravelInput(array $data): array
+    {
+        if (array_key_exists('time_to_leave_by', $data) && $data['time_to_leave_by'] === '') {
+            $data['time_to_leave_by'] = null;
+        }
+        if (array_key_exists('estimated_travel_duration_seconds', $data) && $data['estimated_travel_duration_seconds'] === '') {
+            $data['estimated_travel_duration_seconds'] = null;
+        }
+
+        return $data;
+    }
+
+    private function hasManualTravelInput(array $data): bool
+    {
+        $tt = $data['time_to_leave_by'] ?? null;
+        if (is_string($tt)) {
+            $tt = trim($tt) === '' ? null : $tt;
+        }
+        if ($tt !== null && $tt !== '') {
+            return true;
+        }
+        if (! array_key_exists('estimated_travel_duration_seconds', $data)) {
+            return false;
+        }
+        $sec = $data['estimated_travel_duration_seconds'];
+        if ($sec === null || $sec === '') {
+            return false;
+        }
+
+        return is_numeric($sec);
     }
 }

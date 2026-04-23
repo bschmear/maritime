@@ -46,12 +46,19 @@ const props = defineProps({
      */
     pickAssetOnly: { type: Boolean, default: false },
     /**
+     * Delivery: pick what to deliver — hide unit price, discount, and line total (notes still shown).
+     */
+    isDelivery: { type: Boolean, default: false },
+    /**
      * Restrict serialized units to this customer's fleet OR unassigned (stock) units.
      */
     customerId: { type: [Number, String, null], default: null },
 });
 
 const emit = defineEmits(['save', 'close']);
+
+/** Hides all pricing UI; pickAssetOnly also hides notes (service tickets). */
+const noPricing = computed(() => props.pickAssetOnly || props.isDelivery);
 
 const debounce = (fn, delay) => {
     let timer;
@@ -113,7 +120,12 @@ const selectAsset = (asset) => {
     model.value.name = asset.display_name;
     model.value.year = asset.year || '';
     model.value.make = asset.make?.display_name || '';
-    model.value.unit_price = Number(asset.default_price) || 0;
+    if (noPricing.value) {
+        model.value.unit_price = 0;
+        model.value.discount = 0;
+    } else {
+        model.value.unit_price = Number(asset.default_price) || 0;
+    }
     model.value.has_variants = Boolean(asset.has_variants);
     model.value.asset_variant_id = null;
     model.value.variant_display_name = '';
@@ -217,9 +229,11 @@ const save = () => {
                         {{
                             props.pickAssetOnly
                                 ? (model.asset_id && props.editing ? 'Edit equipment' : 'Select equipment')
-                                : model.asset_id && props.editing
-                                  ? 'Edit Asset'
-                                  : 'Add Asset'
+                                : props.isDelivery
+                                  ? (model.asset_id && props.editing ? 'Edit item' : 'Add to delivery')
+                                  : model.asset_id && props.editing
+                                    ? 'Edit Asset'
+                                    : 'Add Asset'
                         }}
                     </h3>
                     <button type="button" @click="close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -270,7 +284,7 @@ const save = () => {
                                         <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex gap-3">
                                             <span v-if="asset.year">{{ asset.year }}</span>
                                             <span v-if="asset.make?.display_name">{{ asset.make.display_name }}</span>
-                                            <span v-if="asset.default_price">{{ formatCurrency(asset.default_price) }}</span>
+                                            <span v-if="asset.default_price && !noPricing">{{ formatCurrency(asset.default_price) }}</span>
                                         </div>
                                     </div>
                                     <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,8 +333,8 @@ const save = () => {
                             :has-variants="model.has_variants"
                             :asset-description="model.asset_description"
                             :sync-catalog-description="true"
-                            :apply-default-price="!props.pickAssetOnly"
-                            :show-catalog-preview="!props.pickAssetOnly"
+                            :apply-default-price="!noPricing"
+                            :show-catalog-preview="!noPricing"
                             @update:unit-price="model.unit_price = $event"
                         />
 
@@ -331,10 +345,11 @@ const save = () => {
                             :asset-id="model.asset_id"
                             :variant-id="model.has_variants ? model.asset_variant_id : null"
                             :customer-id="props.customerId"
+                            :hide-financial-details="noPricing"
                         />
 
                         <div
-                            v-if="!props.pickAssetOnly"
+                            v-if="!noPricing"
                             :class="props.hideQuantity ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 gap-4'"
                         >
                             <div>
@@ -361,7 +376,7 @@ const save = () => {
                         </div>
 
                         <div
-                            v-if="!props.pickAssetOnly"
+                            v-if="!noPricing"
                             class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                         >
                             <span class="text-sm text-gray-600 dark:text-gray-400">Line Total</span>
@@ -388,9 +403,13 @@ const save = () => {
                                 ? props.editing
                                     ? 'Update'
                                     : 'Use this equipment'
-                                : props.editing
-                                  ? 'Update Asset'
-                                  : 'Add Asset'
+                                : props.isDelivery
+                                  ? props.editing
+                                    ? 'Update'
+                                    : 'Add to delivery'
+                                  : props.editing
+                                    ? 'Update Asset'
+                                    : 'Add Asset'
                         }}
                     </button>
                 </div>

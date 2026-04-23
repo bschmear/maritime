@@ -2,9 +2,9 @@
 
 namespace App\Domain\Delivery\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\DB;
 
 class Delivery extends Model
@@ -19,6 +19,9 @@ class Delivery extends Model
         'transaction_id',
         'scheduled_at',
         'estimated_arrival_at',
+        'time_to_leave_by',
+        'estimated_travel_duration_seconds',
+        'en_route_at',
         'delivered_at',
         'status',
         'technician_id',
@@ -49,12 +52,13 @@ class Delivery extends Model
     protected $casts = [
         'scheduled_at' => 'datetime',
         'estimated_arrival_at' => 'datetime',
+        'time_to_leave_by' => 'datetime',
+        'en_route_at' => 'datetime',
         'delivered_at' => 'datetime',
         'signed_at' => 'datetime',
     ];
 
     protected $appends = ['display_name'];
-
 
     protected static function booted()
     {
@@ -62,7 +66,7 @@ class Delivery extends Model
             $next = (int) (DB::table('deliveries')->max('sequence') ?? 999);
             $delivery->sequence = $next + 1;
         });
-    } 
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -154,7 +158,7 @@ class Delivery extends Model
     public function scopeUpcoming($query)
     {
         return $query->where('scheduled_at', '>=', now())
-                     ->whereNull('delivered_at');
+            ->whereNull('delivered_at');
     }
 
     /*
@@ -230,12 +234,12 @@ class Delivery extends Model
 
     public function getDisplayNameAttribute()
     {
-        return 'DLV-' . ($this->sequence ?: $this->id ?: '???');
+        return 'DLV-'.($this->sequence ?: $this->id ?: '???');
     }
 
     public function getSignatureUrlAttribute()
     {
-        if (!$this->signature_file) {
+        if (! $this->signature_file) {
             return null;
         }
 

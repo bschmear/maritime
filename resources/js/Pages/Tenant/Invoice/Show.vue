@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import InvoicePreview from '@/Components/Tenant/InvoicePreview.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
+import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, ref, watch } from 'vue';
 
@@ -151,6 +152,8 @@ const breadcrumbItems = computed(() => [
 const contactShowHref     = computed(() => props.record.contact_id     ? route('contacts.show',     props.record.contact_id)     : null);
 const transactionShowHref = computed(() => props.record.transaction_id ? route('transactions.show', props.record.transaction_id) : null);
 const contractShowHref    = computed(() => props.record.contract_id    ? route('contracts.show',    props.record.contract_id)    : null);
+const subsidiaryShowHref  = computed(() => props.record.subsidiary_id  ? route('subsidiaries.show', props.record.subsidiary_id)  : null);
+const locationShowHref    = computed(() => props.record.location_id    ? route('locations.show',   props.record.location_id)    : null);
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const formatCurrency = (value) =>
@@ -347,7 +350,7 @@ const submitManualPayment = () => {
 
                                     <div v-if="record.customer_phone">
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Phone</div>
-                                        <div class="text-md text-gray-900 dark:text-white">{{ record.customer_phone }}</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ formatPhoneNumber(record.customer_phone) || '—' }}</div>
                                     </div>
 
                                     <div v-if="record.billing_address_line1 || record.billing_city">
@@ -618,6 +621,32 @@ const submitManualPayment = () => {
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">description</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Contract</span>
                                 <Link :href="contractShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
+                            </li>
+                            <li v-if="subsidiaryShowHref" class="flex items-start gap-3 px-5 py-3">
+                                <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">corporate_fare</span>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-gray-500 dark:text-gray-400">Subsidiary</span>
+                                    <p
+                                        v-if="record.subsidiary?.display_name"
+                                        class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate"
+                                    >
+                                        {{ record.subsidiary.display_name }}
+                                    </p>
+                                </div>
+                                <Link :href="subsidiaryShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0">View</Link>
+                            </li>
+                            <li v-if="locationShowHref" class="flex items-start gap-3 px-5 py-3">
+                                <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">place</span>
+                                <div class="min-w-0 flex-1">
+                                    <span class="text-gray-500 dark:text-gray-400">Location</span>
+                                    <p
+                                        v-if="record.location?.display_name"
+                                        class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate"
+                                    >
+                                        {{ record.location.display_name }}
+                                    </p>
+                                </div>
+                                <Link :href="locationShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0">View</Link>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">calendar_today</span>

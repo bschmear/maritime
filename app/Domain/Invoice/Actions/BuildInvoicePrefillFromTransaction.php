@@ -17,6 +17,8 @@ class BuildInvoicePrefillFromTransaction
     public function __invoke(Transaction $transaction): array
     {
         $transaction->load([
+            'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+            'location' => fn ($q) => $q->select(['id', 'display_name']),
             // transaction_id is the hasOne foreign key — omitting it causes Laravel to silently
             // drop the relation, so the invoice create page wouldn't see the linked contract.
             'contract' => fn ($q) => $q->select(['id', 'transaction_id', 'sequence']),
@@ -81,6 +83,21 @@ class BuildInvoicePrefillFromTransaction
             $initialData['contract'] = [
                 'id' => $transaction->contract->id,
                 'display_name' => $transaction->contract->display_name,
+            ];
+        }
+
+        $initialData['subsidiary_id'] = $transaction->subsidiary_id;
+        $initialData['location_id'] = $transaction->location_id;
+        if ($transaction->subsidiary) {
+            $initialData['subsidiary'] = [
+                'id' => $transaction->subsidiary->id,
+                'display_name' => $transaction->subsidiary->display_name,
+            ];
+        }
+        if ($transaction->location) {
+            $initialData['location'] = [
+                'id' => $transaction->location->id,
+                'display_name' => $transaction->location->display_name,
             ];
         }
 

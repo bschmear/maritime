@@ -14,6 +14,8 @@ const props = defineProps({
      * When set (e.g. service ticket), include units for this customer OR unassigned (stock) units.
      */
     customerId: { type: [Number, String], default: null },
+    /** e.g. delivery or pick-asset-only — hide Cost / Asking under the unit selector. */
+    hideFinancialDetails: { type: Boolean, default: false },
 });
 
 const { unitOptions, unitsLoading, loadForAsset, clear } = useAssetLineUnit();
@@ -101,7 +103,7 @@ watch(unitOptions, (opts) => {
         </select>
         <p v-if="unitsLoading" class="text-xs text-gray-500 dark:text-gray-400">Loading units…</p>
         <p
-            v-else-if="selectedUnit"
+            v-else-if="selectedUnit && !props.hideFinancialDetails"
             class="text-xs text-gray-500 dark:text-gray-400"
         >
             <span class="font-medium text-gray-600 dark:text-gray-300">Cost:</span>

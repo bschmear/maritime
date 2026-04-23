@@ -75,8 +75,14 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
                 // display_name accessor falls back to the real `name` column.
                 $columns[] = 'name';
+                $columns[] = 'address_line_1';
+                $columns[] = 'address_line_2';
                 $columns[] = 'city';
                 $columns[] = 'state';
+                $columns[] = 'postal_code';
+                $columns[] = 'country';
+                $columns[] = 'latitude';
+                $columns[] = 'longitude';
                 $columns[] = 'active';
             } elseif (strtolower($type) === 'customer') {
                 // display_name and address* accessors need contact + primary address; never select legacy

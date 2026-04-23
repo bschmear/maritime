@@ -114,7 +114,7 @@ onUnmounted(() => {
         <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 
     <!-- ── HERO ─────────────────────────────────────────────────────────── -->
-    <section class="relative flex min-h-[85vh] flex-col justify-center overflow-hidden bg-white dark:bg-gray-950 px-6 sm:px-16 lg:px-24 border-b border-gray-300/70 dark:border-primary-400/35">
+    <section class="relative flex min-h-[calc(100vh-65px)] flex-col justify-center overflow-hidden bg-white dark:bg-gray-950 px-6 sm:px-16 lg:px-24 border-b border-gray-300/70 dark:border-primary-400/35">
  
  <!-- ── Background: coordinate grid ───────────────────────────── -->
  <div class="pointer-events-none absolute inset-0 hidden select-none opacity-50 lg:block" aria-hidden="true">
@@ -141,12 +141,12 @@ onUnmounted(() => {
      aria-hidden="true"
      :style="{
          top: `calc(${HERO_AXIS_ZERO_FRACTION * 90}%)`,
-         height: `calc(100% + 4rem + ${waveParallaxPx}px)`,
+         height: `calc(200% + ${waveParallaxPx}px)`,
          transform: `translateY(-${waveParallaxPx}px)`,
      }"
  >
      <div class="relative will-change-transform">
-         <svg class="h-full w-full" viewBox="0 0 1440 500" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+         <svg class="h-full w-full" viewBox="0 0 1440 1000" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
              <defs>
                  <linearGradient id="waveFillLight" x1="0" y1="0" x2="0" y2="1">
                      <stop offset="0%" stop-color="rgb(56 189 248)" stop-opacity="0.18" />
@@ -159,8 +159,8 @@ onUnmounted(() => {
              </defs>
              <path class="wave-back" fill="none" stroke="rgb(125 211 252 / 0.25)" stroke-width="2" d="M0,40 C180,20 360,60 540,40 C720,20 900,60 1080,40 C1260,20 1440,40 1440,40" />
              <path class="wave-front" fill="none" stroke="rgb(56 189 248 / 0.6)" stroke-width="2.5" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38" />
-             <path class="wave-fill dark:hidden" fill="url(#waveFillLight)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,500 L0,500 Z" />
-             <path class="wave-fill hidden dark:block" fill="url(#waveFillDark)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,500 L0,500 Z" />
+             <path class="wave-fill dark:hidden" fill="url(#waveFillLight)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,1000 L0,1000 Z" />
+             <path class="wave-fill hidden dark:block" fill="url(#waveFillDark)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,1000 L0,1000 Z" />
          </svg>
  
      </div>
@@ -249,12 +249,12 @@ onUnmounted(() => {
              <span>Boat Dealership CRM</span>
          </div>
 
-         <h1 class="mb-6 text-4xl font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white sm:text-5xl lg:text-[3.5rem]">
+         <h1 class="mb-6  font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white text-3xl sm:text-5xl lg:text-6xl">
             Run your dealership,<br />
             <span class="text-primary-600 dark:text-primary-400">from lead to close</span>
         </h1>
 
-        <p class="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-400">
+        <p class="max-w-lg text-lg lg:text-xl leading-relaxed text-gray-600 dark:text-gray-400">
             Track leads, manage inventory, handle service, and close deals — all in one system built specifically for boat dealerships. No spreadsheets. No disconnected tools.
         </p>
 
@@ -266,44 +266,44 @@ onUnmounted(() => {
             border border-gray-300/60 dark:border-gray-600/40
             overflow-hidden">
 
-    <!-- Item -->
-    <div class="flex items-center gap-2 px-4 py-3
-                text-sm font-mono text-gray-700 dark:text-gray-300">
-        <span class="material-icons text-sm text-primary-500">contact_phone</span>
-        Leads & pipeline
-    </div>
+            <!-- Item -->
+            <div class="flex items-center gap-2 px-4 py-3
+                        text-sm lg:text-md font-mono text-gray-700 dark:text-gray-300">
+                <span class="material-icons text-sm lg:text-md text-primary-500">contact_phone</span>
+                Leads & pipeline
+            </div>
 
-    <!-- Item -->
-    <div class="flex items-center gap-2 px-4 py-3
-                border-l border-gray-300/60 dark:border-gray-600/40
-                text-sm font-mono text-gray-700 dark:text-gray-300">
-        <span class="material-icons text-sm text-primary-500">directions_boat</span>
-        Inventory & listings
-    </div>
+            <!-- Item -->
+            <div class="flex items-center gap-2 px-4 py-3
+                        border-l border-gray-300/60 dark:border-gray-600/40
+                        text-sm lg:text-md font-mono text-gray-700 dark:text-gray-300">
+                <span class="material-icons text-sm lg:text-md text-primary-500">directions_boat</span>
+                Inventory & listings
+            </div>
 
-    <!-- Item -->
-    <div class="flex items-center gap-2 px-4 py-3
-                border-t border-gray-300/60 dark:border-gray-600/40
-                text-sm font-mono text-gray-700 dark:text-gray-300">
-        <span class="material-icons text-sm text-primary-500">receipt_long</span>
-        Deals & invoices
-    </div>
+            <!-- Item -->
+            <div class="flex items-center gap-2 px-4 py-3
+                        border-t border-gray-300/60 dark:border-gray-600/40
+                        text-sm lg:text-md font-mono text-gray-700 dark:text-gray-300">
+                <span class="material-icons text-sm lg:text-md text-primary-500">receipt_long</span>
+                Deals & invoices
+            </div>
 
-    <!-- Item -->
-    <div class="flex items-center gap-2 px-4 py-3
-                border-t border-l border-gray-300/60 dark:border-gray-600/40
-                text-sm font-mono text-gray-700 dark:text-gray-300">
-        <span class="material-icons text-sm text-primary-500">build_circle</span>
-        Service & work orders
-    </div>
+            <!-- Item -->
+            <div class="flex items-center gap-2 px-4 py-3
+                        border-t border-l border-gray-300/60 dark:border-gray-600/40
+                        text-sm lg:text-md font-mono text-gray-700 dark:text-gray-300">
+                <span class="material-icons text-sm lg:text-md text-primary-500">build_circle</span>
+                Service & work orders
+            </div>
 
-</div>
+        </div>
 
          <!-- CTAs -->
          <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
              <Link
                  :href="route('checkout.plans')"
-                 class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
+                 class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm lg:text-md font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
              >
                  <span>Start free trial</span>
                  <span class="material-icons text-base leading-none">arrow_forward</span>
@@ -316,7 +316,7 @@ onUnmounted(() => {
                         backdrop-blur-sm
                         border border-gray-300/70 dark:border-gray-600/50
                         px-8 py-4
-                        text-sm font-bold uppercase tracking-wide
+                        text-sm lg:text-md font-bold uppercase tracking-wide
                         text-gray-700 dark:text-gray-300
                         transition hover:bg-white/80 dark:hover:bg-white/10 hover:border-primary-400 hover:text-primary-700 dark:hover:border-primary-600 dark:hover:text-white"
              >
@@ -351,13 +351,13 @@ onUnmounted(() => {
                                  bg-primary-50/80 dark:bg-primary-950/50
                                  backdrop-blur-sm
                                  border border-primary-200/60 dark:border-primary-700/40">
-                         <span class="material-icons text-xl leading-none text-primary-500 dark:text-primary-400">{{ item.icon }}</span>
+                         <span class="material-icons text-lg lg:text-xl leading-none text-primary-500 dark:text-primary-400">{{ item.icon }}</span>
                      </div>
                      <div>
-                         <h2 class="mb-1.5 text-lg font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+                         <h2 class="mb-1.5 text-md lg:text-xl font-bold uppercase tracking-wide text-gray-900 dark:text-white">
                              {{ item.title }}
                          </h2>
-                         <p class="text-base leading-relaxed text-gray-600 dark:text-gray-400">
+                         <p class="text-md lg:text-lg leading-relaxed text-gray-600 dark:text-gray-400">
                              {{ item.description }}
                          </p>
                      </div>
@@ -366,6 +366,8 @@ onUnmounted(() => {
          </div>
      </div>
  </div>
+
+ 
 
  <!-- ── Bottom fade into next section ─────────────────────────── -->
  <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 dark:from-gray-950 to-transparent" aria-hidden="true" />
