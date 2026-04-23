@@ -13,8 +13,10 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
 use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -47,30 +49,63 @@ class DeliveryController extends RecordController
 
         $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
 
-        $query = RecordModel::with(['customer', 'assetUnit', 'technician'])
-            ->when($request->search, fn ($q, $s) => $q->whereHas('customer', fn ($q) => $q->where('name', 'like', "%{$s}%"))
-                ->orWhereHas('assetUnit', fn ($q) => $q->where('name', 'like', "%{$s}%"))
-            )
+        $deliveryIndexWith = [
+            'customer',
+            'assetUnit.asset',
+            'location',
+            'technician',
+            'items' => fn ($q) => $q->orderBy('position')->with(['assetUnit.asset', 'assetUnit.assetVariant', 'assetVariant']),
+        ];
+
+        $query = RecordModel::with($deliveryIndexWith);
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($query, $request);
+        $query
+            ->when($request->search, function ($q, $s) {
+                $like = '%'.addcslashes($s, '%_\\').'%';
+                $q->where(function ($q) use ($like) {
+                    $q->whereHas('customer', fn ($q) => $q->where('name', 'like', $like))
+                        ->orWhereHas('assetUnit', fn ($q) => $q->where('name', 'like', $like))
+                        ->orWhereHas('items', fn ($q) => $q->where('name', 'like', $like));
+                });
+            })
             ->when($statusesForQuery !== null, fn ($q) => $q->whereIn('status', $statusesForQuery))
             ->latest('scheduled_at');
 
-        $todayDeliveries = RecordModel::with(['customer', 'assetUnit', 'technician'])
+        $todayQuery = RecordModel::with($deliveryIndexWith);
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($todayQuery, $request);
+        $todayDeliveries = $todayQuery
             ->whereDate('scheduled_at', today())
             ->orderBy('scheduled_at')
             ->get();
 
-        $upcomingDeliveries = RecordModel::with(['customer', 'assetUnit', 'technician'])
+        $upcomingQuery = RecordModel::with($deliveryIndexWith);
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($upcomingQuery, $request);
+        $upcomingDeliveries = $upcomingQuery
             ->where('scheduled_at', '>', now()->endOfDay())
             ->orderBy('scheduled_at')
             ->limit(10)
             ->get();
 
+        $statsBase = function () use ($request) {
+            $q = RecordModel::query();
+            $this->applyDeliveryIndexSubsidiaryLocationFilters($q, $request);
+
+            return $q;
+        };
         $stats = [
-            'scheduled' => RecordModel::where('status', 'scheduled')->count(),
-            'en_route' => RecordModel::where('status', 'en_route')->count(),
-            'delivered' => RecordModel::where('status', 'delivered')->count(),
-            'cancelled' => RecordModel::where('status', 'cancelled')->count(),
+            'scheduled' => $statsBase()->where('status', 'scheduled')->count(),
+            'en_route' => $statsBase()->where('status', 'en_route')->count(),
+            'delivered' => $statsBase()->where('status', 'delivered')->count(),
+            'cancelled' => $statsBase()->where('status', 'cancelled')->count(),
         ];
+
+        $locations = Location::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
 
         return Inertia::render('Tenant/Delivery/Index', [
             'deliveries' => $query->paginate(15)->withQueryString(),
@@ -80,10 +115,27 @@ class DeliveryController extends RecordController
             'filters' => [
                 'search' => $request->input('search'),
                 'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
+                'subsidiary_id' => $request->input('subsidiary_id') ? (int) $request->input('subsidiary_id') : null,
+                'location_id' => $request->input('location_id') ? (int) $request->input('location_id') : null,
             ],
+            'locationOptions' => $locations,
+            'subsidiaryOptions' => $subsidiaries,
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
             'enumOptions' => $this->getEnumOptions(),
         ]);
+    }
+
+    /**
+     * Scope deliveries index to subsidiary and/or location (default: no filter = all).
+     */
+    private function applyDeliveryIndexSubsidiaryLocationFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('subsidiary_id') && (int) $request->input('subsidiary_id') > 0) {
+            $query->where('subsidiary_id', (int) $request->input('subsidiary_id'));
+        }
+        if ($request->filled('location_id') && (int) $request->input('location_id') > 0) {
+            $query->where('location_id', (int) $request->input('location_id'));
+        }
     }
 
     /**

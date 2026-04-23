@@ -10,6 +10,8 @@ const props = defineProps({
     upcomingDeliveries: { type: Array, default: () => [] },
     stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     filters: { type: Object, default: () => ({}) },
+    locationOptions: { type: Array, default: () => [] },
+    subsidiaryOptions: { type: Array, default: () => [] },
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
 });
@@ -34,20 +36,34 @@ const parseInitialStatuses = (filters) => {
 
 const selectedStatuses = ref(parseInitialStatuses(props.filters));
 const searchQuery = ref(props.filters?.search ?? '');
+const selectedSubsidiaryId = ref(
+    props.filters?.subsidiary_id != null && props.filters?.subsidiary_id !== '' ? String(props.filters.subsidiary_id) : '',
+);
+const selectedLocationId = ref(
+    props.filters?.location_id != null && props.filters?.location_id !== '' ? String(props.filters.location_id) : '',
+);
 
 watch(
     () => props.filters,
     (f) => {
         searchQuery.value = f?.search ?? '';
         selectedStatuses.value = parseInitialStatuses(f);
+        selectedSubsidiaryId.value = f?.subsidiary_id != null && f?.subsidiary_id !== '' ? String(f.subsidiary_id) : '';
+        selectedLocationId.value = f?.location_id != null && f?.location_id !== '' ? String(f.location_id) : '';
     },
     { deep: true },
 );
 
-const applyStatusFilter = () => {
+const applyTableFilters = () => {
     const params = {};
     if (searchQuery.value?.trim()) {
         params.search = searchQuery.value.trim();
+    }
+    if (selectedSubsidiaryId.value) {
+        params.subsidiary_id = selectedSubsidiaryId.value;
+    }
+    if (selectedLocationId.value) {
+        params.location_id = selectedLocationId.value;
     }
     const sel = selectedStatuses.value;
     const allSelected = ALLOWED_STATUSES.every((x) => sel.includes(x));
@@ -63,23 +79,38 @@ const applyStatusFilter = () => {
 let searchDebounce = null;
 watch(searchQuery, () => {
     clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => applyStatusFilter(), 350);
+    searchDebounce = setTimeout(() => applyTableFilters(), 350);
 });
 
 const clearSearch = () => {
     clearTimeout(searchDebounce);
     searchQuery.value = '';
-    applyStatusFilter();
+    applyTableFilters();
+};
+
+const clearSubsidiaryFilter = () => {
+    selectedSubsidiaryId.value = '';
+    applyTableFilters();
+};
+
+const clearLocationFilter = () => {
+    selectedLocationId.value = '';
+    applyTableFilters();
 };
 
 const showDeliveryFilterPills = computed(
-    () => !!(searchQuery.value?.trim()) || selectedStatuses.value.length > 0,
+    () => !!(
+        searchQuery.value?.trim()
+        || selectedSubsidiaryId.value
+        || selectedLocationId.value
+        || selectedStatuses.value.length > 0
+    ),
 );
 
 const removeStatusPill = (statusId) => {
     const str = String(statusId);
     selectedStatuses.value = selectedStatuses.value.map(String).filter((s) => s !== str);
-    applyStatusFilter();
+    applyTableFilters();
 };
 
 const breadcrumbItems = computed(() => [
@@ -88,8 +119,69 @@ const breadcrumbItems = computed(() => [
 ]);
 
 const getCustomerName = (d) => d.customer?.display_name ?? d.customer?.name ?? '—';
-const getAssetName = (d) => d.asset_unit?.display_name ?? d.asset ?? '—';
-const getTechnicianName = (d) => d.technician?.display_name ?? d.technician ?? '—';
+const getLocationName = (d) => d.location?.display_name ?? '—';
+const getTechnicianName = (d) => d.technician?.display_name ?? d.technician?.name ?? '—';
+
+/** Line items: prefer delivery_items; fall back to legacy single asset_unit. */
+const getDeliveryLineItems = (d) => {
+    if (Array.isArray(d.items) && d.items.length) {
+        return d.items;
+    }
+    const u = d.asset_unit ?? d.assetUnit;
+    if (u) {
+        return [
+            {
+                id: 'legacy-asset',
+                name: u.display_name ?? u.name,
+                asset_unit: u,
+                assetUnit: u,
+            },
+        ];
+    }
+    return [];
+};
+
+const itemTitle = (item) => {
+    const unit = item.asset_unit ?? item.assetUnit ?? null;
+    const variant = item.asset_variant ?? item.assetVariant ?? null;
+    const assetDisplay = unit?.asset?.display_name;
+    if (assetDisplay) return assetDisplay;
+    if (variant?.display_name) return variant.display_name;
+    if (variant?.name) return variant.name;
+    return item.name ?? 'Asset';
+};
+
+const itemUnitDetail = (item) => {
+    const unit = item.asset_unit ?? item.assetUnit ?? null;
+    if (!unit) return item.serial_number_snapshot ?? null;
+    const raw = unit.display_name ?? null;
+    if (raw) {
+        const parts = String(raw).split(' - ');
+        return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+    }
+    return unit.serial_number ?? unit.hin ?? unit.sku ?? item.serial_number_snapshot ?? null;
+};
+
+const itemsSummaryLabel = (d) => {
+    const lineItems = getDeliveryLineItems(d);
+    if (lineItems.length === 0) return '—';
+    if (lineItems.length === 1) {
+        return itemTitle(lineItems[0]);
+    }
+    return `${lineItems.length} assets`;
+};
+
+const subsidiaryLabel = (id) => {
+    const n = String(id);
+    const o = (props.subsidiaryOptions ?? []).find((s) => String(s.id) === n);
+    return o?.display_name ?? `Subsidiary #${id}`;
+};
+
+const locationLabel = (id) => {
+    const n = String(id);
+    const o = (props.locationOptions ?? []).find((l) => String(l.id) === n);
+    return o?.display_name ?? `Location #${id}`;
+};
 
 const formatTime = (val) => {
     if (!val) return '—';
@@ -195,12 +287,12 @@ const toggleStatusValue = (statusId) => {
     const cur = selectedStatuses.value.map(String);
     const next = cur.includes(str) ? cur.filter((v) => v !== str) : [...cur, str];
     selectedStatuses.value = next;
-    applyStatusFilter();
+    applyTableFilters();
 };
 
 const clearStatusFilter = () => {
     selectedStatuses.value = [];
-    applyStatusFilter();
+    applyTableFilters();
     openStatusFilter.value = false;
 };
 
@@ -353,14 +445,28 @@ onUnmounted(() => {
                                     <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors">chevron_right</span>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-md text-gray-400">directions_boat</span>
-                                        <span class="truncate">{{ getAssetName(delivery) }}</span>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <span class="material-icons text-md text-gray-400 shrink-0">warehouse</span>
+                                        <span class="truncate" :title="getLocationName(delivery)">{{ getLocationName(delivery) }}</span>
                                     </div>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="material-icons text-md text-gray-400">engineering</span>
-                                        <span>{{ getTechnicianName(delivery) }}</span>
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <span class="material-icons text-md text-gray-400 shrink-0">engineering</span>
+                                        <span class="truncate">{{ getTechnicianName(delivery) }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 sm:col-span-2">
+                                        <span class="material-icons text-md text-gray-400 shrink-0">directions_boat</span>
+                                        <div class="min-w-0 space-y-0.5">
+                                            <div
+                                                v-for="(item, iidx) in getDeliveryLineItems(delivery)"
+                                                :key="item.id ?? iidx"
+                                                class="text-gray-600 dark:text-gray-300"
+                                            >
+                                                <span class="font-medium text-gray-800 dark:text-white">{{ itemTitle(item) }}</span>
+                                                <span v-if="itemUnitDetail(item)" class="text-gray-500"> · {{ itemUnitDetail(item) }}</span>
+                                            </div>
+                                            <p v-if="!getDeliveryLineItems(delivery).length" class="text-gray-400 italic">No assets listed</p>
+                                        </div>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span class="material-icons text-md text-gray-400">schedule</span>
@@ -464,7 +570,10 @@ onUnmounted(() => {
                                 <div :class="['w-2 h-2 rounded-full mt-1.5 flex-shrink-0', getStatus(delivery.status).dot]" />
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-semibold text-gray-800 dark:text-white truncate">{{ getCustomerName(delivery) }}</p>
-                                    <p class="text-sm text-gray-400 dark:text-gray-500 truncate">{{ getAssetName(delivery) }}</p>
+                                    <p class="text-sm text-gray-400 dark:text-gray-500 truncate">
+                                        <span v-if="getLocationName(delivery) !== '—'" class="text-gray-500">{{ getLocationName(delivery) }} · </span>
+                                        {{ itemsSummaryLabel(delivery) }}
+                                    </p>
                                     <div class="flex items-center gap-1 mt-1 text-sm text-gray-400 dark:text-gray-500">
                                         <span class="material-icons text-sm">schedule</span>
                                         {{ formatScheduledShort(delivery.scheduled_at) }}
@@ -497,6 +606,46 @@ onUnmounted(() => {
                                 placeholder="Search deliveries..."
                                 class="block pl-10 pr-4 py-2 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
                             />
+                        </div>
+
+                        <!-- Subsidiary -->
+                        <div class="w-full sm:w-48">
+                            <label for="filter-subsidiary" class="sr-only">Subsidiary</label>
+                            <select
+                                id="filter-subsidiary"
+                                v-model="selectedSubsidiaryId"
+                                class="block w-full py-2 px-3 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"
+                                @change="applyTableFilters"
+                            >
+                                <option value="">All subsidiaries</option>
+                                <option
+                                    v-for="s in subsidiaryOptions"
+                                    :key="s.id"
+                                    :value="String(s.id)"
+                                >
+                                    {{ s.display_name }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Location -->
+                        <div class="w-full sm:w-48">
+                            <label for="filter-location" class="sr-only">Location</label>
+                            <select
+                                id="filter-location"
+                                v-model="selectedLocationId"
+                                class="block w-full py-2 px-3 text-md rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500"
+                                @change="applyTableFilters"
+                            >
+                                <option value="">All locations</option>
+                                <option
+                                    v-for="loc in locationOptions"
+                                    :key="loc.id"
+                                    :value="String(loc.id)"
+                                >
+                                    {{ loc.display_name }}
+                                </option>
+                            </select>
                         </div>
 
                         <!-- Status quick filter (same pattern as Table.vue) -->
@@ -584,6 +733,38 @@ onUnmounted(() => {
                     class="px-6 py-2.5 border-b border-gray-50 dark:border-gray-700/60 flex flex-wrap gap-1.5"
                 >
                     <span
+                        v-if="selectedSubsidiaryId"
+                        class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400"
+                    >
+                        Subsidiary: {{ subsidiaryLabel(selectedSubsidiaryId) }}
+                        <button
+                            type="button"
+                            @click="clearSubsidiaryFilter"
+                            class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors"
+                            aria-label="Clear subsidiary filter"
+                        >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </span>
+                    <span
+                        v-if="selectedLocationId"
+                        class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400"
+                    >
+                        Location: {{ locationLabel(selectedLocationId) }}
+                        <button
+                            type="button"
+                            @click="clearLocationFilter"
+                            class="ml-0.5 p-0.5 rounded-full hover:bg-primary-100 dark:hover:bg-primary-800/50 transition-colors"
+                            aria-label="Clear location filter"
+                        >
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </span>
+                    <span
                         v-if="searchQuery?.trim()"
                         class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 text-xs font-medium rounded-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400"
                     >
@@ -625,7 +806,8 @@ onUnmounted(() => {
                             <tr>
                                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Delivery #</th>
                                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
-                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asset / Vessel</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Location</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Assets</th>
                                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Technician</th>
                                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Scheduled</th>
                                 <th class="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
@@ -633,27 +815,52 @@ onUnmounted(() => {
                                 <th class="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                            <tr v-for="delivery in (deliveries?.data ?? [])" :key="delivery.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap text-md font-mono text-gray-900 dark:text-white">{{ delivery.display_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</td>
-                                <td class="px-6 py-4 text-md text-gray-500 dark:text-gray-400 max-w-[180px] truncate">{{ getAssetName(delivery) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ getTechnicianName(delivery) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ formatDateTime(delivery.scheduled_at) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span :class="['inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium', getStatus(delivery.status).bg]">
-                                        <span class="material-icons text-sm">{{ getStatus(delivery.status).icon }}</span>
-                                        {{ getStatus(delivery.status).label }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span v-if="delivery.recipient_name" class="material-icons text-md text-green-500">verified</span>
-                                    <span v-else class="text-gray-300 dark:text-gray-600">—</span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-md">
-                                    <Link :href="route('deliveries.show', delivery.id)" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">View</Link>
-                                </td>
-                            </tr>
+                        <tbody class="bg-white dark:bg-gray-800">
+                            <template v-for="delivery in (deliveries?.data ?? [])" :key="delivery.id">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-200 dark:border-gray-700">
+                                    <td class="px-6 py-4 whitespace-nowrap text-md font-mono text-gray-900 dark:text-white">{{ delivery.display_name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-md text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</td>
+                                    <td class="px-6 py-4 text-md text-gray-500 dark:text-gray-400 max-w-[10rem] truncate" :title="getLocationName(delivery)">
+                                        {{ getLocationName(delivery) }}
+                                    </td>
+                                    <td class="px-6 py-4 text-md text-gray-600 dark:text-gray-300 max-w-[14rem]">
+                                        <span class="font-medium">{{ itemsSummaryLabel(delivery) }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ getTechnicianName(delivery) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ formatDateTime(delivery.scheduled_at) }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="['inline-flex items-center gap-1 px-2 py-1 rounded text-sm font-medium', getStatus(delivery.status).bg]">
+                                            <span class="material-icons text-sm">{{ getStatus(delivery.status).icon }}</span>
+                                            {{ getStatus(delivery.status).label }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <span v-if="delivery.recipient_name" class="material-icons text-md text-green-500">verified</span>
+                                        <span v-else class="text-gray-300 dark:text-gray-600">—</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-md">
+                                        <Link :href="route('deliveries.show', delivery.id)" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">View</Link>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="getDeliveryLineItems(delivery).length"
+                                    class="bg-gray-50 dark:bg-gray-900/25 border-b border-gray-200 dark:border-gray-700"
+                                >
+                                    <td colspan="9" class="px-6 py-3 pl-8">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">Line items</p>
+                                        <ul class="space-y-1.5 text-sm text-gray-700 dark:text-gray-200">
+                                            <li
+                                                v-for="(item, iidx) in getDeliveryLineItems(delivery)"
+                                                :key="item.id ?? iidx"
+                                                class="flex flex-wrap items-baseline gap-x-2"
+                                            >
+                                                <span class="font-medium text-gray-900 dark:text-white">{{ itemTitle(item) }}</span>
+                                                <span v-if="itemUnitDetail(item)" class="text-gray-500 text-xs">· {{ itemUnitDetail(item) }}</span>
+                                            </li>
+                                        </ul>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
