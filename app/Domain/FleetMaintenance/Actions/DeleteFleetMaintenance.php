@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\FleetMaintenance\Actions;
 
 use App\Domain\FleetMaintenance\Models\FleetMaintenance as RecordModel;
@@ -9,6 +11,9 @@ use Throwable;
 
 class DeleteFleetMaintenance
 {
+    /**
+     * @return array{success: true, message: string}|array{success: false, message: string}
+     */
     public function __invoke(int $id): array
     {
         try {

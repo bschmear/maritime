@@ -1,9 +1,10 @@
 <?php
+
 namespace App\Domain\Delivery\Actions;
 
 use App\Domain\Delivery\Models\Delivery as RecordModel;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeleteDelivery
@@ -21,8 +22,9 @@ class DeleteDelivery
         } catch (QueryException $e) {
             Log::error('Database query error in DeleteDelivery', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -30,8 +32,9 @@ class DeleteDelivery
         } catch (Throwable $e) {
             Log::error('Unexpected error in DeleteDelivery', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

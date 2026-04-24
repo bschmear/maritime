@@ -72,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'info' => fn () => $request->session()->get('info'),
                 'checkout_refresh' => fn () => $request->session()->get('checkout_refresh'),
+                'delivery_fleet_conflicts' => fn () => $request->session()->get('delivery_fleet_conflicts'),
             ],
             'auth' => [
                 'user' => $user,

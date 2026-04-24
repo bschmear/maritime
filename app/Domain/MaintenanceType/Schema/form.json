@@ -1,0 +1,28 @@
+{
+    "settings": {
+        "max_width": "2xl"
+    },
+    "form": {
+        "primary": {
+            "label": "Maintenance type",
+            "fields": [
+                {
+                    "key": "display_name",
+                    "required": true
+                },
+                {
+                    "key": "category",
+                    "required": false
+                },
+                {
+                    "key": "applies_to",
+                    "required": true
+                },
+                {
+                    "key": "sort_order",
+                    "required": false
+                }
+            ]
+        }
+    }
+}

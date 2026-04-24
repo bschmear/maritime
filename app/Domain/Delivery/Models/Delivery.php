@@ -2,8 +2,10 @@
 
 namespace App\Domain\Delivery\Models;
 
+use App\Domain\Fleet\Models\Fleet;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +23,7 @@ class Delivery extends Model
         'estimated_arrival_at',
         'time_to_leave_by',
         'estimated_travel_duration_seconds',
+        'delivery_duration_minutes',
         'en_route_at',
         'delivered_at',
         'status',
@@ -44,6 +47,8 @@ class Delivery extends Model
         'longitude',
         'subsidiary_id',
         'location_id',
+        'fleet_truck_id',
+        'fleet_trailer_id',
         'delivery_location_id',
         'delivery_to_type',
         'contact_address_id',
@@ -56,6 +61,7 @@ class Delivery extends Model
         'en_route_at' => 'datetime',
         'delivered_at' => 'datetime',
         'signed_at' => 'datetime',
+        'delivery_duration_minutes' => 'integer',
     ];
 
     protected $appends = ['display_name'];
@@ -82,6 +88,16 @@ class Delivery extends Model
     public function location()
     {
         return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+    }
+
+    public function fleetTruck(): BelongsTo
+    {
+        return $this->belongsTo(Fleet::class, 'fleet_truck_id');
+    }
+
+    public function fleetTrailer(): BelongsTo
+    {
+        return $this->belongsTo(Fleet::class, 'fleet_trailer_id');
     }
 
     public function customer()

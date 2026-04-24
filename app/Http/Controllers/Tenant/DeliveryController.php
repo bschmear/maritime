@@ -8,17 +8,25 @@ use App\Domain\Delivery\Actions\ComputeDeliveryTravelEstimates;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
 use App\Domain\Delivery\Actions\MarkDeliveryItemDelivered;
+use App\Domain\Delivery\Actions\SwapDeliveryFleetAssignments;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
+use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
+use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
+use App\Domain\Fleet\Models\Fleet;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
 use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Models\AccountSettings;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
 class DeliveryController extends RecordController
@@ -53,9 +61,28 @@ class DeliveryController extends RecordController
             'customer',
             'assetUnit.asset',
             'location',
+            'deliveryLocation',
             'technician',
             'items' => fn ($q) => $q->orderBy('position')->with(['assetUnit.asset', 'assetUnit.assetVariant', 'assetVariant']),
         ];
+
+        $calendarMonthParam = $request->input('calendar_month');
+        $monthStart = now()->copy()->startOfMonth();
+        if (is_string($calendarMonthParam) && preg_match('/^\d{4}-\d{2}$/', $calendarMonthParam)) {
+            try {
+                $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $calendarMonthParam, config('app.timezone'))->startOfMonth();
+            } catch (\Throwable) {
+                $monthStart = now()->copy()->startOfMonth();
+            }
+        }
+        $monthEnd = $monthStart->copy()->endOfMonth();
+
+        $calendarMonthQuery = RecordModel::with($deliveryIndexWith);
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($calendarMonthQuery, $request);
+        $calendarMonthDeliveries = $calendarMonthQuery
+            ->whereBetween('scheduled_at', [$monthStart->copy()->startOfDay(), $monthEnd->copy()->endOfDay()])
+            ->orderBy('scheduled_at')
+            ->get();
 
         $query = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($query, $request);
@@ -107,8 +134,12 @@ class DeliveryController extends RecordController
             ->orderBy('display_name')
             ->get(['id', 'display_name']);
 
+        $paginationAppends = array_merge($request->query(), [
+            'calendar_month' => $monthStart->format('Y-m'),
+        ]);
+
         return Inertia::render('Tenant/Delivery/Index', [
-            'deliveries' => $query->paginate(15)->withQueryString(),
+            'deliveries' => $query->paginate(15)->appends($paginationAppends),
             'todayDeliveries' => $todayDeliveries,
             'upcomingDeliveries' => $upcomingDeliveries,
             'stats' => $stats,
@@ -117,7 +148,9 @@ class DeliveryController extends RecordController
                 'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
                 'subsidiary_id' => $request->input('subsidiary_id') ? (int) $request->input('subsidiary_id') : null,
                 'location_id' => $request->input('location_id') ? (int) $request->input('location_id') : null,
+                'calendar_month' => $monthStart->format('Y-m'),
             ],
+            'calendarMonthDeliveries' => $calendarMonthDeliveries,
             'locationOptions' => $locations,
             'subsidiaryOptions' => $subsidiaries,
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
@@ -327,11 +360,19 @@ class DeliveryController extends RecordController
 
         if (! ($result['success'] ?? true)) {
             $errorMsg = $result['message'] ?? 'Failed to create delivery';
+            $conflicts = $result['conflicts'] ?? [];
             if ($request->wantsJson() || $request->header('X-Modal-Request')) {
-                return response()->json(['message' => $errorMsg, 'errors' => ['general' => [$errorMsg]]], 422);
+                return response()->json([
+                    'message' => $errorMsg,
+                    'errors' => ['general' => [$errorMsg]],
+                    'conflicts' => $conflicts,
+                ], 422);
             }
 
-            return back()->withErrors(['general' => $errorMsg])->withInput();
+            return back()
+                ->withErrors(['general' => $errorMsg])
+                ->with('delivery_fleet_conflicts', $conflicts)
+                ->withInput();
         }
 
         $delivery = $result['record'];
@@ -395,11 +436,19 @@ class DeliveryController extends RecordController
 
         if (! ($result['success'] ?? true)) {
             $errorMsg = $result['message'] ?? 'Failed to update delivery';
+            $conflicts = $result['conflicts'] ?? [];
             if ($request->wantsJson() || $request->header('X-Modal-Request')) {
-                return response()->json(['message' => $errorMsg, 'errors' => ['general' => [$errorMsg]]], 422);
+                return response()->json([
+                    'message' => $errorMsg,
+                    'errors' => ['general' => [$errorMsg]],
+                    'conflicts' => $conflicts,
+                ], 422);
             }
 
-            return back()->withErrors(['general' => $errorMsg])->withInput();
+            return back()
+                ->withErrors(['general' => $errorMsg])
+                ->with('delivery_fleet_conflicts', $conflicts)
+                ->withInput();
         }
 
         if ($request->wantsJson() || $request->header('X-Modal-Request')) {
@@ -485,6 +534,133 @@ class DeliveryController extends RecordController
      * Preview what items would be synced from a given source (work order or transaction).
      * Used by the create/edit form before the delivery is saved.
      */
+    public function checkFleetSchedule(Request $request): JsonResponse
+    {
+        $payload = $request->all();
+        $validator = Validator::make($payload, [
+            'scheduled_at' => 'required|date',
+            'time_to_leave_by' => 'nullable|date',
+            'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+            'delivery_duration_minutes' => 'nullable|integer|min:1|max:32767',
+            'fleet_truck_id' => 'nullable|integer|exists:fleets,id',
+            'fleet_trailer_id' => 'nullable|integer|exists:fleets,id',
+            'exclude_delivery_id' => 'nullable|integer|exists:deliveries,id',
+            'location_id' => 'nullable|integer|exists:locations,id',
+        ]);
+        $validator->after(function ($v) use ($payload) {
+            DeliveryFleetFieldValidator::validateFleetRows($v, $payload);
+        });
+        $validated = $validator->validate();
+
+        $subject = DeliveryFleetOccupancy::deliveryFromAttributes($validated, $validated['exclude_delivery_id'] ?? null);
+        $truckId = isset($validated['fleet_truck_id']) ? (int) $validated['fleet_truck_id'] : null;
+        $trailerId = isset($validated['fleet_trailer_id']) ? (int) $validated['fleet_trailer_id'] : null;
+        if ($truckId <= 0) {
+            $truckId = null;
+        }
+        if ($trailerId <= 0) {
+            $trailerId = null;
+        }
+
+        $conflicts = DeliveryFleetOccupancy::findConflicts($truckId, $trailerId, $subject, null);
+
+        return response()->json([
+            'ok' => $conflicts === [],
+            'conflicts' => $conflicts,
+        ]);
+    }
+
+    public function scheduleBoard(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'location_id' => 'nullable|integer|exists:locations,id',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+        $tz = ($account?->timezone) ?: (string) config('app.timezone');
+
+        $dayStart = Carbon::parse($validated['date'], $tz)->startOfDay();
+        $dayEnd = $dayStart->copy()->endOfDay();
+
+        $technicians = User::query()
+            ->where('is_technician', true)
+            ->orderBy('display_name')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get()
+            ->map(fn (User $u) => [
+                'id' => $u->id,
+                'name' => $u->display_name ?: trim($u->first_name.' '.$u->last_name) ?: $u->email,
+            ])
+            ->values();
+
+        $deliveryQuery = RecordModel::query()
+            ->with(['customer.contact', 'location', 'deliveryLocation', 'fleetTruck', 'fleetTrailer'])
+            ->whereBetween('scheduled_at', [$dayStart, $dayEnd])
+            ->whereNotNull('technician_id');
+
+        if (! empty($validated['location_id'])) {
+            $deliveryQuery->where('location_id', (int) $validated['location_id']);
+        }
+
+        $deliveries = $deliveryQuery->orderBy('scheduled_at')->get();
+
+        /** @var array<string, list<array<string, mixed>>> $byTechnician */
+        $byTechnician = [];
+        foreach ($technicians as $row) {
+            $byTechnician[(string) $row['id']] = [];
+        }
+        foreach ($deliveries as $d) {
+            $tid = (string) $d->technician_id;
+            if (! isset($byTechnician[$tid])) {
+                $byTechnician[$tid] = [];
+            }
+            $byTechnician[$tid][] = $this->scheduleBoardDeliveryBlock($d, $validated['date'], $tz);
+        }
+
+        return response()->json([
+            'date' => $validated['date'],
+            'timezone' => $tz,
+            'technicians' => $technicians,
+            'deliveriesByTechnician' => $byTechnician,
+        ]);
+    }
+
+    public function swapFleet(Request $request, $delivery): JsonResponse
+    {
+        $deliveryModel = $delivery instanceof RecordModel ? $delivery : RecordModel::query()->findOrFail($delivery);
+        $otherId = (int) $request->validate(['other_delivery_id' => 'required|integer|exists:deliveries,id'])['other_delivery_id'];
+
+        $result = (new SwapDeliveryFleetAssignments)((int) $deliveryModel->id, $otherId);
+
+        if (! ($result['success'] ?? false)) {
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'] ?? 'Swap failed.',
+            ], 422);
+        }
+
+        /** @var RecordModel $a */
+        /** @var RecordModel $b */
+        $a = $result['records'][0];
+        $b = $result['records'][1];
+
+        return response()->json([
+            'success' => true,
+            'delivery_a' => [
+                'id' => $a->id,
+                'fleet_truck_id' => $a->fleet_truck_id,
+                'fleet_trailer_id' => $a->fleet_trailer_id,
+            ],
+            'delivery_b' => [
+                'id' => $b->id,
+                'fleet_truck_id' => $b->fleet_truck_id,
+                'fleet_trailer_id' => $b->fleet_trailer_id,
+            ],
+        ]);
+    }
+
     public function travelEstimate(Request $request, ComputeDeliveryTravelEstimates $compute): JsonResponse
     {
 
@@ -797,6 +973,86 @@ class DeliveryController extends RecordController
         return null;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function scheduleBoardDeliveryBlock(RecordModel $d, string $boardDateYmd, string $tz): array
+    {
+        $gridStartHour = 6;
+
+        $estimatedTravelSeconds = $d->estimated_travel_duration_seconds;
+        if (($estimatedTravelSeconds === null || (int) $estimatedTravelSeconds <= 0)
+            && $d->time_to_leave_by
+            && $d->scheduled_at) {
+            $delta = $d->scheduled_at->getTimestamp() - $d->time_to_leave_by->getTimestamp();
+            if ($delta > 0) {
+                $estimatedTravelSeconds = $delta;
+            }
+        }
+
+        $scheduledLocal = $d->scheduled_at?->copy()->timezone($tz);
+        $gridOrigin = Carbon::parse($boardDateYmd.' '.$gridStartHour.':00:00', $tz);
+        $blockStartMinutes = null;
+        if ($scheduledLocal) {
+            $blockStartMinutes = (int) floor(($scheduledLocal->getTimestamp() - $gridOrigin->getTimestamp()) / 60);
+        }
+
+        return [
+            'id' => $d->id,
+            'display_name' => $d->display_name,
+            'customer_name' => $d->customer?->display_name ?? '—',
+            'start_location' => $d->location?->display_name ?? '—',
+            'end_location' => $this->deliveryDestinationShortLabel($d),
+            'fleet_truck_id' => $d->fleet_truck_id,
+            'fleet_trailer_id' => $d->fleet_trailer_id,
+            'fleet_truck_label' => $this->scheduleBoardFleetUnitLabel($d->fleetTruck),
+            'fleet_trailer_label' => $this->scheduleBoardFleetUnitLabel($d->fleetTrailer),
+            'estimated_travel_duration_seconds' => $estimatedTravelSeconds !== null ? (int) $estimatedTravelSeconds : null,
+            'time_to_leave_by' => $d->time_to_leave_by?->copy()->timezone($tz)->toIso8601String(),
+            'scheduled_at' => $d->scheduled_at?->copy()->timezone($tz)->toIso8601String(),
+            'block_start_minutes' => $blockStartMinutes,
+            'delivery_duration_minutes' => $d->delivery_duration_minutes,
+        ];
+    }
+
+    private function scheduleBoardFleetUnitLabel(?Fleet $unit): ?string
+    {
+        if ($unit === null) {
+            return null;
+        }
+        $name = $unit->display_name;
+        if (is_string($name) && trim($name) !== '') {
+            return trim($name);
+        }
+        $plate = $unit->license_plate;
+        if (is_string($plate) && trim($plate) !== '') {
+            return trim($plate);
+        }
+
+        return $unit->id ? 'Unit #'.$unit->id : null;
+    }
+
+    private function deliveryDestinationShortLabel(RecordModel $d): string
+    {
+        if ($d->delivery_to_type === 'delivery_location' && $d->deliveryLocation) {
+            return $d->deliveryLocation->display_name
+                ?? $d->deliveryLocation->name
+                ?? '—';
+        }
+        $parts = array_filter([
+            $d->address_line_1,
+            $d->city,
+            $d->state,
+            $d->postal_code,
+        ], fn ($v) => $v !== null && trim((string) $v) !== '');
+
+        if ($parts !== []) {
+            return implode(', ', $parts);
+        }
+
+        return '—';
+    }
+
     protected function deliveryDetailRelationships(): array
     {
         return [
@@ -805,6 +1061,8 @@ class DeliveryController extends RecordController
             },
             'subsidiary',
             'location',
+            'fleetTruck',
+            'fleetTrailer',
             'assetUnit.asset',
             'assetUnit.assetVariant',
             'workOrder',

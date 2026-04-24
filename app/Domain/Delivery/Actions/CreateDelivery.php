@@ -2,8 +2,11 @@
 
 namespace App\Domain\Delivery\Actions;
 
+use App\Domain\Delivery\Exceptions\DeliveryFleetConflictException;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
+use App\Domain\Delivery\Support\DeliveryFleetConflictGuard;
+use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -17,7 +20,7 @@ class CreateDelivery
     {
         $data = $this->normalizeTravelInput($data);
 
-        $validated = Validator::make($data, [
+        $validator = Validator::make($data, [
             'customer_id' => 'required|exists:customer_profiles,id',
             // Legacy single-asset column (optional now that delivery_items exists).
             'asset_unit_id' => 'nullable|exists:asset_units,id',
@@ -50,6 +53,11 @@ class CreateDelivery
             'time_to_leave_by' => 'nullable|date',
             'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
 
+            'fleet_truck_id' => 'nullable|integer|exists:fleets,id',
+            'fleet_trailer_id' => 'nullable|integer|exists:fleets,id',
+            'delivery_duration_minutes' => 'nullable|integer|min:1|max:32767',
+            'swap_with_delivery_id' => 'nullable|integer|exists:deliveries,id',
+
             // Items (optional at create; may be synced from source instead)
             'items' => 'nullable|array',
             'items.*.asset_unit_id' => 'nullable|exists:asset_units,id',
@@ -58,9 +66,16 @@ class CreateDelivery
             'items.*.description' => 'nullable|string',
             'items.*.quantity' => 'nullable|numeric|min:0',
             'items.*.unit_price' => 'nullable|numeric|min:0',
-        ])->validate();
+        ]);
+        $validator->after(function ($v) use ($data) {
+            DeliveryFleetFieldValidator::validateFleetRows($v, $data);
+        });
+        $validated = $validator->validate();
 
         DeliveryAddressFiller::fill($validated);
+
+        $swapWithDeliveryId = isset($validated['swap_with_delivery_id']) ? (int) $validated['swap_with_delivery_id'] : null;
+        unset($validated['swap_with_delivery_id']);
 
         $items = $validated['items'] ?? [];
         unset($validated['items']);
@@ -70,7 +85,7 @@ class CreateDelivery
         unset($validated['en_route_at']);
 
         try {
-            return DB::transaction(function () use ($validated, $items, $skipTravelAutoCompute) {
+            return DB::transaction(function () use ($validated, $items, $skipTravelAutoCompute, $swapWithDeliveryId) {
                 $record = RecordModel::create(array_merge($validated, [
                     'uuid' => (string) Str::uuid(),
                 ]));
@@ -106,11 +121,20 @@ class CreateDelivery
                 }
                 $record->save();
 
+                $record = DeliveryFleetConflictGuard::assertResolved($record->fresh(), $swapWithDeliveryId);
+
                 return [
                     'success' => true,
                     'record' => $record->fresh(),
                 ];
             });
+        } catch (DeliveryFleetConflictException $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'conflicts' => $e->conflicts,
+                'record' => null,
+            ];
         } catch (QueryException $e) {
             Log::error('Database query error in CreateDelivery', [
                 'error' => $e->getMessage(),
@@ -143,6 +167,14 @@ class CreateDelivery
         }
         if (array_key_exists('estimated_travel_duration_seconds', $data) && $data['estimated_travel_duration_seconds'] === '') {
             $data['estimated_travel_duration_seconds'] = null;
+        }
+        foreach (['fleet_truck_id', 'fleet_trailer_id'] as $k) {
+            if (array_key_exists($k, $data) && ($data[$k] === '' || $data[$k] === false)) {
+                $data[$k] = null;
+            }
+        }
+        if (array_key_exists('delivery_duration_minutes', $data) && ($data['delivery_duration_minutes'] === '' || $data['delivery_duration_minutes'] === null)) {
+            $data['delivery_duration_minutes'] = null;
         }
 
         return $data;

@@ -34,6 +34,7 @@ class GeneralController extends BaseController
             'boatmake' => 'BoatMake',
             'delivery_location' => 'DeliveryLocation',
             'deliverylocation' => 'DeliveryLocation',
+            'maintenancetype' => 'MaintenanceType',
         ];
         $typeKey = $type !== null && $type !== '' ? strtolower((string) $type) : '';
         $domainName = $typeToDomain[$typeKey] ?? \Illuminate\Support\Str::studly($type);
@@ -123,6 +124,10 @@ class GeneralController extends BaseController
             $columns[] = 'default_price';
             $columns[] = 'description';
             $columns[] = 'type';
+        } elseif ($typeKey === 'maintenancetype') {
+            $columns[] = 'category';
+            $columns[] = 'applies_to';
+            $columns[] = 'sort_order';
         }
 
         $query = $recordModel->select(array_unique($columns));
@@ -136,6 +141,28 @@ class GeneralController extends BaseController
             $query->with('make:id,display_name');
         } elseif ($typeKey === 'assetvariant') {
             $query->with('asset:id,display_name');
+        }
+
+        if ($typeKey === 'maintenancetype') {
+            $fa = strtolower((string) $request->get('fleet_applies', ''));
+            if ($fa === 'truck' || $fa === 'trailer') {
+                $t = $recordModel->getTable();
+                $query->where(function ($q) use ($fa, $t) {
+                    $q->where($t.'.applies_to', 'all')
+                        ->orWhere($t.'.applies_to', $fa);
+                });
+            }
+        }
+
+        if ($typeKey === 'fleet') {
+            $loc = $request->get('fleet_location_id');
+            if ($loc !== null && $loc !== '') {
+                $query->where($recordModel->getTable().'.location_id', (int) $loc);
+            }
+            $ftype = strtolower((string) $request->get('fleet_type', ''));
+            if ($ftype === 'truck' || $ftype === 'trailer') {
+                $query->where($recordModel->getTable().'.type', $ftype);
+            }
         }
 
         // Apply filters if provided
@@ -229,6 +256,12 @@ class GeneralController extends BaseController
                         $q->orWhereRaw('CAST('.$customerTable.'.id AS TEXT) LIKE ?', ['%'.strtolower($trim).'%']);
                     }
                 });
+            } elseif ($typeKey === 'maintenancetype') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(category, \'\')) LIKE ?', [$searchTerm]);
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -313,6 +346,10 @@ class GeneralController extends BaseController
                 // Default ordering for other models without display_name column
                 $query->orderBy('created_at', 'desc');
             }
+        } elseif ($typeKey === 'maintenancetype' && $orderBy === 'display_name') {
+            $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+            // RecordSelect / pickers: alphabetical by label; do not prioritize seed sort_order.
+            $query->orderBy('display_name', $dir)->orderBy('category', $dir);
         } elseif (in_array($orderBy, ['id', 'created_at', 'updated_at']) || ($orderBy === 'display_name' && $hasDisplayNameColumn)) {
             $query->orderBy($orderBy, $orderDirection);
         } else {
@@ -391,6 +428,7 @@ class GeneralController extends BaseController
         if ($request->wantsJson() || $request->ajax()) {
             $recordType = match ($domainName) {
                 'ContactAddress' => 'contactaddresses',
+                'MaintenanceType' => 'maintenance-types',
                 default => strtolower($domainName).'s',
             };
 

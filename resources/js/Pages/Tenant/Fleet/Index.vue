@@ -287,6 +287,14 @@ const setTab = (tab) => {
                             </select>
                         </div>
 
+                        <Link
+                            :href="route('fleet.maintenance.index')"
+                            class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-md flex-shrink-0"
+                        >
+                            <span class="material-icons text-lg">history</span>
+                            <span class="hidden sm:inline">Maintenance</span>
+                        </Link>
+
                         <!-- Add button -->
                         <Link
                             :href="activeTab === 'trucks' ? route('fleet.trucks.create') : route('fleet.trailers.create')"

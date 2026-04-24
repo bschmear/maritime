@@ -15,6 +15,7 @@ class TenantDatabaseSeeder extends Seeder
             RoleSeeder::class,
             AccountSettingsSeeder::class,
             AssetSpecDefinitionSeeder::class,
+            MaintenanceTypeSeeder::class,
         ]);
     }
 }

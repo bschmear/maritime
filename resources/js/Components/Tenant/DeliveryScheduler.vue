@@ -28,6 +28,10 @@
             <div
                 class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-md text-stone-600 dark:text-white/70"
             >
+                <p v-if="scheduleError" class="text-sm text-red-600 dark:text-red-400 max-w-md text-right">
+                    {{ scheduleError }}
+                </p>
+                <p v-else-if="scheduleLoading" class="text-sm text-stone-500 dark:text-white/50">Loading…</p>
                 <div
                     class="flex items-center gap-1.5 rounded-md border border-stone-200 bg-white px-1.5 py-1 shadow-sm dark:border-white/15 dark:bg-white/5 dark:shadow-none"
                     :title="zoomHint"
@@ -168,6 +172,13 @@
                     </template>
                 </div>
             </div>
+            <div
+                v-if="!technicians.length && !scheduleLoading"
+                class="flex min-h-[120px] w-full items-center justify-center border-b border-stone-200 bg-white px-6 py-10 text-sm text-stone-600 dark:border-gray-600 dark:bg-gray-900/30 dark:text-gray-300"
+            >
+                <span v-if="scheduleError">Could not load schedule data.</span>
+                <span v-else>No technicians on file. Mark users as technicians to see delivery rows here.</span>
+            </div>
         </div>
 
         <!-- Detail panel -->
@@ -191,8 +202,15 @@
                 >
                     ✕
                 </button>
-                <div class="mb-3 flex items-baseline gap-2.5 pr-8">
-                    <span class="text-md font-bold text-blue-500 dark:text-primary-400">
+                <div class="mb-3 flex flex-wrap items-baseline gap-2.5 pr-8">
+                    <Link
+                        v-if="selectedDelivery.id"
+                        :href="route('deliveries.show', selectedDelivery.id)"
+                        class="text-md font-bold text-blue-500 hover:text-blue-600 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                    >
+                        {{ selectedDelivery.display_name }}
+                    </Link>
+                    <span v-else class="text-md font-bold text-blue-500 dark:text-primary-400">
                         {{ selectedDelivery.display_name }}
                     </span>
                     <span class="text-md text-stone-600 dark:text-gray-300">
@@ -236,6 +254,18 @@
                             {{ selectedDelivery.delivery_duration_minutes || 15 }} min
                         </span>
                     </div>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Truck</span>
+                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                            {{ fleetScheduleUnitLabel(selectedDelivery, 'truck') }}
+                        </span>
+                    </div>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Trailer</span>
+                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                            {{ fleetScheduleUnitLabel(selectedDelivery, 'trailer') }}
+                        </span>
+                    </div>
                 </div>
             </div>
         </Transition>
@@ -243,7 +273,22 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import axios from 'axios';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import { ref, computed, watch, onMounted } from 'vue';
+import { Link } from '@inertiajs/vue3';
+import { useTimezone } from '@/composables/useTimezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const props = defineProps({
+    filterLocationId: { type: [Number, String, null], default: null },
+});
+
+const { accountTimezone } = useTimezone();
 
 const DAY_START_HOUR = 6;
 /** Grid ends at 8:00 PM so the 7:00–8:00 PM “7 PM” hour is a full column; lines at each hour. */
@@ -251,69 +296,56 @@ const DAY_END_HOUR = 20;
 const TOTAL_HOURS = DAY_END_HOUR - DAY_START_HOUR;
 const DAY_MINUTES_TOTAL = TOTAL_HOURS * 60;
 
-const currentDate = ref(new Date());
+/** Calendar day (Y-m-d) in account timezone — matches schedule-board `date` filter. */
+const viewingDateYmd = ref(dayjs().tz(accountTimezone.value).format('YYYY-MM-DD'));
 const selectedDelivery = ref(null);
 const dragPayload = ref(null);
 const dragSourceTech = ref(null);
 const dragOverTech = ref(null);
+const scheduleLoading = ref(false);
+const scheduleError = ref(null);
 
 /** 1h … up to full 6 AM–7 PM; default = full day */
 const viewHourCount = ref(TOTAL_HOURS);
 const maxViewHours = TOTAL_HOURS;
 
-const technicians = ref([
-    { id: 'tech-1', name: 'Alex Rivera' },
-    { id: 'tech-2', name: 'Sam Patel' },
-    { id: 'tech-3', name: 'Jordan Lee' },
-]);
+const technicians = ref([]);
+const deliveries = ref({});
 
-const deliveries = ref({
-    'tech-1': [
-        {
-            display_name: 'DLV-1001',
-            customer_name: 'Brucie Poo',
-            start_location: 'Dealership 1',
-            end_location: 'Marina 1',
-            estimated_travel_duration_seconds: 6274,
-            time_to_leave_by: '2026-04-28 06:15:00',
-            scheduled_at: '2026-04-28 08:00:00',
-            delivery_duration_minutes: 15,
-        },
-        {
-            display_name: 'DLV-1004',
-            customer_name: 'Terry Macks',
-            start_location: 'Dealership 1',
-            end_location: 'Dock B',
-            estimated_travel_duration_seconds: 3600,
-            time_to_leave_by: '2026-04-28 12:30:00',
-            scheduled_at: '2026-04-28 13:30:00',
-            delivery_duration_minutes: 20,
-        },
-    ],
-    'tech-2': [
-        {
-            display_name: 'DLV-1002',
-            customer_name: 'Greta Finn',
-            start_location: 'Dealership 2',
-            end_location: 'Harbour Row',
-            estimated_travel_duration_seconds: 4500,
-            time_to_leave_by: '2026-04-28 07:15:00',
-            scheduled_at: '2026-04-28 08:30:00',
-            delivery_duration_minutes: 15,
-        },
-    ],
-    'tech-3': [
-        {
-            display_name: 'DLV-1003',
-            customer_name: 'Mike Dunne',
-            start_location: 'Dealership 3',
-            end_location: 'Pier 7',
-            estimated_travel_duration_seconds: 7200,
-            time_to_leave_by: '2026-04-28 09:00:00',
-            scheduled_at: '2026-04-28 11:00:00',
-            delivery_duration_minutes: 30,
-        },
-    ],
+async function loadScheduleBoard() {
+    scheduleLoading.value = true;
+    scheduleError.value = null;
+    try {
+        const params = { date: viewingDateYmd.value };
+        const lid = props.filterLocationId;
+        if (lid != null && lid !== '' && Number(lid) > 0) {
+            params.location_id = Number(lid);
+        }
+        const { data } = await axios.get(route('deliveries.schedule-board'), { params });
+        technicians.value = data.technicians || [];
+        deliveries.value = data.deliveriesByTechnician || {};
+    } catch (e) {
+        scheduleError.value = e.response?.data?.message || 'Could not load the schedule.';
+        technicians.value = [];
+        deliveries.value = {};
+    } finally {
+        scheduleLoading.value = false;
+    }
+}
+
+watch(viewingDateYmd, () => {
+    loadScheduleBoard();
+});
+
+watch(
+    () => props.filterLocationId,
+    () => {
+        loadScheduleBoard();
+    },
+);
+
+onMounted(() => {
+    loadScheduleBoard();
 });
 
 const viewSpanMinutes = computed(() => viewHourCount.value * 60);
@@ -374,27 +406,26 @@ const zoomHint = computed(
 );
 
 const formattedDate = computed(() =>
-    currentDate.value.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-    }),
+    dayjs.tz(viewingDateYmd.value, accountTimezone.value).format('dddd, MMMM D, YYYY'),
 );
 
 function deliveriesForTech(techId) {
-    return deliveries.value[techId] || [];
+    return deliveries.value[String(techId)] || [];
 }
 
 function deliveryKey(techId, delivery) {
-    return `${techId}::${delivery.display_name}`;
+    return `${techId}::${delivery.id ?? delivery.display_name}`;
 }
 
 function parseDate(str) {
     if (!str) {
         return new Date(NaN);
     }
-    return new Date(String(str).replace(' ', 'T'));
+    const s = String(str);
+    if (s.includes('T') || s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
+        return new Date(s);
+    }
+    return new Date(s.replace(' ', 'T'));
 }
 
 function minutesFromDayStart(dateStr) {
@@ -403,6 +434,15 @@ function minutesFromDayStart(dateStr) {
         return 0;
     }
     return (d.getHours() - DAY_START_HOUR) * 60 + d.getMinutes();
+}
+
+/** Server-computed minutes from 6:00 AM on the board date (account TZ); falls back if missing. */
+function blockStartMinutes(delivery) {
+    const raw = delivery?.block_start_minutes;
+    if (raw != null && Number.isFinite(Number(raw))) {
+        return Number(raw);
+    }
+    return minutesFromDayStart(delivery.scheduled_at);
 }
 
 /**
@@ -440,6 +480,23 @@ function travelMins(delivery) {
     return Math.max(0, Math.round((delivery.estimated_travel_duration_seconds || 0) / 60));
 }
 
+const FLEET_NONE_ASSIGNED = 'None assigned';
+
+/** Schedule-board payload uses snake_case from API. */
+function fleetScheduleUnitLabel(delivery, role) {
+    const d = delivery ?? {};
+    const label = role === 'truck' ? d.fleet_truck_label : d.fleet_trailer_label;
+    if (label != null && String(label).trim() !== '') {
+        return String(label).trim();
+    }
+    const rawId = role === 'truck' ? d.fleet_truck_id : d.fleet_trailer_id;
+    const id = rawId != null && rawId !== '' ? Number(rawId) : NaN;
+    if (Number.isFinite(id) && id > 0) {
+        return `Unit #${id}`;
+    }
+    return FLEET_NONE_ASSIGNED;
+}
+
 function formatHour(h) {
     if (h === 12) {
         return '12 PM';
@@ -465,10 +522,10 @@ function initials(name) {
 }
 
 function deliveryBlockStyle(delivery) {
-    const s = minutesFromDayStart(delivery.scheduled_at);
-    const d = delivery.delivery_duration_minutes || 15;
+    const s = blockStartMinutes(delivery);
+    const durMin = delivery.delivery_duration_minutes || 15;
     const t0 = Math.max(0, s);
-    const t1 = Math.min(s + d, DAY_MINUTES_TOTAL);
+    const t1 = Math.min(s + durMin, DAY_MINUTES_TOTAL);
     if (t0 >= t1) {
         return { left: '0%', width: '0%' };
     }
@@ -476,7 +533,7 @@ function deliveryBlockStyle(delivery) {
 }
 
 function travelToStyle(delivery) {
-    const A = minutesFromDayStart(delivery.scheduled_at);
+    const A = blockStartMinutes(delivery);
     const T = travelMins(delivery);
     if (T <= 0) {
         return { left: '0%', width: '0%' };
@@ -494,7 +551,7 @@ function travelToStyle(delivery) {
 }
 
 function travelBackStyle(delivery) {
-    const startMin = minutesFromDayStart(delivery.scheduled_at);
+    const startMin = blockStartMinutes(delivery);
     const durMin = delivery.delivery_duration_minutes || 15;
     const E = startMin + durMin;
     const T = travelMins(delivery);
@@ -525,9 +582,7 @@ function zoomOut() {
 }
 
 function changeDay(delta) {
-    const d = new Date(currentDate.value);
-    d.setDate(d.getDate() + delta);
-    currentDate.value = d;
+    viewingDateYmd.value = dayjs.tz(viewingDateYmd.value, accountTimezone.value).add(delta, 'day').format('YYYY-MM-DD');
 }
 
 function onDragStart(delivery, techId) {
@@ -549,20 +604,25 @@ function onDragLeave() {
     dragOverTech.value = null;
 }
 
-function onDrop(targetTechId) {
+async function onDrop(targetTechId) {
     const delivery = dragPayload.value;
     const sourceTech = dragSourceTech.value;
     if (!delivery || !sourceTech || sourceTech === targetTechId) {
         onDragEnd();
         return;
     }
-    deliveries.value[sourceTech] = deliveries.value[sourceTech].filter(
-        (d) => d.display_name !== delivery.display_name,
-    );
-    if (!deliveries.value[targetTechId]) {
-        deliveries.value[targetTechId] = [];
+    if (!delivery.id) {
+        onDragEnd();
+        return;
     }
-    deliveries.value[targetTechId].push(delivery);
+    try {
+        await axios.put(route('deliveries.update', delivery.id), {
+            technician_id: Number(targetTechId),
+        });
+        await loadScheduleBoard();
+    } catch (e) {
+        scheduleError.value = e.response?.data?.message || 'Could not reassign technician.';
+    }
     onDragEnd();
 }
 </script>

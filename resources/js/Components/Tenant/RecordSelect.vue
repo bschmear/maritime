@@ -9,7 +9,7 @@
             required: true
         },
         modelValue: {
-            type: [String, Number, null],
+            type: [String, Number, Array, null],
             default: null
         },
         disabled: {
@@ -53,6 +53,21 @@
         perPage: {
             type: Number,
             default: 10
+        },
+        /** Extra query params for records.lookup (e.g. { fleet_applies: 'truck' }). */
+        extraLookupParams: {
+            type: Object,
+            default: () => ({})
+        },
+        /** When true, `modelValue` is an array of record ids; picker supports multi-select + Apply. */
+        multiple: {
+            type: Boolean,
+            default: false
+        },
+        /** Optional `{ id, display_name }[]` so labels show when `multiple` before reopening the picker. */
+        multiHints: {
+            type: Array,
+            default: () => []
         }
     });
     
@@ -73,6 +88,11 @@
     const enhancedModalTab = ref('existing');
     const isLoadingForm = ref(false);
     const createFormData = ref(null);
+
+    /** Multi-select draft (ids) while a picker is open; committed on Apply. */
+    const multiDraftIds = ref([]);
+    /** id -> display label for `multiple` summary line */
+    const multiLabels = ref({});
 
     /** Avoid overlapping lookups (stale responses wiping the list while typing). */
     let lookupFetchSeq = 0;
@@ -95,6 +115,47 @@
         }
         return v;
     });
+
+    function normalizeMultiIds(mv) {
+        if (!Array.isArray(mv)) {
+            return [];
+        }
+        const seen = new Set();
+        const out = [];
+        for (const x of mv) {
+            const n = Number(x);
+            if (!Number.isNaN(n) && n > 0 && !seen.has(n)) {
+                seen.add(n);
+                out.push(n);
+            }
+        }
+        return out;
+    }
+
+    function mergeHintsIntoLabels() {
+        if (!props.multiple) {
+            return;
+        }
+        const hints = props.multiHints || [];
+        const next = { ...multiLabels.value };
+        for (const h of hints) {
+            if (h && h.id != null) {
+                const name = h.display_name || h.name;
+                if (name) {
+                    next[h.id] = name;
+                }
+            }
+        }
+        multiLabels.value = next;
+    }
+
+    function initMultiDraft() {
+        if (!props.multiple) {
+            return;
+        }
+        mergeHintsIntoLabels();
+        multiDraftIds.value = normalizeMultiIds(props.modelValue);
+    }
 
     function clearSearchDebounce() {
         if (searchDebounceTimer) {
@@ -145,9 +206,43 @@
         // 5. final fallback
         return `Record #${record.id}`;
     };
+
+    function isMultiDraftSelected(recordId) {
+        const id = Number(recordId);
+        return multiDraftIds.value.includes(id);
+    }
+
+    function toggleMultiRecord(record) {
+        if (!props.multiple || !record?.id) {
+            return;
+        }
+        const id = Number(record.id);
+        if (Number.isNaN(id) || id <= 0) {
+            return;
+        }
+        const label = getRecordDisplayName(record);
+        const set = new Set(multiDraftIds.value);
+        if (set.has(id)) {
+            set.delete(id);
+        } else {
+            set.add(id);
+        }
+        multiDraftIds.value = Array.from(set);
+        multiLabels.value = { ...multiLabels.value, [id]: label };
+        if (props.multiple && showDropdown.value) {
+            emit('update:modelValue', normalizeMultiIds(multiDraftIds.value));
+        }
+    }
     
     // Get the selected record display name
     const selectedRecordDisplay = computed(() => {
+        if (props.multiple) {
+            const ids = normalizeMultiIds(props.modelValue);
+            if (ids.length === 0) {
+                return '';
+            }
+            return ids.map((id) => multiLabels.value[id] || `#${id}`).join(', ');
+        }
         if (!selectedRecordId.value) return '';
     
         if (selectedRecordName.value) {
@@ -177,6 +272,9 @@
             if (props.modalContext) {
                 // Use dropdown instead of modal when in modal context
                 showDropdown.value = !showDropdown.value;
+                if (showDropdown.value) {
+                    initMultiDraft();
+                }
                 if (showDropdown.value && records.value.length === 0) {
                     fetchRecordsImmediate();
                 }
@@ -186,11 +284,13 @@
                     enhancedModalTab.value = 'existing';
                     searchQuery.value = '';
                     currentPage.value = 1;
+                    initMultiDraft();
                     fetchRecordsImmediate(true);
                 } else {
                     showModal.value = true;
                     searchQuery.value = '';
                     currentPage.value = 1;
+                    initMultiDraft();
                     fetchRecordsImmediate();
                 }
             }
@@ -215,6 +315,10 @@
 
     // Handle record selection in enhanced modal
     const selectRecordInEnhanced = (record) => {
+        if (props.multiple) {
+            toggleMultiRecord(record);
+            return;
+        }
         selectedRecordId.value = record.id;
         selectedRecordName.value = getRecordDisplayName(record);
         emit('update:modelValue', record.id);
@@ -249,9 +353,18 @@
 
     // Handle record created in enhanced modal
     const handleRecordCreated = (recordId) => {
-        // Refresh the records list to include the new record
         fetchRecordsImmediate();
-        // Select the newly created record
+        const id = Number(recordId);
+        if (props.multiple && !Number.isNaN(id) && id > 0) {
+            const base = normalizeMultiIds(Array.isArray(props.modelValue) ? props.modelValue : []);
+            if (!base.includes(id)) {
+                base.push(id);
+            }
+            multiLabels.value = { ...multiLabels.value, [id]: multiLabels.value[id] || `New #${id}` };
+            emit('update:modelValue', base);
+            closeEnhancedModal();
+            return;
+        }
         selectedRecordId.value = recordId;
         emit('update:modelValue', recordId);
         closeEnhancedModal();
@@ -259,6 +372,12 @@
     
     // Clear selection
     const clearSelection = () => {
+        if (props.multiple) {
+            multiDraftIds.value = [];
+            multiLabels.value = {};
+            emit('update:modelValue', []);
+            return;
+        }
         selectedRecordId.value = null;
         selectedRecordName.value = '';
         emit('update:modelValue', null);
@@ -352,6 +471,13 @@
                 url.searchParams.append('filters', JSON.stringify(filterData));
             }
 
+            const extras = props.extraLookupParams && typeof props.extraLookupParams === 'object' ? props.extraLookupParams : {};
+            for (const [k, v] of Object.entries(extras)) {
+                if (v !== null && v !== undefined && v !== '') {
+                    url.searchParams.append(k, String(v));
+                }
+            }
+
             const response = await fetch(url.toString(), {
                 method: 'GET',
                 headers: {
@@ -407,12 +533,25 @@
     
     // Handle record selection and confirm
     const selectRecord = (record) => {
+        if (props.multiple) {
+            toggleMultiRecord(record);
+            return;
+        }
         selectedRecordId.value = record.id;
         selectedRecordName.value = getRecordDisplayName(record);
         emit('update:modelValue', record.id);
         emit('record-selected', record);
         closeModal();
         showDropdown.value = false; // Ensure dropdown closes
+    };
+
+    const applyMultiSelection = () => {
+        if (!props.multiple) {
+            return;
+        }
+        emit('update:modelValue', normalizeMultiIds(multiDraftIds.value));
+        closeEnhancedModal();
+        closeModal();
     };
 
     const openCreateModal = async () => {
@@ -472,8 +611,15 @@
     
     // Keep id + label in sync with v-model and parent `record` (embedded relation stubs).
     watch(
-        () => [props.record, props.fieldKey, props.enumOptions, props.modelValue],
+        () => [props.record, props.fieldKey, props.enumOptions, props.modelValue, props.multiple],
         () => {
+            if (props.multiple) {
+                mergeHintsIntoLabels();
+                selectedRecordId.value = null;
+                selectedRecordName.value = '';
+                return;
+            }
+
             const mv = props.modelValue;
 
             if (mv === null || mv === undefined || mv === '') {
@@ -530,7 +676,7 @@
                 <div v-if="!disabled" class="absolute inset-y-0 right-0 flex items-center pr-2 gap-1">
                     <!-- Clear Button -->
                     <button
-                        v-if="selectedRecordId"
+                        v-if="(!multiple && selectedRecordId) || (multiple && Array.isArray(modelValue) && modelValue.length)"
                         @click.stop="clearSelection"
                         type="button"
                         class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -664,8 +810,8 @@
                                 :key="record.id"
                                 @click="selectRecord(record)"
                                 class="p-3 border rounded-lg cursor-pointer transition-colors"
-                                :class="selectedRecordId === record.id 
-                                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' 
+                                :class="(multiple ? isMultiDraftSelected(record.id) : selectedRecordId === record.id)
+                                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500'
                                     : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'"
                             >
                                 <div class="flex items-center justify-between">
@@ -677,7 +823,7 @@
                                             {{ record.email }}
                                         </p>
                                     </div>
-                                    <div v-if="selectedRecordId === record.id" class="ml-2">
+                                    <div v-if="multiple ? isMultiDraftSelected(record.id) : selectedRecordId === record.id" class="ml-2">
                                         <svg class="w-5 h-5 text-blue-600 dark:text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                         </svg>
@@ -714,6 +860,25 @@
                                 Next
                             </button>
                         </div>
+                    </div>
+                    <div
+                        v-if="multiple"
+                        class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-gray-200 p-4 dark:border-gray-700"
+                    >
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            @click="closeModal"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                            @click="applyMultiSelection"
+                        >
+                            Use selection ({{ multiDraftIds.length }})
+                        </button>
                     </div>
                 </div>
             </div>
@@ -801,7 +966,7 @@
                     <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
                         <nav class="flex gap-1">
                             <button
-                                @click="enhancedModalTab = 'existing'; fetchRecordsImmediate(true)"
+                                @click="enhancedModalTab = 'existing'; initMultiDraft(); fetchRecordsImmediate(true)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
                                     enhancedModalTab === 'existing'
@@ -864,21 +1029,29 @@
                                     <div
                                         v-for="record in records"
                                         :key="record.id"
-                                        class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/20 transition-all group"
+                                        class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl transition-all group"
+                                        :class="[
+                                            multiple && isMultiDraftSelected(record.id)
+                                                ? 'border-primary-500 bg-primary-50/40 ring-1 ring-primary-200 dark:border-primary-500 dark:bg-primary-900/25 dark:ring-primary-800'
+                                                : 'hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/20',
+                                            multiple ? 'cursor-pointer' : '',
+                                        ]"
+                                        @click="multiple ? selectRecordInEnhanced(record) : null"
                                     >
                                         <div class="flex items-center gap-3 flex-1 min-w-0">
-                                            <div class="w-10 h-10 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <span class="material-icons text-gray-600 dark:text-gray-300">business</span>
-                                            </div>
+                                            <span
+                                                v-if="multiple"
+                                                class="material-icons shrink-0 text-lg text-gray-500 dark:text-gray-400"
+                                            >{{ isMultiDraftSelected(record.id) ? 'check_box' : 'check_box_outline_blank' }}</span>
                                             <div class="flex-1 min-w-0">
                                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                                                     {{ getRecordDisplayName(record) }}
                                                 </h4>
-                                                <p class="text-xs text-gray-500 dark:text-gray-400">ID: {{ record.id }}</p>
                                             </div>
                                         </div>
                                         <button
-                                            @click="selectRecordInEnhanced(record)"
+                                            v-if="!multiple"
+                                            @click.stop="selectRecordInEnhanced(record)"
                                             type="button"
                                             class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary-600 dark:bg-primary-600 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
                                         >
@@ -941,6 +1114,25 @@
                                 @cancel="enhancedModalTab = 'existing'"
                             />
                         </div>
+                    </div>
+                    <div
+                        v-if="multiple && enhancedModalTab === 'existing'"
+                        class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-gray-200 px-6 py-4 dark:border-gray-700"
+                    >
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            @click="closeEnhancedModal"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                            @click="applyMultiSelection"
+                        >
+                            Use selection ({{ multiDraftIds.length }})
+                        </button>
                     </div>
                 </div>
             </div>

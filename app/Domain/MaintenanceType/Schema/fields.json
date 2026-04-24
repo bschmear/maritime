@@ -1,0 +1,23 @@
+{
+    "fields": {
+        "display_name": {
+            "label": "Name",
+            "type": "text",
+            "required": true
+        },
+        "category": {
+            "label": "Category",
+            "type": "text"
+        },
+        "applies_to": {
+            "label": "Applies to",
+            "type": "select",
+            "enum": "App\\Enums\\Fleet\\MaintenanceTypeAppliesTo",
+            "required": true
+        },
+        "sort_order": {
+            "label": "Sort order",
+            "type": "number"
+        }
+    }
+}

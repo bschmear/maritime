@@ -148,6 +148,7 @@ const secondaryNavItems = ref([
                 name: 'Deliveries',
                 children: [
                     { name: 'All Deliveries', href: 'deliveries.index' },
+                    { name: 'Delivery Scheduler', href: 'deliveries.delivery-schedule' },
                     { name: 'Common Locations', href: 'delivery-locations.index' },
                     { name: 'Templates', href: 'delivery-checklist-templates.index' }
                 ]
@@ -155,7 +156,8 @@ const secondaryNavItems = ref([
             {
                 name: 'Fleet',
                 children: [
-                    { name: 'All Units', href: 'fleet.index' }
+                    { name: 'All Units', href: 'fleet.index' },
+                    { name: 'Maintenance', href: 'fleet.maintenance.index' }
                 ]
             },
             { name: 'Qualifications', href: 'qualifications.index' }

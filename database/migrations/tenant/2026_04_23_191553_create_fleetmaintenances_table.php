@@ -11,6 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::create('maintenance_types', function (Blueprint $table) {
+            $table->id();
+            $table->string('display_name');
+            $table->string('category')->nullable();
+            $table->string('applies_to', 20)->default('all');
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+        });
 
         Schema::create('fleet_maintenance_logs', function (Blueprint $table) {
             $table->id();
@@ -19,12 +27,13 @@ return new class extends Migration
                 ->constrained('fleets')
                 ->cascadeOnDelete();
 
-            // Maintenance details
             $table->date('performed_at');
-            $table->string('type')->nullable(); // oil change, tires, repair, etc
+            $table->foreignId('type_id')
+                ->nullable()
+                ->constrained('maintenance_types')
+                ->nullOnDelete();
             $table->decimal('cost', 10, 2)->nullable();
 
-            // Tracking usage at time of service
             $table->integer('mileage')->nullable();
             $table->integer('hours')->nullable();
 
@@ -40,5 +49,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('fleet_maintenance_logs');
+        Schema::dropIfExists('maintenance_types');
     }
 };

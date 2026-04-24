@@ -2,14 +2,24 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import DeliveryScheduler from '@/Components/Tenant/DeliveryScheduler.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import axios from 'axios';
+import { Head } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
-    record: { type: Object, required: true },
+    locationOptions: { type: Array, default: () => [] },
     enumOptions: { type: Object, default: () => ({}) },
-    account: { type: Object, default: null }
+    account: { type: Object, default: null },
+});
+
+const selectedLocationId = ref('');
+
+const filterLocationId = computed(() => {
+    const v = selectedLocationId.value;
+    if (v === '' || v === null || v === undefined) {
+        return null;
+    }
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
 });
 
 const breadcrumbItems = computed(() => [
@@ -17,18 +27,6 @@ const breadcrumbItems = computed(() => [
     { label: 'Deliveries', href: route('deliveries.index') },
     { label: 'Schedule' },
 ]);
-
-const googleMapsDirectionsUrl = computed(() => {
-    const origin = mapsPointForLocation(locationRecord.value);
-    const dest = mapsPointForDeliveryDestination(props.record);
-    if (!origin || !dest) return null;
-    return `https://www.google.com/maps/dir/?${new URLSearchParams({
-        api: '1',
-        origin,
-        destination: dest,
-        travelmode: 'driving',
-    }).toString()}`;
-});
 </script>
 
 <template>
@@ -43,6 +41,15 @@ const googleMapsDirectionsUrl = computed(() => {
                 </h2>
             </div>
         </template>
-        <DeliveryScheduler></DeliveryScheduler>
+        <div v-if="locationOptions.length" class="mb-4 max-w-md">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Depart-from location</label>
+            <select v-model="selectedLocationId" class="input-style w-full">
+                <option value="">All locations</option>
+                <option v-for="loc in locationOptions" :key="loc.id" :value="String(loc.id)">
+                    {{ loc.display_name }}
+                </option>
+            </select>
+        </div>
+        <DeliveryScheduler :filter-location-id="filterLocationId" />
     </TenantLayout>
 </template>

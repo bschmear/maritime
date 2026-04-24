@@ -96,7 +96,17 @@ const formatDateTime = (v) => {
     try {
         const d = new Date(v);
         if (isNaN(d.getTime())) return '—';
-        return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const opts = {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        };
+        if (props.account?.timezone) {
+            opts.timeZone = props.account.timezone;
+        }
+        return d.toLocaleString('en-US', opts);
     } catch { return '—'; }
 };
 const formatDate = (v) => {
@@ -104,8 +114,19 @@ const formatDate = (v) => {
     try {
         const d = new Date(v);
         if (isNaN(d.getTime())) return '—';
-        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const opts = { month: 'short', day: 'numeric', year: 'numeric' };
+        if (props.account?.timezone) {
+            opts.timeZone = props.account.timezone;
+        }
+        return d.toLocaleDateString('en-US', opts);
     } catch { return '—'; }
+};
+
+/** `formatDateTime` plus account IANA zone in parentheses when configured. */
+const formatDateTimeWithZoneId = (v) => {
+    const s = formatDateTime(v);
+    if (!props.account?.timezone || s === '—') return s;
+    return `${s} (${props.account.timezone})`;
 };
 
 /* ─── Items ─── */
@@ -375,6 +396,33 @@ const deliverToSummary = computed(() => {
 
 const locationRecord = computed(() => props.record?.location ?? null);
 
+const fleetTruckRecord = computed(() => {
+    const r = props.record;
+    const loaded = r?.fleet_truck ?? r?.fleetTruck;
+    if (loaded) return loaded;
+    const id = r?.fleet_truck_id;
+    return id != null && id !== '' ? { id, display_name: null, license_plate: null } : null;
+});
+const fleetTrailerRecord = computed(() => {
+    const r = props.record;
+    const loaded = r?.fleet_trailer ?? r?.fleetTrailer;
+    if (loaded) return loaded;
+    const id = r?.fleet_trailer_id;
+    return id != null && id !== '' ? { id, display_name: null, license_plate: null } : null;
+});
+
+const fleetUnitShowLabel = (unit) => {
+    if (!unit) return null;
+    const name = unit.display_name != null ? String(unit.display_name).trim() : '';
+    if (name) return name;
+    const plate = unit.license_plate != null ? String(unit.license_plate).trim() : '';
+    if (plate) return plate;
+    return unit.id != null ? `Unit #${unit.id}` : null;
+};
+
+const fleetTruckLabel = computed(() => fleetUnitShowLabel(fleetTruckRecord.value));
+const fleetTrailerLabel = computed(() => fleetUnitShowLabel(fleetTrailerRecord.value));
+
 const hasLocationAddress = computed(() => {
     const loc = locationRecord.value;
     if (!loc) return false;
@@ -607,12 +655,12 @@ const googleMapsDirectionsUrl = computed(() => {
 
     <div class="px-4 py-3 bg-white dark:bg-gray-800">
       <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Need to leave by</p>
-      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTime(record.time_to_leave_by) }}</p>
+      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.time_to_leave_by) }}</p>
     </div>
 
     <div class="px-4 py-3 bg-white dark:bg-gray-800">
       <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Scheduled arrive by</p>
-      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTime(record.scheduled_at) }}</p>
+      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.scheduled_at) }}</p>
     </div>
 
     <div v-if="record.estimated_travel_duration_seconds" class="px-4 py-3 bg-white dark:bg-gray-800">
@@ -878,6 +926,32 @@ const googleMapsDirectionsUrl = computed(() => {
                         <div class="flex justify-between gap-4">
                             <dt class="text-gray-500">Technician</dt>
                             <dd class="text-gray-900 dark:text-white text-right">{{ record.technician?.display_name ?? record.technician?.name ?? '—' }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-gray-500">Truck</dt>
+                            <dd class="text-gray-900 dark:text-white text-right min-w-0">
+                                <Link
+                                    v-if="fleetTruckRecord?.id && fleetTruckLabel"
+                                    :href="route('fleet.show', fleetTruckRecord.id)"
+                                    class="text-primary-600 hover:text-primary-500 dark:text-primary-400 break-words"
+                                >
+                                    {{ fleetTruckLabel }}
+                                </Link>
+                                <span v-else>—</span>
+                            </dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-gray-500">Trailer</dt>
+                            <dd class="text-gray-900 dark:text-white text-right min-w-0">
+                                <Link
+                                    v-if="fleetTrailerRecord?.id && fleetTrailerLabel"
+                                    :href="route('fleet.show', fleetTrailerRecord.id)"
+                                    class="text-primary-600 hover:text-primary-500 dark:text-primary-400 break-words"
+                                >
+                                    {{ fleetTrailerLabel }}
+                                </Link>
+                                <span v-else>—</span>
+                            </dd>
                         </div>
                         <div class="flex justify-between gap-4">
                             <dt class="text-gray-500">Created</dt>

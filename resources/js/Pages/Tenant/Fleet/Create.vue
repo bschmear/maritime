@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import FleetFormStatusPanel from '@/Components/Tenant/FleetFormStatusPanel.vue';
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -9,6 +10,8 @@ const props = defineProps({
     fleetType: { type: String, required: true },
     locations: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => [] },
+    fuelTypes: { type: Array, default: () => [] },
+    weightUnits: { type: Array, default: () => [] },
 });
 
 const form = useForm({
@@ -20,6 +23,13 @@ const form = useForm({
     model: '',
     year: '',
     size: '',
+    fuel_type: '',
+    weight_capacity: '',
+    weight_unit: 'lbs',
+    towing_capacity: '',
+    payload_capacity: '',
+    gvwr: '',
+    axle_count: '',
     location_id: '',
     status: 'active',
     last_maintenance_at: '',
@@ -31,6 +41,20 @@ const form = useForm({
 });
 
 const typeLabel = computed(() => (props.fleetType === 'truck' ? 'Truck' : 'Trailer'));
+
+const isTruck = computed(() => props.fleetType === 'truck');
+
+const isTrailer = computed(() => props.fleetType === 'trailer');
+
+const pseudoRecord = computed(() => null);
+
+/** `create: true` enables RecordSelect’s add-new flow (same as schema-driven Form.vue fields). */
+const locationRecordField = Object.freeze({
+    type: 'record',
+    typeDomain: 'Location',
+    label: 'Location',
+    create: true,
+});
 
 const pageTitle = computed(() => `New ${typeLabel.value}`);
 
@@ -45,13 +69,43 @@ const submit = () => {
     form
         .transform((data) => {
             const n = { ...data };
-            ['location_id', 'year', 'mileage', 'hours', 'maintenance_interval_days'].forEach((k) => {
+            [
+                'location_id',
+                'year',
+                'mileage',
+                'hours',
+                'maintenance_interval_days',
+                'weight_capacity',
+                'towing_capacity',
+                'payload_capacity',
+                'gvwr',
+                'axle_count',
+            ].forEach((k) => {
                 if (n[k] === '' || n[k] === undefined) {
                     n[k] = null;
                 }
             });
+            ['fuel_type'].forEach((k) => {
+                if (n[k] === '' || n[k] === undefined) {
+                    n[k] = null;
+                }
+            });
+            if (n.weight_unit === '' || n.weight_unit === undefined || n.weight_unit === null) {
+                n.weight_unit = 'lbs';
+            }
             if (n.location_id !== null) {
                 n.location_id = Number(n.location_id);
+            }
+            if (props.fleetType === 'truck') {
+                n.weight_capacity = null;
+                n.axle_count = null;
+            } else {
+                n.fuel_type = null;
+                n.towing_capacity = null;
+                n.payload_capacity = null;
+                n.gvwr = null;
+                n.mileage = null;
+                n.hours = null;
             }
             return n;
         })
@@ -116,7 +170,7 @@ const breadcrumbItems = computed(() => [
                             <div class="space-y-6 p-6">
                                 <template v-for="(err, key) in form.errors" :key="key">
                                     <p
-                                        v-if="key !== 'status'"
+                                        v-if="!['status', 'location_id'].includes(key)"
                                         class="text-sm text-red-600 dark:text-red-400"
                                     >
                                         {{ err }}
@@ -151,13 +205,17 @@ const breadcrumbItems = computed(() => [
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
                                             >Location</label
                                         >
-                                        <select v-model="form.location_id" :class="inputClass">
-                                            <option value="">—</option>
-                                            <option v-for="loc in locations" :key="loc.id" :value="String(loc.id)">
-                                                {{ loc.display_name
-                                                }}{{ loc.city ? ` — ${loc.city}` : '' }}
-                                            </option>
-                                        </select>
+                                        <RecordSelect
+                                            id="location_id"
+                                            :field="locationRecordField"
+                                            v-model="form.location_id"
+                                            :enum-options="locations"
+                                            :record="pseudoRecord"
+                                            field-key="location_id"
+                                        />
+                                        <p v-if="form.errors.location_id" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {{ form.errors.location_id }}
+                                        </p>
                                     </div>
                                     <div>
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -189,13 +247,88 @@ const breadcrumbItems = computed(() => [
                                         >
                                         <input v-model="form.size" type="text" :class="inputClass" />
                                     </div>
-                                    <div>
+                                    <div v-if="isTruck">
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                            >Fuel type</label
+                                        >
+                                        <select v-model="form.fuel_type" :class="inputClass">
+                                            <option value="">—</option>
+                                            <option v-for="o in fuelTypes" :key="o.value" :value="o.value">
+                                                {{ o.label ?? o.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <template v-if="isTruck">
+                                        <div class="md:col-span-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                            <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                Truck capacity
+                                            </h3>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Weight unit</label
+                                            >
+                                            <select v-model="form.weight_unit" :class="inputClass">
+                                                <option v-for="o in weightUnits" :key="o.value" :value="o.value">
+                                                    {{ o.label ?? o.name }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Towing capacity ({{ form.weight_unit || 'lbs' }})</label
+                                            >
+                                            <input v-model="form.towing_capacity" type="number" min="0" :class="inputClass" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Payload capacity ({{ form.weight_unit || 'lbs' }})</label
+                                            >
+                                            <input v-model="form.payload_capacity" type="number" min="0" :class="inputClass" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >GVWR ({{ form.weight_unit || 'lbs' }})</label
+                                            >
+                                            <input v-model="form.gvwr" type="number" min="0" :class="inputClass" />
+                                        </div>
+                                    </template>
+                                    <template v-if="isTrailer">
+                                        <div class="md:col-span-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                            <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                Trailer capacity
+                                            </h3>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Weight capacity ({{ form.weight_unit || 'lbs' }})</label
+                                            >
+                                            <input v-model="form.weight_capacity" type="number" min="0" :class="inputClass" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Weight unit</label
+                                            >
+                                            <select v-model="form.weight_unit" :class="inputClass">
+                                                <option v-for="o in weightUnits" :key="o.value" :value="o.value">
+                                                    {{ o.label ?? o.name }}
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                                                >Axle count</label
+                                            >
+                                            <input v-model="form.axle_count" type="number" min="0" max="20" :class="inputClass" />
+                                        </div>
+                                    </template>
+                                    <div v-if="isTruck">
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
                                             >Mileage</label
                                         >
                                         <input v-model="form.mileage" type="number" :class="inputClass" />
                                     </div>
-                                    <div>
+                                    <div v-if="isTruck">
                                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
                                             >Engine / usage hours</label
                                         >

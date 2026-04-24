@@ -1,5 +1,45 @@
 {
     "fields": [
-
+        {
+            "key": "fleet_id",
+            "label": "Fleet unit",
+            "type": "record",
+            "typeDomain": "Fleet",
+            "relationship": "fleet"
+        },
+        {
+            "key": "performed_at",
+            "label": "Service date",
+            "type": "date"
+        },
+        {
+            "key": "type_id",
+            "label": "Maintenance type",
+            "type": "record",
+            "typeDomain": "MaintenanceType",
+            "relationship": "maintenanceType",
+            "create": true
+        },
+        {
+            "key": "cost",
+            "label": "Cost",
+            "type": "number",
+            "meta": { "step": "0.01", "min": 0 }
+        },
+        {
+            "key": "mileage",
+            "label": "Mileage at service",
+            "type": "number"
+        },
+        {
+            "key": "hours",
+            "label": "Engine hours at service",
+            "type": "number"
+        },
+        {
+            "key": "notes",
+            "label": "Notes",
+            "type": "textarea"
+        }
     ]
 }

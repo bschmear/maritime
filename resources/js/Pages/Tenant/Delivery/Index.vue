@@ -1,6 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
@@ -8,6 +9,7 @@ const props = defineProps({
     deliveries: { type: Object, default: () => ({ data: [] }) },
     todayDeliveries: { type: Array, default: () => [] },
     upcomingDeliveries: { type: Array, default: () => [] },
+    calendarMonthDeliveries: { type: Array, default: () => [] },
     stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     filters: { type: Object, default: () => ({}) },
     locationOptions: { type: Array, default: () => [] },
@@ -54,8 +56,8 @@ watch(
     { deep: true },
 );
 
-const applyTableFilters = () => {
-    const params = {};
+const buildDeliveriesIndexQueryParams = (overrides = {}) => {
+    const params = { ...overrides };
     if (searchQuery.value?.trim()) {
         params.search = searchQuery.value.trim();
     }
@@ -73,7 +75,54 @@ const applyTableFilters = () => {
     } else {
         params.status = [...sel];
     }
-    router.get(route('deliveries.index'), params, { preserveState: true, preserveScroll: true, replace: true });
+    if (!('calendar_month' in overrides)) {
+        const cm = props.filters?.calendar_month;
+        if (cm && /^\d{4}-\d{2}$/.test(String(cm))) {
+            params.calendar_month = cm;
+        }
+    }
+    return params;
+};
+
+const applyTableFilters = () => {
+    router.get(route('deliveries.index'), buildDeliveriesIndexQueryParams(), { preserveState: true, preserveScroll: true, replace: true });
+};
+
+/** Parse `YYYY-MM` to { y, m } with m 0–11; null if invalid. */
+const parseCalendarMonthKey = (key) => {
+    if (!key || !/^\d{4}-\d{2}$/.test(String(key))) {
+        return null;
+    }
+    const [ys, ms] = String(key).split('-');
+    const y = parseInt(ys, 10);
+    const m = parseInt(ms, 10) - 1;
+    if (Number.isNaN(y) || m < 0 || m > 11) {
+        return null;
+    }
+    return { y, m };
+};
+
+const shiftCalendarMonthKey = (key, delta) => {
+    const base = parseCalendarMonthKey(key) ?? (() => {
+        const n = new Date();
+        return { y: n.getFullYear(), m: n.getMonth() };
+    })();
+    let { y, m } = base;
+    m += delta;
+    if (m > 11) {
+        m = 0;
+        y += 1;
+    }
+    if (m < 0) {
+        m = 11;
+        y -= 1;
+    }
+    return `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+const navigateMiniCalendar = (delta) => {
+    const nextKey = shiftCalendarMonthKey(props.filters?.calendar_month, delta);
+    router.get(route('deliveries.index'), buildDeliveriesIndexQueryParams({ calendar_month: nextKey }), { preserveState: true, preserveScroll: true, replace: true });
 };
 
 let searchDebounce = null;
@@ -121,6 +170,28 @@ const breadcrumbItems = computed(() => [
 const getCustomerName = (d) => d.customer?.display_name ?? d.customer?.name ?? '—';
 const getLocationName = (d) => d.location?.display_name ?? '—';
 const getTechnicianName = (d) => d.technician?.display_name ?? d.technician?.name ?? '—';
+
+/** Short “deliver to” label for calendar / lists (matches delivery_to_type). */
+const getDeliverToLabel = (d) => {
+    if (!d) return '—';
+    if (d.delivery_to_type === 'delivery_location') {
+        const loc = d.delivery_location ?? d.deliveryLocation;
+        if (loc?.display_name || loc?.name) {
+            return String(loc.display_name ?? loc.name).trim();
+        }
+        return 'Common location';
+    }
+    if (d.delivery_to_type === 'contact_address') {
+        const name = getCustomerName(d);
+        return name && name !== '—' ? `Customer · ${name}` : 'Customer address';
+    }
+    const parts = [d.address_line_1, d.city, d.state].filter((x) => x != null && String(x).trim() !== '');
+    if (parts.length) {
+        return parts.map((x) => String(x).trim()).join(', ');
+    }
+    const name = getCustomerName(d);
+    return name && name !== '—' ? name : '—';
+};
 
 /** Line items: prefer delivery_items; fall back to legacy single asset_unit. */
 const getDeliveryLineItems = (d) => {
@@ -208,18 +279,19 @@ const formatScheduledShort = (val) => {
     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
-// Mini calendar - current month, days with deliveries
+// Mini calendar — month from filters.calendar_month; counts from calendarMonthDeliveries
 const calendarDays = computed(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const parsed = parseCalendarMonthKey(props.filters?.calendar_month);
+    const year = parsed?.y ?? now.getFullYear();
+    const month = parsed?.m ?? now.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startPad = firstDay.getDay();
     const days = [];
     for (let i = 0; i < startPad; i++) days.push({ day: null });
     const deliveryDays = {};
-    [...props.todayDeliveries, ...props.upcomingDeliveries].forEach((d) => {
+    (props.calendarMonthDeliveries ?? []).forEach((d) => {
         const dt = d.scheduled_at ? new Date(d.scheduled_at) : null;
         if (dt && dt.getMonth() === month && dt.getFullYear() === year) {
             const day = dt.getDate();
@@ -227,14 +299,66 @@ const calendarDays = computed(() => {
         }
     });
     for (let d = 1; d <= lastDay.getDate(); d++) {
-        days.push({ day: d, count: deliveryDays[d] || 0, isToday: d === now.getDate() });
+        const isToday = year === now.getFullYear() && month === now.getMonth() && d === now.getDate();
+        days.push({ day: d, count: deliveryDays[d] || 0, isToday });
     }
     return days;
 });
 
 const calendarTitle = computed(() => {
+    const parsed = parseCalendarMonthKey(props.filters?.calendar_month);
+    const anchor = parsed
+        ? new Date(parsed.y, parsed.m, 1)
+        : new Date();
+    return anchor.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+});
+
+const dayModalOpen = ref(false);
+const dayModalPickerDay = ref(null);
+
+const openDayDeliveriesModal = (day) => {
+    if (!day) return;
+    dayModalPickerDay.value = day;
+    dayModalOpen.value = true;
+};
+
+const closeDayDeliveriesModal = () => {
+    dayModalOpen.value = false;
+};
+
+const dayModalAnchorDate = computed(() => {
+    if (dayModalPickerDay.value == null) return null;
+    const parsed = parseCalendarMonthKey(props.filters?.calendar_month);
     const now = new Date();
-    return now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const y = parsed?.y ?? now.getFullYear();
+    const m = parsed?.m ?? now.getMonth();
+    return new Date(y, m, dayModalPickerDay.value);
+});
+
+const dayModalTitle = computed(() => {
+    if (!dayModalAnchorDate.value) return '';
+    return dayModalAnchorDate.value.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+});
+
+const dayModalDeliveries = computed(() => {
+    const target = dayModalAnchorDate.value;
+    if (!target) return [];
+    return [...(props.calendarMonthDeliveries ?? [])]
+        .filter((d) => {
+            if (!d.scheduled_at) return false;
+            const dt = new Date(d.scheduled_at);
+            return (
+                dt.getFullYear() === target.getFullYear()
+                && dt.getMonth() === target.getMonth()
+                && dt.getDate() === target.getDate()
+            );
+        })
+        .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 });
 
 const statusConfig = {
@@ -494,10 +618,20 @@ onUnmounted(() => {
                         <div class="flex items-center justify-between mb-4">
                             <h3 class="text-md font-semibold text-gray-900 dark:text-white">{{ calendarTitle }}</h3>
                             <div class="flex gap-1">
-                                <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                <button
+                                    type="button"
+                                    class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                                    aria-label="Previous month"
+                                    @click="navigateMiniCalendar(-1)"
+                                >
                                     <span class="material-icons text-md">chevron_left</span>
                                 </button>
-                                <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                <button
+                                    type="button"
+                                    class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                                    aria-label="Next month"
+                                    @click="navigateMiniCalendar(1)"
+                                >
                                     <span class="material-icons text-md">chevron_right</span>
                                 </button>
                             </div>
@@ -519,6 +653,7 @@ onUnmounted(() => {
                             >
                                 <template v-if="cell.day">
                                     <button
+                                        type="button"
                                         :class="[
                                             'w-7 h-7 rounded-full text-sm font-medium flex items-center justify-center transition-colors',
                                             cell.isToday
@@ -527,6 +662,7 @@ onUnmounted(() => {
                                                 ? 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         ]"
+                                        @click="openDayDeliveriesModal(cell.day)"
                                     >
                                         {{ cell.day }}
                                     </button>
@@ -892,6 +1028,67 @@ onUnmounted(() => {
             </div>
 
         </div>
+
+        <Modal :show="dayModalOpen" max-width="4xl" @close="closeDayDeliveriesModal">
+            <div class="flex flex-col max-h-[85vh] overflow-hidden">
+                <div class="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Deliveries</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ dayModalTitle }}</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="p-1 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-gray-400"
+                        aria-label="Close"
+                        @click="closeDayDeliveriesModal"
+                    >
+                        <span class="material-icons text-xl">close</span>
+                    </button>
+                </div>
+                <div class="px-6 py-4 overflow-y-auto flex-1 min-h-0">
+                    <p v-if="!dayModalDeliveries.length" class="text-sm text-gray-500 dark:text-gray-400 text-center py-10">
+                        No deliveries scheduled for this day.
+                    </p>
+                    <div v-else class="overflow-x-auto -mx-2">
+                        <table class="min-w-full text-sm text-left">
+                            <thead>
+                                <tr class="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                                    <th class="py-2 pr-4 font-medium">Delivery</th>
+                                    <th class="py-2 pr-4 font-medium whitespace-nowrap">From</th>
+                                    <th class="py-2 pr-4 font-medium">To</th>
+                                    <th class="py-2 font-medium whitespace-nowrap">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                <tr v-for="row in dayModalDeliveries" :key="row.id" class="align-top">
+                                    <td class="py-3 pr-4">
+                                        <Link
+                                            :href="route('deliveries.show', row.id)"
+                                            class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                                            @click="closeDayDeliveriesModal"
+                                        >
+                                            {{ row.display_name }}
+                                        </Link>
+                                        <div class="text-gray-500 dark:text-gray-400 text-xs mt-0.5">
+                                            {{ getCustomerName(row) }}
+                                        </div>
+                                    </td>
+                                    <td class="py-3 pr-4 text-gray-800 dark:text-gray-200 max-w-[10rem] sm:max-w-xs">
+                                        <span class="line-clamp-2" :title="getLocationName(row)">{{ getLocationName(row) }}</span>
+                                    </td>
+                                    <td class="py-3 pr-4 text-gray-800 dark:text-gray-200 max-w-[12rem] sm:max-w-sm">
+                                        <span class="line-clamp-2" :title="getDeliverToLabel(row)">{{ getDeliverToLabel(row) }}</span>
+                                    </td>
+                                    <td class="py-3 text-gray-900 dark:text-white whitespace-nowrap font-medium">
+                                        {{ formatTime(row.scheduled_at) }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </Modal>
 
     </TenantLayout>
 </template>

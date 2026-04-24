@@ -24,9 +24,10 @@ use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
 use App\Http\Controllers\Tenant\DeliveryLocationController;
 use App\Http\Controllers\Tenant\DocumentController;
-use App\Http\Controllers\Tenant\FleetController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
+use App\Http\Controllers\Tenant\FleetController;
+use App\Http\Controllers\Tenant\FleetMaintenanceController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\IntegrationController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\Tenant\InventoryUnitController;
 use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\LeadController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\MaintenanceTypeController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OperationsController;
 use App\Http\Controllers\Tenant\OpportunityController;
@@ -285,10 +287,16 @@ Route::middleware([
         });
 
         Route::prefix('fleet')->name('fleet.')->group(function () {
+            Route::get('/maintenance', [FleetMaintenanceController::class, 'index'])->name('maintenance.index');
+            Route::get('/maintenance/{maintenanceLog}', [FleetMaintenanceController::class, 'show'])->name('maintenance.show');
+
             Route::get('/', [FleetController::class, 'index'])->name('index');
             Route::get('/trucks/create', [FleetController::class, 'createTruck'])->name('trucks.create');
             Route::get('/trailers/create', [FleetController::class, 'createTrailer'])->name('trailers.create');
             Route::post('/', [FleetController::class, 'store'])->name('store');
+            Route::post('/{fleet}/maintenance', [FleetMaintenanceController::class, 'store'])->name('maintenance.store');
+            Route::match(['put', 'patch'], '/{fleet}/maintenance/{maintenanceLog}', [FleetMaintenanceController::class, 'update'])->name('maintenance.update');
+            Route::delete('/{fleet}/maintenance/{maintenanceLog}', [FleetMaintenanceController::class, 'destroy'])->name('maintenance.destroy');
             Route::get('/{fleet}', [FleetController::class, 'show'])->name('show');
             Route::get('/{fleet}/edit', [FleetController::class, 'edit'])->name('edit');
             Route::match(['put', 'patch'], '/{fleet}', [FleetController::class, 'update'])->name('update');
@@ -300,11 +308,14 @@ Route::middleware([
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
             Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');
             Route::get('/schedule', [DeliveryController::class, 'schedule'])->name('delivery-schedule');
+            Route::get('/schedule-board', [DeliveryController::class, 'scheduleBoard'])->name('schedule-board');
+            Route::post('/check-fleet-schedule', [DeliveryController::class, 'checkFleetSchedule'])->name('check-fleet-schedule');
             Route::post('/travel-estimate', [DeliveryController::class, 'travelEstimate'])->name('travel-estimate');
             Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
             Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
             Route::post('/{delivery}/en-route', [DeliveryController::class, 'markEnRoute'])->name('en-route');
+            Route::post('/{delivery}/swap-fleet', [DeliveryController::class, 'swapFleet'])->name('swap-fleet');
             Route::post('/{delivery}/items/{item}/delivered', [DeliveryController::class, 'markItemDelivered'])->name('items.mark-delivered');
             Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);
         });
@@ -474,6 +485,10 @@ Route::middleware([
 
         Route::prefix('locations')->name('locations.')->group(function () {
             Route::resource('/', LocationController::class)->parameters(['' => 'location']);
+        });
+
+        Route::prefix('maintenance-types')->name('maintenance-types.')->group(function () {
+            Route::resource('/', MaintenanceTypeController::class)->parameters(['' => 'maintenanceType']);
         });
 
         Route::prefix('documentables')->name('documentables.')->group(function () {

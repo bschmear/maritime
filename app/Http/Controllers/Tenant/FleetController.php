@@ -7,10 +7,13 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Fleet\Actions\CreateFleet;
 use App\Domain\Fleet\Actions\DeleteFleet;
 use App\Domain\Fleet\Actions\UpdateFleet;
+use App\Domain\Fleet\Models\Fleet;
+use App\Domain\FleetMaintenance\Models\FleetMaintenance;
+use App\Domain\Location\Models\Location;
 use App\Enums\Fleet\FleetStatus;
 use App\Enums\Fleet\FleetType;
-use App\Domain\Fleet\Models\Fleet;
-use App\Domain\Location\Models\Location;
+use App\Enums\Fleet\FuelType;
+use App\Enums\Fleet\WeightUnit;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -110,6 +113,8 @@ class FleetController extends Controller
             'fleetType' => $type->value,
             'locations' => $locations,
             'statuses' => $statuses,
+            'fuelTypes' => FuelType::options(),
+            'weightUnits' => WeightUnit::options(),
         ]);
     }
 
@@ -136,7 +141,13 @@ class FleetController extends Controller
 
     public function show(Fleet $fleet): Response
     {
-        $fleet->load(['location:id,display_name,city,address_line_1,state']);
+        $fleet->load([
+            'location:id,display_name,city,address_line_1,state',
+            'maintenanceLogs' => static fn ($q) => $q
+                ->with(['maintenanceTypes:id,display_name,category,applies_to'])
+                ->orderByDesc('performed_at')
+                ->orderByDesc('id'),
+        ]);
 
         $statuses = array_map(
             static fn (FleetStatus $s) => ['value' => $s->value, 'label' => str_replace('_', ' ', ucfirst($s->name))],
@@ -166,6 +177,8 @@ class FleetController extends Controller
             'record' => $this->transformFleet($fleet, detailed: true),
             'locations' => $locations,
             'statuses' => $statuses,
+            'fuelTypes' => FuelType::options(),
+            'weightUnits' => WeightUnit::options(),
         ]);
     }
 
@@ -230,12 +243,14 @@ class FleetController extends Controller
         $q = Fleet::query()->where('type', $type->value);
 
         if ($s = $request->string('search')->trim()->toString()) {
-            $q->where(function ($w) use ($s) {
-                $w->where('display_name', 'like', "%{$s}%")
-                    ->orWhere('license_plate', 'like', "%{$s}%")
-                    ->orWhere('make', 'like', "%{$s}%")
-                    ->orWhere('model', 'like', "%{$s}%")
-                    ->orWhere('vin', 'like', "%{$s}%");
+            $pattern = '%'.addcslashes($s, '%_\\').'%';
+            $q->where(function ($w) use ($pattern) {
+                $w->whereRaw('LOWER(display_name) LIKE LOWER(?)', [$pattern])
+                    ->orWhereRaw('LOWER(license_plate) LIKE LOWER(?)', [$pattern])
+                    ->orWhereRaw('LOWER(make) LIKE LOWER(?)', [$pattern])
+                    ->orWhereRaw('LOWER(model) LIKE LOWER(?)', [$pattern])
+                    ->orWhereRaw('LOWER(vin) LIKE LOWER(?)', [$pattern])
+                    ->orWhereRaw('LOWER(size) LIKE LOWER(?)', [$pattern]);
             });
         }
         if ($request->filled('location_id')) {
@@ -281,9 +296,17 @@ class FleetController extends Controller
             'model' => $fleet->model,
             'year' => $fleet->year,
             'size' => $fleet->size,
+            'fuel_type' => $fleet->fuel_type?->value,
             'capacity' => $fleet->size,
             'status' => $fleet->status?->value,
             'vin' => $fleet->vin,
+            'weight_capacity' => $fleet->weight_capacity,
+            'weight_unit' => $fleet->weight_unit?->value,
+            'towing_capacity' => $fleet->towing_capacity,
+            'payload_capacity' => $fleet->payload_capacity,
+            'gvwr' => $fleet->gvwr,
+            'axle_count' => $fleet->axle_count,
+            'specs' => $fleet->specs,
             'mileage' => $fleet->mileage,
             'hours' => $fleet->hours,
             'notes' => $fleet->notes,
@@ -306,6 +329,41 @@ class FleetController extends Controller
         $out['driver'] = null;
         $out['truck'] = null;
 
+        $out['maintenance_logs'] = [];
+        if ($fleet->relationLoaded('maintenanceLogs')) {
+            $out['maintenance_logs'] = $fleet->maintenanceLogs
+                ->map(fn (FleetMaintenance $log) => $this->transformMaintenanceLog($log))
+                ->values()
+                ->all();
+        }
+
         return $out;
+    }
+
+    /**
+     * @return array<string, int|float|string|null>
+     */
+    private function transformMaintenanceLog(FleetMaintenance $log): array
+    {
+        $types = $log->relationLoaded('maintenanceTypes')
+            ? $log->maintenanceTypes
+            : collect();
+
+        return [
+            'id' => $log->id,
+            'fleet_id' => $log->fleet_id,
+            'performed_at' => $log->performed_at?->toDateString(),
+            'type_ids' => $types->pluck('id')->values()->all(),
+            'maintenance_types' => $types->map(static fn ($t) => [
+                'id' => $t->id,
+                'display_name' => $t->display_name,
+                'category' => $t->category,
+                'applies_to' => $t->applies_to?->value,
+            ])->values()->all(),
+            'cost' => $log->cost !== null ? (float) $log->cost : null,
+            'mileage' => $log->mileage,
+            'hours' => $log->hours,
+            'notes' => $log->notes,
+        ];
     }
 }

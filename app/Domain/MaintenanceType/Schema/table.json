@@ -1,0 +1,8 @@
+{
+    "columns": [
+        { "key": "display_name", "label": "Name" },
+        { "key": "category", "label": "Category" },
+        { "key": "applies_to", "label": "Applies to" },
+        { "key": "sort_order", "label": "Order" }
+    ]
+}
