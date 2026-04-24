@@ -24,6 +24,7 @@ use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
 use App\Http\Controllers\Tenant\DeliveryLocationController;
 use App\Http\Controllers\Tenant\DocumentController;
+use App\Http\Controllers\Tenant\FleetController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\GeneralController;
@@ -281,6 +282,17 @@ Route::middleware([
             Route::get('/{deliveryLocation}/edit', [DeliveryLocationController::class, 'edit'])->name('edit');
             Route::match(['put', 'patch'], '/{deliveryLocation}', [DeliveryLocationController::class, 'update'])->name('update');
             Route::delete('/{deliveryLocation}', [DeliveryLocationController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::prefix('fleet')->name('fleet.')->group(function () {
+            Route::get('/', [FleetController::class, 'index'])->name('index');
+            Route::get('/trucks/create', [FleetController::class, 'createTruck'])->name('trucks.create');
+            Route::get('/trailers/create', [FleetController::class, 'createTrailer'])->name('trailers.create');
+            Route::post('/', [FleetController::class, 'store'])->name('store');
+            Route::get('/{fleet}', [FleetController::class, 'show'])->name('show');
+            Route::get('/{fleet}/edit', [FleetController::class, 'edit'])->name('edit');
+            Route::match(['put', 'patch'], '/{fleet}', [FleetController::class, 'update'])->name('update');
+            Route::delete('/{fleet}', [FleetController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('deliveries')->name('deliveries.')->group(function () {

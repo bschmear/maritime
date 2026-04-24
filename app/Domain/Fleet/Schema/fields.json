@@ -1,0 +1,106 @@
+{
+    "fields": [
+      {
+        "key": "display_name",
+        "type": "text",
+        "label": "Fleet Name",
+        "placeholder": "e.g. Service Truck 1",
+        "required": true
+      },
+      {
+        "key": "type",
+        "type": "select",
+        "label": "Type",
+        "required": true,
+        "options": [
+          { "label": "Truck", "value": "truck" },
+          { "label": "Trailer", "value": "trailer" }
+        ]
+      },
+      {
+        "key": "license_plate",
+        "type": "text",
+        "label": "License Plate",
+        "placeholder": "ABC-1234"
+      },
+      {
+        "key": "vin",
+        "type": "text",
+        "label": "VIN Number",
+        "placeholder": "Vehicle Identification Number"
+      },
+      {
+        "key": "make",
+        "type": "text",
+        "label": "Make",
+        "placeholder": "Ford, GMC, etc."
+      },
+      {
+        "key": "model",
+        "type": "text",
+        "label": "Model"
+      },
+      {
+        "key": "year",
+        "type": "number",
+        "label": "Year"
+      },
+      {
+        "key": "size",
+        "type": "text",
+        "label": "Size / Dimensions",
+        "placeholder": "e.g. 8ft bed, 24ft enclosed trailer"
+      },
+      {
+        "key": "location_id",
+        "type": "relation",
+        "label": "Location",
+        "resource": "locations"
+      },
+      {
+        "key": "status",
+        "type": "select",
+        "label": "Status",
+        "options": [
+          { "label": "Active", "value": "active" },
+          { "label": "Inactive", "value": "inactive" },
+          { "label": "In Maintenance", "value": "maintenance" }
+        ]
+      },
+      {
+        "key": "last_maintenance_at",
+        "type": "date",
+        "label": "Last Maintenance Date"
+      },
+      {
+        "key": "next_maintenance_due_at",
+        "type": "date",
+        "label": "Next Maintenance Due"
+      },
+      {
+        "key": "maintenance_interval_days",
+        "type": "number",
+        "label": "Maintenance Interval (Days)",
+        "placeholder": "e.g. 90"
+      },
+  
+      {
+        "key": "mileage",
+        "type": "number",
+        "label": "Mileage",
+        "placeholder": "Truck mileage"
+      },
+      {
+        "key": "hours",
+        "type": "number",
+        "label": "Engine / Usage Hours",
+        "placeholder": "Optional usage tracking"
+      },
+  
+      {
+        "key": "notes",
+        "type": "textarea",
+        "label": "Notes"
+      }
+    ]
+}

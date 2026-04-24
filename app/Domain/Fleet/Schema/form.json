@@ -1,0 +1,33 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Primary",
+      "fields": [
+        { "key": "display_name" },
+        { "key": "type" },
+        { "key": "license_plate" },
+        { "key": "location_id" },
+        { "key": "status" }
+      ]
+    },
+    "secondary": {
+      "label": "Secondary",
+      "fields": [
+        { "key": "vin" },
+        { "key": "make" },
+        { "key": "model" },
+        { "key": "year" },
+        { "key": "size" },
+        { "key": "mileage" },
+        { "key": "hours" },
+        { "key": "last_maintenance_at" },
+        { "key": "next_maintenance_due_at" },
+        { "key": "maintenance_interval_days" },
+        { "key": "notes" }
+      ]
+    }
+  }
+}

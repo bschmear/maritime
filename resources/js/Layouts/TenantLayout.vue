@@ -152,6 +152,12 @@ const secondaryNavItems = ref([
                     { name: 'Templates', href: 'delivery-checklist-templates.index' }
                 ]
             },
+            {
+                name: 'Fleet',
+                children: [
+                    { name: 'All Units', href: 'fleet.index' }
+                ]
+            },
             { name: 'Qualifications', href: 'qualifications.index' }
         ]
     },
@@ -207,7 +213,7 @@ const secondaryNavItems = ref([
     },
 
     {
-        name: 'Account',
+        name: 'Company',
         href: 'account.index',
         children: [
             { name: 'Overview', href: 'account.index' },

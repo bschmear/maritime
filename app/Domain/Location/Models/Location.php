@@ -2,11 +2,13 @@
 
 namespace App\Domain\Location\Models;
 
+use App\Domain\Fleet\Models\Fleet;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Location extends Model
 {
@@ -62,5 +64,10 @@ class Location extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class, 'location_id');
+    }
+
+    public function fleets(): HasMany
+    {
+        return $this->hasMany(Fleet::class, 'location_id');
     }
 }
