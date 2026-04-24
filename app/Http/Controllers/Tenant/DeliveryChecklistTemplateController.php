@@ -170,12 +170,9 @@ class DeliveryChecklistTemplateController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    private function ensureDefaultCategories()
+    private function ensureDefaultCategories(): void
     {
-        if (DeliveryChecklistCategory::count() === 0) {
-            DeliveryChecklistCategory::create(['name' => 'Pre Delivery', 'color' => 'blue']);
-            DeliveryChecklistCategory::create(['name' => 'Upon Delivery', 'color' => 'green']);
-        }
+        DeliveryChecklistCategory::ensureDefaultsExist();
     }
 
     public function getCategories()

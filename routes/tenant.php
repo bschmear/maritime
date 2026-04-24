@@ -333,6 +333,13 @@ Route::middleware([
         Route::prefix('delivery-checklist-templates')->name('delivery-checklist-templates.')->group(function () {
             Route::get('/', [DeliveryChecklistTemplateController::class, 'index'])->name('index');
             Route::post('/', [DeliveryChecklistTemplateController::class, 'store'])->name('store');
+
+            // Categories (register before /{template} so "categories" is not captured as a template id)
+            Route::get('/categories', [DeliveryChecklistTemplateController::class, 'getCategories'])->name('categories.index');
+            Route::post('/categories', [DeliveryChecklistTemplateController::class, 'createCategory'])->name('categories.store');
+            Route::put('/categories/{categoryId}', [DeliveryChecklistTemplateController::class, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{categoryId}', [DeliveryChecklistTemplateController::class, 'deleteCategory'])->name('categories.destroy');
+
             Route::get('/{template}', [DeliveryChecklistTemplateController::class, 'show'])->name('show');
             Route::put('/{template}', [DeliveryChecklistTemplateController::class, 'update'])->name('update');
             Route::delete('/{template}', [DeliveryChecklistTemplateController::class, 'destroy'])->name('destroy');
@@ -341,12 +348,6 @@ Route::middleware([
             Route::post('/{template}/items', [DeliveryChecklistTemplateController::class, 'addItem'])->name('add-item');
             Route::put('/items/{item}', [DeliveryChecklistTemplateController::class, 'updateItem'])->name('update-item');
             Route::delete('/items/{item}', [DeliveryChecklistTemplateController::class, 'deleteItem'])->name('delete-item');
-
-            // Categories
-            Route::get('/categories', [DeliveryChecklistTemplateController::class, 'getCategories'])->name('categories.index');
-            Route::post('/categories', [DeliveryChecklistTemplateController::class, 'createCategory'])->name('categories.store');
-            Route::put('/categories/{category}', [DeliveryChecklistTemplateController::class, 'updateCategory'])->name('categories.update');
-            Route::delete('/categories/{category}', [DeliveryChecklistTemplateController::class, 'deleteCategory'])->name('categories.destroy');
         });
 
         Route::prefix('servicetickets')->name('servicetickets.')->group(function () {

@@ -12,6 +12,31 @@ class DeliveryChecklistCategory extends Model
         'color',
     ];
 
+    /**
+     * Idempotent defaults for new tenants (see DeliveryChecklistCategorySeeder).
+     *
+     * @return list<array{name: string, color: string}>
+     */
+    public static function defaultDefinitions(): array
+    {
+        return [
+            ['name' => 'Boat has been delivered with', 'color' => 'blue'],
+            ['name' => 'Engine has been delivered with', 'color' => 'green'],
+            ['name' => 'Pre Delivery Checklist', 'color' => 'blue'],
+            ['name' => 'Upon Delivery', 'color' => 'green'],
+        ];
+    }
+
+    public static function ensureDefaultsExist(): void
+    {
+        foreach (static::defaultDefinitions() as $row) {
+            static::firstOrCreate(
+                ['name' => $row['name']],
+                ['color' => $row['color']],
+            );
+        }
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(DeliveryChecklistTemplateItem::class, 'category_id');

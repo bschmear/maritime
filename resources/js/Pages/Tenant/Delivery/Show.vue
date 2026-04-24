@@ -37,6 +37,77 @@ const newItemLabel = ref('');
 const newItemCategory = ref('');
 const newItemRequired = ref(false);
 
+/** Default category label when `categories` prop is empty (aligned with tenant seeder). */
+const DEFAULT_CHECKLIST_CATEGORY_NAME = 'Pre Delivery Checklist';
+
+const showCategoryAdminModal = ref(false);
+const categoryAdminEditingId = ref(null);
+const categoryAdminName = ref('');
+const categoryAdminColor = ref('blue');
+const categoryAdminSaving = ref(false);
+
+const categoryColorOptions = [
+    { value: 'blue', label: 'Blue' },
+    { value: 'green', label: 'Green' },
+    { value: 'red', label: 'Red' },
+    { value: 'amber', label: 'Amber' },
+    { value: 'purple', label: 'Purple' },
+];
+
+const firstChecklistCategoryName = () => props.categories?.[0]?.name ?? DEFAULT_CHECKLIST_CATEGORY_NAME;
+
+const openCategoryAdminModal = () => {
+    categoryAdminEditingId.value = null;
+    categoryAdminName.value = '';
+    categoryAdminColor.value = 'blue';
+    showCategoryAdminModal.value = true;
+};
+
+const openCategoryAdminModalForEdit = (categoryId) => {
+    const c = (props.categories || []).find((x) => x.id === categoryId);
+    if (!c) return;
+    categoryAdminEditingId.value = c.id;
+    categoryAdminName.value = c.name;
+    categoryAdminColor.value = c.color || 'blue';
+    showCategoryAdminModal.value = true;
+};
+
+const closeCategoryAdminModal = () => {
+    showCategoryAdminModal.value = false;
+    categoryAdminEditingId.value = null;
+    categoryAdminName.value = '';
+    categoryAdminColor.value = 'blue';
+};
+
+const saveCategoryAdminModal = async () => {
+    const name = categoryAdminName.value.trim();
+    if (!name) return;
+    categoryAdminSaving.value = true;
+    try {
+        if (categoryAdminEditingId.value != null) {
+            await axios.put(route('delivery-checklist-templates.categories.update', categoryAdminEditingId.value), {
+                name,
+                color: categoryAdminColor.value,
+            });
+        } else {
+            await axios.post(route('delivery-checklist-templates.categories.store'), {
+                name,
+                color: categoryAdminColor.value,
+            });
+        }
+        closeCategoryAdminModal();
+        router.reload({ only: ['categories', 'checklistItems'] });
+    } catch (e) {
+        const err = e.response?.data;
+        const msg = err?.message
+            || (err?.errors && Object.values(err.errors).flat().join(' '))
+            || 'Could not save category.';
+        alert(msg);
+    } finally {
+        categoryAdminSaving.value = false;
+    }
+};
+
 /* ─── Status ─── */
 const isSigned = computed(() => !!props.record?.signed_at);
 
@@ -267,15 +338,28 @@ const toggleItemDelivered = async (item) => {
 };
 
 /* ─── Checklist helpers (kept from original) ─── */
+const CHECKLIST_CATEGORY_SORT_ORDER = ['Pre Delivery Checklist', 'Upon Delivery'];
+
 const itemsByCategory = computed(() => {
     const grouped = {};
-    (props.checklistItems || []).forEach(item => {
+    (props.checklistItems || []).forEach((item) => {
         const catId = item.category_id ?? item.category?.id ?? 'uncategorized';
         const catName = item.category?.name ?? 'Other';
         if (!grouped[catId]) grouped[catId] = { id: catId, name: catName, items: [] };
         grouped[catId].items.push(item);
     });
-    return Object.values(grouped).sort((a, b) => a.name.localeCompare(b.name));
+    const list = Object.values(grouped);
+    list.sort((a, b) => {
+        const ia = CHECKLIST_CATEGORY_SORT_ORDER.indexOf(a.name);
+        const ib = CHECKLIST_CATEGORY_SORT_ORDER.indexOf(b.name);
+        if (ia !== -1 || ib !== -1) {
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        }
+        return a.name.localeCompare(b.name);
+    });
+    return list;
 });
 
 const openChecklistModal = () => {
@@ -288,10 +372,15 @@ const closeChecklistModal = () => { showChecklistModal.value = false; };
 const selectChecklistMode = (mode) => {
     checklistCreationMode.value = mode;
     if (mode === 'scratch') {
-        newChecklistItems.value = [{ label: '', category: 'Pre Delivery', is_required: false, sort_order: 0 }];
+        newChecklistItems.value = [{ label: '', category: firstChecklistCategoryName(), is_required: false, sort_order: 0 }];
     }
 };
-const addChecklistItem = () => newChecklistItems.value.push({ label: '', category: 'Pre Delivery', is_required: false, sort_order: newChecklistItems.value.length });
+const addChecklistItem = () => newChecklistItems.value.push({
+    label: '',
+    category: firstChecklistCategoryName(),
+    is_required: false,
+    sort_order: newChecklistItems.value.length,
+});
 const removeChecklistItem = (idx) => newChecklistItems.value.splice(idx, 1);
 
 const saveChecklist = async () => {
@@ -777,9 +866,10 @@ const googleMapsDirectionsUrl = computed(() => {
                                 </span>
                             </p>
                         </div>
-                        <div class="flex items-center gap-3">
+                        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                             <button
                                 v-if="!isSigned"
+                                type="button"
                                 @click="addChecklistItemToDelivery"
                                 class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg"
                             >
@@ -787,7 +877,17 @@ const googleMapsDirectionsUrl = computed(() => {
                                 Add Item
                             </button>
                             <button
+                                v-if="!isSigned"
+                                type="button"
+                                @click="openCategoryAdminModal"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg"
+                            >
+                                <span class="material-icons text-lg">folder_special</span>
+                                Categories
+                            </button>
+                            <button
                                 v-if="!isSigned && checklistItems.length === 0"
+                                type="button"
                                 @click="openChecklistModal"
                                 class="inline-flex items-center gap-2 px-3 py-1.5 text-md font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg"
                             >
@@ -799,12 +899,23 @@ const googleMapsDirectionsUrl = computed(() => {
 
                     <div v-if="checklistItems.length > 0" class="divide-y divide-gray-100 dark:divide-gray-700">
                         <div v-for="category in itemsByCategory" :key="category.id" class="px-6 py-4">
-                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-primary-500"></span>
-                                {{ category.name }}
-                                <span class="ml-1 text-gray-400 dark:text-gray-500 normal-case font-medium">
-                                    ({{ category.items.filter(i => i.completed).length }}/{{ category.items.length }})
+                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3 flex flex-wrap items-center gap-2">
+                                <span class="flex items-center gap-2 min-w-0">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0"></span>
+                                    <span class="truncate">{{ category.name }}</span>
+                                    <span class="text-gray-400 dark:text-gray-500 normal-case font-medium">
+                                        ({{ category.items.filter(i => i.completed).length }}/{{ category.items.length }})
+                                    </span>
                                 </span>
+                                <button
+                                    v-if="!isSigned && typeof category.id === 'number'"
+                                    type="button"
+                                    class="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-primary-600 hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/20"
+                                    @click="openCategoryAdminModalForEdit(category.id)"
+                                >
+                                    <span class="material-icons text-sm">edit</span>
+                                    Edit category
+                                </button>
                             </h4>
                             <ul class="space-y-1.5">
                                 <li
@@ -1110,9 +1221,14 @@ const googleMapsDirectionsUrl = computed(() => {
                             placeholder="Item label…"
                             class="input-style flex-1 min-w-0"
                         />
-                        <select v-model="item.category" class="input-style w-full sm:w-44 shrink-0">
-                            <option value="Pre Delivery">Pre delivery</option>
-                            <option value="Upon Delivery">Upon delivery</option>
+                        <select v-model="item.category" class="input-style w-full sm:w-52 shrink-0">
+                            <template v-if="categories.length">
+                                <option v-for="c in categories" :key="c.id" :value="c.name">{{ c.name }}</option>
+                            </template>
+                            <template v-else>
+                                <option value="Pre Delivery Checklist">Pre Delivery Checklist</option>
+                                <option value="Upon Delivery">Upon Delivery</option>
+                            </template>
                         </select>
                         <button
                             type="button"
@@ -1148,6 +1264,84 @@ const googleMapsDirectionsUrl = computed(() => {
                     >
                         {{ isLoadingChecklist ? 'Saving…' : 'Save' }}
                     </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Checklist categories (add / update) -->
+        <Modal :show="showCategoryAdminModal" max-width="md" @close="closeCategoryAdminModal">
+            <div class="p-6 text-gray-900 dark:text-gray-100">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Checklist categories</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Add categories or rename existing ones. Categories used by checklist items cannot be deleted from here.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        aria-label="Close"
+                        @click="closeCategoryAdminModal"
+                    >
+                        <span class="material-icons text-xl">close</span>
+                    </button>
+                </div>
+
+                <ul
+                    v-if="categories.length"
+                    class="mb-5 max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                >
+                    <li
+                        v-for="c in categories"
+                        :key="c.id"
+                        class="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                    >
+                        <span class="font-medium text-gray-900 dark:text-white truncate">{{ c.name }}</span>
+                        <button
+                            v-if="!isSigned"
+                            type="button"
+                            class="shrink-0 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+                            @click="openCategoryAdminModalForEdit(c.id)"
+                        >
+                            Edit
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="space-y-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 p-4">
+                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        {{ categoryAdminEditingId != null ? 'Update category' : 'New category' }}
+                    </p>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Name</label>
+                        <input v-model="categoryAdminName" type="text" class="input-style w-full" maxlength="255" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Color tag</label>
+                        <select v-model="categoryAdminColor" class="input-style w-full">
+                            <option v-for="opt in categoryColorOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+                        <button
+                            type="button"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                            @click="categoryAdminEditingId != null ? openCategoryAdminModal() : closeCategoryAdminModal()"
+                        >
+                            {{ categoryAdminEditingId != null ? 'Switch to add new' : 'Cancel' }}
+                        </button>
+                        <button
+                            type="button"
+                            :disabled="categoryAdminSaving || !categoryAdminName.trim()"
+                            class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            @click="saveCategoryAdminModal"
+                        >
+                            {{ categoryAdminSaving ? 'Saving…' : (categoryAdminEditingId != null ? 'Save changes' : 'Create category') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </Modal>

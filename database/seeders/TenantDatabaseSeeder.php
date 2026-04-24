@@ -16,6 +16,7 @@ class TenantDatabaseSeeder extends Seeder
             AccountSettingsSeeder::class,
             AssetSpecDefinitionSeeder::class,
             MaintenanceTypeSeeder::class,
+            DeliveryChecklistCategorySeeder::class,
         ]);
     }
 }
