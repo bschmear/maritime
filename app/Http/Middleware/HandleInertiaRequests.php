@@ -84,6 +84,7 @@ class HandleInertiaRequests extends Middleware
             'radar' => [
                 'publishable' => config('services.radar.publishable'),
             ],
+            'pwa' => fn () => $this->rootView($request) === 'app' && $request->isPwa(),
         ];
     }
 

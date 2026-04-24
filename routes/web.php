@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
@@ -21,6 +22,8 @@ use App\Http\Controllers\StripeConnectWebhookController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Middleware\EnsureKioskAdmin;
 use Illuminate\Support\Facades\Route;
+
+Route::get('favicon.ico', FaviconController::class);
 
 // Kiosk Subdomain Routes (kiosk.example.com)
 Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.')->group(function () {

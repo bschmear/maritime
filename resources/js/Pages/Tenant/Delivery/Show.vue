@@ -825,7 +825,7 @@ const googleMapsDirectionsUrl = computed(() => {
                             type="button"
                             @click="goEnRoute"
                             :disabled="enRouteLoading || isSigned"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg"
                         >
                             <span class="material-icons text-lg" :class="{ 'animate-spin': enRouteLoading }">
                                 {{ enRouteLoading ? 'sync' : 'local_shipping' }}

@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 
 defineProps({
     accounts: {
@@ -12,6 +12,30 @@ defineProps({
         type: Array,
         default: () => [],
     },
+});
+
+const pwa = computed(() => Boolean(usePage().props.pwa));
+console.log(pwa.value);
+// Server pwa (cookie / ?pwa=1) is not set when the app is opened from the home screen alone.
+// Still treat the installed shell as in-app for navigation so "Open" does not use target=_blank.
+const pwaForLinks = computed(() => {
+    if (pwa.value) {
+        return true;
+    }
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+        return true;
+    }
+    if (window.matchMedia('(display-mode: window-controls-overlay)').matches) {
+        return true;
+    }
+    // iOS Safari, older home-screen WebClip
+    if (typeof window.navigator.standalone === 'boolean' && window.navigator.standalone) {
+        return true;
+    }
+    return false;
 });
 
 // Modal state
@@ -172,10 +196,13 @@ const cancelAccount = (account) => {
         <template #header>
             <div>
                 <h2 class="text-xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white sm:text-2xl">
-                    Dashboard
+                    {{ pwa ? 'Your tenant apps' : 'Dashboard' }}
                 </h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p v-if="!pwa" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Manage accounts, invitations, and tenant access
+                </p>
+                <p v-else class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Open an account you have access to
                 </p>
             </div>
         </template>
@@ -184,6 +211,7 @@ const cancelAccount = (account) => {
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <!-- Welcome -->
                 <section
+                    v-if="!pwa"
                     class="mb-10 rounded-2xl border border-gray-200 bg-primary-50 px-6 py-8 dark:border-gray-700 dark:bg-gray-900 sm:px-10"
                 >
                     <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
@@ -212,7 +240,7 @@ const cancelAccount = (account) => {
                 </section>
 
                 <!-- Pending invitations -->
-                <section v-if="pending_invitations.length > 0" class="mb-10">
+                <section v-if="!pwa && pending_invitations.length > 0" class="mb-10">
                     <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
                         <div>
                             <p class="text-sm font-semibold uppercase tracking-widest text-primary-600 dark:text-primary-400">
@@ -307,9 +335,12 @@ const cancelAccount = (account) => {
                             <p class="text-sm font-semibold uppercase tracking-widest text-primary-600 dark:text-primary-400">
                                 Accounts
                             </p>
-                            <h3 class="mt-1 text-xl font-bold text-gray-950 dark:text-white">Your accounts</h3>
+                            <h3 class="mt-1 text-xl font-bold text-gray-950 dark:text-white">
+                            {{ pwa ? 'Open a tenant' : 'Your accounts' }}
+                        </h3>
                         </div>
                         <Link
+                            v-if="!pwa"
                             :href="route('checkout.plans')"
                             class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
                         >
@@ -319,7 +350,25 @@ const cancelAccount = (account) => {
                     </div>
 
                     <div
-                        v-if="accounts.length === 0"
+                        v-if="accounts.length === 0 && pwa"
+                        class="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center dark:border-gray-600 dark:bg-gray-800/50"
+                    >
+                        <div
+                            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 dark:border-gray-600 dark:bg-gray-800"
+                        >
+                            <span class="material-icons text-3xl leading-none text-gray-400 dark:text-gray-500"
+                                >domain</span
+                            >
+                        </div>
+                        <p class="text-base font-medium text-gray-900 dark:text-white">No active tenant access</p>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            You don’t have an account with an active subscription, or a tenant domain isn’t set up yet. Use
+                            the website in a normal browser to manage plans and billing.
+                        </p>
+                    </div>
+
+                    <div
+                        v-else-if="accounts.length === 0"
                         class="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center dark:border-gray-600 dark:bg-gray-800/50"
                     >
                         <div
@@ -366,11 +415,13 @@ const cancelAccount = (account) => {
                                         >
                                             {{ account.user_role }}
                                         </span>
-                                        <span class="text-gray-300 dark:text-gray-600">·</span>
-                                        <span
-                                            >{{ account.users_count }}
-                                            {{ account.users_count === 1 ? 'user' : 'users' }}</span
-                                        >
+                                        <template v-if="!pwa">
+                                            <span class="text-gray-300 dark:text-gray-600">·</span>
+                                            <span
+                                                >{{ account.users_count }}
+                                                {{ account.users_count === 1 ? 'user' : 'users' }}</span
+                                            >
+                                        </template>
                                     </div>
                                 </div>
                                 <div
@@ -395,16 +446,18 @@ const cancelAccount = (account) => {
                                     </div>
                                     <a
                                         :href="getTenantUrl(account.domain)"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        :target="pwaForLinks ? '_self' : '_blank'"
+                                        :rel="pwaForLinks ? null : 'noopener noreferrer'"
                                         class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 transition hover:border-primary-400 hover:bg-primary-50 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-primary-500"
                                     >
                                         Open
-                                        <span class="material-icons text-sm leading-none">open_in_new</span>
+                                        <span v-if="!pwaForLinks" class="material-icons text-sm leading-none"
+                                            >open_in_new</span
+                                        >
                                     </a>
                                 </div>
 
-                                <div v-if="account.is_owner" class="mt-auto space-y-2 pt-1">
+                                <div v-if="account.is_owner && !pwa" class="mt-auto space-y-2 pt-1">
                                     <Link
                                         :href="route('accounts.show', account.id)"
                                         class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-700"
@@ -420,14 +473,17 @@ const cancelAccount = (account) => {
                                         Cancel subscription
                                     </button>
                                 </div>
-                                <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                <p v-else-if="!pwa" class="text-sm text-gray-500 dark:text-gray-400">
                                     You are a
                                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ account.user_role }}</span>
                                     on this account.
                                 </p>
                             </div>
 
-                            <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+                            <div
+                                v-if="!pwa"
+                                class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"
+                            >
                                 <p class="text-xs text-gray-500 dark:text-gray-400">
                                     Created {{ new Date(account.created_at).toLocaleDateString() }}
                                 </p>

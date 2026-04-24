@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\Portal\CustomerAuthController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\CustomerRegistrationController;
@@ -15,6 +16,8 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
     InitializeTenancyByDomain::class,
 ])->group(function () {
+
+    Route::get('favicon.ico', FaviconController::class);
 
     // Token-based access (no auth required, single shared record)
     Route::get('/portal/view/{token}', [PortalController::class, 'show'])

@@ -8,8 +8,13 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
 
 const page = usePage();
+const pwa = computed(() => Boolean(page.props.pwa));
 const showingNavigationDropdown = ref(false);
 const { theme, setTheme, initTheme } = useTheme();
+
+const dashboardHref = computed(() =>
+    pwa.value && route().has('dashboard') ? route('dashboard', { pwa: 1 }) : route('dashboard'),
+);
 
 const isAuthenticated = () => {
     return page.props.auth && page.props.auth.user;
@@ -40,6 +45,19 @@ const guestLogoHref = computed(() => {
     return '/';
 });
 
+const logoHref = computed(() => {
+    if (pwa.value) {
+        if (isAuthenticated() && route().has('dashboard')) {
+            return route('dashboard', { pwa: 1 });
+        }
+        if (route().has('home')) {
+            return route('home', { pwa: 1 });
+        }
+    }
+
+    return guestLogoHref.value;
+});
+
 const isNavActive = (matchNames) => matchNames.some((name) => route().current(name));
 
 const closeMobileMenu = () => {
@@ -67,7 +85,7 @@ onMounted(() => {
             <div class="relative flex h-16 items-center justify-between gap-3">
                 <!-- Logo (left) -->
                 <div class="flex shrink-0 items-center z-20">
-                    <Link :href="isAuthenticated() ? route('dashboard') : guestLogoHref">
+                    <Link :href="logoHref">
                         <ApplicationLogo
                             class="block h-9 w-auto fill-current text-gray-800 dark:text-white-100"
                         />
@@ -80,22 +98,24 @@ onMounted(() => {
                     aria-label="Main navigation"
                 >
                     <div class="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-1 lg:gap-x-3">
-                        <Link
-                            v-for="item in visiblePrimaryLinks"
-                            :key="item.routeName"
-                            :href="route(item.routeName)"
-                            class="rounded-lg px-2.5 py-2 text-md font-medium transition-colors lg:px-3"
-                            :class="
-                                isNavActive(item.match)
-                                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-                            "
-                        >
-                            {{ item.label }}
-                        </Link>
+                        <template v-if="!pwa">
+                            <Link
+                                v-for="item in visiblePrimaryLinks"
+                                :key="item.routeName"
+                                :href="route(item.routeName)"
+                                class="rounded-lg px-2.5 py-2 text-md font-medium transition-colors lg:px-3"
+                                :class="
+                                    isNavActive(item.match)
+                                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
+                                "
+                            >
+                                {{ item.label }}
+                            </Link>
+                        </template>
                         <Link
                             v-if="isAuthenticated() && route().has('dashboard')"
-                            :href="route('dashboard')"
+                            :href="dashboardHref"
                             class="rounded-lg px-2.5 py-2 text-md font-medium transition-colors lg:px-3"
                             :class="
                                 route().current('dashboard')
@@ -181,13 +201,13 @@ onMounted(() => {
                     <div v-else class="flex items-center gap-3">
                         <Link
                             v-if="route().has('login')"
-                            :href="route('login')"
+                            :href="pwa ? route('login', { pwa: 1 }) : route('login')"
                             class="text-sm font-medium text-gray-700 dark:text-white-300 hover:text-gray-900 dark:hover:text-white-100 transition-colors"
                         >
                             Log in
                         </Link>
                         <Link
-                            v-if="route().has('register')"
+                            v-if="!pwa && route().has('register')"
                             :href="route('register')"
                             class="rounded-lg bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg transition-all duration-200"
                         >
@@ -249,21 +269,26 @@ onMounted(() => {
         >
             <div class="max-h-[min(70vh,28rem)] overflow-y-auto">
                 <div class="px-2 pb-2 pt-3 space-y-0.5">
-                    <p class="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    <p
+                        v-if="!pwa"
+                        class="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                    >
                         Menu
                     </p>
-                    <ResponsiveNavLink
-                        v-for="item in visiblePrimaryLinks"
-                        :key="'m-' + item.routeName"
-                        :href="route(item.routeName)"
-                        :active="isNavActive(item.match)"
-                        @click="closeMobileMenu"
-                    >
-                        {{ item.label }}
-                    </ResponsiveNavLink>
+                    <template v-if="!pwa">
+                        <ResponsiveNavLink
+                            v-for="item in visiblePrimaryLinks"
+                            :key="'m-' + item.routeName"
+                            :href="route(item.routeName)"
+                            :active="isNavActive(item.match)"
+                            @click="closeMobileMenu"
+                        >
+                            {{ item.label }}
+                        </ResponsiveNavLink>
+                    </template>
                     <ResponsiveNavLink
                         v-if="isAuthenticated() && route().has('dashboard')"
-                        :href="route('dashboard')"
+                        :href="dashboardHref"
                         :active="route().current('dashboard')"
                         @click="closeMobileMenu"
                     >
@@ -305,13 +330,13 @@ onMounted(() => {
                 <div v-else class="space-y-1 border-t border-gray-200 px-2 py-3 dark:border-gray-800">
                     <ResponsiveNavLink
                         v-if="route().has('login')"
-                        :href="route('login')"
+                        :href="pwa ? route('login', { pwa: 1 }) : route('login')"
                         @click="closeMobileMenu"
                     >
                         Log in
                     </ResponsiveNavLink>
                     <ResponsiveNavLink
-                        v-if="route().has('register')"
+                        v-if="!pwa && route().has('register')"
                         :href="route('register')"
                         @click="closeMobileMenu"
                     >

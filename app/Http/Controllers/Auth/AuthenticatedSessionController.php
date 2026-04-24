@@ -64,6 +64,10 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
+        if ($request->isPwa()) {
+            return redirect()->route('login', ['pwa' => 1]);
+        }
+
         return redirect('/');
     }
 }

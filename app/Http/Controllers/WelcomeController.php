@@ -6,6 +6,9 @@ use App\Models\Faq;
 use App\Models\Plan;
 use App\Models\Post;
 use App\Support\PublicPageCache;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -14,8 +17,22 @@ use Inertia\Response;
 
 class WelcomeController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        if ($request->isPwa()) {
+            if (Auth::guest()) {
+                session()->put('url.intended', route('dashboard', absolute: false).'?pwa=1');
+
+                return redirect()->route('login', ['pwa' => 1]);
+            }
+
+            if (Auth::user()->email_verified_at === null) {
+                return redirect()->route('verification.notice');
+            }
+
+            return redirect()->route('dashboard', ['pwa' => 1]);
+        }
+
         PublicPageCache::forgetWelcomeBlogPosts();
         $blogPosts = Cache::remember(PublicPageCache::WELCOME_BLOG_POSTS, now()->addHours(12), function () {
             $posts = Post::with(['user', 'category'])

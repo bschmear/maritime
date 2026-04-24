@@ -302,6 +302,23 @@ class DeliveryController extends RecordController
         ]);
     }
 
+    public function schedule()
+    {
+        $account = \App\Models\AccountSettings::getCurrent();
+        $locations = Location::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
+
+        return Inertia::render('Tenant/Delivery/Schedule', [
+            'recordType' => 'deliveries',
+            'recordTitle' => 'Delivery Schedule',
+            'domainName' => 'Delivery',
+            'enumOptions' => $this->getEnumOptions(),
+            'account' => $account,
+            'locationOptions' => $locations,
+        ]);
+    }
+
     public function store(Request $request, PublicStorage $publicStorage)
     {
         $payload = $request->all();

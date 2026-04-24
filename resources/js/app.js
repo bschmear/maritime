@@ -1,12 +1,29 @@
 import '../css/app.css';
 import './bootstrap';
+import { registerSW } from 'virtual:pwa-register';
 import { formatPhoneNumber } from './Utils/formatPhoneNumber';
+
+// Clean up any previously-registered service workers that don't match the current
+// build (e.g. an old vite-plugin-pwa dev SW at /build/dev-sw.js). A stale SW will
+// keep requesting its own script URL to check for updates, producing 404s.
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((reg) => {
+            const url = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+            if (import.meta.env.DEV || url.includes('dev-sw.js')) {
+                reg.unregister();
+            }
+        });
+    });
+}
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+registerSW({ immediate: true });
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

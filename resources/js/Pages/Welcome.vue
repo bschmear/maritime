@@ -1,10 +1,7 @@
-
-Copy
-
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 
 const billingCycle = ref('monthly');
 
@@ -95,6 +92,22 @@ function measureHeroRulers() {
 
 
 onMounted(() => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    const hasPwaCookie = document.cookie.split('; ').some((row) => row.startsWith('pwa_mode='));
+    const url = new URL(window.location.href);
+    if (! hasPwaCookie && url.searchParams.get('pwa') !== '1') {
+        const standalone =
+            window.matchMedia('(display-mode: standalone)').matches
+            || window.navigator.standalone === true;
+        if (standalone) {
+            router.get(route('home', { pwa: 1 }));
+            return;
+        }
+    }
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', measureHeroRulers);
     handleScroll();

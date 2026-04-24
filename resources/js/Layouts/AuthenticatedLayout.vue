@@ -1,6 +1,10 @@
 <script setup>
 import Navbar from '@/Components/Navbar.vue';
 import Footer from '@/Components/Footer.vue';
+import { usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const pwa = computed(() => Boolean(usePage().props.pwa));
 </script>
 
 <template>
@@ -20,7 +24,7 @@ import Footer from '@/Components/Footer.vue';
             <slot />
         </div>
 
-        <!-- Global Footer -->
-        <Footer />
+        <!-- Global Footer (marketing) — hidden in PWA; space for tenant list only -->
+        <Footer v-if="!pwa" />
     </div>
 </template>

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AddOnController;
@@ -79,6 +80,8 @@ Route::middleware([
     PreventAccessFromCentralDomains::class,
     InitializeTenancyByDomain::class,
 ])->group(function () {
+
+    Route::get('favicon.ico', FaviconController::class);
 
     // ── Admin Portal Access Management ───────────────────────────────────
 
@@ -284,6 +287,7 @@ Route::middleware([
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
             Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');
+            Route::get('/schedule', [DeliveryController::class, 'schedule'])->name('delivery-schedule');
             Route::post('/travel-estimate', [DeliveryController::class, 'travelEstimate'])->name('travel-estimate');
             Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');

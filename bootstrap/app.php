@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            \App\Http\Middleware\QueuePwaModeCookie::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
@@ -76,6 +77,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(function (Request $request) {
             if ($request->user('customer')) {
                 return '/portal';
+            }
+
+            if ($request->isPwa() && ($user = $request->user('web'))) {
+                if ($user->email_verified_at === null) {
+                    return '/verify-email';
+                }
+
+                return '/dashboard?pwa=1';
             }
 
             return '/';
