@@ -33,33 +33,62 @@
                 </p>
                 <p v-else-if="scheduleLoading" class="text-sm text-stone-500 dark:text-white/50">Loading…</p>
                 <div
-                    class="flex items-center gap-1.5 rounded-md border border-stone-200 bg-white px-1.5 py-1 shadow-sm dark:border-white/15 dark:bg-white/5 dark:shadow-none"
-                    :title="zoomHint"
+                    class="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 bg-white px-2 py-1.5 shadow-sm dark:border-white/15 dark:bg-white/5 dark:shadow-none"
+                    :title="timelineHint"
                 >
-                    <span class="hidden pl-0.5 text-sm text-stone-500 sm:inline dark:text-white/50">View</span>
-                    <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
-                        :disabled="viewHourCount <= 1"
-                        aria-label="Show fewer hours on the schedule"
-                        @click="zoomIn"
-                    >
-                        −
-                    </button>
-                    <span
-                        class="min-w-[9.5rem] text-center text-sm font-medium tabular-nums text-stone-800 dark:text-white/90"
-                    >
-                        {{ viewRangeLabel }}
-                    </span>
-                    <button
-                        type="button"
-                        class="flex h-8 w-8 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
-                        :disabled="viewHourCount >= maxViewHours"
-                        aria-label="Show more hours on the schedule (zoom out)"
-                        @click="zoomOut"
-                    >
-                        +
-                    </button>
+                    <div class="flex items-center gap-1 text-sm text-stone-700 dark:text-white/80">
+                        <span class="hidden text-stone-500 sm:inline dark:text-white/50">Start</span>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            :disabled="dayStartHour <= 0"
+                            aria-label="Move start one hour earlier"
+                            @click="nudgeStartHour(-1)"
+                        >
+                            −
+                        </button>
+                        <span
+                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-stone-900 dark:text-white"
+                        >
+                            {{ formatHour(dayStartHour) }}
+                        </span>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            :disabled="dayStartHour >= dayEndHour - 1"
+                            aria-label="Move start one hour later"
+                            @click="nudgeStartHour(1)"
+                        >
+                            +
+                        </button>
+                    </div>
+                    <span class="text-stone-400 dark:text-white/40" aria-hidden="true">→</span>
+                    <div class="flex items-center gap-1 text-sm text-stone-700 dark:text-white/80">
+                        <span class="hidden text-stone-500 sm:inline dark:text-white/50">End</span>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            :disabled="dayEndHour <= dayStartHour + 1"
+                            aria-label="Move end one hour earlier"
+                            @click="nudgeEndHour(-1)"
+                        >
+                            −
+                        </button>
+                        <span
+                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-stone-900 dark:text-white"
+                        >
+                            {{ timelineEndLabel }}
+                        </span>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            :disabled="dayEndHour >= 24"
+                            aria-label="Move end one hour later"
+                            @click="nudgeEndHour(1)"
+                        >
+                            +
+                        </button>
+                    </div>
                 </div>
                 <div class="flex items-center gap-5">
                     <span class="flex items-center gap-2 text-stone-700 dark:text-white/80">
@@ -86,6 +115,13 @@
                     class="sticky left-0 z-20 h-11 w-48 min-w-48 shrink-0 self-stretch border-r border-stone-200 bg-stone-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:border-gray-600 dark:bg-gray-800/80"
                 />
                 <div class="relative h-11 min-w-0 flex-1 bg-stone-100 dark:bg-gray-800/80">
+                    <!-- Hour ticks for alignment with rows below -->
+                    <div
+                        v-for="m in gridLineMinutes"
+                        :key="'haxis-line-' + m"
+                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-stone-400 dark:bg-gray-600"
+                        :style="{ left: minuteToViewPercent(m) + '%' }"
+                    />
                     <!-- One label per 1h cell, centered in that cell (not on the boundary lines) -->
                     <div
                         v-for="slot in hourLabelSlots"
@@ -94,7 +130,7 @@
                         :style="{ left: slot.leftPct + '%', transform: 'translateX(-50%)' }"
                     >
                         <span
-                            class="whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-400 md:text-md"
+                            class="relative z-10 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-400 md:text-md"
                         >
                             {{ slot.text }}
                         </span>
@@ -106,15 +142,15 @@
             <div
                 v-for="tech in technicians"
                 :key="tech.id"
-                class="flex w-full min-w-[1200px] h-20 min-h-[80px] items-stretch border-b border-stone-200 transition-colors dark:border-gray-600"
-                :class="dragOverTech === tech.id ? 'bg-indigo-50 dark:bg-indigo-950/30' : ''"
+                class="flex w-full min-w-[1200px] h-20 min-h-[80px] items-stretch border-b border-gray-200 transition-colors dark:border-gray-600"
+                :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''"
                 @dragover.prevent="onDragOver(tech.id)"
                 @dragleave="onDragLeave"
                 @drop="onDrop(tech.id)"
             >
                 <div
                     class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-stone-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
-                    :class="dragOverTech === tech.id ? 'bg-indigo-50 dark:bg-indigo-950/30' : 'dark:bg-gray-800'"
+                    :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : 'dark:bg-gray-800'"
                 >
                     <div class="flex min-w-0 items-center gap-2">
                         <div
@@ -131,16 +167,21 @@
                     </p>
                 </div>
 
-                <div class="relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible">
+                <div
+                    class="relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible"
+                    :class="
+                        dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/50' : 'bg-white dark:bg-gray-900/35'
+                    "
+                >
                     <div
                         v-for="m in gridLineMinutes"
                         :key="'line-' + m + '-' + tech.id"
-                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-stone-200 dark:bg-gray-600"
+                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-stone-400 dark:bg-gray-500"
                         :style="{ left: minuteToViewPercent(m) + '%' }"
                     />
 
                     <template v-for="delivery in deliveriesForTech(tech.id)" :key="deliveryKey(tech.id, delivery)">
-                        <!-- Outbound travel (clipped to visible day when leg starts before 6:00) -->
+                        <!-- Outbound travel (clipped when leg starts before the timeline window) -->
                         <div
                             class="travel-line travel-line--to"
                             :style="travelToStyle(delivery)"
@@ -163,7 +204,7 @@
                                 {{ delivery.customer_name }}
                             </span>
                         </div>
-                        <!-- Return travel (clipped when leg runs past end of day window) -->
+                        <!-- Return travel (clipped when leg runs past the timeline window) -->
                         <div
                             class="travel-line travel-line--back"
                             :style="travelBackStyle(delivery)"
@@ -290,11 +331,23 @@ const props = defineProps({
 
 const { accountTimezone } = useTimezone();
 
-const DAY_START_HOUR = 6;
-/** Grid ends at 8:00 PM so the 7:00–8:00 PM “7 PM” hour is a full column; lines at each hour. */
-const DAY_END_HOUR = 20;
-const TOTAL_HOURS = DAY_END_HOUR - DAY_START_HOUR;
-const DAY_MINUTES_TOTAL = TOTAL_HOURS * 60;
+/** First hour on the axis (0 = midnight). `block_start_minutes` from the API is minutes from midnight on the board date. */
+const dayStartHour = ref(6);
+/** Exclusive end hour (20 = axis ends at 8:00 PM tick; 24 = full calendar day). */
+const dayEndHour = ref(20);
+
+function formatHour(h) {
+    if (h === 0) {
+        return '12 AM';
+    }
+    if (h === 12) {
+        return '12 PM';
+    }
+    if (h === 24) {
+        return 'Midnight';
+    }
+    return h < 12 ? `${h} AM` : `${h - 12} PM`;
+}
 
 /** Calendar day (Y-m-d) in account timezone — matches schedule-board `date` filter. */
 const viewingDateYmd = ref(dayjs().tz(accountTimezone.value).format('YYYY-MM-DD'));
@@ -305,9 +358,47 @@ const dragOverTech = ref(null);
 const scheduleLoading = ref(false);
 const scheduleError = ref(null);
 
-/** 1h … up to full 6 AM–7 PM; default = full day */
-const viewHourCount = ref(TOTAL_HOURS);
-const maxViewHours = TOTAL_HOURS;
+const timelineSpanMinutes = computed(() =>
+    Math.max(0, (dayEndHour.value - dayStartHour.value) * 60),
+);
+
+/** Exclusive end hour shown as the day’s closing boundary (same as the old selects). */
+const timelineEndLabel = computed(() =>
+    dayEndHour.value === 24 ? 'Midnight (end)' : formatHour(dayEndHour.value),
+);
+
+const timelineHint = computed(() => {
+    const span = dayEndHour.value - dayStartHour.value;
+    return `Default is 6 AM–8 PM. Adjust start and end with − / + (${span}h shown). End is the hour tick where the axis stops.`;
+});
+
+function nudgeStartHour(delta) {
+    const next = dayStartHour.value + delta;
+    if (next < 0 || next > dayEndHour.value - 1) {
+        return;
+    }
+    dayStartHour.value = next;
+}
+
+function nudgeEndHour(delta) {
+    const next = dayEndHour.value + delta;
+    if (next < dayStartHour.value + 1 || next > 24) {
+        return;
+    }
+    dayEndHour.value = next;
+}
+
+watch(dayStartHour, (v) => {
+    if (dayEndHour.value <= v) {
+        dayEndHour.value = Math.min(24, v + 1);
+    }
+});
+
+watch(dayEndHour, (v) => {
+    if (v <= dayStartHour.value) {
+        dayStartHour.value = Math.max(0, v - 1);
+    }
+});
 
 const technicians = ref([]);
 const deliveries = ref({});
@@ -348,37 +439,29 @@ onMounted(() => {
     loadScheduleBoard();
 });
 
-const viewSpanMinutes = computed(() => viewHourCount.value * 60);
-
 /**
- * Hour boundaries: 6:00, 7:00, …, 7:00 PM end — lines sit between cells, not in the text.
- * Includes the closing 8:00 PM line.
+ * Hour lines for the full timeline (minutes from `dayStartHour`).
  */
 const gridLineMinutes = computed(() => {
-    const v1 = Math.min(viewSpanMinutes.value, DAY_MINUTES_TOTAL);
+    const cap = timelineSpanMinutes.value;
     const out = [];
-    for (let m = 0; m <= v1; m += 60) {
-        if (m > DAY_MINUTES_TOTAL) {
-            break;
-        }
+    for (let m = 0; m <= cap; m += 60) {
         out.push(m);
     }
-    if (v1 > 0 && v1 <= DAY_MINUTES_TOTAL && (out.length === 0 || out[out.length - 1] < v1)) {
-        if (v1 % 60 !== 0) {
-            out.push(v1);
-        }
+    if (cap > 0 && cap % 60 !== 0 && (out.length === 0 || out[out.length - 1] < cap)) {
+        out.push(cap);
     }
     return out;
 });
 
-/**
- * One label per 1h cell, centered in that column (6–7a → 6 AM … 7–8p → 7 PM).
- */
+/** One label per 1h cell, centered in that column. */
 const hourLabelSlots = computed(() => {
-    const v1 = Math.min(viewSpanMinutes.value, DAY_MINUTES_TOTAL);
+    const v1 = timelineSpanMinutes.value;
     const out = [];
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h += 1) {
-        const blockStart = (h - DAY_START_HOUR) * 60;
+    const start = dayStartHour.value;
+    const end = dayEndHour.value;
+    for (let h = start; h < end; h += 1) {
+        const blockStart = (h - start) * 60;
         const blockEnd = blockStart + 60;
         if (blockStart >= v1) {
             break;
@@ -389,21 +472,6 @@ const hourLabelSlots = computed(() => {
     }
     return out;
 });
-
-const viewRangeLabel = computed(() => {
-    const h = viewHourCount.value;
-    const startH = DAY_START_HOUR;
-    const endH = startH + h;
-    if (h >= maxViewHours) {
-        return 'Full day (6a–8p)';
-    }
-    return `${h}h · ${formatHour(startH)} – ${formatHour(endH)}`;
-});
-
-const zoomHint = computed(
-    () =>
-        'Default is 6 AM–8 PM (full 7:00–8:00 PM block at the end). Use − / + to change how many hours are visible.',
-);
 
 const formattedDate = computed(() =>
     dayjs.tz(viewingDateYmd.value, accountTimezone.value).format('dddd, MMMM D, YYYY'),
@@ -428,30 +496,28 @@ function parseDate(str) {
     return new Date(s.replace(' ', 'T'));
 }
 
-function minutesFromDayStart(dateStr) {
+function minutesFromMidnight(dateStr) {
     const d = parseDate(dateStr);
     if (isNaN(d.getTime())) {
         return 0;
     }
-    return (d.getHours() - DAY_START_HOUR) * 60 + d.getMinutes();
+    return d.getHours() * 60 + d.getMinutes();
 }
 
-/** Server-computed minutes from 6:00 AM on the board date (account TZ); falls back if missing. */
+/** Minutes from `dayStartHour` on the board date; API sends minutes from midnight. */
 function blockStartMinutes(delivery) {
+    const origin = dayStartHour.value * 60;
     const raw = delivery?.block_start_minutes;
     if (raw != null && Number.isFinite(Number(raw))) {
-        return Number(raw);
+        return Number(raw) - origin;
     }
-    return minutesFromDayStart(delivery.scheduled_at);
+    return minutesFromMidnight(delivery.scheduled_at) - origin;
 }
 
-/**
- * Map [t0, t1] in day minutes (0…day end) into % of the current view window
- * (always 6:00–6:00+viewSpan, default first hour only).
- */
+/** Map [t0, t1] in timeline-relative minutes into % of the full timeline width. */
 function segmentInView(t0, t1) {
     const v0 = 0;
-    const v1 = Math.min(viewSpanMinutes.value, DAY_MINUTES_TOTAL);
+    const v1 = timelineSpanMinutes.value;
     const span = v1 - v0;
     if (span <= 0 || t1 <= t0) {
         return { left: '0%', width: '0%' };
@@ -467,9 +533,9 @@ function segmentInView(t0, t1) {
     };
 }
 
-/** Minutes from 6:00 AM start (0) along the x-axis of the current view. */
+/** Minutes from `dayStartHour` (0) along the x-axis. */
 function minuteToViewPercent(minute) {
-    const v1 = Math.min(viewSpanMinutes.value, DAY_MINUTES_TOTAL);
+    const v1 = timelineSpanMinutes.value;
     if (v1 <= 0) {
         return 0;
     }
@@ -497,13 +563,6 @@ function fleetScheduleUnitLabel(delivery, role) {
     return FLEET_NONE_ASSIGNED;
 }
 
-function formatHour(h) {
-    if (h === 12) {
-        return '12 PM';
-    }
-    return h < 12 ? `${h} AM` : `${h - 12} PM`;
-}
-
 function formatTime(str) {
     const d = parseDate(str);
     if (isNaN(d.getTime())) {
@@ -524,8 +583,9 @@ function initials(name) {
 function deliveryBlockStyle(delivery) {
     const s = blockStartMinutes(delivery);
     const durMin = delivery.delivery_duration_minutes || 15;
+    const cap = timelineSpanMinutes.value;
     const t0 = Math.max(0, s);
-    const t1 = Math.min(s + durMin, DAY_MINUTES_TOTAL);
+    const t1 = Math.min(s + durMin, cap);
     if (t0 >= t1) {
         return { left: '0%', width: '0%' };
     }
@@ -539,11 +599,12 @@ function travelToStyle(delivery) {
         return { left: '0%', width: '0%' };
     }
     const D = A - T;
-    if (D >= DAY_MINUTES_TOTAL) {
+    const cap = timelineSpanMinutes.value;
+    if (D >= cap) {
         return { left: '0%', width: '0%' };
     }
     const t0 = Math.max(0, D);
-    const t1 = Math.min(A, DAY_MINUTES_TOTAL);
+    const t1 = Math.min(A, cap);
     if (t0 >= t1) {
         return { left: '0%', width: '0%' };
     }
@@ -558,27 +619,16 @@ function travelBackStyle(delivery) {
     if (T <= 0) {
         return { left: '0%', width: '0%' };
     }
-    if (E >= DAY_MINUTES_TOTAL) {
+    const cap = timelineSpanMinutes.value;
+    if (E >= cap) {
         return { left: '0%', width: '0%' };
     }
     const t0 = E;
-    const t1 = Math.min(E + T, DAY_MINUTES_TOTAL);
+    const t1 = Math.min(E + T, cap);
     if (t0 >= t1) {
         return { left: '0%', width: '0%' };
     }
     return segmentInView(t0, t1);
-}
-
-function zoomIn() {
-    if (viewHourCount.value > 1) {
-        viewHourCount.value -= 1;
-    }
-}
-
-function zoomOut() {
-    if (viewHourCount.value < maxViewHours) {
-        viewHourCount.value += 1;
-    }
 }
 
 function changeDay(delta) {

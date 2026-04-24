@@ -978,7 +978,8 @@ class DeliveryController extends RecordController
      */
     private function scheduleBoardDeliveryBlock(RecordModel $d, string $boardDateYmd, string $tz): array
     {
-        $gridStartHour = 6;
+        /** Minutes from start of calendar day in $tz (DeliveryScheduler can window any sub-range). */
+        $gridStartHour = 0;
 
         $estimatedTravelSeconds = $d->estimated_travel_duration_seconds;
         if (($estimatedTravelSeconds === null || (int) $estimatedTravelSeconds <= 0)

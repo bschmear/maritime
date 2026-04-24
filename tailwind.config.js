@@ -98,6 +98,7 @@ export default {
       fuchsia: colors.fuchsia,
       brown: colors.brown,
       slate: colors.slate,
+      stone: colors.stone,
     },
     extend: {
       fontFamily: {
