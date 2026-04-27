@@ -1,15 +1,22 @@
 {
-    "columns": [
-      {
-        "key": "display_name",
-        "label": "Brand",
-        "sortable": true
-      },
-      {
-        "key": "created_at",
-        "label": "Created",
-        "sortable": true
-      }
-    ]
-  }
-  
+  "columns": [
+    {
+      "key": "display_name",
+      "label": "Brand",
+      "sortable": true
+    },
+    {
+      "key": "brand_key",
+      "label": "Catalog key",
+      "sortable": true
+    },
+    {
+      "key": "created_at",
+      "label": "Created",
+      "sortable": true
+    }
+  ],
+  "hide_create_button": true,
+  "allow_create_modal": false,
+  "empty_state_body": "Use the buttons above to add brands from the manufacturer list or to add a brand manually."
+}

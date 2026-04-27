@@ -523,7 +523,7 @@ defineExpose({
 
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
                 <div class="flex flex-wrap items-center gap-2">
                     <slot name="headerActions" />
                     <button v-if="!schema?.hide_create_button"
@@ -712,6 +712,10 @@ defineExpose({
                 <p v-if="!schema?.hide_create_button"
                    class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">
                     Get started by creating your first {{ recordTitle }}.
+                </p>
+                <p v-else-if="schema?.empty_state_body"
+                   class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">
+                    {{ schema.empty_state_body }}
                 </p>
                 <p v-else class="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm mb-5">
                     There are no payments to show yet. Payments appear when customers pay online or when you record a manual payment on an invoice.

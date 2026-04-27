@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
@@ -449,22 +450,17 @@ const showPrimaryContactField = computed(() => props.mode === 'edit' && props.re
                                                 </div>
 
                                                 <!-- rating -->
-                                                <div v-else-if="fieldDef(field.key).type === 'rating'">
+                                                <div
+                                                    v-else-if="fieldDef(field.key).type === 'rating'"
+                                                    :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
+                                                >
                                                     <label
-                                                        :for="`vendor-${field.key}`"
                                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
                                                     >
                                                         {{ fieldDef(field.key).label || field.key }}
+                                                        <span v-if="field.required" class="text-red-500">*</span>
                                                     </label>
-                                                    <input
-                                                        :id="`vendor-${field.key}`"
-                                                        v-model.number="form[field.key]"
-                                                        type="number"
-                                                        min="1"
-                                                        max="5"
-                                                        step="1"
-                                                        class="input-style max-w-[8rem]"
-                                                    />
+                                                    <Rating v-model="form[field.key]" :show-value="false" />
                                                     <p
                                                         v-if="form.errors[field.key]"
                                                         class="mt-1 text-xs text-red-600 dark:text-red-400"

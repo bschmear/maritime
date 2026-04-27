@@ -13,7 +13,6 @@ class CreateBoatMake
 {
     public function __invoke(array $data): array
     {
-        // Validate input
         $validated = Validator::make($data, [
             'display_name' => ['required', 'string', 'max:255'],
             'asset_types' => ['required', 'array', 'min:1'],
@@ -21,19 +20,23 @@ class CreateBoatMake
             'is_custom' => ['sometimes', 'boolean'],
             'logo' => ['sometimes', 'nullable', 'string'],
             'active' => ['sometimes', 'boolean'],
+            'brand_key' => ['sometimes', 'nullable', 'string', 'max:255'],
         ])->validate();
 
-        // Generate unique slug from title
-        $slug = Str::slug($validated['display_name']);
-        $originalSlug = $slug;
-        $counter = 1;
+        if (! empty($validated['brand_key'])) {
+            $validated['slug'] = $validated['brand_key'];
+        } else {
+            $slug = Str::slug($validated['display_name']);
+            $originalSlug = $slug;
+            $counter = 1;
 
-        while (RecordModel::where('slug', $slug)->exists()) {
-            $slug = $originalSlug.'-'.$counter;
-            $counter++;
+            while (RecordModel::where('slug', $slug)->exists()) {
+                $slug = $originalSlug.'-'.$counter;
+                $counter++;
+            }
+
+            $validated['slug'] = $slug;
         }
-
-        $validated['slug'] = $slug;
 
         try {
             $record = RecordModel::create($validated);

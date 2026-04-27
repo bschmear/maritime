@@ -2,59 +2,124 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
-use OpenAI\Laravel\Facades\OpenAI;
+use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
+use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
+use App\Domain\InventoryCatalog\Models\InventoryCatalogAssetVariant;
 use App\Enums\Inventory\BoatType;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use OpenAI\Laravel\Facades\OpenAI;
 
 class BoatMetaAIService
 {
     public function generate(string $makeSlug, string $modelSlug, string $makeLabel, string $modelLabel): array
     {
-        // 1. Load existing meta
-        $metaPath = $this->getMetaPath($makeSlug);
-        $meta = $this->loadMeta($metaPath);
+        $invMake = InventoryBoatMake::query()->firstOrCreate(
+            ['slug' => $makeSlug],
+            ['display_name' => $makeLabel, 'active' => true]
+        );
 
-        // 2. Prevent overwrite
-        if (isset($meta[$modelSlug])) {
-            return $meta[$modelSlug];
+        $catalogKey = $makeSlug.'--'.$modelSlug;
+
+        $existing = InventoryCatalogAsset::query()
+            ->where('make_id', $invMake->id)
+            ->where('slug', $catalogKey)
+            ->first();
+
+        if ($existing !== null) {
+            $meta = data_get($existing->attributes, 'boat_meta');
+            if (is_array($meta)) {
+                return $meta;
+            }
         }
 
-        // 3. Call AI
         $aiData = $this->callAI($makeSlug, $modelSlug, $makeLabel, $modelLabel);
-
-        // 4. Validate structure
         $this->validate($aiData);
-
-        // 5. Normalize data
         $normalized = $this->normalize($aiData);
-
-        // 6. Save
-        $meta[$modelSlug] = $normalized;
-        $this->saveMeta($metaPath, $meta);
+        $this->persistToInventory($invMake, $catalogKey, $modelLabel, $normalized);
 
         return $normalized;
     }
 
-    protected function callAI($makeSlug, $modelSlug, $makeLabel, $modelLabel): array
+    protected function persistToInventory(InventoryBoatMake $invMake, string $catalogKey, string $modelLabel, array $normalized): void
+    {
+        DB::connection('inventory')->transaction(function () use ($invMake, $catalogKey, $modelLabel, $normalized): void {
+            $specs = $normalized['specifications'] ?? [];
+            $attrs = [
+                'boat_meta' => $normalized,
+                'boat_type_key' => $normalized['boat_type_key'] ?? null,
+                'features' => $normalized['features'] ?? [],
+                'series' => $normalized['series'] ?? null,
+                'type_display' => $normalized['type_display'] ?? null,
+            ];
+
+            $hasVariants = isset($normalized['variants']) && is_array($normalized['variants']) && count($normalized['variants']) > 0;
+
+            $asset = InventoryCatalogAsset::query()->updateOrCreate(
+                [
+                    'make_id' => $invMake->id,
+                    'slug' => $catalogKey,
+                ],
+                [
+                    'type' => 1,
+                    'display_name' => trim(($normalized['series'] ?? '').' '.$modelLabel) ?: $modelLabel,
+                    'inactive' => false,
+                    'model' => $modelLabel,
+                    'description' => $normalized['description'] ?? null,
+                    'attributes' => $attrs,
+                    'has_variants' => $hasVariants,
+                    'length' => $specs['length'] ?? null,
+                    'beam' => $specs['width'] ?? null,
+                    'persons' => $specs['capacity_persons'] ?? null,
+                    'maximum_power' => $this->hpStringToInt($specs['max_hp'] ?? null),
+                    'fuel_tank' => $specs['fuel_capacity'] ?? null,
+                ]
+            );
+
+            InventoryCatalogAssetVariant::query()->where('asset_id', $asset->id)->delete();
+
+            if ($hasVariants) {
+                foreach ($normalized['variants'] as $v) {
+                    InventoryCatalogAssetVariant::query()->create([
+                        'asset_id' => $asset->id,
+                        'key' => $v['id'],
+                        'name' => $v['name'],
+                        'display_name' => $v['name'],
+                        'inactive' => false,
+                        'description' => json_encode(['specifications' => $v['specifications'] ?? []]),
+                    ]);
+                }
+            }
+        });
+    }
+
+    protected function hpStringToInt(?string $hp): ?int
+    {
+        if ($hp === null || $hp === '') {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', $hp);
+
+        return $digits !== '' && $digits !== null ? (int) $digits : null;
+    }
+
+    protected function callAI(string $makeSlug, string $modelSlug, string $makeLabel, string $modelLabel): array
     {
         $response = OpenAI::chat()->create([
-            'model' => 'gpt-5',
-            'temperature' => 0.2,
-
+            'model' => config('boat_meta_ai.generate_model', 'gpt-5'),
             'response_format' => [
                 'type' => 'json_schema',
                 'json_schema' => [
                     'name' => 'boat_model_meta',
-                    'schema' => $this->schema()
-                ]
+                    'schema' => $this->schema(),
+                ],
             ],
-
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => $this->systemPrompt()
+                    'content' => $this->systemPrompt(),
                 ],
                 [
                     'role' => 'user',
@@ -63,20 +128,29 @@ class BoatMetaAIService
                         'make' => $makeLabel,
                         'model' => $modelLabel,
                         'make_slug' => $makeSlug,
-                        'model_slug' => $modelSlug
-                    ])
-                ]
-            ]
+                        'model_slug' => $modelSlug,
+                    ]),
+                ],
+            ],
         ]);
 
-        return json_decode($response->choices[0]->message->content, true);
+        return json_decode($response->choices[0]->message->content, true, 512, JSON_THROW_ON_ERROR);
     }
 
     protected function validate(array $data): void
     {
-        // Hard guard: cannot have both
-        if (isset($data['variants']) && isset($data['specifications'])) {
-            throw new \Exception('Invalid AI response: both variants and specifications present.');
+        $specs = $data['specifications'] ?? null;
+        $vars = $data['variants'] ?? null;
+
+        $hasSpecs = $specs !== null;
+        $hasVariants = is_array($vars) && count($vars) > 0;
+
+        if ($hasSpecs && $hasVariants) {
+            throw new \Exception('Invalid AI response: include either specifications or variants, not both.');
+        }
+
+        if (! $hasSpecs && ! $hasVariants) {
+            throw new \Exception('Invalid AI response: must include non-null specifications or a non-empty variants array.');
         }
 
         Validator::make($data, [
@@ -86,8 +160,8 @@ class BoatMetaAIService
             'description' => 'required|string',
             'features' => 'required|array',
 
-            'specifications' => 'nullable|array',
-            'variants' => 'nullable|array'
+            'specifications' => 'nullable',
+            'variants' => 'nullable|array',
         ])->validate();
     }
 
@@ -101,6 +175,7 @@ class BoatMetaAIService
             $data['variants'] = array_map(function ($variant) {
                 $variant['id'] = Str::slug($variant['id']);
                 $variant['specifications'] = $this->normalizeSpecs($variant['specifications']);
+
                 return $variant;
             }, $data['variants']);
         }
@@ -123,10 +198,11 @@ class BoatMetaAIService
 
     protected function normalizeFeetInches($value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
 
-        // naive cleanup (can improve later)
-        $value = str_replace(['ft', 'feet'], "'", strtolower($value));
+        $value = str_replace(['ft', 'feet'], "'", strtolower((string) $value));
         $value = str_replace(['in', 'inches'], '"', $value);
 
         return trim($value);
@@ -134,54 +210,43 @@ class BoatMetaAIService
 
     protected function normalizeWeight($value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
 
-        return preg_replace('/[^0-9]/', '', $value) . ' lbs';
+        return preg_replace('/\D+/', '', (string) $value).' lbs';
     }
 
     protected function normalizeHP($value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
 
-        return preg_replace('/[^0-9]/', '', $value) . 'hp';
+        return preg_replace('/\D+/', '', (string) $value).'hp';
     }
 
     protected function normalizeGallons($value): ?string
     {
-        if (!$value) return null;
+        if (! $value) {
+            return null;
+        }
 
-        return preg_replace('/[^0-9]/', '', $value) . ' gal';
+        return preg_replace('/\D+/', '', (string) $value).' gal';
     }
 
     protected function normalizeInt($value): ?int
     {
-        if ($value === null) return null;
+        if ($value === null) {
+            return null;
+        }
 
         return (int) $value;
     }
 
-    protected function getMetaPath(string $makeSlug): string
-    {
-        return app_path("AssetInformation/{$makeSlug}/meta.json");
-    }
-
-    protected function loadMeta(string $path): array
-    {
-        if (!file_exists($path)) {
-            return [];
-        }
-
-        return json_decode(file_get_contents($path), true) ?? [];
-    }
-
-    protected function saveMeta(string $path, array $data): void
-    {
-        file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT));
-    }
-
     protected function systemPrompt(): string
     {
-        return <<<SYS
+        return <<<'SYS'
 You are a marine product data normalization engine.
 
 Return ONLY valid JSON that matches the schema.
@@ -196,9 +261,10 @@ RULES:
   - hp
   - gallons
 
-VARIANTS:
-- Include only if real
-- Otherwise use specifications
+VARIANTS VS SPECS (exactly one):
+- If the line has multiple size/trim variants: set "variants" to a non-empty array and set "specifications" to null.
+- If it is a single configuration: set "specifications" to an object (use null for unknown fields) and set "variants" to null.
+- Never send both non-null specifications and a non-empty variants array.
 SYS;
     }
 
@@ -213,37 +279,36 @@ SYS;
                 'type_display' => ['type' => 'string'],
                 'boat_type_key' => [
                     'type' => 'string',
-                    'enum' => array_column(BoatType::options(), 'value')
+                    'enum' => array_column(BoatType::options(), 'value'),
                 ],
                 'description' => ['type' => 'string'],
                 'features' => [
                     'type' => 'array',
-                    'items' => ['type' => 'string']
+                    'items' => ['type' => 'string'],
                 ],
                 'specifications' => [
                     'type' => ['object', 'null'],
-                    'properties' => $this->specSchema()
+                    'additionalProperties' => false,
+                    'properties' => $this->specSchema(),
                 ],
                 'variants' => [
                     'type' => ['array', 'null'],
                     'items' => [
                         'type' => 'object',
+                        'additionalProperties' => false,
                         'required' => ['id', 'name', 'specifications'],
                         'properties' => [
                             'id' => ['type' => 'string'],
                             'name' => ['type' => 'string'],
                             'specifications' => [
                                 'type' => 'object',
-                                'properties' => $this->specSchema()
-                            ]
-                        ]
-                    ]
-                ]
+                                'additionalProperties' => false,
+                                'properties' => $this->specSchema(),
+                            ],
+                        ],
+                    ],
+                ],
             ],
-            'oneOf' => [
-                ['required' => ['specifications']],
-                ['required' => ['variants']]
-            ]
         ];
     }
 

@@ -16,5 +16,11 @@
         }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Models",
+      "domain": "Asset"
+    }
+  ]
 }

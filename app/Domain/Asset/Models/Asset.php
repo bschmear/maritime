@@ -19,6 +19,7 @@ class Asset extends Model
         'type',
         'display_name',
         'slug',
+        'catalog_asset_key',
         'hin',
         'serial_number',
         'subsidiary_id',
@@ -115,12 +116,22 @@ class Asset extends Model
         parent::boot();
 
         static::creating(callback: function ($item) {
+            if (! empty($item->catalog_asset_key)) {
+                $item->slug = $item->catalog_asset_key;
+
+                return;
+            }
             if (empty($item->slug) && ! empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }
         });
 
         static::updating(function ($item) {
+            if (! empty($item->catalog_asset_key)) {
+                $item->slug = $item->catalog_asset_key;
+
+                return;
+            }
             if (! empty($item->display_name)) {
                 $item->slug = strtolower(str_replace(' ', '-', $item->display_name));
             }

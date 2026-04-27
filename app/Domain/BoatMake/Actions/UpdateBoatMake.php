@@ -19,6 +19,7 @@ class UpdateBoatMake
             'is_custom' => ['sometimes', 'boolean'],
             'logo' => ['sometimes', 'nullable', 'string'],
             'active' => ['sometimes', 'boolean'],
+            'brand_key' => ['sometimes', 'nullable', 'string', 'max:255'],
         ])->validate();
 
         try {

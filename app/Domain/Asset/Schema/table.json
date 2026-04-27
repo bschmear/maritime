@@ -22,6 +22,11 @@
       "sortable": true
     },
     {
+      "key": "has_variants",
+      "label": "Has Variants",
+      "sortable": true
+    },
+    {
       "key": "year",
       "label": "Year",
       "sortable": true

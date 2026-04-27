@@ -16,10 +16,6 @@
     "label": "Vendor Code",
     "type": "text"
   },
-  "tags": {
-    "label": "Tags",
-    "type": "json"
-  },
   "primary_contact_id": {
     "label": "Primary Contact",
     "type": "record",

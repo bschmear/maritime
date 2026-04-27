@@ -91,6 +91,25 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        /*
+         * Shared catalog (makes, template assets/variants) for cross-tenant listing consistency.
+         * Run: php artisan migrate --database=inventory --path=database/migrations/inventory
+         */
+        'inventory' => [
+            'driver' => 'pgsql',
+            'url' => env('INVENTORY_DB_URL'),
+            'host' => env('INVENTORY_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('INVENTORY_PORT', env('DB_PORT', '5432')),
+            'database' => env('INVENTORY_DATABASE', 'maritime_inventory'),
+            'username' => env('INVENTORY_USERNAME', env('DB_USERNAME', 'root')),
+            'password' => env('INVENTORY_PASSWORD', env('DB_PASSWORD', '')),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

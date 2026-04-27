@@ -18,6 +18,7 @@ class AssetVariant extends Model
         'asset_id',
         'name',
         'display_name',
+        'key',
         'default_cost',
         'default_price',
         'description',

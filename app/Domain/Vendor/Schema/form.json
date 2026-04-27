@@ -10,7 +10,6 @@
         { "key": "vendor_type", "required": false },
         { "key": "industry", "required": false },
         { "key": "vendor_code", "required": false },
-        { "key": "tags", "required": false },
         { "key": "status_id", "required": true },
         { "key": "status_reason", "required": false },
         { "key": "rating", "required": false },

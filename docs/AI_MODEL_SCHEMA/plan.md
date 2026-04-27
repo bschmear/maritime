@@ -1,271 +1,144 @@
-1. Core Mental Model (Lock This In)
+# Boat catalog and tenant assets — architecture plan (v2)
 
-You now have 3 layers:
+This document replaces the earlier **file-only** mental model (`models.json` / `meta.json` as the system of record). The system of record for makes, model lines, and variants is the **inventory database** (`maritime_inventory`). AI and static JSON are inputs used to **seed or extend** that database; tenants **import** rows into their schema as **Assets** and **Asset variants**, linked by stable keys.
 
-✅ Static truth (your files)
-models.json → list of selectable models
-meta.json → enriched structured data
-✅ Runtime resolution
-User selects:
-make
-model
-System attempts:
-→ meta[model_id]
-✅ AI fallback (only when missing)
-Generate:
-full model object
-OR variants structure
-Then:
-hydrate UI
-persist to meta.json
-2. Canonical Data Contract (VERY IMPORTANT)
+---
 
-Before touching AI, you need a strict schema contract.
+## 1. Core mental model (lock this in)
 
-This is your single source of truth shape:
+| Layer | Role |
+|--------|------|
+| **Canonical manufacturers** | Curated list (e.g. [manufacturers.json](/app/Domain/BoatMake/Schema/manufacturers.json)): each row has `display_name` + **`slug` = brand key** (unique globally). |
+| **Inventory DB** | Holds `boat_make` (or `makes`) + `assets` + `asset_variants` aligned with your listing/catalog app. Brand key lives on the make row as **`slug`**. Model lines are `assets` (with `make_id`); trims/sizes are `asset_variants` with a stable **`key`**. |
+| **Tenant DB** | User selects which brands they carry; `boat_make` rows store the same **`brand_key`** (slug) as inventory. Imported catalog rows become tenant **`assets`** / **`asset_variants`** with matching keys so duplicates are impossible across re-imports and listing sync. |
+| **AI fallback** | When a chosen brand has **no** (or incomplete) catalog rows in the inventory DB, call OpenAI with the strict JSON schema (see §2–3), **write results to the inventory DB first**, then import into the tenant. |
 
-🔹 Model Meta Schema (no variants)
-{
-  "series": "string",
-  "type_display": "string",
-  "boat_type_key": "runabouts",
-  "description": "string",
-  "specifications": {
-    "length": "string|null",
-    "width": "string|null",
-    "height": "string|null",
-    "weight": "string|null",
-    "capacity_persons": "number|null",
-    "max_hp": "string|null",
-    "fuel_capacity": "string|null"
-  },
-  "features": ["string"]
-}
-🔹 Model Meta Schema (WITH variants)
-{
-  "series": "string",
-  "type_display": "string",
-  "boat_type_key": "tenders",
-  "description": "string",
-  "features": ["string"],
-  "variants": [
-    {
-      "id": "string",
-      "name": "string",
-      "specifications": {
-        "length": "string|null",
-        "width": "string|null",
-        "height": "string|null",
-        "weight": "string|null",
-        "capacity_persons": "number|null",
-        "max_hp": "string|null",
-        "fuel_capacity": "string|null"
-      }
-    }
-  ]
-}
-3. AI Schema (What You Send to OpenAI)
+---
 
-You should NOT let AI freestyle this.
+## 2. Canonical data contract (AI / API shape)
 
-Use strict JSON schema prompting.
+Unchanged intent: model meta is either **single specifications** or **variants array**, never both. See [open_ai_payload.php](./open_ai_payload.php) and [BoatMetaAIService](/app/Services/BoatMetaAIService.php) for the strict schema, validation, and normalization.
 
-🔥 AI Prompt Strategy
-System Prompt
-You are a marine data normalization engine.
+---
 
-You must return ONLY valid JSON matching the provided schema.
+## 3. AI schema
 
-Rules:
-- No extra fields
-- No missing required fields
-- Use null when unknown
-- Use consistent units (feet/inches, lbs, gallons, hp)
-- Do not hallucinate specifications — prefer null if unsure
-- Variants should only be included if the model is known to have size or trim variations
-🔥 User Prompt (dynamic)
-{
-  "task": "generate_boat_model_metadata",
-  "make": "Walker Bay",
-  "model": "G15",
-  "category": "inflatable",
-  "expected_schema": "model_meta"
-}
-🔥 AI Response (STRICT)
+Continue using **`response_format: json_schema`** and server-side validation; do not persist until validated. After validation, map into **inventory DB tables** (not `meta.json`).
 
-You enforce one of two responses:
+---
 
-Option A (no variants)
-{
-  "series": "...",
-  "type_display": "...",
-  "boat_type_key": "...",
-  "description": "...",
-  "specifications": {...},
-  "features": [...]
-}
-Option B (with variants)
-{
-  "series": "...",
-  "type_display": "...",
-  "boat_type_key": "...",
-  "description": "...",
-  "features": [...],
-  "variants": [...]
-}
-4. Backend Flow (Step-by-Step)
-🔹 Step 1: User selects Make + Model
-$make = 'walker-bay';
-$model = 'g15';
+## 4. Inventory database schema (your DDL + required additions)
 
-$meta = MetaLoader::for($make);
+You provided:
 
-if (isset($meta[$model])) {
-    return $meta[$model]; // ✅ instant autofill
-}
-🔹 Step 2: No match → show AI button
+- **`assets`**: model line / catalog asset (`make_id`, `model`, `slug`, specs, `has_variants`, etc.).
+- **`asset_variants`**: includes **`key`** (varchar) — use this as the **global dedupe id** for a trim/size line under a model.
 
-Frontend:
+**Gap in the pasted DDL:** `assets.make_id` implies a **parent make table**. Add an explicit table in the inventory DB, for example:
 
-if (!metaExists) {
-  showAutoFillAI = true;
-}
-🔹 Step 3: User clicks "Auto Fill with AI"
+- **`boat_make`** (or `makes`): `id`, **`slug`** (unique, **brand key**), `display_name`, `active`, timestamps — and optionally `logo`, `asset_types` if you want parity with tenant.
 
-Call backend:
+Seed **`slug` + `display_name`** from the manufacturer list (`manufacturers.json`: slug keys + display labels; legacy array format can derive slugs; store both so the UI can show labels while keys stay stable).
 
-POST /api/boats/auto-fill
+**Model-line dedupe:** Your `assets` table has `slug` but no `key` column. Either:
 
-Payload:
+- Treat **`assets.slug`** as the canonical **model catalog key** (unique per `make_id`, or globally unique if prefixed, e.g. `walker-bay--g15`), **or**
+- Add an optional **`key`** column on `assets` mirroring variants.
 
-{
-  "make": "walker-bay",
-  "model": "g15"
-}
-🔹 Step 4: Backend AI Service
-$response = OpenAI::chat()->create([
-    'model' => 'gpt-5',
-    'response_format' => ['type' => 'json_object'],
-    'messages' => [...]
-]);
-🔹 Step 5: Validate BEFORE saving
+**Variants:** Keep using **`asset_variants.key`**; enforce **unique (`asset_id`, `key`)** in inventory (and the same in tenant after migration).
 
-Do NOT trust AI blindly
+---
 
-$data = json_decode($response, true);
+## 5. Tenant database changes
 
-Validator::make($data, [
-    'series' => 'required|string',
-    'type_display' => 'required|string',
-    'boat_type_key' => ['required', Rule::in(BoatType::values())],
-    'description' => 'required|string',
-    'features' => 'array',
+### 5.1 `boat_make`
 
-    // conditional
-    'specifications' => 'array',
-    'variants' => 'array'
-]);
-🔹 Step 6: Normalize (CRITICAL STEP)
+- Add **`brand_key`** (string, nullable for legacy): stores the inventory make **`slug`**. Must match inventory `boat_make.slug` for that brand.
+- Optional: unique index on `brand_key` per tenant schema so the same brand is not added twice.
+- **`slug`** on tenant `boat_make` can stay aligned with `brand_key` for URLs, or remain display-derived — but **listing consistency** should be driven by **`brand_key`**.
 
-Examples:
+### 5.2 `assets` and `asset_variants` (tenant)
 
-"21 ft" → "21' 0\""
-"225 HP" → "225hp"
-"12 people" → 12
+- Add **`catalog_asset_key`** (or reuse `slug` with a documented convention) on **`assets`**: must match inventory **`assets.slug`** (or `assets.key` if you add it).
+- Add **`key`** on **`asset_variants`** if not present (inventory already has it): match inventory **`asset_variants.key`**.
+- Import logic: **upsert** by `(make_id, catalog_asset_key)` for assets and `(asset_id, key)` for variants so re-running “import all” does not duplicate.
 
-You want a SpecificationNormalizer class
+### 5.3 Laravel connection
 
-🔹 Step 7: Persist to meta.json
-$meta[$model] = $data;
+- Register an **`inventory`** connection in [config/database.php](/config/database.php) using `INVENTORY_*` from `.env`.
+- Migrations for inventory tables live in a dedicated path (e.g. `database/migrations/inventory`) and run with `--database=inventory`.
 
-file_put_contents(
-    app_path("AssetInformation/{$make}/meta.json"),
-    json_encode($meta, JSON_PRETTY_PRINT)
-);
-🔹 Step 8: Return to frontend
-{
-  "data": { ...normalizedMeta }
-}
+---
 
-Frontend:
+## 6. UX flows
 
-hydrate form
-generate variant rows if needed
-5. Frontend Behavior
-When data returned:
-If variants exists:
-render variant selector
-auto-create rows per variant
-Else:
-fill single spec form
-6. Smart Enhancements (HIGH VALUE)
-🔥 1. Cache AI responses (before writing)
+### 6.1 “What brands do you work with?”
 
-Prevent duplicate calls during race conditions.
+- Replace free-text “add boat make” with a **multi-select** from the canonical manufacturer list (each option: `display_name` + **`slug` / brand_key`**).
+- On confirm: create or activate one **`boat_make`** per selected slug, setting **`brand_key`** = inventory slug (and `display_name` from list).
 
-🔥 2. Add confidence scoring
+### 6.2 After brands are added — import catalog as assets
 
-AI can return:
+- For each brand with `brand_key`, read from **inventory DB**: makes + assets (+ variants) for that `make_id`.
+- Prompt: **“Import all models, details, and variants for this brand?”** (or pick specific models in a follow-up UI).
+- **Grey out** models/variants already present in the tenant: join on **`catalog_asset_key`** and variant **`key`** (and `make_id` / `boat_make.id`).
 
-"_confidence": "low"
+### 6.3 Creating tenant rows
 
-If low:
-→ flag UI: “Verify specs”
+- **Asset (model line):** map inventory `assets` columns into tenant `assets`; set `make_id` to the tenant’s `boat_make.id` for that brand; set **`catalog_asset_key`** / `slug` from inventory.
+- **Asset variants:** for each inventory `asset_variant`, create tenant variant with same **`key`**; set `has_variants` on the parent asset when appropriate.
+- Map AI `specifications` / variant specs into existing columns (`length`, `beam`, `persons`, `maximum_power`, `fuel_tank`, etc.) and optionally **`attributes`** JSON for fields without columns (e.g. height, weight) until you add columns.
 
-🔥 3. Admin review queue (optional but powerful)
+### 6.4 Brand with no (or partial) inventory data
 
-Instead of writing directly:
+- If inventory has the make but **no** assets (or user requests enrichment): run **BoatMetaAIService** (or equivalent) per model, then **insert into inventory `assets` / `asset_variants`**, then import into tenant (same keys).
+- Optionally add a separate **“list models for this make”** AI step if you need discovery before per-model meta calls.
 
-save to meta_pending.json
-admin approves → merges into meta.json
-🔥 4. Versioning meta.json
-"_generated_at": "2026-04-04",
-"_source": "ai"
-7. Key Design Decisions You Got Right
+---
 
-This is important:
+## 7. Backend flow (high level)
 
-✅ File-based structure → fast + portable
-✅ Model key system → stable lookups
-✅ Variant separation → scalable
-✅ AI fallback → fills gaps over time
-✅ Persisting AI → system improves itself
+1. **Resolve manufacturer** by `slug` (brand key) against inventory `boat_make`.
+2. **Tenant onboarding:** upsert tenant `boat_make` rows from multi-select (`brand_key` = slug).
+3. **List importable catalog:** query inventory `assets` (+ variants) for `make_id`; subtract set already imported (tenant query by keys).
+4. **Import:** transactional batch upsert into tenant `assets` / `asset_variants`.
+5. **AI path:** validate → write inventory → import tenant (keys identical).
 
-8. One Critical Warning
+---
 
-Do NOT:
+## 8. Warnings (still critical)
 
-Let AI decide IDs
-Let AI invent variants blindly
-Let AI overwrite existing meta
+- Do **not** let AI overwrite existing inventory rows without an explicit review or version policy.
+- Do **not** invent variant **keys**; normalize to slug-style strings (as in [BoatMetaAIService](/app/Services/BoatMetaAIService.php)) and enforce uniqueness.
+- **Queue** long-running AI + bulk imports to avoid HTTP timeouts.
 
-Always:
+---
 
-if (!isset($meta[$model])) {
-    // only then write
-}
-9. Clean Folder Structure
-AssetInformation/
-  walker-bay/
-    models.json
-    meta.json
-  ab-inflatables/
-    models.json
-    meta.json
-10. Final Architecture Summary
+## 9. Deprecations relative to v1 of this doc
 
-User Flow
+- **`meta.json` / `models.json` as system of record** — demote to optional dev cache or remove after inventory DB is populated.
+- **Boat make as arbitrary text** — remove for onboarding; use keyed manufacturer list + `brand_key` on `boat_make`.
+- **Inventory items vs assets** — this iteration standardizes on **Assets** + **Asset variants** for catalog models (per your direction); **InventoryItem** boat flows can be updated later to reference the same keys if you want one spine for both.
 
-Select Make → Select Model
-        ↓
-Check meta.json
-   ↓         ↓
- Found     Not Found
-  ↓           ↓
-Autofill   Show AI Button
-               ↓
-        Generate + Validate + Normalize
-               ↓
-          Save to meta.json
-               ↓
-           Autofill UI
+---
+
+## 10. Implementation checklist (engineering)
+
+1. Add **`inventory`** DB connection and inventory migrations (`boat_make`, ensure `assets` / `asset_variants` match DDL + unique constraints on keys).
+2. Seed inventory **`boat_make`** from `app/Domain/BoatMake/Schema/manufacturers.json` (display_name + slug).
+3. Tenant migrations: **`boat_make.brand_key`**, tenant **`assets.catalog_asset_key`** (or documented slug rule), **`asset_variants.key`**.
+4. Update **BoatMetaAIService** persistence target from disk to **inventory DB** (or a service that writes inventory first).
+5. API + UI: multi-select brands; import all / subset; grey-out imported keys.
+6. Align [BoatMake](/app/Domain/BoatMake/Models/BoatMake.php) / asset forms: brand picker is **select from keyed list**, not free text.
+
+---
+
+## 11. Reference: inventory `asset_variants` (excerpt)
+
+`key` varchar(255) — **stable variant identifier** for dedupe and listing sync.
+
+---
+
+## 12. Reference: inventory `assets` (excerpt)
+
+`make_id` → parent make in inventory; `slug` on model line; `has_variants` drives whether variant rows are authoritative for specs.

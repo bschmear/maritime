@@ -2,6 +2,7 @@
 
 namespace App\Domain\BoatMake\Models;
 
+use App\Domain\InventoryItem\Models\InventoryItem;
 use Illuminate\Database\Eloquent\Model;
 
 class BoatMake extends Model
@@ -15,6 +16,7 @@ class BoatMake extends Model
         'logo',
         'active',
         'asset_types',
+        'brand_key',
     ];
 
     protected $casts = [
@@ -25,6 +27,6 @@ class BoatMake extends Model
 
     public function items()
     {
-        return $this->hasMany(InventoryItem::class, 'make', 'id');
+        return $this->hasMany(InventoryItem::class, 'boat_make_id', 'id');
     }
 }

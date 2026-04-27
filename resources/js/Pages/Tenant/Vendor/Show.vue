@@ -110,6 +110,19 @@ const preferredMethodDisplay = computed(() => enumLabel(preferredMethodEnumKey, 
 const paymentTermsDisplay = computed(() => enumLabel(paymentTermsEnumKey, props.record.payment_terms));
 const contractStatusDisplay = computed(() => enumLabel(contractStatusEnumKey, props.record.contract_status));
 
+/** Integer 0–5 for read-only stars; null when unset or invalid (show em dash). */
+const ratingDisplayValue = computed(() => {
+    const v = props.record?.rating;
+    if (v == null || v === '') {
+        return null;
+    }
+    const n = Number(v);
+    if (!Number.isFinite(n)) {
+        return null;
+    }
+    return Math.min(5, Math.max(0, Math.round(n)));
+});
+
 const assignedUserName = computed(() => {
     const u = props.record.assigned_user;
     if (!u || typeof u !== 'object') {
@@ -160,14 +173,14 @@ const confirmDelete = () => {
                     <div class="flex shrink-0 items-center gap-2">
                         <Link
                             :href="indexHref"
-                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-md font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                         >
                             <span class="material-icons text-[16px]">arrow_back</span>
                             Vendors
                         </Link>
                         <button
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-md font-medium text-red-600 transition-colors hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                             @click="showDeleteModal = true"
                         >
                             <span class="material-icons text-[16px]">delete</span>
@@ -175,7 +188,7 @@ const confirmDelete = () => {
                         </button>
                         <Link
                             :href="editHref"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-md font-medium text-white transition-colors hover:bg-teal-700"
                         >
                             <span class="material-icons text-[16px]">edit</span>
                             Edit
@@ -206,20 +219,20 @@ const confirmDelete = () => {
                 <div class="relative px-6 py-7 sm:px-10 sm:py-8">
                     <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                         <div class="space-y-2.5">
-                            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-teal-200/90">Vendor</p>
+                            <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-200/90">Vendor</p>
                             <h1 class="text-2xl font-bold leading-tight text-white sm:text-3xl">
                                 {{ vendorLabel }}
                             </h1>
                             <div class="flex flex-wrap gap-1.5">
                                 <span
                                     v-if="record.vendor_code"
-                                    class="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 font-mono text-xs font-medium text-teal-100"
+                                    class="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 font-mono text-sm font-medium text-teal-100"
                                 >
                                     {{ record.vendor_code }}
                                 </span>
                                 <span
                                     v-if="record.is_verified"
-                                    class="inline-flex items-center gap-1 rounded-full bg-teal-400/25 px-2.5 py-0.5 text-xs font-semibold text-teal-50"
+                                    class="inline-flex items-center gap-1 rounded-full bg-teal-400/25 px-2.5 py-0.5 text-sm font-semibold text-teal-50"
                                 >
                                     <span class="material-icons text-[11px]">verified</span>
                                     Verified
@@ -227,7 +240,7 @@ const confirmDelete = () => {
                                 <span
                                     v-for="tag in tagsList"
                                     :key="String(tag)"
-                                    class="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-slate-100"
+                                    class="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 text-sm font-medium text-slate-100"
                                 >
                                     {{ tag }}
                                 </span>
@@ -241,12 +254,12 @@ const confirmDelete = () => {
                                 <template v-if="primaryContact">
                                     <Link
                                         :href="route('contacts.show', primaryContact.id)"
-                                        class="mt-0.5 inline-flex items-center gap-1.5 text-sm font-semibold text-white hover:text-teal-100"
+                                        class="mt-0.5 inline-flex items-center gap-1.5 text-md font-semibold text-white hover:text-teal-100"
                                     >
                                         <span class="material-icons text-[18px]">person</span>
                                         {{ contactPersonLabel(primaryContact) }}
                                     </Link>
-                                    <div class="mt-1 flex flex-wrap justify-end gap-2 text-xs text-teal-100/90">
+                                    <div class="mt-1 flex flex-wrap justify-end gap-2 text-sm text-teal-100/90">
                                         <a
                                             v-if="primaryContact.email"
                                             :href="`mailto:${primaryContact.email}`"
@@ -265,7 +278,7 @@ const confirmDelete = () => {
                                 </template>
                                 <p
                                     v-else
-                                    class="mt-1 text-sm leading-relaxed text-teal-100/85"
+                                    class="mt-1 text-md leading-relaxed text-teal-100/85"
                                 >
                                     None selected. Add contacts below, then set a primary on
                                     <Link
@@ -289,7 +302,7 @@ const confirmDelete = () => {
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Company &amp; operations
                             </span>
                         </div>
@@ -303,7 +316,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Vendor type
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ vendorTypeDisplay }}
                                         </p>
                                     </div>
@@ -314,7 +327,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Industry
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ fmt.empty(record.industry) }}
                                         </p>
                                     </div>
@@ -325,7 +338,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Status
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ statusDisplay }}
                                         </p>
                                     </div>
@@ -336,7 +349,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Status reason
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ fmt.empty(record.status_reason) }}
                                         </p>
                                     </div>
@@ -344,14 +357,41 @@ const confirmDelete = () => {
                             </div>
                             <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
                                 <div class="flex items-center gap-3 px-5 py-3.5">
-                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">star_half</span>
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">star</span>
                                     <div>
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Rating
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                            {{ record.rating != null ? `${record.rating} / 5` : '—' }}
+                                        <p
+                                            v-if="ratingDisplayValue === null"
+                                            class="text-md font-medium text-gray-900 dark:text-white"
+                                        >
+                                            —
                                         </p>
+                                        <div
+                                            v-else
+                                            class="flex items-center gap-0.5 pt-0.5"
+                                            role="img"
+                                            :aria-label="`Rating ${ratingDisplayValue} out of 5`"
+                                        >
+                                            <template v-for="star in 5" :key="star">
+                                                <svg
+                                                    class="h-[18px] w-[18px] shrink-0"
+                                                    :class="
+                                                        star <= ratingDisplayValue
+                                                            ? 'text-yellow-400 dark:text-yellow-400'
+                                                            : 'text-gray-300 dark:text-gray-600'
+                                                    "
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+                                                    />
+                                                </svg>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3 px-5 py-3.5">
@@ -360,7 +400,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Payment terms
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ paymentTermsDisplay }}
                                         </p>
                                     </div>
@@ -371,7 +411,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Credit limit
                                         </p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
                                             {{ fmt.currency(record.credit_limit) ?? '—' }}
                                         </p>
                                     </div>
@@ -382,7 +422,7 @@ const confirmDelete = () => {
                                         <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
                                             Preferred method
                                         </p>
-                                        <p class="text-sm font-medium capitalize text-gray-900 dark:text-white">
+                                        <p class="text-md font-medium capitalize text-gray-900 dark:text-white">
                                             {{ preferredMethodDisplay }}
                                         </p>
                                     </div>
@@ -395,7 +435,7 @@ const confirmDelete = () => {
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Location
                             </span>
                         </div>
@@ -403,7 +443,7 @@ const confirmDelete = () => {
                             <span class="material-icons mt-0.5 shrink-0 text-[20px] text-gray-400">location_on</span>
                             <div
                                 v-if="hasAddress"
-                                class="min-w-0 flex-1 text-sm leading-relaxed text-gray-900 dark:text-white"
+                                class="min-w-0 flex-1 text-md leading-relaxed text-gray-900 dark:text-white"
                             >
                                 <p v-if="record.address_line_1">{{ record.address_line_1 }}</p>
                                 <p v-if="record.address_line_2">{{ record.address_line_2 }}</p>
@@ -412,7 +452,7 @@ const confirmDelete = () => {
                                 </p>
                                 <p v-if="record.country">{{ record.country }}</p>
                             </div>
-                            <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                            <p v-else class="text-md text-gray-500 dark:text-gray-400">
                                 No address on file. Add one when editing the vendor.
                             </p>
                         </div>
@@ -422,7 +462,7 @@ const confirmDelete = () => {
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Web &amp; social
                             </span>
                         </div>
@@ -434,11 +474,11 @@ const confirmDelete = () => {
                                     :href="record.website"
                                     target="_blank"
                                     rel="noopener"
-                                    class="mt-0.5 block truncate text-sm font-medium text-teal-600 hover:underline dark:text-teal-400"
+                                    class="mt-0.5 block truncate text-md font-medium text-teal-600 hover:underline dark:text-teal-400"
                                 >
                                     {{ record.website }}
                                 </a>
-                                <p v-else class="mt-0.5 text-sm text-gray-300 dark:text-gray-600">—</p>
+                                <p v-else class="mt-0.5 text-md text-gray-300 dark:text-gray-600">—</p>
                             </div>
                             <div class="px-5 py-3.5">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">LinkedIn</p>
@@ -447,11 +487,11 @@ const confirmDelete = () => {
                                     :href="record.linkedin"
                                     target="_blank"
                                     rel="noopener"
-                                    class="mt-0.5 block truncate text-sm font-medium text-teal-600 hover:underline dark:text-teal-400"
+                                    class="mt-0.5 block truncate text-md font-medium text-teal-600 hover:underline dark:text-teal-400"
                                 >
                                     Profile
                                 </a>
-                                <p v-else class="mt-0.5 text-sm text-gray-300 dark:text-gray-600">—</p>
+                                <p v-else class="mt-0.5 text-md text-gray-300 dark:text-gray-600">—</p>
                             </div>
                             <div class="px-5 py-3.5">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Facebook</p>
@@ -460,11 +500,11 @@ const confirmDelete = () => {
                                     :href="record.facebook"
                                     target="_blank"
                                     rel="noopener"
-                                    class="mt-0.5 block truncate text-sm font-medium text-teal-600 hover:underline dark:text-teal-400"
+                                    class="mt-0.5 block truncate text-md font-medium text-teal-600 hover:underline dark:text-teal-400"
                                 >
                                     Page
                                 </a>
-                                <p v-else class="mt-0.5 text-sm text-gray-300 dark:text-gray-600">—</p>
+                                <p v-else class="mt-0.5 text-md text-gray-300 dark:text-gray-600">—</p>
                             </div>
                         </div>
                     </div>
@@ -473,26 +513,26 @@ const confirmDelete = () => {
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Contract
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-3 sm:divide-x sm:divide-gray-50 dark:sm:divide-gray-700/60">
                             <div class="px-5 py-3.5">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Start</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                <p class="text-md font-medium text-gray-900 dark:text-white">
                                     {{ fmt.date(record.contract_start) ?? '—' }}
                                 </p>
                             </div>
                             <div class="px-5 py-3.5">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">End</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                <p class="text-md font-medium text-gray-900 dark:text-white">
                                     {{ fmt.date(record.contract_end) ?? '—' }}
                                 </p>
                             </div>
                             <div class="px-5 py-3.5">
                                 <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Status</p>
-                                <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                <p class="text-md font-medium text-gray-900 dark:text-white">
                                     {{ contractStatusDisplay }}
                                 </p>
                             </div>
@@ -503,7 +543,7 @@ const confirmDelete = () => {
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Notes
                             </span>
                         </div>
@@ -511,11 +551,11 @@ const confirmDelete = () => {
                             <span class="material-icons mt-0.5 shrink-0 text-[18px] text-gray-400">notes</span>
                             <p
                                 v-if="record.notes"
-                                class="whitespace-pre-wrap text-sm leading-relaxed text-gray-800 dark:text-gray-200"
+                                class="whitespace-pre-wrap text-md leading-relaxed text-gray-800 dark:text-gray-200"
                             >
                                 {{ record.notes }}
                             </p>
-                            <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                            <p v-else class="text-md text-gray-300 dark:text-gray-600">—</p>
                         </div>
                     </div>
                 </div>
@@ -525,16 +565,16 @@ const confirmDelete = () => {
                         class="sticky top-[140px] space-y-4 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Record
                             </span>
                         </div>
-                        <ul class="divide-y divide-gray-50 text-sm dark:divide-gray-700/60">
+                        <ul class="divide-y divide-gray-50 text-md dark:divide-gray-700/60">
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400">person_pin</span>
                                 <span class="flex-1 text-gray-500 dark:text-gray-400">Assigned to</span>
                                 <span
-                                    class="max-w-[55%] truncate text-right text-xs font-medium"
+                                    class="max-w-[55%] truncate text-right text-sm font-medium"
                                     :class="assignedUserName ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'"
                                 >
                                     {{ assignedUserName || '—' }}
@@ -543,17 +583,17 @@ const confirmDelete = () => {
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400">event</span>
                                 <span class="flex-1 text-gray-500 dark:text-gray-400">Created</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400">update</span>
                                 <span class="flex-1 text-gray-500 dark:text-gray-400">Updated</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
                             </li>
                             <li v-if="record.verified_at" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400">verified</span>
                                 <span class="flex-1 text-gray-500 dark:text-gray-400">Verified at</span>
-                                <span class="text-xs text-gray-900 dark:text-white">{{ fmt.datetime(record.verified_at) }}</span>
+                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.verified_at) }}</span>
                             </li>
                         </ul>
                     </div>
@@ -583,8 +623,8 @@ const confirmDelete = () => {
                         />
                     </svg>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete vendor</h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <h3 class="text-xl font-medium text-gray-900 dark:text-white">Delete vendor</h3>
+                <p class="mt-2 text-md text-gray-500 dark:text-gray-400">
                     Are you sure you want to delete
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ vendorLabel }}</span>
                     ? This cannot be undone.
@@ -593,7 +633,7 @@ const confirmDelete = () => {
                     <button
                         type="button"
                         :disabled="isDeleting"
-                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-md font-medium text-white hover:bg-red-700 disabled:opacity-50"
                         @click="confirmDelete"
                     >
                         {{ isDeleting ? 'Deleting…' : 'Delete vendor' }}
@@ -601,7 +641,7 @@ const confirmDelete = () => {
                     <button
                         type="button"
                         :disabled="isDeleting"
-                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                         @click="showDeleteModal = false"
                     >
                         Cancel

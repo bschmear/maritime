@@ -285,6 +285,7 @@ const breadcrumbItems = computed(() => {
         </template>
 
         <div class="w-full flex flex-col space-y-4 md:space-y-6">
+            <slot name="prepend" />
             <div class="grid gap-4 xl:grid-cols-12">
                 <div class="xl:col-span-9 bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg w-full">
                     <div class="show">
