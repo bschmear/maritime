@@ -1066,19 +1066,19 @@ const confirmDelete = () => {
                 <div class="mx-auto mb-4 w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
                     <span class="material-icons text-primary-600 dark:text-primary-300 text-2xl">add_business</span>
                 </div>
-                <h3 class="text-lg font-semibold text-center text-gray-900 dark:text-white">
+                <h3 class="text-xl font-semibold text-center text-gray-900 dark:text-white">
                     Estimate approved
                 </h3>
-                <p class="mt-2 text-sm text-center text-gray-600 dark:text-gray-400">
+                <p class="mt-2 text-md text-center text-gray-600 dark:text-gray-400">
                     This estimate was approved on
                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDateTime(record.approved_at) }}</span>.
                 </p>
-                <p class="mt-2 text-sm text-center text-gray-600 dark:text-gray-400">
+                <p class="mt-2 text-md text-center text-gray-600 dark:text-gray-400">
                     Start the deal process by creating a deal (transaction and contract).
                 </p>
                 <div
                     v-if="createDealForm.errors.error || Object.keys(createDealForm.errors).length"
-                    class="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-800 dark:text-red-200"
+                    class="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-md text-red-800 dark:text-red-200"
                 >
                     <p v-if="createDealForm.errors.error" class="font-medium">{{ createDealForm.errors.error }}</p>
                     <ul v-else class="list-disc list-inside space-y-1">
@@ -1099,7 +1099,7 @@ const confirmDelete = () => {
                     <button
                         type="button"
                         :disabled="createDealForm.processing"
-                        class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        class="inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                         @click="closeCreateDealModal"
                     >
                         Not now
@@ -1108,7 +1108,7 @@ const confirmDelete = () => {
                 <p class="mt-4 text-center">
                     <Link
                         :href="route('transactions.create', { estimate_id: record.id })"
-                        class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                        class="text-md font-medium text-primary-600 hover:underline dark:text-primary-400"
                         @click="closeCreateDealModal"
                     >
                         Create transaction in form instead

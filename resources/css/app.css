@@ -189,6 +189,8 @@ td.sticky {
     }
 
     #delivery-print-root,
+    #delivery-print-customer,
+    #delivery-print-internal,
     #delivery-checklist-print-root {
         position: static !important;
         width: 100%;
@@ -377,6 +379,10 @@ td.sticky {
     #boat-show-public-print-root *,
     #delivery-print-root,
     #delivery-print-root *,
+    #delivery-print-customer,
+    #delivery-print-customer *,
+    #delivery-print-internal,
+    #delivery-print-internal *,
     #delivery-checklist-print-root,
     #delivery-checklist-print-root * {
         visibility: visible;

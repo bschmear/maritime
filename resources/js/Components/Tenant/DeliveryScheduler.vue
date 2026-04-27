@@ -1,46 +1,46 @@
 <template>
     <div
-        class="min-w-[700px] overflow-hidden rounded-xl border border-stone-200 bg-stone-50 font-sans text-stone-900 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-100"
+        class="min-w-[700px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 font-sans text-gray-900 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-100"
     >
-        <!-- Header: light = stone panel + dark text; dark = navy + light text -->
+        <!-- Header: light = gray panel + dark text; dark = navy + light text -->
         <div
-            class="flex items-center justify-between border-b border-stone-200 bg-stone-100 px-5 py-4 text-stone-800 dark:border-white/5 dark:bg-[#1a1a2e] dark:text-white"
+            class="flex items-center justify-between border-b border-gray-200 bg-gray-100 px-5 py-4 text-gray-800 dark:border-white/5 dark:bg-[#1a1a2e] dark:text-white"
         >
             <div class="flex items-center gap-3">
                 <button
                     type="button"
-                    class="flex h-9 w-9 items-center justify-center rounded-md border border-stone-300 bg-white text-lg text-stone-800 shadow-sm transition hover:bg-stone-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:shadow-none dark:hover:bg-white/20"
+                    class="flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-lg text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:shadow-none dark:hover:bg-white/20"
                     @click="changeDay(-1)"
                 >
                     ←
                 </button>
-                <span class="text-lg font-medium tracking-wide text-stone-900 dark:text-white md:text-lg">
+                <span class="text-lg font-medium tracking-wide text-gray-900 dark:text-white md:text-lg">
                     {{ formattedDate }}
                 </span>
                 <button
                     type="button"
-                    class="flex h-9 w-9 items-center justify-center rounded-md border border-stone-300 bg-white text-lg text-stone-800 shadow-sm transition hover:bg-stone-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:shadow-none dark:hover:bg-white/20"
+                    class="flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-lg text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:shadow-none dark:hover:bg-white/20"
                     @click="changeDay(1)"
                 >
                     →
                 </button>
             </div>
             <div
-                class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-md text-stone-600 dark:text-white/70"
+                class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-md text-gray-600 dark:text-white/70"
             >
                 <p v-if="scheduleError" class="text-sm text-red-600 dark:text-red-400 max-w-md text-right">
                     {{ scheduleError }}
                 </p>
-                <p v-else-if="scheduleLoading" class="text-sm text-stone-500 dark:text-white/50">Loading…</p>
+                <p v-else-if="scheduleLoading" class="text-sm text-gray-500 dark:text-white/50">Loading…</p>
                 <div
-                    class="flex flex-wrap items-center gap-3 rounded-md border border-stone-200 bg-white px-2 py-1.5 shadow-sm dark:border-white/15 dark:bg-white/5 dark:shadow-none"
+                    class="flex flex-wrap items-center gap-3 rounded-md border border-gray-200 bg-white px-2 py-1.5 shadow-sm dark:border-white/15 dark:bg-white/5 dark:shadow-none"
                     :title="timelineHint"
                 >
-                    <div class="flex items-center gap-1 text-sm text-stone-700 dark:text-white/80">
-                        <span class="hidden text-stone-500 sm:inline dark:text-white/50">Start</span>
+                    <div class="flex items-center gap-1 text-sm text-gray-700 dark:text-white/80">
+                        <span class="hidden text-gray-500 sm:inline dark:text-white/50">Start</span>
                         <button
                             type="button"
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-gray-800 transition enabled:hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
                             :disabled="dayStartHour <= 0"
                             aria-label="Move start one hour earlier"
                             @click="nudgeStartHour(-1)"
@@ -48,13 +48,13 @@
                             −
                         </button>
                         <span
-                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-stone-900 dark:text-white"
+                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-gray-900 dark:text-white"
                         >
                             {{ formatHour(dayStartHour) }}
                         </span>
                         <button
                             type="button"
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-gray-800 transition enabled:hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
                             :disabled="dayStartHour >= dayEndHour - 1"
                             aria-label="Move start one hour later"
                             @click="nudgeStartHour(1)"
@@ -62,12 +62,12 @@
                             +
                         </button>
                     </div>
-                    <span class="text-stone-400 dark:text-white/40" aria-hidden="true">→</span>
-                    <div class="flex items-center gap-1 text-sm text-stone-700 dark:text-white/80">
-                        <span class="hidden text-stone-500 sm:inline dark:text-white/50">End</span>
+                    <span class="text-gray-400 dark:text-white/40" aria-hidden="true">→</span>
+                    <div class="flex items-center gap-1 text-sm text-gray-700 dark:text-white/80">
+                        <span class="hidden text-gray-500 sm:inline dark:text-white/50">End</span>
                         <button
                             type="button"
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-gray-800 transition enabled:hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
                             :disabled="dayEndHour <= dayStartHour + 1"
                             aria-label="Move end one hour earlier"
                             @click="nudgeEndHour(-1)"
@@ -75,13 +75,13 @@
                             −
                         </button>
                         <span
-                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-stone-900 dark:text-white"
+                            class="min-w-[5.25rem] text-center text-sm font-medium tabular-nums text-gray-900 dark:text-white"
                         >
                             {{ timelineEndLabel }}
                         </span>
                         <button
                             type="button"
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-stone-800 transition enabled:hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded text-base leading-none text-gray-800 transition enabled:hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/90 dark:enabled:hover:bg-white/15"
                             :disabled="dayEndHour >= 24"
                             aria-label="Move end one hour later"
                             @click="nudgeEndHour(1)"
@@ -91,11 +91,11 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-5">
-                    <span class="flex items-center gap-2 text-stone-700 dark:text-white/80">
+                    <span class="flex items-center gap-2 text-gray-700 dark:text-white/80">
                         <span class="h-3 w-3 rounded-sm bg-blue-500" />
                         At location
                     </span>
-                    <span class="flex items-center gap-2 text-stone-700 dark:text-white/80">
+                    <span class="flex items-center gap-2 text-gray-700 dark:text-white/80">
                         <span
                             class="h-1.5 w-6 rounded-sm bg-amber-500 shadow-sm ring-1 ring-amber-600/20 dark:ring-amber-700/20"
                         />
@@ -109,17 +109,17 @@
         <div class="overflow-x-auto overflow-y-visible">
             <!-- Time axis -->
             <div
-                class="flex w-full min-w-[1200px] items-stretch border-b border-stone-200 dark:border-gray-600"
+                class="flex w-full min-w-[1200px] items-stretch border-b border-gray-200 dark:border-gray-600"
             >
                 <div
-                    class="sticky left-0 z-20 h-11 w-48 min-w-48 shrink-0 self-stretch border-r border-stone-200 bg-stone-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:border-gray-600 dark:bg-gray-800/80"
+                    class="sticky left-0 z-20 h-11 w-48 min-w-48 shrink-0 self-stretch border-r border-gray-200 bg-gray-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:border-gray-600 dark:bg-gray-800/80"
                 />
-                <div class="relative h-11 min-w-0 flex-1 bg-stone-100 dark:bg-gray-800/80">
+                <div class="relative h-11 min-w-0 flex-1 bg-gray-100 dark:bg-gray-800/80">
                     <!-- Hour ticks for alignment with rows below -->
                     <div
                         v-for="m in gridLineMinutes"
                         :key="'haxis-line-' + m"
-                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-stone-400 dark:bg-gray-600"
+                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-600"
                         :style="{ left: minuteToViewPercent(m) + '%' }"
                     />
                     <!-- One label per 1h cell, centered in that cell (not on the boundary lines) -->
@@ -149,7 +149,7 @@
                 @drop="onDrop(tech.id)"
             >
                 <div
-                    class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-stone-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
+                    class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-gray-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
                     :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : 'dark:bg-gray-800'"
                 >
                     <div class="flex min-w-0 items-center gap-2">
@@ -158,12 +158,12 @@
                         >
                             {{ initials(tech.name) }}
                         </div>
-                        <span class="truncate text-md font-semibold leading-tight text-stone-800 dark:text-gray-100">
+                        <span class="truncate text-md font-semibold leading-tight text-gray-800 dark:text-gray-100">
                             {{ tech.name }}
                         </span>
                     </div>
-                    <p class="pl-11 text-sm text-stone-500 dark:text-gray-400">
-                        Total deliveries: <span class="font-medium text-stone-700 dark:text-gray-300">{{ deliveriesForTech(tech.id).length }}</span>
+                    <p class="pl-11 text-sm text-gray-500 dark:text-gray-400">
+                        Total deliveries: <span class="font-medium text-gray-700 dark:text-gray-300">{{ deliveriesForTech(tech.id).length }}</span>
                     </p>
                 </div>
 
@@ -176,7 +176,7 @@
                     <div
                         v-for="m in gridLineMinutes"
                         :key="'line-' + m + '-' + tech.id"
-                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-stone-400 dark:bg-gray-500"
+                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-500"
                         :style="{ left: minuteToViewPercent(m) + '%' }"
                     />
 
@@ -215,7 +215,7 @@
             </div>
             <div
                 v-if="!technicians.length && !scheduleLoading"
-                class="flex min-h-[120px] w-full items-center justify-center border-b border-stone-200 bg-white px-6 py-10 text-sm text-stone-600 dark:border-gray-600 dark:bg-gray-900/30 dark:text-gray-300"
+                class="flex min-h-[120px] w-full items-center justify-center border-b border-gray-200 bg-white px-6 py-10 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-900/30 dark:text-gray-300"
             >
                 <span v-if="scheduleError">Could not load schedule data.</span>
                 <span v-else>No technicians on file. Mark users as technicians to see delivery rows here.</span>
@@ -254,56 +254,56 @@
                     <span v-else class="text-md font-bold text-blue-500 dark:text-primary-400">
                         {{ selectedDelivery.display_name }}
                     </span>
-                    <span class="text-md text-stone-600 dark:text-gray-300">
+                    <span class="text-md text-gray-600 dark:text-gray-300">
                         {{ selectedDelivery.customer_name }}
                     </span>
                 </div>
                 <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-2.5">
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">From</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ selectedDelivery.start_location }}
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">To</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ selectedDelivery.end_location }}
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Leave by</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ formatTime(selectedDelivery.time_to_leave_by) }}
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Scheduled</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ formatTime(selectedDelivery.scheduled_at) }}
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Travel</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ travelMins(selectedDelivery) }} min each way
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">At location</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ selectedDelivery.delivery_duration_minutes || 15 }} min
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Truck</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ fleetScheduleUnitLabel(selectedDelivery, 'truck') }}
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Trailer</span>
-                        <span class="text-md font-medium text-stone-900 dark:text-white">
+                        <span class="text-md font-medium text-gray-900 dark:text-white">
                             {{ fleetScheduleUnitLabel(selectedDelivery, 'trailer') }}
                         </span>
                     </div>

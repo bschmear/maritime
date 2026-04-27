@@ -3,8 +3,17 @@ import { computed } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
-    account: { type: Object, required: true },
+    account: { type: Object, default: () => ({}) },
+    /** `customer` — leave-behind for the customer; `internal` — office / driver with ops details. */
+    variant: {
+        type: String,
+        default: 'customer',
+        validator: (v) => v === 'customer' || v === 'internal',
+    },
 });
+
+const isCustomer = computed(() => props.variant === 'customer');
+const isInternal = computed(() => props.variant === 'internal');
 
 const items = computed(() => Array.isArray(props.record?.items) ? props.record.items : []);
 
@@ -36,12 +45,62 @@ const formatDateTime = (v) => {
         return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
     } catch { return '—'; }
 };
+
+const travelMinutes = computed(() => {
+    const s = props.record?.estimated_travel_duration_seconds;
+    if (s == null || !Number.isFinite(Number(s)) || Number(s) <= 0) {
+        return null;
+    }
+    return Math.round(Number(s) / 60);
+});
+
+const fleetLabel = (fleet) => {
+    if (!fleet) return null;
+    const n = fleet.display_name ?? fleet.name ?? null;
+    if (n != null && String(n).trim() !== '') {
+        return String(n).trim();
+    }
+    return fleet.id ? `Unit #${fleet.id}` : null;
+};
+
+const workOrderLabel = computed(() => {
+    const r = props.record;
+    const wo = r.work_order ?? r.workOrder;
+    if (wo) {
+        return `WO-${wo.work_order_number ?? wo.id}`;
+    }
+    return r.work_order_id ? `#${r.work_order_id}` : '—';
+});
+
+const transactionLabel = computed(() => {
+    const r = props.record;
+    return r.transaction?.display_name || (r.transaction_id ? `#${r.transaction_id}` : '—');
+});
+
+function technicianLabel(u) {
+    if (!u) return '—';
+    if (u.display_name) return u.display_name;
+    const parts = [u.first_name, u.last_name].filter(Boolean);
+    return parts.length ? parts.join(' ') : '—';
+}
 </script>
 
 <template>
     <div class="bg-white">
         <!-- Header -->
         <div class="border-b-2 border-gray-900 px-6 py-3">
+            <div
+                v-if="isCustomer"
+                class="mb-2 rounded border border-gray-400 bg-gray-50 px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-700"
+            >
+                Customer copy
+            </div>
+            <div
+                v-else
+                class="mb-2 rounded border border-amber-600 bg-amber-50 px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-amber-900"
+            >
+                Internal copy — not for customer
+            </div>
             <div class="flex items-start justify-between gap-4">
                 <div class="flex items-start gap-3 min-w-0 flex-1">
                     <div v-if="account?.logo_url" class="flex-shrink-0 max-w-[100px]">
@@ -94,7 +153,10 @@ const formatDateTime = (v) => {
         </div>
 
         <!-- Schedule -->
-        <div class="px-6 py-3 border-t border-gray-200 grid grid-cols-3 gap-3 text-xs">
+        <div
+            class="px-6 py-3 border-t border-gray-200 grid gap-3 text-xs"
+            :class="isInternal ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-3'"
+        >
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scheduled</div>
                 <div class="text-sm text-gray-900">{{ formatDateTime(record.scheduled_at) }}</div>
@@ -106,6 +168,53 @@ const formatDateTime = (v) => {
             <div>
                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivered</div>
                 <div class="text-sm text-gray-900">{{ formatDateTime(record.delivered_at) }}</div>
+            </div>
+            <template v-if="isInternal">
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Leave by</div>
+                    <div class="text-sm text-gray-900">{{ formatDateTime(record.time_to_leave_by) }}</div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Est. travel (one way)</div>
+                    <div class="text-sm text-gray-900">{{ travelMinutes != null ? `${travelMinutes} min` : '—' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">At-location (plan)</div>
+                    <div class="text-sm text-gray-900">
+                        {{ record.delivery_duration_minutes != null ? `${record.delivery_duration_minutes} min` : '—' }}
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Internal operations (internal copy only) -->
+        <div v-if="isInternal" class="px-6 py-3 border-t border-gray-200 text-xs">
+            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Operations</div>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                    <span class="font-semibold text-gray-600">Technician:</span>
+                    <span class="ml-1 text-gray-900">{{ technicianLabel(record.technician) }}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-600">Origin / location:</span>
+                    <span class="ml-1 text-gray-900">{{ record.location?.display_name ?? '—' }}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-600">Truck:</span>
+                    <span class="ml-1 text-gray-900">{{ fleetLabel(record.fleet_truck ?? record.fleetTruck) ?? '—' }}</span>
+                </div>
+                <div>
+                    <span class="font-semibold text-gray-600">Trailer:</span>
+                    <span class="ml-1 text-gray-900">{{ fleetLabel(record.fleet_trailer ?? record.fleetTrailer) ?? '—' }}</span>
+                </div>
+                <div v-if="record.work_order_id || record.work_order || record.workOrder" class="sm:col-span-2">
+                    <span class="font-semibold text-gray-600">Work order:</span>
+                    <span class="ml-1 font-mono text-gray-900">{{ workOrderLabel }}</span>
+                </div>
+                <div v-if="record.transaction_id || record.transaction" class="sm:col-span-2">
+                    <span class="font-semibold text-gray-600">Transaction:</span>
+                    <span class="ml-1 text-gray-900">{{ transactionLabel }}</span>
+                </div>
             </div>
         </div>
 
@@ -146,26 +255,56 @@ const formatDateTime = (v) => {
 
         <!-- Customer notes -->
         <div v-if="record.customer_notes" class="px-6 py-3 border-t border-gray-200">
-            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</div>
+            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer notes</div>
             <p class="text-xs text-gray-700 whitespace-pre-line">{{ record.customer_notes }}</p>
+        </div>
+
+        <!-- Internal notes (internal copy only) -->
+        <div v-if="isInternal && record.internal_notes" class="px-6 py-3 border-t border-gray-200">
+            <div class="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Internal notes</div>
+            <p class="text-xs text-gray-700 whitespace-pre-line">{{ record.internal_notes }}</p>
         </div>
 
         <!-- Signature block -->
         <div class="px-6 py-4 border-t-2 border-gray-900">
-            <div class="grid grid-cols-2 gap-6">
-                <div>
-                    <div class="border-b-2 border-gray-900 h-14"></div>
-                    <div class="text-[11px] text-gray-600 mt-1">Customer Signature</div>
+            <template v-if="isCustomer">
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <div class="h-14 border-b-2 border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Customer Signature</div>
+                    </div>
+                    <div>
+                        <div class="h-14 border-b-2 border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Date</div>
+                    </div>
                 </div>
-                <div>
-                    <div class="border-b-2 border-gray-900 h-14"></div>
-                    <div class="text-[11px] text-gray-600 mt-1">Date</div>
+                <div class="mt-4">
+                    <div class="border-b border-gray-900"></div>
+                    <div class="mt-1 text-[11px] text-gray-600">Print Name</div>
                 </div>
-            </div>
-            <div class="mt-4">
-                <div class="border-b border-gray-900"></div>
-                <div class="text-[11px] text-gray-600 mt-1">Print Name</div>
-            </div>
+            </template>
+            <template v-else>
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <div class="h-14 border-b-2 border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Technician / driver signature</div>
+                    </div>
+                    <div>
+                        <div class="h-14 border-b-2 border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Date</div>
+                    </div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-6">
+                    <div>
+                        <div class="h-12 border-b border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Dispatcher / office</div>
+                    </div>
+                    <div>
+                        <div class="h-12 border-b border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Date</div>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 </template>

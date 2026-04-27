@@ -11,6 +11,7 @@ use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Enums\Contract\ContractStatus;
+use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Terms;
@@ -271,7 +272,14 @@ class PublicController extends Controller
             'subsidiary',
             'location',
             'assetUnit.asset.make',
-            'checklistItems.category',
+            'items' => function ($query) {
+                $query->orderBy('position')
+                    ->with([
+                        'assetUnit.asset.make',
+                        'assetUnit.assetVariant',
+                        'assetVariant',
+                    ]);
+            },
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -280,6 +288,7 @@ class PublicController extends Controller
         $recordArray = [
             'id' => $delivery->id,
             'uuid' => $delivery->uuid,
+            'display_name' => $delivery->display_name,
             'customer_id' => $delivery->customer_id,
             'asset_unit_id' => $delivery->asset_unit_id,
             'work_order_id' => $delivery->work_order_id,
@@ -313,7 +322,8 @@ class PublicController extends Controller
             'subsidiary' => $delivery->subsidiary?->toArray(),
             'location' => $delivery->location?->toArray(),
             'assetUnit' => $delivery->assetUnit?->toArray(),
-            'checklistItems' => $delivery->checklistItems->map->toArray()->toArray(),
+            'asset_unit' => $delivery->assetUnit?->toArray(),
+            'items' => $delivery->items->map->toArray()->values()->all(),
             'signature_url' => $delivery->signature_url,
         ];
 
@@ -348,6 +358,8 @@ class PublicController extends Controller
             $signatureFile = $this->storeSignatureImage($request->signature_data, $delivery->uuid);
         }
 
+        $deliveredAt = $delivery->delivered_at ?? now();
+
         $delivery->update([
             'signed_at' => now(),
             'signed_ip' => $request->ip(),
@@ -362,11 +374,9 @@ class PublicController extends Controller
                 'timestamp' => now()->toISOString(),
                 'ip' => $request->ip(),
             ])),
+            'status' => DeliveryStatus::Delivered->value,
+            'delivered_at' => $deliveredAt,
         ]);
-
-        if (! $delivery->delivered_at) {
-            $delivery->update(['delivered_at' => now()]);
-        }
 
         $delivery->refresh();
 

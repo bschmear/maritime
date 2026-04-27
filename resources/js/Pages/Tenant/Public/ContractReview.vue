@@ -516,7 +516,7 @@ const signaturePadOptions = {
                         <div class="flex items-center gap-4">
                             <button
                                 @click="submitSign"
-                                :disabled="signForm.processing"
+                                :disabled="signForm.processing || !consent"
                                 class="inline-flex items-center gap-2 px-8 py-3 text-base font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shadow-sm"
                             >
                                 <span v-if="signForm.processing" class="material-icons text-sm animate-spin">refresh</span>

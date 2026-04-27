@@ -14,13 +14,14 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
-use App\Domain\Fleet\Models\Fleet;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
+use App\Domain\Fleet\Models\Fleet;
 use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Models\AccountSettings;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -483,8 +484,8 @@ class DeliveryController extends RecordController
         $delivery->load('items');
         $delivery->syncStatusFromItems();
         // Ensure the delivery reflects "delivered" even if it had no items.
-        if ($delivery->status !== 'delivered') {
-            $delivery->status = 'delivered';
+        if ($delivery->status !== DeliveryStatus::Delivered->value) {
+            $delivery->status = DeliveryStatus::Delivered->value;
             $delivery->delivered_at = $delivery->delivered_at ?: now();
         }
         $delivery->save();

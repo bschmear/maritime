@@ -1,6 +1,6 @@
 <script setup>
-import { Head } from '@inertiajs/vue3';
-import { computed, onMounted } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import DeliveryDocumentBody from '@/Components/Tenant/DeliveryDocumentBody.vue';
 
 const props = defineProps({
@@ -20,32 +20,99 @@ const itemsByCategory = computed(() => {
     return Object.values(g).sort((a, b) => a.name.localeCompare(b.name));
 });
 
-onMounted(() => setTimeout(() => window.print(), 300));
+const hasChecklist = computed(() => (props.checklistItems || []).length > 0);
+
+/** Vue templates cannot call `window.*` — use script functions. */
+function triggerPrint(mode) {
+    const cls = `print-mode-${mode}`;
+    document.documentElement.classList.add(cls);
+    const cleanup = () => {
+        document.documentElement.classList.remove(cls);
+        window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+}
+
+function handleClose() {
+    if (window.opener) {
+        window.close();
+        return;
+    }
+    if (window.history.length > 1) {
+        window.history.back();
+        return;
+    }
+    router.visit(route('deliveries.show', props.record.id));
+}
 </script>
 
 <template>
     <Head :title="`Print - ${record.display_name}`" />
 
     <div class="min-h-screen bg-white">
-        <div class="no-print sticky top-0 z-10 border-b border-gray-200 bg-white">
-            <div class="max-w-5xl mx-auto flex items-center justify-between gap-3 px-4 py-2 text-sm">
+        <div class="no-print sticky top-0 z-10 border-b border-gray-200 bg-white shadow-sm">
+            <div class="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <span class="truncate font-medium text-gray-800">{{ record.display_name }}</span>
-                <div class="flex shrink-0 gap-2">
-                    <button type="button" class="rounded border border-gray-300 px-2 py-1.5 hover:bg-gray-50" @click="window.close()">Close</button>
-                    <button type="button" class="rounded bg-green-600 px-2 py-1.5 text-white hover:bg-green-700" @click="window.print()">Print</button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs text-gray-500">Print:</span>
+                    <button
+                        type="button"
+                        class="rounded border border-gray-300 px-2 py-1.5 text-xs font-medium hover:bg-gray-50"
+                        @click="triggerPrint('customer')"
+                    >
+                        Customer copy
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded border border-gray-300 px-2 py-1.5 text-xs font-medium hover:bg-gray-50"
+                        @click="triggerPrint('internal')"
+                    >
+                        Internal copy
+                    </button>
+                    <button
+                        v-if="hasChecklist"
+                        type="button"
+                        class="rounded border border-gray-300 px-2 py-1.5 text-xs font-medium hover:bg-gray-50"
+                        @click="triggerPrint('checklist')"
+                    >
+                        Checklist only
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded border border-gray-800 bg-gray-900 px-2 py-1.5 text-xs font-medium text-white hover:bg-gray-800"
+                        @click="triggerPrint('all')"
+                    >
+                        All pages
+                    </button>
+                    <span class="mx-1 hidden h-5 w-px bg-gray-200 sm:inline" aria-hidden="true" />
+                    <button
+                        type="button"
+                        class="rounded border border-gray-300 px-2 py-1.5 hover:bg-gray-50"
+                        @click="handleClose"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
 
         <div class="mx-auto max-w-5xl space-y-6 px-4 py-6 print:space-y-0 print:py-0">
-            <div id="delivery-print-root" class="bg-white shadow print:shadow-none">
-                <DeliveryDocumentBody :record="record" :account="account" />
+            <div
+                id="delivery-print-customer"
+                class="customer-document bg-white shadow print:shadow-none print:break-after-page"
+            >
+                <DeliveryDocumentBody :record="record" :account="account" variant="customer" />
+            </div>
+
+            <div id="delivery-print-internal" class="internal-document bg-white shadow print:shadow-none">
+                <DeliveryDocumentBody :record="record" :account="account" variant="internal" />
             </div>
 
             <div
-                v-if="checklistItems.length"
+                v-if="hasChecklist"
                 id="delivery-checklist-print-root"
-                class="bg-white px-6 py-6 shadow print:shadow-none print:px-4"
+                class="checklist-document bg-white px-6 py-6 shadow print:shadow-none print:px-4 print:break-before-page"
             >
                 <header class="mb-4 flex items-end justify-between gap-4 border-b-2 border-gray-900 pb-2 text-sm">
                     <div>
@@ -56,7 +123,7 @@ onMounted(() => setTimeout(() => window.print(), 300));
                     </div>
                     <div class="text-right">
                         <div class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Delivery</div>
-                        <div class="text-lg font-bold font-mono text-gray-900">{{ record.display_name }}</div>
+                        <div class="font-mono text-lg font-bold text-gray-900">{{ record.display_name }}</div>
                     </div>
                 </header>
 
@@ -90,5 +157,30 @@ onMounted(() => setTimeout(() => window.print(), 300));
     .no-print {
         display: none !important;
     }
+}
+</style>
+
+<style>
+/**
+ * Print targets: `triggerPrint` adds `print-mode-*` on `<html>` before `window.print()`.
+ * Screen always shows every section; only the print preview / PDF is filtered.
+ */
+@media print {
+    html.print-mode-customer .internal-document,
+    html.print-mode-customer .checklist-document {
+        display: none !important;
+    }
+
+    html.print-mode-internal .customer-document,
+    html.print-mode-internal .checklist-document {
+        display: none !important;
+    }
+
+    html.print-mode-checklist .customer-document,
+    html.print-mode-checklist .internal-document {
+        display: none !important;
+    }
+
+    /* print-mode-all: show everything (no extra rules) */
 }
 </style>

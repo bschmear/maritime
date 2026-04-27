@@ -3,11 +3,13 @@
 namespace App\Domain\Delivery\Models;
 
 use App\Domain\Fleet\Models\Fleet;
+use App\Enums\Deliveries\Status as DeliveryStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Delivery extends Model
 {
@@ -186,7 +188,7 @@ class Delivery extends Model
     public function markAsDelivered()
     {
         $this->update([
-            'status' => 'delivered',
+            'status' => DeliveryStatus::Delivered->value,
             'delivered_at' => now(),
         ]);
     }
@@ -223,7 +225,7 @@ class Delivery extends Model
         $delivered = $this->items()->whereNotNull('delivered_at')->count();
 
         if ($delivered === $total) {
-            $this->status = 'delivered';
+            $this->status = DeliveryStatus::Delivered->value;
             if (empty($this->delivered_at)) {
                 $this->delivered_at = now();
             }
@@ -253,13 +255,21 @@ class Delivery extends Model
         return 'DLV-'.($this->sequence ?: $this->id ?: '???');
     }
 
-    public function getSignatureUrlAttribute()
+    /**
+     * Same approach as {@see \App\Domain\Contract\Models\Contract}: keys live under private/ on S3,
+     * so we must use a pre-signed URL — plain {@see \Illuminate\Contracts\Filesystem\Filesystem::url()} is not readable.
+     */
+    public function getSignatureUrlAttribute(): ?string
     {
         if (! $this->signature_file) {
             return null;
         }
 
-        return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->signature_file);
+        try {
+            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addHours(2));
+        } catch (\Exception $e) {
+            return Storage::disk('s3')->url($this->signature_file);
+        }
     }
 
     public function getRouteKeyName(): string
