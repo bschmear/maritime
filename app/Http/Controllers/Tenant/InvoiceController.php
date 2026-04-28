@@ -13,6 +13,7 @@ use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\WarrantyClaim\Support\InvoiceManufacturerWarrantyCloseEligibility;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
@@ -145,15 +146,36 @@ class InvoiceController extends RecordController
 
     protected function editPageExtraProps($record): array
     {
-        return [
-            'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
-        ];
+        return array_merge(
+            [
+                'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+            ],
+            $this->warrantyCloseProps($record)
+        );
     }
 
     protected function showPageExtraProps($record): array
     {
+        return array_merge(
+            [
+                'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+            ],
+            $this->warrantyCloseProps($record)
+        );
+    }
+
+    /**
+     * @param  \App\Domain\Invoice\Models\Invoice  $record
+     * @return array{manufacturerWarrantyCloseBlocked: bool, manufacturerWarrantyCloseMessage: ?string}
+     */
+    private function warrantyCloseProps($record): array
+    {
+        $reason = app(InvoiceManufacturerWarrantyCloseEligibility::class)->reasonIfBlocked($record);
+        $isClosed = in_array($record->status, ['paid', 'void'], true);
+
         return [
-            'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+            'manufacturerWarrantyCloseBlocked' => $reason !== null && ! $isClosed,
+            'manufacturerWarrantyCloseMessage' => $isClosed ? null : $reason,
         ];
     }
 

@@ -1,0 +1,44 @@
+{
+  "id": "string",
+  "brand": "string",
+  "name": "string",
+  "type_display": "string",
+  "boat_type_key": "string",
+  "hull_type_key": "string",
+  "hull_material_key": "string",
+  "description": "string",
+  "features": ["string"],
+  "has_variants": "boolean",
+  "construction": {
+    "material": "string|null"
+  },
+  "length_range_mm": {
+    "min": "integer|null",
+    "max": "integer|null"
+  },
+  "specifications": {
+    "length_mm": ["integer", "null"],
+    "width_mm": ["integer", "null"],
+    "height_mm": ["integer", "null"],
+    "weight_kg": ["integer", "null"],
+    "capacity_persons": ["integer", "null"],
+    "max_hp": ["integer", "null"],
+    "fuel_capacity_l": ["integer", "null"]
+  },
+  "variants": [
+    {
+      "id": "string",
+      "name": "string",
+      "description": "string|null",
+      "specifications": {
+        "length_mm": ["integer", "null"],
+        "width_mm": ["integer", "null"],
+        "height_mm": ["integer", "null"],
+        "weight_kg": ["integer", "null"],
+        "capacity_persons": ["integer", "null"],
+        "max_hp": ["integer", "null"],
+        "fuel_capacity_l": ["integer", "null"]
+      }
+    }
+  ]
+}

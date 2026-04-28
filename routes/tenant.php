@@ -63,6 +63,7 @@ use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\VendorController;
+use App\Http\Controllers\Tenant\WarrantyClaimController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
@@ -247,6 +248,10 @@ Route::middleware([
             Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::post('/{invoice}/apply-manual-payment', [InvoiceController::class, 'applyManualPayment'])->name('apply-manual-payment');
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
+        });
+
+        Route::prefix('warrantyclaims')->name('warrantyclaims.')->group(function () {
+            Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
         });
 
         Route::prefix('payments')->name('payments.')->group(function () {

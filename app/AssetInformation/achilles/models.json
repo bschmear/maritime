@@ -1,0 +1,38 @@
+[
+  {
+    "id": "achilles-pneumatic",
+    "name": "Achilles Inflatable Boats",
+    "url": "https://achillesboats.com/inflatable-boats/",
+    "type": "listing_page"
+  },
+  {
+    "id": "achilles-lsi",
+    "name": "LSI Series",
+    "url": "https://achillesboats.com/lsi-series/",
+    "type": "listing_page"
+  },
+  {
+    "id": "achilles-lsg",
+    "name": "LSG Series",
+    "url": "https://achillesboats.com/lsg-series/",
+    "type": "listing_page"
+  },
+  {
+    "id": "achilles-lsi-rib",
+    "name": "LSI RIB Series",
+    "url": "https://achillesboats.com/rib-boats/",
+    "type": "listing_page"
+  },
+  {
+    "id": "achilles-tenders",
+    "name": "Tender Line",
+    "url": "https://achillesboats.com/tenders/",
+    "type": "listing_page"
+  },
+  {
+    "id": "achilles-commercial",
+    "name": "Commercial / Work Boats",
+    "url": "https://achillesboats.com/commercial/",
+    "type": "listing_page"
+  }
+]

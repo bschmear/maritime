@@ -1,0 +1,29 @@
+{
+  "settings": {
+    "max_width": "4xl"
+  },
+  "form": {
+    "primary": {
+      "label": "Claim",
+      "fields": [
+        { "key": "vendor_id", "required": false },
+        { "key": "invoice_id", "required": false },
+        { "key": "work_order_id", "required": false },
+        { "key": "claim_number", "required": false },
+        { "key": "status", "required": true },
+        { "key": "notes", "required": false },
+        { "key": "rejection_reason", "required": false }
+      ]
+    },
+    "secondary": {
+      "label": "Timeline",
+      "fields": [
+        { "key": "total_amount", "required": false },
+        { "key": "submitted_at", "required": false },
+        { "key": "approved_at", "required": false },
+        { "key": "paid_at", "required": false },
+        { "key": "voided_at", "required": false }
+      ]
+    }
+  }
+}

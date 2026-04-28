@@ -27,6 +27,8 @@ const props = defineProps({
     enabledPaymentMethods: { type: Array,  default: () => [] },
     formSchema:            { type: Object, default: () => ({}) },
     domainName:            { type: String, default: 'Invoice' },
+    manufacturerWarrantyCloseBlocked: { type: Boolean, default: false },
+    manufacturerWarrantyCloseMessage: { type: String, default: null },
 });
 
 const STATUS_ENUM_KEY       = 'App\\Enums\\Invoice\\Status';
@@ -197,6 +199,7 @@ const manualMethodOptions = [
 const canRecordManualPayment = computed(() => {
     const s = props.record?.status;
     if (['void', 'draft', 'paid'].includes(s)) return false;
+    if (props.manufacturerWarrantyCloseBlocked) return false;
     const due = parseFloat(props.record?.amount_due);
     return !Number.isNaN(due) && due > 0.009;
 });
@@ -229,6 +232,10 @@ const submitManualPayment = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
+                <div v-if="manufacturerWarrantyCloseBlocked && manufacturerWarrantyCloseMessage"
+                     class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                    {{ manufacturerWarrantyCloseMessage }}
+                </div>
                 <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
                     <div class="flex items-center gap-3">
                         <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">

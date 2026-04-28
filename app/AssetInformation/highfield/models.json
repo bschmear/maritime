@@ -1,0 +1,50 @@
+[
+  {
+    "id": "highfield-cl",
+    "name": "Classic Line (CL)",
+    "url": "https://www.highfieldboats.com/models/classic/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-ul",
+    "name": "Ultralite Line (UL)",
+    "url": "https://www.highfieldboats.com/models/ultralite/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-patrol",
+    "name": "Patrol Line",
+    "url": "https://www.highfieldboats.com/models/patrol/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-coaster",
+    "name": "Coaster Line",
+    "url": "https://www.highfieldboats.com/models/coaster/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-sport",
+    "name": "Sport Line",
+    "url": "https://www.highfieldboats.com/models/sport/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-sp",
+    "name": "Sport Console (SP) Line",
+    "url": "https://www.highfieldboats.com/models/sport-console/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-hypalon",
+    "name": "Hypalon Range (material grouping)",
+    "url": "https://www.highfieldboats.com/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-aluminium-hull",
+    "name": "Aluminium Hull Range",
+    "url": "https://www.highfieldboats.com/",
+    "type": "listing_page"
+  }
+]

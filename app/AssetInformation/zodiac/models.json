@@ -1,0 +1,63 @@
+[
+  {
+    "id": "zodiac-cadet",
+    "name": "Cadet Series",
+    "url": "https://www.zodiac-nautic.com/en/cadet/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-open",
+    "name": "Open Series",
+    "url": "https://www.zodiac-nautic.com/en/open/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-pro",
+    "name": "Pro Series",
+    "url": "https://www.zodiac-nautic.com/en/pro/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-medline",
+    "name": "Medline Series",
+    "url": "https://www.zodiac-nautic.com/en/medline/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-yachtline",
+    "name": "Yachtline Series",
+    "url": "https://www.zodiac-nautic.com/en/yachtline/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-n-zo",
+    "name": "N-ZO Series",
+    "url": "https://www.zodiac-nautic.com/en/n-zo/",
+    "type": "listing_page"
+  },
+
+  {
+    "id": "zodiac-milpro-mark",
+    "name": "MARK Series",
+    "url": "https://milpro.zodiac-nautic.com/en/mark/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-milpro-futura",
+    "name": "Futura Commando Series",
+    "url": "https://milpro.zodiac-nautic.com/en/futura-commando/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-milpro-sr",
+    "name": "Sea RIB / SR Series",
+    "url": "https://milpro.zodiac-nautic.com/en/sea-rib/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-milpro-sra",
+    "name": "SRA Series (Aluminum RIB)",
+    "url": "https://milpro.zodiac-nautic.com/en/sra/",
+    "type": "listing_page"
+  }
+]

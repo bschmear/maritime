@@ -4,12 +4,14 @@ namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Invoice\Support\InvoicePaymentFields;
+use App\Domain\WarrantyClaim\Support\AssertInvoiceManufacturerWarrantyClaimsAllowClose;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class UpdateInvoice
@@ -105,12 +107,23 @@ class UpdateInvoice
             $validated['total'] = $total;
             $validated['amount_due'] = $amountDue;
 
+            $newStatus = (string) $validated['status'];
+            $oldStatus = (string) $record->status;
+            if (
+                ($newStatus === 'paid' && $oldStatus !== 'paid')
+                || ($newStatus === 'void' && $oldStatus !== 'void')
+            ) {
+                app(AssertInvoiceManufacturerWarrantyClaimsAllowClose::class)($record);
+            }
+
             $record->update(array_merge($validated, $paymentNormalized));
 
             return [
                 'success' => true,
                 'record' => $record->fresh(),
             ];
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateInvoice', [
                 'error' => $e->getMessage(),

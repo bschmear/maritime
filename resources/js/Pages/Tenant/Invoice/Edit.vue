@@ -13,6 +13,8 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     enabledPaymentMethods: { type: Array, default: () => [] },
+    manufacturerWarrantyCloseBlocked: { type: Boolean, default: false },
+    manufacturerWarrantyCloseMessage: { type: String, default: null },
 });
 
 const breadcrumbItems = computed(() => [
@@ -41,6 +43,10 @@ const handleCancel = () => {
         </template>
 
         <div class="w-full flex flex-col space-y-6 mx-auto">
+            <div v-if="manufacturerWarrantyCloseBlocked && manufacturerWarrantyCloseMessage"
+                 class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+                {{ manufacturerWarrantyCloseMessage }}
+            </div>
             <InvoiceForm
                 :record="record"
                 :form-schema="formSchema"

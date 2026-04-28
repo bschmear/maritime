@@ -1,416 +1,490 @@
-{
-  "wb-22": {
-    "series": "Walker Bay 22",
-    "type_display": "Luxury Sport & Recreation RIB Runabout",
-    "boat_type_key": "runabouts",
-    "description": "The Walker Bay 22 is a luxury RIB runabout boat with a bold and elegant design. It is an impressive combination of luxury and sporty versatility. The unique hull design offers impressive performance and smooth handling for a boat of its size. What truly sets the 22 apart is the incredible comfort, roomy layout and impressive features. With seating for up to 12 passengers, the Walker Bay 22 is the perfect runabout boat for longer excursions as well as entertaining family and friends. There is no limit to what you can do with the Walker Bay 22.",
-    "specifications": {
-      "length": "21' 8\"",
-      "width": "9' 5\"",
-      "height": null,
-      "weight": "2,357 lbs",
-      "capacity_persons": 12,
-      "max_hp": "225hp",
-      "fuel_capacity": "65 gal"
-    },
-    "features": [
-      "Orca CSM® Tube Material",
-      "5 Air Chambers",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole"
-    ]
+[
+    {
+  "id": "walker-bay-22",
+  "brand": "Walker Bay",
+  "name": "Walker Bay 22",
+  "type_display": "Luxury Performance Runabout RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Walker Bay 22 is the flagship luxury runabout of the Walker Bay lineup, designed as a bold and elegant performance RIB. It features a unique rear-positioned helm that maximizes bow space and provides a more comfortable, shock-absorbing ride for the driver in rough conditions. Built with the proprietary Polyurethane Composite Micro Stringer grid and DuraTech™ vacuum RTM fiberglass construction, it offers a high strength-to-weight ratio and positive flotation. This model is engineered for versatility, serving equally well as a social entertaining platform, a watersports tow boat, or a long-range coastal explorer.",
+  "features": [
+    "Proprietary Spider Stringer Grid Construction",
+    "Modified Deep-V Hull for dry, smooth handling",
+    "Rear-Positioned Helm for expanded bow space",
+    "Dual 2-Position Flip-Up Bolster Seats (Driver & Passenger)",
+    "Port & Starboard Reclining Ratchet Seats",
+    "12-Gallon Freshwater Shower System",
+    "XL Dashboard (Fits dual 12\" flush-mounted chart plotters)",
+    "Insulated Cooler Locker in bow",
+    "Retractable Heavy-Duty Ski Pole (Optional)",
+    "Side Boarding Steps & Rear Walkway Door",
+    "12 Stainless Steel Beverage Holders",
+    "Integrated 4-Speaker Sound System (Expandable with Subwoofer)",
+    "ORCA (CSM) 5-Chamber Tube Fabric",
+    "Dedicated Compartment for Portable Head & Privacy Curtain (Optional)"
+  ],
+  "has_variants": false,
+  "construction": {
+    "material": "DuraTech™ Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "g15": {
-    "series": "G-Series",
-    "type_display": "Luxury Outboard Console Tender",
-    "boat_type_key": "tenders",
-    "description": "The all-new G15 is the world’s best 15′ luxury outboard console tender and is the most sophisticated RIB Walker Bay has ever made. It features a unique V-Hull design for a smoother, drier ride and a console designed for a more comfortable driving experience. The contoured shape provides plenty of legroom while the bolstered seat allows for easy navigation from either a seated or standing position, setting the G15 apart from all other 15′ tenders.",
-    "specifications": {
-      "length": "15' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Contoured console for increased legroom",
-      "Bolstered seat for seated or standing operation",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole"
-    ]
+  "length_range_mm": {
+    "min": 6600,
+    "max": 6600
   },
-  "g12": {
-    "series": "G-Series",
-    "type_display": "Luxury Performance Rigid Inflatable Boat",
-    "boat_type_key": "tenders",
-    "description": "The G12 is a luxury performance rigid inflatable boat designed to deliver a truly exceptional boating experience. By combining the agility and handling of a small vessel with the high performance and capability usually found in a much larger RIB, the G12 stands at the forefront of innovation. It features a unique V-Hull design for a smoother ride and an ergonomic layout that emphasizes space and comfort for both the driver and passengers, making it a premier choice for a luxury yacht tender.",
-    "specifications": {
-      "length": "12' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Ergonomic console and seating layout",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Advanced tube fabrics"
-    ]
+  "specifications": {
+    "length_mm": 6600,
+    "width_mm": 2870,
+    "height_mm": null,
+    "weight_kg": 1069,
+    "capacity_persons": 12,
+    "max_hp": 225,
+    "fuel_capacity_l": 227
   },
-  "generation-525-dlx": {
-    "series": "Generation Deluxe",
-    "type_display": "Elegant RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
-    "specifications": {
-      "length": "17' 3\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Ergonomic console with bolstered seat",
-      "Advanced tube fabrics"
-    ]
+  "variants": []
+}, // walker-bay-22
+    {
+  "id": "generation-12",
+  "brand": "Walker Bay",
+  "name": "Generation 12 DLX",
+  "type_display": "Luxury Console RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Generation 12 DLX is a premier 12-foot luxury yacht tender designed for those who refuse to compromise on comfort or performance. Built using Walker Bay's proprietary Polyurethane Composite Micro Stringer grid, the hull and deck are bonded into a single high-strength piece for superior durability and a smoother ride. Its wide-body design provides exceptional stability and ample legroom, while the modified Deep-V hull with concave chines ensures passengers stay dry and comfortable even in choppy conditions.",
+  "features": [
+    "Proprietary Polyurethane Composite Micro Stringer Grid",
+    "Deep V-Hull with Concave Chines",
+    "Ergonomic Console with Smoked Windscreen",
+    "L-shaped Bow Seating with integrated storage",
+    "Integrated 45L (12 Gal) Marine Grade Fuel Tank",
+    "Deluxe Stern Bench Seat with High Backrest",
+    "Hydraulic Stern Storage Hatch",
+    "Retractable Stainless Steel Ski Post",
+    "Integrated Stern Boarding Steps with EVA Foam",
+    "ORCA (CSM) Hypalon Tubes",
+    "Stainless Steel Cup Holders and Handrails"
+  ],
+  "has_variants": false,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "generation-450-dlx": {
-    "series": "Generation Deluxe",
-    "type_display": "Elegant RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
-    "specifications": {
-      "length": "14' 9\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Ergonomic console with bolstered seat",
-      "Advanced tube fabrics"
-    ]
+  "length_range_mm": {
+    "min": 3600,
+    "max": 3600
   },
-  "generation-400-dlx": {
-    "series": "Generation Deluxe",
-    "type_display": "Elegant RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
-    "specifications": {
-      "length": "13' 1\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Ergonomic console with bolstered seat",
-      "Advanced tube fabrics"
-    ]
+  "specifications": {
+    "length_mm": 3600,
+    "width_mm": 1910,
+    "height_mm": null,
+    "weight_kg": 248,
+    "capacity_persons": 5,
+    "max_hp": 40,
+    "fuel_capacity_l": 45
   },
-  "generation-360-dlx": {
-    "series": "Generation Deluxe",
-    "type_display": "Elegant RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
-    "specifications": {
-      "length": "11' 10\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Ergonomic console with bolstered seat",
-      "Advanced tube fabrics"
-    ]
+  "variants": []
+}, // generation-12
+    {
+  "id": "generation-15",
+  "brand": "Walker Bay",
+  "name": "Generation 15 DLX",
+  "type_display": "Luxury Performance RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Generation 15 DLX is a mid-sized luxury RIB that offers a perfect balance of performance and refined comfort. Designed as a high-end yacht tender or a standalone day boat, it features a spacious interior layout with a signature L-shaped bow bench and a high-back stern seat. Its heavy-duty deep-V hull is reinforced with a proprietary micro-stringer grid, providing a smooth, dry ride and exceptional tracking. With a 75HP rating, it delivers the power needed for watersports and long-range cruising.",
+  "features": [
+    "Proprietary Polyurethane Composite Micro Stringer Grid",
+    "Deep V-Hull with Concave Chines for a dry ride",
+    "Extra-Wide Rear Bench Seat with high backrest",
+    "L-shaped Bow Bench Seating / Sunpad",
+    "Integrated 64L (17 Gal) Marine Grade Fuel Tank",
+    "Hydraulic Stern Storage Hatch",
+    "Deluxe Console with Smoked Windscreen and Grab Rail",
+    "Telescopic Boarding Ladder",
+    "Retractable Stainless Steel Ski Post",
+    "ORCA (CSM) Hypalon Tubes",
+    "Stainless Steel Cup Holders and Bow Rails"
+  ],
+  "has_variants": false,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "generation-340-dlx": {
-    "series": "Generation Deluxe",
-    "type_display": "Elegant RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation Deluxe series offers elegant RIBs with refined styling and superior comfort. A thoughtful layout with a focus on increased storage space means there is plenty of room for passengers and gear, helping make these RIBs feel much larger than their actual size. Every model is built to the highest standards, featuring integrated components like a built-in swim ladder, on-board shower, and a telescopic ski pole for tubing and wakesports. The unique V-Hull design ensures a smoother, drier ride, while the ergonomic console provides a comfortable driving experience with ample legroom and bolstered seating.",
-    "specifications": {
-      "length": "11' 2\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Unique V-Hull design",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole",
-      "Ergonomic console with bolstered seat",
-      "Advanced tube fabrics"
-    ]
+  "length_range_mm": {
+    "min": 4500,
+    "max": 4500
   },
-  "venture-16": {
-    "series": "Venture Series",
-    "type_display": "Explorer Sport RIB",
-    "boat_type_key": "inflatables",
-    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
-    "specifications": {
-      "length": "16' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole for tubing and wakesports",
-      "Unique V-Hull design for smoother ride",
-      "Ergonomic console and seating layout"
-    ]
+  "specifications": {
+    "length_mm": 4500,
+    "width_mm": 2140,
+    "height_mm": null,
+    "weight_kg": 287,
+    "capacity_persons": 8,
+    "max_hp": 75,
+    "fuel_capacity_l": 64
   },
-  "venture-14": {
-    "series": "Venture Series",
-    "type_display": "Explorer Sport RIB",
-    "boat_type_key": "inflatables",
-    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
-    "specifications": {
-      "length": "14' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole for tubing and wakesports",
-      "Unique V-Hull design for smoother ride",
-      "Ergonomic console and seating layout"
-    ]
+  "variants": []
+}, // generation-15
+    {
+  "id": "generation-dlx",
+  "brand": "Walker Bay",
+  "name": "Generation DLX Series",
+  "type_display": "Luxury Console RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Generation DLX series is the hallmark of Walker Bay’s luxury RIB lineup, blending elegant styling with high-performance engineering. Built with a proprietary Polyurethane Composite Micro Stringer grid, the hull and deck are bonded into a single, incredibly strong piece. The modified Deep-V hull with concave chines is designed to deflect water downward for a dry, smooth ride. Every detail, from the ergonomic seating to the integrated fuel systems and specialized storage, is crafted to provide a premium experience whether used as a yacht tender or a primary day boat.",
+  "features": [
+    "Proprietary Polyurethane Composite Micro Stringer Grid",
+    "Deep V-Hull with Concave Chines",
+    "Deluxe Console with Smoked Windshield and Grab Rail",
+    "L-shaped Bow Bench Seating with Integrated Storage",
+    "High-Back Rear Bench Seat",
+    "Integrated Marine Grade Aluminum Fuel Tank",
+    "Hydraulic Stern Storage Hatch",
+    "Retractable Stainless Steel Ski Post",
+    "Integrated Stern Boarding Steps with EVA Foam",
+    "ORCA (CSM) Hypalon Tubes",
+    "Stainless Steel Handrails and Cleats"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "venture-13": {
-    "series": "Venture Series",
-    "type_display": "Explorer Sport RIB",
-    "boat_type_key": "inflatables",
-    "description": "Venture series boats are versatile explorer sport RIBs designed to take you wherever adventure leads. Whether you’re entertaining, waterskiing, tubing, fishing, snorkeling or just relaxing and exploring, these boats offer the flexibility to enjoy a wide array of activities. They provide the agility and handling of a small vessel with the capability and high performance usually found in a much larger RIB, all while maintaining an ergonomic layout for maximum space and comfort.",
-    "specifications": {
-      "length": "13' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole for tubing and wakesports",
-      "Unique V-Hull design for smoother ride",
-      "Ergonomic console and seating layout"
-    ]
+  "length_range_mm": {
+    "min": 3400,
+    "max": 5250
   },
-  "stx-365": {
-    "series": "STX",
-    "type_display": "Compact Lightweight RIB Tender",
-    "boat_type_key": "tenders",
-    "description": "The STX series represents compact, lightweight RIB tenders designed for versatility and ease of use. By focusing on rigid hull design, advanced tube fabrics, and cutting-edge building technology, these products offer enhanced features and superior comfort. These RIB boats are specifically designed to accommodate various lifting capacities and deck spaces, making them the ideal choice for yacht owners who require a high-quality tender that is easy to handle. Like all Walker Bay models, they feature a unique V-Hull design for a smoother, drier ride and provide the agility and handling of a small vessel with the high performance usually found in a much larger RIB.",
-    "specifications": {
-      "length": "12' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Rigid hull design",
-      "Advanced tube fabrics",
-      "Unique V-Hull design for smoother ride",
-      "Lightweight construction for easy lifting",
-      "Agility and handling of a small vessel",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole"
-    ]
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
   },
-  "stx-325": {
-    "series": "STX",
-    "type_display": "Compact Lightweight RIB Tender",
-    "boat_type_key": "tenders",
-    "description": "The STX series represents compact, lightweight RIB tenders designed for versatility and ease of use. By focusing on rigid hull design, advanced tube fabrics, and cutting-edge building technology, these products offer enhanced features and superior comfort. These RIB boats are specifically designed to accommodate various lifting capacities and deck spaces, making them the ideal choice for yacht owners who require a high-quality tender that is easy to handle. Like all Walker Bay models, they feature a unique V-Hull design for a smoother, drier ride and provide the agility and handling of a small vessel with the high performance usually found in a much larger RIB.",
-    "specifications": {
-      "length": "10' 8\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
+  "variants": [
+    {
+      "id": "generation-340-dlx",
+      "name": "Generation 340 DLX",
+      "description": "An 11-foot luxury tender that packs full-size features into a compact frame, ideal for mid-sized yacht davits.",
+      "specifications": {
+        "length_mm": 3400,
+        "width_mm": 1910,
+        "height_mm": null,
+        "weight_kg": 238,
+        "capacity_persons": 5,
+        "max_hp": 40,
+        "fuel_capacity_l": 45
+      }
     },
-    "features": [
-      "Rigid hull design",
-      "Advanced tube fabrics",
-      "Unique V-Hull design for smoother ride",
-      "Lightweight construction for easy lifting",
-      "Agility and handling of a small vessel",
-      "Built-in swim ladder",
-      "On-board shower",
-      "Telescopic ski pole"
-    ]
+    {
+      "id": "generation-360-dlx",
+      "name": "Generation 360 DLX",
+      "description": "A spacious 12-foot variant with increased interior volume and stability for comfortable guest transport.",
+      "specifications": {
+        "length_mm": 3600,
+        "width_mm": 1910,
+        "height_mm": null,
+        "weight_kg": 248,
+        "capacity_persons": 5,
+        "max_hp": 40,
+        "fuel_capacity_l": 45
+      }
+    },
+    {
+      "id": "generation-400-dlx",
+      "name": "Generation 400 DLX",
+      "description": "The 13-foot model offering best-in-class legroom and a larger payload capacity for active families.",
+      "specifications": {
+        "length_mm": 4000,
+        "width_mm": 1970,
+        "height_mm": null,
+        "weight_kg": 259,
+        "capacity_persons": 7,
+        "max_hp": 50,
+        "fuel_capacity_l": 45
+      }
+    },
+    {
+      "id": "generation-450-dlx",
+      "name": "Generation 450 DLX",
+      "description": "A performance-oriented 15-foot RIB rated for 75HP, delivering superior handling in open water.",
+      "specifications": {
+        "length_mm": 4500,
+        "width_mm": 2140,
+        "height_mm": null,
+        "weight_kg": 287,
+        "capacity_persons": 8,
+        "max_hp": 75,
+        "fuel_capacity_l": 64
+      }
+    },
+    {
+      "id": "generation-525-dlx",
+      "name": "Generation 525 DLX",
+      "description": "The flagship 17-foot model in the DLX line, providing maximum seating, power, and fuel range for offshore use.",
+      "specifications": {
+        "length_mm": 5250,
+        "width_mm": 2340,
+        "height_mm": null,
+        "weight_kg": 435,
+        "capacity_persons": 10,
+        "max_hp": 115,
+        "fuel_capacity_l": 125
+      }
+    }
+  ]
+}, // generation-dlx
+    {
+  "id": "generation-lte",
+  "brand": "Walker Bay",
+  "name": "Generation LTE Series",
+  "type_display": "Lightweight Luxury Console RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Generation LTE (Lightweight) series is a specialized category of console RIB tenders designed to provide the styling and innovative features of the premium Generation DLX line in a significantly lighter construction. Engineered for swim platforms or cranes with weight restrictions, these tenders utilize Walker Bay's proprietary Composite Micro Stringer grid to bond the hull and deck into one piece. This results in a boat that is not only lighter and stronger but also quicker to plane and better at absorbing chop. Each model is available in two layouts: a 3-seat pedestal configuration for maximum legroom or a 4-seat bench configuration for additional passenger comfort.",
+  "features": [
+    "Proprietary Polyurethane Composite Micro Stringer Grid",
+    "Flared V-Hull for a smooth, dry ride",
+    "Ergonomic Console with Hand Rail and Smoked Windscreen",
+    "Extra Wide Rear Seat with 3D Ergonomic Cushions",
+    "Deluxe Bow Step with Integrated Backrest Cushion",
+    "Available in 3-Seat (Pedestal) or 4-Seat (Bench) Layouts",
+    "Integrated EPA Fuel System (DL models)",
+    "Stainless Steel Davit Lifting Eyes (3)",
+    "Heavy Duty Stainless Steel Towing Rings (2)",
+    "Low Profile LED Bow Light and Rear Pole Light",
+    "ORCA (CSM) Hypalon or Heytex PVC Tube Options"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / Hypalon or PVC Tubes"
   },
-  "generation-14-lte": {
-    "series": "Generation LTE",
-    "type_display": "Lightweight Deluxe RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
-    "specifications": {
-      "length": "14' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Lightweight hull construction",
-      "Ergonomic console with bolstered seat",
-      "Unique V-Hull design for smoother ride",
-      "Increased storage capacity",
-      "Advanced tube fabrics",
-      "Built-in swim ladder"
-    ]
+  "length_range_mm": {
+    "min": 3190,
+    "max": 3700
   },
-  "generation-13-lte": {
-    "series": "Generation LTE",
-    "type_display": "Lightweight Deluxe RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
-    "specifications": {
-      "length": "13' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Lightweight hull construction",
-      "Ergonomic console with bolstered seat",
-      "Unique V-Hull design for smoother ride",
-      "Increased storage capacity",
-      "Advanced tube fabrics",
-      "Built-in swim ladder"
-    ]
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
   },
-  "generation-12-lte": {
-    "series": "Generation LTE",
-    "type_display": "Lightweight Deluxe RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
-    "specifications": {
-      "length": "12' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
+  "variants": [
+    {
+      "id": "generation-10-lte",
+      "name": "Generation 10 LTE",
+      "description": "A 10-foot lightweight deluxe tender, perfect for smaller yachts and weight-sensitive davit systems.",
+      "specifications": {
+        "length_mm": 3190,
+        "width_mm": 1780,
+        "height_mm": null,
+        "weight_kg": 136,
+        "capacity_persons": 4,
+        "max_hp": 30,
+        "fuel_capacity_l": 23
+      }
     },
-    "features": [
-      "Lightweight hull construction",
-      "Ergonomic console with bolstered seat",
-      "Unique V-Hull design for smoother ride",
-      "Increased storage capacity",
-      "Advanced tube fabrics",
-      "Built-in swim ladder"
-    ]
+    {
+      "id": "generation-11-lte",
+      "name": "Generation 11 LTE",
+      "description": "The mid-sized LTE model offering a balance of increased capacity and portability.",
+      "specifications": {
+        "length_mm": 3400,
+        "width_mm": 1780,
+        "height_mm": null,
+        "weight_kg": 147,
+        "capacity_persons": 5,
+        "max_hp": 30,
+        "fuel_capacity_l": 30
+      }
+    },
+    {
+      "id": "generation-12-lte",
+      "name": "Generation 12 LTE",
+      "description": "The largest in the LTE line, providing extra storage and horsepower while remaining under critical lifting weight limits.",
+      "specifications": {
+        "length_mm": 3700,
+        "width_mm": 1820,
+        "height_mm": null,
+        "weight_kg": 171,
+        "capacity_persons": 6,
+        "max_hp": 40,
+        "fuel_capacity_l": 38
+      }
+    }
+  ]
+}, // generation-lte
+    {
+  "id": "venture",
+  "brand": "Walker Bay",
+  "name": "Venture Series",
+  "type_display": "Luxury Explorer RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Venture series is a versatile, high-end yacht tender designed for explorers. Built on a modified Deep-V hull with concave chines, it delivers a superior dry ride and aggressive handling. Its standout feature is a spacious, open-concept deck layout with a unique 'extra-large' bow area, designed to maximize passenger comfort and cargo capacity. The hull is constructed using a high-density Polyurethane Composite Micro Stringer grid, making it lighter and stronger than traditional fiberglass structures.",
+  "features": [
+    "Proprietary Polyurethane Composite Micro Stringer Grid",
+    "Deep V-Hull with Concave Chines for a dry ride",
+    "Extra-Large Bow Seating Area with backrest",
+    "Rear High-Back Bench Seating",
+    "Integrated Marine Grade Fuel Tank",
+    "Heavy Duty ORCA (CSM) Hypalon Tubes",
+    "Deluxe Console with Smoked Windshield and Grab Rail",
+    "Built-in Cooler under console seat",
+    "Self-Bailing Deck System",
+    "Integrated Stern Boarding Steps"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "generation-11-lte": {
-    "series": "Generation LTE",
-    "type_display": "Lightweight Deluxe RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
-    "specifications": {
-      "length": "11' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
-    },
-    "features": [
-      "Lightweight hull construction",
-      "Ergonomic console with bolstered seat",
-      "Unique V-Hull design for smoother ride",
-      "Increased storage capacity",
-      "Advanced tube fabrics",
-      "Built-in swim ladder"
-    ]
+  "length_range_mm": {
+    "min": 4000,
+    "max": 4900
   },
-  "generation-10-lte": {
-    "series": "Generation LTE",
-    "type_display": "Lightweight Deluxe RIB",
-    "boat_type_key": "inflatables",
-    "description": "The Generation LTE series embodies fresh thinking and exceptional value, offering the high-end features and sophisticated style of the Generation line in a package specifically designed for reduced weight and easier lifting. These lightweight deluxe RIBs feature a thoughtful layout emphasizing ergonomics, ensuring a spacious experience for both driver and passengers. The contoured console provides ample legroom while the bolstered seating allows for comfortable operation from either a seated or standing position. Built to meticulous standards, these boats accommodate various lifting capacities and deck spaces without compromising on performance or style.",
-    "specifications": {
-      "length": "10' 0\"",
-      "width": null,
-      "height": null,
-      "weight": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity": null
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "venture-13",
+      "name": "Venture 13",
+      "description": "The most compact Venture model, designed to offer maximum deck space and luxury features in a 13-foot footprint.",
+      "specifications": {
+        "length_mm": 4000,
+        "width_mm": 1960,
+        "height_mm": null,
+        "weight_kg": 250,
+        "capacity_persons": 6,
+        "max_hp": 50,
+        "fuel_capacity_l": 45
+      }
     },
-    "features": [
-      "Lightweight hull construction",
-      "Ergonomic console with bolstered seat",
-      "Unique V-Hull design for smoother ride",
-      "Increased storage capacity",
-      "Advanced tube fabrics",
-      "Built-in swim ladder"
-    ]
-  }
-}
+    {
+      "id": "venture-14",
+      "name": "Venture 14",
+      "description": "A 14-foot luxury tender that maximizes interior space, offering more usable deck area than most RIBs in its class.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1960,
+        "height_mm": null,
+        "weight_kg": 272,
+        "capacity_persons": 8,
+        "max_hp": 70,
+        "fuel_capacity_l": 57
+      }
+    },
+    {
+      "id": "venture-16",
+      "name": "Venture 16",
+      "description": "The largest in the Venture series, providing an expanded platform for offshore capability and increased passenger capacity.",
+      "specifications": {
+        "length_mm": 4900,
+        "width_mm": 2130,
+        "height_mm": null,
+        "weight_kg": 372,
+        "capacity_persons": 10,
+        "max_hp": 90,
+        "fuel_capacity_l": 95
+      }
+    }
+  ]
+}, // venture
+    {
+  "id": "stx",
+  "brand": "Walker Bay",
+  "name": "STX Series",
+  "type_display": "Performance Aluminum RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The STX Series represents Walker Bay's premier line of aluminum-hull RIBs, engineered for owners who require a lightweight, durable, and low-maintenance tender. These boats are built with a high-quality marine-grade aluminum hull that is chromated and powder-coated for maximum corrosion resistance. The STX design focuses on performance and versatility, offering a dry ride and impressive stability. Its lightweight nature makes it an ideal choice for smaller davits or swim platforms while providing the ruggedness needed for beaching on rocky shores.",
+  "features": [
+    "Marine Grade Aluminum Hull (Chromated & Powder Coated)",
+    "Built-in Fuel Tank (on select models)",
+    "Non-Skid EVA Foam Flooring",
+    "Integrated Bow Locker with Cushion",
+    "Multiple Lifting Points for Davits",
+    "Heavy Duty Rub Rail",
+    "ORCA (CSM) Hypalon or PVC Tube Options",
+    "Large Diameter Tubes for increased buoyancy",
+    "Internal Oar Storage",
+    "Reinforced Transom Plate"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / Hypalon or PVC Tubes"
+  },
+  "length_range_mm": {
+    "min": 2700,
+    "max": 3400
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "stx-270",
+      "name": "STX 270",
+      "description": "The most compact model in the STX line, designed for easy handling and storage on smaller vessels.",
+      "specifications": {
+        "length_mm": 2700,
+        "width_mm": 1640,
+        "height_mm": null,
+        "weight_kg": 42,
+        "capacity_persons": 3,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "stx-310",
+      "name": "STX 310",
+      "description": "A versatile 10-foot aluminum RIB that balances weight with significant carrying capacity.",
+      "specifications": {
+        "length_mm": 3100,
+        "width_mm": 1640,
+        "height_mm": null,
+        "weight_kg": 49,
+        "capacity_persons": 4,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "stx-340",
+      "name": "STX 340",
+      "description": "The largest STX variant, providing the most interior space and stability for crew and gear transport.",
+      "specifications": {
+        "length_mm": 3400,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 58,
+        "capacity_persons": 5,
+        "max_hp": 20,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+} // stx
+]

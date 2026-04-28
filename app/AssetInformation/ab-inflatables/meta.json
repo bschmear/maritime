@@ -1,58 +1,1879 @@
-{
-  "nautilus": {
-    "series": "Nautilus",
-    "type_display": "Fiberglass Luxury Console Tender",
-    "boat_type_key": "tenders",
-    "description": "Whether you're seeking adventure or comfort and relaxation, the full-featured Nautilus line is built for every lifestyle and unparalleled in quality, performance, and style. No detail is overlooked. From the cushioned bow to the convenient low helm station, each boat is flawlessly appointed with stainless-steel lateral rails, cupholders, built-in coolers, ample storage, elegant upholstery, and windshield. Even the throttle is ergonomically positioned.",
-    "specifications": {
-      "length_range": "11' - 19'",
-      "material": "ORCA (CSM) Coated Fabric"
-    },
-    "features": [
-      "Mechanical Steering System and Sport Steering Wheel",
-      "Sporty Console Look Design with SS Hand Rail & Plexiglass Windshield",
-      "Integrated Aluminum Fuel Tank",
-      "Lateral Bow SS Rails for Added Safety",
-      "Compartment Yacht Quality finish"
-    ],
-    "variants": [
-      { "id": "11-dlx", "name": "11 DLX", "specifications": { "length": "11' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "12-dlx", "name": "12 DLX", "specifications": { "length": "12' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "13-dlx", "name": "13 DLX", "specifications": { "length": "13' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "14-dlx", "name": "14 DLX", "specifications": { "length": "14' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "15-dlx", "name": "15 DLX", "specifications": { "length": "15' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "17-dlx", "name": "17 DLX", "specifications": { "length": "17' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "19-dlx", "name": "19 DLX", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "19-dlx-io", "name": "19 DLX I-O", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } }
-    ]
+[
+    {
+  "id": "nautilus",
+  "brand": "AB Inflatables",
+  "name": "Nautilus Series",
+  "type_display": "Luxury Console RIB",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "The Nautilus series represents the pinnacle of luxury and craftsmanship in the AB Inflatables lineup. Engineered as a high-end yacht tender, it combines an elegant design with a high-performance deep-V fiberglass hull. Each model is finished with premium appointments, including handcrafted upholstery, integrated storage, and a sophisticated console, ensuring a superior experience for both owners and guests.",
+  "features": [
+    "Hydraulic Steering System (standard on most models)",
+    "Fresh Water System with Shower & Internal Tank",
+    "Integrated Stainless Steel Bow Rails & Cleats",
+    "Luxury Upholstery with Hand-Stitched Details",
+    "Integrated Marine Grade Aluminum Fuel Tank",
+    "Fiberglass Console with Windshield & Stainless Steel Rail",
+    "ORCA (CSM) Coated Fabric",
+    "Diamond Shape Non-Skid Deck",
+    "Built-in Cooler/Storage Box"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
   },
-  "oceanus": {
-    "series": "Oceanus",
-    "type_display": "Fiberglass Sport Console Tender",
-    "boat_type_key": "tenders",
-    "description": "Our Oceanus line of RIBs deliver unsurpassed performance, convenience, and capacity. Built with an extra-deep V-hull, the Oceanus cuts through chop while keeping your passengers dry. Our unique forward-hull design ensures ample space aboard. A stylish, functional layout provides a comfortable ride, with ample storage for gear or the day's provisions. Oceanus is the perfect tender or primary boat for whatever adventure awaits.",
-    "specifications": {
-      "length_range": "11' - 28'",
-      "material": "ORCA (CSM) Coated Fabric"
+  "length_range_mm": {
+    "min": 3350,
+    "max": 5790
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "nautilus-11-dlx",
+      "name": "Nautilus 11 DLX",
+      "description": "A compact luxury tender that provides the amenities of a larger boat in a size suitable for mid-sized yachts.",
+      "specifications": {
+        "length_mm": 3350,
+        "width_mm": 1820,
+        "height_mm": 1050,
+        "weight_kg": 207,
+        "capacity_persons": 4,
+        "max_hp": 40,
+        "fuel_capacity_l": 49
+      }
     },
+    {
+      "id": "nautilus-12-dlx",
+      "name": "Nautilus 12 DLX",
+      "description": "Features an expanded beam and seating layout for enhanced guest comfort.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1820,
+        "height_mm": 1050,
+        "weight_kg": 235,
+        "capacity_persons": 5,
+        "max_hp": 40,
+        "fuel_capacity_l": 49
+      }
+    },
+    {
+      "id": "nautilus-13-dlx",
+      "name": "Nautilus 13 DLX",
+      "description": "A versatile mid-range luxury tender with optimized deck space and increased storage.",
+      "specifications": {
+        "length_mm": 3960,
+        "width_mm": 1940,
+        "height_mm": 1070,
+        "weight_kg": 265,
+        "capacity_persons": 6,
+        "max_hp": 50,
+        "fuel_capacity_l": 53
+      }
+    },
+    {
+      "id": "nautilus-14-dlx",
+      "name": "Nautilus 14 DLX",
+      "description": "Offers a sophisticated balance of performance and interior luxury for larger crews.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": 1070,
+        "weight_kg": 305,
+        "capacity_persons": 7,
+        "max_hp": 70,
+        "fuel_capacity_l": 64
+      }
+    },
+    {
+      "id": "nautilus-15-dlx",
+      "name": "Nautilus 15 DLX",
+      "description": "A spacious 15-foot platform featuring premium finishes and offshore capability.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": 1100,
+        "weight_kg": 352,
+        "capacity_persons": 9,
+        "max_hp": 75,
+        "fuel_capacity_l": 95
+      }
+    },
+    {
+      "id": "nautilus-17-dlx",
+      "name": "Nautilus 17 DLX",
+      "description": "Designed for long-range guest transport with significant fuel capacity and comfort.",
+      "specifications": {
+        "length_mm": 5180,
+        "width_mm": 2460,
+        "height_mm": 1250,
+        "weight_kg": 545,
+        "capacity_persons": 11,
+        "max_hp": 115,
+        "fuel_capacity_l": 150
+      }
+    },
+    {
+      "id": "nautilus-19-dlx",
+      "name": "Nautilus 19 DLX",
+      "description": "The flagship luxury model with expansive seating and superior sea-keeping.",
+      "specifications": {
+        "length_mm": 5790,
+        "width_mm": 2530,
+        "height_mm": 1300,
+        "weight_kg": 680,
+        "capacity_persons": 12,
+        "max_hp": 150,
+        "fuel_capacity_l": 160
+      }
+    }
+  ]
+}, //nautilus
+    {
+  "id": "oceanus",
+  "brand": "AB Inflatables",
+  "name": "Oceanus Series",
+  "type_display": "Performance Cruising RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "fiberglass",
+  "description": "The Oceanus series is designed for the serious boater who demands performance, versatility, and range. Featuring an extra-deep V fiberglass hull, these console RIBs provide a smooth, dry ride even in choppy conditions. With integrated fuel tanks and ample seating, they are ideal for long-distance cruising, watersports, and professional use.",
+  "features": [
+    "Extra Deep V-Hull for offshore performance",
+    "Fiberglass Console with Plexiglass Windshield & Grab Rail",
+    "Integrated Marine Grade Aluminum Fuel Tank",
+    "Molded-In Rear Seat with Ample Storage",
+    "Stainless Steel Bow and Stern Cleats",
+    "ORCA (CSM) Coated Fabric",
+    "Heavy Duty Double Rub Rail",
+    "Diamond Shape Non-Skid Deck",
+    "Fresh Water Tank & Shower (on larger models)"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 3350,
+    "max": 8330
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "oceanus-11-vst",
+      "name": "Oceanus 11 VST",
+      "description": "The most compact model in the Oceanus line, providing high-performance features in a size manageable for smaller davits.",
+      "specifications": {
+        "length_mm": 3350,
+        "width_mm": 1750,
+        "height_mm": null,
+        "weight_kg": 169,
+        "capacity_persons": 4,
+        "max_hp": 40,
+        "fuel_capacity_l": 42
+      }
+    },
+    {
+      "id": "oceanus-12-vst",
+      "name": "Oceanus 12 VST",
+      "description": "A popular choice for luxury yacht tenders, offering increased seating and stability.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1820,
+        "height_mm": null,
+        "weight_kg": 202,
+        "capacity_persons": 5,
+        "max_hp": 40,
+        "fuel_capacity_l": 61
+      }
+    },
+    {
+      "id": "oceanus-13-vst",
+      "name": "Oceanus 13 VST",
+      "description": "Mid-range tender with enhanced storage and a dedicated anchor locker.",
+      "specifications": {
+        "length_mm": 3960,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 232,
+        "capacity_persons": 6,
+        "max_hp": 50,
+        "fuel_capacity_l": 61
+      }
+    },
+    {
+      "id": "oceanus-14-vst",
+      "name": "Oceanus 14 VST",
+      "description": "Spacious console boat with a reinforced hull for towing and heavy use.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 249,
+        "capacity_persons": 7,
+        "max_hp": 60,
+        "fuel_capacity_l": 61
+      }
+    },
+    {
+      "id": "oceanus-15-vst",
+      "name": "Oceanus 15 VST",
+      "description": "A versatile mid-sized console RIB offering a balance of deck space and easy handling.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": null,
+        "weight_kg": 302,
+        "capacity_persons": 9,
+        "max_hp": 75,
+        "fuel_capacity_l": 95
+      }
+    },
+    {
+      "id": "oceanus-17-vst",
+      "name": "Oceanus 17 VST",
+      "description": "Designed for coastal cruising with an expanded beam and significant range.",
+      "specifications": {
+        "length_mm": 5180,
+        "width_mm": 2460,
+        "height_mm": null,
+        "weight_kg": 464,
+        "capacity_persons": 12,
+        "max_hp": 115,
+        "fuel_capacity_l": 151
+      }
+    },
+    {
+      "id": "oceanus-19-vst",
+      "name": "Oceanus 19 VST",
+      "description": "A popular model for offshore cruising, featuring a 130hp max rating and significant fuel capacity.",
+      "specifications": {
+        "length_mm": 5800,
+        "width_mm": 2460,
+        "height_mm": null,
+        "weight_kg": 542,
+        "capacity_persons": 15,
+        "max_hp": 150,
+        "fuel_capacity_l": 151
+      }
+    },
+    {
+      "id": "oceanus-21-vst",
+      "name": "Oceanus 21 VST",
+      "description": "High-performance cruiser with standard hydraulic steering and luxury finishes.",
+      "specifications": {
+        "length_mm": 6500,
+        "width_mm": 2720,
+        "height_mm": null,
+        "weight_kg": 760,
+        "capacity_persons": 18,
+        "max_hp": 225,
+        "fuel_capacity_l": 265
+      }
+    },
+    {
+      "id": "oceanus-24-vst",
+      "name": "Oceanus 24 VST",
+      "description": "A large-scale RIB for group excursions, professional charters, and rough water support.",
+      "specifications": {
+        "length_mm": 7320,
+        "width_mm": 2840,
+        "height_mm": null,
+        "weight_kg": 940,
+        "capacity_persons": 22,
+        "max_hp": 250,
+        "fuel_capacity_l": 322
+      }
+    },
+    {
+      "id": "oceanus-28-vst",
+      "name": "Oceanus 28 VST",
+      "description": "The flagship of the series, built for extreme offshore conditions with a massive 500hp capacity and seating for 25.",
+      "specifications": {
+        "length_mm": 8330,
+        "width_mm": 3070,
+        "height_mm": null,
+        "weight_kg": 1297,
+        "capacity_persons": 25,
+        "max_hp": 500,
+        "fuel_capacity_l": 715
+      }
+    }
+  ]
+}, //oceanus
+    {
+  "id": "mares",
+  "brand": "AB Inflatables",
+  "name": "Mares Series",
+  "type_display": "Compact Sport Console Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "The Mares is designed as a highly practical, space-saving sport console tender. Featuring a unique foldable console, it is intended for yacht owners who require a console-steered boat that can still fit into height-restricted garages or davit systems. Its fiberglass hull ensures a smooth ride while keeping the overall weight manageable.",
+  "features": [
+    "Integrated Fiberglass Foldable Console",
+    "Mechanical Steering System & Sport Steering Wheel",
+    "Molded-In Forward Locker with Cushion",
+    "ORCA (CSM) Coated Fabric",
+    "Single Rub Rail",
+    "Fiberglass Deep 'V' Hull",
+    "Diamond Shape Non-Skid Deck",
+    "Stainless Steel Bow Eye & Davit Lifting Points"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 3190,
+    "max": 3660
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "mares-10-vsx",
+      "name": "Mares 10 VSX",
+      "description": "A lightweight, entry-level console tender that prioritizes portability and storage efficiency.",
+      "specifications": {
+        "length_mm": 3190,
+        "width_mm": 1720,
+        "height_mm": null,
+        "weight_kg": 138,
+        "capacity_persons": 4,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "mares-11-vsx",
+      "name": "Mares 11 VSX",
+      "description": "The mid-range Mares model providing an ideal balance of deck space and compact storage dimensions.",
+      "specifications": {
+        "length_mm": 3400,
+        "width_mm": 1720,
+        "height_mm": null,
+        "weight_kg": 147,
+        "capacity_persons": 4,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "mares-12-vsx",
+      "name": "Mares 12 VSX",
+      "description": "The largest in the Mares line, offering improved seating comfort and a stable platform for five passengers.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1820,
+        "height_mm": null,
+        "weight_kg": 156,
+        "capacity_persons": 5,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //mares
+    {
+  "id": "alumina",
+  "brand": "AB Inflatables",
+  "name": "Alumina Series",
+  "type_display": "Aluminum Sport Console RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "deep-vee",
+  "hull_material_key": "aluminum",
+  "description": "The Alumina series represents a breakthrough in aluminum console RIBs. By combining a lightweight, rugged marine-grade aluminum hull with a full-featured console and seating arrangement, the Alumina offers the durability required for beaching on rocky shores without the weight penalties of fiberglass. It features a spacious deck, integrated fuel tanks in larger models, and a high-quality finish including Chrome-Free Pretreatment and Powder Coating.",
+  "features": [
+    "Marine Grade Aluminum Hull",
+    "Chrome-Free Pretreatment and Powder Coating",
+    "Integrated Aluminum Console and Rear Seat",
+    "Mechanical Steering System & Sport Steering Wheel",
+    "ORCA (CSM) Coated Fabric",
+    "Heavy Duty Keel Protector",
+    "Lifting and Towing Eyes",
+    "Non-Skid SeaDek® EVA Foam Decking"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2900,
+    "max": 5490
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "alumina-9.5-alx",
+      "name": "Alumina 9.5 ALX",
+      "description": "The most compact console model in the Alumina line, ideal for smaller yacht davits.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 114,
+        "capacity_persons": 4,
+        "max_hp": 20,
+        "fuel_capacity_l": 22
+      }
+    },
+    {
+      "id": "alumina-10-alx",
+      "name": "Alumina 10 ALX",
+      "description": "A lightweight aluminum console RIB designed for durability and ease of handling.",
+      "specifications": {
+        "length_mm": 3190,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 126,
+        "capacity_persons": 5,
+        "max_hp": 25,
+        "fuel_capacity_l": 22
+      }
+    },
+    {
+      "id": "alumina-11-alx",
+      "name": "Alumina 11 ALX",
+      "description": "Mid-sized aluminum console tender with increased cockpit space.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1700,
+        "height_mm": null,
+        "weight_kg": 153,
+        "capacity_persons": 6,
+        "max_hp": 30,
+        "fuel_capacity_l": 30
+      }
+    },
+    {
+      "id": "alumina-12-alx",
+      "name": "Alumina 12 ALX",
+      "description": "Versatile 12-foot aluminum RIB offering excellent stability and payload.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 175,
+        "capacity_persons": 6,
+        "max_hp": 40,
+        "fuel_capacity_l": 38
+      }
+    },
+    {
+      "id": "alumina-13-alx",
+      "name": "Alumina 13 ALX",
+      "description": "Spacious aluminum console boat designed for larger crews and watersports.",
+      "specifications": {
+        "length_mm": 3960,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 185,
+        "capacity_persons": 7,
+        "max_hp": 50,
+        "fuel_capacity_l": 38
+      }
+    },
+    {
+      "id": "alumina-14-alx",
+      "name": "Alumina 14 ALX",
+      "description": "A high-performance aluminum tender with expanded fuel and passenger capacity.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 215,
+        "capacity_persons": 8,
+        "max_hp": 60,
+        "fuel_capacity_l": 57
+      }
+    },
+    {
+      "id": "alumina-15-alx",
+      "name": "Alumina 15 ALX",
+      "description": "Large 15-foot aluminum console RIB for offshore cruising and support.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": null,
+        "weight_kg": 240,
+        "capacity_persons": 10,
+        "max_hp": 70,
+        "fuel_capacity_l": 57
+      }
+    },
+    {
+      "id": "alumina-16-alx",
+      "name": "Alumina 16 ALX",
+      "description": "Near the top of the range, offering a 90hp max rating and superior deck space.",
+      "specifications": {
+        "length_mm": 4880,
+        "width_mm": 2140,
+        "height_mm": null,
+        "weight_kg": 305,
+        "capacity_persons": 12,
+        "max_hp": 90,
+        "fuel_capacity_l": 95
+      }
+    },
+    {
+      "id": "alumina-18-alx",
+      "name": "Alumina 18 ALX",
+      "description": "The flagship of the Alumina series, providing maximum performance and seating.",
+      "specifications": {
+        "length_mm": 5490,
+        "width_mm": 2400,
+        "height_mm": null,
+        "weight_kg": 465,
+        "capacity_persons": 15,
+        "max_hp": 115,
+        "fuel_capacity_l": 133
+      }
+    }
+  ]
+}, //alumina
+    {
+    "id": "navigo",
+    "brand": "AB Inflatables",
+    "name": "Navigo Series",
+    "type_display": "Open Double Floor RIB",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Navigo series is renowned for its unique forward-hull design, which provides significantly more interior space than traditional RIBs. Its double-hull construction ensures a flat, dry deck, making it one of the most popular open fiberglass tenders for both cruisers and professional users who require maximum floor space and durability.",
     "features": [
-      "Mechanical Steering System and Sport Steering Wheel",
-      "SS LED Navigation Lights",
-      "Integrated Aluminum Fuel Tank",
-      "Bow & Stern Stainless Steel Cleats",
-      "Reinforced Orca (CSM) Fabric Handles on Tubes"
+      "Double Floor for a dry deck",
+      "Hand Laid Fiberglass Hull",
+      "Diamond Shape Non-Skid Deck",
+      "Integrated Bow Locker (fits portable fuel tank)",
+      "ORCA (CSM) Coated Fabric",
+      "4 Stainless Steel Davit Lifting Points",
+      "Raised Double Rub Rail"
     ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2560,
+      "max": 4570
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
     "variants": [
-      { "id": "12-vst", "name": "12 VST", "specifications": { "length": "12' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "13-vst", "name": "13 VST", "specifications": { "length": "13' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "14-vst", "name": "14 VST", "specifications": { "length": "14' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "15-vst", "name": "15 VST", "specifications": { "length": "15' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "17-vst", "name": "17 VST", "specifications": { "length": "17' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "19-vst", "name": "19 VST", "specifications": { "length": "19' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "21-vst", "name": "21 VST", "specifications": { "length": "21' 4\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "24-vst", "name": "24 VST", "specifications": { "length": "24' 0\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } },
-      { "id": "28-vst", "name": "28 VST", "specifications": { "length": "27' 4\"", "width": null, "height": null, "weight": null, "capacity_persons": null, "max_hp": null, "fuel_capacity": null } }
+      {
+        "id": "navigo-8-vs",
+        "name": "Navigo 8 VS",
+        "description": "Compact double-floor tender for small-to-mid sized cruisers.",
+        "specifications": {
+          "length_mm": 2560,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 54,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-9-vs",
+        "name": "Navigo 9 VS",
+        "description": "The quintessential mid-sized open tender, balancing weight and capacity.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1650,
+          "height_mm": null,
+          "weight_kg": 64,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-10-vs",
+        "name": "Navigo 10 VS",
+        "description": "The most popular mid-sized open tender in the Navigo line, offering a spacious 10-foot platform.",
+        "specifications": {
+          "length_mm": 3190,
+          "width_mm": 1720,
+          "height_mm": null,
+          "weight_kg": 71,
+          "capacity_persons": 5,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-12-vs",
+        "name": "Navigo 12 VS",
+        "description": "Expanded length and beam for increased stability and payload capacity.",
+        "specifications": {
+          "length_mm": 3660,
+          "width_mm": 1820,
+          "height_mm": null,
+          "weight_kg": 88,
+          "capacity_persons": 6,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-13-vs",
+        "name": "Navigo 13 VS",
+        "description": "High-capacity open tender designed for larger crews and equipment hauling.",
+        "specifications": {
+          "length_mm": 3960,
+          "width_mm": 1910,
+          "height_mm": null,
+          "weight_kg": 112,
+          "capacity_persons": 7,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-14-vs",
+        "name": "Navigo 14 VS",
+        "description": "A spacious 14-foot platform with significant dry deck area.",
+        "specifications": {
+          "length_mm": 4270,
+          "width_mm": 1940,
+          "height_mm": null,
+          "weight_kg": 134,
+          "capacity_persons": 8,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "navigo-15-vs",
+        "name": "Navigo 15 VS",
+        "description": "The flagship of the open fiberglass series, offering maximum interior volume.",
+        "specifications": {
+          "length_mm": 4570,
+          "width_mm": 1990,
+          "height_mm": null,
+          "weight_kg": 150,
+          "capacity_persons": 9,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      }
     ]
-  }
-  
-}
+  }, //navigo
+    {
+    "id": "ventus",
+    "brand": "AB Inflatables",
+    "name": "Ventus Series",
+    "type_display": "Lightweight Open RIB",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Ventus series is specifically engineered for boaters who need a high-quality fiberglass RIB but are restricted by davit weight limits. It features a lightweight single-hull design with a deep-V profile, offering a smooth, dry ride while remaining one of the lightest fiberglass inflatables on the market.",
+    "features": [
+      "Lightweight Single Fiberglass Hull",
+      "Deep 'V' Hull Design for superior tracking",
+      "ORCA (CSM) Coated Fabric",
+      "Non-Skid Floor",
+      "Removable Fiberglass Rowing Seat",
+      "Towing Rings and Lifting Points"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2560,
+      "max": 3660
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "ventus-8-vb",
+        "name": "Ventus 8 VB",
+        "description": "The lightest in the fiberglass range, ideal for manual beaching and small davits.",
+        "specifications": {
+          "length_mm": 2560,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 40,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ventus-9-vb",
+        "name": "Ventus 9 VB",
+        "description": "A compact, lightweight tender that tracks beautifully thanks to its deep-V hull.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1620,
+          "height_mm": null,
+          "weight_kg": 48,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ventus-10-vb",
+        "name": "Ventus 10 VB",
+        "description": "A lightweight 10-foot tender offering more buoyancy than the 8 and 9 without significant weight gain.",
+        "specifications": {
+          "length_mm": 3190,
+          "width_mm": 1620,
+          "height_mm": null,
+          "weight_kg": 56,
+          "capacity_persons": 5,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ventus-12-vb",
+        "name": "Ventus 12 VB",
+        "description": "The largest model in the Ventus line, providing maximum interior space for a minimal weight penalty.",
+        "specifications": {
+          "length_mm": 3660,
+          "width_mm": 1780,
+          "height_mm": null,
+          "weight_kg": 76,
+          "capacity_persons": 6,
+          "max_hp": 25,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //ventus
+    {
+  "id": "lammina-al",
+  "brand": "AB Inflatables",
+  "name": "Lammina AL Series",
+  "type_display": "Aluminum Open Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Lammina AL series is the versatile workhorse of the AB lineup. These open-deck tenders feature a high-quality 3.18mm marine-grade aluminum hull that is chrome-free pretreated and powder-coated. Designed for durability in abrasive environments, they offer a flat, stable double floor for a dry deck and a large bow locker for integrated fuel storage and equipment.",
+  "features": [
+    "Marine Grade Aluminum Hull",
+    "Chrome-Free Pretreatment and Powder Coating",
+    "SeaDek® EVA Foam Non-Skid Floor",
+    "Spacious Integrated Bow Locker",
+    "ORCA (CSM) Coated Fabric",
+    "Heavy Duty Keel Protector",
+    "Square Transom for Increased Payload",
+    "Aluminum Internal and External Transom Plates"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2560,
+    "max": 4880
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "lammina-8-al",
+      "name": "Lammina 8 AL",
+      "description": "A compact, rugged 8-foot aluminum tender perfect for limited davit capacities.",
+      "specifications": {
+        "length_mm": 2560,
+        "width_mm": 1500,
+        "height_mm": null,
+        "weight_kg": 40,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-9-al",
+      "name": "Lammina 9 AL",
+      "description": "The 9-foot model offers a perfect balance of interior space and lightweight maneuverability.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 50,
+        "capacity_persons": 4,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-10-al",
+      "name": "Lammina 10 AL",
+      "description": "The most popular mid-sized aluminum tender in the AL series.",
+      "specifications": {
+        "length_mm": 3190,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 57,
+        "capacity_persons": 5,
+        "max_hp": 20,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-11-al",
+      "name": "Lammina 11 AL",
+      "description": "Expanded length for better tracking and increased passenger comfort.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1700,
+        "height_mm": null,
+        "weight_kg": 75,
+        "capacity_persons": 6,
+        "max_hp": 25,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-12-al",
+      "name": "Lammina 12 AL",
+      "description": "A versatile open tender with significant payload for gear and crew.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 91,
+        "capacity_persons": 6,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-13-al",
+      "name": "Lammina 13 AL",
+      "description": "Mid-sized aluminum tender offering high payload capacity and increased horsepower rating.",
+      "specifications": {
+        "length_mm": 3960,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 101,
+        "capacity_persons": 7,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-14-al",
+      "name": "Lammina 14 AL",
+      "description": "Large capacity utility aluminum RIB for hauling heavy loads.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 115,
+        "capacity_persons": 8,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-15-al",
+      "name": "Lammina 15 AL",
+      "description": "Spacious 15-foot platform with wide beam for superior stability.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": null,
+        "weight_kg": 131,
+        "capacity_persons": 10,
+        "max_hp": 50,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-16-al",
+      "name": "Lammina 16 AL",
+      "description": "The largest in the AL range, bridging the gap between tender and utility boat.",
+      "specifications": {
+        "length_mm": 4880,
+        "width_mm": 2140,
+        "height_mm": null,
+        "weight_kg": 175,
+        "capacity_persons": 12,
+        "max_hp": 70,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //lammina-al
+    {
+    "id": "ab-rider",
+    "brand": "AB Inflatables",
+    "name": "AB Rider",
+    "type_display": "Sport Jockey RIB",
+    "boat_type_key": "power-pwc",
+    "hull_type_key": "deep-vee",
+    "hull_material_key": "fiberglass",
+    "description": "A crossover between a personal watercraft and a RIB, featuring a jockey-style seat and high-performance hull.",
+    "features": [
+      "Jockey-style Sport Console",
+      "Integrated Fuel Tank",
+      "Molded-in Storage Locker"
+    ],
+    "has_variants": false,
+    "construction": {
+      "material": "Fiberglass Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 3200,
+      "max": 3200
+    },
+    "specifications": {
+      "length_mm": 3200,
+      "width_mm": 1720,
+      "height_mm": null,
+      "weight_kg": 110,
+      "capacity_persons": 2,
+      "max_hp": 30,
+      "fuel_capacity_l": 25
+    },
+    "variants": []
+  }, //ab-rider
+    {
+  "id": "abjet-s",
+  "brand": "AB Inflatables",
+  "name": "ABJET S-Series",
+  "type_display": "Jet Propulsion Tender",
+  "boat_type_key": "power-jet",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "The ABJET S-Series is the core jet propulsion line from AB Inflatables, designed to combine high-performance Rotax® power with a low-profile deck arrangement. These tenders are engineered specifically for yacht garages and platforms, offering the safety of a propeller-free drive and the agility required for watersports and guest transport.",
+  "features": [
+    "Rotax® 4-TEC Engine with Jet Drive",
+    "Low Profile Design for Yacht Garages",
+    "Integrated Swim Platform with SEADEK®",
+    "Adjustable Sport Steering Wheel",
+    "Fiberglass Deep-V Hull",
+    "ORCA (CSM) Coated Fabric",
+    "Removable LED Navigation Lights",
+    "Automatic Fire Extinguisher and Bilge Pump"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2900,
+    "max": 4350
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "abjet-290",
+      "name": "ABJET 290",
+      "description": "The most compact model, specifically built to fit the dimensions of smaller yacht garages without compromising power.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1700,
+        "height_mm": 830,
+        "weight_kg": 300,
+        "capacity_persons": 4,
+        "max_hp": 90,
+        "fuel_capacity_l": 38
+      }
+    },
+    {
+      "id": "abjet-330",
+      "name": "ABJET 330",
+      "description": "A mid-size jet tender that balances maneuverability with a 5-person seating capacity.",
+      "specifications": {
+        "length_mm": 3300,
+        "width_mm": 1720,
+        "height_mm": 880,
+        "weight_kg": 320,
+        "capacity_persons": 5,
+        "max_hp": 150,
+        "fuel_capacity_l": 40
+      }
+    },
+    {
+      "id": "abjet-350",
+      "name": "ABJET 350",
+      "description": "A high-performance model designed for watersports, featuring a 150hp Rotax engine as standard.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1770,
+        "height_mm": 940,
+        "weight_kg": 370,
+        "capacity_persons": 5,
+        "max_hp": 150,
+        "fuel_capacity_l": 45
+      }
+    },
+    {
+      "id": "abjet-380",
+      "name": "ABJET 380",
+      "description": "Offers increased deck space and buoyancy, suitable for larger crews and heavier payloads.",
+      "specifications": {
+        "length_mm": 3800,
+        "width_mm": 1880,
+        "height_mm": 960,
+        "weight_kg": 450,
+        "capacity_persons": 6,
+        "max_hp": 170,
+        "fuel_capacity_l": 55
+      }
+    },
+    {
+      "id": "abjet-430",
+      "name": "ABJET 430",
+      "description": "The flagship of the S-Series, offering the maximum seating and fuel capacity for long-distance transport.",
+      "specifications": {
+        "length_mm": 4350,
+        "width_mm": 1940,
+        "height_mm": 1050,
+        "weight_kg": 500,
+        "capacity_persons": 7,
+        "max_hp": 170,
+        "fuel_capacity_l": 61
+      }
+    }
+  ]
+}, //abjet-s
+    {
+  "id": "profile-a",
+  "brand": "AB Inflatables",
+  "name": "Profile A Series",
+  "type_display": "Professional Aluminum RIB",
+  "boat_type_key": "power-commercial",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Profile A series consists of professional-grade aluminum hull RIBs engineered for high-intensity commercial, rescue, and military applications. These boats feature reinforced hulls with 3.18mm (1/8\") marine-grade aluminum and specialized configurations designed to handle extreme payloads and demanding sea states.",
+  "features": [
+    "Reinforced Professional Grade Aluminum Hull",
+    "Chrome-Free Pretreatment and Powder Coating",
+    "Multiple Air Chambers (3 to 5 depending on model)",
+    "Pressure Relief Valves",
+    "Heavy Duty Double Rub Rail",
+    "Non-Skid Professional Decking",
+    "Industrial Bow Locker with Ventilation",
+    "Reinforced Aluminum Lifting Points and Towing Rings"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Marine Grade Aluminum Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 3190,
+    "max": 5490
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "profile-10-a",
+      "name": "Profile 10 A",
+      "description": "Compact professional model for rapid deployment and utility tasks.",
+      "specifications": {
+        "length_mm": 3190,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 67,
+        "capacity_persons": 5,
+        "max_hp": 25,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-11-a",
+      "name": "Profile 11 A",
+      "description": "Standard mid-sized professional RIB with increased buoyancy and deck space.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1700,
+        "height_mm": null,
+        "weight_kg": 85,
+        "capacity_persons": 6,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-12-a",
+      "name": "Profile 12 A",
+      "description": "Extended utility model designed for crew transport and light cargo.",
+      "specifications": {
+        "length_mm": 3660,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 105,
+        "capacity_persons": 6,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-13-a",
+      "name": "Profile 13 A",
+      "description": "Heavy-duty variant with optimized hull geometry for chop.",
+      "specifications": {
+        "length_mm": 3960,
+        "width_mm": 1850,
+        "height_mm": null,
+        "weight_kg": 115,
+        "capacity_persons": 7,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-14-a",
+      "name": "Profile 14 A",
+      "description": "Large platform for dive teams and professional rescue operations.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 131,
+        "capacity_persons": 8,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-15-a",
+      "name": "Profile 15 A",
+      "description": "High-capacity professional RIB with a 50hp rating for heavy loads.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": null,
+        "weight_kg": 147,
+        "capacity_persons": 10,
+        "max_hp": 50,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-16-a",
+      "name": "Profile 16 A",
+      "description": "Advanced commercial model with expanded beam for superior stability.",
+      "specifications": {
+        "length_mm": 4880,
+        "width_mm": 2140,
+        "height_mm": null,
+        "weight_kg": 195,
+        "capacity_persons": 12,
+        "max_hp": 70,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-18-a",
+      "name": "Profile 18 A",
+      "description": "The flagship of the A-series, offering maximum payload and high-horsepower capacity for offshore utility.",
+      "specifications": {
+        "length_mm": 5490,
+        "width_mm": 2400,
+        "height_mm": null,
+        "weight_kg": 375,
+        "capacity_persons": 15,
+        "max_hp": 115,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //profile-a
+    {
+  "id": "lammina-ul",
+  "brand": "AB Inflatables",
+  "name": "Lammina UL Series",
+  "type_display": "Ultra-Light Aluminum Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Lammina Ultra Light (UL) is specifically engineered for weight-sensitive applications. By utilizing a single-hull design (no double floor), AB has achieved a significant weight reduction without compromising the structural integrity of the marine-grade aluminum. It is the premier choice for sailors and powerboaters with light-duty davits or those who manually beach their craft.",
+  "features": [
+    "Ultra-Lightweight Single Hull Design",
+    "Marine Grade Aluminum Hull",
+    "Chrome-Free Pretreatment and Powder Coating",
+    "ORCA (CSM) Coated Fabric",
+    "Removable Aluminum Rowing Seat",
+    "Non-skid Rubber Floor Patches",
+    "Reinforced Transom Knee",
+    "Heavy Duty Rub Rail"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2390,
+    "max": 3050
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "lammina-7.5-ul",
+      "name": "Lammina 7.5 UL",
+      "description": "The lightest RIB in the AB lineup, designed for single-handed operation and tiny davit systems.",
+      "specifications": {
+        "length_mm": 2390,
+        "width_mm": 1450,
+        "height_mm": null,
+        "weight_kg": 27,
+        "capacity_persons": 3,
+        "max_hp": 4,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-8-ul",
+      "name": "Lammina 8 UL",
+      "description": "A highly portable 8-foot tender that maintains a manageable 30kg weight for easy launching.",
+      "specifications": {
+        "length_mm": 2560,
+        "width_mm": 1500,
+        "height_mm": null,
+        "weight_kg": 30,
+        "capacity_persons": 4,
+        "max_hp": 6,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-9-ul",
+      "name": "Lammina 9 UL",
+      "description": "The ideal balance of length and weight, offering better tracking and stability in a sub-40kg package.",
+      "specifications": {
+        "length_mm": 2760,
+        "width_mm": 1500,
+        "height_mm": null,
+        "weight_kg": 34,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lammina-10-ul",
+      "name": "Lammina 10 UL",
+      "description": "The largest ultra-light model, providing the most interior volume while remaining light enough for two people to carry.",
+      "specifications": {
+        "length_mm": 3050,
+        "width_mm": 1500,
+        "height_mm": null,
+        "weight_kg": 43,
+        "capacity_persons": 4,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //lammina-ul
+    {
+  "id": "abjet-xp",
+  "brand": "AB Inflatables",
+  "name": "ABJET XP Series",
+  "type_display": "Extreme Performance Jet Tender",
+  "boat_type_key": "power-jet",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "The ABJET XP (Extreme Performance) is the top-tier jet tender line, featuring upgraded engine configurations and high-end finishes. It offers superior acceleration and a layout optimized for both luxury guest transport and high-speed towing.",
+  "features": [
+    "Rotax® High-Output Engine",
+    "Premium Upholstery and Decking",
+    "Under-Seat Storage with Integrated Lighting",
+    "Tilt Steering and Carbon Fiber Accents",
+    "Battery Switch and Automatic Bilge Pump",
+    "Integrated Swim Platform with SEADEK®",
+    "Retractable Cleats & Plug-in Navigation Lights"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2900,
+    "max": 4650
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "abjet-290-xp",
+      "name": "ABJET 290 XP",
+      "description": "Ultra-compact performance jet tender designed for height-restricted garages.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1700,
+        "height_mm": 830,
+        "weight_kg": 325,
+        "capacity_persons": 4,
+        "max_hp": 90,
+        "fuel_capacity_l": 38
+      }
+    },
+    {
+      "id": "abjet-330-xp",
+      "name": "ABJET 330 XP",
+      "description": "Performance-tuned compact jet tender with increased agility.",
+      "specifications": {
+        "length_mm": 3300,
+        "width_mm": 1720,
+        "height_mm": 880,
+        "weight_kg": 350,
+        "capacity_persons": 5,
+        "max_hp": 150,
+        "fuel_capacity_l": 40
+      }
+    },
+    {
+      "id": "abjet-350-xp",
+      "name": "ABJET 350 XP",
+      "description": "Mid-sized performance model offering superior power-to-weight ratio.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1770,
+        "height_mm": 940,
+        "weight_kg": 380,
+        "capacity_persons": 5,
+        "max_hp": 150,
+        "fuel_capacity_l": 45
+      }
+    },
+    {
+      "id": "abjet-380-xp",
+      "name": "ABJET 380 XP",
+      "description": "Spacious performance tender with expanded seating for six passengers.",
+      "specifications": {
+        "length_mm": 3800,
+        "width_mm": 1880,
+        "height_mm": 960,
+        "weight_kg": 460,
+        "capacity_persons": 6,
+        "max_hp": 170,
+        "fuel_capacity_l": 55
+      }
+    },
+    {
+      "id": "abjet-430-xp",
+      "name": "ABJET 430 XP",
+      "description": "High-capacity luxury jet tender with 170hp standard for performance cruising.",
+      "specifications": {
+        "length_mm": 4350,
+        "width_mm": 1940,
+        "height_mm": 1050,
+        "weight_kg": 520,
+        "capacity_persons": 7,
+        "max_hp": 170,
+        "fuel_capacity_l": 61
+      }
+    },
+    {
+      "id": "abjet-450-xp",
+      "name": "ABJET 450 XP",
+      "description": "The flagship of the XP series, offering maximum deck space and high-speed stability.",
+      "specifications": {
+        "length_mm": 4650,
+        "width_mm": 2040,
+        "height_mm": 1100,
+        "weight_kg": 590,
+        "capacity_persons": 7,
+        "max_hp": 170,
+        "fuel_capacity_l": 76
+      }
+    }
+  ]
+}, //abjet-xp
+    {
+  "id": "abjet-diesel",
+  "brand": "AB Inflatables",
+  "name": "ABJET Diesel Series",
+  "type_display": "Diesel Jet Tender",
+  "boat_type_key": "power-jet",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "Designed for yachts that operate exclusively on diesel fuel, the ABJET Diesel series eliminates the need to carry gasoline onboard. Powered by Yanmar diesel engines coupled with high-performance jet drives, these tenders provide exceptional safety, fuel commonality, and the impressive torque required for heavy payloads and watersports. The series is engineered with a low profile to fit into modern yacht garages and features a reinforced fiberglass hull to handle the demands of professional-grade operations.",
+  "features": [
+    "Yanmar Diesel Internal Combustion Engine",
+    "High-Pressure Jet Drive Propulsion",
+    "Reinforced Engine Bed and Fiberglass Hull",
+    "Heavy Duty Lifting Points for Yacht Davits",
+    "Large Service Hatch for easy engine access",
+    "Integrated Swim Platform with SEADEK®",
+    "ORCA (CSM) Coated Fabric",
+    "Automatic Fire Extinguisher and Bilge Pump",
+    "Adjustable Sport Steering Wheel"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 3800,
+    "max": 4650
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "abjet-380-d",
+      "name": "ABJET 380 Diesel",
+      "description": "The most compact diesel jet model, ideal for mid-sized yacht garages requiring diesel fuel commonality.",
+      "specifications": {
+        "length_mm": 3800,
+        "width_mm": 1880,
+        "height_mm": 1100,
+        "weight_kg": 650,
+        "capacity_persons": 6,
+        "max_hp": 80,
+        "fuel_capacity_l": 55
+      }
+    },
+    {
+      "id": "abjet-435-d",
+      "name": "ABJET 435 Diesel",
+      "description": "The mid-sized diesel jet tender balancing weight and passenger capacity for larger yachts.",
+      "specifications": {
+        "length_mm": 4350,
+        "width_mm": 1940,
+        "height_mm": 1150,
+        "weight_kg": 750,
+        "capacity_persons": 7,
+        "max_hp": 110,
+        "fuel_capacity_l": 60
+      }
+    },
+    {
+      "id": "abjet-465-d",
+      "name": "ABJET 465 Diesel",
+      "description": "The flagship diesel variant, offering the highest payload and performance in the diesel lineup.",
+      "specifications": {
+        "length_mm": 4650,
+        "width_mm": 2020,
+        "height_mm": 1200,
+        "weight_kg": 850,
+        "capacity_persons": 8,
+        "max_hp": 110,
+        "fuel_capacity_l": 75
+      }
+    }
+  ]
+}, //abjet-diesel
+    {
+  "id": "profile-a-xhd",
+  "brand": "AB Inflatables",
+  "name": "Profile A-XHD Series",
+  "type_display": "Extra Heavy Duty Aluminum RIB",
+  "boat_type_key": "power-commercial",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Profile A-XHD (Extra Heavy Duty) series is the most rugged aluminum hull RIB in the AB lineup. Specifically engineered for law enforcement, military, and extreme commercial operations, these boats feature a reinforced 4.7mm (3/16\") marine-grade aluminum hull and 1670 D-Tex ORCA (CSM) fabric. Built to withstand high-impact environments and heavy professional use, the XHD series offers unparalleled durability and longevity in the field.",
+  "features": [
+    "Reinforced 4.7mm (3/16\") Marine Grade Aluminum Hull",
+    "Commercial Grade 1670 D-Tex ORCA (CSM) Fabric",
+    "Pressure Relief Valves (Standard)",
+    "Triple Rub Rail (Double Lateral + Top Guard)",
+    "Reinforced Aluminum Bow Post",
+    "Side Boarding Steps with Non-Skid",
+    "Heavy-Duty Lifting Points and Towing Eyes",
+    "Internal Aluminum Plate Reinforcements"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Heavy-Duty Aluminum / 1670 D-Tex Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 4270,
+    "max": 7320
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "profile-14-axhd",
+      "name": "Profile 14 A-XHD",
+      "description": "The compact tactical variant, balancing portability with extreme hull thickness for littoral operations.",
+      "specifications": {
+        "length_mm": 4270,
+        "width_mm": 1940,
+        "height_mm": null,
+        "weight_kg": 145,
+        "capacity_persons": 8,
+        "max_hp": 40,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-15-axhd",
+      "name": "Profile 15 A-XHD",
+      "description": "Mid-sized professional RIB designed for high-payload rescue and crew transport.",
+      "specifications": {
+        "length_mm": 4570,
+        "width_mm": 1990,
+        "height_mm": null,
+        "weight_kg": 162,
+        "capacity_persons": 10,
+        "max_hp": 50,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-16-axhd",
+      "name": "Profile 16 A-XHD",
+      "description": "Enhanced stability model with a wider beam for boarding operations and tactical gear.",
+      "specifications": {
+        "length_mm": 4880,
+        "width_mm": 2140,
+        "height_mm": null,
+        "weight_kg": 215,
+        "capacity_persons": 12,
+        "max_hp": 70,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-18-axhd",
+      "name": "Profile 18 A-XHD",
+      "description": "Large-scale utility model for offshore patrol and heavy-duty logistics support.",
+      "specifications": {
+        "length_mm": 5490,
+        "width_mm": 2400,
+        "height_mm": null,
+        "weight_kg": 415,
+        "capacity_persons": 15,
+        "max_hp": 115,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-21-axhd",
+      "name": "Profile 21 A-XHD",
+      "description": "High-capacity offshore variant with a reinforced transom for high-horsepower commercial applications.",
+      "specifications": {
+        "length_mm": 6500,
+        "width_mm": 2400,
+        "height_mm": null,
+        "weight_kg": 590,
+        "capacity_persons": 18,
+        "max_hp": 150,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "profile-24-axhd",
+      "name": "Profile 24 A-XHD",
+      "description": "The flagship XHD model, providing a massive platform for military transport and long-range utility.",
+      "specifications": {
+        "length_mm": 7320,
+        "width_mm": 2400,
+        "height_mm": null,
+        "weight_kg": 720,
+        "capacity_persons": 22,
+        "max_hp": 225,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //profile-a-xhd
+    {
+    "id": "profile-as",
+    "brand": "AB Inflatables",
+    "name": "Profile AS Series",
+    "type_display": "Aluminum Shallow V Tender",
+    "boat_type_key": "power-commercial",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Profile AS (Aluminum Shallow V) series is designed for versatility and durability in thin water environments. Featuring a rugged 3.18mm marine-grade aluminum hull and a completely flat, non-skid deck, the AS series is ideal for passenger transport and light commercial utility. Its shallow V-design allows for easier beaching and operation in coastal shallows while maintaining the stability and safety inherent in a high-quality RIB.",
+    "features": [
+      "Marine Grade Aluminum Hull",
+      "Completely Flat Non-Skid Deck",
+      "Chrome-Free Pretreatment and Powder Coating",
+      "Integrated Bow Locker (Fits 6-Gallon Fuel Tank)",
+      "ORCA (CSM) Coated Fabric",
+      "Heavy Duty Keel Protector",
+      "Multiple Lifting Points and Towing Eyes",
+      "Aluminum Internal and External Transom Plates"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / ORCA (CSM) Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 3190,
+      "max": 5490
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "profile-10-as",
+        "name": "Profile 10 AS",
+        "description": "A compact aluminum utility RIB with a flat deck for easy movement.",
+        "specifications": {
+          "length_mm": 3190,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 64,
+          "capacity_persons": 5,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "profile-12-as",
+        "name": "Profile 12 AS",
+        "description": "Mid-sized utility variant offering a spacious flat floor for gear or passengers.",
+        "specifications": {
+          "length_mm": 3660,
+          "width_mm": 1850,
+          "height_mm": null,
+          "weight_kg": 99,
+          "capacity_persons": 6,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "profile-14-as",
+        "name": "Profile 14 AS",
+        "description": "High-capacity open aluminum RIB for heavy-duty hauling and transport.",
+        "specifications": {
+          "length_mm": 4270,
+          "width_mm": 1940,
+          "height_mm": null,
+          "weight_kg": 127,
+          "capacity_persons": 8,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "profile-18-as",
+        "name": "Profile 18 AS",
+        "description": "The flagship of the AS series, providing a massive open flat-deck platform.",
+        "specifications": {
+          "length_mm": 5490,
+          "width_mm": 2400,
+          "height_mm": null,
+          "weight_kg": 298,
+          "capacity_persons": 15,
+          "max_hp": 90,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //profile-as
+    {
+    "id": "profile-f",
+    "brand": "AB Inflatables",
+    "name": "Profile F Series",
+    "type_display": "Professional Fiberglass RIB",
+    "boat_type_key": "power-commercial",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Profile F (Fiberglass) series is engineered for the rigorous demands of professional use. Built on a reinforced Deep-V fiberglass hull, these boats are specifically designed for search and rescue, law enforcement, and military patrol. The series features high-denier ORCA (CSM) fabrics and specialized commercial-grade components to ensure reliability and performance in the most challenging maritime environments.",
+    "features": [
+      "Deep V Hand-Laid Fiberglass Hull",
+      "Reinforced Commercial Grade Tubes",
+      "Non-Skid Diamond Shape Deck",
+      "Pressure Relief Valves",
+      "Extra-Heavy Duty Double Rub Rail",
+      "Reinforced Towing and Lifting Eyes",
+      "Integrated Bow Locker and Anchor Storage",
+      "Double-Skinned Hull for Maximum Buoyancy"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / ORCA (CSM) Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 4270,
+      "max": 8330
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "profile-14-f",
+        "name": "Profile 14 F",
+        "description": "A compact professional fiberglass RIB for rapid response and coastal patrol.",
+        "specifications": {
+          "length_mm": 4270,
+          "width_mm": 1940,
+          "height_mm": null,
+          "weight_kg": 155,
+          "capacity_persons": 8,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "profile-16-f",
+        "name": "Profile 16 F",
+        "description": "Enhanced stability and interior volume for rescue and diving operations.",
+        "specifications": {
+          "length_mm": 4880,
+          "width_mm": 2140,
+          "height_mm": null,
+          "weight_kg": 236,
+          "capacity_persons": 12,
+          "max_hp": 70,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "profile-19-f",
+        "name": "Profile 19 F",
+        "description": "Heavy-duty offshore professional RIB with high payload capacity.",
+        "specifications": {
+          "length_mm": 5800,
+          "width_mm": 2460,
+          "height_mm": null,
+          "weight_kg": 490,
+          "capacity_persons": 15,
+          "max_hp": 150,
+          "fuel_capacity_l": 151
+        }
+      },
+      {
+        "id": "profile-24-f",
+        "name": "Profile 24 F",
+        "description": "A large-scale platform for commercial transport and multi-agency support.",
+        "specifications": {
+          "length_mm": 7320,
+          "width_mm": 2840,
+          "height_mm": null,
+          "weight_kg": 830,
+          "capacity_persons": 22,
+          "max_hp": 250,
+          "fuel_capacity_l": 322
+        }
+      },
+      {
+        "id": "profile-28-f",
+        "name": "Profile 28 F",
+        "description": "The flagship professional fiberglass model, designed for extreme offshore conditions.",
+        "specifications": {
+          "length_mm": 8330,
+          "width_mm": 3070,
+          "height_mm": null,
+          "weight_kg": 1150,
+          "capacity_persons": 25,
+          "max_hp": 500,
+          "fuel_capacity_l": 715
+        }
+      }
+    ]
+  } //profile-f
+]

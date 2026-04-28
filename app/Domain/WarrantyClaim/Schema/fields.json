@@ -1,0 +1,74 @@
+{
+  "vendor_id": {
+    "label": "Manufacturer (vendor)",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "nullable": true,
+    "relationship": "vendor"
+  },
+  "work_order_id": {
+    "label": "Work order",
+    "type": "record",
+    "typeDomain": "WorkOrder",
+    "nullable": true,
+    "relationship": "workOrder"
+  },
+  "invoice_id": {
+    "label": "Invoice",
+    "type": "record",
+    "typeDomain": "Invoice",
+    "nullable": true,
+    "relationship": "invoice"
+  },
+  "claim_number": {
+    "label": "Claim #",
+    "type": "text",
+    "nullable": true
+  },
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\WarrantyClaim\\Status",
+    "required": true,
+    "default": "draft"
+  },
+  "total_amount": {
+    "label": "Total",
+    "type": "currency",
+    "readOnly": true
+  },
+  "submitted_at": {
+    "label": "Submitted at",
+    "type": "datetime",
+    "readOnly": true,
+    "nullable": true
+  },
+  "approved_at": {
+    "label": "Approved at",
+    "type": "datetime",
+    "readOnly": true,
+    "nullable": true
+  },
+  "paid_at": {
+    "label": "Paid at",
+    "type": "datetime",
+    "readOnly": true,
+    "nullable": true
+  },
+  "voided_at": {
+    "label": "Voided at",
+    "type": "datetime",
+    "readOnly": true,
+    "nullable": true
+  },
+  "rejection_reason": {
+    "label": "Rejection reason",
+    "type": "textarea",
+    "nullable": true
+  },
+  "notes": {
+    "label": "Notes",
+    "type": "textarea",
+    "nullable": true
+  }
+}

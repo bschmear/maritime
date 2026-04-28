@@ -1,0 +1,11 @@
+{
+  "columns": [
+    { "key": "id", "label": "ID", "sortable": true },
+    { "key": "claim_number", "label": "Claim #", "sortable": true },
+    { "key": "vendor_id", "label": "Manufacturer", "sortable": false },
+    { "key": "invoice_id", "label": "Invoice", "sortable": false },
+    { "key": "status", "label": "Status", "sortable": true },
+    { "key": "total_amount", "label": "Total", "sortable": true },
+    { "key": "updated_at", "label": "Updated", "sortable": true }
+  ]
+}
