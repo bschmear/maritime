@@ -1,6 +1,8 @@
 {
   "columns": [
     { "key": "name", "label": "Name", "sortable": true },
+    { "key": "length", "label": "Length", "sortable": true },
+    { "key": "width", "label": "Width", "sortable": true },
     { "key": "default_price", "label": "Default price", "sortable": true },
     { "key": "default_cost", "label": "Default cost", "sortable": true },
     { "key": "inactive", "label": "Inactive", "sortable": true }

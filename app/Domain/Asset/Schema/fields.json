@@ -1,6 +1,6 @@
 {
   "type": {
-    "label": "Asset Type",
+    "label": "Asset Category",
     "type": "select",
     "enum": "App\\Enums\\Inventory\\AssetType",
     "required": true,
@@ -47,6 +47,51 @@
     "type": "text",
     "placeholder": "Year"
   },
+  "length": {
+    "label": "Length",
+    "type": "measurement",
+    "help": "Stored in millimetres. Shown in feet and inches for now; account display units will be configurable later.",
+    "spec": true
+  },
+  "width": {
+    "label": "Width",
+    "type": "measurement",
+    "help": "Stored in millimetres. Shown in feet and inches for now; account display units will be configurable later.",
+    "spec": true
+  },
+  "hull_type": {
+    "label": "Hull type",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\HullType",
+    "spec": true,
+    "conditional": {
+      "key": "type",
+      "value": 1,
+      "operator": "equals"
+    }
+  },
+  "hull_material": {
+    "label": "Hull material",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\HullMaterial",
+    "spec": true,
+    "conditional": {
+      "key": "type",
+      "value": 1,
+      "operator": "equals"
+    }
+  },
+  "boat_type": {
+    "label": "Boat type",
+    "type": "select",
+    "enum": "App\\Enums\\Inventory\\BoatType",
+    "spec": true,
+    "conditional": {
+      "key": "type",
+      "value": 1,
+      "operator": "equals"
+    }
+  },
   "default_cost": {
     "label": "Default Cost",
     "type": "currency",
@@ -61,11 +106,6 @@
     "label": "Description",
     "type": "textarea",
     "placeholder": "Asset description"
-  },
-  "attributes": {
-    "label": "Additional Attributes",
-    "type": "json",
-    "help": "Custom attributes as JSON"
   },
   "created_at": {
     "label": "Created",

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Http\Controllers\Controller;
@@ -54,24 +55,7 @@ class AssetSpecValueController extends Controller
             'specs.*.unit' => 'nullable|string',
         ]);
 
-        $type = $asset->getMorphClass();
-        $id = $asset->getKey();
-
-        foreach ($validated['specs'] as $specData) {
-            AssetSpecValue::updateOrCreate(
-                [
-                    'specable_type' => $type,
-                    'specable_id' => $id,
-                    'asset_spec_definition_id' => $specData['spec_id'],
-                ],
-                [
-                    'value_number' => $specData['value_number'] ?? null,
-                    'value_text' => $specData['value_text'] ?? null,
-                    'value_boolean' => $specData['value_boolean'] ?? null,
-                    'unit' => $specData['unit'] ?? null,
-                ]
-            );
-        }
+        SyncAssetSpecValues::forSpecable($asset, (int) $asset->type, $validated['specs']);
 
         return response()->json(['message' => 'Specs saved successfully.']);
     }

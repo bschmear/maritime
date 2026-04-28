@@ -53,6 +53,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    account: {
+        type: Object,
+        default: null,
+    },
 });
 
 const showDeleteModal = ref(false);
@@ -198,6 +202,7 @@ const cancelDelete = () => {
                 :timezones="timezones"
                 :available-specs="availableSpecs"
                 :extra-route-params="extraRouteParams"
+                :account="account"
                 mode="view"
                 :prevent-redirect="true"
                 :form-id="`form-${recordType}-${record.id}`"

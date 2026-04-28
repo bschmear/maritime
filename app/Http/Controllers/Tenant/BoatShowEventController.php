@@ -16,6 +16,7 @@ use App\Domain\Lead\Models\Lead;
 use App\Domain\User\Models\User;
 use App\Enums\Tasks\Priority;
 use App\Enums\Tasks\Status;
+use App\Support\DynamicGlobalScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Response as InertiaResponse;
@@ -133,7 +134,7 @@ class BoatShowEventController extends RecordController
             try {
                 return $this->withIndexExtraResponse(parent::index($request), $request);
             } finally {
-                RecordModel::clearGlobalScope(self::NESTED_SCOPE);
+                DynamicGlobalScope::remove(RecordModel::class, self::NESTED_SCOPE);
             }
         }
 

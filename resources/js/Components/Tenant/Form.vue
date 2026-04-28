@@ -12,7 +12,9 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
+import MeasurementImperialInput from '@/Components/Tenant/FormComponents/MeasurementImperialInput.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import { formatLengthMmImperial } from '@/utils/measurementMm.js';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
 
 const props = defineProps({
@@ -37,6 +39,8 @@ const props = defineProps({
     availableSpecs: { type: Array, default: () => [] },
     /** When set (e.g. variant forms), asset-spec definitions are loaded for this asset type instead of using `form.type`. */
     specsContextAssetType: { type: Number, default: null },
+    /** Variant modal: send enable_has_variants so the API can turn on has_variants before the main asset is saved. */
+    enableHasVariantsOnStore: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
@@ -65,7 +69,15 @@ const formUniqueId = computed(() =>
 
 const getFieldId = (fieldKey) => `${formUniqueId.value}-field-${fieldKey}`;
 
-const getFieldDefinition = (fieldKey) => props.fieldsSchema[fieldKey] || {};
+const resolvedFieldsSchema = computed(() => {
+    const fs = props.fieldsSchema;
+    if (fs && fs.fields && typeof fs.fields === 'object' && !Array.isArray(fs.fields)) {
+        return fs.fields;
+    }
+    return fs || {};
+});
+
+const getFieldDefinition = (fieldKey) => resolvedFieldsSchema.value[fieldKey] || {};
 
 const getRecordSpecValues = () => {
     const r = props.record;
@@ -135,8 +147,8 @@ const initializeFormData = () => {
     }
 
     if (props.record) {
-        const allowedRecordKeys = new Set(Object.keys(props.fieldsSchema || {}));
-        Object.values(props.fieldsSchema || {}).forEach(fieldDef => {
+        const allowedRecordKeys = new Set(Object.keys(resolvedFieldsSchema.value || {}));
+        Object.values(resolvedFieldsSchema.value || {}).forEach((fieldDef) => {
             if (fieldDef && fieldDef.type === 'morph' && fieldDef.id_field) {
                 allowedRecordKeys.add(fieldDef.id_field);
             }
@@ -173,6 +185,13 @@ const initializeFormData = () => {
                 }
             } else if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                 formData[key] = value === true || value === 1 ? 1 : 0;
+            } else if (fieldDef.type === 'measurement') {
+                if (value == null || value === '') {
+                    formData[key] = null;
+                } else {
+                    const n = Number(value);
+                    formData[key] = Number.isFinite(n) && n >= 0 ? n : null;
+                }
             } else if (fieldDef.type === 'record' && value && typeof value === 'object' && value.id) {
                 formData[key] = value.id;
             } else if (fieldDef.type === 'multi_enum') {
@@ -252,6 +271,8 @@ const initializeFormData = () => {
                             formData[field.key] = 0;
                         } else if (fieldType === 'checkbox' || fieldDef.type === 'boolean') {
                             formData[field.key] = 0;
+                        } else if (fieldType === 'measurement') {
+                            formData[field.key] = null;
                         } else {
                             formData[field.key] = '';
                         }
@@ -260,6 +281,83 @@ const initializeFormData = () => {
             }
         });
     }
+
+    const fillDefaultForKey = (fieldKey) => {
+        if (fieldKey in formData) {
+            return;
+        }
+        const field = { key: fieldKey };
+        const fieldDef = getFieldDefinition(fieldKey);
+        const fieldType = fieldDef.type || 'text';
+
+        if (fieldDef.default !== undefined && fieldDef.default !== null) {
+            formData[fieldKey] = fieldDef.default;
+        } else if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
+            formData[fieldKey] = fieldDef.default_value;
+        } else if (fieldType === 'date' && fieldDef.defaultDay !== undefined) {
+            const d = new Date();
+            d.setDate(d.getDate() + Number(fieldDef.defaultDay));
+            formData[fieldKey] = d.toISOString().split('T')[0];
+        } else if (fieldType === 'date' && fieldDef.default_today === true) {
+            const now = new Date();
+            const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+            formData[fieldKey] = localNow.toISOString().split('T')[0];
+        } else if (fieldType === 'datetime' && fieldDef.default_now === true) {
+            const now = new Date();
+            const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+            const year = localNow.getFullYear();
+            const month = String(localNow.getMonth() + 1).padStart(2, '0');
+            const day = String(localNow.getDate()).padStart(2, '0');
+            const hours = String(localNow.getHours()).padStart(2, '0');
+            const minutes = String(localNow.getMinutes()).padStart(2, '0');
+            formData[fieldKey] = `${year}-${month}-${day}T${hours}:${minutes}`;
+        } else if (fieldType === 'select') {
+            if (fieldDef.enum && props.enumOptions[fieldDef.enum]?.length > 0) {
+                const enumOptions = props.enumOptions[fieldDef.enum];
+                if (fieldDef.default !== undefined && fieldDef.default !== null) {
+                    const defaultOption = enumOptions.find((opt) => opt.value === fieldDef.default);
+                    formData[fieldKey] = defaultOption ? defaultOption.id : enumOptions[0].id;
+                } else if (fieldDef.required) {
+                    formData[fieldKey] = enumOptions[0].id;
+                } else {
+                    formData[fieldKey] = null;
+                }
+            } else {
+                formData[fieldKey] = null;
+            }
+        } else if (fieldType === 'multi_enum') {
+            if (fieldDef.default !== undefined && Array.isArray(fieldDef.default)) {
+                formData[fieldKey] = fieldDef.default.map((x) => Number(x));
+            } else {
+                formData[fieldKey] = [];
+            }
+        } else if (fieldType === 'record') {
+            formData[fieldKey] = null;
+        } else if (fieldType === 'morph') {
+            formData[fieldKey] = null;
+            if (fieldDef.id_field && !(fieldDef.id_field in formData)) {
+                formData[fieldDef.id_field] = null;
+            }
+        } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'time') {
+            formData[fieldKey] = null;
+        } else if (fieldType === 'rating') {
+            formData[fieldKey] = 0;
+        } else if (fieldType === 'checkbox' || fieldDef.type === 'boolean') {
+            formData[fieldKey] = 0;
+        } else if (fieldType === 'measurement') {
+            formData[fieldKey] = null;
+        } else if (fieldType === 'json') {
+            formData[fieldKey] = '';
+        } else {
+            formData[fieldKey] = '';
+        }
+    };
+
+    Object.keys(resolvedFieldsSchema.value || {}).forEach((k) => {
+        if (resolvedFieldsSchema.value[k]?.spec) {
+            fillDefaultForKey(k);
+        }
+    });
 
     // Inline spec values
     formData.specValues = buildInitialSpecValues();
@@ -351,9 +449,17 @@ watch(() => props.record, (newRecord) => {
                 } else {
                     form[key] = null;
                 }
-            } else {
-                form[key] = newRecord[key] ?? '';
-            }
+                } else if (fieldDef.type === 'measurement') {
+                    const v = newRecord[key];
+                    if (v == null || v === '') {
+                        form[key] = null;
+                    } else {
+                        const n = Number(v);
+                        form[key] = Number.isFinite(n) && n >= 0 ? n : null;
+                    }
+                } else {
+                    form[key] = newRecord[key] ?? '';
+                }
         });
     }
 }, { deep: true, immediate: true });
@@ -364,7 +470,14 @@ watch(() => form.data(), (newData, oldData) => {
             if (group.fields && Array.isArray(group.fields)) {
                 group.fields.filter(f => f && typeof f === 'object' && f.key).forEach(field => {
                     if (field.conditional && !isFieldVisible(field)) {
-                        form[field.key] = getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean' ? 0 : '';
+                        const ft = getFieldType(field.key);
+                        if (ft === 'checkbox' || ft === 'boolean') {
+                            form[field.key] = 0;
+                        } else if (ft === 'measurement') {
+                            form[field.key] = null;
+                        } else {
+                            form[field.key] = '';
+                        }
                     }
                     const fieldDef = getFieldDefinition(field.key);
                     if (fieldDef && fieldDef.filterby) {
@@ -454,8 +567,16 @@ const formGroups = computed(() => {
             type: group.type || null,
             is_address: group.is_address || false,
             conditional: group.conditional || null,
-            filteredFields: (group.fields || []).filter(f => f && typeof f === 'object' && f.key),
+            filteredFields: (group.fields || [])
+                .filter((f) => f && typeof f === 'object' && f.key)
+                .filter((f) => !getFieldDefinition(f.key).spec),
         }));
+});
+
+const staticSpecFormFieldEntries = computed(() => {
+    const fs = resolvedFieldsSchema.value;
+    if (!fs) return [];
+    return Object.keys(fs).filter((k) => fs[k] && fs[k].spec);
 });
 
 const openSections = ref({});
@@ -593,9 +714,22 @@ const getMorphRelatedDisplayName = (fieldKey) => {
     return props.record[relationshipName]?.display_name || '';
 };
 
-const getFieldType = (fieldKey) => getFieldDefinition(fieldKey).type || 'text';
+const getFieldType = (fieldKey) => {
+    const d = getFieldDefinition(fieldKey);
+    if (d.type === 'measurement') {
+        return 'measurement';
+    }
+    if (d.measurement && d.type === 'text') {
+        return 'measurement';
+    }
+    return d.type || 'text';
+};
 const getFieldLabel = (fieldKey) => getFieldDefinition(fieldKey).label || fieldKey;
-const isFieldRequired = (field) => field.required === true;
+const isFieldRequired = (field) => {
+    if (!field || typeof field !== 'object') return false;
+    if (field.required === true) return true;
+    return getFieldDefinition(field.key).required === true;
+};
 const isFieldDisabled = (fieldKey) => {
     const fieldDef = getFieldDefinition(fieldKey);
     return fieldDef.disabled === true || (!isEditMode.value && props.mode === 'view');
@@ -617,9 +751,9 @@ const getConditionalFieldValue = (fieldPath) => {
     if (fieldPath.includes('.')) {
         let [relationshipOrTypeDomain, fieldName] = fieldPath.split('.', 2);
         let relationshipName = relationshipOrTypeDomain;
-        if (props.fieldsSchema) {
-            const fieldWithTypeDomain = Object.values(props.fieldsSchema).find(
-                field => field.typeDomain === relationshipOrTypeDomain
+        if (resolvedFieldsSchema.value) {
+            const fieldWithTypeDomain = Object.values(resolvedFieldsSchema.value).find(
+                (field) => field.typeDomain === relationshipOrTypeDomain
             );
             if (fieldWithTypeDomain?.relationship) relationshipName = fieldWithTypeDomain.relationship;
         }
@@ -636,25 +770,35 @@ const getConditionalFieldValue = (fieldPath) => {
 
 const isFieldVisible = (field) => {
     if (!field || typeof field !== 'object') return false;
+    const def = getFieldDefinition(field.key);
+    if (def && def.update_only === true && isCreateMode.value) return false;
     if (field.update_only === true && isCreateMode.value) return false;
-    if (field.conditional && typeof field.conditional === 'object') {
-        const { key, value, operator = 'equals' } = field.conditional;
+    const cond =
+        (field.conditional && typeof field.conditional === 'object' ? field.conditional : null) ||
+        (def && def.conditional && typeof def.conditional === 'object' ? def.conditional : null);
+    if (cond) {
+        const { key, value, operator = 'equals' } = cond;
         const currentValue = getConditionalFieldValue(key);
         const boolCurrent = currentValue === 1 || currentValue === true;
         switch (operator) {
-            case 'equals': case 'eq':
-                return typeof value === 'boolean' ? boolCurrent === value : currentValue === value;
-            case 'not_equals': case 'neq':
-                return typeof value === 'boolean' ? boolCurrent !== value : currentValue !== value;
+            case 'equals':
+            case 'eq':
+                if (typeof value === 'boolean') return boolCurrent === value;
+                return currentValue == value;
+            case 'not_equals':
+            case 'neq':
+                if (typeof value === 'boolean') return boolCurrent !== value;
+                return currentValue != value;
             case 'greater_than': case 'gt': return currentValue > value;
             case 'less_than': case 'lt':    return currentValue < value;
             case 'contains':    return String(currentValue).includes(String(value));
             case 'is_empty':    return !currentValue || currentValue === '';
             case 'is_not_empty': return currentValue && currentValue !== '';
             default:
-                return typeof value === 'boolean' ? boolCurrent === value : currentValue === value;
-                }
+                if (typeof value === 'boolean') return boolCurrent === value;
+                return currentValue == value;
         }
+    }
     return true;
 };
 
@@ -809,7 +953,151 @@ const prepareFormData = () => {
     // Replace specValues map with a flat specs array for the controller
     delete data.specValues;
     data.specs = buildSpecsPayload();
+    if (props.enableHasVariantsOnStore && props.recordType === 'assets.variants') {
+        data.enable_has_variants = true;
+    }
     return data;
+};
+
+const snapshotSpecCurrentForAi = (spec) => {
+    const sv = form.specValues?.[spec.id];
+    if (!sv) {
+        return null;
+    }
+    if (spec.type === 'number') {
+        return sv.value_number ?? null;
+    }
+    if (spec.type === 'boolean') {
+        return sv.value_boolean === true || sv.value_boolean === 1;
+    }
+    if (spec.type === 'text' || spec.type === 'select') {
+        return sv.value_text ?? null;
+    }
+    return null;
+};
+
+/** Rich specs + scalar fields for variant AI endpoint (not used for submit). */
+const getVariantAiRequestPayload = () => {
+    const data = prepareFormData();
+    data.specs = (resolvedAvailableSpecs.value || []).map((spec) => ({
+        id: spec.id,
+        label: spec.label,
+        type: spec.type,
+        unit: spec.unit ?? null,
+        options: spec.type === 'select' && Array.isArray(spec.options) ? spec.options : null,
+        current: snapshotSpecCurrentForAi(spec),
+    }));
+    return data;
+};
+
+const applyVariantAiResponse = (payload) => {
+    if (!payload || typeof payload !== 'object') {
+        return;
+    }
+    if (typeof payload.name === 'string' && payload.name.trim()) {
+        form.name = payload.name.trim().slice(0, 255);
+    }
+    if (typeof payload.description === 'string' && payload.description.trim()) {
+        form.description = payload.description.trim();
+    }
+    if (payload.length != null && Number.isFinite(Number(payload.length))) {
+        form.length = Math.round(Number(payload.length));
+    }
+    if (payload.width != null && Number.isFinite(Number(payload.width))) {
+        form.width = Math.round(Number(payload.width));
+    }
+    if (payload.default_cost != null && payload.default_cost !== '' && !Number.isNaN(Number(payload.default_cost))) {
+        form.default_cost = Number(payload.default_cost);
+    }
+    if (payload.default_price != null && payload.default_price !== '' && !Number.isNaN(Number(payload.default_price))) {
+        form.default_price = Number(payload.default_price);
+    }
+    for (const u of payload.spec_updates || []) {
+        const id = Number(u.spec_id);
+        if (!Number.isFinite(id) || !form.specValues?.[id]) {
+            continue;
+        }
+        const cell = form.specValues[id];
+        if (u.value_number !== null && u.value_number !== undefined && !Number.isNaN(Number(u.value_number))) {
+            cell.value_number = Number(u.value_number);
+        }
+        if (u.value_text !== undefined && u.value_text !== null) {
+            cell.value_text = String(u.value_text);
+        }
+        if (u.value_boolean !== undefined && u.value_boolean !== null) {
+            cell.value_boolean = Boolean(u.value_boolean);
+        }
+        if (u.unit != null && u.unit !== '') {
+            cell.unit = u.unit;
+        }
+    }
+};
+
+/** Copy another variant’s scalar fields + spec values into this form (create or edit). */
+const applyCopiedVariantRecord = (srcRaw) => {
+    if (!srcRaw || typeof srcRaw !== 'object') {
+        return;
+    }
+    const src = { ...srcRaw };
+    delete src.id;
+    delete src.asset_id;
+    delete src.created_at;
+    delete src.updated_at;
+    delete src.key;
+    const specRows = src.spec_values || src.specValues;
+    delete src.spec_values;
+    delete src.specValues;
+    delete src.resolved_description;
+
+    Object.keys(src).forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(resolvedFieldsSchema.value, key)) {
+            return;
+        }
+        const def = getFieldDefinition(key);
+        const value = src[key];
+        if (def.type === 'checkbox' || def.type === 'boolean') {
+            form[key] = value === true || value === 1 ? 1 : 0;
+        } else if (def.type === 'measurement') {
+            if (value == null || value === '') {
+                form[key] = null;
+            } else {
+                const n = Number(value);
+                form[key] = Number.isFinite(n) && n >= 0 ? n : null;
+            }
+        } else if (def.type === 'currency' || def.type === 'number') {
+            const n = Number(value);
+            form[key] = value != null && value !== '' && Number.isFinite(n) ? n : null;
+        } else {
+            form[key] = value ?? '';
+        }
+    });
+
+    const list = Array.isArray(specRows) ? specRows : [];
+    const byDefId = {};
+    list.forEach((sv) => {
+        const sid = sv.asset_spec_definition_id;
+        if (sid != null) {
+            byDefId[sid] = sv;
+        }
+    });
+    (resolvedAvailableSpecs.value || []).forEach((spec) => {
+        const sv = byDefId[spec.id];
+        if (!sv || !form.specValues?.[spec.id]) {
+            return;
+        }
+        const cell = form.specValues[spec.id];
+        if (spec.type === 'number' && sv.value_number != null && sv.value_number !== '') {
+            const n = parseFloat(sv.value_number);
+            cell.value_number = Number.isFinite(n) ? n : null;
+        } else if (spec.type === 'boolean') {
+            cell.value_boolean = sv.value_boolean === true || sv.value_boolean === 1;
+        } else if (spec.type === 'text' || spec.type === 'select') {
+            cell.value_text = sv.value_text != null ? String(sv.value_text) : null;
+        }
+        if (sv.unit != null && sv.unit !== '') {
+            cell.unit = sv.unit;
+        }
+    });
 };
 
 const handleSubmit = () => {
@@ -915,7 +1203,14 @@ const submitForm = () => handleSubmit();
 const cancelForm = () => handleCancel();
 const isFormProcessing = computed(() => form.processing || isProcessing.value);
 
-defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
+defineExpose({
+    submitForm,
+    cancelForm,
+    isProcessing: isFormProcessing,
+    getVariantAiRequestPayload,
+    applyVariantAiResponse,
+    applyCopiedVariantRecord,
+});
 </script>
 
 <template>
@@ -964,12 +1259,79 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                 Manage spec definitions
             </Link>
         </div>
-                            <!-- Empty state -->
-                            <div v-if="resolvedAvailableSpecs.length === 0" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                            <div
+                                v-if="!staticSpecFormFieldEntries.length && !resolvedAvailableSpecs.length"
+                                class="py-6 text-center text-sm text-gray-400 dark:text-gray-500"
+                            >
                                 No specifications available for this asset type.
                             </div>
-
-                            <div v-else class="space-y-6">
+                            <div v-else>
+                            <div
+                                v-if="staticSpecFormFieldEntries.length"
+                                class="mb-8 border-b border-gray-200 pb-6 dark:border-gray-700"
+                            >
+                                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Standard dimensions &amp; classification
+                                </p>
+                                <div class="grid gap-4 sm:grid-cols-12">
+                                <div
+                                    v-for="sk in staticSpecFormFieldEntries"
+                                    :key="'static-spec-'+sk"
+                                    v-show="isFieldVisible({ key: sk })"
+                                    :class="getFieldColSpan({ key: sk })"
+                                >
+                                    <label
+                                        :for="getFieldId(sk)"
+                                        class="mb-2 block text-sm font-bold text-gray-900 dark:text-white"
+                                    >
+                                        {{ getFieldLabel(sk) }}
+                                        <span v-if="isFieldRequired({ key: sk })" class="text-red-500">*</span>
+                                    </label>
+                                    <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
+                                        <span v-if="getFieldType(sk) === 'select' && getFieldDefinition(sk).enum">
+                                            {{ getEnumLabel(sk, getFieldValue(sk)) || '—' }}
+                                        </span>
+                                        <span v-else-if="getFieldType(sk) === 'measurement'">{{ formatLengthMmImperial(getFieldValue(sk)) }}</span>
+                                        <span v-else>{{ getFieldValue(sk) || '—' }}</span>
+                                    </div>
+                                    <div v-else>
+                                        <MeasurementImperialInput
+                                            v-if="getFieldType(sk) === 'measurement'"
+                                            :id="getFieldId(sk)"
+                                            v-model="form[sk]"
+                                            :required="isFieldRequired({ key: sk })"
+                                            :disabled="isFieldDisabled(sk)"
+                                        />
+                                        <input
+                                            v-else-if="['text', 'email', 'url'].includes(getFieldType(sk))"
+                                            :id="getFieldId(sk)"
+                                            v-model="form[sk]"
+                                            :type="getFieldType(sk) === 'url' ? 'url' : 'text'"
+                                            :required="isFieldRequired({ key: sk })"
+                                            :disabled="isFieldDisabled(sk)"
+                                            :placeholder="getFieldDefinition(sk).placeholder"
+                                            class="input-style"
+                                        >
+                                        <select
+                                            v-else-if="getFieldType(sk) === 'select'"
+                                            :id="getFieldId(sk)"
+                                            v-model="form[sk]"
+                                            :required="isFieldRequired({ key: sk })"
+                                            :disabled="isFieldDisabled(sk)"
+                                            :class="['input-style w-full', !form[sk] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900']"
+                                        >
+                                            <option v-if="!isFieldRequired({ key: sk })" value="" disabled>
+                                                Select {{ getFieldLabel(sk) }}
+                                            </option>
+                                            <option v-for="opt in getEnumOptions(sk)" :key="opt.id" :value="opt.id">
+                                                {{ opt.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                            <div v-if="resolvedAvailableSpecs.length" class="space-y-6">
                                 <div v-for="section in groupedSpecSections" :key="section.key">
                                     <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                         {{ section.label }}
@@ -1066,6 +1428,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                     </div>
                                 </div>
                             </div>
+                            </div>
                         </div>
                     </template>
                     <!-- ── REGULAR FIELDS SECTION ── -->
@@ -1154,6 +1517,7 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                                 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(getFieldValue(field.key))
                                                     : '—' }}
                                         </span>
+                                        <span v-else-if="getFieldType(field.key) === 'measurement'">{{ formatLengthMmImperial(getFieldValue(field.key)) }}</span>
                                             <span v-else>{{ getFieldValue(field.key) || '—' }}</span>
                                     </div>
 
@@ -1179,6 +1543,13 @@ defineExpose({ submitForm, cancelForm, isProcessing: isFormProcessing });
                                         </div>
                                             <NumberInput v-else-if="getFieldType(field.key) === 'number'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :min="getFieldDefinition(field.key).min" :max="getFieldDefinition(field.key).max" :step="getFieldDefinition(field.key).step || 1" :allow-decimals="getFieldDefinition(field.key).allow_decimals !== false" :is-year="getFieldDefinition(field.key).isYear === true" />
                                             <CurrencyInput v-else-if="getFieldType(field.key) === 'currency'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" />
+                                            <MeasurementImperialInput
+                                                v-else-if="getFieldType(field.key) === 'measurement'"
+                                                :id="getFieldId(field.key)"
+                                                v-model="form[field.key]"
+                                                :required="isFieldRequired(field)"
+                                                :disabled="isFieldDisabled(field.key)"
+                                            />
                                             <input v-else-if="['text', 'email'].includes(getFieldType(field.key))" :id="getFieldId(field.key)" v-model="form[field.key]" :type="getFieldType(field.key)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" />
                                             <textarea v-else-if="getFieldType(field.key) === 'textarea'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" rows="4" class="block p-2.5 w-full input-style" />
                                             <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />

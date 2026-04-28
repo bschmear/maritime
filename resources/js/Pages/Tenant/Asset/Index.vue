@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -27,13 +27,13 @@ const props = defineProps({
         default: () => ({}),
     },
     recordType: {
-        type: String
+        type: String,
     },
     recordTitle: {
-        type: String
+        type: String,
     },
     pluralTitle: {
-        type: String
+        type: String,
     },
     /** Spec field definitions for the create modal (default asset type); switching type refetches in Form. */
     createAvailableSpecs: {
@@ -42,6 +42,13 @@ const props = defineProps({
     },
 });
 
+const tabBtnClass = (tab, active) => [
+    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+    active
+        ? 'bg-primary-600 text-white shadow-sm dark:bg-primary-500'
+        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
+];
+
 const breadcrumbItems = computed(() => {
     return [
         { label: 'Home', href: route('dashboard') },
@@ -49,7 +56,6 @@ const breadcrumbItems = computed(() => {
     ];
 });
 
-// Record type selector options (alphabetical)
 const recordTypeOptions = [
     { value: 'assets', label: 'Assets', route: 'assets.index' },
     { value: 'inventoryitems', label: 'Parts & Accessories', route: 'inventoryitems.index' },
@@ -59,7 +65,7 @@ const recordTypeOptions = [
 const currentRecordType = ref(props.recordType);
 
 const switchRecordType = (newType) => {
-    const option = recordTypeOptions.find(opt => opt.value === newType);
+    const option = recordTypeOptions.find((opt) => opt.value === newType);
     if (option) {
         router.visit(route(option.route));
     }
@@ -71,14 +77,36 @@ const switchRecordType = (newType) => {
 
     <TenantLayout>
         <template #header>
-            <div class="col-span-full flex items-center justify-between">
+            <div class="col-span-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex items-center space-x-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div
+                        class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-600 dark:bg-gray-800"
+                        role="tablist"
+                        aria-label="List view"
+                    >
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected="true"
+                            :class="tabBtnClass('assets', true)"
+                        >
+                            Assets
+                        </button>
+                        <Link
+                            role="tab"
+                            :aria-selected="false"
+                            :href="route('assets.units.global-index')"
+                            :class="tabBtnClass('units', false)"
+                        >
+                            Units
+                        </Link>
+                    </div>
                     <select
                         id="record-type-selector"
                         v-model="currentRecordType"
+                        class="block min-w-[200px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm transition-colors focus:border-transparent focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                         @change="switchRecordType($event.target.value)"
-                        class="block w-full min-w-[200px] px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent shadow-sm transition-colors"
                     >
                         <option v-for="option in recordTypeOptions" :key="option.value" :value="option.value">
                             {{ option.label }}
@@ -87,6 +115,7 @@ const switchRecordType = (newType) => {
                 </div>
             </div>
         </template>
+
         <Table
             :records="records"
             :schema="schema"
@@ -100,4 +129,3 @@ const switchRecordType = (newType) => {
         />
     </TenantLayout>
 </template>
-

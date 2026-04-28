@@ -34,6 +34,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    account: {
+        type: Object,
+        default: null,
+    },
 });
 
 const breadcrumbItems = computed(() => [
@@ -71,6 +75,7 @@ const handleCancel = () => {
                 :enum-options="enumOptions"
                 :timezones="timezones"
                 :available-specs="createAvailableSpecs"
+                :account="account"
                 mode="create"
                 @cancel="handleCancel"
             />

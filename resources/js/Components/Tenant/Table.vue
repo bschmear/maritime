@@ -7,6 +7,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { formatLengthMmImperial } from '@/utils/measurementMm.js';
 
 const emit = defineEmits(['selection-change']);
 
@@ -192,6 +193,7 @@ const getRecordValue = (record, column) => {
         if (t === 'datetime') return formatDateTime(raw);
         if (t === 'rating')   return `${raw || 0}/5`;
         if (t === 'currency') return $formatCurrency(raw);
+        if (t === 'measurement') return formatLengthMmImperial(raw);
         if (t === 'record' && fd.typeDomain) {
             const candidates = [];
             if (fd.relationship) candidates.push(fd.relationship);

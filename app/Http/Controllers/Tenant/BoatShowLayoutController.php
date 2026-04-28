@@ -12,6 +12,7 @@ use App\Domain\BoatShowLayout\Models\BoatShowLayout as RecordModel;
 use App\Domain\Document\Models\Document;
 use App\Enums\Timezone;
 use App\Services\BoatShowLayoutService;
+use App\Support\DynamicGlobalScope;
 use Illuminate\Http\Request;
 use Inertia\Response as InertiaResponse;
 
@@ -73,7 +74,7 @@ class BoatShowLayoutController extends RecordController
             try {
                 return $this->withIndexExtraResponse(parent::index($request), $request);
             } finally {
-                RecordModel::clearGlobalScope(self::NESTED_SCOPE);
+                DynamicGlobalScope::remove(RecordModel::class, self::NESTED_SCOPE);
             }
         }
 

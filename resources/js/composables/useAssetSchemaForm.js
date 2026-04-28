@@ -147,6 +147,13 @@ export function useAssetSchemaForm(props, emit) {
                     }
                 } else if (fieldDef.type === 'checkbox' || fieldDef.type === 'boolean') {
                     formData[key] = value === true || value === 1 ? 1 : 0;
+                } else if (fieldDef.type === 'measurement') {
+                    if (value == null || value === '') {
+                        formData[key] = null;
+                    } else {
+                        const n = Number(value);
+                        formData[key] = Number.isFinite(n) && n >= 0 ? n : null;
+                    }
                 } else if (fieldDef.type === 'record' && value && typeof value === 'object' && value.id) {
                     formData[key] = value.id;
                 } else if (fieldDef.type === 'multi_enum') {
@@ -229,6 +236,8 @@ export function useAssetSchemaForm(props, emit) {
                                         formData[field.key] = 0;
                                     } else if (fieldType === 'checkbox' || fieldDef.type === 'boolean') {
                                         formData[field.key] = 0;
+                                    } else if (fieldType === 'measurement') {
+                                        formData[field.key] = null;
                                     } else if (fieldType === 'json') {
                                         formData[field.key] = '';
                                     } else {
@@ -238,6 +247,85 @@ export function useAssetSchemaForm(props, emit) {
                             });
                     }
                 });
+        }
+
+        const fillDefaultForKey = (fieldKey) => {
+            if (fieldKey in formData) {
+                return;
+            }
+            const field = { key: fieldKey };
+            const fieldDef = getFieldDefinition(fieldKey);
+            const fieldType = fieldDef.type || 'text';
+
+            if (fieldDef.default !== undefined && fieldDef.default !== null) {
+                formData[fieldKey] = fieldDef.default;
+            } else if (fieldDef.default_value !== undefined && fieldDef.default_value !== null) {
+                formData[fieldKey] = fieldDef.default_value;
+            } else if (fieldType === 'date' && fieldDef.defaultDay !== undefined) {
+                const d = new Date();
+                d.setDate(d.getDate() + Number(fieldDef.defaultDay));
+                formData[fieldKey] = d.toISOString().split('T')[0];
+            } else if (fieldType === 'date' && fieldDef.default_today === true) {
+                const now = new Date();
+                const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+                formData[fieldKey] = localNow.toISOString().split('T')[0];
+            } else if (fieldType === 'datetime' && fieldDef.default_now === true) {
+                const now = new Date();
+                const localNow = new Date(now.toLocaleString('en-US', { timeZone: accountTimezone.value }));
+                const year = localNow.getFullYear();
+                const month = String(localNow.getMonth() + 1).padStart(2, '0');
+                const day = String(localNow.getDate()).padStart(2, '0');
+                const hours = String(localNow.getHours()).padStart(2, '0');
+                const minutes = String(localNow.getMinutes()).padStart(2, '0');
+                formData[fieldKey] = `${year}-${month}-${day}T${hours}:${minutes}`;
+            } else if (fieldType === 'select') {
+                if (fieldDef.enum && props.enumOptions[fieldDef.enum]?.length > 0) {
+                    const enumOptions = props.enumOptions[fieldDef.enum];
+                    if (fieldDef.default !== undefined && fieldDef.default !== null) {
+                        const defaultOption = enumOptions.find((opt) => opt.value === fieldDef.default);
+                        formData[fieldKey] = defaultOption ? defaultOption.id : enumOptions[0].id;
+                    } else if (fieldDef.required) {
+                        formData[fieldKey] = enumOptions[0].id;
+                    } else {
+                        formData[fieldKey] = null;
+                    }
+                } else {
+                    formData[fieldKey] = null;
+                }
+            } else if (fieldType === 'multi_enum') {
+                if (fieldDef.default !== undefined && Array.isArray(fieldDef.default)) {
+                    formData[fieldKey] = fieldDef.default.map((x) => Number(x));
+                } else {
+                    formData[fieldKey] = [];
+                }
+            } else if (fieldType === 'record') {
+                formData[fieldKey] = null;
+            } else if (fieldType === 'morph') {
+                formData[fieldKey] = null;
+                if (fieldDef.id_field && !(fieldDef.id_field in formData)) {
+                    formData[fieldDef.id_field] = null;
+                }
+            } else if (fieldType === 'datetime' || fieldType === 'date' || fieldType === 'time') {
+                formData[fieldKey] = null;
+            } else if (fieldType === 'rating') {
+                formData[fieldKey] = 0;
+            } else if (fieldType === 'checkbox' || fieldDef.type === 'boolean') {
+                formData[fieldKey] = 0;
+            } else if (fieldType === 'measurement') {
+                formData[fieldKey] = null;
+            } else if (fieldType === 'json') {
+                formData[fieldKey] = '';
+            } else {
+                formData[fieldKey] = '';
+            }
+        };
+
+        if (resolvedFieldsSchema.value) {
+            Object.keys(resolvedFieldsSchema.value).forEach((k) => {
+                if (resolvedFieldsSchema.value[k]?.spec) {
+                    fillDefaultForKey(k);
+                }
+            });
         }
 
         formData.specValues = buildInitialSpecValues();
@@ -332,6 +420,14 @@ export function useAssetSchemaForm(props, emit) {
                         } else {
                             form[key] = null;
                         }
+                    } else if (fieldDef.type === 'measurement') {
+                        const v = newRecord[key];
+                        if (v == null || v === '') {
+                            form[key] = null;
+                        } else {
+                            const n = Number(v);
+                            form[key] = Number.isFinite(n) && n >= 0 ? n : null;
+                        }
                     } else {
                         form[key] = newRecord[key] ?? '';
                     }
@@ -353,8 +449,14 @@ export function useAssetSchemaForm(props, emit) {
                                 .filter((f) => f && typeof f === 'object' && f.key)
                                 .forEach((field) => {
                                     if (field.conditional && !isFieldVisible(field)) {
-                                        form[field.key] =
-                                            getFieldType(field.key) === 'checkbox' || getFieldType(field.key) === 'boolean' ? 0 : '';
+                                        const ft = getFieldType(field.key);
+                                        if (ft === 'checkbox' || ft === 'boolean') {
+                                            form[field.key] = 0;
+                                        } else if (ft === 'measurement') {
+                                            form[field.key] = null;
+                                        } else {
+                                            form[field.key] = '';
+                                        }
                                     }
                                     const fieldDef = getFieldDefinition(field.key);
                                     if (fieldDef && fieldDef.filterby) {
@@ -436,8 +538,17 @@ export function useAssetSchemaForm(props, emit) {
                 type: group.type || null,
                 is_address: group.is_address || false,
                 conditional: group.conditional || null,
-                filteredFields: (group.fields || []).filter((f) => f && typeof f === 'object' && f.key),
+                filteredFields: (group.fields || [])
+                    .filter((f) => f && typeof f === 'object' && f.key)
+                    .filter((f) => !getFieldDefinition(f.key).spec),
             }));
+    });
+
+    /** Field keys with `spec: true` in fields.json — rendered in the Specifications group before dynamic defs */
+    const staticSpecFormFieldEntries = computed(() => {
+        const fs = resolvedFieldsSchema.value;
+        if (!fs) return [];
+        return Object.keys(fs).filter((k) => fs[k] && fs[k].spec);
     });
 
     const handleImageInput = (fieldKey, event) => {
@@ -566,9 +677,22 @@ export function useAssetSchemaForm(props, emit) {
         return props.record[relationshipName]?.display_name || '';
     };
 
-    const getFieldType = (fieldKey) => getFieldDefinition(fieldKey).type || 'text';
+    const getFieldType = (fieldKey) => {
+        const d = getFieldDefinition(fieldKey);
+        if (d.type === 'measurement') {
+            return 'measurement';
+        }
+        if (d.measurement && d.type === 'text') {
+            return 'measurement';
+        }
+        return d.type || 'text';
+    };
     const getFieldLabel = (fieldKey) => getFieldDefinition(fieldKey).label || fieldKey;
-    const isFieldRequired = (field) => field.required === true;
+    const isFieldRequired = (field) => {
+        if (!field || typeof field !== 'object') return false;
+        if (field.required === true) return true;
+        return getFieldDefinition(field.key).required === true;
+    };
     const isFieldDisabled = (fieldKey) => {
         const fieldDef = getFieldDefinition(fieldKey);
         return fieldDef.disabled === true || (!isEditMode.value && props.mode === 'view');
@@ -609,18 +733,25 @@ export function useAssetSchemaForm(props, emit) {
 
     const isFieldVisible = (field) => {
         if (!field || typeof field !== 'object') return false;
+        const def = getFieldDefinition(field.key);
+        if (def && def.update_only === true && isCreateMode.value) return false;
         if (field.update_only === true && isCreateMode.value) return false;
-        if (field.conditional && typeof field.conditional === 'object') {
-            const { key, value, operator = 'equals' } = field.conditional;
+        const cond =
+            (field.conditional && typeof field.conditional === 'object' ? field.conditional : null) ||
+            (def && def.conditional && typeof def.conditional === 'object' ? def.conditional : null);
+        if (cond) {
+            const { key, value, operator = 'equals' } = cond;
             const currentValue = getConditionalFieldValue(key);
             const boolCurrent = currentValue === 1 || currentValue === true;
             switch (operator) {
                 case 'equals':
                 case 'eq':
-                    return typeof value === 'boolean' ? boolCurrent === value : currentValue === value;
+                    if (typeof value === 'boolean') return boolCurrent === value;
+                    return currentValue == value;
                 case 'not_equals':
                 case 'neq':
-                    return typeof value === 'boolean' ? boolCurrent !== value : currentValue !== value;
+                    if (typeof value === 'boolean') return boolCurrent !== value;
+                    return currentValue != value;
                 case 'greater_than':
                 case 'gt':
                     return currentValue > value;
@@ -634,7 +765,8 @@ export function useAssetSchemaForm(props, emit) {
                 case 'is_not_empty':
                     return currentValue && currentValue !== '';
                 default:
-                    return typeof value === 'boolean' ? boolCurrent === value : currentValue === value;
+                    if (typeof value === 'boolean') return boolCurrent === value;
+                    return currentValue == value;
             }
         }
         return true;
@@ -939,6 +1071,7 @@ export function useAssetSchemaForm(props, emit) {
         isFieldDisabledByFilter,
         getFieldFilterValue,
         isFieldVisible,
+        staticSpecFormFieldEntries,
         getEnumOptions,
         getEnumLabel,
         getRecordDisplayName,

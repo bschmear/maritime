@@ -6,6 +6,7 @@ use App\Domain\Asset\Actions\CreateAsset as CreateAction;
 use App\Domain\Asset\Actions\DeleteAsset as DeleteAction;
 use App\Domain\Asset\Actions\UpdateAsset as UpdateAction;
 use App\Domain\Asset\Models\Asset as RecordModel;
+use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
@@ -118,7 +119,8 @@ class AssetController extends RecordController
             $enumOptions = $this->getEnumOptions();
 
             if ($request->wantsJson() || $request->ajax()) {
-                $availableSpecs = $asset->has_variants
+                $intentVariants = $request->boolean('enable_has_variants');
+                $availableSpecs = ($asset->has_variants || $intentVariants)
                     ? AvailableAssetSpecsCache::get((int) $asset->type)->values()->all()
                     : [];
 
@@ -154,7 +156,8 @@ class AssetController extends RecordController
         unset($tableSchema['appendAssetSpecTableColumns']);
 
         $tableSpecDefs = new EloquentCollection;
-        if ($appendSpecs && $asset->has_variants) {
+        $intentVariants = $request->boolean('enable_has_variants');
+        if ($appendSpecs && ($asset->has_variants || $intentVariants)) {
             $tableSpecDefs = AssetSpecDefinition::query()
                 ->where('show_on_table', true)
                 ->whereJsonContains('asset_types', (int) $asset->type)
@@ -251,23 +254,32 @@ class AssetController extends RecordController
 
     public function variantsStore(Request $request, RecordModel $asset): JsonResponse
     {
-        if (! $asset->has_variants) {
-            return response()->json([
-                'message' => 'This asset is not configured to use variants. Enable “This asset has variants” on the asset first.',
-            ], 422);
-        }
-
         $validated = $request->validate(array_merge([
+            'enable_has_variants' => ['sometimes', 'boolean'],
             'name' => ['nullable', 'string', 'max:255'],
+            'length' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'width' => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'description' => ['nullable', 'string'],
             'default_cost' => ['nullable', 'numeric'],
             'default_price' => ['nullable', 'numeric'],
             'inactive' => ['sometimes', 'boolean'],
         ], $this->variantSpecsValidationRules()));
 
+        if (! $asset->has_variants) {
+            if (! ($validated['enable_has_variants'] ?? false)) {
+                return response()->json([
+                    'message' => 'This asset is not configured to use variants. Enable “This asset has variants” on the asset first.',
+                ], 422);
+            }
+            $asset->has_variants = true;
+            $asset->save();
+        }
+
         $variant = AssetVariant::query()->create([
             'asset_id' => $asset->id,
             'name' => $validated['name'] ?? null,
+            'length' => $validated['length'] ?? null,
+            'width' => $validated['width'] ?? null,
             'description' => $validated['description'] ?? null,
             'default_cost' => $validated['default_cost'] ?? null,
             'default_price' => $validated['default_price'] ?? null,
@@ -275,7 +287,7 @@ class AssetController extends RecordController
         ]);
 
         if (! empty($validated['specs']) && is_array($validated['specs'])) {
-            $this->syncVariantSpecs($variant, $validated['specs']);
+            $this->syncVariantSpecs($asset, $variant, $validated['specs']);
         }
 
         return response()->json(['recordId' => $variant->id]);
@@ -285,22 +297,31 @@ class AssetController extends RecordController
     {
         $this->ensureVariantBelongsToAsset($asset, $variant);
 
-        if (! $asset->has_variants) {
-            return response()->json([
-                'message' => 'This asset is not configured to use variants.',
-            ], 422);
-        }
-
         $validated = $request->validate(array_merge([
+            'enable_has_variants' => ['sometimes', 'boolean'],
             'name' => ['nullable', 'string', 'max:255'],
+            'length' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'width' => ['nullable', 'integer', 'min:0', 'max:10000000'],
             'description' => ['nullable', 'string'],
             'default_cost' => ['nullable', 'numeric'],
             'default_price' => ['nullable', 'numeric'],
             'inactive' => ['sometimes', 'boolean'],
         ], $this->variantSpecsValidationRules()));
 
+        if (! $asset->has_variants) {
+            if (! ($validated['enable_has_variants'] ?? false)) {
+                return response()->json([
+                    'message' => 'This asset is not configured to use variants.',
+                ], 422);
+            }
+            $asset->has_variants = true;
+            $asset->save();
+        }
+
         $variant->fill([
             'name' => $validated['name'] ?? null,
+            'length' => $validated['length'] ?? null,
+            'width' => $validated['width'] ?? null,
             'description' => $validated['description'] ?? null,
             'default_cost' => $validated['default_cost'] ?? null,
             'default_price' => $validated['default_price'] ?? null,
@@ -309,7 +330,7 @@ class AssetController extends RecordController
         $variant->save();
 
         if (array_key_exists('specs', $validated) && is_array($validated['specs'])) {
-            $this->syncVariantSpecs($variant, $validated['specs']);
+            $this->syncVariantSpecs($asset, $variant, $validated['specs']);
         }
 
         $variant->load([
@@ -322,6 +343,95 @@ class AssetController extends RecordController
                 'resolved_description' => $variant->resolvedDescription(),
             ]),
         ]);
+    }
+
+    /**
+     * Suggest description, dynamic spec values, and static spec fields from current form context (OpenAI).
+     */
+    public function aiSuggestDetails(Request $request, RecordModel $asset): JsonResponse
+    {
+        $validated = $request->validate([
+            'display_name' => ['nullable', 'string', 'max:255'],
+            'asset_make' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:65535'],
+            'has_variants' => ['required', 'boolean'],
+            'variants' => ['nullable', 'array', 'max:100'],
+            'variants.*.id' => ['nullable', 'integer'],
+            'variants.*.display_name' => ['nullable', 'string', 'max:255'],
+            'variants.*.name' => ['nullable', 'string', 'max:255'],
+            'specs' => ['nullable', 'array', 'max:200'],
+            'specs.*.id' => ['required', 'integer'],
+            'specs.*.label' => ['required', 'string', 'max:255'],
+            'specs.*.type' => ['nullable', 'string', 'max:32'],
+            'specs.*.unit' => ['nullable', 'string', 'max:64'],
+            'specs.*.options' => ['nullable', 'array'],
+            'specs.*.current' => ['nullable'],
+            'static_fields' => ['nullable', 'array', 'max:50'],
+            'static_fields.*.key' => ['required', 'string', 'max:64'],
+            'static_fields.*.label' => ['nullable', 'string', 'max:255'],
+            'static_fields.*.type' => ['nullable', 'string', 'max:32'],
+            'static_fields.*.value' => ['nullable'],
+            'static_fields.*.options' => ['nullable', 'array'],
+            'static_fields.*.value_mm' => ['nullable', 'numeric'],
+            'static_fields.*.value_display_imperial' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        try {
+            $result = app(AssetDetailsAiService::class)->suggest($asset, $validated);
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * AI suggestions for the variant modal (name, description, dimensions, pricing, dynamic specs).
+     */
+    public function aiSuggestVariantDetails(Request $request, RecordModel $asset): JsonResponse
+    {
+        if (! $asset->has_variants && ! $request->boolean('enable_has_variants')) {
+            return response()->json([
+                'message' => 'This asset is not configured to use variants.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'enable_has_variants' => ['sometimes', 'boolean'],
+            'asset_display_name' => ['nullable', 'string', 'max:255'],
+            'asset_make' => ['nullable', 'string', 'max:255'],
+            'sibling_variant_names' => ['nullable', 'array', 'max:100'],
+            'sibling_variant_names.*' => ['nullable', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:65535'],
+            'length' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'width' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'default_cost' => ['nullable', 'numeric'],
+            'default_price' => ['nullable', 'numeric'],
+            'specs' => ['nullable', 'array', 'max:200'],
+            'specs.*.id' => ['required', 'integer'],
+            'specs.*.label' => ['required', 'string', 'max:255'],
+            'specs.*.type' => ['nullable', 'string', 'max:32'],
+            'specs.*.unit' => ['nullable', 'string', 'max:64'],
+            'specs.*.options' => ['nullable', 'array'],
+            'specs.*.current' => ['nullable'],
+        ]);
+
+        try {
+            $result = app(AssetDetailsAiService::class)->suggestVariant($asset, $validated);
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     public function variantsDestroy(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse
@@ -431,30 +541,9 @@ class AssetController extends RecordController
     /**
      * @param  array<int, array{spec_id: int, value_number?: mixed, value_text?: ?string, value_boolean?: mixed, unit?: ?string}>  $specs
      */
-    private function syncVariantSpecs(AssetVariant $variant, array $specs): void
+    private function syncVariantSpecs(RecordModel $asset, AssetVariant $variant, array $specs): void
     {
-        $type = $variant->getMorphClass();
-        $id = $variant->getKey();
-
-        foreach ($specs as $spec) {
-            if (empty($spec['spec_id'])) {
-                continue;
-            }
-
-            AssetSpecValue::updateOrCreate(
-                [
-                    'specable_type' => $type,
-                    'specable_id' => $id,
-                    'asset_spec_definition_id' => $spec['spec_id'],
-                ],
-                [
-                    'value_number' => $spec['value_number'] ?? null,
-                    'value_text' => $spec['value_text'] ?? null,
-                    'value_boolean' => array_key_exists('value_boolean', $spec) ? $spec['value_boolean'] : null,
-                    'unit' => $spec['unit'] ?? null,
-                ]
-            );
-        }
+        SyncAssetSpecValues::forSpecable($variant, (int) $asset->type, $specs);
     }
 
     /**

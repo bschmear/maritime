@@ -1,6 +1,17 @@
 {
   "columns": [
     {
+      "key": "asset_id",
+      "label": "Asset",
+      "sortable": true,
+      "sortColumn": "assets.display_name"
+    },
+    {
+      "key": "asset_variant_id",
+      "label": "Variant",
+      "sortable": false
+    },
+    {
       "key": "hin",
       "label": "Hull ID (HIN)",
       "sortable": true
@@ -9,16 +20,6 @@
       "key": "serial_number",
       "label": "Serial Number",
       "sortable": true
-    },
-    {
-      "key": "sku",
-      "label": "SKU",
-      "sortable": true
-    },
-    {
-      "key": "asset_variant_id",
-      "label": "Variant",
-      "sortable": false
     },
     {
       "key": "condition",

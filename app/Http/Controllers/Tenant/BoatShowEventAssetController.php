@@ -54,10 +54,12 @@ class BoatShowEventAssetController extends Controller
         }
 
         $unitId = $validated['asset_unit_id'] ?? null;
+        $unit = null;
         if ($unitId !== null) {
             $unit = AssetUnit::query()
                 ->where('id', $unitId)
                 ->where('asset_id', $asset->id)
+                ->with('assetVariant')
                 ->first();
             if ($unit === null) {
                 return response()->json([
@@ -66,7 +68,7 @@ class BoatShowEventAssetController extends Controller
             }
         }
 
-        $footprint = EventAssetsPayload::defaultLayoutFootprint($asset);
+        $footprint = EventAssetsPayload::defaultLayoutFootprint($asset, $unit);
 
         BoatShowEventAsset::query()->create([
             'boat_show_event_id' => $event->id,

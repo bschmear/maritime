@@ -80,9 +80,147 @@ class RecordController extends BaseController
     }
 
     /**
+     * When a column is backed by a PHP enum with options(), sort by option label (alphabetically)
+     * instead of the raw stored id/value.
+     */
+    protected function applyEnumLabelSortIfApplicable(
+        $query,
+        string $qualifiedColumn,
+        array $fieldsSchema,
+        string $sortRequestKey,
+        string $resolvedColumn,
+        string $dir
+    ): bool {
+        if (str_contains($resolvedColumn, '.')) {
+            return false;
+        }
+
+        if ($sortRequestKey !== $resolvedColumn) {
+            return false;
+        }
+
+        $fieldDef = $fieldsSchema[$sortRequestKey] ?? null;
+        if (! is_array($fieldDef)) {
+            return false;
+        }
+
+        $enumClass = $fieldDef['enum'] ?? null;
+        if (! is_string($enumClass) || $enumClass === '' || ! class_exists($enumClass)) {
+            return false;
+        }
+
+        if (! method_exists($enumClass, 'options')) {
+            return false;
+        }
+
+        $options = $enumClass::options();
+        if (! is_array($options) || $options === []) {
+            return false;
+        }
+
+        $caseParts = [];
+        $bindings = [];
+        foreach ($options as $opt) {
+            if (! is_array($opt)) {
+                continue;
+            }
+            $id = $opt['id'] ?? null;
+            if ($id === null) {
+                $id = $opt['value'] ?? null;
+            }
+            $name = $opt['name'] ?? $opt['label'] ?? null;
+            if ($name === null || (! is_string($name) && ! is_numeric($name))) {
+                continue;
+            }
+            if ($id === null) {
+                continue;
+            }
+            $name = (string) $name;
+            $caseParts[] = 'when '.$qualifiedColumn.' = ? then lower(?)';
+            $bindings[] = $id;
+            $bindings[] = $name;
+        }
+
+        if ($caseParts === []) {
+            return false;
+        }
+
+        $expr = 'case '.implode(' ', $caseParts).' else \'\' end';
+        $query->orderByRaw($expr.' '.$dir, $bindings);
+
+        return true;
+    }
+
+    /**
+     * When table.json sets sortColumn to "related_table.column" for a record FK field,
+     * join the related table and sort by that column (alphabetically for text columns).
+     */
+    protected function applyRelatedTableSortFromRecordField(
+        $query,
+        string $resolved,
+        string $sortRequestKey,
+        array $fieldsSchema,
+        string $tableName,
+        array $dbColumns,
+        array $actualColumns,
+        string $dir
+    ): bool {
+        if (! preg_match('/^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)$/', $resolved, $m)) {
+            return false;
+        }
+
+        $joinTable = $m[1];
+        $joinColumn = $m[2];
+
+        if ($joinTable === $tableName) {
+            return false;
+        }
+
+        $fieldDef = $fieldsSchema[$sortRequestKey] ?? null;
+        if (! is_array($fieldDef) || ($fieldDef['type'] ?? null) !== 'record' || empty($fieldDef['typeDomain'])) {
+            return false;
+        }
+
+        $domain = $fieldDef['typeDomain'];
+        if (! is_string($domain) || ! preg_match('/^[A-Za-z0-9]+$/', $domain)) {
+            return false;
+        }
+
+        $modelClass = "App\\Domain\\{$domain}\\Models\\{$domain}";
+        if (! class_exists($modelClass)) {
+            return false;
+        }
+
+        /** @var \Illuminate\Database\Eloquent\Model $relatedModel */
+        $relatedModel = new $modelClass;
+        if ($relatedModel->getTable() !== $joinTable) {
+            return false;
+        }
+
+        if (! in_array($sortRequestKey, $dbColumns, true)) {
+            return false;
+        }
+
+        $connection = $this->recordModel->getConnectionName();
+        if (! \Schema::connection($connection)->hasColumn($joinTable, $joinColumn)) {
+            return false;
+        }
+
+        $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+            return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+        }, $actualColumns);
+
+        $query->select($prefixedColumns)
+            ->leftJoin($joinTable, $tableName.'.'.$sortRequestKey, '=', $joinTable.'.id')
+            ->orderByRaw('LOWER('.$joinTable.'.'.$joinColumn.') '.$dir);
+
+        return true;
+    }
+
+    /**
      * Apply ?sort=&direction= when allowed by table.json (sortable defaults true).
      */
-    protected function applyRecordIndexSort($query, Request $request, ?array $schema, array $dbColumns, string $tableName, array $actualColumns): bool
+    protected function applyRecordIndexSort($query, Request $request, ?array $schema, array $dbColumns, string $tableName, array $actualColumns, array $fieldsSchema): bool
     {
         $allowed = $this->sortableColumnsFromTableSchema($schema);
         $sp = $this->sortParamsFromRequest($request);
@@ -105,42 +243,94 @@ class RecordController extends BaseController
         $dir = $sp['dir'];
 
         if ($this->domainName === 'AssetUnit') {
-            if (str_contains($resolved, '.')) {
-                return false;
-            }
-            $unitTableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-            if (! in_array($resolved, $unitTableColumns, true)) {
-                return false;
-            }
-            $prefixedColumns = array_map(function ($col) {
-                $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-
-                return in_array($col, $tableColumns) ? 'asset_units.'.$col : $col;
+            $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
             }, $actualColumns);
             $query->select($prefixedColumns)
-                ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
-                ->orderBy('asset_units.'.$resolved, $dir);
+                ->join('assets', 'asset_units.asset_id', '=', 'assets.id');
+
+            if (str_contains($resolved, '.')) {
+                if (preg_match('/^assets\.[a-zA-Z0-9_]+$/', $resolved)) {
+                    $query->orderBy($resolved, $dir);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (! in_array($resolved, $dbColumns, true)) {
+                return false;
+            }
+
+            if ($this->applyEnumLabelSortIfApplicable(
+                $query,
+                $tableName.'.'.$resolved,
+                $fieldsSchema,
+                $sp['key'],
+                $resolved,
+                $dir
+            )) {
+                return true;
+            }
+
+            $query->orderBy($tableName.'.'.$resolved, $dir);
 
             return true;
         }
 
         if ($this->domainName === 'InventoryUnit') {
             if (str_contains($resolved, '.')) {
-                return false;
-            }
-            $unitTableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-            if (! in_array($resolved, $unitTableColumns, true)) {
-                return false;
-            }
-            $prefixedColumns = array_map(function ($col) {
-                $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
+                if (preg_match('/^inventory_items\.[a-zA-Z0-9_]+$/', $resolved)) {
+                    $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                        return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+                    }, $actualColumns);
+                    $query->select($prefixedColumns)
+                        ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
+                        ->orderBy($resolved, $dir);
 
-                return in_array($col, $tableColumns) ? 'inventory_units.'.$col : $col;
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (! in_array($resolved, $dbColumns, true)) {
+                return false;
+            }
+
+            $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
             }, $actualColumns);
             $query->select($prefixedColumns)
-                ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
-                ->orderBy('inventory_units.'.$resolved, $dir);
+                ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id');
 
+            if ($this->applyEnumLabelSortIfApplicable(
+                $query,
+                $tableName.'.'.$resolved,
+                $fieldsSchema,
+                $sp['key'],
+                $resolved,
+                $dir
+            )) {
+                return true;
+            }
+
+            $query->orderBy($tableName.'.'.$resolved, $dir);
+
+            return true;
+        }
+
+        if ($this->applyRelatedTableSortFromRecordField(
+            $query,
+            $resolved,
+            $sp['key'],
+            $fieldsSchema,
+            $tableName,
+            $dbColumns,
+            $actualColumns,
+            $dir
+        )) {
             return true;
         }
 
@@ -152,6 +342,17 @@ class RecordController extends BaseController
 
         if (! in_array($resolved, $dbColumns, true)) {
             return false;
+        }
+
+        if ($this->applyEnumLabelSortIfApplicable(
+            $query,
+            $tableName.'.'.$resolved,
+            $fieldsSchema,
+            $sp['key'],
+            $resolved,
+            $dir
+        )) {
+            return true;
         }
 
         $query->orderBy($tableName.'.'.$resolved, $dir);
@@ -299,22 +500,24 @@ class RecordController extends BaseController
                     // Search in fields that typically make up display names
                     $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                     if ($this->domainName === 'AssetUnit') {
-                        // For AssetUnit, also search in the joined assets table
                         $query->where(function ($q) use ($searchTerm) {
                             $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
                                 ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
                                 ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                                ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm])
+                                ->orWhereHas('asset', function ($aq) use ($searchTerm) {
+                                    $aq->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
+                                });
                         });
                     } elseif ($this->domainName === 'InventoryUnit') {
-                        // For InventoryUnit, also search in the joined inventory_items table
                         $query->where(function ($q) use ($searchTerm) {
                             $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])
                                 ->orWhereRaw('LOWER(inventory_units.hin) LIKE ?', [$searchTerm])
                                 ->orWhereRaw('LOWER(inventory_units.sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(inventory_items.display_name) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm]);
+                                ->orWhereRaw('CAST(inventory_units.id AS TEXT) LIKE ?', [$searchTerm])
+                                ->orWhereHas('inventoryItem', function ($iq) use ($searchTerm) {
+                                    $iq->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
+                                });
                         });
                     } else {
                         $query->where(function ($q) use ($searchTerm) {
@@ -343,7 +546,7 @@ class RecordController extends BaseController
         $statsBaseQuery = clone $query;
 
         // Order: ?sort=&direction= from table schema (sortable defaults true), else defaults below
-        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns)) {
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema)) {
             $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
                 ->hasColumn($tableName, 'display_name');
 
@@ -352,24 +555,16 @@ class RecordController extends BaseController
             } else {
                 // For models with virtual display names (like AssetUnit, InventoryUnit), order by parent item then unit identifier
                 if ($this->domainName === 'AssetUnit') {
-                    // Override select to use table prefixes to avoid ambiguous column errors
-                    $prefixedColumns = array_map(function ($col) {
-                        // Prefix all columns that belong to the asset_units table
-                        $tableColumns = ['id', 'asset_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-
-                        return in_array($col, $tableColumns) ? 'asset_units.'.$col : $col;
+                    $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                        return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
                     }, $actualColumns);
                     $query->select($prefixedColumns)
                         ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
                         ->orderBy('assets.display_name')
                         ->orderByRaw("COALESCE(NULLIF(asset_units.serial_number, ''), NULLIF(asset_units.hin, ''), NULLIF(asset_units.sku, ''), CAST(asset_units.id AS TEXT))");
                 } elseif ($this->domainName === 'InventoryUnit') {
-                    // Override select to use table prefixes to avoid ambiguous column errors
-                    $prefixedColumns = array_map(function ($col) {
-                        // Prefix all columns that belong to the inventory_units table
-                        $tableColumns = ['id', 'inventory_item_id', 'serial_number', 'hin', 'sku', 'condition', 'status', 'inactive', 'is_customer_owned', 'is_consignment', 'engine_hours', 'last_service_at', 'warranty_expires_at', 'cost', 'asking_price', 'sold_price', 'price_history', 'vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'in_service_at', 'out_of_service_at', 'sold_at', 'attributes', 'notes', 'created_at', 'updated_at'];
-
-                        return in_array($col, $tableColumns) ? 'inventory_units.'.$col : $col;
+                    $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                        return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
                     }, $actualColumns);
                     $query->select($prefixedColumns)
                         ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
@@ -405,11 +600,20 @@ class RecordController extends BaseController
         // Normal initial page load - return Inertia page
         $indexProps = $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions);
         $indexProps['stats'] = $tableStats;
+        $indexProps = array_merge($indexProps, $this->indexSupplementInertiaProps($request));
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
             $indexProps
         );
+    }
+
+    /**
+     * Extra keys merged into the domain Index Inertia payload (e.g. Assets page bundles a units table).
+     */
+    protected function indexSupplementInertiaProps(Request $request): array
+    {
+        return [];
     }
 
     /**

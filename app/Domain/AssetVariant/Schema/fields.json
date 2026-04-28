@@ -18,6 +18,18 @@
     "type": "text",
     "readOnly": true
   },
+  "length": {
+    "label": "Length",
+    "type": "measurement",
+    "help": "Stored in millimetres. Shown in feet and inches for now; account display units will be configurable later.",
+    "spec": true
+  },
+  "width": {
+    "label": "Width",
+    "type": "measurement",
+    "help": "Stored in millimetres. Shown in feet and inches for now; account display units will be configurable later.",
+    "spec": true
+  },
   "default_cost": {
     "label": "Default Cost",
     "type": "currency",

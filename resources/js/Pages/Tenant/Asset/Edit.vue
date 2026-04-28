@@ -42,6 +42,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    account: {
+        type: Object,
+        default: null,
+    },
 });
 
 const assetLabel = computed(() =>
@@ -88,6 +92,7 @@ const handleCancel = () => {
                 :image-urls="imageUrls"
                 :timezones="timezones"
                 :available-specs="availableSpecs"
+                :account="account"
                 :redirect-after-update="assetShowUrl"
                 mode="edit"
                 @cancel="handleCancel"

@@ -1,23 +1,6 @@
 {
   "fields": [
     {
-      "key": "overall_length",
-      "label": "Overall Length",
-      "group_id": 1,
-      "type": "number",
-      "unit": "ft",
-      "unit_imperial": "ft",
-      "unit_metric": "m",
-      "use_metric": false,
-      "step": 0.1,
-      "is_filterable": true,
-      "is_visible": true,
-      "is_required": true,
-      "show_on_table":true,
-      "position": 1,
-      "asset_types": [1,2,3,4]
-    },
-    {
       "key": "internal_length",
       "label": "Internal Length",
       "group_id": 1,
@@ -32,23 +15,6 @@
       "show_on_table":false,
       "position": 2,
       "asset_types": [1]
-    },
-    {
-      "key": "overall_width",
-      "label": "Overall Width",
-      "group_id": 1,
-      "type": "number",
-      "unit": "ft",
-      "unit_imperial": "ft",
-      "unit_metric": "m",
-      "use_metric": false,
-      "step": 0.1,
-      "is_filterable": true,
-      "is_visible": true,
-      "is_required": true,
-      "show_on_table":true,
-      "position": 3,
-      "asset_types": [1,2,3,4]
     },
     {
       "key": "internal_width",

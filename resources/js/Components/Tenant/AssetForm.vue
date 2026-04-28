@@ -10,7 +10,9 @@ import MorphSelect from '@/Components/Tenant/MorphSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
+import MeasurementImperialInput from '@/Components/Tenant/FormComponents/MeasurementImperialInput.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/utils/measurementMm.js';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
 import Form from '@/Components/Tenant/Form.vue';
 
@@ -35,6 +37,8 @@ const props = defineProps({
     extraRouteParams: { type: Object, default: () => ({}) },
     availableSpecs: { type: Array, default: () => [] },
     specsContextAssetType: { type: Number, default: null },
+    /** Account settings (show/edit/create); used for length/width display preference */
+    account: { type: Object, default: null },
     /** When set, successful update (Inertia) navigates here instead of reloading the current page. */
     redirectAfterUpdate: { type: String, default: null },
 });
@@ -58,6 +62,7 @@ const {
     isFieldDisabledByFilter,
     getFieldFilterValue,
     isFieldVisible,
+    staticSpecFormFieldEntries,
     getEnumOptions,
     getEnumLabel,
     getRecordDisplayName,
@@ -99,6 +104,32 @@ const hasVariants = computed(() => {
     return fromRecord;
 });
 
+/** Subtitle under NEW/EDIT ASSET — live name while editing, else saved record name */
+const headerDisplayName = computed(() => {
+    const fromForm = String(form.display_name ?? '').trim();
+    if (fromForm) {
+        return fromForm;
+    }
+    const fromRecord = String(props.record?.display_name ?? '').trim();
+    if (fromRecord) {
+        return fromRecord;
+    }
+    return isCreateMode.value ? 'New asset' : '—';
+});
+
+const LENGTH_DISPLAY_MODES = new Set(['imperial', 'metric', 'both']);
+
+const lengthDisplayMode = computed(() => {
+    const raw = props.account?.settings?.length_display;
+    const s = raw != null ? String(raw) : '';
+    if (LENGTH_DISPLAY_MODES.has(s)) {
+        return s;
+    }
+    return 'imperial';
+});
+
+const formatVariantMeasurementMm = (mm) => formatLengthMmForDisplay(mm, lengthDisplayMode.value);
+
 const showVariantModal = ref(false);
 const editingVariantIdx = ref(null);
 const variantModalError = ref('');
@@ -107,6 +138,61 @@ const variantFormConfig = ref(null);
 const variantRecord = ref(null);
 const variantFormKey = ref(0);
 const variantFormRef = ref(null);
+
+/** Full variant list for “copy from” dropdown (not paginated with the table). */
+const variantCopyOptionsList = ref([]);
+const copyFromVariantId = ref('');
+const variantToolbarError = ref('');
+
+const variantCopyOptionsFiltered = computed(() => {
+    const curId = variantRecord.value?.id;
+    return variantCopyOptionsList.value.filter((v) => {
+        if (v.id == null) {
+            return false;
+        }
+        if (curId == null) {
+            return true;
+        }
+        return Number(v.id) !== Number(curId);
+    });
+});
+
+const showVariantCopyFrom = computed(() => variantCopyOptionsFiltered.value.length > 0);
+
+const ensureVariantCopyList = async () => {
+    if (!props.record?.id || !hasVariants.value) {
+        variantCopyOptionsList.value = [];
+        return;
+    }
+    try {
+        const { data } = await axios.get(route('assets.variants.index', { asset: props.record.id }), {
+            params: { per_page: 200, page: 1, enable_has_variants: 1 },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        variantCopyOptionsList.value = data.records || [];
+    } catch {
+        variantCopyOptionsList.value = [];
+    }
+};
+
+const applyCopyFromVariant = async () => {
+    variantToolbarError.value = '';
+    const vid = copyFromVariantId.value;
+    if (!props.record?.id || !vid || !variantFormRef.value?.applyCopiedVariantRecord) {
+        return;
+    }
+    try {
+        const { data } = await axios.get(route('assets.variants.show', { asset: props.record.id, variant: vid }), {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        variantFormRef.value.applyCopiedVariantRecord(data.record);
+    } catch (e) {
+        variantToolbarError.value = e?.response?.data?.message || e.message || 'Could not load variant';
+    }
+};
 
 /** Variants table (same payload as Sublist: schema.columns + fieldsSchema + records). */
 const variantTableSchema = ref(null);
@@ -151,7 +237,11 @@ const fetchVariantsTable = async (page = 1) => {
     variantsTableLoading.value = true;
     try {
         const { data } = await axios.get(route('assets.variants.index', { asset: props.record.id }), {
-            params: { page, per_page: VARIANTS_TABLE_PER_PAGE },
+            params: {
+                page,
+                per_page: VARIANTS_TABLE_PER_PAGE,
+                enable_has_variants: 1,
+            },
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
@@ -245,6 +335,7 @@ const loadVariantFormSchema = async () => {
         return;
     }
     const { data } = await axios.get(route('assets.variants.select-form', { asset: props.record.id }), {
+        params: hasVariants.value ? { enable_has_variants: 1 } : {},
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
@@ -256,6 +347,9 @@ const loadVariantFormSchema = async () => {
 const closeVariantModal = () => {
     showVariantModal.value = false;
     variantRecord.value = null;
+    copyFromVariantId.value = '';
+    variantToolbarError.value = '';
+    variantCopyOptionsList.value = [];
 };
 
 const onVariantFormCreated = () => {
@@ -286,6 +380,9 @@ const openAddVariantModal = async () => {
     loadingVariantDetail.value = true;
     try {
         await loadVariantFormSchema();
+        await ensureVariantCopyList();
+        copyFromVariantId.value = '';
+        variantToolbarError.value = '';
         variantFormKey.value += 1;
         showVariantModal.value = true;
     } catch (e) {
@@ -328,6 +425,9 @@ const openEditVariantModal = async (idx) => {
         } else {
             variantRecord.value = normalizeVariantRecordForForm(v);
         }
+        await ensureVariantCopyList();
+        copyFromVariantId.value = '';
+        variantToolbarError.value = '';
         variantFormKey.value += 1;
         showVariantModal.value = true;
     } catch (e) {
@@ -386,7 +486,12 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                     <template v-else-if="isEditMode">EDIT ASSET</template>
                                     <template v-else>ASSET</template>
                                 </h1>
-                                <p class="text-primary-100 text-sm mt-1">Asset Record</p>
+                                <p
+                                    class="text-primary-100 mt-1 max-w-xl truncate text-sm md:max-w-2xl"
+                                    :title="headerDisplayName !== '—' && headerDisplayName !== 'New asset' ? headerDisplayName : undefined"
+                                >
+                                    {{ headerDisplayName }}
+                                </p>
                             </div>
                             <div v-if="record?.id" class="text-right">
                                 <div class="text-primary-200 text-sm font-medium">Asset ID</div>
@@ -398,14 +503,14 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                     <div class="p-6 space-y-8">
                         <div
                             v-if="isEditMode"
-                            class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-900 dark:text-blue-100"
+                            class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-4 py-3 text-md text-blue-900 dark:text-blue-100"
                             role="note"
                         >
                             <p class="font-semibold">How assets, variants &amp; specs work</p>
                             <ul class="mt-2 list-disc space-y-1 pl-5 text-blue-800/90 dark:text-blue-200/90">
-                                <li>Enable <strong>Has Variants</strong> when each configuration needs its own specs — specs live on the variant, not this asset.</li>
-                                <li>Leave variants off for single-spec products — specs are stored here on the asset aligned to its type.</li>
-                                <li>With variants on, use the table below to list, add, and edit variants (same columns as the catalog).</li>
+                                <li>In <strong>Specifications &amp; variants</strong>, turn on <strong>This asset has variants</strong> when each configuration needs its own specs — specs live on the variant, not this asset.</li>
+                                <li>Leave variants off for single-spec products — specs are stored on this asset for its type.</li>
+                                <li>With variants on, use the variants table in that same section to list, add, and edit variants (same columns as the catalog).</li>
                             </ul>
                         </div>
 
@@ -420,8 +525,194 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                         {{ group.label }}
                                     </h3>
 
-                                    <!-- Specs -->
                                     <template v-if="group.type === 'specs'">
+                                        <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-gray-600 dark:bg-gray-800/50">
+                                            <template v-if="!isEditMode">
+                                                <p class="text-sm text-gray-700 dark:text-gray-300">
+                                                    <span class="font-medium text-gray-900 dark:text-white">{{ getFieldLabel('has_variants') }}:</span>
+                                                    {{ (getFieldValue('has_variants') === 1 || getFieldValue('has_variants') === true) ? 'Yes' : 'No' }}
+                                                </p>
+                                            </template>
+                                            <template v-else>
+                                                <label
+                                                    :for="getFieldId('has_variants')"
+                                                    class="flex cursor-pointer items-start gap-3"
+                                                >
+                                                    <input type="hidden" name="has_variants" :value="0">
+                                                    <input
+                                                        :id="getFieldId('has_variants')"
+                                                        v-model="form.has_variants"
+                                                        type="checkbox"
+                                                        name="has_variants"
+                                                        :true-value="1"
+                                                        :false-value="0"
+                                                        :disabled="isFieldDisabled('has_variants')"
+                                                        class="mt-0.5 h-4 w-4 rounded border border-default-medium bg-neutral-secondary-medium text-primary-600 focus:ring-2 focus:ring-brand-soft"
+                                                    >
+                                                    <span>
+                                                        <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ getFieldLabel('has_variants') }}</span>
+                                                        <span v-if="getFieldDefinition('has_variants').help" class="mt-1 block text-sm text-gray-600 dark:text-gray-400">
+                                                            {{ getFieldDefinition('has_variants').help }}
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            </template>
+                                        </div>
+
+                                        <template v-if="hasVariants">
+                                            <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                Variants
+                                            </h4>
+                                            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                                                Each variant has its own specification values (same definitions as this asset’s type). Columns match your variant table settings, including specs marked “show on table”.
+                                            </p>
+                                            <template v-if="record || isEditMode">
+                                                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                        Variants ({{ variantTableTotalCount }})
+                                                    </span>
+                                                    <button
+                                                        v-if="isEditMode"
+                                                        type="button"
+                                                        :disabled="!record?.id"
+                                                        class="inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30"
+                                                        :title="!record?.id ? 'Save the asset first' : undefined"
+                                                        @click="openAddVariantModal"
+                                                    >
+                                                        <span class="material-icons text-base leading-none">add_circle</span>
+                                                        Add Variant
+                                                    </button>
+                                                </div>
+                                                <div class="relative min-h-[8rem]">
+                                                    <div
+                                                        v-if="variantsTableLoading"
+                                                        class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-gray-800/80"
+                                                    >
+                                                        <span class="material-icons animate-spin text-3xl text-primary-600">refresh</span>
+                                                    </div>
+                                                    <div
+                                                        v-if="!variantsTableLoading && variantTableRows.length === 0"
+                                                        class="rounded-lg border-2 border-dashed border-gray-300 py-10 text-center dark:border-gray-700"
+                                                    >
+                                                        <span class="material-icons mb-2 block text-4xl text-gray-400 dark:text-gray-600">account_tree</span>
+                                                        <p class="text-sm text-gray-500 dark:text-gray-400">No variants yet</p>
+                                                    </div>
+                                                    <div v-else-if="variantTableRows.length > 0" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                                            <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                                                <tr>
+                                                                    <th
+                                                                        v-for="col in variantTableColumns"
+                                                                        :key="col.key"
+                                                                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                                    >
+                                                                        {{ col.label }}
+                                                                    </th>
+                                                                    <th
+                                                                        v-if="isEditMode"
+                                                                        class="w-36 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                                    >
+                                                                        Actions
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
+                                                                <tr
+                                                                    v-for="(variant, idx) in variantTableRows"
+                                                                    :key="variant.id ?? idx"
+                                                                    class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                                                >
+                                                                    <td
+                                                                        v-for="col in variantTableColumns"
+                                                                        :key="col.key"
+                                                                        class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
+                                                                    >
+                                                                        <template v-if="getVariantColumnFieldType(col.key) === 'boolean'">
+                                                                            {{ variant[col.key] === true || variant[col.key] === 1 ? 'Yes' : 'No' }}
+                                                                        </template>
+                                                                        <template v-else-if="getVariantColumnFieldType(col.key) === 'date'">
+                                                                            {{ formatDate(variant[col.key]) || '—' }}
+                                                                        </template>
+                                                                        <template v-else-if="getVariantColumnFieldType(col.key) === 'datetime'">
+                                                                            {{ formatDateTime(variant[col.key]) || '—' }}
+                                                                        </template>
+                                                                        <template v-else-if="getVariantColumnFieldType(col.key) === 'currency'">
+                                                                            {{ formatMoney(variant[col.key]) }}
+                                                                        </template>
+                                                                        <template v-else-if="getVariantColumnFieldType(col.key) === 'measurement'">
+                                                                            {{ formatVariantMeasurementMm(variant[col.key]) }}
+                                                                        </template>
+                                                                        <template v-else>
+                                                                            {{
+                                                                                variant[col.key] != null && variant[col.key] !== ''
+                                                                                    ? variant[col.key]
+                                                                                    : (col.key === 'display_name' || col.key === 'name'
+                                                                                          ? variant.display_name || variant.name || '—'
+                                                                                          : '—')
+                                                                            }}
+                                                                        </template>
+                                                                    </td>
+                                                                    <td v-if="isEditMode" class="px-4 py-3">
+                                                                        <div class="flex justify-end gap-2">
+                                                                            <button
+                                                                                type="button"
+                                                                                class="text-primary-600 dark:text-primary-400"
+                                                                                title="Edit variant"
+                                                                                @click="openEditVariantModal(idx)"
+                                                                            >
+                                                                                <span class="material-icons text-base">edit</span>
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                class="text-red-600 dark:text-red-400"
+                                                                                title="Delete variant"
+                                                                                @click="removeVariant(idx)"
+                                                                            >
+                                                                                <span class="material-icons text-base">delete</span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div
+                                                        v-if="variantTableMeta && variantTableMeta.last_page > 1"
+                                                        class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            :disabled="!variantsTableHasPrev || variantsTableLoading"
+                                                            class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                            @click="goVariantsTablePrev"
+                                                        >
+                                                            Previous
+                                                        </button>
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                            Page {{ variantTableMeta.current_page }} of {{ variantTableMeta.last_page }}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            :disabled="!variantsTableHasNext || variantsTableLoading"
+                                                            class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                                            @click="goVariantsTableNext"
+                                                        >
+                                                            Next
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="mt-4 rounded-xl border border-blue-100 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+                                                >
+                                                    <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Specifications are per variant</p>
+                                                    <p class="mt-1 text-sm text-blue-800/90 dark:text-blue-200/90">
+                                                        Use <strong>Add Variant</strong> or <strong>Edit</strong> to set spec values for each row.
+                                                    </p>
+                                                </div>
+                                            </template>
+                                        </template>
+
+                                        <template v-else>
                                         <div class="mb-4 flex items-center justify-between">
                                             <p class="text-sm text-gray-500 dark:text-gray-400">
                                                 Specifications for this asset type
@@ -434,10 +725,83 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                 Manage spec definitions
                                             </Link>
                                         </div>
-                                        <div v-if="resolvedAvailableSpecs.length === 0" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+
+                                        <div
+                                            v-if="!staticSpecFormFieldEntries.length && !resolvedAvailableSpecs.length"
+                                            class="py-6 text-center text-sm text-gray-400 dark:text-gray-500"
+                                        >
                                             No specifications available for this asset type.
                                         </div>
-                                        <div v-else class="space-y-6">
+                                        <div v-else>
+                                            <div
+                                                v-if="staticSpecFormFieldEntries.length"
+                                                class="mb-8 border-b border-gray-200 pb-6 dark:border-gray-700"
+                                            >
+                                                <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                    Standard dimensions &amp; classification
+                                                </p>
+                                                <div class="grid gap-4 sm:grid-cols-12">
+                                                <div
+                                                    v-for="sk in staticSpecFormFieldEntries"
+                                                    :key="'static-spec-'+sk"
+                                                    v-show="isFieldVisible({ key: sk })"
+                                                    :class="getFieldColSpan({ key: sk })"
+                                                >
+                                                    <label
+                                                        :for="getFieldId(sk)"
+                                                        class="mb-2 block text-sm font-bold text-gray-900 dark:text-white"
+                                                    >
+                                                        {{ getFieldLabel(sk) }}
+                                                        <span
+                                                            v-if="isFieldRequired({ key: sk })"
+                                                            class="text-red-500"
+                                                        >*</span>
+                                                    </label>
+                                                    <div v-if="!isEditMode" class="text-sm text-gray-900 dark:text-white">
+                                                        <span v-if="getFieldType(sk) === 'select' && getFieldDefinition(sk).enum">
+                                                            {{ getEnumLabel(sk, getFieldValue(sk)) || '—' }}
+                                                        </span>
+                                                        <span v-else-if="getFieldType(sk) === 'measurement'">{{ formatLengthMmImperial(getFieldValue(sk)) }}</span>
+                                                        <span v-else>{{ getFieldValue(sk) || '—' }}</span>
+                                                    </div>
+                                                    <div v-else>
+                                                        <MeasurementImperialInput
+                                                            v-if="getFieldType(sk) === 'measurement'"
+                                                            :id="getFieldId(sk)"
+                                                            v-model="form[sk]"
+                                                            :required="isFieldRequired({ key: sk })"
+                                                            :disabled="isFieldDisabled(sk)"
+                                                        />
+                                                        <input
+                                                            v-else-if="['text', 'email', 'url'].includes(getFieldType(sk))"
+                                                            :id="getFieldId(sk)"
+                                                            v-model="form[sk]"
+                                                            :type="getFieldType(sk) === 'url' ? 'url' : 'text'"
+                                                            :required="isFieldRequired({ key: sk })"
+                                                            :disabled="isFieldDisabled(sk)"
+                                                            :placeholder="getFieldDefinition(sk).placeholder"
+                                                            class="input-style"
+                                                        >
+                                                        <select
+                                                            v-else-if="getFieldType(sk) === 'select'"
+                                                            :id="getFieldId(sk)"
+                                                            v-model="form[sk]"
+                                                            :required="isFieldRequired({ key: sk })"
+                                                            :disabled="isFieldDisabled(sk)"
+                                                            :class="['input-style w-full', !form[sk] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900']"
+                                                        >
+                                                            <option v-if="!isFieldRequired({ key: sk })" value="" disabled>
+                                                                Select {{ getFieldLabel(sk) }}
+                                                            </option>
+                                                            <option v-for="opt in getEnumOptions(sk)" :key="opt.id" :value="opt.id">
+                                                                {{ opt.name }}
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                </div>
+                                            </div>
+                                        <div v-if="resolvedAvailableSpecs.length" class="space-y-6">
                                             <div v-for="section in groupedSpecSections" :key="section.key">
                                                 <h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                                     {{ section.label }}
@@ -519,6 +883,8 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                 </div>
                                             </div>
                                         </div>
+                                        </div>
+                                        </template>
                                     </template>
 
                                     <!-- Regular fields -->
@@ -603,6 +969,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                     : '—'
                                                             }}
                                                         </span>
+                                                        <span v-else-if="getFieldType(field.key) === 'measurement'">{{ formatLengthMmImperial(getFieldValue(field.key)) }}</span>
                                                         <span v-else>{{ getFieldValue(field.key) || '—' }}</span>
                                                     </div>
 
@@ -650,6 +1017,13 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                         />
                                                         <CurrencyInput
                                                             v-else-if="getFieldType(field.key) === 'currency'"
+                                                            :id="getFieldId(field.key)"
+                                                            v-model="form[field.key]"
+                                                            :required="isFieldRequired(field)"
+                                                            :disabled="isFieldDisabled(field.key)"
+                                                        />
+                                                        <MeasurementImperialInput
+                                                            v-else-if="getFieldType(field.key) === 'measurement'"
                                                             :id="getFieldId(field.key)"
                                                             v-model="form[field.key]"
                                                             :required="isFieldRequired(field)"
@@ -820,158 +1194,6 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                     </div>
                                 </section>
                             </template>
-
-                            <!-- Variants preview -->
-                            <section v-if="record || isEditMode" class="mb-10 border-t border-gray-200 pt-8 dark:border-gray-700">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-2">
-                                    Variants
-                                </h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                    Each variant has its own specification values (same definitions as this asset’s type). Columns match your variant table settings, including specs marked “show on table”.
-                                </p>
-                                <div v-if="hasVariants">
-                                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Variants ({{ variantTableTotalCount }})
-                                        </span>
-                                        <button
-                                            v-if="isEditMode"
-                                            type="button"
-                                            :disabled="!record?.id"
-                                            class="inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30"
-                                            :title="!record?.id ? 'Save the asset first' : undefined"
-                                            @click="openAddVariantModal"
-                                        >
-                                            <span class="material-icons text-base leading-none">add_circle</span>
-                                            Add Variant
-                                        </button>
-                                    </div>
-                                    <div class="relative min-h-[8rem]">
-                                        <div
-                                            v-if="variantsTableLoading"
-                                            class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-gray-800/80"
-                                        >
-                                            <span class="material-icons animate-spin text-3xl text-primary-600">refresh</span>
-                                        </div>
-                                        <div
-                                            v-if="!variantsTableLoading && variantTableRows.length === 0"
-                                            class="rounded-lg border-2 border-dashed border-gray-300 py-10 text-center dark:border-gray-700"
-                                        >
-                                            <span class="material-icons mb-2 block text-4xl text-gray-400 dark:text-gray-600">account_tree</span>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">No variants yet</p>
-                                        </div>
-                                        <div v-else-if="variantTableRows.length > 0" class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-                                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                                <thead class="bg-gray-50 dark:bg-gray-900/50">
-                                                    <tr>
-                                                        <th
-                                                            v-for="col in variantTableColumns"
-                                                            :key="col.key"
-                                                            class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
-                                                        >
-                                                            {{ col.label }}
-                                                        </th>
-                                                        <th
-                                                            v-if="isEditMode"
-                                                            class="w-36 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
-                                                        >
-                                                            Actions
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
-                                                    <tr
-                                                        v-for="(variant, idx) in variantTableRows"
-                                                        :key="variant.id ?? idx"
-                                                        class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                                                    >
-                                                        <td
-                                                            v-for="col in variantTableColumns"
-                                                            :key="col.key"
-                                                            class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
-                                                        >
-                                                            <template v-if="getVariantColumnFieldType(col.key) === 'boolean'">
-                                                                {{ variant[col.key] === true || variant[col.key] === 1 ? 'Yes' : 'No' }}
-                                                            </template>
-                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'date'">
-                                                                {{ formatDate(variant[col.key]) || '—' }}
-                                                            </template>
-                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'datetime'">
-                                                                {{ formatDateTime(variant[col.key]) || '—' }}
-                                                            </template>
-                                                            <template v-else-if="getVariantColumnFieldType(col.key) === 'currency'">
-                                                                {{ formatMoney(variant[col.key]) }}
-                                                            </template>
-                                                            <template v-else>
-                                                                {{
-                                                                    variant[col.key] != null && variant[col.key] !== ''
-                                                                        ? variant[col.key]
-                                                                        : (col.key === 'display_name' || col.key === 'name'
-                                                                              ? variant.display_name || variant.name || '—'
-                                                                              : '—')
-                                                                }}
-                                                            </template>
-                                                        </td>
-                                                        <td v-if="isEditMode" class="px-4 py-3">
-                                                            <div class="flex justify-end gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    class="text-primary-600 dark:text-primary-400"
-                                                                    title="Edit variant"
-                                                                    @click="openEditVariantModal(idx)"
-                                                                >
-                                                                    <span class="material-icons text-base">edit</span>
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    class="text-red-600 dark:text-red-400"
-                                                                    title="Delete variant"
-                                                                    @click="removeVariant(idx)"
-                                                                >
-                                                                    <span class="material-icons text-base">delete</span>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        <div
-                                            v-if="variantTableMeta && variantTableMeta.last_page > 1"
-                                            class="mt-3 flex items-center justify-between border-t border-gray-200 pt-3 dark:border-gray-700"
-                                        >
-                                            <button
-                                                type="button"
-                                                :disabled="!variantsTableHasPrev || variantsTableLoading"
-                                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                                @click="goVariantsTablePrev"
-                                            >
-                                                Previous
-                                            </button>
-                                            <span class="text-xs text-gray-500 dark:text-gray-400">
-                                                Page {{ variantTableMeta.current_page }} of {{ variantTableMeta.last_page }}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                :disabled="!variantsTableHasNext || variantsTableLoading"
-                                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                                @click="goVariantsTableNext"
-                                            >
-                                                Next
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div
-                                        class="mt-4 rounded-xl border border-blue-100 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20"
-                                    >
-                                        <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Specifications are per variant</p>
-                                        <p class="mt-1 text-sm text-blue-800/90 dark:text-blue-200/90">
-                                            Use <strong>Add Variant</strong> or <strong>Edit</strong> to set spec values for each row.
-                                        </p>
-                                    </div>
-                                </div>
-                            </section>
-
                         </form>
                     </div>
                 </div>
@@ -1015,10 +1237,6 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Asset Info</span>
                         </div>
                         <div class="space-y-3 p-5 text-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="text-gray-500 dark:text-gray-400">Type</span>
-                                <span class="font-medium text-gray-900 dark:text-white">{{ record.type_label || record.type || '—' }}</span>
-                            </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-gray-500 dark:text-gray-400">Brand</span>
                                 <span class="font-medium text-gray-900 dark:text-white">{{ record.make?.display_name || '—' }}</span>
@@ -1118,42 +1336,86 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                             </div>
                             <p
                                 v-if="variantModalError"
-                                class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200"
+                                class="mb-4 rounded-lg bg-red-50 p-3 text-md text-red-700 dark:bg-red-900/30 dark:text-red-200"
                             >
                                 {{ variantModalError }}
                             </p>
                             <p
                                 v-if="!record?.id"
-                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
+                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-md text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
                             >
                                 Save the asset first, then add variants.
                             </p>
                             <p
                                 v-else-if="record?.id && !hasVariants"
-                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
+                                class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-md text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
                             >
                                 Turn on <strong>This asset has variants</strong> before adding variants.
                             </p>
-                            <Form
-                                v-else-if="variantFormConfig"
-                                :key="variantFormKey"
-                                ref="variantFormRef"
-                                :schema="variantFormConfig.formSchema"
-                                :fields-schema="variantFieldsSchema"
-                                :record="editingVariantIdx !== null ? variantRecord : null"
-                                :record-type="variantFormConfig.recordType"
-                                :record-title="variantFormConfig.recordTitle || 'Variant'"
-                                :enum-options="variantFormConfig.enumOptions || {}"
-                                :extra-route-params="variantFormExtraRouteParams"
-                                :available-specs="variantFormConfig.availableSpecs || []"
-                                :specs-context-asset-type="variantFormConfig.specsContextAssetType ?? null"
-                                :record-identifier="variantRecord?.id ?? null"
-                                :mode="editingVariantIdx !== null ? 'edit' : 'create'"
-                                :prevent-redirect="true"
-                                @created="onVariantFormCreated"
-                                @updated="onVariantFormUpdated"
-                                @cancel="closeVariantModal"
-                            />
+                            <template v-else-if="variantFormConfig">
+                                <div class="px-6 pt-4 pb-6">
+                                    <div
+                                        v-if="record?.id && hasVariants && (showVariantCopyFrom || variantToolbarError)"
+                                        class="mb-4 rounded-lg border border-primary-200 bg-primary-50/90 p-4 dark:border-primary-800 dark:bg-primary-950/40"
+                                    >
+                                        <div
+                                            v-if="showVariantCopyFrom"
+                                            class="flex flex-wrap items-end gap-3"
+                                        >
+                                            <div class="min-w-[12rem] flex-1 max-w-md">
+                                                <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
+                                                    Copy details and specs from other variant
+                                                </label>
+                                                <select v-model="copyFromVariantId" class="input-style w-full">
+                                                    <option value="">Select variant…</option>
+                                                    <option
+                                                        v-for="opt in variantCopyOptionsFiltered"
+                                                        :key="opt.id"
+                                                        :value="String(opt.id)"
+                                                    >
+                                                        {{ opt.display_name || opt.name || `Variant #${opt.id}` }}
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                                                :disabled="variantModalBusy || !copyFromVariantId"
+                                                @click="applyCopyFromVariant"
+                                            >
+                                                Copy
+                                            </button>
+                                        </div>
+                                        <p
+                                            v-if="variantToolbarError"
+                                            class="text-sm text-red-600 dark:text-red-400"
+                                            :class="showVariantCopyFrom ? 'mt-3' : ''"
+                                        >
+                                            {{ variantToolbarError }}
+                                        </p>
+                                    </div>
+                                    <Form
+                                        :key="variantFormKey"
+                                        ref="variantFormRef"
+                                        :schema="variantFormConfig.formSchema"
+                                        :fields-schema="variantFieldsSchema"
+                                        :record="editingVariantIdx !== null ? variantRecord : null"
+                                        :record-type="variantFormConfig.recordType"
+                                        :record-title="variantFormConfig.recordTitle || 'Variant'"
+                                        :enum-options="variantFormConfig.enumOptions || {}"
+                                        :extra-route-params="variantFormExtraRouteParams"
+                                        :available-specs="variantFormConfig.availableSpecs || []"
+                                        :specs-context-asset-type="variantFormConfig.specsContextAssetType ?? null"
+                                        :record-identifier="variantRecord?.id ?? null"
+                                        :mode="editingVariantIdx !== null ? 'edit' : 'create'"
+                                        :prevent-redirect="true"
+                                        :enable-has-variants-on-store="hasVariants"
+                                        @created="onVariantFormCreated"
+                                        @updated="onVariantFormUpdated"
+                                        @cancel="closeVariantModal"
+                                    />
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>

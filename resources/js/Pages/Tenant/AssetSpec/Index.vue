@@ -446,7 +446,7 @@ const previewSpecs = computed(() =>
                             Asset Spec Builder
                         </h2>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Manage spec groups, filter by field type, assign asset types, drag to reorder within each group
+                            Manage spec groups, filter by field type, assign asset categories, drag to reorder within each group
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
@@ -516,7 +516,7 @@ const previewSpecs = computed(() =>
                             </div>
                             <div>
                                 <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                                    Asset type
+                                    Asset category
                                 </label>
                                 <select
                                     v-model="selectedAssetTypeFilter"

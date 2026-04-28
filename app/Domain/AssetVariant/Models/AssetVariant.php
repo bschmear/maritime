@@ -18,6 +18,8 @@ class AssetVariant extends Model
         'asset_id',
         'name',
         'display_name',
+        'length',
+        'width',
         'key',
         'default_cost',
         'default_price',
@@ -26,6 +28,8 @@ class AssetVariant extends Model
     ];
 
     protected $casts = [
+        'length' => 'integer',
+        'width' => 'integer',
         'default_cost' => 'decimal:2',
         'default_price' => 'decimal:2',
         'inactive' => 'boolean',

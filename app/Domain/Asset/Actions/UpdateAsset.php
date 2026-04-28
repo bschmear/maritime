@@ -3,7 +3,11 @@
 namespace App\Domain\Asset\Actions;
 
 use App\Domain\Asset\Models\Asset as RecordModel;
+use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
+use App\Enums\Inventory\BoatType;
+use App\Enums\Inventory\HullMaterial;
+use App\Enums\Inventory\HullType;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -22,6 +26,12 @@ class UpdateAsset
             'make_id' => 'nullable|integer',
             'model' => 'nullable|string|max:255',
             'year' => 'nullable|string|max:4',
+            'length' => 'nullable|integer|min:0|max:10000000',
+            'beam' => 'nullable|string|max:255',
+            'width' => 'nullable|integer|min:0|max:10000000',
+            'hull_type' => ['nullable', 'integer', 'min:1', 'max:'.count(HullType::cases())],
+            'hull_material' => ['nullable', 'integer', 'min:1', 'max:'.count(HullMaterial::cases())],
+            'boat_type' => ['nullable', 'integer', 'min:1', 'max:'.count(BoatType::cases())],
             'default_cost' => 'nullable|numeric|min:0',
             'default_price' => 'nullable|numeric|min:0',
             'description' => 'nullable|string',
@@ -71,7 +81,7 @@ class UpdateAsset
             $record->refresh();
 
             if (! empty($data['specs']) && is_array($data['specs']) && ! $record->has_variants) {
-                $this->syncSpecsForSpecable($record, $data['specs']);
+                SyncAssetSpecValues::forSpecable($record, (int) $record->type, $data['specs']);
             }
 
             return [
@@ -86,32 +96,6 @@ class UpdateAsset
             Log::error('Unexpected error in UpdateAsset', ['error' => $e->getMessage(), 'id' => $id]);
 
             return ['success' => false, 'message' => $e->getMessage(), 'record' => null];
-        }
-    }
-
-    private function syncSpecsForSpecable(RecordModel $asset, array $specs): void
-    {
-        $type = $asset->getMorphClass();
-        $key = $asset->getKey();
-
-        foreach ($specs as $spec) {
-            if (empty($spec['spec_id'])) {
-                continue;
-            }
-
-            AssetSpecValue::updateOrCreate(
-                [
-                    'specable_type' => $type,
-                    'specable_id' => $key,
-                    'asset_spec_definition_id' => $spec['spec_id'],
-                ],
-                [
-                    'value_number' => $spec['value_number'] ?? null,
-                    'value_text' => $spec['value_text'] ?? null,
-                    'value_boolean' => $spec['value_boolean'] ?? null,
-                    'unit' => $spec['unit'] ?? null,
-                ]
-            );
         }
     }
 }

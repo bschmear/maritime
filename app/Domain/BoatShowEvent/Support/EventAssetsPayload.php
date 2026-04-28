@@ -3,27 +3,26 @@
 namespace App\Domain\BoatShowEvent\Support;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent;
 use App\Domain\BoatShowEvent\Models\BoatShowEventAsset;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Enums\Inventory\AssetType;
+use App\Support\LengthMillimeters;
 
 final class EventAssetsPayload
 {
     /**
-     * Default floor-plan footprint (feet) from specs / columns.
+     * Default floor-plan footprint (feet) from asset / variant columns (not dynamic specs).
      *
      * @return array{length_ft: float, width_ft: float}
      */
-    public static function defaultLayoutFootprint(Asset $asset): array
+    public static function defaultLayoutFootprint(Asset $asset, ?AssetUnit $unit = null): array
     {
-        $specs = self::specKeyMap($asset);
+        [$lengthMm, $widthMm] = self::resolveLengthWidthMillimeters($asset, $unit);
 
-        $overallLength = self::coerceFloat($specs['overall_length'] ?? null);
-        $overallWidth = self::coerceFloat($specs['overall_width'] ?? null);
-
-        $lengthFt = $overallLength ?? self::parseNumericString($asset->length) ?? 20.0;
-        $widthFt = $overallWidth ?? self::parseNumericString($asset->beam) ?? 8.0;
+        $lengthFt = LengthMillimeters::toFeetFloat($lengthMm) ?? 20.0;
+        $widthFt = LengthMillimeters::toFeetFloat($widthMm) ?? 8.0;
 
         return [
             'length_ft' => (float) $lengthFt,
@@ -41,6 +40,7 @@ final class EventAssetsPayload
                 'asset.make',
                 'asset.specValues.definition',
                 'assetUnit.asset:id,display_name',
+                'assetUnit.assetVariant',
             ])
             ->orderBy('id')
             ->get();
@@ -81,6 +81,7 @@ final class EventAssetsPayload
                 'asset.specValues.definition',
                 'asset.images' => fn ($q) => $q->orderByDesc('is_primary')->orderBy('sort_order')->orderBy('id'),
                 'assetUnit.asset:id,display_name',
+                'assetUnit.assetVariant',
             ])
             ->orderBy('id')
             ->get();
@@ -123,6 +124,7 @@ final class EventAssetsPayload
                 'asset.specValues.definition',
                 'asset.images' => fn ($q) => $q->orderByDesc('is_primary')->orderBy('sort_order')->orderBy('id'),
                 'assetUnit.asset:id,display_name',
+                'assetUnit.assetVariant',
             ])
             ->first();
 
@@ -208,18 +210,19 @@ final class EventAssetsPayload
     private static function serializeLink(BoatShowEventAsset $link): array
     {
         $asset = $link->asset;
-        $specs = self::specKeyMap($asset);
+        $unit = $link->assetUnit;
 
-        $overallLength = self::coerceFloat($specs['overall_length'] ?? null);
-        $overallWidth = self::coerceFloat($specs['overall_width'] ?? null);
+        [$lengthMm, $widthMm] = self::resolveLengthWidthMillimeters($asset, $unit);
 
-        $lengthForLayout = $overallLength ?? self::parseNumericString($asset->length);
-        $widthForLayout = $overallWidth ?? self::parseNumericString($asset->beam);
+        $lengthForLayout = LengthMillimeters::toFeetFloat($lengthMm);
+        $widthForLayout = LengthMillimeters::toFeetFloat($widthMm);
 
         $lengthFt = $link->length_ft !== null ? (float) $link->length_ft : (float) ($lengthForLayout ?? 20);
         $widthFt = $link->width_ft !== null ? (float) $link->width_ft : (float) ($widthForLayout ?? 8);
 
-        $unit = $link->assetUnit;
+        $overallLength = $lengthForLayout;
+        $overallWidth = $widthForLayout;
+
         $assetUnitPayload = null;
         if ($unit !== null) {
             $assetUnitPayload = [
@@ -253,7 +256,9 @@ final class EventAssetsPayload
         ];
 
         if ((int) $asset->type === AssetType::Boat->value) {
-            $base['length_display'] = $overallLength ?? self::parseNumericString($asset->length) ?? $asset->length;
+            $base['length_display'] = $lengthForLayout === null
+                ? null
+                : self::formatFeetForDisplay($lengthForLayout);
         }
 
         if ((int) $asset->type === AssetType::Engine->value) {
@@ -268,43 +273,35 @@ final class EventAssetsPayload
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{0: int|null, 1: int|null} [length_mm, width_mm]
      */
-    private static function specKeyMap(Asset $asset): array
+    private static function resolveLengthWidthMillimeters(Asset $asset, ?AssetUnit $unit): array
     {
-        $out = [];
-        foreach ($asset->specValues as $sv) {
-            $key = $sv->definition?->key;
-            if ($key === null || $key === '') {
-                continue;
-            }
-            $out[$key] = $sv->value_number ?? $sv->value_text ?? $sv->value_boolean;
+        $variant = $unit?->assetVariant;
+
+        $lengthMm = $variant?->length ?? $asset->length;
+        if ($lengthMm !== null) {
+            $lengthMm = (int) $lengthMm;
         }
 
-        return $out;
+        $widthMm = $variant?->width ?? $asset->width;
+        if ($widthMm !== null) {
+            $widthMm = (int) $widthMm;
+        } elseif (is_string($asset->beam) && trim($asset->beam) !== '') {
+            $widthMm = LengthMillimeters::fromLegacyString($asset->beam);
+        } else {
+            $widthMm = null;
+        }
+
+        return [$lengthMm, $widthMm];
     }
 
-    private static function coerceFloat(mixed $value): ?float
+    private static function formatFeetForDisplay(float $feet): string
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
+        $n = fmod($feet, 1.0) === 0.0
+            ? (string) (int) $feet
+            : (string) round($feet, 2);
 
-        return self::parseNumericString(is_string($value) ? $value : null);
-    }
-
-    private static function parseNumericString(?string $value): ?float
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (preg_match('/[\d.]+/', $value, $m)) {
-            return (float) $m[0];
-        }
-
-        return null;
+        return $n.' ft';
     }
 }

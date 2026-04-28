@@ -417,6 +417,7 @@ Route::middleware([
         });
 
         Route::prefix('assets')->name('assets.')->group(function () {
+            Route::get('units', [AssetUnitController::class, 'index'])->name('units.global-index');
             Route::get('/{asset}/units', [AssetController::class, 'unitsIndex'])->name('units.index');
             Route::get('/{asset}/variants/select-form', [AssetController::class, 'variantsSelectForm'])->name('variants.select-form');
             Route::get('/{asset}/variants', [AssetController::class, 'variantsIndex'])->name('variants.index');
@@ -448,6 +449,8 @@ Route::middleware([
             Route::post('/', [AssetSpecValueController::class, 'store'])->name('store');
             Route::delete('/{specValue}', [AssetSpecValueController::class, 'destroy'])->name('destroy');
         });
+
+        Route::get('asset/units', [AssetUnitController::class, 'index'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
             Route::resource('/', AssetUnitController::class)->parameters(['' => 'assetunit']);
