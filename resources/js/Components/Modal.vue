@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps({
     show: {
@@ -23,10 +23,11 @@ const showSlot = ref(props.show);
 
 watch(
     () => props.show,
-    () => {
-        if (props.show) {
+    async (isOpen) => {
+        if (isOpen) {
             document.body.style.overflow = 'hidden';
             showSlot.value = true;
+            await nextTick();
             dialog.value?.showModal();
         } else {
             document.body.style.overflow = '';
@@ -36,6 +37,7 @@ watch(
             }, 200);
         }
     },
+    { immediate: true },
 );
 
 const close = () => {

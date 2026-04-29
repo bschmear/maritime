@@ -119,6 +119,9 @@ Route::middleware([
         ->middleware('throttle:20,1')
         ->name('invoices.pay');
 
+    Route::get('/spec-sheet/{publicUuid}', [PublicController::class, 'publicVariantSpecSheet'])
+        ->name('public.spec-sheet');
+
     Route::get('/boat-show-events/{uuid}/public', [PublicBoatShowEventController::class, 'showcase'])
         ->name('boat-show-events.public.showcase');
     Route::get('/boat-show-events/{uuid}/print', [PublicBoatShowEventController::class, 'printFlyer'])
@@ -161,6 +164,7 @@ Route::middleware([
         Route::resource('subsidiaries', SubsidiaryController::class);
 
         Route::prefix('customers')->name('customers.')->group(function () {
+            Route::delete('{customer}/spec-sheet-shares/{share}', [CustomerController::class, 'destroySpecSheetShare'])->name('spec-sheet-shares.destroy');
             Route::resource('/', CustomerController::class)->parameters(['' => 'customer']);
         });
 

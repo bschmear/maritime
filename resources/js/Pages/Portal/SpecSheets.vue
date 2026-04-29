@@ -1,10 +1,39 @@
 <script setup>
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
+import AssignedUserContactCard from '@/Components/Portal/AssignedUserContactCard.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     shares: Object,
+    assignedUser: { type: Object, default: null },
+    timezone: { type: String, default: 'America/Chicago' },
 });
+
+const formatSentAt = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    const tz = props.timezone || 'UTC';
+    try {
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: tz,
+            timeZoneName: 'short',
+        }).format(d);
+    } catch {
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        }).format(d);
+    }
+};
 
 const variantLabel = (share) => {
     if (!share?.asset_variant_id) return 'Base asset';
@@ -16,6 +45,8 @@ const variantLabel = (share) => {
 <template>
     <ClientPortalLayout title="Specification sheets">
         <Head title="Specification sheets – Customer Portal" />
+
+        <AssignedUserContactCard v-if="assignedUser" :assigned-user="assignedUser" class="mb-6" />
 
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-100">
@@ -39,7 +70,9 @@ const variantLabel = (share) => {
                                 {{ share.asset?.display_name || `Asset #${share.asset_id}` }}
                             </td>
                             <td class="px-5 py-3 text-gray-600">{{ variantLabel(share) }}</td>
-                            <td class="px-5 py-3 text-gray-500">{{ share.sent_at }}</td>
+                            <td class="px-5 py-3 text-gray-600 whitespace-nowrap tabular-nums">
+                                {{ formatSentAt(share.sent_at) }}
+                            </td>
                             <td class="px-5 py-3 text-right">
                                 <Link
                                     :href="route('portal.specSheet.show', share.uuid)"

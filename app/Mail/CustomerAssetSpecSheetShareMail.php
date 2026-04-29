@@ -22,6 +22,7 @@ class CustomerAssetSpecSheetShareMail extends Mailable
         public Customer $customer,
         public AccountSettings $account,
         public array $links,
+        public string $assetDisplayName,
     ) {}
 
     public function envelope(): Envelope
@@ -45,6 +46,9 @@ class CustomerAssetSpecSheetShareMail extends Mailable
                 'account' => $this->account,
                 'links' => $this->links,
                 'logoUrl' => $this->account->logo_url,
+                'greetingName' => trim((string) ($this->customer->display_name ?? '')),
+                'assetDisplayName' => $this->assetDisplayName,
+                'portalUrl' => route('portal.index'),
             ],
         );
     }

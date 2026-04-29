@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
@@ -10,6 +12,7 @@ use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\Estimate\EstimateStatus;
@@ -22,11 +25,72 @@ use App\Services\Payments\StripeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class PublicController extends Controller
 {
     public function __construct(private NotificationService $notifications) {}
+
+    /**
+     * Printable specification sheet for an asset variant (UUID link, no login).
+     */
+    public function publicVariantSpecSheet(Request $request, string $publicUuid): Response
+    {
+        $variant = AssetVariant::query()
+            ->where('public_uuid', $publicUuid)
+            ->firstOrFail();
+
+        $variant->load([
+            'asset' => fn ($q) => $q->with(['make', 'images']),
+            'specValues.definition',
+        ]);
+
+        $asset = $variant->asset;
+        abort_if($asset === null, 404);
+
+        $account = AccountSettings::getCurrent();
+        $primaryImageUrl = $asset->images->sortByDesc('is_primary')->first()?->url;
+
+        $headline = $asset->display_name ?? 'Asset';
+        $subhead = $variant->display_name ?: $variant->name ?: 'Variant';
+        $description = $variant->resolvedDescription();
+        $specRows = SpecValueDisplayFormatter::labeledRowsFromVariant($variant);
+
+        $settings = is_array($account->settings) ? $account->settings : [];
+        $businessName = trim((string) ($settings['business_name'] ?? ''));
+        $subsidiary = Subsidiary::query()->orderBy('id')->first();
+
+        $dealerHeader = [
+            'display_name' => $subsidiary?->display_name ?: ($businessName !== '' ? $businessName : ($account->name ?? 'Dealer')),
+            'logo_url' => $subsidiary?->logo_url ?? $account->logo_url,
+            'address_line1' => null,
+            'address_line2' => null,
+            'city' => null,
+            'state' => null,
+            'postal_code' => null,
+            'phone' => null,
+            'email' => null,
+        ];
+
+        return Inertia::render('Tenant/Public/PublicVariantSpecSheet', [
+            'documentRef' => strtoupper(Str::substr((string) $variant->public_uuid, 0, 8)),
+            'headline' => $headline,
+            'subhead' => $subhead,
+            'description' => $description,
+            'makeName' => $asset->make?->display_name,
+            'year' => $asset->year,
+            'specRows' => $specRows,
+            'primaryImageUrl' => $primaryImageUrl,
+            'account' => $account,
+            'logoUrl' => $account->logo_url ?? null,
+            'dealerHeader' => $dealerHeader,
+            'sentAt' => null,
+            'appName' => (string) config('app.name', 'Maritime'),
+            'termsUrl' => rtrim((string) config('app.url', ''), '/').'/terms',
+        ]);
+    }
 
     public function review(Request $request, $uuid)
     {

@@ -322,8 +322,24 @@ const getRecordUrl = (item, fieldKey) => {
     
     if (!relatedRecord || !relatedRecord.id) return null;
     
-    // Build the route name from the typeDomain
     const domain = fieldDef.typeDomain;
+
+    // Nested tenant routes (not `{plural}.show`) — e.g. AssetVariant → assets.variants.show
+    if (domain === 'AssetVariant') {
+        const assetId =
+            props.parentDomain === 'Asset' ? props.parentRecord.id : item.asset_id;
+        if (!assetId) return null;
+        try {
+            return route('assets.variants.show', {
+                asset: assetId,
+                variant: relatedRecord.id,
+            });
+        } catch (e) {
+            console.error('Could not generate route for assets.variants.show:', e);
+            return null;
+        }
+    }
+
     const routePlural = getDomainPlural(domain);
     const routeName = `${routePlural}.show`;
     const paramName = getDomainSingular(routePlural);

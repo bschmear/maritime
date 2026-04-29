@@ -1,6 +1,7 @@
 <script setup>
 /** Portal specification sheet — visual shell aligned with `Tenant/Public/ServiceTicketReview.vue`. */
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
+import AssignedUserContactCard from '@/Components/Portal/AssignedUserContactCard.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -18,6 +19,9 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     dealerHeader: { type: Object, default: () => ({}) },
     sentAt: { type: String, default: null },
+    appName: { type: String, default: 'Maritime' },
+    termsUrl: { type: String, default: '/terms' },
+    assignedUser: { type: Object, default: null },
 });
 
 const dh = computed(() => props.dealerHeader ?? {});
@@ -53,10 +57,10 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
         <Head :title="`${headline} — Specification sheet`" />
 
         <div
-            id="spec-sheet-print-root"
-            class="max-w-5xl mx-auto w-full -m-6 mb-0 p-6 print:p-0 print:max-w-none print:m-0"
+            class="max-w-7xl mx-auto w-full -m-6 mb-0 p-6 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(260px,20rem)] gap-6 lg:gap-8 items-start print:block print:p-0 print:max-w-none print:m-0"
         >
-            <div class="bg-white shadow-lg border border-gray-200 rounded-none sm:rounded-lg overflow-hidden print:shadow-none print:border-0 print:rounded-none">
+            <div id="spec-sheet-print-root" class="min-w-0 w-full print:max-w-none">
+                <div class="bg-white shadow-lg border border-gray-200 rounded-none sm:rounded-lg overflow-hidden print:shadow-none print:border-0 print:rounded-none">
                 <!-- Company header (same rhythm as ServiceTicketReview) -->
                 <div class="border-b-4 border-gray-900 px-6 sm:px-8 py-6 print:border-b-2">
                     <div class="flex items-start justify-between gap-4">
@@ -179,7 +183,7 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
 
                 <!-- Footer -->
                 <div class="px-6 sm:px-8 py-4 bg-gray-900 text-white text-center text-xs print:bg-gray-900">
-                    <p>Thank you for your business!</p>
+                    <p>Powered by <a :href="termsUrl" target="_blank" rel="noopener noreferrer" class="underline">{{ appName }}</a></p>
                     <p v-if="dh.phone" class="mt-1">
                         Questions? Call us at {{ formatPhoneNumber(dh.phone) }}
                     </p>
@@ -196,6 +200,14 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
                     Print copy
                 </button>
             </div>
+            </div>
+
+            <aside
+                v-if="assignedUser"
+                class="print:hidden w-full lg:sticky lg:top-6 lg:self-start shrink-0"
+            >
+                <AssignedUserContactCard :assigned-user="assignedUser" class="w-full" />
+            </aside>
         </div>
     </ClientPortalLayout>
 </template>

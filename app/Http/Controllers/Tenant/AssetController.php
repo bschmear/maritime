@@ -9,8 +9,8 @@ use App\Domain\Asset\Models\Asset as RecordModel;
 use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
-use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
+use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Communication\Actions\CreateCommunication;
@@ -100,37 +100,6 @@ class AssetController extends RecordController
         ]);
     }
 
-    protected function showPageExtraProps($record): array
-    {
-        $shares = CustomerAssetSpecSheetShare::query()
-            ->where('asset_id', $record->id)
-            ->with([
-                'customerProfile.contact:id,display_name,first_name,last_name',
-                'assetVariant:id,display_name,name,public_uuid',
-                'sentBy:id,display_name,first_name,last_name',
-            ])
-            ->latest('sent_at')
-            ->limit(100)
-            ->get();
-
-        return [
-            'specSheetShares' => $shares->map(function (CustomerAssetSpecSheetShare $s) {
-                return [
-                    'id' => $s->id,
-                    'uuid' => $s->uuid,
-                    'sent_at' => $s->sent_at?->toISOString(),
-                    'customer_display_name' => $s->customerProfile?->display_name,
-                    'variant_label' => $s->asset_variant_id
-                        ? ($s->assetVariant?->display_name ?: $s->assetVariant?->name ?? 'Variant #'.$s->asset_variant_id)
-                        : 'Asset (base specs)',
-                    'sent_by_name' => $s->sentBy !== null
-                        ? ($s->sentBy->display_name ?: $s->sentBy->full_name)
-                        : null,
-                ];
-            })->values()->all(),
-        ];
-    }
-
     public function specSheetSendOptions(Request $request, RecordModel $asset): JsonResponse
     {
         $variants = collect();
@@ -160,6 +129,7 @@ class AssetController extends RecordController
             'variant_ids' => ['nullable', 'array'],
             'variant_ids.*' => ['integer', 'exists:asset_variants,id'],
             'include_asset_level' => ['sometimes', 'boolean'],
+            'confirm_resend' => ['sometimes', 'boolean'],
         ]);
 
         $customer = Customer::query()->findOrFail((int) $validated['customer_profile_id']);
@@ -192,9 +162,44 @@ class AssetController extends RecordController
 
         $account = \App\Models\AccountSettings::getCurrent();
         $userId = $request->user()?->id;
+        $confirmResend = $request->boolean('confirm_resend');
 
-        $shares = [];
+        $resolved = [];
         foreach ($targets as $variantId) {
+            $existing = CustomerAssetSpecSheetShare::query()
+                ->where('customer_profile_id', $customer->id)
+                ->where('asset_id', $asset->id)
+                ->when(
+                    $variantId === null,
+                    fn ($q) => $q->whereNull('asset_variant_id'),
+                    fn ($q) => $q->where('asset_variant_id', $variantId)
+                )
+                ->first();
+            $resolved[] = ['variant_id' => $variantId, 'existing' => $existing];
+        }
+
+        $anyExisting = collect($resolved)->contains(fn (array $row) => $row['existing'] !== null);
+
+        if ($anyExisting && ! $confirmResend) {
+            return response()->json([
+                'message' => 'You already sent this specification sheet to this customer. Resend the email?',
+                'requires_resend_confirmation' => true,
+            ], 409);
+        }
+
+        /** First send: one row per customer + asset + variant. Resend: reuse rows (no DB changes); email only. */
+        $shares = [];
+        $createdNewShare = false;
+        foreach ($resolved as $row) {
+            $variantId = $row['variant_id'];
+            $existing = $row['existing'];
+
+            if ($existing !== null) {
+                $shares[] = $existing;
+
+                continue;
+            }
+
             $shares[] = CustomerAssetSpecSheetShare::query()->create([
                 'customer_profile_id' => $customer->id,
                 'asset_id' => $asset->id,
@@ -202,6 +207,7 @@ class AssetController extends RecordController
                 'sent_at' => now(),
                 'sent_by_user_id' => $userId,
             ]);
+            $createdNewShare = true;
         }
 
         $links = [];
@@ -210,8 +216,8 @@ class AssetController extends RecordController
                 ? AssetVariant::query()->find($share->asset_variant_id)
                 : null;
             $label = $variant
-                ? ($asset->display_name.' — '.($variant->display_name ?: $variant->name ?: 'Variant'))
-                : ($asset->display_name ?? 'Asset');
+                ? (string) ($variant->display_name ?: $variant->name ?: 'Variant')
+                : (string) ($asset->display_name ?? 'Asset');
 
             $links[] = [
                 'label' => $label,
@@ -220,12 +226,17 @@ class AssetController extends RecordController
         }
 
         $toEmail = $customer->email;
-        if (is_string($toEmail) && trim($toEmail) !== '') {
-            Mail::to($toEmail)->send(new CustomerAssetSpecSheetShareMail($customer, $account, $links));
+        if ($links !== [] && is_string($toEmail) && trim($toEmail) !== '') {
+            Mail::to($toEmail)->send(new CustomerAssetSpecSheetShareMail(
+                $customer,
+                $account,
+                $links,
+                (string) ($asset->display_name ?? 'Asset'),
+            ));
         }
 
         $contactId = $customer->contact_id;
-        if ($contactId && $userId) {
+        if ($createdNewShare && $links !== [] && $contactId && $userId) {
             try {
                 app(CreateCommunication::class)([
                     'communicable_type' => 'Contact',
@@ -406,10 +417,10 @@ class AssetController extends RecordController
                 'record' => array_merge($variant->toArray(), [
                     'resolved_description' => $variant->resolvedDescription(),
                 ]),
+                'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
             ]);
         }
 
-        $account = \App\Models\AccountSettings::getCurrent();
         $asset->loadMissing('make');
 
         return Inertia::render('Tenant/Asset/VariantShow', [
@@ -423,7 +434,6 @@ class AssetController extends RecordController
                 'resolved_description' => $variant->resolvedDescription(),
             ]),
             'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
-            'account' => $account,
         ]);
     }
 

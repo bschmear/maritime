@@ -20,12 +20,14 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     imageUrls: { type: Object, default: () => ({}) },
+    specSheetShares: { type: Array, default: () => [] },
 });
 
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 const sendingPortal = ref(false);
+const removingShareId = ref(null);
 
 const sublists = computed(() => props.formSchema?.sublists || []);
 
@@ -117,6 +119,37 @@ const handleSaved = () => {
 const handleCancelEdit = () => {
     isEditMode.value = false;
 };
+
+function formatDateTime(d) {
+    if (!d) return '—';
+    try {
+        return new Date(d).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    } catch {
+        return String(d);
+    }
+}
+
+function removeSpecSheetShare(share) {
+    if (removingShareId.value) {
+        return;
+    }
+    removingShareId.value = share.id;
+    router.delete(
+        route('customers.spec-sheet-shares.destroy', { customer: props.record.id, share: share.id }),
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                removingShareId.value = null;
+            },
+        },
+    );
+}
 
 const sendPortalLink = () => {
     const cid = props.record.contact_id;
@@ -781,6 +814,79 @@ const confirmDelete = () => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Shared specification sheets (portal access) -->
+            <div class="mt-6 bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                        Shared specification sheets
+                    </h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Specification sheets emailed to this customer. Removing a row revokes portal access for that link.
+                    </p>
+                </div>
+                <div v-if="specSheetShares.length === 0" class="p-5 text-sm text-gray-500 dark:text-gray-400">
+                    No specification sheets shared yet.
+                </div>
+                <div v-else class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th scope="col" class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Asset
+                                </th>
+                                <th scope="col" class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Specification
+                                </th>
+                                <th scope="col" class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Sent
+                                </th>
+                                <th scope="col" class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    By
+                                </th>
+                                <th scope="col" class="relative px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr
+                                v-for="row in specSheetShares"
+                                :key="row.id"
+                                class="hover:bg-gray-50 dark:hover:bg-gray-900/30"
+                            >
+                                <td class="px-5 py-3 text-sm">
+                                    <Link
+                                        :href="route('assets.show', row.asset_id)"
+                                        class="font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                    >
+                                        {{ row.asset_display_name }}
+                                    </Link>
+                                </td>
+                                <td class="px-5 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                    {{ row.variant_label }}
+                                </td>
+                                <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                                    {{ formatDateTime(row.sent_at) }}
+                                </td>
+                                <td class="px-5 py-3 text-sm text-gray-600 dark:text-gray-300">
+                                    {{ row.sent_by_name ?? '—' }}
+                                </td>
+                                <td class="px-5 py-3 text-right text-sm">
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                                        :disabled="removingShareId === row.id"
+                                        @click="removeSpecSheetShare(row)"
+                                    >
+                                        {{ removingShareId === row.id ? 'Removing…' : 'Remove' }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

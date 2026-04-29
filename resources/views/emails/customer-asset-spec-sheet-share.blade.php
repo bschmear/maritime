@@ -1,38 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Specification sheets</title>
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.55; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 24px; background: #f3f4f6; }
+        .card { background: #fff; border-radius: 12px; padding: 28px 28px 32px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border: 1px solid #e5e7eb; }
+        .brand { margin-bottom: 20px; }
+        .brand img { max-height: 48px; max-width: 220px; width: auto; }
+        ul { margin: 12px 0; padding-left: 1.25rem; color: #374151; font-size: 15px; }
+        ul li { margin: 8px 0; }
+        a.link-spec { color: #2563eb; text-decoration: underline; }
+        .btn { display: inline-block; padding: 12px 22px; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-top: 8px; }
+        .footer { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+    </style>
 </head>
-<body style="font-family: ui-sans-serif, system-ui, sans-serif; line-height: 1.5; color: #1f2937; max-width: 560px; margin: 0 auto; padding: 24px;">
-    @if(!empty($logoUrl))
-        <p style="margin: 0 0 24px;">
-            <img src="{{ $logoUrl }}" alt="" style="max-height: 48px; width: auto;">
-        </p>
-    @endif
-
-    <p style="margin: 0 0 16px;">
-        Hello{{ $customer->first_name ? ' '.$customer->first_name : '' }},
-    </p>
-
-    <p style="margin: 0 0 16px;">
-        @if(count($links) > 1)
-            Here are your specification sheet links:
-        @else
-            Here is your specification sheet link:
+<body>
+    <div class="card">
+        @if(!empty($logoUrl))
+            <div class="brand">
+                <img src="{{ $logoUrl }}" alt="">
+            </div>
         @endif
-    </p>
 
-    <ul style="margin: 0 0 24px; padding-left: 20px;">
-        @foreach($links as $row)
-            <li style="margin-bottom: 8px;">
-                <a href="{{ $row['url'] }}" style="color: #2563eb;">{{ $row['label'] }}</a>
-            </li>
-        @endforeach
-    </ul>
+        <p>Hi {{ trim($greetingName ?? '') !== '' ? trim($greetingName) : 'there' }},</p>
 
-    <p style="margin: 0; font-size: 14px; color: #6b7280;">
-        Open the customer portal to view full details. If you have questions, reply to this email or contact us directly.
-    </p>
+        <p>We&rsquo;ve shared the following specification sheets for <strong>{{ $assetDisplayName }}</strong> in your customer portal. Sign in to view and print them anytime.</p>
+
+        <ul>
+            @foreach($links as $row)
+                <li><a class="link-spec" href="{{ $row['url'] }}">{{ $row['label'] }}</a></li>
+            @endforeach
+        </ul>
+
+        <p style="margin-top: 24px;">
+            <a class="btn" href="{{ $portalUrl }}">Open customer portal</a>
+        </p>
+
+        <p class="footer">If you don&rsquo;t have an account yet, use the same email we have on file to register from the portal login page.</p>
+    </div>
 </body>
 </html>

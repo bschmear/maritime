@@ -15,7 +15,6 @@ import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/utils/measurementMm.js';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
 import Form from '@/Components/Tenant/Form.vue';
-
 const props = defineProps({
     schema: { type: Object, default: null },
     fieldsSchema: { type: Object, default: () => ({}) },
@@ -616,9 +615,9 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                     </th>
                                                                     <th
                                                                         v-else-if="record?.id && hasVariants"
-                                                                        class="w-44 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                                        class="w-52 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
                                                                     >
-                                                                        View
+                                                                        Variant
                                                                     </th>
                                                                 </tr>
                                                             </thead>
@@ -687,13 +686,17 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                                 :href="route('assets.variants.show', { asset: record.id, variant: variant.id })"
                                                                                 class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                                                                             >
-                                                                                Details
+                                                                                Overview
                                                                             </Link>
                                                                             <Link
-                                                                                :href="`${route('assets.variants.show', { asset: record.id, variant: variant.id })}#specifications`"
+                                                                                :href="variant.public_uuid
+                                                                                    ? route('public.spec-sheet', { publicUuid: variant.public_uuid })
+                                                                                    : route('assets.variants.show', { asset: record.id, variant: variant.id })"
+                                                                                :target="variant.public_uuid ? '_blank' : undefined"
+                                                                                :rel="variant.public_uuid ? 'noopener noreferrer' : undefined"
                                                                                 class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                                                                             >
-                                                                                Specs
+                                                                                Specifications
                                                                             </Link>
                                                                         </div>
                                                                     </td>
@@ -1446,5 +1449,6 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                 </div>
             </Transition>
         </Teleport>
+
     </div>
 </template>

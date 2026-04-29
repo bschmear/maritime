@@ -7,8 +7,10 @@ use App\Domain\Customer\Actions\CreateCustomer as CreateAction;
 use App\Domain\Customer\Actions\DeleteCustomer as DeleteAction;
 use App\Domain\Customer\Actions\UpdateCustomer as UpdateAction;
 use App\Domain\Customer\Models\Customer as RecordModel;
+use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class CustomerController extends RecordController
@@ -201,5 +203,56 @@ class CustomerController extends RecordController
             'Tenant/'.$this->domainName.'/Index',
             $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions)
         );
+    }
+
+    protected function showPageExtraProps($record): array
+    {
+        $latestIds = CustomerAssetSpecSheetShare::query()
+            ->where('customer_profile_id', $record->id)
+            ->groupBy('asset_id', 'asset_variant_id')
+            ->selectRaw('MAX(id) as id');
+
+        $shares = CustomerAssetSpecSheetShare::query()
+            ->where('customer_profile_id', $record->id)
+            ->whereIn('id', $latestIds)
+            ->with([
+                'asset:id,display_name',
+                'assetVariant:id,display_name,name',
+                'sentBy:id,display_name,first_name,last_name',
+            ])
+            ->orderByDesc('sent_at')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
+        return [
+            'specSheetShares' => $shares->map(function (CustomerAssetSpecSheetShare $s): array {
+                return [
+                    'id' => $s->id,
+                    'uuid' => $s->uuid,
+                    'asset_id' => $s->asset_id,
+                    'asset_display_name' => $s->asset?->display_name ?: 'Asset #'.$s->asset_id,
+                    'variant_label' => $s->asset_variant_id
+                        ? ($s->assetVariant?->display_name ?: $s->assetVariant?->name ?? 'Variant #'.$s->asset_variant_id)
+                        : 'Asset (base specs)',
+                    'sent_at' => $s->sent_at?->toISOString(),
+                    'sent_by_name' => $s->sentBy !== null
+                        ? ($s->sentBy->display_name ?: $s->sentBy->full_name)
+                        : null,
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    public function destroySpecSheetShare(Request $request, RecordModel $customer, int $share): RedirectResponse
+    {
+        $row = CustomerAssetSpecSheetShare::query()
+            ->whereKey($share)
+            ->where('customer_profile_id', $customer->id)
+            ->firstOrFail();
+
+        $row->delete();
+
+        return redirect()->back()->with('success', 'Specification sheet access removed.');
     }
 }

@@ -10,6 +10,8 @@ use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\User\Models\User;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Terms;
@@ -293,14 +295,24 @@ class CustomerPortalController extends Controller
 
         abort_if($customerProfile === null, 403);
 
+        $latestIdsSub = CustomerAssetSpecSheetShare::query()
+            ->where('customer_profile_id', $customerProfile->id)
+            ->groupBy('asset_id', 'asset_variant_id')
+            ->selectRaw('MAX(id) as id');
+
         $shares = CustomerAssetSpecSheetShare::query()
             ->where('customer_profile_id', $customerProfile->id)
+            ->whereIn('id', $latestIdsSub)
             ->with(['asset.make', 'assetVariant'])
             ->latest('sent_at')
             ->paginate(15);
 
+        $account = AccountSettings::getCurrent();
+
         return Inertia::render('Portal/SpecSheets', [
             'shares' => $shares,
+            'assignedUser' => $this->portalAssignedUserForCustomerProfile($customerProfile),
+            'timezone' => $account->timezone ?: (string) config('app.timezone', 'UTC'),
         ]);
     }
 
@@ -315,13 +327,47 @@ class CustomerPortalController extends Controller
             ->where('customer_profile_id', $customerProfile->id)
             ->firstOrFail();
 
-        return Inertia::render('Portal/SpecSheetShow', $this->specSheetInertiaProps($share));
+        return Inertia::render('Portal/SpecSheetShow', $this->specSheetInertiaProps($share, $customerProfile));
+    }
+
+    /**
+     * Contact info for the tenant user assigned to this customer profile (portal spec sheets).
+     *
+     * @return array{name: string|null, email: string|null, phone: string|null}|null
+     */
+    private function portalAssignedUserForCustomerProfile(?Customer $customerProfile): ?array
+    {
+        if ($customerProfile === null || ! $customerProfile->assigned_user_id) {
+            return null;
+        }
+
+        $user = User::query()->find((int) $customerProfile->assigned_user_id);
+        if ($user === null) {
+            return null;
+        }
+
+        $name = $user->display_name
+            ?: trim(implode(' ', array_filter([(string) $user->first_name, (string) $user->last_name])))
+            ?: null;
+
+        $phone = $user->office_phone ?: $user->mobile_phone ?: null;
+        $email = $user->email ?: null;
+
+        if ($name === null && $email === null && $phone === null) {
+            return null;
+        }
+
+        return [
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+        ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function specSheetInertiaProps(CustomerAssetSpecSheetShare $share): array
+    private function specSheetInertiaProps(CustomerAssetSpecSheetShare $share, Customer $customerProfile): array
     {
         $share->load([
             'asset.make',
@@ -356,20 +402,22 @@ class CustomerPortalController extends Controller
             $contact->loadMissing('customer.subsidiary');
             $subsidiary = $contact->customer?->subsidiary;
         }
+        $fallbackSubsidiary = $subsidiary ?? Subsidiary::query()->orderBy('id')->first();
 
         $settings = is_array($account->settings) ? $account->settings : [];
         $businessName = trim((string) ($settings['business_name'] ?? ''));
 
         $dealerHeader = [
-            'display_name' => $subsidiary?->display_name ?: ($businessName !== '' ? $businessName : ($account->name ?? 'Dealer')),
-            'logo_url' => $subsidiary?->logo_url ?? $account->logo_url,
-            'address_line1' => $subsidiary?->address_line_1,
-            'address_line2' => $subsidiary?->address_line_2,
-            'city' => $subsidiary?->city,
-            'state' => $subsidiary?->state,
-            'postal_code' => $subsidiary?->postal_code,
-            'phone' => $subsidiary?->phone,
-            'email' => $subsidiary?->email,
+            'display_name' => $fallbackSubsidiary?->display_name ?: ($businessName !== '' ? $businessName : ($account->name ?? 'Dealer')),
+            'logo_url' => $fallbackSubsidiary?->logo_url ?? $account->logo_url,
+            // Hide location/contact lines in spec sheet header.
+            'address_line1' => null,
+            'address_line2' => null,
+            'city' => null,
+            'state' => null,
+            'postal_code' => null,
+            'phone' => null,
+            'email' => null,
         ];
 
         return [
@@ -386,6 +434,9 @@ class CustomerPortalController extends Controller
             'logoUrl' => $account->logo_url ?? null,
             'dealerHeader' => $dealerHeader,
             'sentAt' => $share->sent_at?->toISOString(),
+            'appName' => (string) config('app.name', 'Maritime'),
+            'termsUrl' => rtrim((string) config('app.url', ''), '/').'/terms',
+            'assignedUser' => $this->portalAssignedUserForCustomerProfile($customerProfile),
         ];
     }
 
