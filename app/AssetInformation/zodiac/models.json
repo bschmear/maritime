@@ -1,41 +1,46 @@
 [
   {
-    "id": "zodiac-cadet",
-    "name": "Cadet Series",
-    "url": "https://www.zodiac-nautic.com/en/cadet/",
-    "type": "listing_page"
-  },
-  {
-    "id": "zodiac-open",
-    "name": "Open Series",
-    "url": "https://www.zodiac-nautic.com/en/open/",
-    "type": "listing_page"
-  },
-  {
-    "id": "zodiac-pro",
-    "name": "Pro Series",
-    "url": "https://www.zodiac-nautic.com/en/pro/",
+    "id": "zodiac-xcc",
+    "name": "XCC Series",
+    "url": "https://www.zodiac-nautic.com/en/boats/xcc/",
     "type": "listing_page"
   },
   {
     "id": "zodiac-medline",
     "name": "Medline Series",
-    "url": "https://www.zodiac-nautic.com/en/medline/",
+    "url": "https://www.zodiac-nautic.com/en/boats/medline/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-open",
+    "name": "Open Series",
+    "url": "https://www.zodiac-nautic.com/en/boats/open/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-pro",
+    "name": "Pro Series",
+    "url": "https://www.zodiac-nautic.com/en/boats/pro/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-tenders",
+    "name": "Tenders (Cadet & Nomad)",
+    "url": "https://www.zodiac-nautic.com/en/boats/tenders/",
     "type": "listing_page"
   },
   {
     "id": "zodiac-yachtline",
     "name": "Yachtline Series",
-    "url": "https://www.zodiac-nautic.com/en/yachtline/",
+    "url": "https://www.zodiac-nautic.com/en/boats/yachtline/",
     "type": "listing_page"
   },
   {
     "id": "zodiac-n-zo",
     "name": "N-ZO Series",
-    "url": "https://www.zodiac-nautic.com/en/n-zo/",
+    "url": "https://www.zodiac-nautic.com/en/boats/n-zo/",
     "type": "listing_page"
   },
-
   {
     "id": "zodiac-milpro-mark",
     "name": "MARK Series",

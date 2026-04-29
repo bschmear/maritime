@@ -1,0 +1,1626 @@
+[
+{
+  "id": "lex-series",
+  "brand": "Achilles",
+  "name": "LEX Series",
+  "type_display": "Classic Wood Floor Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "inflatable",
+  "hull_material_key": "hypalon",
+  "description": "The LEX Series represents Achilles' timeless line of traditional inflatable tenders, combining a classic aesthetic with modern structural refinements. These boats feature a full sectional wood floor and an inflatable air keel for improved tracking and stability. Built with Achilles' premium CSM reinforced fabric and four-layer seam construction, the LEX series is designed to be a solid, reliable, and economical tender that handles collisions with docks and hulls through its protective teardrop rub strake. They are lightweight enough for easy handling while remaining durable enough for consistent professional or recreational use.",
+  "features": [
+    "Achilles CSM Reinforced Fabric",
+    "Four-Layer Seam Construction",
+    "Full Sectional Wood Floorboards",
+    "Inflatable Air Keel",
+    "Fold-Down Locking Oar System with Aluminum Oars",
+    "Full-Length Teardrop Rubbing Strake",
+    "Removable Painted Wood Rowing Seat",
+    "Towing Bridle D-Rings",
+    "Protective Transom Motor Clamp Plate",
+    "Bailer Valve",
+    "Sleek Bow Design for increased interior space"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Achilles CSM Fabric / Wood Floorboards"
+  },
+  "length_range_mm": {
+    "min": 2300,
+    "max": 2900
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "lex-77",
+      "name": "LEX-77",
+      "description": "The most compact model in the LEX series, ideal for two passengers and small davits.",
+      "specifications": {
+        "length_mm": 2300,
+        "width_mm": 1440,
+        "height_mm": null,
+        "weight_kg": 28,
+        "capacity_persons": 2,
+        "max_hp": 4,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lex-88",
+      "name": "LEX-88",
+      "description": "A versatile 8'8\" tender balancing portability with a 4-person capacity.",
+      "specifications": {
+        "length_mm": 2650,
+        "width_mm": 1440,
+        "height_mm": null,
+        "weight_kg": 31,
+        "capacity_persons": 4,
+        "max_hp": 6,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lex-96",
+      "name": "LEX-96",
+      "description": "The largest variant in the LEX line, offering the most interior space and stability for a classic wood-floor tender.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1440,
+        "height_mm": null,
+        "weight_kg": 33.5,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //lex-series
+{
+  "id": "lsr-e-series",
+  "brand": "Achilles",
+  "name": "LSR-E Series",
+  "type_display": "Aluminum Floor Sport Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "inflatable",
+  "hull_material_key": "hypalon",
+  "description": "The LSR-E series is the only line of inflatable tenders featuring a foldable aluminum floor system. This design provides the rigid, stable platform of a sport boat with the quick assembly and portability of a roll-up tender. Built with Achilles' signature CSM reinforced fabric and a four-layer seam construction, these boats include a high-volume inflatable air keel for precise tracking and responsive handling. The aluminum floorboards are non-skid, corrosion-resistant, and maintenance-free, making the LSR-E an ideal choice for boaters who need a rugged, heavy-duty floor that can be easily stowed.",
+  "features": [
+    "Achilles CSM Reinforced Fabric",
+    "Four-Layer Seam Construction",
+    "Non-Skid Sectional Aluminum Floorboards",
+    "Inflatable Air Keel",
+    "Fold-Down Locking Oar System with Aluminum Oars",
+    "Full-Length Teardrop Rubbing Strake",
+    "Fiberglass Encased V-Shaped Transom",
+    "Square Bow Design for maximized interior space",
+    "Towing Bridle D-Rings",
+    "Removable Wood Rowing Seat",
+    "Protective Transom Motor Clamp Plate",
+    "Gas Tank Tie-down Hardware"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Achilles CSM Fabric / Aluminum Floorboards"
+  },
+  "length_range_mm": {
+    "min": 2600,
+    "max": 3100
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "lsr-260e",
+      "name": "LSR-260E",
+      "description": "A compact 8'6\" aluminum floor tender that balances portability with the stability of a rigid floor.",
+      "specifications": {
+        "length_mm": 2600,
+        "width_mm": 1580,
+        "height_mm": null,
+        "weight_kg": 35,
+        "capacity_persons": 4,
+        "max_hp": 6,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lsr-290e",
+      "name": "LSR-290E",
+      "description": "A versatile 9'6\" model offering increased interior volume and a higher weight capacity for gear and crew.",
+      "specifications": {
+        "length_mm": 2900,
+        "width_mm": 1580,
+        "height_mm": null,
+        "weight_kg": 38,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "lsr-310e",
+      "name": "LSR-310E",
+      "description": "The largest in the LSR line, providing a 10'2\" stable platform rated for up to 10HP.",
+      "specifications": {
+        "length_mm": 3100,
+        "width_mm": 1580,
+        "height_mm": null,
+        "weight_kg": 41,
+        "capacity_persons": 4,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+}, //lsr-e-series
+{
+    "id": "spd-e-series",
+    "brand": "Achilles",
+    "name": "SPD-E Series",
+    "type_display": "Sport Inflatable with Aluminum Floors",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The SPD-E Series consists of classic sport boats designed for performance and versatility. These models feature a deep-V inflatable keel and a rugged, sectional aluminum floor system that provides a rigid platform for superior handling and stability at higher speeds. Built with Achilles' signature CSM fabric and four-layer seam construction, the SPD-E boats are engineered to handle larger outboards and more demanding coastal conditions while remaining portable enough to be broken down for storage.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Non-Skid Sectional Aluminum Floorboards",
+      "Inflatable Deep-V Keel",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fiberglass Encased V-Shaped Transom",
+      "Fuel Tank Tie-Down Hardware",
+      "Aluminum Rowing Seat (Removable)",
+      "Towing Bridle D-Rings",
+      "Lift and Carry Handles"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Aluminum Floorboards"
+    },
+    "length_range_mm": {
+      "min": 2900,
+      "max": 3300
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "spd-290e",
+        "name": "SPD-290E",
+        "description": "A compact sport boat that offers the rigidity of an aluminum floor in a manageable 9'6\" size.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 49,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "spd-310e",
+        "name": "SPD-310E",
+        "description": "A 10'2\" sport model providing a balance of speed and stability for crew and gear.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 51,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "spd-330e",
+        "name": "SPD-330E",
+        "description": "The largest in the SPD-E line, offering a spacious interior and rated for a 20HP outboard.",
+        "specifications": {
+          "length_mm": 3300,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 54,
+          "capacity_persons": 5,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //spd-e-series
+  {
+    "id": "lsi-e-series",
+    "brand": "Achilles",
+    "name": "LSI-E Series",
+    "type_display": "Lightweight High-Pressure AirFloor Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The LSI-E Series represents the pinnacle of inflatable tender convenience, featuring Achilles' unique high-pressure AirFirm™ drop-stitch floors. These floors are reinforced with CSM to provide a rock-solid platform when inflated, yet they allow the boat to be rolled up instantly once deflated. The LSI-E models incorporate 'Performax' tubes with a staggered design that helps the boat plane faster and stay on plane at lower speeds. Combining the performance of a rigid floor with the lightest weight in the Achilles lineup, the LSI-E is the ultimate yacht tender for easy handling.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "High-Pressure CSM-Reinforced AirFirm™ Drop-Stitch Floor",
+      "Performax Tube Design for faster planing",
+      "Inflatable Air Keel",
+      "Four-Layer Seam Construction",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fiberglass Encased V-Shaped Transom",
+      "Self-Bailer Valve",
+      "Towing Bridle D-Rings",
+      "Removable Wood Rowing Seat"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / High-Pressure Air Floor"
+    },
+    "length_range_mm": {
+      "min": 2300,
+      "max": 3600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "lsi-230e",
+        "name": "LSI-230E",
+        "description": "The lightest and most compact air-floor model, perfect for solo boaters or small davits.",
+        "specifications": {
+          "length_mm": 2300,
+          "width_mm": 1440,
+          "height_mm": null,
+          "weight_kg": 25,
+          "capacity_persons": 2,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsi-260e",
+        "name": "LSI-260E",
+        "description": "An 8'6\" tender that balances extreme portability with a stable, high-pressure floor.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1440,
+          "height_mm": null,
+          "weight_kg": 29,
+          "capacity_persons": 4,
+          "max_hp": 6,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsi-290e",
+        "name": "LSI-290E",
+        "description": "A popular mid-sized tender offering excellent tracking and interior volume.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 35,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsi-310e",
+        "name": "LSI-310E",
+        "description": "A 10'2\" high-performance air-floor boat rated for 10HP.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 36,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsi-330e",
+        "name": "LSI-330E",
+        "description": "A spacious 5-person tender with enhanced buoyancy and horsepower capacity.",
+        "specifications": {
+          "length_mm": 3250,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 39,
+          "capacity_persons": 5,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsi-360e",
+        "name": "LSI-360E",
+        "description": "The flagship LSI model, offering 11'10\" of space and 25HP capability in a roll-up format.",
+        "specifications": {
+          "length_mm": 3600,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 49,
+          "capacity_persons": 6,
+          "max_hp": 25,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //lsi-e-series
+  {
+    "id": "lt-series",
+    "brand": "Achilles",
+    "name": "LT Series",
+    "type_display": "Compact Inflatable Dinghy",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The LT Series is Achilles' most compact and lightweight line of inflatable dinghies, designed for maximum portability and ease of use. These models feature a simple roll-up design with a folding wood floor, making them ideal for small cruisers or as a quick-deploy ship-to-shore tender. Despite their small footprint, they are built to the same high standards as larger Achilles models, using premium CSM reinforced fabric and four-layer seam construction to ensure durability and air retention in harsh marine environments.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Full Folding Wood Floor",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Removable Wood Rowing Seat",
+      "Towing Bridle D-Rings",
+      "Heavy Duty Carry Bag",
+      "Large Diameter Tubes for maximum buoyancy",
+      "Durable Foot Pump included"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Folding Wood Floor"
+    },
+    "length_range_mm": {
+      "min": 2200,
+      "max": 2600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "lt-2",
+        "name": "LT-2",
+        "description": "The smallest Achilles tender, designed for two passengers and easy one-person handling.",
+        "specifications": {
+          "length_mm": 2200,
+          "width_mm": 1340,
+          "height_mm": null,
+          "weight_kg": 21,
+          "capacity_persons": 2,
+          "max_hp": 3,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lt-4",
+        "name": "LT-4",
+        "description": "A slightly larger dinghy offering increased stability and a higher capacity for 3 passengers.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1400,
+          "height_mm": null,
+          "weight_kg": 26,
+          "capacity_persons": 3,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //lt-series
+  {
+    "id": "ls-ru-series",
+    "brand": "Achilles",
+    "name": "LS-RU Series",
+    "type_display": "Roll-up Slatted Floor Dinghy",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The LS-RU (Roll-Up) series is engineered for the ultimate in convenience and storage efficiency. These dinghies feature a slatted wood floor that allows the boat to be rolled up instantly without removing the floorboards. This makes them perfect for boaters with limited storage space who still need a rugged Hypalon tender. The LS-RU combines the ease of a roll-up with a fixed transom, allowing for the use of small outboards while maintaining a very low weight profile for easy lifting and transport.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Wood Slatted Floor (Roll-up design)",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Removable Wood Rowing Seat",
+      "Stainless Steel Bow D-Rings",
+      "Towing Bridle Hardware",
+      "Integrated Carry Handles",
+      "Maintenance-Free Fiberglass Encased Transom"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Wood Slatted Floor"
+    },
+    "length_range_mm": {
+      "min": 2250,
+      "max": 2600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "ls-2ru",
+        "name": "LS-2RU",
+        "description": "Ultra-portable slatted floor model, perfect for quick trips from boat to beach.",
+        "specifications": {
+          "length_mm": 2250,
+          "width_mm": 1420,
+          "height_mm": null,
+          "weight_kg": 25,
+          "capacity_persons": 2,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ls-4ru",
+        "name": "LS-4RU",
+        "description": "The 8'6\" roll-up variant offering increased passenger room and enhanced buoyancy.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1420,
+          "height_mm": null,
+          "weight_kg": 28.5,
+          "capacity_persons": 3,
+          "max_hp": 6,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //ls-ru-series
+  {
+    "id": "hb-al-series",
+    "brand": "Achilles",
+    "name": "HB-AL Series",
+    "type_display": "Lightweight Aluminum Hull RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The HB-AL series features a lightweight, single-deck aluminum hull that combines the durability of a rigid bottom with the portability of a lighter boat. These RIBs are chromated and powder-coated to ensure maximum corrosion resistance. Designed with a modified V-hull, they provide excellent tracking and a stable ride. The single-hull design keeps the weight to a minimum, making them easy to trail, launch, and lift with a davit system while remaining tough enough to handle rocky shorelines and frequent beaching.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Powder-Coated Marine Grade Aluminum Hull",
+      "Four-Layer Seam Construction",
+      "Full-Length Teardrop Rubbing Strake",
+      "Non-Skid Deck Patches",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Removable Aluminum Rowing Seat",
+      "Davit Lifting Points (4)",
+      "Bow Carry Handle and Interior Bow Lifting D-Ring",
+      "Towing Bridle D-Rings",
+      "High Volume Large Diameter Tubes"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / Achilles CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2400,
+      "max": 3100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hb-240al",
+        "name": "HB-240AL",
+        "description": "The most compact aluminum RIB in the line, perfect for small yacht davits.",
+        "specifications": {
+          "length_mm": 2400,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 37,
+          "capacity_persons": 3,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-270al",
+        "name": "HB-270AL",
+        "description": "A versatile 8'10\" model that balances interior volume with lightweight handling.",
+        "specifications": {
+          "length_mm": 2700,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 44,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-310al",
+        "name": "HB-310AL",
+        "description": "The largest in the AL series, providing a stable 10'2\" platform for up to 4 passengers.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 50,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //hb-al-series
+  {
+    "id": "hb-ax-series",
+    "brand": "Achilles",
+    "name": "HB-AX Series",
+    "type_display": "Deluxe Aluminum Hull RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The HB-AX series takes Achilles aluminum RIBs to the next level by adding a full-length flat double deck and an integrated bow locker. The double-deck design provides a flat walking surface and allows for the bilge to stay dry, while the spacious bow locker is large enough to house a 6-gallon fuel tank. This series offers the ruggedness of a powder-coated aluminum hull with the added comfort and storage typically found in heavier fiberglass tenders, making it the ultimate lightweight utility RIB.",
+    "features": [
+      "Flat Double Deck for comfortable footing",
+      "Integrated Bow Locker (fits 6gal fuel tank)",
+      "Marine Grade Powder-Coated Aluminum Hull",
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Full-Length Teardrop Rubbing Strake",
+      "Under-Deck Fuel Line Channel",
+      "Davit Lifting Points (4)",
+      "Transom Towing Eyes",
+      "Fold-Down Locking Oar System",
+      "Removable Aluminum Rowing Seat"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / Achilles CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2700,
+      "max": 3100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hb-270ax",
+        "name": "HB-270AX",
+        "description": "An 8'10\" deluxe aluminum RIB with a flat floor and bow storage.",
+        "specifications": {
+          "length_mm": 2700,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 60,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-310ax",
+        "name": "HB-310AX",
+        "description": "The flagship deluxe aluminum model, providing 10'2\" of stable, flat-deck space.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 67,
+          "capacity_persons": 4,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //hb-ax-series
+  {
+    "id": "hb-fx-series",
+    "brand": "Achilles",
+    "name": "HB-FX Series",
+    "type_display": "Folding Transom Fiberglass RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The HB-FX series features a unique folding transom design that allows the rigid fiberglass hull to be stored in a much flatter profile than traditional RIBs. This innovation combines the superior tracking and performance of a rigid V-hull with the storage convenience of a much more compact boat. Constructed with Achilles CSM reinforced fabric and a hand-laid fiberglass hull, these boats are ideal for cruisers with limited deck or cabin space who still want the uncompromised handling of a rigid-hull inflatable.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Hand-Laid Fiberglass Hull",
+      "Unique Folding Transom Design",
+      "Four-Layer Seam Construction",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Removable Wood Rowing Seat",
+      "Bow Carry Handle",
+      "Towing Bridle D-Rings",
+      "Davit Lifting Points",
+      "Includes Heavy Duty Storage Bag"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Achilles CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2400,
+      "max": 3100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hb-240fx",
+        "name": "HB-240FX",
+        "description": "An ultra-compact folding transom RIB, perfect for small cruisers and single-handed operation.",
+        "specifications": {
+          "length_mm": 2400,
+          "width_mm": 1520,
+          "height_mm": null,
+          "weight_kg": 44,
+          "capacity_persons": 3,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-310fx",
+        "name": "HB-310FX",
+        "description": "A 10'2\" folding transom model that offers significant interior volume while maintaining a low-profile storage footprint.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 59,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //hb-fx-series
+  {
+    "id": "hb-lx-series",
+    "brand": "Achilles",
+    "name": "HB-LX Series",
+    "type_display": "Rigid Fiberglass Hull RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The HB-LX series offers a classic, lightweight fiberglass rigid hull design that provides a smooth, stable, and dry ride. These single-deck RIBs feature a deep-V hull design that cuts through chop more effectively than flat-bottomed inflatables. Their lightweight construction makes them an excellent choice for davit systems on smaller yachts, while the large tube diameters provide exceptional buoyancy and stability for passenger transport. Every HB-LX is built with Achilles' premium CSM fabric to ensure long-term durability in high-UV environments.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Hand-Laid Fiberglass Hull",
+      "Deep-V Hull Design",
+      "Four-Layer Seam Construction",
+      "Full-Length Teardrop Rubbing Strake",
+      "Non-Skid Deck Patches",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Removable Wood Rowing Seat",
+      "Bow Carry Handle",
+      "Internal Bow Lifting D-Ring",
+      "Towing Bridle D-Rings",
+      "Fiberglass Encased Transom"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Achilles CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2400,
+      "max": 3100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hb-240lx",
+        "name": "HB-240LX",
+        "description": "A lightweight 7'11\" fiberglass RIB that is easy to maneuver and lift.",
+        "specifications": {
+          "length_mm": 2400,
+          "width_mm": 1520,
+          "height_mm": null,
+          "weight_kg": 43,
+          "capacity_persons": 3,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-270lx",
+        "name": "HB-270LX",
+        "description": "The popular 8'10\" model balancing weight and passenger carrying capacity.",
+        "specifications": {
+          "length_mm": 2700,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 53,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-310lx",
+        "name": "HB-310LX",
+        "description": "The largest in the LX line, providing 10'2\" of stability and rated for a 15HP outboard.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 57,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //hb-lx-series
+  {
+    "id": "hb-dx-series",
+    "brand": "Achilles",
+    "name": "HB-DX Series",
+    "type_display": "Deluxe Rigid Fiberglass Hull RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The HB-DX series represents the premium tier of Achilles' fiberglass RIBs, designed for boaters seeking a step above the standard tender. These models feature a deep-V fiberglass hull for superior open-water performance and a built-in bow locker that serves as both a dry storage area and a comfortable seat. Distinguished by sleek, Euro-style tubes and high-quality finishes, the DX series is also compatible with optional seat and console kits, allowing owners to transform these open RIBs into fully equipped deluxe console boats.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Deep 'V' Fiberglass Hull",
+      "Integrated Bow Locker with Hatch",
+      "Four-Layer Seam Construction",
+      "Double Heavy-Duty Full-Length Teardrop Rubbing Strake",
+      "Optional Seat and Console Kits (Deluxe or Basic)",
+      "Lifting Hardware for Davits (4-point system)",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Removable Aluminum Rowing Seat (Except HB-385DX)",
+      "Stainless Steel Bow Eye",
+      "Fuel Tank Tie-Down Hardware",
+      "Bailer Valve"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Achilles CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2800,
+      "max": 3850
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hb-280dx",
+        "name": "HB-280DX",
+        "description": "The most compact deluxe fiberglass RIB, ideal for 4 passengers and 15HP outboards.",
+        "specifications": {
+          "length_mm": 2800,
+          "width_mm": 1660,
+          "height_mm": null,
+          "weight_kg": 73,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-315dx",
+        "name": "HB-315DX",
+        "description": "A versatile 10'4\" model balancing performance and deck space; compatible with console kits.",
+        "specifications": {
+          "length_mm": 3150,
+          "width_mm": 1660,
+          "height_mm": null,
+          "weight_kg": 80,
+          "capacity_persons": 5,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-350dx",
+        "name": "HB-350DX",
+        "description": "An 11'6\" deluxe tender offering significant payload and 30HP long-shaft capability.",
+        "specifications": {
+          "length_mm": 3500,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 90,
+          "capacity_persons": 6,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-385dx",
+        "name": "HB-385DX",
+        "description": "The flagship DX model, providing 12'8\" of length and rated for 40HP; includes wooden rowing seat.",
+        "specifications": {
+          "length_mm": 3850,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 110,
+          "capacity_persons": 7,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //hb-dx-series
+  {
+    "id": "frb-series",
+    "brand": "Achilles",
+    "name": "FRB Series (Fast Rescue Boat)",
+    "type_display": "Commercial Roll-up Utility Boat",
+    "boat_type_key": "utility-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "Designed originally for fire departments and rapid response rescue units, the FRB (Fast Rescue Boat) series is a versatile utility boat built for speed and durability. It features a unique aluminum roll-up floor with an innovative hinge system and non-skid panels, allowing for set-up in minutes. These boats are equipped with over-pressure relief valves for safety and can be inflated via compressed air bottles. The deep-V inflatable keel ensures precise tracking, while specialized abrasion patches and rescue-focused hardware make it a practical alternative for a variety of professional on-water jobs.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Aluminum Roll-Up Floor with Non-Skid Panels",
+      "Over-Pressure Relief Valves",
+      "Deep 'V' Inflatable Keel",
+      "Abrasion Wear Patches",
+      "Full-Length Splash Guard with Life Lines",
+      "Four-Layer Seam Construction",
+      "Two Removable Storage Bags",
+      "Interior Bow Lifting D-Ring",
+      "Fiberglass Encased V-Shaped Transom",
+      "Full-Length Teardrop Rubbing Strake",
+      "Five Interior Tie-Down D-Rings"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Aluminum Roll-up Floor"
+    },
+    "length_range_mm": {
+      "min": 3150,
+      "max": 3750
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "frb-104",
+        "name": "FRB-104",
+        "description": "A 10'4\" rapid response boat with 4 carry handles and 2 over-pressure relief valves.",
+        "specifications": {
+          "length_mm": 3150,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 49,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "frb-124",
+        "name": "FRB-124",
+        "description": "A 12'4\" rescue model featuring 6 carry handles, 4 over-pressure relief valves, and heavy-duty bailer sleeve.",
+        "specifications": {
+          "length_mm": 3750,
+          "width_mm": 1610,
+          "height_mm": null,
+          "weight_kg": 70,
+          "capacity_persons": 5,
+          "max_hp": 25,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //frb-series
+  {
+    "id": "sgx-series",
+    "brand": "Achilles",
+    "name": "SGX Series",
+    "type_display": "Aluminum & Wood Floor Sport Utility Boat",
+    "boat_type_key": "utility-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The SGX Series is a rugged line of sport utility boats designed for high-performance and heavy-duty use. These boats feature a deep 'V' inflatable keel and large tube diameters, making them ideal as dive boats, utility craft, or performance runabouts. The flooring system utilizes a mix of aluminum and wood floorboards with an aluminum stringer system for maximum rigidity. Built with Achilles CSM fabric and four-layer seam construction, the SGX is designed to handle demanding on-water tasks while providing a stable and dry ride.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Aluminum and Wood Floorboards with Aluminum Stringer System",
+      "Deep 'V' Inflatable Keel",
+      "V-Shaped Fiberglass Encased Transom",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Four Lift and Carry Handles",
+      "Gas Tank Tie-Downs",
+      "Two Bailer Valves",
+      "Removable Wood Seat with Dual Position Patches",
+      "Towing Bridle D-Rings"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Aluminum & Wood Floorboards"
+    },
+    "length_range_mm": {
+      "min": 3650,
+      "max": 4000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sgx-122",
+        "name": "SGX-122",
+        "description": "A 12'2\" sport utility model with a 1,520 lb load capacity, ideal for diving and heavy-duty tender use.",
+        "specifications": {
+          "length_mm": 3650,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 76,
+          "capacity_persons": 6,
+          "max_hp": 35,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sgx-132",
+        "name": "SGX-132",
+        "description": "A larger 13'2\" variant offering increased payload and rated for a 40HP long-shaft outboard.",
+        "specifications": {
+          "length_mm": 4000,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 85,
+          "capacity_persons": 6,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //sgx-series
+  {
+    "id": "sg-series",
+    "brand": "Achilles",
+    "name": "SG Series",
+    "type_display": "Top-of-the-Line Aluminum & Fiberglass Floor Sport Boat",
+    "boat_type_key": "utility-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The SG Series is Achilles' premier sport boat line, recognized for its iconic square bow configuration that maximizes interior space for gear and personnel. These boats utilize a high-rigidity aluminum and fiberglass floorboard system (aluminum and wood on the SG-124) with an aluminum stringer system for uncompromised structural integrity. Frequently used by fire departments and first responders for rescue operations, the SG series balances professional-grade durability with the performance required for fishing and diving. The newer SG-140SV model introduces an internal intercommunicating valve system for rapid inflation.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Square Bow Configuration for extra gear space",
+      "Aluminum and Fiberglass Floorboards (Aluminum/Wood on SG-124)",
+      "Deep 'V' Inflatable Keel",
+      "Full-Length Splash Guard with Lifelines",
+      "Fiberglass Encased Transom with Motor Clamp Plate",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fuel Tank Tie-Downs",
+      "Two Bailer Valves",
+      "Fold-Down Locking Oar System (Except SG-156)",
+      "Lifting and Carry Handles",
+      "Removable Wood Seat (Except SG-156)"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Aluminum & Fiberglass Floorboards"
+    },
+    "length_range_mm": {
+      "min": 3750,
+      "max": 4730
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sg-124",
+        "name": "SG-124",
+        "description": "A 12'4\" sport boat featuring aluminum and wood floors, popular for diving and fishing.",
+        "specifications": {
+          "length_mm": 3750,
+          "width_mm": 1610,
+          "height_mm": null,
+          "weight_kg": 79.5,
+          "capacity_persons": 5,
+          "max_hp": 35,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sg-140",
+        "name": "SG-140",
+        "description": "The benchmark 14'0\" inflatable sport boat, rated for a 50HP long-shaft outboard.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 102.5,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sg-140sv",
+        "name": "SG-140SV",
+        "description": "Special variant of the SG-140 with internal intercommunicating valves and over-pressure relief valves for rapid deployment.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 102.5,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sg-156",
+        "name": "SG-156",
+        "description": "The largest SG model at 15'6\", featuring a 5-chamber design and a 2,800 lb load capacity.",
+        "specifications": {
+          "length_mm": 4730,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 123.5,
+          "capacity_persons": 8,
+          "max_hp": 55,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //sg-series
+  {
+    "id": "su-series",
+    "brand": "Achilles",
+    "name": "SU Series (Sport Utility)",
+    "type_display": "Heavy-Duty Commercial Utility Boat",
+    "boat_type_key": "utility-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The SU Series represents the most rugged workhorses in the Achilles lineup, engineered specifically for heavy-duty commercial, military, and rescue applications. These boats are distinguished by their classic 'pointed bow' design and an exceptionally rigid recessed floor system. The flooring consists of high-density marine-grade wood and aluminum floorboards supported by a heavy-duty aluminum stringer system. Built with an extra-thick Achilles CSM fabric and reinforced with additional wear patches, the SU series is designed to carry massive payloads and handle the most extreme water conditions.",
+    "features": [
+      "Extra-Heavy-Duty Achilles CSM Reinforced Fabric",
+      "Pointed Bow Design for breaking through rough surf",
+      "Recessed Wood and Aluminum Floorboards",
+      "Heavy-Duty Aluminum Stringer System",
+      "Inflatable Deep-V Keel",
+      "Full-Length Splash Guard with Lifelines",
+      "Heavy-Duty Solid Brass or Stainless Steel Hardware",
+      "Multiple Over-Pressure Relief Valves",
+      "Five to Six Independent Air Chambers",
+      "Fiberglass Encased Transom with Heavy-Duty Motor Plate",
+      "Double Heavy-Duty Full-Length Teardrop Rubbing Strake",
+      "Non-Skid Floor Surfaces"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Heavy-Duty Achilles CSM / Wood & Aluminum Floor"
+    },
+    "length_range_mm": {
+      "min": 4250,
+      "max": 5500
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "su-14",
+        "name": "SU-14",
+        "description": "A 14' heavy-duty utility boat with a 5-chamber design and 2,160 lb load capacity.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 1850,
+          "height_mm": null,
+          "weight_kg": 115,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "su-16",
+        "name": "SU-16",
+        "description": "The 16' model offering a massive 2,820 lb capacity and 6-chamber safety system.",
+        "specifications": {
+          "length_mm": 4880,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 154,
+          "capacity_persons": 8,
+          "max_hp": 75,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "su-18",
+        "name": "SU-18",
+        "description": "The flagship of the SU line at 18', designed for large crews and heavy equipment transport.",
+        "specifications": {
+          "length_mm": 5500,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 182,
+          "capacity_persons": 10,
+          "max_hp": 90,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //su-series
+  {
+    "id": "ksb-series",
+    "brand": "Achilles",
+    "name": "KSB Series (Kayaks)",
+    "type_display": "Inflatable Whitewater & Touring Kayak",
+    "boat_type_key": "kayak",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The KSB Series consists of high-performance inflatable kayaks built to handle everything from calm coastal touring to moderate whitewater. Unlike standard recreational inflatables, the KSB is constructed from Achilles' professional-grade CSM fabric, making it significantly more resistant to punctures, UV damage, and abrasion. These kayaks feature a self-bailing floor system and a rigid I-beam floor construction that provides a stable, efficient paddling platform. They are designed for quick inflation and compact transport, fitting easily into most car trunks.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Rigid I-Beam Inflatable Floor",
+      "Self-Bailing Floor Ports",
+      "Adjustable Inflatable Seats with Backrests",
+      "Molded Directional Fins (Tracking Skegs)",
+      "Bow and Stern Carry Handles",
+      "D-Rings for gear securement",
+      "Four-Layer Seam Construction",
+      "Multiple Independent Air Chambers for safety",
+      "Includes Carry Bag and Maintenance Kit"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric"
+    },
+    "length_range_mm": {
+      "min": 2800,
+      "max": 4150
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "ksb-9",
+        "name": "KSB-9 (Solo)",
+        "description": "A compact 9'2\" solo kayak optimized for maneuverability and light weight.",
+        "specifications": {
+          "length_mm": 2800,
+          "width_mm": 940,
+          "height_mm": null,
+          "weight_kg": 14,
+          "capacity_persons": 1,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ksb-14",
+        "name": "KSB-14 (Tandem)",
+        "description": "A 13'8\" tandem model designed for two paddlers with extra room for gear.",
+        "specifications": {
+          "length_mm": 4150,
+          "width_mm": 980,
+          "height_mm": null,
+          "weight_kg": 20,
+          "capacity_persons": 2,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //ksb-series
+  {
+    "id": "rv-series",
+    "brand": "Achilles",
+    "name": "RV Series (River Rafts)",
+    "type_display": "Professional Whitewater Raft",
+    "boat_type_key": "raft",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The RV Series is Achilles' premier line of non-bailing whitewater rafts, built to withstand the most punishing river environments. Constructed with heavy-duty Achilles CSM fabric, these rafts are favored by commercial outfitters and serious private boaters for their exceptional abrasion resistance and longevity. The design features a large tube diameter for maximum buoyancy and a high-rocker bow/stern profile to climb over waves. The non-bailing 'bucket boat' design offers a traditional rafting experience with a lower center of gravity and a significantly lighter weight than self-bailing alternatives.",
+    "features": [
+      "Heavy-Duty Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Large Diameter Multi-Chamber Tubes",
+      "High-Rocker Bow and Stern Design",
+      "Full-Length Side Rubbing Strakes",
+      "Multiple Stainless Steel D-Rings for Frame Securement",
+      "Heavy-Duty Carry Handles",
+      "Laced-In Thwarts (Removable)",
+      "Reinforced Bottom Wrap for extra protection",
+      "Internal Baffles for pressure equalization"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Heavy-Duty Achilles CSM / Traditional Floor"
+    },
+    "length_range_mm": {
+      "min": 3650,
+      "max": 4880
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "rv-120",
+        "name": "RV-120",
+        "description": "A nimble 12' raft perfect for technical R2 paddle teams or small gear frames.",
+        "specifications": {
+          "length_mm": 3650,
+          "width_mm": 1850,
+          "height_mm": null,
+          "weight_kg": 42,
+          "capacity_persons": 6,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-140",
+        "name": "RV-140",
+        "description": "The industry-standard 14' workhorse, balancing capacity and maneuverability for commercial trips.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 54,
+          "capacity_persons": 8,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-160",
+        "name": "RV-160",
+        "description": "A high-volume 16' expedition raft designed for multi-day gear hauls and large paddle crews.",
+        "specifications": {
+          "length_mm": 4880,
+          "width_mm": 2300,
+          "height_mm": null,
+          "weight_kg": 68,
+          "capacity_persons": 10,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //rv-series
+  {
+    "id": "rv-sb-series",
+    "brand": "Achilles",
+    "name": "RV-SB Series (Self-Bailer)",
+    "type_display": "Self-Bailing Whitewater Raft",
+    "boat_type_key": "raft",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The RV-SB Series combines the legendary durability of Achilles CSM fabric with a high-performance self-bailing floor system. Designed for high-volume whitewater and technical descents, the 'SB' floor features a laced-in, inflatable I-beam design that allows water to drain instantly through the floor-to-tube gap. This keeps the raft light and responsive even in the heaviest rapids. These rafts are built with extra-reinforced side wraps and a plethora of D-rings, making them the ultimate platform for both commercial paddle trips and heavy expedition rowing frames.",
+    "features": [
+      "Achilles CSM Heavy-Duty Fabric",
+      "Inflatable Self-Bailing I-Beam Floor",
+      "Laced-In Floor Design for rapid drainage",
+      "Four-Layer Seam Construction",
+      "Full-Length Side Rubbing Strakes",
+      "Thwart Attachment Points (Laced-In)",
+      "Extensive Stainless Steel D-Rings",
+      "Reinforced Bottom and Side Wraps",
+      "Heavy-Duty Carry Handles",
+      "High-Pressure Relief Valves on Floor"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Heavy-Duty Achilles CSM / Inflatable I-Beam Floor"
+    },
+    "length_range_mm": {
+      "min": 3950,
+      "max": 4880
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "rv-130sb",
+        "name": "RV-130SB",
+        "description": "A 13' performance self-bailer optimized for technical whitewater and paddle crews.",
+        "specifications": {
+          "length_mm": 3950,
+          "width_mm": 1950,
+          "height_mm": null,
+          "weight_kg": 58,
+          "capacity_persons": 7,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-140sb",
+        "name": "RV-140SB",
+        "description": "The premier 14' self-bailing raft, favored for its versatility as a paddle boat or rowing rig.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 64,
+          "capacity_persons": 8,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-160sb",
+        "name": "RV-160SB",
+        "description": "A massive 16' self-bailer built for high-water expeditions and extreme payloads.",
+        "specifications": {
+          "length_mm": 4880,
+          "width_mm": 2300,
+          "height_mm": null,
+          "weight_kg": 78,
+          "capacity_persons": 10,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //rv-sb-series
+  {
+    "id": "rv-sb-3t-series",
+    "brand": "Achilles",
+    "name": "RV-SB-3T Series",
+    "type_display": "Triple-Thwart Self-Bailing Raft",
+    "boat_type_key": "raft",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The RV-SB-3T (Triple Thwart) series is a specialized evolution of Achilles' self-bailing river rafts, optimized for larger paddle crews and commercial whitewater applications. By including three reinforced thwarts as standard, these rafts provide superior structural rigidity and more secure seating positions for six to eight paddlers plus a guide. Featuring the same rugged Achilles CSM fabric and laced-in inflatable I-beam floor as the standard SB series, the 3T models are designed to drain water instantly while providing a stable, high-performance platform for the most challenging rapids.",
+    "features": [
+      "Achilles CSM Heavy-Duty Fabric",
+      "Three Laced-In Thwarts for enhanced rigidity and seating",
+      "Inflatable Self-Bailing I-Beam Floor",
+      "Four-Layer Seam Construction",
+      "Full-Length Side Rubbing Strakes",
+      "Extensive Stainless Steel D-Rings (12+ points)",
+      "Reinforced Bottom and Side Wraps",
+      "Heavy-Duty Lift and Carry Handles",
+      "High-Pressure Floor Relief Valve",
+      "Internal Baffles for air chamber integrity"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Heavy-Duty Achilles CSM / Inflatable I-Beam Floor"
+    },
+    "length_range_mm": {
+      "min": 3950,
+      "max": 4250
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "rv-130sb-3t",
+        "name": "RV-130SB-3T",
+        "description": "A 13' performance raft with triple thwarts, ideal for technical paddle crews.",
+        "specifications": {
+          "length_mm": 3950,
+          "width_mm": 1950,
+          "height_mm": null,
+          "weight_kg": 61,
+          "capacity_persons": 7,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-140sb-3t",
+        "name": "RV-140SB-3T",
+        "description": "The 14' triple-thwart workhorse, offering maximum stability and crew support for commercial whitewater.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 68,
+          "capacity_persons": 8,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }, //rv-sb-3t-series
+  {
+    "id": "fr-series",
+    "brand": "Achilles",
+    "name": "FR Series (Fishing Rafts)",
+    "type_display": "River Fishing & Expedition Raft",
+    "boat_type_key": "raft",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The FR Series is specifically engineered for river anglers and expedition rowers who require a stable, high-buoyancy platform. Designed with a wider beam and a flatter floor profile than standard whitewater rafts, these boats offer exceptional stability for standing while casting. The FR series is built to accommodate heavy rowing frames, casting platforms, and large coolers. Constructed with Achilles' premium CSM fabric, these rafts are highly resistant to the abrasions and punctures common when navigating shallow, rocky riverbeds.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Wide Beam Design for maximum stability",
+      "Reinforced Frame Wear Patches",
+      "Extra Stainless Steel D-Rings for gear and frame tie-downs",
+      "Four-Layer Seam Construction",
+      "Full-Length Heavy-Duty Rubbing Strake",
+      "Self-Bailing or Non-Bailing Floor Options",
+      "Large Tube Diameters for high payload capacity",
+      "Integrated Carry Handles",
+      "Reinforced Bottom Wrap"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Expedition Grade Construction"
+    },
+    "length_range_mm": {
+      "min": 3950,
+      "max": 4250
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "fr-130",
+        "name": "FR-130",
+        "description": "A nimble 13' fishing raft designed for technical rivers and technical rowing frames.",
+        "specifications": {
+          "length_mm": 3950,
+          "width_mm": 2000,
+          "height_mm": null,
+          "weight_kg": 52,
+          "capacity_persons": 6,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fr-140",
+        "name": "FR-140",
+        "description": "The 14' expedition fishing platform, offering a large footprint for casting decks and multi-day gear.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 2150,
+          "height_mm": null,
+          "weight_kg": 59,
+          "capacity_persons": 8,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  } //fr-series
+]

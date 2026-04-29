@@ -1,50 +1,50 @@
 [
   {
-    "id": "highfield-cl",
-    "name": "Classic Line (CL)",
-    "url": "https://www.highfieldboats.com/models/classic/",
+    "id": "highfield-roll-up",
+    "name": "Roll-Up Range",
+    "url": "https://www.highfieldboats.com/boat/roll-up/",
     "type": "listing_page"
   },
   {
-    "id": "highfield-ul",
-    "name": "Ultralite Line (UL)",
-    "url": "https://www.highfieldboats.com/models/ultralite/",
+    "id": "highfield-ultralite",
+    "name": "Ultralite Range",
+    "url": "https://www.highfieldboats.com/boat/the-ultralite-range/",
     "type": "listing_page"
   },
   {
-    "id": "highfield-patrol",
-    "name": "Patrol Line",
-    "url": "https://www.highfieldboats.com/models/patrol/",
-    "type": "listing_page"
-  },
-  {
-    "id": "highfield-coaster",
-    "name": "Coaster Line",
-    "url": "https://www.highfieldboats.com/models/coaster/",
+    "id": "highfield-classic",
+    "name": "Classic Range",
+    "url": "https://www.highfieldboats.com/boat/the-classic-range/",
     "type": "listing_page"
   },
   {
     "id": "highfield-sport",
-    "name": "Sport Line",
-    "url": "https://www.highfieldboats.com/models/sport/",
+    "name": "Sport Range",
+    "url": "https://www.highfieldboats.com/boat/the-sport-range/",
     "type": "listing_page"
   },
   {
-    "id": "highfield-sp",
-    "name": "Sport Console (SP) Line",
-    "url": "https://www.highfieldboats.com/models/sport-console/",
+    "id": "highfield-patrol",
+    "name": "Patrol Range",
+    "url": "https://www.highfieldboats.com/boat/the-patrol-range/",
     "type": "listing_page"
   },
   {
-    "id": "highfield-hypalon",
-    "name": "Hypalon Range (material grouping)",
-    "url": "https://www.highfieldboats.com/",
+    "id": "highfield-escape",
+    "name": "Escape Range",
+    "url": "https://www.highfieldboats.com/boat/the-escape-range/",
     "type": "listing_page"
   },
   {
-    "id": "highfield-aluminium-hull",
-    "name": "Aluminium Hull Range",
-    "url": "https://www.highfieldboats.com/",
+    "id": "highfield-velox",
+    "name": "Velox Range",
+    "url": "https://www.highfieldboats.com/boat/the-velox-range/",
+    "type": "listing_page"
+  },
+  {
+    "id": "highfield-adventure",
+    "name": "Adventure Range",
+    "url": "https://adventure.highfieldboats.com/",
     "type": "listing_page"
   }
 ]

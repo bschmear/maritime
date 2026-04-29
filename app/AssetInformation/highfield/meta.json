@@ -1,0 +1,758 @@
+[
+	{
+  "id": "highfield-roll-up",
+  "brand": "Highfield",
+  "name": "Roll-Up Range",
+  "type_display": "Portable Inflatable Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "inflatable",
+  "hull_material_key": "aluminum",
+  "description": "The Highfield Roll-Up range is designed for ultimate portability and ease of use. These boats feature high-tensile chromated and powder-coated aluminum floor slats or air-mats, offering a more rigid and durable alternative to traditional wood or plastic floors. Built with a choice of Mehler PVC or ORCA® Hypalon, they are lightweight enough to be easily stowed in a locker or on deck, yet rugged enough to handle daily tender duties. They can be assembled or packed away in minutes without the need for tools.",
+  "features": [
+    "High tensile chromated & powder-coated aluminum floor/slats",
+    "Choice of ORCA® Hypalon or Valmex® PVC tube fabric",
+    "Flush mount non-return valves",
+    "Self-draining cockpit",
+    "Removable aluminum seat",
+    "Towing bridle points",
+    "Full-length rubbing strake",
+    "Includes foot pump, oars, and repair kit"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Slats or Air-Mat / PVC or Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2000,
+    "max": 3200
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "ru-200",
+      "name": "Roll-Up 200",
+      "description": "The most compact model, ideal for solo use or as a ship-to-shore shuttle for small cruisers.",
+      "specifications": {
+        "length_mm": 2000,
+        "width_mm": 1330,
+        "height_mm": null,
+        "weight_kg": 20,
+        "capacity_persons": 2,
+        "max_hp": 3.5,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "ru-250",
+      "name": "Roll-Up 250",
+      "description": "A versatile 8'2\" tender that balances interior space with easy one-person handling.",
+      "specifications": {
+        "length_mm": 2500,
+        "width_mm": 1420,
+        "height_mm": null,
+        "weight_kg": 26,
+        "capacity_persons": 3,
+        "max_hp": 6,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "ru-280",
+      "name": "Roll-Up 280",
+      "description": "The 9'2\" model providing increased buoyancy and a higher horsepower rating for faster transits.",
+      "specifications": {
+        "length_mm": 2800,
+        "width_mm": 1450,
+        "height_mm": null,
+        "weight_kg": 30,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "ru-320",
+      "name": "Roll-Up 320",
+      "description": "The largest in the roll-up line, offering maximum capacity while still folding into a compact storage bag.",
+      "specifications": {
+        "length_mm": 3200,
+        "width_mm": 1500,
+        "height_mm": null,
+        "weight_kg": 35,
+        "capacity_persons": 5,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+},
+  {
+    "id": "highfield-ultralite",
+    "brand": "Highfield",
+    "name": "Ultralite Range",
+    "type_display": "Ultra-Lightweight Aluminum Hull RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Ultralite range is specifically designed for boaters who require a rigid hull but need to keep weight to an absolute minimum. Featuring a 2.5mm thick high-tensile chromated and powder-coated aluminum hull, these single-deck RIBs offer a dry and stable ride without the weight penalty of fiberglass or double-deck designs. They are the ideal choice for smaller davits or swim platforms and are rugged enough for frequent beaching on rocky shores.",
+    "features": [
+      "High tensile chromated & powder-coated aluminum hull",
+      "ORCA® Hypalon or Valmex® PVC tube fabric",
+      "Single deck construction for minimum weight",
+      "Flush mount non-return valves",
+      "Self-draining deck",
+      "Removable aluminum seat",
+      "Lifting points and towing eyes",
+      "Full-length rubbing strake",
+      "Non-slip deck patches"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2400,
+      "max": 3400
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "ul-240",
+        "name": "UL 240",
+        "description": "The most compact Ultralite model, weighing only 31kg, perfect for small yacht tenders.",
+        "specifications": {
+          "length_mm": 2400,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 31,
+          "capacity_persons": 3,
+          "max_hp": 6,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ul-260",
+        "name": "UL 260",
+        "description": "A popular 8'6\" model that offers more interior volume while staying under 35kg.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 34,
+          "capacity_persons": 3,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ul-290",
+        "name": "UL 290",
+        "description": "A 9'6\" lightweight RIB rated for up to 15HP for improved transit performance.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 39,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ul-310",
+        "name": "UL 310",
+        "description": "A 10'2\" model providing ample space for gear and crew with minimal weight impact.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 42,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "ul-340",
+        "name": "UL 340",
+        "description": "The largest Ultralite variant, offering maximum deck space while still being lighter than most fiberglass 2.4m boats.",
+        "specifications": {
+          "length_mm": 3370,
+          "width_mm": 1500,
+          "height_mm": null,
+          "weight_kg": 47,
+          "capacity_persons": 5,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "highfield-classic",
+    "brand": "Highfield",
+    "name": "Classic Range",
+    "type_display": "Deluxe Aluminum Hull Tender",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Classic range features a high-quality double-deck hull, providing a flat floor to keep your feet dry and a built-in bow locker for fuel tank storage. These boats are the perfect combination of luxury and durability, constructed with a 3mm thick high-tensile aluminum hull. Their versatile design allows them to be used as open tenders or configured with console steering for a more comfortable cruising experience.",
+    "features": [
+      "3mm thick high-tensile powder-coated aluminum hull",
+      "Double deck hull with flat floor",
+      "Integrated bow locker (suitable for 24L fuel tank)",
+      "ORCA® Hypalon or Valmex® PVC tube fabric",
+      "Flush mount non-return valves",
+      "Self-draining deck",
+      "Molded EVA deck (teak effect available)",
+      "Davit lifting points and towing eyes",
+      "Optional FCT console and seat kits"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2600,
+      "max": 4600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "cl-260",
+        "name": "CL 260",
+        "description": "The entry-level Classic model with a flat floor and integrated bow storage.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1710,
+          "height_mm": null,
+          "weight_kg": 51,
+          "capacity_persons": 3,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-290",
+        "name": "CL 290",
+        "description": "A popular 9'6\" tender offering a balance of space, performance, and weight.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1710,
+          "height_mm": null,
+          "weight_kg": 57,
+          "capacity_persons": 4,
+          "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-310",
+        "name": "CL 310",
+        "description": "A 10'2\" deluxe tender, ideal for mid-sized yachts and rated for 20HP.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1710,
+          "height_mm": null,
+          "weight_kg": 62,
+          "capacity_persons": 4,
+          "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-340",
+        "name": "CL 340",
+        "description": "A spacious tender offering increased stability and payload for larger crews.",
+        "specifications": {
+          "length_mm": 3400,
+          "width_mm": 1710,
+          "height_mm": null,
+          "weight_kg": 71,
+          "capacity_persons": 5,
+          "max_hp": 25,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-380",
+        "name": "CL 380",
+        "description": "A 12'6\" model that provides a very dry ride and large interior volume.",
+        "specifications": {
+          "length_mm": 3800,
+          "width_mm": 1710,
+          "height_mm": null,
+          "weight_kg": 83,
+          "capacity_persons": 6,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-420",
+        "name": "CL 420",
+        "description": "A heavy-duty 13'9\" tender designed for larger payloads and coastal hops.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 115,
+          "capacity_persons": 8,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "cl-460",
+        "name": "CL 460",
+        "description": "The largest in the Classic line, frequently used as a primary utility boat or large tender.",
+        "specifications": {
+          "length_mm": 4590,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 137,
+          "capacity_persons": 9,
+          "max_hp": 60,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "highfield-sport",
+    "brand": "Highfield",
+    "name": "Sport Range",
+    "type_display": "Luxury High-Performance RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Sport range is Highfield’s high-end luxury line, combining the rugged durability of an aluminum hull with the sophisticated finishes of a premium dayboat. Featuring deep-V hulls with deadrise angles up to 26°, these RIBs offer exceptional offshore performance. The interiors are defined by diamond-stitched upholstery, EVA teak decking, and integrated social spaces like sun-decks and swim platforms. Ranging from compact 3-meter garage tenders to 9-meter offshore cruisers, the Sport series is designed for those who want both performance and comfort.",
+    "features": [
+      "High tensile chromated & powder-coated aluminum hull",
+      "ORCA® Hypalon or Valmex® PVC tube fabric",
+      "Brushed foam teak finish (EVA) deck",
+      "Luxury diamond-stitched upholstery",
+      "Integrated under-deck fuel tanks (on larger models)",
+      "Swim platforms with telescopic boarding ladder",
+      "Self-draining deck (from SP420 up)",
+      "Lifting points and towing eyes",
+      "Electrical pack for boat and console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 3000,
+      "max": 9000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sp300",
+        "name": "Sport 300",
+        "description": "The smallest sport model, acting as a high-end luxury tender for cruisers and catamarans.",
+        "specifications": {
+          "length_mm": 3000,
+          "width_mm": 1830,
+          "height_mm": null,
+          "weight_kg": 175,
+          "capacity_persons": 4,
+          "max_hp": 30,
+          "fuel_capacity_l": 12
+        }
+      },
+      {
+        "id": "sp390",
+        "name": "Sport 390",
+        "description": "A popular 12'10\" model that balances interior comfort with serious performance and a 30L fuel tank.",
+        "specifications": {
+          "length_mm": 3900,
+          "width_mm": 1920,
+          "height_mm": null,
+          "weight_kg": 226,
+          "capacity_persons": 7,
+          "max_hp": 60,
+          "fuel_capacity_l": 30
+        }
+      },
+      {
+        "id": "sp520",
+        "name": "Sport 520",
+        "description": "A 17'2\" joy to drive, featuring great ergonomics, a 24° deadrise, and a large 105L fuel tank.",
+        "specifications": {
+          "length_mm": 5230,
+          "width_mm": 2460,
+          "height_mm": null,
+          "weight_kg": 516,
+          "capacity_persons": 10,
+          "max_hp": 100,
+          "fuel_capacity_l": 105
+        }
+      },
+      {
+        "id": "sp650",
+        "name": "Sport 650",
+        "description": "An offshore capable RIB with a 26° deadrise, perfect for family water sports or distance cruising.",
+        "specifications": {
+          "length_mm": 6350,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 783,
+          "capacity_persons": 13,
+          "max_hp": 150,
+          "fuel_capacity_l": 140
+        }
+      }
+    ]
+  },
+  {
+    "id": "highfield-patrol",
+    "brand": "Highfield",
+    "name": "Patrol Range",
+    "type_display": "Commercial & Coastal Workboat RIB",
+    "boat_type_key": "utility-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Patrol range is the commercial-grade powerhouse of the Highfield lineup. Built with 5083 aluminum plates and heavy-duty stringers (6mm and 10mm), these boats are designed to withstand the most extreme sea states. Used by police, rescue, and charter operators, the Patrol series offers a modular deck layout that can be customized with jockey seats, bolsters, and T-tops. With their super-deep V hulls and large diameter tubes, they provide high maneuverability and a soft, dry ride even when carrying heavy loads.",
+    "features": [
+      "Commercial-grade 5083 aluminum hull with 6/10mm stringers",
+      "Super deep-V hull (up to 26° deadrise) for rough water",
+      "Modular deck for customizable seating and equipment",
+      "Integrated under-deck fuel tanks",
+      "Heavy-duty tube wear patches and rub strakes",
+      "Self-draining deck",
+      "Optional dive racks, T-tops, and suspension seating",
+      "Bow locker with seat cushion"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "5083 Aluminum Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 8600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "pa420",
+        "name": "Patrol 420",
+        "description": "The ideal compact workhorse for sailing clubs, harbors, or small rescue missions.",
+        "specifications": {
+          "length_mm": 4210,
+          "width_mm": 2100,
+          "height_mm": null,
+          "weight_kg": 252,
+          "capacity_persons": 8,
+          "max_hp": 60,
+          "fuel_capacity_l": 55
+        }
+      },
+      {
+        "id": "pa540",
+        "name": "Patrol 540",
+        "description": "A versatile mid-range RIB that planes easily with modest horsepower, perfect for coastal patrol.",
+        "specifications": {
+          "length_mm": 5400,
+          "width_mm": 2480,
+          "height_mm": null,
+          "weight_kg": 494,
+          "capacity_persons": 12,
+          "max_hp": 115,
+          "fuel_capacity_l": 105
+        }
+      },
+      {
+        "id": "pa600",
+        "name": "Patrol 600",
+        "description": "A fast and dry all-rounder, excellent for teaching, charter work, and family distance cruising.",
+        "specifications": {
+          "length_mm": 6150,
+          "width_mm": 2510,
+          "height_mm": null,
+          "weight_kg": 762,
+          "capacity_persons": 15,
+          "max_hp": 150,
+          "fuel_capacity_l": 140
+        }
+      },
+      {
+        "id": "pa860",
+        "name": "Patrol 860",
+        "description": "The range flagship, rated for up to 600hp with a 114-gallon long-range fuel capacity and 2.5-ton load rating.",
+        "specifications": {
+          "length_mm": 8710,
+          "width_mm": 3100,
+          "height_mm": null,
+          "weight_kg": 1164,
+          "capacity_persons": 20,
+          "max_hp": 600,
+          "fuel_capacity_l": 430
+        }
+      }
+    ]
+  }
+  {
+    "id": "highfield-escape",
+    "brand": "Highfield",
+    "name": "Escape Range",
+    "type_display": "US-Built Fiberglass Center Console RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Escape series is Highfield's first all-American fiberglass-hull RIB line, designed for versatility and family day-boating. Built in the USA, these boats combine a performance-oriented deep-V fiberglass hull (26° deadrise) with the stability and safety of a RIB. The design emphasizes comfort with ergonomic helm seating, flip-up bolsters, and family-friendly layouts including sunpads and generous storage. Whether used as a primary dayboat for coastal exploration or a high-end yacht tender, the Escape series delivers a soft, dry ride with premium customization options.",
+    "features": [
+      "Deep-V Fiberglass Hull (26° deadrise)",
+      "ORCA® Hypalon or Valmex® PVC tube fabric",
+      "Hydraulic steering system with steering wheel",
+      "Self-draining deck",
+      "Carbon dash for console integration",
+      "Integrated rear seat with cushion",
+      "Brushed foam teak finish (EVA) deck",
+      "Electrical pack for boat and console",
+      "Swim platform with boarding ladder",
+      "Optional Fiberglass T-top or Hardtop",
+      "Standard roll bar and cooler bag"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 7170,
+      "max": 8070
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "escape-650",
+        "name": "Escape 650",
+        "description": "A 23'6\" center console RIB rated for up to 250HP, offering a balance of coastal performance and ergonomic comfort.",
+        "specifications": {
+          "length_mm": 7170,
+          "width_mm": 2600,
+          "height_mm": null,
+          "weight_kg": 1013,
+          "capacity_persons": 13,
+          "max_hp": 250,
+          "fuel_capacity_l": 140
+        }
+      },
+      {
+        "id": "escape-750",
+        "name": "Escape 750",
+        "description": "The 26'6\" flagship of the Escape range, featuring a walk-in console, increased deck space, and a 300HP rating.",
+        "specifications": {
+          "length_mm": 8070,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 1068,
+          "capacity_persons": 15,
+          "max_hp": 300,
+          "fuel_capacity_l": 250
+        }
+      }
+    ]
+  },
+  {
+    "id": "highfield-velox",
+    "brand": "Highfield",
+    "name": "Velox Range",
+    "type_display": "Jet-Powered Aluminum Hull RIB",
+    "boat_type_key": "power-jet",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Velox range introduces the thrill of Rotax jet propulsion to the Highfield aluminum hull platform. Designed for shallow water navigation, inland waters, and coastal adventures, these jet RIBs offer responsive handling and impressive acceleration without an exposed propeller. The rugged aluminum hull allows for worry-free beaching on sandbars, while the RIB architecture provides a stable, buoyant ride. With ergonomic forward-facing seating and integrated sunpads, the Velox series is built for both high-speed excitement and social day-boating.",
+    "features": [
+      "BRP Rotax Jet Propulsion System",
+      "High tensile chromated & powder-coated aluminum hull",
+      "ORCA® Hypalon or Valmex® PVC tube fabric",
+      "Integrated under-deck fuel tank",
+      "Anti-slip deck with brushed foam teak finish",
+      "Electrical pack for boat and console",
+      "Bow locker with cushion",
+      "Jet-specific helm with venturi windshield",
+      "Rear-facing bench for watersports observation",
+      "Optional roll bar and premium audio systems"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / PVC or Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 4440,
+      "max": 6990
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "velox-420",
+        "name": "Velox 420",
+        "description": "A compact 14'7\" jet RIB powered by a 90HP Rotax engine, ideal for navigating narrow channels and shallow inlets.",
+        "specifications": {
+          "length_mm": 4440,
+          "width_mm": 2070,
+          "height_mm": null,
+          "weight_kg": 481,
+          "capacity_persons": 8,
+          "max_hp": 90,
+          "fuel_capacity_l": 55
+        }
+      },
+      {
+        "id": "velox-560",
+        "name": "Velox 560",
+        "description": "A 19'5\" jet-powered RIB offering a stable ride and performance up to 230HP for coastal adventures.",
+        "specifications": {
+          "length_mm": 5920,
+          "width_mm": 2510,
+          "height_mm": null,
+          "weight_kg": 791,
+          "capacity_persons": 10,
+          "max_hp": 230,
+          "fuel_capacity_l": 145
+        }
+      },
+      {
+        "id": "velox-660",
+        "name": "Velox 660",
+        "description": "The largest Velox model at 22'11\", delivering 300HP of jet performance and a 12-passenger capacity.",
+        "specifications": {
+          "length_mm": 6990,
+          "width_mm": 2510,
+          "height_mm": null,
+          "weight_kg": 1066,
+          "capacity_persons": 12,
+          "max_hp": 300,
+          "fuel_capacity_l": 151
+        }
+      }
+    ]
+  },
+  {
+  "id": "highfield-adventure",
+  "brand": "Highfield",
+  "name": "Adventure Range",
+  "type_display": "Offshore Cabin RIB",
+  "boat_type_key": "power-cabin",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Adventure (ADV) range represents Highfield's evolution into the cabin crossover market, combining the offshore safety of a RIB with the year-round comfort of a fully enclosed pilot house. Built on a proven 26° deadrise high-tensile aluminum hull, these vessels are designed for long-distance exploration and multi-day voyages. The range features slide-on tubes for easier maintenance and a modular interior that includes berths, a galley, and a head. Engineered for professional-grade durability but finished with luxury amenities, the ADV series is the ultimate vessel for serious cruisers who want to extend their season into colder climates and rougher seas.",
+  "features": [
+    "High-tensile chromated & powder-coated aluminum hull",
+    "Fully enclosed weather-protected pilot house",
+    "Slide-on tube system for easy repair or replacement",
+    "Self-draining deck",
+    "Deep-V performance hull with 26° deadrise",
+    "Overnight berths and social cabin seating",
+    "Integrated galley and enclosed head options",
+    "Walk-around deck design for safe access",
+    "Large integrated under-deck fuel tanks",
+    "Heavy-duty D-section rubbing strake"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / PVC or Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 7000,
+    "max": 9200
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "adv7",
+      "name": "ADV7",
+      "description": "A 23-foot cabin RIB providing a compact yet capable platform for coastal exploration and overnighting.",
+      "specifications": {
+        "length_mm": 6980,
+        "width_mm": 2520,
+        "height_mm": null,
+        "weight_kg": 1780,
+        "capacity_persons": 8,
+        "max_hp": 300,
+        "fuel_capacity_l": 250
+      }
+    },
+    {
+      "id": "adv9",
+      "name": "ADV9",
+      "description": "The flagship 30-foot expedition vessel featuring a twin-engine configuration, full galley, and sleeping accommodations for four.",
+      "specifications": {
+        "length_mm": 9200,
+        "width_mm": 3050,
+        "height_mm": null,
+        "weight_kg": 2850,
+        "capacity_persons": 12,
+        "max_hp": 600,
+        "fuel_capacity_l": 500
+      }
+    }
+  ]
+}
+]

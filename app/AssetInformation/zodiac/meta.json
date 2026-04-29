@@ -1,0 +1,1220 @@
+[
+	{
+  "id": "zodiac-xcc",
+  "brand": "Zodiac",
+  "name": "XCC Series",
+  "type_display": "Premium Center Console RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "rib",
+  "hull_material_key": "fiberglass",
+  "description": "The XCC range represents Zodiac's entry into the ultra-premium heavy-duty center console market. Designed to bridge the gap between a high-performance rigid hull and the stability of a semi-rigid boat, the XCC series features high freeboards and a double-stepped hull for exceptional fuel economy and stability. This range is built for offshore performance, long-distance cruising, or use as a luxury chase boat. It features a modular cabin with an unusually large interior for its class, including separate head and berth options, while the exterior provides massive social spaces and deep-V sea-keeping abilities.",
+  "features": [
+    "High-performance double-stepped deep-V hull",
+    "High freeboards for enhanced safety and dry ride",
+    "Removable Neoprene-Hypalon or Carbon-finish tubes",
+    "Modular cabin with overnight berth and separate head area",
+    "Electric windlass with bow roller",
+    "Integrated aft and forward sundecks",
+    "Tilting center console with large storage access",
+    "Hard-top options with integrated lighting and rod holders",
+    "Self-draining deck with high-end upholstery",
+    "Kitchen block with sink and fridge options"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Fiberglass Hull / Neoprene Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 8700,
+    "max": 9990
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "x9cc",
+      "name": "X9CC",
+      "description": "A compact power cruiser at 28'7\" that intelligently combines high-performance navigation with a livable cabin and two large relaxation areas.",
+      "specifications": {
+        "length_mm": 8700,
+        "width_mm": 3330,
+        "height_mm": null,
+        "weight_kg": 2350,
+        "capacity_persons": 16,
+        "max_hp": 500,
+        "fuel_capacity_l": 730
+      }
+    },
+    {
+      "id": "x10cc",
+      "name": "X10CC",
+      "description": "The 33' flagship of the Zodiac fleet. A day-cruiser/RIB hybrid that positions itself as a serious offshore contender with twin engines up to 900HP total.",
+      "specifications": {
+        "length_mm": 9990,
+        "width_mm": 3800,
+        "height_mm": null,
+        "weight_kg": 3500,
+        "capacity_persons": 20,
+        "max_hp": 900,
+        "fuel_capacity_l": 760
+      }
+    }
+  ]
+},
+  {
+    "id": "zodiac-medline",
+    "brand": "Zodiac",
+    "name": "Medline Series",
+    "type_display": "Luxury Private Lounge RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Medline series is Zodiac's dedicated 'on-water lounge' range, prioritizing maximum comfort, social space, and relaxation. Engineered for long days of sunbathing and coastal cruising, these boats feature expansive sun-pad areas and a signature U-shaped aft lounge that easily converts into a second sundeck. With a focus on ergonomics and premium finishes, the Medline series acts as a true floating terrace, offering high-end amenities like integrated kitchens and swim platforms without sacrificing Zodiac's legendary stability and sea-keeping performance.",
+    "features": [
+      "VIP Multi-position aft U-lounge (converts to sundeck)",
+      "Large bow sunbathing area with premium upholstery",
+      "Integrated kitchen/wet bar with sink and fridge (larger models)",
+      "Dual swim platforms with telescopic boarding ladder",
+      "High-volume console with internal storage and head compartment (9/7.5)",
+      "Self-draining deck with EVA teak or non-skid finish",
+      "Removable tube system for easy maintenance",
+      "Bimini-ready hardware and optional roll bar",
+      "Bolster seat for driver and passenger with integrated storage"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Neoprene Hypalon or Strongan PVC Tubes"
+    },
+    "length_range_mm": {
+      "min": 5000,
+      "max": 8900
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "medline-5-8",
+        "name": "Medline 5.8",
+        "description": "A compact and agile cruiser that packs the full Medline lounge experience into a size that is easy to trailer and launch.",
+        "specifications": {
+          "length_mm": 5800,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 601,
+          "capacity_persons": 12,
+          "max_hp": 150,
+          "fuel_capacity_l": 90
+        }
+      },
+      {
+        "id": "medline-6-8",
+        "name": "Medline 6.8",
+        "description": "The perfect balance of size and performance, featuring a redesigned console and 14-person capacity for larger groups.",
+        "specifications": {
+          "length_mm": 6880,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 950,
+          "capacity_persons": 14,
+          "max_hp": 250,
+          "fuel_capacity_l": 200
+        }
+      },
+      {
+        "id": "medline-7-5",
+        "name": "Medline 7.5",
+        "description": "A luxury coastal cruiser with a high-performance hull, featuring a console that can accommodate an optional marine toilet.",
+        "specifications": {
+          "length_mm": 7340,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 1150,
+          "capacity_persons": 16,
+          "max_hp": 300,
+          "fuel_capacity_l": 300
+        }
+      },
+      {
+        "id": "medline-9",
+        "name": "Medline 9",
+        "description": "The flagship of the lounge range. Features a cabin with a berth, integrated sink/stove, and twin-engine capability for ultimate luxury cruising.",
+        "specifications": {
+          "length_mm": 8900,
+          "width_mm": 3060,
+          "height_mm": null,
+          "weight_kg": 1850,
+          "capacity_persons": 20,
+          "max_hp": 450,
+          "fuel_capacity_l": 400
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-open",
+    "brand": "Zodiac",
+    "name": "Open Series",
+    "type_display": "Sport & Adventure RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Open series is the 'Swiss Army Knife' of the Zodiac fleet. Specifically designed for multi-activity enthusiasts, it serves as the perfect platform for fishing, watersports, diving, and coastal exploration. The range features a deep-V fiberglass hull and a balanced deck layout that optimizes movement and ergonomics. A standout feature is the tilting center console, which provides massive access to a large internal storage locker. Whether configured as a rugged dive boat or a family cruiser, the Open range delivers exceptional versatility and a dry, stable ride in various sea conditions.",
+    "features": [
+      "Tilting center console for easy access to deep storage",
+      "Removable tube system for simplified maintenance and transport",
+      "High-performance deep-V fiberglass hull",
+      "Integrated under-deck fuel tank",
+      "GRP bow roller with integrated mooring cleat",
+      "Self-draining cockpit",
+      "Aft bench with high backrest for comfort and safety",
+      "Bimini-ready hardware and optional roll bars",
+      "Swim ladder with boarding handles",
+      "Molded EVA deck or non-skid deck options"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Strongan PVC or Neoprene Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 3100,
+      "max": 6700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "open-3-1",
+        "name": "Open 3.1",
+        "description": "A compact 10' boat that acts as a fun and agile sport tender for small groups.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1650,
+          "height_mm": null,
+          "weight_kg": 145,
+          "capacity_persons": 4,
+          "max_hp": 25,
+          "fuel_capacity_l": 24
+        }
+      },
+      {
+        "id": "open-3-4",
+        "name": "Open 3.4",
+        "description": "The 11' model designed for easy towing and storage while offering a 40HP power rating.",
+        "specifications": {
+          "length_mm": 3400,
+          "width_mm": 1700,
+          "height_mm": null,
+          "weight_kg": 155,
+          "capacity_persons": 4,
+          "max_hp": 40,
+          "fuel_capacity_l": 24
+        }
+      },
+      {
+        "id": "open-4-2",
+        "name": "Open 4.2",
+        "description": "A versatile 13'9\" boat that balances compact dimensions with serious storage capacity.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 270,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": 46
+        }
+      },
+      {
+        "id": "open-4-8",
+        "name": "Open 4.8",
+        "description": "A popular 15'7\" cross-over model offering a dry ride and 12-person maximum capacity.",
+        "specifications": {
+          "length_mm": 4700,
+          "width_mm": 2050,
+          "height_mm": null,
+          "weight_kg": 305,
+          "capacity_persons": 12,
+          "max_hp": 80,
+          "fuel_capacity_l": 46
+        }
+      },
+      {
+        "id": "open-5-5",
+        "name": "Open 5.5",
+        "description": "The 17'9\" all-rounder, frequently used as a primary dayboat for coastal fishing and towing.",
+        "specifications": {
+          "length_mm": 5400,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 585,
+          "capacity_persons": 12,
+          "max_hp": 130,
+          "fuel_capacity_l": 100
+        }
+      },
+      {
+        "id": "open-6-7",
+        "name": "Open 6.7",
+        "description": "The flagship of the Open range at 22', offering offshore performance and a massive storage compartment under the tilting console.",
+        "specifications": {
+          "length_mm": 6700,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 910,
+          "capacity_persons": 15,
+          "max_hp": 250,
+          "fuel_capacity_l": 200
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-pro",
+    "brand": "Zodiac",
+    "name": "Pro Series",
+    "type_display": "Modular Utility RIB",
+    "boat_type_key": "utility-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Pro series is Zodiac's most versatile and customizable 'a la carte' range, designed for those who need a boat tailored to a specific activity. Built on a proven deep-V fiberglass hull, the Pro range features a completely flat, modular deck that allows the owner to choose and position their own console, bolsters, and seating. Its signature removable tube system makes maintenance and storage simple. Whether used for professional diving, fishing, or coastal work, the Pro series is celebrated for its rugged construction and exceptional sea-keeping abilities in heavy conditions.",
+    "features": [
+      "Removable tube system for simplified maintenance",
+      "Fully modular deck for 'a la carte' configuration",
+      "Large under-deck storage compartments",
+      "Heavy-duty shark-fin rub strake",
+      "Integrated high-capacity fuel tank (standard on larger models)",
+      "Bowsprit with integrated mooring cleat",
+      "Double life-line on tubes",
+      "Self-draining cockpit with high-volume valves",
+      "Internal bailing system",
+      "Non-slip deck surface"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Strongan PVC or Neoprene Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 8500
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "pro-420",
+        "name": "Pro 420",
+        "description": "A compact 13'9\" utility boat, ideal for sailing clubs or as a technical tender.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 181,
+          "capacity_persons": 7,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "pro-5-5",
+        "name": "Pro 5.5",
+        "description": "The 17'9\" all-rounder with a redesigned deck that optimizes space for fishing or diving gear.",
+        "specifications": {
+          "length_mm": 5400,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 430,
+          "capacity_persons": 12,
+          "max_hp": 130,
+          "fuel_capacity_l": 100
+        }
+      },
+      {
+        "id": "pro-6-5",
+        "name": "Pro 6.5",
+        "description": "A 20' workhorse offering a massive 15-person capacity and high-performance offshore handling.",
+        "specifications": {
+          "length_mm": 6100,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 610,
+          "capacity_persons": 15,
+          "max_hp": 175,
+          "fuel_capacity_l": 200
+        }
+      },
+      {
+        "id": "pro-7",
+        "name": "Pro 7",
+        "description": "The 22'2\" variant designed for high-payload operations and serious coastal exploration.",
+        "specifications": {
+          "length_mm": 6750,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 790,
+          "capacity_persons": 16,
+          "max_hp": 250,
+          "fuel_capacity_l": 200
+        }
+      },
+      {
+        "id": "pro-850",
+        "name": "Pro 850",
+        "description": "The flagship of the utility range at 27'10\", used worldwide by professional teams for large crews and heavy equipment.",
+        "specifications": {
+          "length_mm": 8500,
+          "width_mm": 3000,
+          "height_mm": null,
+          "weight_kg": 1450,
+          "capacity_persons": 25,
+          "max_hp": 500,
+          "fuel_capacity_l": 400
+        }
+      }
+    ]
+  },
+{
+  "id": "zodiac-cadet-aero",
+  "brand": "Zodiac",
+  "name": "Cadet Aero",
+  "type_display": "Lightweight Inflatable Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "inflatable",
+  "hull_material_key": "pvc",
+  "description": "The Cadet Aero is characterized by its high-pressure inflatable H2O floor, which provides excellent rigidity while keeping the boat's overall weight to an absolute minimum. This design allows for quick assembly and easy storage in a dedicated carry bag without the need for heavy floorboards. Featuring Zodiac's patented progressive-capacity buoyancy tubes, the Aero offers superior stability and a higher payload capacity than traditional tenders of the same size. It is the ideal solution for boaters seeking a portable, high-performance ship-to-shore shuttle that can be easily handled by one person.",
+  "features": [
+    "High-pressure inflatable 'H2O' drop-stitch floor",
+    "Inflatable keel for improved tracking and maneuverability",
+    "Progressive-capacity buoyancy tubes for increased stability",
+    "Strongan™ Duotex™ 2x1100 decitex fabric",
+    "Welded seam construction",
+    "Aluminum engine support plate",
+    "Easy-push valves",
+    "All-around rubbing strake",
+    "Removable aluminum seat",
+    "Quick-release oars and integrated oarlock system"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "PVC (Strongan) / Inflatable Drop-Stitch Floor"
+  },
+  "length_range_mm": {
+    "min": 200,
+    "max": 350
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "cadet-200-aero",
+      "name": "Cadet 200 Aero",
+      "description": "The most compact and lightweight model in the range, weighing only 20kg.",
+      "specifications": {
+        "length_mm": 2000,
+        "width_mm": 1340,
+        "height_mm": null,
+        "weight_kg": 20,
+        "capacity_persons": 2,
+        "max_hp": 3,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-230-aero",
+      "name": "Cadet 230 Aero",
+      "description": "A popular 7'7\" size that balances easy storage with a 4-HP rating.",
+      "specifications": {
+        "length_mm": 2300,
+        "width_mm": 1340,
+        "height_mm": null,
+        "weight_kg": 24,
+        "capacity_persons": 3,
+        "max_hp": 4,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-270-aero",
+      "name": "Cadet 270 Aero",
+      "description": "An 8'10\" tender providing a dry ride and stable platform for up to 3 adults and 1 child.",
+      "specifications": {
+        "length_mm": 2700,
+        "width_mm": 1530,
+        "height_mm": null,
+        "weight_kg": 31,
+        "capacity_persons": 4,
+        "max_hp": 6,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-310-aero",
+      "name": "Cadet 310 Aero",
+      "description": "A spacious 10'2\" inflatable capable of carrying 5 people while remaining entirely foldable.",
+      "specifications": {
+        "length_mm": 3100,
+        "width_mm": 1550,
+        "height_mm": null,
+        "weight_kg": 35,
+        "capacity_persons": 5,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-350-aero",
+      "name": "Cadet 350 Aero",
+      "description": "The largest variant in the Aero line, offering maximum interior volume and a 15-HP rating.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1720,
+        "height_mm": null,
+        "weight_kg": 42,
+        "capacity_persons": 6,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+},
+{
+  "id": "zodiac-cadet-alu",
+  "brand": "Zodiac",
+  "name": "Cadet ALU",
+  "type_display": "Aluminum-Floored Inflatable Tender",
+  "boat_type_key": "power-tender",
+  "hull_type_key": "inflatable",
+  "hull_material_key": "pvc",
+  "description": "The Cadet ALU series is designed for boaters who prioritize rock-solid stability and durability in a portable package. Featuring a high-tensile sectional aluminum floor, these tenders provide a rigid platform that handles gear and heavy use with ease. The inflatable keel ensures excellent tracking and maneuverability, while Zodiac's progressive-capacity buoyancy tubes offer a stable and dry ride. Despite the heavy-duty floor, the Cadet ALU remains a quick-setup option that can be disassembled and stored in its carry bag, making it a rugged yet practical ship-to-shore solution.",
+  "features": [
+    "Sectional high-tensile aluminum floor for maximum rigidity",
+    "Inflatable keel for improved tracking and performance",
+    "Strongan™ Duotex™ fabric with welded seams",
+    "Progressive-capacity buoyancy tubes for stability",
+    "Double-position aluminum removable thwart (seat)",
+    "Aluminum oars and integrated oarlock system",
+    "Integrated bow handle and carrying handles",
+    "Towing rings and lifting eyes",
+    "Internally-operated bailer",
+    "Full-length rubbing strake and cone reinforcements"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "PVC (Strongan) / Sectional Aluminum Floor"
+  },
+  "length_range_mm": {
+    "min": 2700,
+    "max": 3500
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "cadet-270-alu",
+      "name": "Cadet 270 ALU",
+      "description": "An 8'10\" tender that provides a dry ride and stable platform for up to 4 persons.",
+      "specifications": {
+        "length_mm": 2700,
+        "width_mm": 1530,
+        "height_mm": null,
+        "weight_kg": 46,
+        "capacity_persons": 4,
+        "max_hp": 8,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-310-alu",
+      "name": "Cadet 310 ALU",
+      "description": "A popular 10'2\" model balancing interior space with a 15-HP power rating.",
+      "specifications": {
+        "length_mm": 3100,
+        "width_mm": 1550,
+        "height_mm": null,
+        "weight_kg": 54,
+        "capacity_persons": 5,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "cadet-350-alu",
+      "name": "Cadet 350 ALU",
+      "description": "The largest ALU variant at 11'6\", offering maximum interior volume and 20-HP capability.",
+      "specifications": {
+        "length_mm": 3500,
+        "width_mm": 1720,
+        "height_mm": null,
+        "weight_kg": 65,
+        "capacity_persons": 6,
+        "max_hp": 20,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+},
+{
+  "id": "zodiac-nomad-rib-alu",
+  "brand": "Zodiac",
+  "name": "Nomad RIB ALU",
+  "type_display": "Lightweight Double-Floor Aluminum RIB",
+  "boat_type_key": "power-rib",
+  "hull_type_key": "rib",
+  "hull_material_key": "aluminum",
+  "description": "The Nomad RIB ALU is Zodiac's next-generation aluminum tender range, engineered to provide a superior sailing experience through a lightweight yet ultra-durable double-floor construction. This double-floor design ensures a flat, comfortable deck for passengers while creating a dry environment by separating the bilge from the floor. Its primary advantage is a high strength-to-weight ratio that reduces strain on yacht davits without compromising performance. The range is highly versatile, featuring numerous watertight storage compartments and an optional console/bench kit for those who prefer steering wheel navigation over tiller control.",
+  "features": [
+    "Double-deck aluminum hull with flat floor",
+    "Large integrated watertight bow locker",
+    "Lightweight 5083 marine-grade aluminum construction",
+    "Choice of Mehler PVC or Orca® Neoprene-Hypalon tubes",
+    "Full-length keel protection",
+    "Deflecting rubbing strake",
+    "Multiple lifting points and aft towing rings",
+    "Removable bench (thwart) with under-bench storage bag",
+    "Optional console and bench seat KIT",
+    "Compatible with KAHE POD 600 electric motors"
+  ],
+  "has_variants": true,
+  "construction": {
+    "material": "Aluminum Hull / PVC or Hypalon Tubes"
+  },
+  "length_range_mm": {
+    "min": 2700,
+    "max": 3900
+  },
+  "specifications": {
+    "length_mm": null,
+    "width_mm": null,
+    "height_mm": null,
+    "weight_kg": null,
+    "capacity_persons": null,
+    "max_hp": null,
+    "fuel_capacity_l": null
+  },
+  "variants": [
+    {
+      "id": "nomad-2-7",
+      "name": "Nomad 2.7",
+      "description": "The most compact Nomad model, weighing only 55kg, designed for easy handling and small yacht storage.",
+      "specifications": {
+        "length_mm": 2700,
+        "width_mm": 1670,
+        "height_mm": null,
+        "weight_kg": 55,
+        "capacity_persons": 3,
+        "max_hp": 10,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "nomad-3-1",
+      "name": "Nomad 3.1",
+      "description": "A 10' tender that balances a lightweight profile (61kg) with a 5-person capacity.",
+      "specifications": {
+        "length_mm": 3100,
+        "width_mm": 1670,
+        "height_mm": null,
+        "weight_kg": 61,
+        "capacity_persons": 5,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "nomad-3-3",
+      "name": "Nomad 3.3",
+      "description": "A rugged 10'10\" double-floor RIB, ideal for coastal exploration and mid-sized yacht tenders.",
+      "specifications": {
+        "length_mm": 3300,
+        "width_mm": 1670,
+        "height_mm": null,
+        "weight_kg": 72,
+        "capacity_persons": 6,
+        "max_hp": 15,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "nomad-3-6",
+      "name": "Nomad 3.6",
+      "description": "A 12' performance tender rated for up to 30HP, offering significant cargo space and speed.",
+      "specifications": {
+        "length_mm": 3600,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 74,
+        "capacity_persons": 6,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    },
+    {
+      "id": "nomad-3-9",
+      "name": "Nomad 3.9",
+      "description": "The largest in the Nomad range, offering a 7-person capacity and high-stability offshore handling.",
+      "specifications": {
+        "length_mm": 3900,
+        "width_mm": 1680,
+        "height_mm": null,
+        "weight_kg": 80,
+        "capacity_persons": 7,
+        "max_hp": 30,
+        "fuel_capacity_l": null
+      }
+    }
+  ]
+},
+  {
+    "id": "zodiac-yachtline",
+    "brand": "Zodiac",
+    "name": "Yachtline Series",
+    "type_display": "Premium Rigid Inflatable Yacht Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Yachtline range is specifically engineered to serve as a high-end extension of a primary yacht. These luxury tenders feature a V-shaped fiberglass hull with integrated 'Zodiac flaps'—patented built-in planing surfaces that allow the boat to get on plane quickly and stay level even with heavy loads. The design emphasizes elegance and utility, incorporating integrated boarding steps, LED courtesy lighting, and ergonomic seating. With its removable tube system and compact profile, the Yachtline is optimized for storage in tender garages or on davits, while still providing the performance needed for watersports or coastal exploration.",
+    "features": [
+      "V-shaped fiberglass hull with patented integrated planing flaps",
+      "Removable tube system in Neoprene-Hypalon or Strongan PVC",
+      "Integrated polyester side wings with boarding steps",
+      "GRP bow roller with integrated navigation lights",
+      "Built-in fuel tank with gauge (most models)",
+      "LED courtesy lighting and 12V/USB power sockets",
+      "Ergonomic steering console with glove box",
+      "Automatic bilge pump and integrated battery box",
+      "Double pilot/co-pilot seat with upholstered cushions",
+      "Large aft locker and forward mooring compartment"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Hypalon or PVC Tubes"
+    },
+    "length_range_mm": {
+      "min": 3600,
+      "max": 4900
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "yachtline-360",
+        "name": "Yachtline 360",
+        "description": "A compact 11'10\" luxury tender designed for easy handling and efficient storage.",
+        "specifications": {
+          "length_mm": 3600,
+          "width_mm": 1770,
+          "height_mm": null,
+          "weight_kg": 218,
+          "capacity_persons": 4,
+          "max_hp": 40,
+          "fuel_capacity_l": 30
+        }
+      },
+      {
+        "id": "yachtline-400",
+        "name": "Yachtline 400",
+        "description": "A 13'1\" model offering a 5-person capacity and enhanced stability for ship-to-shore transport.",
+        "specifications": {
+          "length_mm": 4000,
+          "width_mm": 1770,
+          "height_mm": null,
+          "weight_kg": 218,
+          "capacity_persons": 5,
+          "max_hp": 50,
+          "fuel_capacity_l": 35
+        }
+      },
+      {
+        "id": "yachtline-440",
+        "name": "Yachtline 440",
+        "description": "The 14'5\" variant featuring increased interior volume and performance for larger yacht operations.",
+        "specifications": {
+          "length_mm": 4400,
+          "width_mm": 1860,
+          "height_mm": null,
+          "weight_kg": 273,
+          "capacity_persons": 6,
+          "max_hp": 60,
+          "fuel_capacity_l": 57
+        }
+      },
+      {
+        "id": "yachtline-490",
+        "name": "Yachtline 490",
+        "description": "The flagship of the Yachtline range at 16'1\", offering 90HP performance and a 9-person capacity.",
+        "specifications": {
+          "length_mm": 4900,
+          "width_mm": 2050,
+          "height_mm": null,
+          "weight_kg": 380,
+          "capacity_persons": 9,
+          "max_hp": 90,
+          "fuel_capacity_l": 85
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-n-zo",
+    "brand": "Zodiac",
+    "name": "N-ZO Series",
+    "type_display": "Premium Cabin & Cruising RIB",
+    "boat_type_key": "power-cabin",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The N-ZO range is the result of a collaboration with renowned Italian designer Vittorio Garroni, aiming to redefine the aesthetics and functionality of the modern RIB. Centered on the 'Air Console' concept, these boats maximize interior living space by minimizing the console's footprint without losing storage. The range features a super-deep V-hull (Zodiac Shell technology) for high-performance offshore handling and a modular deck layout that can transform from a social lounge to a large sundeck in seconds. With cabin options that include berths and heads, the N-ZO series is built for those who want to combine the safety of a RIB with the luxury of a day-cruiser.",
+    "features": [
+      "Patented 'Air Console' design to maximize interior floor space",
+      "Super-deep V-hull with Zodiac Nautic Shell technology",
+      "Large bow sundeck (convertible modular design)",
+      "Removable tubes in Neoprene-Hypalon fabric",
+      "Integrated aft swimming platforms",
+      "Cabin with overnight berth and optional chemical toilet (N-ZO 760/700)",
+      "Hydraulic steering and leaning post with folding table",
+      "Shower kit with integrated freshwater tank",
+      "Electric windlass and integrated bow roller",
+      "Self-bailing cockpit and large waterproof storage compartments"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Neoprene Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 6000,
+      "max": 7600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "n-zo-600",
+        "name": "N-ZO 600",
+        "description": "A 19'8\" designer RIB that balances high-end styling with 150HP performance.",
+        "specifications": {
+          "length_mm": 5990,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 760,
+          "capacity_persons": 12,
+          "max_hp": 150,
+          "fuel_capacity_l": 130
+        }
+      },
+      {
+        "id": "n-zo-680",
+        "name": "N-ZO 680",
+        "description": "A popular 22'4\" model known for its 14-person capacity and excellent rough-water handling.",
+        "specifications": {
+          "length_mm": 6800,
+          "width_mm": 2540,
+          "height_mm": null,
+          "weight_kg": 950,
+          "capacity_persons": 14,
+          "max_hp": 300,
+          "fuel_capacity_l": 212
+        }
+      },
+      {
+        "id": "n-zo-760",
+        "name": "N-ZO 760",
+        "description": "The 24'11\" flagship of the N-ZO range, featuring a 350HP power rating and a spacious forward cabin.",
+        "specifications": {
+          "length_mm": 7600,
+          "width_mm": 3040,
+          "height_mm": null,
+          "weight_kg": 1530,
+          "capacity_persons": 18,
+          "max_hp": 350,
+          "fuel_capacity_l": 300
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-milpro-mark",
+    "brand": "Zodiac Milpro",
+    "name": "MARK Series (Grand Raid)",
+    "type_display": "Heavy-Duty Military Inflatable",
+    "boat_type_key": "utility-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The MARK series, specifically the Grand Raid (GR), is the backbone of many professional and military fleets worldwide. Known as the 'quintessential' heavy-duty Zodiac, it has been refined over 40 years to provide a simple, rugged, and reliable platform for extreme conditions. Built with high-grade CSM/Neoprene fabric and reinforced throughout, the Grand Raid is designed for heavy payloads and easy maintenance. Its classic inflatable keel design offers reliable sea-keeping, making it the choice for everything from Jacques Cousteau’s explorations to modern-day fire and rescue operations.",
+    "features": [
+      "Heavy-duty CSM / Neoprene (Hypalon) tube construction",
+      "Reinforced aluminum sectional floorboards",
+      "Patented intercommunicating valve system",
+      "Integrated over-pressure relief valves",
+      "Heavy-duty transom with stainless steel protection",
+      "Wrap-around lifelines and non-skid tube reinforcements",
+      "Inflatable keel for improved tracking",
+      "Reinforced rubbing strakes on keel and tubes",
+      "Dual self-bailing drains",
+      "Stowage bags for hull and floor components"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "CSM (Hypalon) / Aluminum Floor"
+    },
+    "length_range_mm": {
+      "min": 3800,
+      "max": 4700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "mark-2-gr",
+        "name": "Mark 2 Grand Raid",
+        "description": "A 13'9\" utility boat designed for 7 persons, balancing portability with heavy-duty performance.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 86,
+          "capacity_persons": 7,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "mark-3-gr",
+        "name": "Mark 3 Grand Raid",
+        "description": "The most famous 15'5\" military inflatable, rated for up to 65HP and capable of carrying over 2,600 lbs of payload.",
+        "specifications": {
+          "length_mm": 4700,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 112,
+          "capacity_persons": 9,
+          "max_hp": 65,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-milpro-futura",
+    "brand": "Zodiac Milpro",
+    "name": "Futura Commando Series (FC)",
+    "type_display": "Special Forces Combat Inflatable",
+    "boat_type_key": "combat-inflatable",
+    "hull_type_key": "inflatable",
+    "hull_material_key": "hypalon",
+    "description": "The Futura Commando (FC) range is the most recognizable military boat in the world, used by elite Special Forces and Commandos across all theaters of operation. Its defining characteristic is the patented Futura hull, which uses two additional small 'speed tubes' underneath the main buoyancy tubes to lift the hull and reduce drag. This allows the FC range to plane heavy combat loads with smaller engines while providing unsurpassed maneuverability. Built with 'Duratane' fabric, these boats are field-repairable and support advanced deployment methods including Helidrop, Parachute Airdrop, and Underwater Caching.",
+    "features": [
+      "Patented Futura hull with lateral 'speed tube' stabilizers",
+      "Military-grade 1880 dtx CSM / Neoprene fabric",
+      "Multiple floor options: Aluminum rigid, Slatted roll-up, or HPP (High Pressure)",
+      "CO2 or SCUBA bottle fast-inflation system",
+      "Underwater Caching capability for covert operations",
+      "Compatible with Helidrop and Parachute Airdrop",
+      "13 interior large tie-down D-rings for gear security",
+      "Reinforced plywood transom with bottom-edge protection",
+      "Multi-chambered hull for combat survivability",
+      "Standard NATO codification for allied fleet compatibility"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "1880 dtx CSM (Hypalon) / Multi-option Floor"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 5300
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "fc-420",
+        "name": "FC 420",
+        "description": "The compact 13'9\" Special Forces variant, highly portable and capable of 50HP performance.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 120,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fc-470",
+        "name": "FC 470",
+        "description": "The industry standard 15'5\" combat boat, used by elite forces worldwide for maritime infiltration and coastal raids.",
+        "specifications": {
+          "length_mm": 4700,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 146,
+          "capacity_persons": 10,
+          "max_hp": 65,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fc-530",
+        "name": "FC 530",
+        "description": "The largest in the Commando series at 17'5\", offering massive 1,700kg+ payload and 80HP capability.",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2140,
+          "height_mm": null,
+          "weight_kg": 160,
+          "capacity_persons": 12,
+          "max_hp": 80,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-milpro-sr",
+    "brand": "Zodiac Milpro",
+    "name": "Sea RIB / SR Series (Responder)",
+    "type_display": "Military-Grade Professional RIB",
+    "boat_type_key": "utility-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Sea RIB (SR) series, also known as the SRR (Sea RIB Responder) range, is a line of high-performance rigid inflatable boats specifically evolved for military and professional intervention. Built on a proven fiberglass hull with a deep-V design, these boats are engineered to be simple, functional, and exceptionally tough. A hallmark of the SR series is its removable 'slide-on' tube system, which significantly simplifies maintenance and allows for rapid collar replacement in the field. The decks are self-draining and feature integrated high-capacity fuel tanks and under-deck cable paths, providing a clean, unobstructed workspace for search and rescue, law enforcement, and naval operations.",
+    "features": [
+      "Removable slide-on buoyancy tube system",
+      "Military-grade 1670 dtx or 1880 dtx CSM/Neoprene fabric",
+      "Self-draining deck with integrated non-skid surface",
+      "Large capacity under-deck fuel tanks with access hatches",
+      "Integrated cable paths for clean deck installations",
+      "Molded bow box and aft motor well storage",
+      "Heavy-duty towing and lifting brackets (bow and transom)",
+      "Intercommunicating inflation valves",
+      "Optional self-righting frames and navigation roll-bars",
+      "Water ballast system on certain models (e.g., SR-5.4) for stationary stability"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 8700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sr-420",
+        "name": "SR-420 (SRR)",
+        "description": "The most compact Sea RIB responder, ideal for rapid intervention and short-range missions.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1850,
+          "height_mm": null,
+          "weight_kg": 220,
+          "capacity_persons": 6,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sr-530",
+        "name": "SR-530 (SRR)",
+        "description": "A versatile mid-sized responder offering a balance of payload and agility.",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2200,
+          "height_mm": null,
+          "weight_kg": 340,
+          "capacity_persons": 12,
+          "max_hp": 90,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sr-650",
+        "name": "SR-650 (SRR)",
+        "description": "A 21' workhorse designed for offshore stability and high-speed interception.",
+        "specifications": {
+          "length_mm": 6480,
+          "width_mm": 2560,
+          "height_mm": null,
+          "weight_kg": 712,
+          "capacity_persons": 15,
+          "max_hp": 150,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sr-750",
+        "name": "SR-750 (SRR)",
+        "description": "High-capacity professional RIB featuring a 250HP power rating and 16-person payload.",
+        "specifications": {
+          "length_mm": 7400,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 959,
+          "capacity_persons": 16,
+          "max_hp": 250,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "sr-870",
+        "name": "SR-870 (SRR)",
+        "description": "The flagship of the Sea RIB range, available in open or cabin configurations for long-range coastal missions.",
+        "specifications": {
+          "length_mm": 8790,
+          "width_mm": 3050,
+          "height_mm": null,
+          "weight_kg": 1578,
+          "capacity_persons": 18,
+          "max_hp": 350,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-milpro-sra",
+    "brand": "Zodiac Milpro",
+    "name": "SRA Series (Sea RIB Aluminum)",
+    "type_display": "Aluminum Hull Professional RIB",
+    "boat_type_key": "utility-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Sea RIB Aluminum (SRA) range is built for the most demanding professional and military environments where extreme durability and modularity are required. Featuring a marine-grade 5083 aluminum deep-V hull, the SRA series is capable of withstanding harsh coastal and riverine conditions while maintaining high speeds. A standout innovation of the SRA range is the choice between standard round collars or 'D-shape' collar technology, the latter of which significantly increases useable deck area. The deck itself integrates a modular track system, allowing for rapid reconfiguration of seating, consoles, and mission-specific equipment (such as gun mounts or dive doors) to suit various operational roles.",
+    "features": [
+      "Marine-grade 5083 aluminum alloy Deep-V hull",
+      "Available with D-shape collar technology for increased deck space",
+      "Modular deck track system for rapid mission reconfiguration",
+      "Slide-on removable tube system in CSM/Neoprene",
+      "Integrated under-deck fuel tanks fore and aft",
+      "Reinforced vertical knees for hull strength",
+      "Open deck or roofed console options",
+      "Specialized mission equipment: gun posts, dive doors, and rescue cradles",
+      "Diver door options for easy water access and recovery",
+      "Durable non-skid aluminum flooring"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": 6500,
+      "max": 9000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sra-750",
+        "name": "SRA-750",
+        "description": "A 22' aluminum RIB known for its immense modularity and high-speed coastal performance.",
+        "specifications": {
+          "length_mm": 6770,
+          "width_mm": 2760,
+          "height_mm": null,
+          "weight_kg": 2567,
+          "capacity_persons": 16,
+          "max_hp": 300,
+          "fuel_capacity_l": 520
+        }
+      },
+      {
+        "id": "sra-900",
+        "name": "SRA-900",
+        "description": "A larger professional aluminum RIB optimized for high-payload interception and offshore patrol.",
+        "specifications": {
+          "length_mm": 9000,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": null,
+          "capacity_persons": 20,
+          "max_hp": 600,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }
+]

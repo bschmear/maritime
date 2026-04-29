@@ -1,38 +1,142 @@
 [
   {
-    "id": "achilles-pneumatic",
-    "name": "Achilles Inflatable Boats",
-    "url": "https://achillesboats.com/inflatable-boats/",
-    "type": "listing_page"
+    "id": "lex-series",
+    "name": "LEX Series",
+    "url": "https://achillesboats.com/boatmodels/tendersandsportboats/lex-series/",
+    "type": "listing_page",
+    "category": "Sport Tenders"
   },
   {
-    "id": "achilles-lsi",
-    "name": "LSI Series",
-    "url": "https://achillesboats.com/lsi-series/",
-    "type": "listing_page"
+    "id": "lsr-e-series",
+    "name": "LSR-E Series",
+    "url": "https://achillesboats.com/boatmodels/tendersandsportboats/lsr-e-series/",
+    "type": "listing_page",
+    "category": "Sport Tenders"
   },
   {
-    "id": "achilles-lsg",
-    "name": "LSG Series",
-    "url": "https://achillesboats.com/lsg-series/",
-    "type": "listing_page"
+    "id": "spd-e-series",
+    "name": "SPD-E Series",
+    "url": "https://achillesboats.com/boatmodels/tendersandsportboats/spd-e-series/",
+    "type": "listing_page",
+    "category": "Sport Tenders"
   },
   {
-    "id": "achilles-lsi-rib",
-    "name": "LSI RIB Series",
-    "url": "https://achillesboats.com/rib-boats/",
-    "type": "listing_page"
+    "id": "lsi-e-series",
+    "name": "LSI-E Series",
+    "url": "https://achillesboats.com/boatmodels/tendersandsportboats/lsi-e-series/",
+    "type": "listing_page",
+    "category": "Sport Tenders"
   },
   {
-    "id": "achilles-tenders",
-    "name": "Tender Line",
-    "url": "https://achillesboats.com/tenders/",
-    "type": "listing_page"
+    "id": "lt-series",
+    "name": "LT Series",
+    "url": "https://achillesboats.com/boatmodels/dinghies/lt-series/",
+    "type": "listing_page",
+    "category": "Dinghies"
   },
   {
-    "id": "achilles-commercial",
-    "name": "Commercial / Work Boats",
-    "url": "https://achillesboats.com/commercial/",
-    "type": "listing_page"
+    "id": "ls-ru-series",
+    "name": "LS-RU Series",
+    "url": "https://achillesboats.com/boatmodels/dinghies/ls-ru-series/",
+    "type": "listing_page",
+    "category": "Dinghies"
+  },
+  {
+    "id": "hb-al-series",
+    "name": "HB-AL Series",
+    "url": "https://achillesboats.com/boatmodels/rigidhulls/hb-al-series/",
+    "type": "listing_page",
+    "category": "Rigid Hulls"
+  },
+  {
+    "id": "hb-ax-series",
+    "name": "HB-AX Series",
+    "url": "https://achillesboats.com/boatmodels/rigidhulls/hb-ax-series/",
+    "type": "listing_page",
+    "category": "Rigid Hulls"
+  },
+  {
+    "id": "hb-fx-series",
+    "name": "HB-FX Series",
+    "url": "https://achillesboats.com/boatmodels/rigidhulls/hb-fx-series/",
+    "type": "listing_page",
+    "category": "Rigid Hulls"
+  },
+  {
+    "id": "hb-lx-series",
+    "name": "HB-LX Series",
+    "url": "https://achillesboats.com/boatmodels/rigidhulls/hb-lx-series/",
+    "type": "listing_page",
+    "category": "Rigid Hulls"
+  },
+  {
+    "id": "hb-dx-series",
+    "name": "HB-DX Series",
+    "url": "https://achillesboats.com/boatmodels/rigidhulls/hb-dx-series/",
+    "type": "listing_page",
+    "category": "Rigid Hulls"
+  },
+  {
+    "id": "frb-series",
+    "name": "FRB Series",
+    "url": "https://achillesboats.com/boatmodels/sportutility/frb-series/",
+    "type": "listing_page",
+    "category": "Sport Utility"
+  },
+  {
+    "id": "sgx-series",
+    "name": "SGX Series",
+    "url": "https://achillesboats.com/boatmodels/sportutility/sgx-series/",
+    "type": "listing_page",
+    "category": "Sport Utility"
+  },
+  {
+    "id": "sg-series",
+    "name": "SG Series",
+    "url": "https://achillesboats.com/boatmodels/sportutility/sg-series/",
+    "type": "listing_page",
+    "category": "Sport Utility"
+  },
+  {
+    "id": "su-series",
+    "name": "SU Series",
+    "url": "https://achillesboats.com/boatmodels/sportutility/su-series/",
+    "type": "listing_page",
+    "category": "Sport Utility"
+  },
+  {
+    "id": "ksb-series",
+    "name": "KSB Series",
+    "url": "https://achillesboats.com/boatmodels/river/ksb-series/",
+    "type": "listing_page",
+    "category": "River Boats"
+  },
+  {
+    "id": "rv-series",
+    "name": "RV Series",
+    "url": "https://achillesboats.com/boatmodels/river/rv-series/",
+    "type": "listing_page",
+    "category": "River Boats"
+  },
+  {
+    "id": "rv-sb-series",
+    "name": "RV-SB Series",
+    "url": "https://achillesboats.com/boatmodels/river/rv-sb-series/",
+    "type": "listing_page",
+    "category": "River Boats"
+  },
+  {
+    "id": "rv-sb-3t-series",
+    "name": "RV-SB-3T Series",
+    "url": "https://achillesboats.com/boatmodels/river/rv-sb-3t-series/",
+    "type": "listing_page",
+    "category": "River Boats"
+  },
+  {
+    "id": "fr-series",
+    "name": "FR Series",
+    "url": "https://achillesboats.com/boatmodels/river/fr-series/",
+    "type": "listing_page",
+    "category": "River Boats"
   }
 ]
