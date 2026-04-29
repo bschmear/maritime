@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Str;
 
 class AssetVariant extends Model
 {
@@ -25,6 +26,7 @@ class AssetVariant extends Model
         'default_price',
         'description',
         'inactive',
+        'public_uuid',
     ];
 
     protected $casts = [
@@ -70,6 +72,12 @@ class AssetVariant extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (AssetVariant $variant): void {
+            if (! is_string($variant->public_uuid) || trim($variant->public_uuid) === '') {
+                $variant->public_uuid = (string) Str::uuid();
+            }
+        });
+
         static::saving(function (AssetVariant $variant): void {
             $parts = array_filter([
                 $variant->name,

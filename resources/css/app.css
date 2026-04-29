@@ -384,8 +384,18 @@ td.sticky {
     #delivery-print-internal,
     #delivery-print-internal *,
     #delivery-checklist-print-root,
-    #delivery-checklist-print-root * {
+    #delivery-checklist-print-root *,
+    #spec-sheet-print-root,
+    #spec-sheet-print-root * {
         visibility: visible;
+    }
+
+    #spec-sheet-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     /* Force a page break between delivery document and checklist when both are present */

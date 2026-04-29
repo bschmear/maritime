@@ -39,11 +39,18 @@ const navItems = ref([
     { name: 'Invoices', href: 'portal.invoices', icon: 'receipt_long' },
     { name: 'Service Tickets', href: 'portal.servicetickets', icon: 'build_circle' },
     { name: 'Documents', href: 'portal.documents', icon: 'folder_open' },
+    { name: 'Specification sheets', href: 'portal.specSheets.index', icon: 'description' },
 ]);
 
 const isActive = (href) => {
     try {
-        return route().current(href) || route().current(href + '.*');
+        if (route().current(href) || route().current(href + '.*')) {
+            return true;
+        }
+        if (href === 'portal.specSheets.index' && route().current('portal.specSheet.show')) {
+            return true;
+        }
+        return false;
     } catch {
         return false;
     }

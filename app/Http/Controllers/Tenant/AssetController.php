@@ -9,14 +9,23 @@ use App\Domain\Asset\Models\Asset as RecordModel;
 use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
+use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Domain\Communication\Actions\CreateCommunication;
+use App\Domain\Customer\Models\Customer;
+use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
+use App\Enums\Communication\CommunicationType;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
+use App\Mail\CustomerAssetSpecSheetShareMail;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class AssetController extends RecordController
 {
@@ -88,6 +97,153 @@ class AssetController extends RecordController
             'account' => $account,
             'timezones' => Timezone::options(),
             'createAvailableSpecs' => $createAvailableSpecs,
+        ]);
+    }
+
+    protected function showPageExtraProps($record): array
+    {
+        $shares = CustomerAssetSpecSheetShare::query()
+            ->where('asset_id', $record->id)
+            ->with([
+                'customerProfile.contact:id,display_name,first_name,last_name',
+                'assetVariant:id,display_name,name,public_uuid',
+                'sentBy:id,display_name,first_name,last_name',
+            ])
+            ->latest('sent_at')
+            ->limit(100)
+            ->get();
+
+        return [
+            'specSheetShares' => $shares->map(function (CustomerAssetSpecSheetShare $s) {
+                return [
+                    'id' => $s->id,
+                    'uuid' => $s->uuid,
+                    'sent_at' => $s->sent_at?->toISOString(),
+                    'customer_display_name' => $s->customerProfile?->display_name,
+                    'variant_label' => $s->asset_variant_id
+                        ? ($s->assetVariant?->display_name ?: $s->assetVariant?->name ?? 'Variant #'.$s->asset_variant_id)
+                        : 'Asset (base specs)',
+                    'sent_by_name' => $s->sentBy !== null
+                        ? ($s->sentBy->display_name ?: $s->sentBy->full_name)
+                        : null,
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    public function specSheetSendOptions(Request $request, RecordModel $asset): JsonResponse
+    {
+        $variants = collect();
+        if ($asset->has_variants) {
+            $variants = AssetVariant::query()
+                ->where('asset_id', $asset->id)
+                ->where(function ($q) {
+                    $q->whereNull('inactive')->orWhere('inactive', false);
+                })
+                ->orderByRaw('LOWER(COALESCE(display_name, \'\')) ASC')
+                ->get(['id', 'display_name', 'name']);
+        }
+
+        return response()->json([
+            'has_variants' => (bool) $asset->has_variants,
+            'variants' => $variants->map(fn (AssetVariant $v) => [
+                'id' => $v->id,
+                'label' => $v->display_name ?: $v->name ?: 'Variant #'.$v->id,
+            ])->values()->all(),
+        ]);
+    }
+
+    public function sendSpecSheetsToCustomer(Request $request, RecordModel $asset): JsonResponse
+    {
+        $validated = $request->validate([
+            'customer_profile_id' => ['required', 'integer', 'exists:customer_profiles,id'],
+            'variant_ids' => ['nullable', 'array'],
+            'variant_ids.*' => ['integer', 'exists:asset_variants,id'],
+            'include_asset_level' => ['sometimes', 'boolean'],
+        ]);
+
+        $customer = Customer::query()->findOrFail((int) $validated['customer_profile_id']);
+
+        $targets = [];
+        if (! $asset->has_variants) {
+            $targets[] = null;
+        } else {
+            if ($request->boolean('include_asset_level')) {
+                $targets[] = null;
+            }
+            foreach ($validated['variant_ids'] ?? [] as $vid) {
+                $vid = (int) $vid;
+                $ok = AssetVariant::query()
+                    ->where('asset_id', $asset->id)
+                    ->whereKey($vid)
+                    ->exists();
+                if ($ok) {
+                    $targets[] = $vid;
+                }
+            }
+            $targets = array_values(array_unique($targets));
+
+            if ($targets === []) {
+                return response()->json([
+                    'message' => 'Select at least one variant, or include base asset specifications.',
+                ], 422);
+            }
+        }
+
+        $account = \App\Models\AccountSettings::getCurrent();
+        $userId = $request->user()?->id;
+
+        $shares = [];
+        foreach ($targets as $variantId) {
+            $shares[] = CustomerAssetSpecSheetShare::query()->create([
+                'customer_profile_id' => $customer->id,
+                'asset_id' => $asset->id,
+                'asset_variant_id' => $variantId,
+                'sent_at' => now(),
+                'sent_by_user_id' => $userId,
+            ]);
+        }
+
+        $links = [];
+        foreach ($shares as $share) {
+            $variant = $share->asset_variant_id
+                ? AssetVariant::query()->find($share->asset_variant_id)
+                : null;
+            $label = $variant
+                ? ($asset->display_name.' — '.($variant->display_name ?: $variant->name ?: 'Variant'))
+                : ($asset->display_name ?? 'Asset');
+
+            $links[] = [
+                'label' => $label,
+                'url' => route('portal.specSheet.show', ['uuid' => $share->uuid]),
+            ];
+        }
+
+        $toEmail = $customer->email;
+        if (is_string($toEmail) && trim($toEmail) !== '') {
+            Mail::to($toEmail)->send(new CustomerAssetSpecSheetShareMail($customer, $account, $links));
+        }
+
+        $contactId = $customer->contact_id;
+        if ($contactId && $userId) {
+            try {
+                app(CreateCommunication::class)([
+                    'communicable_type' => 'Contact',
+                    'communicable_id' => (int) $contactId,
+                    'user_id' => $userId,
+                    'communication_type_id' => CommunicationType::Email->id(),
+                    'direction' => 'outbound',
+                    'subject' => 'Specification sheet'.(count($links) > 1 ? 's' : '').' sent — '.($asset->display_name ?? 'Asset'),
+                    'notes' => 'Emailed specification sheet link(s) for '.($asset->display_name ?? 'asset').'.',
+                ]);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return response()->json([
+            'message' => 'Specification sheet link(s) sent.',
+            'share_ids' => array_map(fn (CustomerAssetSpecSheetShare $s) => $s->id, $shares),
         ]);
     }
 
@@ -232,16 +388,20 @@ class AssetController extends RecordController
         ]);
     }
 
-    public function variantsShow(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse
+    public function variantsShow(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse|Response
     {
         $this->ensureVariantBelongsToAsset($asset, $variant);
 
-        if ($request->ajax() || $request->wantsJson()) {
-            $variant->load([
-                'asset' => fn ($q) => $q->select(['id', 'display_name', 'type', 'has_variants', 'description']),
-                'specValues.definition',
-            ]);
+        $jsonApi = ! $request->header('X-Inertia')
+            && ($request->wantsJson() || $request->ajax());
 
+        $variant->load([
+            'asset' => fn ($q) => $q->select(['id', 'display_name', 'type', 'has_variants', 'description', 'year', 'make_id'])
+                ->with(['make:id,display_name']),
+            'specValues.definition',
+        ]);
+
+        if ($jsonApi) {
             return response()->json([
                 'record' => array_merge($variant->toArray(), [
                     'resolved_description' => $variant->resolvedDescription(),
@@ -249,7 +409,22 @@ class AssetController extends RecordController
             ]);
         }
 
-        abort(404);
+        $account = \App\Models\AccountSettings::getCurrent();
+        $asset->loadMissing('make');
+
+        return Inertia::render('Tenant/Asset/VariantShow', [
+            'asset' => [
+                'id' => $asset->id,
+                'display_name' => $asset->display_name,
+                'year' => $asset->year,
+                'make_display_name' => $asset->make?->display_name,
+            ],
+            'variant' => array_merge($variant->toArray(), [
+                'resolved_description' => $variant->resolvedDescription(),
+            ]),
+            'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
+            'account' => $account,
+        ]);
     }
 
     public function variantsStore(Request $request, RecordModel $asset): JsonResponse

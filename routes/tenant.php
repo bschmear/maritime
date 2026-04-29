@@ -423,6 +423,8 @@ Route::middleware([
 
         Route::prefix('assets')->name('assets.')->group(function () {
             Route::get('units', [AssetUnitController::class, 'index'])->name('units.global-index');
+            Route::get('/{asset}/spec-sheets/send-options', [AssetController::class, 'specSheetSendOptions'])->name('spec-sheets.send-options');
+            Route::post('/{asset}/spec-sheets/send', [AssetController::class, 'sendSpecSheetsToCustomer'])->name('spec-sheets.send');
             Route::get('/{asset}/units', [AssetController::class, 'unitsIndex'])->name('units.index');
             Route::get('/{asset}/variants/select-form', [AssetController::class, 'variantsSelectForm'])->name('variants.select-form');
             Route::get('/{asset}/variants', [AssetController::class, 'variantsIndex'])->name('variants.index');

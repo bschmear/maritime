@@ -614,6 +614,12 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                     >
                                                                         Actions
                                                                     </th>
+                                                                    <th
+                                                                        v-else-if="record?.id && hasVariants"
+                                                                        class="w-44 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                                                                    >
+                                                                        View
+                                                                    </th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
@@ -670,6 +676,25 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                             >
                                                                                 <span class="material-icons text-base">delete</span>
                                                                             </button>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td
+                                                                        v-else-if="record?.id && hasVariants && variant.id"
+                                                                        class="px-4 py-3 text-right"
+                                                                    >
+                                                                        <div class="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-3">
+                                                                            <Link
+                                                                                :href="route('assets.variants.show', { asset: record.id, variant: variant.id })"
+                                                                                class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                                                            >
+                                                                                Details
+                                                                            </Link>
+                                                                            <Link
+                                                                                :href="`${route('assets.variants.show', { asset: record.id, variant: variant.id })}#specifications`"
+                                                                                class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                                                            >
+                                                                                Specs
+                                                                            </Link>
                                                                         </div>
                                                                     </td>
                                                                 </tr>

@@ -18,16 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             //     return;
             // }
 
-            // Tenant subdomain (6-digit)
+            // Tenant subdomain (6-digit): CRM + portal routes register together so named routes
+            // like portal.* resolve when rendering emails/links from the tenant app.
             if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
-                $path = request()->path();
-
-                // Portal routes (customer-facing) get their own isolated route file
-                if ($path === 'portal' || str_starts_with($path, 'portal/')) {
-                    require base_path('routes/portal.php');
-                } else {
-                    require base_path('routes/tenant.php');
-                }
+                require base_path('routes/portal.php');
+                require base_path('routes/tenant.php');
 
                 return;
             }

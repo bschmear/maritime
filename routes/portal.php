@@ -43,6 +43,8 @@ Route::middleware([
         Route::get('/invoices/{invoice}', [CustomerPortalController::class, 'invoiceShow'])->name('invoices.show');
         Route::get('/service-tickets', [CustomerPortalController::class, 'serviceTickets'])->name('servicetickets');
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');
+        Route::get('/spec-sheets', [CustomerPortalController::class, 'specSheets'])->name('specSheets.index');
+        Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
 });

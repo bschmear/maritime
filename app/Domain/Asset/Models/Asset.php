@@ -6,6 +6,7 @@ use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
@@ -82,6 +83,11 @@ class Asset extends Model
     public function variants()
     {
         return $this->hasMany(AssetVariant::class);
+    }
+
+    public function customerAssetSpecSheetShares(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CustomerAssetSpecSheetShare::class, 'asset_id');
     }
 
     public function hasVariants(): bool

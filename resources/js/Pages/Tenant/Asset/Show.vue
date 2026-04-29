@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
+import AssetSpecSheetSendModal from '@/Components/Tenant/AssetSpecSheetSendModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -57,7 +58,13 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    specSheetShares: {
+        type: Array,
+        default: () => [],
+    },
 });
+
+const showSendSpecModal = ref(false);
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -122,6 +129,10 @@ const confirmDelete = () => {
 const cancelDelete = () => {
     showDeleteModal.value = false;
 };
+
+const onSpecSheetsSent = () => {
+    router.reload({ only: ['specSheetShares'] });
+};
 </script>
 
 <template>
@@ -163,6 +174,14 @@ const cancelDelete = () => {
                                 Back
                             </button>
                         </Link>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            @click="showSendSpecModal = true"
+                        >
+                            <span class="material-icons text-base">forward_to_inbox</span>
+                            Send specification sheets
+                        </button>
                         <Link
                             :href="route(
                                 `${recordType}.edit`,
@@ -208,6 +227,52 @@ const cancelDelete = () => {
                 :form-id="`form-${recordType}-${record.id}`"
             />
 
+            <div
+                v-if="specSheetShares?.length"
+                class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900/40 overflow-hidden"
+            >
+                <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                        Specification sheets shared
+                    </h3>
+                    <button
+                        type="button"
+                        class="text-sm font-medium text-primary-600 hover:text-primary-700"
+                        @click="showSendSpecModal = true"
+                    >
+                        Send again
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-800/80 text-left">
+                                <th class="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                    Customer
+                                </th>
+                                <th class="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                    Specification
+                                </th>
+                                <th class="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                    Sent
+                                </th>
+                                <th class="px-5 py-3 font-medium text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
+                                    By
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            <tr v-for="row in specSheetShares" :key="row.id" class="dark:text-gray-200">
+                                <td class="px-5 py-3">{{ row.customer_display_name || '—' }}</td>
+                                <td class="px-5 py-3">{{ row.variant_label }}</td>
+                                <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ row.sent_at || '—' }}</td>
+                                <td class="px-5 py-3 text-gray-600 dark:text-gray-400">{{ row.sent_by_name || '—' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <Sublist
                 v-if="visibleSublists.length > 0 && domainName"
                 :parent-record="record"
@@ -215,6 +280,13 @@ const cancelDelete = () => {
                 :sublists="visibleSublists"
             />
         </div>
+
+        <AssetSpecSheetSendModal
+            :show="showSendSpecModal"
+            :asset-id="record.id"
+            @close="showSendSpecModal = false"
+            @sent="onSpecSheetsSent"
+        />
 
         <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
             <div class="p-6 text-center">

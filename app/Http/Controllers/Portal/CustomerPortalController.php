@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
@@ -17,6 +19,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -57,6 +60,9 @@ class CustomerPortalController extends Controller
                     ->count(),
                 'serviceTickets' => $this->serviceTicketsForCustomer($customerId)->count(),
                 'documents' => $customerProfile ? $customerProfile->documents()->count() : 0,
+                'specSheets' => $customerProfile
+                    ? CustomerAssetSpecSheetShare::query()->where('customer_profile_id', $customerProfile->id)->count()
+                    : 0,
             ],
         ]);
     }
@@ -279,6 +285,108 @@ class CustomerPortalController extends Controller
         return Inertia::render('Portal/Documents', [
             'documents' => $documents,
         ]);
+    }
+
+    public function specSheets(Request $request): Response
+    {
+        ['customerProfile' => $customerProfile] = $this->portalContext();
+
+        abort_if($customerProfile === null, 403);
+
+        $shares = CustomerAssetSpecSheetShare::query()
+            ->where('customer_profile_id', $customerProfile->id)
+            ->with(['asset.make', 'assetVariant'])
+            ->latest('sent_at')
+            ->paginate(15);
+
+        return Inertia::render('Portal/SpecSheets', [
+            'shares' => $shares,
+        ]);
+    }
+
+    public function specSheetShow(Request $request, string $uuid): Response
+    {
+        ['customerProfile' => $customerProfile] = $this->portalContext();
+
+        abort_if($customerProfile === null, 403);
+
+        $share = CustomerAssetSpecSheetShare::query()
+            ->where('uuid', $uuid)
+            ->where('customer_profile_id', $customerProfile->id)
+            ->firstOrFail();
+
+        return Inertia::render('Portal/SpecSheetShow', $this->specSheetInertiaProps($share));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function specSheetInertiaProps(CustomerAssetSpecSheetShare $share): array
+    {
+        $share->load([
+            'asset.make',
+            'asset.images',
+            'asset.specValues.definition',
+            'assetVariant.specValues.definition',
+            'assetVariant.asset.make',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+        $asset = $share->asset;
+        abort_if($asset === null, 404);
+
+        $variant = $share->assetVariant;
+        $primaryImageUrl = $asset->images->sortByDesc('is_primary')->first()?->url;
+
+        if ($variant !== null) {
+            $headline = $asset->display_name ?? 'Asset';
+            $subhead = $variant->display_name ?: $variant->name ?: 'Variant';
+            $description = $variant->resolvedDescription();
+            $specRows = SpecValueDisplayFormatter::labeledRowsFromVariant($variant);
+        } else {
+            $headline = $asset->display_name ?? 'Asset';
+            $subhead = null;
+            $description = $asset->description;
+            $specRows = SpecValueDisplayFormatter::labeledRowsFromAsset($asset);
+        }
+
+        $contact = Auth::guard('customer')->user();
+        $subsidiary = null;
+        if ($contact !== null) {
+            $contact->loadMissing('customer.subsidiary');
+            $subsidiary = $contact->customer?->subsidiary;
+        }
+
+        $settings = is_array($account->settings) ? $account->settings : [];
+        $businessName = trim((string) ($settings['business_name'] ?? ''));
+
+        $dealerHeader = [
+            'display_name' => $subsidiary?->display_name ?: ($businessName !== '' ? $businessName : ($account->name ?? 'Dealer')),
+            'logo_url' => $subsidiary?->logo_url ?? $account->logo_url,
+            'address_line1' => $subsidiary?->address_line_1,
+            'address_line2' => $subsidiary?->address_line_2,
+            'city' => $subsidiary?->city,
+            'state' => $subsidiary?->state,
+            'postal_code' => $subsidiary?->postal_code,
+            'phone' => $subsidiary?->phone,
+            'email' => $subsidiary?->email,
+        ];
+
+        return [
+            'shareUuid' => $share->uuid,
+            'documentRef' => strtoupper(Str::substr((string) $share->uuid, 0, 8)),
+            'headline' => $headline,
+            'subhead' => $subhead,
+            'description' => $description,
+            'makeName' => $asset->make?->display_name,
+            'year' => $asset->year,
+            'specRows' => $specRows,
+            'primaryImageUrl' => $primaryImageUrl,
+            'account' => $account,
+            'logoUrl' => $account->logo_url ?? null,
+            'dealerHeader' => $dealerHeader,
+            'sentAt' => $share->sent_at?->toISOString(),
+        ];
     }
 
     /**

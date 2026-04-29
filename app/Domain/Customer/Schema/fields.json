@@ -113,7 +113,7 @@
     "label": "Currency",
     "type": "select",
     "enum": "App\\Enums\\Payments\\Currency",
-    "default": 1
+    "default": "USD"
   },
   "credit_limit": {
     "label": "Credit Limit",

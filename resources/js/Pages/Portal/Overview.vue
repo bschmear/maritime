@@ -36,6 +36,7 @@ const statCards = [
     { label: 'Invoices', key: 'invoices', icon: 'receipt_long', color: 'secondary', route: 'portal.invoices' },
     { label: 'Service Tickets', key: 'serviceTickets', icon: 'build_circle', color: 'primary', route: 'portal.servicetickets' },
     { label: 'Documents', key: 'documents', icon: 'folder_open', color: 'secondary', route: 'portal.documents' },
+    { label: 'Specification sheets', key: 'specSheets', icon: 'description', color: 'primary', route: 'portal.specSheets.index' },
 ];
 </script>
 
@@ -52,7 +53,7 @@ const statCards = [
         </div>
 
         <!-- Stat Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
             <Link
                 v-for="card in statCards"
                 :key="card.key"
