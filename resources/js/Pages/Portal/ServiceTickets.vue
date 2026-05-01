@@ -1,10 +1,41 @@
 <script setup>
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     serviceTickets: Object,
+    serviceTicketStatusOptions: { type: Array, default: () => [] },
 });
+
+const statusOption = (raw) => {
+    if (raw == null || raw === '') {
+        return null;
+    }
+    return props.serviceTicketStatusOptions.find(
+        (o) => o.id === raw || o.value === raw || String(o.id) === String(raw),
+    );
+};
+
+const statusLabel = (raw) => statusOption(raw)?.name ?? '—';
+
+const statusBadgeClass = (raw) => {
+    const color = statusOption(raw)?.color || 'gray';
+    const map = {
+        green: 'bg-green-50 text-green-700',
+        blue: 'bg-blue-50 text-blue-700',
+        yellow: 'bg-yellow-50 text-yellow-700',
+        slate: 'bg-slate-100 text-slate-700',
+        red: 'bg-red-50 text-red-700',
+        gray: 'bg-gray-100 text-gray-700',
+    };
+    return `text-xs font-medium px-2 py-1 rounded-full ${map[color] || map.gray}`;
+};
+
+const openPrintReview = (uuid) => {
+    const u = new URL(route('service-tickets.review', uuid), window.location.origin);
+    u.searchParams.set('autoprint', '1');
+    window.open(u.toString(), '_blank', 'noopener,noreferrer');
+};
 </script>
 
 <template>
@@ -23,27 +54,46 @@ defineProps({
                         <tr class="bg-gray-50 text-left">
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Title</th>
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                            <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Priority</th>
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Date</th>
+                            <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50">
                         <tr v-for="ticket in serviceTickets.data" :key="ticket.id" class="hover:bg-gray-50 transition-colors">
-                            <td class="px-5 py-3 font-medium text-gray-900">{{ ticket.title || `Ticket #${ticket.id}` }}</td>
-                            <td class="px-5 py-3">
-                                <span
-                                    class="text-xs font-medium px-2 py-1 rounded-full"
-                                    :class="{
-                                        'bg-green-50 text-green-700': ticket.status === 'closed' || ticket.status === 'completed',
-                                        'bg-yellow-50 text-yellow-700': ticket.status === 'in_progress',
-                                        'bg-secondary-50 text-secondary-700': !ticket.status || ticket.status === 'open',
-                                    }"
+                            <td class="px-5 py-3 font-medium text-gray-900">
+                                <Link
+                                    v-if="ticket.uuid"
+                                    :href="route('portal.servicetickets.show', ticket.uuid)"
+                                    class="text-primary-600 hover:text-primary-700 hover:underline"
                                 >
-                                    {{ ticket.status || 'Open' }}
+                                    {{ ticket.title || `Ticket #${ticket.id}` }}
+                                </Link>
+                                <span v-else>{{ ticket.title || `Ticket #${ticket.id}` }}</span>
+                            </td>
+                            <td class="px-5 py-3">
+                                <span :class="statusBadgeClass(ticket.status)">
+                                    {{ statusLabel(ticket.status) }}
                                 </span>
                             </td>
-                            <td class="px-5 py-3 text-gray-500 capitalize">{{ ticket.priority || '-' }}</td>
                             <td class="px-5 py-3 text-gray-500">{{ ticket.created_at }}</td>
+                            <td class="px-5 py-3 text-right whitespace-nowrap">
+                                <template v-if="ticket.uuid">
+                                    <Link
+                                        :href="route('portal.servicetickets.show', ticket.uuid)"
+                                        class="text-xs font-medium text-primary-600 hover:text-primary-700"
+                                    >
+                                        View
+                                    </Link>
+                                    <span class="mx-2 text-gray-300">|</span>
+                                    <button
+                                        type="button"
+                                        class="text-xs font-medium text-gray-600 hover:text-gray-900"
+                                        @click="openPrintReview(ticket.uuid)"
+                                    >
+                                        Print
+                                    </button>
+                                </template>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

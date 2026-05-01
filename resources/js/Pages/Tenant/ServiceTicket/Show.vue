@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
 import ServiceTicketPreview from '@/Components/Tenant/ServiceTicketPreview.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -94,6 +95,27 @@ const showPreview = ref(false);
 
 // Dropdown menu state
 const showActionsMenu = ref(false);
+
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 
 // Status options from enum
 const statusOptions = computed(() => {
@@ -388,6 +410,18 @@ const linkedTransaction = computed(() => {
                 :account="account"
                 :timezones="timezones"
                 mode="show"
+            />
+        </div>
+
+        <div
+            v-if="visibleSublists.length > 0 && formSchema"
+            class="w-full space-y-4 md:space-y-6"
+        >
+            <Sublist
+                :key="`service-ticket-sublist-${record?.id || 'new'}`"
+                :parent-record="record"
+                parent-domain="ServiceTicket"
+                :sublists="visibleSublists"
             />
         </div>
 

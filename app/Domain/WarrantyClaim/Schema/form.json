@@ -24,5 +24,12 @@
         { "key": "voided_at", "required": false }
       ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Images",
+      "domain": "InventoryImage",
+      "modelRelationship": "images"
+    }
+  ]
 }

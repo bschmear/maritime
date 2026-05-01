@@ -108,6 +108,7 @@ class PublicController extends Controller
                     }]);
                 },
                 'serviceItems' => fn ($q) => $q->where('inactive', false)->orderBy('sort_order')->orderBy('id'),
+                'images' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
             ])
             ->firstOrFail();
 
@@ -131,6 +132,13 @@ class PublicController extends Controller
             'billable' => $li->billable,
             'warranty' => $li->warranty,
             'billing_type' => $li->billing_type,
+        ])->values()->all();
+
+        $recordArray['images'] = $ticket->images->map(fn ($img) => [
+            'id' => $img->id,
+            'display_name' => $img->display_name,
+            'url' => $img->url,
+            'is_primary' => (bool) $img->is_primary,
         ])->values()->all();
 
         $enumOptions = [

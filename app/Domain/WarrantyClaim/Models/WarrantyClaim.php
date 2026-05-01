@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\WarrantyClaim\Models;
 
+use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\WarrantyClaim\Status;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class WarrantyClaim extends Model
 {
@@ -51,5 +53,10 @@ class WarrantyClaim extends Model
     public function lineItems(): HasMany
     {
         return $this->hasMany(WarrantyClaimLineItem::class)->orderBy('id');
+    }
+
+    public function images(): MorphMany
+    {
+        return $this->morphMany(InventoryImage::class, 'imageable');
     }
 }

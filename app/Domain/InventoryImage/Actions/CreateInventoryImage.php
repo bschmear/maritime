@@ -1,12 +1,14 @@
 <?php
+
 namespace App\Domain\InventoryImage\Actions;
 
-use App\Domain\InventoryImage\Models\InventoryImage as RecordModel;
 use App\Actions\PublicStorage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
+use App\Domain\InventoryImage\Models\InventoryImage as RecordModel;
+use App\Domain\InventoryImage\Support\InventoryImageStorageDirectory;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class CreateInventoryImage
@@ -15,7 +17,7 @@ class CreateInventoryImage
 
     public function __construct()
     {
-        $this->publicStorage = new PublicStorage();
+        $this->publicStorage = new PublicStorage;
     }
 
     public function __invoke(array $data): array
@@ -35,9 +37,10 @@ class CreateInventoryImage
             // Handle file upload
             if (isset($validated['file']) && $validated['file'] instanceof UploadedFile) {
                 $uploadedFile = $validated['file'];
+                $directory = InventoryImageStorageDirectory::forType($validated['imageable_type']);
                 $uploadResult = $this->publicStorage->store(
                     $uploadedFile,
-                    'inventory/images',
+                    $directory,
                     2000, // max width
                     null,
                     false, // don't crop
@@ -52,12 +55,18 @@ class CreateInventoryImage
             }
 
             // Set sort_order default if not provided
-            if (!isset($validated['sort_order'])) {
+            if (! isset($validated['sort_order'])) {
                 $validated['sort_order'] = 0;
             }
 
-            // Set is_primary default if not provided
-            if (!isset($validated['is_primary'])) {
+            $hasExisting = RecordModel::query()
+                ->where('imageable_type', $validated['imageable_type'])
+                ->where('imageable_id', $validated['imageable_id'])
+                ->exists();
+
+            if (! $hasExisting) {
+                $validated['is_primary'] = true;
+            } elseif (! isset($validated['is_primary'])) {
                 $validated['is_primary'] = false;
             }
 
@@ -74,8 +83,9 @@ class CreateInventoryImage
         } catch (QueryException $e) {
             Log::error('Database query error in CreateInventoryImage', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -84,8 +94,9 @@ class CreateInventoryImage
         } catch (Throwable $e) {
             Log::error('Unexpected error in CreateInventoryImage', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

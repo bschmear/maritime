@@ -42,6 +42,7 @@ Route::middleware([
         Route::get('/invoices', [CustomerPortalController::class, 'invoices'])->name('invoices');
         Route::get('/invoices/{invoice}', [CustomerPortalController::class, 'invoiceShow'])->name('invoices.show');
         Route::get('/service-tickets', [CustomerPortalController::class, 'serviceTickets'])->name('servicetickets');
+        Route::get('/service-tickets/{uuid}', [CustomerPortalController::class, 'serviceTicketShow'])->name('servicetickets.show');
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');
         Route::get('/spec-sheets', [CustomerPortalController::class, 'specSheets'])->name('specSheets.index');
         Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');

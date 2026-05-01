@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -25,6 +26,27 @@ const claimLabel = computed(() => {
 
 const indexHref = computed(() => route(`${props.recordType}.index`));
 const editHref = computed(() => route(`${props.recordType}.edit`, props.record.id));
+
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -165,6 +187,18 @@ const confirmDelete = () => {
                     </table>
                 </div>
             </div>
+        </div>
+
+        <div
+            v-if="visibleSublists.length > 0 && formSchema"
+            class="mx-auto w-full max-w-6xl space-y-6 px-4 sm:px-0"
+        >
+            <Sublist
+                :key="`warranty-claim-sublist-${record?.id || 'new'}`"
+                :parent-record="record"
+                parent-domain="WarrantyClaim"
+                :sublists="visibleSublists"
+            />
         </div>
 
         <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">

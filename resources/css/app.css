@@ -386,8 +386,36 @@ td.sticky {
     #delivery-checklist-print-root,
     #delivery-checklist-print-root *,
     #spec-sheet-print-root,
-    #spec-sheet-print-root * {
+    #spec-sheet-print-root *,
+    #portal-service-ticket-print,
+    #portal-service-ticket-print * {
         visibility: visible;
+    }
+
+    /* Customer portal service ticket — same visibility whitelist as #service-ticket-print-root */
+    #portal-service-ticket-print {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body:has(#portal-service-ticket-print) aside {
+        display: none !important;
+    }
+
+    body:has(#portal-service-ticket-print) header {
+        display: none !important;
+    }
+
+    body:has(#portal-service-ticket-print) div.flex-1.ml-0 {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+
+    body:has(#portal-service-ticket-print) main {
+        padding: 0 !important;
     }
 
     #spec-sheet-print-root {

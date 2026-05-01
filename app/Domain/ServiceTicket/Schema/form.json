@@ -155,6 +155,11 @@
     {
       "label": "Revisions",
       "domain": "ServiceTicketRevision"
+    },
+    {
+      "label": "Images",
+      "domain": "InventoryImage",
+      "modelRelationship": "images"
     }
   ]
 }

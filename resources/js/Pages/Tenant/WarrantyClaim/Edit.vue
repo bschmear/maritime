@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import WarrantyClaimForm from '@/Components/Tenant/WarrantyClaimForm.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -34,6 +35,27 @@ const breadcrumbItems = computed(() => [
 const handleCancel = () => {
     router.visit(route('warrantyclaims.show', props.record.id));
 };
+
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 </script>
 
 <template>
@@ -57,5 +79,16 @@ const handleCancel = () => {
             :enum-options="enumOptions"
             @cancel="handleCancel"
         />
+        <div
+            v-if="visibleSublists.length > 0 && formSchema"
+            class="mx-auto mt-8 w-full max-w-6xl"
+        >
+            <Sublist
+                :key="`warranty-claim-edit-sublist-${record?.id || 'new'}`"
+                :parent-record="record"
+                parent-domain="WarrantyClaim"
+                :sublists="visibleSublists"
+            />
+        </div>
     </TenantLayout>
 </template>

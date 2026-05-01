@@ -2,16 +2,19 @@
 
 namespace App\Domain\ServiceTicket\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceTicket extends Model
 {
     use SoftDeletes;
+
     protected $table = 'service_tickets';
 
     protected $guarded = ['id'];
@@ -73,7 +76,7 @@ class ServiceTicket extends Model
             $nextNumber = 1000;
         }
 
-        return 'ST-' . $nextNumber;
+        return 'ST-'.$nextNumber;
     }
 
     /*
@@ -127,6 +130,11 @@ class ServiceTicket extends Model
         return $this->hasMany(\App\Domain\ServiceTicketRevision\Models\ServiceTicketRevision::class);
     }
 
+    public function images(): MorphMany
+    {
+        return $this->morphMany(InventoryImage::class, 'imageable');
+    }
+
     public function workOrders(): HasMany
     {
         return $this->hasMany(\App\Domain\WorkOrder\Models\WorkOrder::class);
@@ -140,13 +148,13 @@ class ServiceTicket extends Model
 
     public function getSignatureUrlAttribute(): ?string
     {
-        if (!$this->signature_file) {
+        if (! $this->signature_file) {
             return null;
         }
 
         $cdnUrl = config('filesystems.disks.s3.cdn_url');
         if ($cdnUrl) {
-            return rtrim($cdnUrl, '/') . '/' . $this->signature_file;
+            return rtrim($cdnUrl, '/').'/'.$this->signature_file;
         }
 
         return Storage::disk('s3')->temporaryUrl(

@@ -15,6 +15,8 @@ use App\Domain\User\Models\User;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Terms;
+use App\Enums\ServiceItem\BillingType;
+use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
@@ -270,6 +272,70 @@ class CustomerPortalController extends Controller
 
         return Inertia::render('Portal/ServiceTickets', [
             'serviceTickets' => $serviceTickets,
+            'serviceTicketStatusOptions' => ServiceTicketStatus::options(),
+        ]);
+    }
+
+    public function serviceTicketShow(Request $request, string $uuid): Response
+    {
+        ['customerId' => $customerId] = $this->portalContext();
+        abort_if($customerId === null, 403);
+
+        $ticket = ServiceTicket::query()
+            ->where('uuid', $uuid)
+            ->where('customer_id', $customerId)
+            ->with([
+                'customer',
+                'subsidiary',
+                'location',
+                'assetUnit' => function ($query) {
+                    $query->with(['asset' => function ($q) {
+                        $q->select(['id', 'display_name', 'year', 'make_id'])
+                            ->with(['make' => function ($mq) {
+                                $mq->select(['id', 'display_name']);
+                            }]);
+                    }]);
+                },
+                'serviceItems' => fn ($q) => $q->where('inactive', false)->orderBy('sort_order')->orderBy('id'),
+                'images' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+            ])
+            ->firstOrFail();
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $account->logo_url ?? null;
+
+        $recordArray = $ticket->toArray();
+        $recordArray['created_at'] = $ticket->created_at?->toISOString();
+        $recordArray['signed_at'] = $ticket->signed_at?->toISOString();
+        $recordArray['declined_at'] = $ticket->declined_at?->toISOString();
+        $recordArray['signature_url'] = $ticket->signature_url;
+
+        $recordArray['service_items'] = $ticket->serviceItems->map(fn ($li) => [
+            'id' => $li->id,
+            'display_name' => $li->display_name,
+            'description' => $li->description,
+            'quantity' => (float) $li->quantity,
+            'unit_price' => (float) $li->unit_price,
+            'estimated_hours' => (float) ($li->estimated_hours ?? 0),
+            'billable' => $li->billable,
+            'warranty' => $li->warranty,
+            'billing_type' => $li->billing_type,
+        ])->values()->all();
+
+        $recordArray['images'] = $ticket->images->map(fn ($img) => [
+            'id' => $img->id,
+            'display_name' => $img->display_name,
+            'url' => $img->url,
+            'is_primary' => (bool) $img->is_primary,
+        ])->values()->all();
+
+        return Inertia::render('Portal/ServiceTicketShow', [
+            'record' => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'enumOptions' => [
+                'billing_type' => BillingType::options(),
+            ],
         ]);
     }
 
@@ -307,12 +373,9 @@ class CustomerPortalController extends Controller
             ->latest('sent_at')
             ->paginate(15);
 
-        $account = AccountSettings::getCurrent();
-
         return Inertia::render('Portal/SpecSheets', [
             'shares' => $shares,
             'assignedUser' => $this->portalAssignedUserForCustomerProfile($customerProfile),
-            'timezone' => $account->timezone ?: (string) config('app.timezone', 'UTC'),
         ]);
     }
 

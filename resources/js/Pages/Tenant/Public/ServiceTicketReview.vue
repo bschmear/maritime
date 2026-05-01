@@ -108,6 +108,8 @@ const taxAmount = computed(() => {
 
 const grandTotal = computed(() => subtotal.value + taxAmount.value);
 
+const ticketImages = computed(() => props.record.images || []);
+
 const estimateVariance = computed(() => {
     const threshold = Number(props.account.estimate_threshold_percent) || 20;
     return (grandTotal.value * threshold) / 100;
@@ -161,6 +163,17 @@ const submitDecline = () => {
 
 const handlePrint = () => window.print();
 
+onMounted(() => {
+    try {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('autoprint') === '1') {
+            setTimeout(() => window.print(), 800);
+        }
+    } catch {
+        /* ignore */
+    }
+});
+
 const signaturePadOptions = {
     penColor: '#1a1a2e',
     minWidth: 1,
@@ -197,11 +210,21 @@ const signaturePadOptions = {
 
         <!-- ==================== REVIEW / APPROVED STATE ==================== -->
         <div v-else>
-            <div id="service-ticket-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+            <div id="service-ticket-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:mx-0 print:max-w-none">
+                <div v-if="!isDeclined" class="mb-4 flex justify-end print:hidden">
+                    <button
+                        type="button"
+                        @click="handlePrint"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                        <span class="material-icons text-base">print</span>
+                        Print
+                    </button>
+                </div>
                 <!-- Approved Banner (screen + print) -->
                 <div
                     v-if="isApproved"
-                    class="mb-4 bg-green-600 text-white rounded-t-lg px-6 py-4 flex items-center gap-4 print:rounded-none print:bg-white print:text-green-700 print:border-2 print:border-green-600 print:mb-0"
+                    class="mb-4 bg-green-600 text-white rounded-t-lg px-6 py-4 print:px-0 flex items-center gap-4 print:rounded-none print:bg-white print:text-green-700 print:border-2 print:border-green-600 print:mb-0"
                 >
                     <span class="material-icons text-3xl">check_circle</span>
                     <div class="flex-1">
@@ -215,7 +238,7 @@ const signaturePadOptions = {
                 <div class="bg-white shadow-lg print:shadow-none">
 
                     <!-- Company Header -->
-                    <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2">
+                    <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2">
                         <div class="flex items-start justify-between">
                             <div class="flex items-start gap-6">
                                 <div v-if="logoUrl" class="flex-shrink-0">
@@ -260,7 +283,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Customer & Asset Information -->
-                    <div class="px-8 py-6 bg-gray-50">
+                    <div class="px-8 print:px-0 py-6 bg-gray-50">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
@@ -314,15 +337,45 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Repair Description -->
-                    <div class="px-8 py-6 border-t border-gray-200">
+                    <div class="px-8 print:px-0 py-6 border-t border-gray-200">
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Repair Description</h2>
                         <div class="prose prose-sm max-w-none">
                             <p class="text-gray-900 whitespace-pre-line">{{ record.repair_description || '—' }}</p>
                         </div>
                     </div>
 
+                    <div
+                        v-if="ticketImages.length"
+                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                    >
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Photos</h2>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                            <a
+                                v-for="img in ticketImages"
+                                :key="img.id"
+                                :href="img.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100 print:border-gray-300"
+                            >
+                                <img
+                                    :src="img.url"
+                                    :alt="img.display_name || 'Service ticket photo'"
+                                    class="h-full w-full object-cover"
+                                    loading="lazy"
+                                />
+                                <span
+                                    v-if="img.is_primary"
+                                    class="absolute left-1 top-1 rounded bg-primary-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white print:hidden"
+                                >
+                                    Primary
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Service Items -->
-                    <div class="px-8 py-6 border-t border-gray-200">
+                    <div class="px-8 print:px-0 py-6 border-t border-gray-200">
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Service Items</h2>
 
                         <table class="w-full">
@@ -367,7 +420,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Estimate Variance Notice -->
-                    <div v-if="account.estimate_threshold_percent" class="px-8 pb-6">
+                    <div v-if="account.estimate_threshold_percent" class="px-8 print:px-0 pb-6">
                         <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div class="flex items-start gap-3">
                                 <span class="material-icons text-blue-600 text-xl flex-shrink-0">info</span>
@@ -383,7 +436,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Totals -->
-                    <div class="px-8 py-6 bg-gray-50 border-t border-gray-200">
+                    <div class="px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
                         <div class="flex justify-end">
                             <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
                                 <div class="flex justify-between text-sm">
@@ -405,7 +458,7 @@ const signaturePadOptions = {
                     <!-- ==================== SIGNATURE (APPROVED STATE) ==================== -->
                     <div
                         v-if="isApproved && (record.signature_url || (record.signature_method === 5 && record.customer_signature))"
-                        class="px-8 py-6 border-t border-gray-200"
+                        class="px-8 print:px-0 py-6 border-t border-gray-200"
                     >
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Signature</h2>
                         <div class="flex items-start gap-6 flex-wrap">
@@ -431,7 +484,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- ==================== AUTHORIZATION SECTION (REVIEW ONLY) ==================== -->
-                    <div v-if="canAct" class="px-8 py-8 border-t-2 border-gray-900 print:hidden">
+                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:hidden">
                         <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
                         <!-- Acknowledgement Text -->
@@ -630,23 +683,12 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-8 py-4 bg-gray-900 text-white text-center text-xs">
+                    <div class="px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
                         <p>Thank you for your business!</p>
                         <p v-if="record.location?.phone" class="mt-1">
                             Questions? Call us at {{ formatPhoneNumber(record.location.phone) }}
                         </p>
                     </div>
-                </div>
-
-                <!-- Print button (approved state, screen only) -->
-                <div v-if="isApproved" class="mt-6 flex justify-center print:hidden">
-                    <button
-                        @click="handlePrint"
-                        class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors shadow-sm"
-                    >
-                        <span class="material-icons text-sm">print</span>
-                        Print Copy
-                    </button>
                 </div>
             </div>
         </div>
@@ -661,6 +703,12 @@ const signaturePadOptions = {
 }
 
 @media print {
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     body {
         background: white !important;
         -webkit-print-color-adjust: exact;
@@ -682,7 +730,13 @@ const signaturePadOptions = {
     }
 
     @page {
-        margin: 0.5in;
+        margin: 0.35in 0.15in;
+    }
+
+    #service-ticket-print-root {
+        max-width: none !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
 }
 </style>

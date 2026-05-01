@@ -66,6 +66,7 @@ class WarrantyClaimController extends BaseController
         $relationships['vendor'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'sequence']);
         $relationships['lineItems'] = fn ($q) => $q->orderBy('id');
+        $relationships['images'] = fn ($q) => $q->orderBy('sort_order')->orderBy('id');
 
         return $relationships;
     }

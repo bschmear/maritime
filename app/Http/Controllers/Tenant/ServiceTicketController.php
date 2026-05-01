@@ -340,6 +340,17 @@ class ServiceTicketController extends BaseController
             $query->where('inactive', false)->orderBy('sort_order')->orderBy('id');
         };
 
+        $formSchema = $this->getFormSchema();
+        if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
+            foreach ($formSchema['sublists'] as $sublist) {
+                if (! empty($sublist['modelRelationship'])) {
+                    $relationships[$sublist['modelRelationship']] = function ($query) {
+                        $query->select('*');
+                    };
+                }
+            }
+        }
+
         $record = ServiceTicket::with($relationships)->findOrFail($id);
 
         $record->service_items = $record->serviceItems->map(fn ($li) => [

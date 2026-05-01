@@ -1,12 +1,14 @@
 <?php
+
 namespace App\Domain\InventoryImage\Actions;
 
-use App\Domain\InventoryImage\Models\InventoryImage as RecordModel;
 use App\Actions\PublicStorage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Log;
+use App\Domain\InventoryImage\Models\InventoryImage as RecordModel;
+use App\Domain\InventoryImage\Support\InventoryImageStorageDirectory;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class UpdateInventoryImage
@@ -15,7 +17,7 @@ class UpdateInventoryImage
 
     public function __construct()
     {
-        $this->publicStorage = new PublicStorage();
+        $this->publicStorage = new PublicStorage;
     }
 
     public function __invoke(int $id, array $data): array
@@ -46,9 +48,11 @@ class UpdateInventoryImage
             // Handle file upload if a new file is provided
             if (isset($validated['file']) && $validated['file'] instanceof UploadedFile) {
                 $uploadedFile = $validated['file'];
+                $imageableType = $validated['imageable_type'] ?? $record->imageable_type;
+                $directory = InventoryImageStorageDirectory::forType((string) $imageableType);
                 $uploadResult = $this->publicStorage->store(
                     $uploadedFile,
-                    'inventory/images',
+                    $directory,
                     2000, // max width
                     $record->file, // existing file to delete
                     false, // don't crop
@@ -75,8 +79,9 @@ class UpdateInventoryImage
             Log::error('Database query error in UpdateInventoryImage', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -86,8 +91,9 @@ class UpdateInventoryImage
             Log::error('Unexpected error in UpdateInventoryImage', [
                 'error' => $e->getMessage(),
                 'id' => $id,
-                'data' => $data
+                'data' => $data,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
