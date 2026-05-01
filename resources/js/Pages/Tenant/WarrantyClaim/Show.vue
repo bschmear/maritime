@@ -117,20 +117,7 @@ const confirmDelete = () => {
                         {{ record.vendor?.display_name ?? '—' }}
                     </dd>
                 </div>
-                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <dt class="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Invoice</dt>
-                    <dd class="mt-1 text-gray-900 dark:text-gray-100">
-                        <Link
-                            v-if="record.invoice_id"
-                            :href="route('invoices.show', record.invoice_id)"
-                            class="text-primary-600 hover:underline dark:text-primary-400"
-                        >
-                            {{ record.invoice?.display_name ?? `INV-${record.invoice?.sequence ?? record.invoice_id}` }}
-                        </Link>
-                        <span v-else>—</span>
-                    </dd>
-                </div>
-                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:col-span-2">
                     <dt class="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">Work order</dt>
                     <dd class="mt-1 text-gray-900 dark:text-gray-100">
                         <Link

@@ -3,7 +3,8 @@
     "label": "Manufacturer (vendor)",
     "type": "record",
     "typeDomain": "Vendor",
-    "nullable": true,
+    "nullable": false,
+    "required": true,
     "relationship": "vendor"
   },
   "work_order_id": {
@@ -12,13 +13,6 @@
     "typeDomain": "WorkOrder",
     "nullable": true,
     "relationship": "workOrder"
-  },
-  "invoice_id": {
-    "label": "Invoice",
-    "type": "record",
-    "typeDomain": "Invoice",
-    "nullable": true,
-    "relationship": "invoice"
   },
   "claim_number": {
     "label": "Claim #",

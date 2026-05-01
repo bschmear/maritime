@@ -27,6 +27,10 @@ enum RecordType: string
     case Notification = 'notification';
     case Survey = 'survey';
     case Payment = 'payment';
+    case Estimate = 'estimate';
+    case Contract = 'contract';
+    case Delivery = 'delivery';
+    case WarrantyClaim = 'warrantyclaim';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -57,6 +61,10 @@ enum RecordType: string
             self::Notification => 'Notification',
             self::Survey => 'Survey',
             self::Payment => 'Payment',
+            self::Estimate => 'Estimate',
+            self::Contract => 'Contract',
+            self::Delivery => 'Delivery',
+            self::WarrantyClaim => 'WarrantyClaim',
         };
     }
 
@@ -89,6 +97,10 @@ enum RecordType: string
             self::Notification => 'App\\Domain\\Notification',
             self::Survey => 'App\\Domain\\Survey',
             self::Payment => 'App\\Domain\\Payment',
+            self::Estimate => 'App\\Domain\\Estimate',
+            self::Contract => 'App\\Domain\\Contract',
+            self::Delivery => 'App\\Domain\\Delivery',
+            self::WarrantyClaim => 'App\\Domain\\WarrantyClaim',
         };
     }
 
@@ -121,6 +133,10 @@ enum RecordType: string
             self::Notification => 'Notification',
             self::Survey => 'Survey',
             self::Payment => 'Payment',
+            self::Estimate => 'Estimate',
+            self::Contract => 'Contract',
+            self::Delivery => 'Delivery',
+            self::WarrantyClaim => 'Warranty Claim',
         };
     }
 
@@ -153,6 +169,10 @@ enum RecordType: string
             self::Notification => 'notifications',
             self::Survey => 'surveys',
             self::Payment => 'payments',
+            self::Estimate => 'estimates',
+            self::Contract => 'contracts',
+            self::Delivery => 'deliveries',
+            self::WarrantyClaim => 'warrantyclaims',
         };
     }
 

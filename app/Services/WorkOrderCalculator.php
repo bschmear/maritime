@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrder\Support\SyncWorkOrderWarrantyFlags;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 
@@ -89,6 +90,8 @@ class WorkOrderCalculator
         $workOrder->estimated_tax = $subtotal * $taxRate;
 
         $workOrder->save();
+
+        app(SyncWorkOrderWarrantyFlags::class)($workOrder);
     }
 
     /**

@@ -4,7 +4,6 @@ namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Invoice\Support\InvoicePaymentFields;
-use App\Domain\WarrantyClaim\Support\AssertInvoiceManufacturerWarrantyClaimsAllowClose;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
@@ -106,15 +105,6 @@ class UpdateInvoice
             $validated['discount_total'] = round($discountTotal, 2);
             $validated['total'] = $total;
             $validated['amount_due'] = $amountDue;
-
-            $newStatus = (string) $validated['status'];
-            $oldStatus = (string) $record->status;
-            if (
-                ($newStatus === 'paid' && $oldStatus !== 'paid')
-                || ($newStatus === 'void' && $oldStatus !== 'void')
-            ) {
-                app(AssertInvoiceManufacturerWarrantyClaimsAllowClose::class)($record);
-            }
 
             $record->update(array_merge($validated, $paymentNormalized));
 

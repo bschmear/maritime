@@ -5,8 +5,6 @@ namespace App\Domain\Invoice\Models;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
-use App\Domain\WarrantyClaim\Models\WarrantyClaim;
-use App\Domain\WarrantyClaim\Support\AssertInvoiceManufacturerWarrantyClaimsAllowClose;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
@@ -214,11 +212,6 @@ class Invoice extends Model
         return $this->hasMany(\App\Domain\Payment\Models\Payment::class);
     }
 
-    public function warrantyClaims(): HasMany
-    {
-        return $this->hasMany(WarrantyClaim::class, 'invoice_id');
-    }
-
     public function hasManufacturerWarrantyLineItems(): bool
     {
         return $this->items()
@@ -294,10 +287,6 @@ class Invoice extends Model
             $newPaid > 0 => 'partial',
             default => $this->status,
         };
-
-        if ($status === 'paid') {
-            app(AssertInvoiceManufacturerWarrantyClaimsAllowClose::class)($this, 'amount');
-        }
 
         $this->update([
             'amount_paid' => $newPaid,

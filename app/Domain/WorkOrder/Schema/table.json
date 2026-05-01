@@ -61,6 +61,16 @@
       "sortable": true
     },
     {
+      "key": "has_warranty",
+      "label": "Mfr. warranty",
+      "sortable": true
+    },
+    {
+      "key": "warranty_closed",
+      "label": "Warranty closed",
+      "sortable": true
+    },
+    {
       "key": "created_at",
       "label": "Created",
       "sortable": true

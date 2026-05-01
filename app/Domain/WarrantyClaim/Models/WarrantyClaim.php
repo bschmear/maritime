@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domain\WarrantyClaim\Models;
 
-use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\WarrantyClaim\Status;
@@ -19,7 +18,6 @@ class WarrantyClaim extends Model
     protected $fillable = [
         'vendor_id',
         'work_order_id',
-        'invoice_id',
         'claim_number',
         'status',
         'total_amount',
@@ -48,11 +46,6 @@ class WarrantyClaim extends Model
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);
-    }
-
-    public function invoice(): BelongsTo
-    {
-        return $this->belongsTo(Invoice::class);
     }
 
     public function lineItems(): HasMany

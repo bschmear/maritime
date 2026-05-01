@@ -199,6 +199,22 @@
     "default": false
   },
 
+  "has_warranty": {
+    "label": "Manufacturer warranty (lines)",
+    "type": "boolean",
+    "readOnly": true,
+    "default": false,
+    "help": "True when this work order has at least one manufacturer warranty service line."
+  },
+
+  "warranty_closed": {
+    "label": "Manufacturer warranty closed",
+    "type": "boolean",
+    "readOnly": true,
+    "default": true,
+    "help": "True when all manufacturer warranty claims for this work order are paid or voided (or no manufacturer warranty lines)."
+  },
+
   "draft": {
     "label": "Draft",
     "type": "boolean",

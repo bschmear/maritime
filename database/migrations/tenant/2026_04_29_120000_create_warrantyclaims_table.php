@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('warrantyclaims', function (Blueprint $table) {
             $table->id();
-            
+
             $table->foreignId('vendor_id')
                 ->nullable()
                 ->after('id')
@@ -20,12 +20,8 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('work_orders')
                 ->nullOnDelete();
-            $table->foreignId('invoice_id')
-                ->nullable()
-                ->constrained('invoices')
-                ->nullOnDelete();
 
-            $table->string('claim_number')->nullable()->after('invoice_id');
+            $table->string('claim_number')->nullable()->after('work_order_id');
 
             $table->string('status', 32)->default('draft')->after('claim_number');
 

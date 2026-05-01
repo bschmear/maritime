@@ -6,6 +6,8 @@ namespace App\Domain\WarrantyClaim\Actions;
 
 use App\Domain\WarrantyClaim\Models\WarrantyClaim as RecordModel;
 use App\Domain\WarrantyClaim\Models\WarrantyClaimLineItem;
+use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrder\Support\SyncWorkOrderWarrantyFlags;
 use App\Enums\WarrantyClaim\Status;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +20,8 @@ class CreateWarrantyClaim
     public function __invoke(array $data): array
     {
         $validator = Validator::make($data, [
-            'vendor_id' => ['nullable', 'integer', 'exists:vendors,id'],
+            'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
             'work_order_id' => ['nullable', 'integer', 'exists:work_orders,id'],
-            'invoice_id' => ['nullable', 'integer', 'exists:invoices,id'],
             'claim_number' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable'],
             'notes' => ['nullable', 'string'],
@@ -54,6 +55,13 @@ class CreateWarrantyClaim
                         'price' => round((float) $row['price'], 2),
                         'cost' => isset($row['cost']) ? round((float) $row['cost'], 2) : null,
                     ]);
+                }
+
+                if (! empty($validated['work_order_id'])) {
+                    $wo = WorkOrder::query()->find((int) $validated['work_order_id']);
+                    if ($wo) {
+                        (app(SyncWorkOrderWarrantyFlags::class))($wo);
+                    }
                 }
 
                 return [

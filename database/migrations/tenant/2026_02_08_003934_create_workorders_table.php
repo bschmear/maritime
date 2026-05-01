@@ -51,6 +51,8 @@ return new class extends Migration
             $table->boolean('billable')->default(true);
             $table->boolean('draft')->default(false);
             $table->boolean('warranty')->default(false);
+            $table->boolean('has_warranty')->default(false);
+            $table->boolean('warranty_closed')->default(true);
 
             // Custom fields
             $table->json('attributes')->nullable();

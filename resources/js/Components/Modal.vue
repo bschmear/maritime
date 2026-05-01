@@ -21,17 +21,30 @@ const emit = defineEmits(['close']);
 const dialog = ref();
 const showSlot = ref(props.show);
 
+/** Cancels a pending close timeout from a previous `show === false` run (avoids stale close after rapid open). */
+let closeTimer = null;
+
+const clearCloseTimer = () => {
+    if (closeTimer !== null) {
+        clearTimeout(closeTimer);
+        closeTimer = null;
+    }
+};
+
 watch(
     () => props.show,
     async (isOpen) => {
         if (isOpen) {
+            clearCloseTimer();
             document.body.style.overflow = 'hidden';
             showSlot.value = true;
             await nextTick();
             dialog.value?.showModal();
         } else {
             document.body.style.overflow = '';
-            setTimeout(() => {
+            clearCloseTimer();
+            closeTimer = window.setTimeout(() => {
+                closeTimer = null;
                 dialog.value?.close();
                 showSlot.value = false;
             }, 200);
@@ -57,6 +70,7 @@ const closeOnEscape = (e) => {
 
 onMounted(() => document.addEventListener('keydown', closeOnEscape));
 onUnmounted(() => {
+    clearCloseTimer();
     document.removeEventListener('keydown', closeOnEscape);
     document.body.style.overflow = '';
 });

@@ -9,6 +9,7 @@ const props = defineProps({
     formSchema: { type: Object, default: null },
     fieldsSchema: { type: Object, required: true },
     enumOptions: { type: Object, default: () => ({}) },
+    prefill: { type: Object, default: () => ({}) },
 });
 
 const emit = defineEmits(['cancel']);
@@ -16,13 +17,12 @@ const emit = defineEmits(['cancel']);
 const statusEnumKey = 'App\\Enums\\WarrantyClaim\\Status';
 const statusOptions = computed(() => props.enumOptions[statusEnumKey] || []);
 
-const merged = props.record ?? {};
+const merged = { ...props.prefill, ...(props.record ?? {}) };
 const rawStatus = merged.status?.value ?? merged.status ?? 'draft';
 
 const form = useForm({
     vendor_id: merged.vendor_id ?? null,
     work_order_id: merged.work_order_id ?? null,
-    invoice_id: merged.invoice_id ?? null,
     claim_number: merged.claim_number ?? '',
     status: rawStatus,
     notes: merged.notes ?? '',
@@ -51,15 +51,7 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                     :enum-options="enumOptions.vendor_id ?? []"
                 />
             </div>
-            <div>
-                <RecordSelect
-                    :id="`warranty-claim-invoice`"
-                    v-model="form.invoice_id"
-                    :field="fieldOr('invoice_id', { type: 'record', typeDomain: 'Invoice', label: 'Invoice' })"
-                    :enum-options="enumOptions.invoice_id ?? []"
-                />
-            </div>
-            <div>
+            <div class="sm:col-span-2">
                 <RecordSelect
                     :id="`warranty-claim-work-order`"
                     v-model="form.work_order_id"

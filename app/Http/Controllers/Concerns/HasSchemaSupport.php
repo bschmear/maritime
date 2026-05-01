@@ -73,28 +73,34 @@ trait HasSchemaSupport
         // Handle fields wrapper like GeneralController does
         $fieldsSchema = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
 
+        return static::enumOptionsFromUnwrappedFields($fieldsSchema);
+    }
+
+    /**
+     * Build enum + record select options from an unwrapped fields schema (same keys as {@see getEnumOptions()}).
+     *
+     * @param  array<string, mixed>  $fieldsSchema
+     * @return array<string, mixed>
+     */
+    public static function enumOptionsFromUnwrappedFields(array $fieldsSchema): array
+    {
         $enumOptions = [];
 
-        // Iterate through fields to find enum and record fields
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             $fieldType = $fieldDef['type'] ?? 'text';
 
-            // Handle enum fields (existing functionality)
             if (isset($fieldDef['enum']) && ! empty($fieldDef['enum'])) {
                 $enumClass = $fieldDef['enum'];
 
-                // Check if the enum class exists and has an options() method
                 if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
                     $enumOptions[$enumClass] = $enumClass::options();
                 }
             }
 
-            // Handle record type fields (new functionality)
             if ($fieldType === 'record' && isset($fieldDef['typeDomain'])) {
                 $domainName = $fieldDef['typeDomain'];
                 $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
 
-                // Check if the model class exists
                 if (class_exists($modelClass)) {
                     try {
                         if ($domainName === 'BoatShow') {
@@ -122,10 +128,8 @@ trait HasSchemaSupport
                                 ];
                             })->toArray();
                         } else {
-                            // Get all records from the related domain
                             $records = $modelClass::select('id', 'display_name')->get();
 
-                            // Format as options array
                             $options = $records->map(function ($record) {
                                 return [
                                     'id' => $record->id,
@@ -135,10 +139,8 @@ trait HasSchemaSupport
                             })->toArray();
                         }
 
-                        // Use the field key as the options key
                         $enumOptions[$fieldKey] = $options;
                     } catch (\Exception $e) {
-                        // Log error but don't break the page
                         \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
                         $enumOptions[$fieldKey] = [];
                     }

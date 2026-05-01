@@ -3,6 +3,8 @@
 namespace App\Domain\WarrantyClaim\Actions;
 
 use App\Domain\WarrantyClaim\Models\WarrantyClaim as RecordModel;
+use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrder\Support\SyncWorkOrderWarrantyFlags;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -13,7 +15,15 @@ class DeleteWarrantyClaim
     {
         try {
             $record = RecordModel::findOrFail($id);
+            $workOrderId = $record->work_order_id;
             $record->delete();
+
+            if ($workOrderId !== null) {
+                $wo = WorkOrder::query()->find((int) $workOrderId);
+                if ($wo) {
+                    (app(SyncWorkOrderWarrantyFlags::class))($wo);
+                }
+            }
 
             return [
                 'success' => true,

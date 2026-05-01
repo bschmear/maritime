@@ -137,6 +137,20 @@
       ]
     },
 
+    "warranty_state": {
+      "label": "Manufacturer warranty",
+      "fields": [
+        {
+          "key": "has_warranty",
+          "required": false
+        },
+        {
+          "key": "warranty_closed",
+          "required": false
+        }
+      ]
+    },
+
     "notes": {
       "label": "Notes",
       "fields": [

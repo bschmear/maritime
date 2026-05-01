@@ -6,6 +6,8 @@ namespace App\Domain\WarrantyClaim\Actions;
 
 use App\Domain\WarrantyClaim\Models\WarrantyClaim as RecordModel;
 use App\Domain\WarrantyClaim\Models\WarrantyClaimLineItem;
+use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrder\Support\SyncWorkOrderWarrantyFlags;
 use App\Enums\WarrantyClaim\Status;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -19,9 +21,8 @@ class UpdateWarrantyClaim
     public function __invoke(int $id, array $data): array
     {
         $validator = Validator::make($data, [
-            'vendor_id' => ['nullable', 'integer', 'exists:vendors,id'],
+            'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
             'work_order_id' => ['nullable', 'integer', 'exists:work_orders,id'],
-            'invoice_id' => ['nullable', 'integer', 'exists:invoices,id'],
             'claim_number' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable'],
             'notes' => ['nullable', 'string'],
@@ -41,6 +42,8 @@ class UpdateWarrantyClaim
         try {
             return DB::transaction(function () use ($id, $validated, $items) {
                 $record = RecordModel::query()->lockForUpdate()->findOrFail($id);
+
+                $oldWorkOrderId = $record->work_order_id;
 
                 $oldStatus = $record->status instanceof Status ? $record->status : Status::tryFrom((string) $record->status) ?? Status::Draft;
                 $newStatus = isset($validated['status'])
@@ -69,6 +72,18 @@ class UpdateWarrantyClaim
                 }
 
                 $record->update($validated);
+
+                $sync = app(SyncWorkOrderWarrantyFlags::class);
+                $workOrderIds = array_unique(array_filter(
+                    [$oldWorkOrderId, $record->work_order_id],
+                    static fn ($v) => $v !== null && $v !== ''
+                ));
+                foreach ($workOrderIds as $woId) {
+                    $wo = WorkOrder::query()->find((int) $woId);
+                    if ($wo) {
+                        ($sync)($wo);
+                    }
+                }
 
                 return [
                     'success' => true,

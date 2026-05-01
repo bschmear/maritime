@@ -113,6 +113,7 @@ const secondaryNavItems = ref([
             { name: 'Contracts', href: 'contracts.index' },
             { name: 'Transactions', href: 'transactions.index' },
             { name: 'Invoices', href: 'invoices.index' },
+            { name: 'Warranty claims', href: 'warrantyclaims.index' },
             { name: 'Payments', href: 'payments.index' }
         ]
     },
@@ -144,6 +145,7 @@ const secondaryNavItems = ref([
         children: [
             { name: 'Service Tickets', href: 'servicetickets.index' },
             { name: 'Work Orders', href: 'workorders.index' },
+            { name: 'Warranty claims', href: 'warrantyclaims.index' },
             {
                 name: 'Deliveries',
                 children: [

@@ -2,17 +2,18 @@
 
 namespace App\Domain\WorkOrder\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
+use Illuminate\Database\Eloquent\Model;
+// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WorkOrder extends Model
 {
     use SoftDeletes;
+
     protected $table = 'work_orders';
 
     /**
@@ -32,6 +33,8 @@ class WorkOrder extends Model
         'billable' => 'boolean',
         'draft' => 'boolean',
         'warranty' => 'boolean',
+        'has_warranty' => 'boolean',
+        'warranty_closed' => 'boolean',
 
         'scheduled_start_at' => 'datetime',
         'scheduled_end_at' => 'datetime',
@@ -124,6 +127,11 @@ class WorkOrder extends Model
     public function serviceItems()
     {
         return $this->hasMany(WorkOrderServiceItem::class);
+    }
+
+    public function warrantyClaims(): HasMany
+    {
+        return $this->hasMany(\App\Domain\WarrantyClaim\Models\WarrantyClaim::class);
     }
 
     public function assignedUser(): BelongsTo

@@ -14,6 +14,7 @@ const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
+    prefill: { type: Object, default: () => ({}) },
 });
 
 const breadcrumbItems = computed(() => [
@@ -46,6 +47,7 @@ const handleCancel = () => {
             :form-schema="formSchema"
             :fields-schema="fieldsSchema"
             :enum-options="enumOptions"
+            :prefill="prefill"
             @cancel="handleCancel"
         />
     </TenantLayout>

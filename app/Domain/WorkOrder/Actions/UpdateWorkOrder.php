@@ -2,11 +2,14 @@
 
 namespace App\Domain\WorkOrder\Actions;
 
+use App\Domain\WarrantyClaim\Support\AssertWorkOrderManufacturerWarrantyClaimsAllowClose;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
+use App\Enums\WorkOrder\Status as WorkOrderStatus;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class UpdateWorkOrder
@@ -30,6 +33,12 @@ class UpdateWorkOrder
             $validated['total_cost'] = $validated['total_cost'] ?? 0;
 
             $record = RecordModel::findOrFail($id);
+
+            $newStatus = (int) ($validated['status'] ?? $record->status);
+            if ($newStatus === WorkOrderStatus::Closed->id()) {
+                app(AssertWorkOrderManufacturerWarrantyClaimsAllowClose::class)($record, $serviceItems);
+            }
+
             $record->update($validated);
 
             // Sync WorkOrderServiceItem line items (replace all)
@@ -66,6 +75,8 @@ class UpdateWorkOrder
                 'success' => true,
                 'record' => $record,
             ];
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateWorkOrder', [
                 'error' => $e->getMessage(),

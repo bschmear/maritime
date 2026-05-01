@@ -6,8 +6,7 @@
     "primary": {
       "label": "Claim",
       "fields": [
-        { "key": "vendor_id", "required": false },
-        { "key": "invoice_id", "required": false },
+        { "key": "vendor_id", "required": true },
         { "key": "work_order_id", "required": false },
         { "key": "claim_number", "required": false },
         { "key": "status", "required": true },
