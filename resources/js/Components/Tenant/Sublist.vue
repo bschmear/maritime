@@ -6,6 +6,7 @@ import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
 import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
+import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
 
@@ -47,6 +48,7 @@ const activeFilters = ref([]);
 const showFiltersModal = ref(false);
 const updatingItems = ref(new Set()); // Track which items are being updated
 const defaultFiltersLoaded = ref(false); // Track if default filters have been loaded
+const rowActionPostingKey = ref(null); // `${contactId}-${routeName}` while Inertia POST row action runs
 
 // Sublist Create Modal State
 const showSublistCreateModal = ref(false);
@@ -432,6 +434,97 @@ const getFilterLabel = (filter) => {
 const tableColumns = computed(() => {
     return sublistTableSchema.value?.columns || [];
 });
+
+/** Optional pivot columns (e.g. vendor ↔ contact manufacturer portal access). */
+const pivotColumns = computed(() => {
+    const cols = activeTab.value?.pivotColumns;
+    return Array.isArray(cols) ? cols : [];
+});
+
+/** Optional POST actions per row (e.g. vendor ↔ contacts: email manufacturer portal link). */
+const manyToManyRowActions = computed(() => {
+    if (activeTab.value?.relationshipType !== 'ManyToMany') {
+        return [];
+    }
+    const raw = activeTab.value?.rowActions;
+    return Array.isArray(raw) ? raw : [];
+});
+
+const buildManyToManyRowActionRouteParams = (item) => {
+    if (props.parentDomain === 'Vendor' && activeTab.value?.modelRelationship === 'linkedContacts') {
+        return { vendor: props.parentRecord.id, contact: item.id };
+    }
+    return null;
+};
+
+const isRowActionPosting = (item, action) =>
+    rowActionPostingKey.value === `${item.id}-${action.route}`;
+
+const postManyToManyRowAction = (item, action) => {
+    const params = buildManyToManyRowActionRouteParams(item);
+    if (!params?.vendor || !params?.contact) {
+        console.error(
+            '[Sublist] rowAction route params not defined for',
+            props.parentDomain,
+            activeTab.value?.modelRelationship,
+        );
+        return;
+    }
+    if (action.requiresEmail) {
+        const email = String(item.email ?? '').trim();
+        if (!email) {
+            return;
+        }
+    }
+    const key = `${item.id}-${action.route}`;
+    rowActionPostingKey.value = key;
+    router.post(route(action.route, params), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            rowActionPostingKey.value = null;
+        },
+    });
+};
+
+const pivotBool = (item, key) => {
+    const v = item?.pivot?.[key];
+    return v === true || v === 1 || v === '1';
+};
+
+const patchPivotToggle = async (item, col, checked) => {
+    if (!col?.toggleRoute) {
+        return;
+    }
+    const rowKey = `${item.id}-pivot-${col.key}`;
+    updatingItems.value.add(rowKey);
+    try {
+        const bodyKey = col.toggleRequestKey || col.key;
+        const params =
+            props.parentDomain === 'Vendor' && activeTab.value?.modelRelationship === 'linkedContacts'
+                ? { vendor: props.parentRecord.id, contact: item.id }
+                : {};
+        await axios.patch(
+            route(col.toggleRoute, params),
+            { [bodyKey]: checked },
+            {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+            },
+        );
+        if (!item.pivot || typeof item.pivot !== 'object') {
+            item.pivot = {};
+        }
+        item.pivot[col.key] = checked;
+        emitSublistMutatedIfNeeded();
+    } catch (err) {
+        console.error('[Sublist] Pivot toggle failed', err);
+        alert(err.response?.data?.message || err.message || 'Unable to update.');
+    } finally {
+        updatingItems.value.delete(rowKey);
+    }
+};
 
 const fetchSublistData = async (sublist, page = 1) => {
     if (!sublist) return;
@@ -1275,6 +1368,20 @@ watch(
     },
     { deep: true },
 );
+
+watch(
+    () => props.parentRecord.linkedContacts,
+    (contacts) => {
+        if (
+            activeTab.value?.relationshipType === 'ManyToMany'
+            && activeTab.value?.modelRelationship === 'linkedContacts'
+            && props.parentDomain === 'Vendor'
+        ) {
+            sublistData.value = Array.isArray(contacts) ? [...contacts] : [];
+        }
+    },
+    { deep: true },
+);
 </script>
 
 <template>
@@ -1431,6 +1538,13 @@ watch(
                                 >
                                     {{ column.label }}
                                 </th>
+                                <th
+                                    v-for="col in pivotColumns"
+                                    :key="'pivot-h-' + col.key"
+                                    class="px-6 py-3"
+                                >
+                                    {{ col.label }}
+                                </th>
                                 
                                 <th v-if="!activeTab?.readOnly" class="px-6 py-3 text-right ">
                                     <!-- Actions -->
@@ -1523,6 +1637,27 @@ watch(
                                         {{ item[column.key] || '—' }}
                                     </template>
                                 </td>
+                                <td
+                                    v-for="col in pivotColumns"
+                                    :key="'pivot-td-' + col.key"
+                                    class="px-6 py-4"
+                                >
+                                    <template v-if="col.type === 'boolean' && col.toggleRoute">
+                                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                            <input
+                                                type="checkbox"
+                                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                :checked="pivotBool(item, col.key)"
+                                                :disabled="updatingItems.has(`${item.id}-pivot-${col.key}`)"
+                                                @change="patchPivotToggle(item, col, $event.target.checked)"
+                                            />
+                                            <span class="text-xs text-gray-500">{{ pivotBool(item, col.key) ? 'On' : 'Off' }}</span>
+                                        </label>
+                                    </template>
+                                    <template v-else>
+                                        {{ pivotBool(item, col.key) ? 'Yes' : 'No' }}
+                                    </template>
+                                </td>
                                 <!-- Actions Column -->
                                 <td v-if="!activeTab?.readOnly" class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-2">
@@ -1552,6 +1687,19 @@ watch(
                                             title="Remove"
                                         >
                                             <i class="material-icons text-[18px]">link_off</i>
+                                        </button>
+
+                                        <button
+                                            v-for="action in manyToManyRowActions"
+                                            :key="`${item.id}-${action.route}`"
+                                            v-show="!action.requiresEmail || String(item.email || '').trim() !== ''"
+                                            type="button"
+                                            :disabled="isRowActionPosting(item, action)"
+                                            :title="action.title || 'Action'"
+                                            class="inline-flex items-center justify-center w-8 h-8 text-white bg-slate-600 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+                                            @click="postManyToManyRowAction(item, action)"
+                                        >
+                                            <i class="material-icons text-[18px]">{{ action.icon || 'mail' }}</i>
                                         </button>
                                     </div>
                                 </td>

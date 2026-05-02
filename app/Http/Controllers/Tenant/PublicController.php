@@ -248,7 +248,9 @@ class PublicController extends Controller
                 'workOrder' => fn ($q) => $q->select(['id', 'display_name', 'work_order_number']),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
-                'lineItems',
+                'lineItems' => fn ($q) => $q->orderBy('id')->with([
+                    'workOrderServiceItem' => fn ($q2) => $q2->select(['id', 'display_name', 'description', 'work_order_id']),
+                ]),
                 'images' => fn ($q) => $q,
                 'documents',
             ])
@@ -267,12 +269,20 @@ class PublicController extends Controller
 
         $recordArray['line_items'] = $claim->lineItems->map(fn ($li) => [
             'id' => $li->id,
+            'work_order_service_item_id' => $li->work_order_service_item_id,
             'description' => $li->description,
             'cost_type' => $li->cost_type instanceof \BackedEnum ? $li->cost_type->value : (string) $li->cost_type,
             'quantity' => (int) $li->quantity,
             'cost' => (float) $li->cost,
             'line_total_cost' => $li->line_total_cost,
             'notes' => $li->notes,
+            'work_order_service_item' => $li->workOrderServiceItem
+                ? [
+                    'id' => $li->workOrderServiceItem->id,
+                    'display_name' => $li->workOrderServiceItem->display_name,
+                    'description' => $li->workOrderServiceItem->description,
+                ]
+                : null,
         ])->values()->all();
 
         $recordArray['images'] = $claim->images->map(fn ($img) => [

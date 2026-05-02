@@ -39,7 +39,7 @@ class VendorRejectWarrantyClaim
                 ]);
             });
 
-            return ['success' => true, 'record' => $claim->fresh(['lineItems', 'vendor'])];
+            return ['success' => true, 'record' => $claim->fresh(['lineItems.workOrderServiceItem', 'vendor'])];
         } catch (Throwable $e) {
             Log::error('VendorRejectWarrantyClaim failed', [
                 'claim_id' => $claim->id,

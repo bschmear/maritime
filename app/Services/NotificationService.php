@@ -113,6 +113,49 @@ class NotificationService
         }
     }
 
+    /**
+     * In-app notification when a manufacturer portal contact saves non-empty line feedback.
+     *
+     * @param  list<array{id: int, excerpt: string}>  $feedbackLines
+     */
+    public function notifyWarrantyClaimVendorLineFeedback(
+        User $assignedUser,
+        WarrantyClaim $claim,
+        Contact $vendorContact,
+        array $feedbackLines,
+    ): void {
+        if ($feedbackLines === []) {
+            return;
+        }
+
+        $claimRef = $claim->display_name ?? ('Claim #'.$claim->id);
+        $who = $vendorContact->display_name
+            ?: trim(implode(' ', array_filter([(string) $vendorContact->first_name, (string) $vendorContact->last_name])))
+            ?: 'A manufacturer contact';
+        $count = count($feedbackLines);
+        $preview = $feedbackLines[0]['excerpt'] ?? '';
+        $message = $count === 1
+            ? "{$who} updated line feedback on {$claimRef}: {$preview}"
+            : "{$who} updated feedback on {$count} lines on {$claimRef}. Latest: {$preview}";
+
+        try {
+            Notification::create([
+                'assigned_to_user_id' => $assignedUser->id,
+                'type' => 'warranty_claim_vendor_line_feedback',
+                'title' => 'Vendor line feedback — '.$claimRef,
+                'message' => $message,
+                'route' => 'warrantyclaims.show',
+                'route_params' => ['warrantyclaim' => $claim->id],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify assigned user of warranty vendor line feedback', [
+                'claim_id' => $claim->id,
+                'user_id' => $assignedUser->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Estimate
     // ─────────────────────────────────────────────────────────────────────────

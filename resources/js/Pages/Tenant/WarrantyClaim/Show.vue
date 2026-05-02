@@ -66,6 +66,61 @@ const statusName = computed(() => enumLabel(statusEnumKey, props.record.status?.
 
 const rawStatus = computed(() => String(props.record.status?.value ?? props.record.status ?? '').toLowerCase());
 
+const canSubmitWarranty = computed(
+    () => rawStatus.value === 'draft' && !!props.record.vendor_id,
+);
+
+const showSubmitWarrantyModal = ref(false);
+const selectedSubmitContactIds = ref([]);
+
+const submitWarrantyForm = useForm({
+    contact_ids: [],
+});
+
+const initSubmitContactSelection = () => {
+    const primary = (props.vendorContacts || []).filter((c) => c.is_primary).map((c) => c.id);
+    if (primary.length) {
+        selectedSubmitContactIds.value = [...primary];
+    } else if (props.vendorContacts?.length === 1) {
+        selectedSubmitContactIds.value = [props.vendorContacts[0].id];
+    } else {
+        selectedSubmitContactIds.value = [];
+    }
+};
+
+watch(showSubmitWarrantyModal, (open) => {
+    if (open) {
+        initSubmitContactSelection();
+    }
+});
+
+const toggleSubmitContact = (id) => {
+    const n = Number(id);
+    const set = new Set(selectedSubmitContactIds.value.map(Number));
+    set.has(n) ? set.delete(n) : set.add(n);
+    selectedSubmitContactIds.value = [...set];
+};
+
+const isSubmitContactSelected = (id) => selectedSubmitContactIds.value.map(Number).includes(Number(id));
+
+const postSubmitWarranty = (contactIds) => {
+    submitWarrantyForm.contact_ids = contactIds;
+    submitWarrantyForm.post(route('warrantyclaims.submit', props.record.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showSubmitWarrantyModal.value = false;
+        },
+    });
+};
+
+const submitWarrantyOnly = () => {
+    postSubmitWarranty([]);
+};
+
+const submitWarrantyAndNotify = () => {
+    postSubmitWarranty([...selectedSubmitContactIds.value]);
+};
+
 const canSendToVendor = computed(
     () => rawStatus.value === 'submitted' && props.vendorContacts?.length > 0,
 );
@@ -146,6 +201,15 @@ const confirmDelete = () => {
         },
     });
 };
+
+const lineItemsList = computed(() => props.record.lineItems || props.record.line_items || []);
+
+/** Linked work order service line label (not the optional claim description). */
+const serviceLineDisplayName = (line) =>
+    line?.serviceItemDisplayName
+    || line?.work_order_service_item?.display_name
+    || line?.workOrderServiceItem?.display_name
+    || (line?.work_order_service_item_id ? `Work order line #${line.work_order_service_item_id}` : 'Line item');
 </script>
 
 <template>
@@ -155,36 +219,7 @@ const confirmDelete = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                            {{ claimLabel }}
-                        </h2>
-                        <span
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-                            :class="[statusColor.bg, statusColor.text]"
-                        >
-                            {{ statusName }}
-                        </span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <Link
-                            :href="editHref"
-                            class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 transition-colors"
-                        >
-                            <span class="material-icons text-base">edit</span>
-                            Edit
-                        </Link>
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-2 rounded-lg border border-red-200 dark:border-red-800 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            @click="showDeleteModal = true"
-                        >
-                            <span class="material-icons text-base">delete</span>
-                            Delete
-                        </button>
-                    </div>
-                </div>
+
             </div>
         </template>
 
@@ -229,8 +264,15 @@ const confirmDelete = () => {
                                     <!-- Manufacturer -->
                                     <div>
                                         <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Manufacturer</div>
-                                        <div class="text-base text-gray-900 dark:text-gray-100">
-                                            {{ record.vendor?.display_name ?? '—' }}
+                                        <div class="text-base">
+                                            <Link
+                                                v-if="record.vendor_id"
+                                                :href="route('vendors.show', record.vendor_id)"
+                                                class="font-medium text-primary-600 dark:text-primary-400 hover:underline min-w-0 truncate block"
+                                            >
+                                                {{ record.vendor?.display_name ?? 'Vendor' }}
+                                            </Link>
+                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                         </div>
                                     </div>
 
@@ -303,7 +345,7 @@ const confirmDelete = () => {
 
                     <!-- Line Items Card -->
                     <div
-                        v-if="record.line_items?.length || record.lineItems?.length"
+                        v-if="lineItemsList.length"
                         class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden"
                     >
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
@@ -313,43 +355,58 @@ const confirmDelete = () => {
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Description</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-32">Cost type</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Cost</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Line total</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Line notes</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <tr
-                                        v-for="row in (record.lineItems || record.line_items || [])"
-                                        :key="row.id"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                                    >
-                                        <td class="px-4 py-3 text-base font-medium text-gray-900 dark:text-gray-100">{{ row.description }}</td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                            {{ (row.cost_type?.value ?? row.cost_type) === 'fixed' ? 'Fixed' : 'Quantity × cost' }}
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-base text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
-                                        <td class="px-4 py-3 text-right text-base text-gray-700 dark:text-gray-300">{{ fmtMoney(row.cost) }}</td>
-                                        <td class="px-4 py-3 text-right text-base font-semibold text-gray-900 dark:text-white">
-                                            {{ fmtMoney(row.line_total_cost ?? row.lineTotalCost) }}
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line max-w-xs">
-                                            {{ row.notes || '—' }}
-                                        </td>
-                                    </tr>
+                                    <template v-for="row in lineItemsList" :key="row.id">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                                {{ (row.cost_type?.value ?? row.cost_type) === 'fixed' ? 'Fixed' : 'Quantity × cost' }}
+                                            </td>
+                                            <td class="px-4 py-3 text-right text-base text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
+                                            <td class="px-4 py-3 text-right text-base text-gray-700 dark:text-gray-300">{{ fmtMoney(row.cost) }}</td>
+                                            <td class="px-4 py-3 text-right text-base font-semibold text-gray-900 dark:text-white">
+                                                {{ fmtMoney(row.line_total_cost ?? row.lineTotalCost) }}
+                                            </td>
+                                        </tr>
+                                        <tr class="bg-gray-50/80 dark:bg-gray-900/40">
+                                            <td colspan="4" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                                <div class="space-y-3">
+                                                    <div>
+                                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Service line</div>
+                                                        <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ serviceLineDisplayName(row) }}</div>
+                                                    </div>
+                                                    <div v-if="(row.description || '').trim()">
+                                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Service description</div>
+                                                        <div class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">{{ row.description }}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Vendor feedback</div>
+                                                        <div
+                                                            v-if="(row.notes || '').trim()"
+                                                            class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
+                                                        >
+                                                            {{ row.notes }}
+                                                        </div>
+                                                        <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="4" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                        <td colspan="3" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
                                             Total claim cost
                                         </td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
                                             {{ fmtMoney(record.total_amount) }}
                                         </td>
-                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -379,6 +436,15 @@ const confirmDelete = () => {
                             <span class="text-base font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
                         <div class="p-5 space-y-3">
+                            <button
+                                v-if="canSubmitWarranty"
+                                type="button"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                                @click="showSubmitWarrantyModal = true"
+                            >
+                                <span class="material-icons text-base">send</span>
+                                Submit warranty
+                            </button>
                             <button
                                 v-if="canSendToVendor"
                                 type="button"
@@ -421,11 +487,16 @@ const confirmDelete = () => {
                                     {{ statusName }}
                                 </span>
                             </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-500 dark:text-gray-400">Manufacturer</span>
-                                <span class="font-medium text-gray-900 dark:text-white text-right max-w-[60%] truncate">
-                                    {{ record.vendor?.display_name ?? '—' }}
-                                </span>
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-gray-500 dark:text-gray-400 shrink-0">Manufacturer</span>
+                                <Link
+                                    v-if="record.vendor_id"
+                                    :href="route('vendors.show', record.vendor_id)"
+                                    class="font-medium text-primary-600 dark:text-primary-400 hover:underline text-right min-w-0 truncate"
+                                >
+                                    {{ record.vendor?.display_name ?? 'Vendor' }}
+                                </Link>
+                                <span v-else class="text-gray-400 dark:text-gray-500 shrink-0">—</span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-500 dark:text-gray-400">Work Order</span>
@@ -475,6 +546,92 @@ const confirmDelete = () => {
                 </div>
             </div>
         </div>
+
+        <!-- Submit warranty (draft → submitted; optional vendor emails) -->
+        <Modal :show="showSubmitWarrantyModal" max-width="lg" @close="showSubmitWarrantyModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Submit warranty claim</h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    This marks the claim as <strong class="text-gray-700 dark:text-gray-300">Submitted</strong>. Emailing manufacturer contacts is optional—use it when they use the vendor portal; otherwise submit without notifying.
+                </p>
+                <template v-if="vendorContacts.length">
+                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                        Optionally select who should receive the claim link and portal sign-in instructions:
+                    </p>
+                    <div class="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-3">
+                        <label
+                            v-for="c in vendorContacts"
+                            :key="'submit-' + c.id"
+                            class="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                            <input
+                                type="checkbox"
+                                class="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                :checked="isSubmitContactSelected(c.id)"
+                                @change="toggleSubmitContact(c.id)"
+                            />
+                            <div class="min-w-0 flex-1 text-sm">
+                                <div class="font-medium text-gray-900 dark:text-gray-100">
+                                    {{ c.display_name || `Contact #${c.id}` }}
+                                    <span
+                                        v-if="c.is_primary"
+                                        class="ml-2 rounded bg-gray-200 px-1.5 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-600 dark:text-gray-200"
+                                    >Primary</span>
+                                </div>
+                                <div class="text-gray-500 dark:text-gray-400">{{ c.email || c.secondary_email || 'No email' }}</div>
+                            </div>
+                        </label>
+                    </div>
+                </template>
+                <div
+                    v-else
+                    class="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-200"
+                >
+                    <p class="font-medium">No portal-enabled manufacturer contacts</p>
+                    <p class="mt-1 text-gray-600 dark:text-gray-300">
+                        You can still submit without emailing. To notify contacts later, add people on the manufacturer with <strong>portal access</strong>, or use <strong>Send to vendor</strong> after submit.
+                    </p>
+                    <Link
+                        v-if="record.vendor_id"
+                        :href="route('vendors.show', record.vendor_id)"
+                        class="mt-3 inline-flex text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                    >
+                        Open manufacturer record
+                    </Link>
+                </div>
+                <p v-if="submitWarrantyForm.errors.contact_ids" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {{ submitWarrantyForm.errors.contact_ids }}
+                </p>
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    <button
+                        type="button"
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                        @click="showSubmitWarrantyModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="submitWarrantyForm.processing"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+                        @click="submitWarrantyOnly"
+                    >
+                        <span v-if="submitWarrantyForm.processing" class="material-icons text-base animate-spin">refresh</span>
+                        {{ submitWarrantyForm.processing ? 'Submitting…' : 'Submit only' }}
+                    </button>
+                    <button
+                        v-if="vendorContacts.length"
+                        type="button"
+                        :disabled="submitWarrantyForm.processing || selectedSubmitContactIds.length === 0"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                        @click="submitWarrantyAndNotify"
+                    >
+                        <span v-if="submitWarrantyForm.processing" class="material-icons text-base animate-spin">refresh</span>
+                        {{ submitWarrantyForm.processing ? 'Submitting…' : 'Submit and notify' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <!-- Send to vendor -->
         <Modal :show="showSendToVendorModal" max-width="lg" @close="showSendToVendorModal = false">

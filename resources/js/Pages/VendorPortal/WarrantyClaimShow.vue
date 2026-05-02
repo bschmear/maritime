@@ -1,11 +1,13 @@
 <script setup>
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
+import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
     canRespond: { type: Boolean, default: false },
+    canEditLineFeedback: { type: Boolean, default: false },
     statuses: { type: Array, default: () => [] },
 });
 
@@ -43,7 +45,12 @@ const statusLabel = (raw) => {
     return hit?.name ?? String(raw);
 };
 
-const lineItems = computed(() => props.record.line_items || []);
+const lineItems = computed(() => props.record.line_items || props.record.lineItems || []);
+
+const serviceLineDisplayName = (row) =>
+    row?.work_order_service_item?.display_name
+    || row?.workOrderServiceItem?.display_name
+    || (row?.work_order_service_item_id ? `Work order line #${row.work_order_service_item_id}` : 'Line item');
 
 const lineTotalSum = computed(() =>
     lineItems.value.reduce((sum, row) => sum + (Number(row.line_total_cost) || 0), 0),
@@ -69,6 +76,32 @@ const reject = () => {
     });
 };
 
+const lineFeedbackForm = useForm({
+    line_items: [],
+});
+
+const syncLineFeedbackFromRecord = () => {
+    const items = props.record.line_items || props.record.lineItems || [];
+    lineFeedbackForm.line_items = items.map((li) => ({
+        id: li.id,
+        notes: li.notes ?? '',
+    }));
+};
+
+watch(
+    () => props.record,
+    () => {
+        syncLineFeedbackFromRecord();
+    },
+    { deep: true, immediate: true },
+);
+
+const saveLineFeedback = () => {
+    lineFeedbackForm.post(route('vendor.portal.warranty-claims.line-feedback', props.record.id), {
+        preserveScroll: true,
+    });
+};
+
 const publicReviewUrl = computed(() => {
     if (!props.record.uuid) return null;
     try {
@@ -76,6 +109,69 @@ const publicReviewUrl = computed(() => {
     } catch {
         return `/warranty-claims/${props.record.uuid}/review`;
     }
+});
+
+const vendorRecord = computed(() => props.record.vendor ?? null);
+
+const vendorAssignedUser = computed(
+    () => vendorRecord.value?.assigned_user ?? vendorRecord.value?.assignedUser ?? null,
+);
+
+const assigneeDisplayName = computed(() => {
+    const u = vendorAssignedUser.value;
+    if (!u || typeof u !== 'object') {
+        return null;
+    }
+    const dn = (u.display_name || '').trim();
+    if (dn) {
+        return dn;
+    }
+    const fn = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+    if (fn) {
+        return fn;
+    }
+    const em = (u.email || '').trim();
+    return em || null;
+});
+
+const assigneeEmail = computed(() => {
+    const em = vendorAssignedUser.value?.email;
+    return em && String(em).trim() !== '' ? String(em).trim() : null;
+});
+
+const assigneePhone = computed(() => {
+    const u = vendorAssignedUser.value;
+    if (!u || typeof u !== 'object') {
+        return null;
+    }
+    const mobile = (u.mobile_phone || '').trim();
+    const office = (u.office_phone || '').trim();
+    if (mobile && office) {
+        return `${formatPhoneNumber(mobile)} · ${formatPhoneNumber(office)}`;
+    }
+    const single = mobile || office;
+    return single ? formatPhoneNumber(single) : null;
+});
+
+const assigneeTelHref = computed(() => {
+    const u = vendorAssignedUser.value;
+    if (!u || typeof u !== 'object') {
+        return '';
+    }
+    const raw = (u.mobile_phone || u.office_phone || '').trim();
+    return raw ? raw.replace(/\D/g, '') : '';
+});
+
+const vendorPaymentTermsLabel = computed(() => {
+    const v = vendorRecord.value;
+    if (!v) {
+        return null;
+    }
+    const label = v.payment_terms_label;
+    if (label != null && String(label).trim() !== '') {
+        return String(label).trim();
+    }
+    return null;
 });
 </script>
 
@@ -146,6 +242,31 @@ const publicReviewUrl = computed(() => {
                         <p class="text-xs font-semibold text-gray-500 uppercase">Subsidiary</p>
                         <p class="text-gray-900 mt-1">{{ record.subsidiary?.display_name ?? '—' }}</p>
                     </div>
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Account Contact</p>
+                        <template v-if="assigneeDisplayName || assigneeEmail || assigneePhone">
+                            <p v-if="assigneeDisplayName" class="text-gray-900 mt-1 font-medium">{{ assigneeDisplayName }}</p>
+                            <p v-if="assigneePhone" class="text-gray-900 mt-1">
+                                <a
+                                    v-if="assigneeTelHref"
+                                    :href="`tel:${assigneeTelHref}`"
+                                    class="text-primary-600 hover:text-primary-700 no-underline"
+                                >{{ assigneePhone }}</a>
+                                <span v-else>{{ assigneePhone }}</span>
+                            </p>
+                            <p v-if="assigneeEmail" class="text-gray-900 mt-1">
+                                <a
+                                    :href="`mailto:${assigneeEmail}`"
+                                    class="text-primary-600 hover:text-primary-700 no-underline break-all"
+                                >{{ assigneeEmail }}</a>
+                            </p>
+                        </template>
+                        <p v-else class="text-gray-400 mt-1">—</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-gray-500 uppercase">Payment terms</p>
+                        <p class="text-gray-900 mt-1">{{ vendorPaymentTermsLabel ?? '—' }}</p>
+                    </div>
                 </div>
 
                 <div v-if="record.vendor_notes" class="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm">
@@ -164,29 +285,72 @@ const publicReviewUrl = computed(() => {
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-50 text-left text-gray-600">
                                 <tr>
-                                    <th class="px-3 py-2 font-medium">Description</th>
-                                    <th class="px-3 py-2 font-medium text-right">Qty</th>
+                                    <th class="px-3 py-2 font-medium">Qty</th>
                                     <th class="px-3 py-2 font-medium text-right">Line total</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
-                                <tr v-for="row in lineItems" :key="row.id">
-                                    <td class="px-3 py-2 text-gray-800">{{ row.description }}</td>
-                                    <td class="px-3 py-2 text-right text-gray-700">{{ row.quantity ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-right text-gray-900">
-                                        {{ formatMoney(row.line_total_cost) }}
-                                    </td>
-                                </tr>
+                                <template v-for="(row, idx) in lineItems" :key="row.id">
+                                    <tr>
+                                        <td class="px-3 py-2 text-gray-700">{{ row.quantity ?? '—' }}</td>
+                                        <td class="px-3 py-2 text-right text-gray-900">
+                                            {{ formatMoney(row.line_total_cost) }}
+                                        </td>
+                                    </tr>
+                                    <tr class="bg-gray-50/80">
+                                        <td colspan="2" class="px-3 py-3 border-t border-gray-100 text-sm">
+                                            <div class="space-y-2">
+                                                <div>
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase mb-0.5">Service line</div>
+                                                    <div class="font-medium text-gray-900">{{ serviceLineDisplayName(row) }}</div>
+                                                </div>
+                                                <div v-if="(row.description || '').trim()">
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase mb-0.5">Service description</div>
+                                                    <div class="text-gray-800 whitespace-pre-line">{{ row.description }}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase mb-0.5">Vendor feedback</div>
+                                                    <template v-if="canEditLineFeedback && lineFeedbackForm.line_items[idx]">
+                                                        <textarea
+                                                            v-model="lineFeedbackForm.line_items[idx].notes"
+                                                            rows="3"
+                                                            class="mt-1 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                                            placeholder="Feedback for this line (visible to your provider)…"
+                                                        />
+                                                    </template>
+                                                    <template v-else>
+                                                        <div v-if="(row.notes || '').trim()" class="text-gray-800 whitespace-pre-line">{{ row.notes }}</div>
+                                                        <div v-else class="text-gray-400">—</div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
                             </tbody>
                             <tfoot class="bg-gray-50 border-t border-gray-200">
                                 <tr>
-                                    <td colspan="2" class="px-3 py-2 text-right font-semibold text-gray-700">Sum</td>
+                                    <td class="px-3 py-2 text-right font-semibold text-gray-700">Sum</td>
                                     <td class="px-3 py-2 text-right font-semibold text-gray-900">
                                         {{ formatMoney(lineTotalSum) }}
                                     </td>
                                 </tr>
                             </tfoot>
                         </table>
+                    </div>
+                    <p v-if="lineFeedbackForm.errors.line_items" class="mt-2 text-sm text-red-600">
+                        {{ lineFeedbackForm.errors.line_items }}
+                    </p>
+                    <div v-if="canEditLineFeedback && lineItems.length" class="mt-4 flex justify-end">
+                        <button
+                            type="button"
+                            :disabled="lineFeedbackForm.processing"
+                            class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
+                            @click="saveLineFeedback"
+                        >
+                            <span class="material-icons text-base">save</span>
+                            Save line feedback
+                        </button>
                     </div>
                 </div>
 

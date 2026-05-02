@@ -233,6 +233,14 @@ Route::middleware([
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {
+            Route::post('{vendor}/send-vendor-portal-link', [VendorController::class, 'sendVendorPortalLink'])
+                ->middleware('throttle:15,1')
+                ->name('send-vendor-portal-link');
+            Route::patch('{vendor}/contacts/{contact}/portal-access', [VendorController::class, 'updateContactPortalAccess'])
+                ->name('contacts.portal-access');
+            Route::post('{vendor}/contacts/{contact}/send-vendor-portal-link', [VendorController::class, 'sendVendorPortalLinkToContact'])
+                ->middleware('throttle:15,1')
+                ->name('contacts.send-vendor-portal-link');
             Route::patch('{vendor}/primary-contact', [VendorController::class, 'setPrimaryContact'])->name('primary-contact');
             Route::post('{vendor}/attach', [VendorController::class, 'attachRelationship'])->name('attach');
             Route::post('{vendor}/detach', [VendorController::class, 'detachRelationship'])->name('detach');
@@ -261,6 +269,8 @@ Route::middleware([
                 ->name('by-work-order.service-ticket-images');
             Route::post('/{warrantyclaim}/send-to-vendor', [WarrantyClaimController::class, 'sendToVendor'])
                 ->name('send-to-vendor');
+            Route::post('/{warrantyclaim}/submit', [WarrantyClaimController::class, 'submit'])
+                ->name('submit');
             Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
         });
 

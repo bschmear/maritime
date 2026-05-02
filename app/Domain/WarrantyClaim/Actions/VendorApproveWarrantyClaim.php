@@ -38,7 +38,7 @@ class VendorApproveWarrantyClaim
             $claim->refresh();
             $this->notifyCreator($claim);
 
-            return ['success' => true, 'record' => $claim->fresh(['lineItems', 'vendor'])];
+            return ['success' => true, 'record' => $claim->fresh(['lineItems.workOrderServiceItem', 'vendor'])];
         } catch (Throwable $e) {
             Log::error('VendorApproveWarrantyClaim failed', [
                 'claim_id' => $claim->id,

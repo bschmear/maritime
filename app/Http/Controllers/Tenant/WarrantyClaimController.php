@@ -24,6 +24,7 @@ use App\Enums\WarrantyClaim\Status as WarrantyClaimStatus;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
@@ -79,7 +80,9 @@ class WarrantyClaimController extends BaseController
         $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'work_order_number']);
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
-        $relationships['lineItems'] = fn ($q) => $q->orderBy('id');
+        $relationships['lineItems'] = fn ($q) => $q->orderBy('id')->with([
+            'workOrderServiceItem' => fn ($q2) => $q2->select(['id', 'display_name', 'description', 'work_order_id']),
+        ]);
         $relationships['documents'] = fn ($q) => $q;
         $relationships['images'] = fn ($q) => $q;
 
@@ -568,7 +571,7 @@ class WarrantyClaimController extends BaseController
         if ($record->vendor_id) {
             $vendor = Vendor::query()
                 ->with([
-                    'contacts' => fn ($q) => $q->select([
+                    'linkedContacts' => fn ($q) => $q->select([
                         'contacts.id',
                         'contacts.display_name',
                         'contacts.first_name',
@@ -580,7 +583,10 @@ class WarrantyClaimController extends BaseController
                 ->find((int) $record->vendor_id);
             if ($vendor) {
                 $primaryId = $vendor->primary_contact_id !== null ? (int) $vendor->primary_contact_id : null;
-                foreach ($vendor->contacts as $c) {
+                foreach ($vendor->linkedContacts as $c) {
+                    if (! (bool) ($c->pivot?->portal_access ?? false)) {
+                        continue;
+                    }
                     $vendorContacts[] = [
                         'id' => $c->id,
                         'display_name' => $c->display_name ?? trim(($c->first_name ?? '').' '.($c->last_name ?? '')),
@@ -663,6 +669,80 @@ class WarrantyClaimController extends BaseController
             ]);
         }
 
+        $ids = array_values(array_unique(array_map(static fn ($v) => (int) $v, $request->input('contact_ids', []))));
+        $contacts = $this->warrantyClaimVendorRecipientsOrFail($claim, $ids);
+
+        $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
+
+        return back()->with('success', 'Warranty claim sent to '.$contacts->count().' contact(s).');
+    }
+
+    public function submit(Request $request, WarrantyClaim $warrantyclaim): RedirectResponse
+    {
+        $claim = WarrantyClaim::query()->whereKey($warrantyclaim->getKey())->firstOrFail();
+
+        $this->authorize('submit', $claim);
+
+        $request->validate([
+            'contact_ids' => ['sometimes', 'nullable', 'array'],
+            'contact_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $status = $claim->status instanceof WarrantyClaimStatus
+            ? $claim->status
+            : WarrantyClaimStatus::tryFrom((string) $claim->getRawOriginal('status')) ?? WarrantyClaimStatus::Draft;
+
+        if ($status !== WarrantyClaimStatus::Draft) {
+            throw ValidationException::withMessages([
+                'contact_ids' => ['Only draft warranty claims can be submitted from this screen.'],
+            ]);
+        }
+
+        $rawIds = $request->input('contact_ids', []);
+        $ids = is_array($rawIds)
+            ? array_values(array_unique(array_filter(
+                array_map(static fn ($v) => (int) $v, $rawIds),
+                static fn (int $id) => $id > 0,
+            )))
+            : [];
+
+        $contacts = $ids === []
+            ? new EloquentCollection
+            : $this->warrantyClaimVendorRecipientsOrFail($claim, $ids);
+
+        $result = ($this->updateWarrantyClaim)((int) $claim->getKey(), [
+            'vendor_id' => (int) $claim->vendor_id,
+            'work_order_id' => $claim->work_order_id !== null ? (int) $claim->work_order_id : null,
+            'subsidiary_id' => $claim->subsidiary_id !== null ? (int) $claim->subsidiary_id : null,
+            'location_id' => $claim->location_id !== null ? (int) $claim->location_id : null,
+            'status' => WarrantyClaimStatus::Submitted->value,
+        ]);
+
+        if (! ($result['success'] ?? false)) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message'] ?? 'Failed to submit warranty claim.');
+        }
+
+        $claim->refresh();
+
+        if ($contacts->isNotEmpty()) {
+            $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
+        }
+
+        $message = $contacts->isNotEmpty()
+            ? 'Warranty claim submitted and emailed to '.$contacts->count().' contact(s).'
+            : 'Warranty claim submitted.';
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return EloquentCollection<int, Contact>
+     */
+    private function warrantyClaimVendorRecipientsOrFail(WarrantyClaim $claim, array $ids): EloquentCollection
+    {
         if (! $claim->vendor_id) {
             throw ValidationException::withMessages([
                 'contact_ids' => ['This claim has no manufacturer selected.'],
@@ -670,11 +750,13 @@ class WarrantyClaimController extends BaseController
         }
 
         $vendorId = (int) $claim->vendor_id;
-        $ids = array_values(array_unique(array_map(static fn ($v) => (int) $v, $request->input('contact_ids', []))));
 
         $contacts = Contact::query()
             ->whereIn('id', $ids)
-            ->whereHas('vendors', static fn ($q) => $q->where('vendors.id', $vendorId))
+            ->whereHas(
+                'vendorsWithPortalAccess',
+                static fn ($q) => $q->where('vendors.id', $vendorId),
+            )
             ->get();
 
         if ($contacts->count() !== count($ids)) {
@@ -693,9 +775,7 @@ class WarrantyClaimController extends BaseController
             }
         }
 
-        $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
-
-        return back()->with('success', 'Warranty claim sent to '.count($ids).' contact(s).');
+        return $contacts;
     }
 
     public function destroy(WarrantyClaim $warrantyclaim): RedirectResponse

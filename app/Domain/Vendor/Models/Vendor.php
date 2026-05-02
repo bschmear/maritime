@@ -4,6 +4,7 @@ namespace App\Domain\Vendor\Models;
 
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Task\Models\Task;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -100,13 +101,24 @@ class Vendor extends Model
      */
     public function assigned_user()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')->select('id', 'display_name');
+        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')
+            ->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'office_phone', 'mobile_phone', 'current_role']);
     }
 
-    public function contacts(): BelongsToMany
+    /**
+     * Contacts linked via {@code contact_vendor} pivot.
+     * Named {@code linkedContacts} because the {@code vendors} table has a legacy JSON {@code contacts} column
+     * that would shadow a {@code contacts()} relationship when accessed as a property.
+     */
+    public function linkedContacts(): BelongsToMany
     {
         return $this->belongsToMany(Contact::class, 'contact_vendor')
-            ->withPivot('is_primary');
+            ->withPivot(['is_primary', 'portal_access']);
+    }
+
+    public function warrantyClaims(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WarrantyClaim::class, 'vendor_id')->orderByDesc('updated_at');
     }
 
     /**
@@ -135,6 +147,7 @@ class Vendor extends Model
                 'vendor_id' => $vendorId,
                 'contact_id' => $primaryId,
                 'is_primary' => true,
+                'portal_access' => false,
             ]);
         }
     }

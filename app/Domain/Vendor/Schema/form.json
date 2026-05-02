@@ -59,8 +59,30 @@
     {
       "label": "Contacts",
       "domain": "Contact",
-      "modelRelationship": "contacts",
-      "relationshipType": "ManyToMany"
+      "modelRelationship": "linkedContacts",
+      "relationshipType": "ManyToMany",
+      "pivotColumns": [
+        {
+          "key": "portal_access",
+          "label": "Manufacturer portal",
+          "type": "boolean",
+          "toggleRoute": "vendors.contacts.portal-access",
+          "toggleRequestKey": "portal_access"
+        }
+      ],
+      "rowActions": [
+        {
+          "route": "vendors.contacts.send-vendor-portal-link",
+          "title": "Email manufacturer portal link",
+          "icon": "outgoing_mail",
+          "requiresEmail": true
+        }
+      ]
+    },
+    {
+      "label": "Warranty claims",
+      "domain": "WarrantyClaim",
+      "modelRelationship": "warrantyClaims"
     },
     {
       "label": "Communications",

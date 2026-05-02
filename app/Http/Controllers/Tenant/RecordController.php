@@ -1395,7 +1395,14 @@ class RecordController extends BaseController
             }
 
             // Attach the record
-            $relationshipInstance->attach($relatedId);
+            $pivot = [];
+            if ($record instanceof \App\Domain\Vendor\Models\Vendor && $relationship === 'linkedContacts') {
+                $pivot = [
+                    'is_primary' => false,
+                    'portal_access' => false,
+                ];
+            }
+            $relationshipInstance->attach($relatedId, $pivot);
 
             return response()->json([
                 'success' => true,

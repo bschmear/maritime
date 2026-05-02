@@ -148,7 +148,7 @@ class UpdateWarrantyClaim
 
                 return [
                     'success' => true,
-                    'record' => $record->fresh('lineItems'),
+                    'record' => $record->fresh(['lineItems.workOrderServiceItem']),
                 ];
             });
         } catch (ValidationException $e) {

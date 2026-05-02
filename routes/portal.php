@@ -13,6 +13,7 @@ use App\Http\Controllers\Portal\VendorRegistrationController;
 use App\Http\Controllers\Portal\VerifyVendorEmailController;
 use App\Http\Controllers\Tenant\PortalController;
 use App\Http\Middleware\EnsureVendorContactEmailVerified;
+use App\Http\Middleware\EnsureVendorHasManufacturerPortalAccess;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -74,13 +75,15 @@ Route::middleware([
             ->name('verification.send');
     });
 
-    Route::middleware(['auth:vendor', EnsureVendorContactEmailVerified::class])
+    Route::middleware(['auth:vendor', EnsureVendorContactEmailVerified::class, EnsureVendorHasManufacturerPortalAccess::class])
         ->prefix('vendor/portal')
         ->name('vendor.portal.')
         ->group(function () {
+            Route::get('/no-manufacturer-access', [VendorPortalController::class, 'noManufacturerPortalAccess'])->name('no-access');
             Route::get('/', [VendorPortalController::class, 'index'])->name('index');
             Route::get('/warranty-claims', [VendorPortalController::class, 'warrantyClaims'])->name('warranty-claims.index');
             Route::get('/warranty-claims/{warranty_claim}', [VendorPortalController::class, 'warrantyClaimShow'])->name('warranty-claims.show');
+            Route::post('/warranty-claims/{warranty_claim}/line-feedback', [VendorPortalController::class, 'saveWarrantyClaimLineFeedback'])->name('warranty-claims.line-feedback');
             Route::post('/warranty-claims/{warranty_claim}/approve', [VendorPortalController::class, 'approveWarrantyClaim'])->name('warranty-claims.approve');
             Route::post('/warranty-claims/{warranty_claim}/reject', [VendorPortalController::class, 'rejectWarrantyClaim'])->name('warranty-claims.reject');
         });

@@ -49,7 +49,12 @@ const costTypeLabel = (raw) => {
     return hit?.name ?? (raw === 'fixed' ? 'Fixed total' : 'Quantity × cost');
 };
 
-const lineItems = computed(() => props.record.line_items || []);
+const lineItems = computed(() => props.record.line_items || props.record.lineItems || []);
+
+const serviceLineDisplayName = (row) =>
+    row?.work_order_service_item?.display_name
+    || row?.workOrderServiceItem?.display_name
+    || (row?.work_order_service_item_id ? `Work order line #${row.work_order_service_item_id}` : 'Line item');
 
 const lineTotalSum = computed(() =>
     lineItems.value.reduce((sum, row) => sum + (Number(row.line_total_cost) || 0), 0),
@@ -197,7 +202,6 @@ onMounted(() => {
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-3 py-2 text-left font-medium text-gray-700">Description</th>
                                     <th class="px-3 py-2 text-left font-medium text-gray-700">Coverage</th>
                                     <th class="px-3 py-2 text-right font-medium text-gray-700">Qty</th>
                                     <th class="px-3 py-2 text-right font-medium text-gray-700">Cost</th>
@@ -205,18 +209,35 @@ onMounted(() => {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-200 bg-white">
-                                <tr v-for="row in lineItems" :key="row.id">
-                                    <td class="px-3 py-2 text-gray-900">
-                                        <div class="font-medium">{{ row.description }}</div>
-                                        <div v-if="row.notes" class="mt-0.5 text-xs text-gray-500">{{ row.notes }}</div>
-                                    </td>
-                                    <td class="px-3 py-2 text-gray-600">{{ costTypeLabel(row.cost_type) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-800">{{ row.quantity }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-800">{{ formatMoney(row.cost) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-900 font-medium">
-                                        {{ formatMoney(row.line_total_cost) }}
-                                    </td>
-                                </tr>
+                                <template v-for="row in lineItems" :key="row.id">
+                                    <tr>
+                                        <td class="px-3 py-2 text-gray-600">{{ costTypeLabel(row.cost_type) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-gray-800">{{ row.quantity }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-gray-800">{{ formatMoney(row.cost) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-gray-900 font-medium">
+                                            {{ formatMoney(row.line_total_cost) }}
+                                        </td>
+                                    </tr>
+                                    <tr class="bg-gray-50/90">
+                                        <td colspan="4" class="px-3 py-3 border-t border-gray-100 text-sm">
+                                            <div class="space-y-2">
+                                                <div>
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Service line</div>
+                                                    <div class="font-medium text-gray-900">{{ serviceLineDisplayName(row) }}</div>
+                                                </div>
+                                                <div v-if="(row.description || '').trim()">
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Service description</div>
+                                                    <div class="text-gray-800 whitespace-pre-line">{{ row.description }}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Vendor feedback</div>
+                                                    <div v-if="(row.notes || '').trim()" class="text-gray-800 whitespace-pre-line">{{ row.notes }}</div>
+                                                    <div v-else class="text-gray-400">—</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
                             </tbody>
                         </table>
                     </div>

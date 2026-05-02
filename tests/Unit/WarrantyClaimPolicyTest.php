@@ -54,6 +54,7 @@ class WarrantyClaimPolicyTest extends TestCase
             $table->foreignId('contact_id')->constrained('contacts')->cascadeOnDelete();
             $table->foreignId('vendor_id')->constrained('vendors')->cascadeOnDelete();
             $table->boolean('is_primary')->default(false);
+            $table->boolean('portal_access')->default(false);
             $table->timestamps();
         });
 
@@ -104,7 +105,7 @@ class WarrantyClaimPolicyTest extends TestCase
             'first_name' => 'R',
             'last_name' => 'E',
         ]);
-        $contact->vendors()->attach($vendorId, ['is_primary' => true]);
+        $contact->vendors()->attach($vendorId, ['is_primary' => true, 'portal_access' => true]);
 
         $claim = WarrantyClaim::query()->create([
             'vendor_id' => $vendorId,
@@ -127,11 +128,55 @@ class WarrantyClaimPolicyTest extends TestCase
             'first_name' => 'R',
             'last_name' => 'E',
         ]);
-        $contact->vendors()->attach($vendorA, ['is_primary' => true]);
+        $contact->vendors()->attach($vendorA, ['is_primary' => true, 'portal_access' => true]);
 
         $claim = WarrantyClaim::query()->create([
             'vendor_id' => $vendorB,
             'status' => Status::Submitted->value,
+            'total_amount' => 10,
+        ]);
+
+        $policy = new WarrantyClaimPolicy;
+
+        $this->assertFalse($policy->vendorRespond($contact, $claim));
+    }
+
+    public function test_vendor_respond_denies_when_portal_access_false(): void
+    {
+        $vendorId = (int) Vendor::query()->create(['display_name' => 'Acme Mfg'])->id;
+        $contact = Contact::query()->create([
+            'email' => 'rep@example.com',
+            'display_name' => 'Rep',
+            'first_name' => 'R',
+            'last_name' => 'E',
+        ]);
+        $contact->vendors()->attach($vendorId, ['is_primary' => true, 'portal_access' => false]);
+
+        $claim = WarrantyClaim::query()->create([
+            'vendor_id' => $vendorId,
+            'status' => Status::Submitted->value,
+            'total_amount' => 10,
+        ]);
+
+        $policy = new WarrantyClaimPolicy;
+
+        $this->assertFalse($policy->vendorRespond($contact, $claim));
+    }
+
+    public function test_vendor_respond_denies_when_claim_is_draft(): void
+    {
+        $vendorId = (int) Vendor::query()->create(['display_name' => 'Acme Mfg'])->id;
+        $contact = Contact::query()->create([
+            'email' => 'rep@example.com',
+            'display_name' => 'Rep',
+            'first_name' => 'R',
+            'last_name' => 'E',
+        ]);
+        $contact->vendors()->attach($vendorId, ['is_primary' => true, 'portal_access' => true]);
+
+        $claim = WarrantyClaim::query()->create([
+            'vendor_id' => $vendorId,
+            'status' => Status::Draft->value,
             'total_amount' => 10,
         ]);
 
@@ -157,6 +202,23 @@ class WarrantyClaimPolicyTest extends TestCase
         $this->assertTrue($policy->sendToVendor($webUser, $claim));
     }
 
+    public function test_submit_allows_authenticated_web_user(): void
+    {
+        $webUser = new WebUser;
+        $webUser->id = 1;
+        $webUser->email = 'staff@example.com';
+
+        $claim = WarrantyClaim::query()->create([
+            'vendor_id' => null,
+            'status' => Status::Draft->value,
+            'total_amount' => 1,
+        ]);
+
+        $policy = new WarrantyClaimPolicy;
+
+        $this->assertTrue($policy->submit($webUser, $claim));
+    }
+
     public function test_gate_vendor_respond_authorizes_for_user_contact(): void
     {
         $vendorId = (int) Vendor::query()->create(['display_name' => 'Acme Mfg'])->id;
@@ -166,7 +228,7 @@ class WarrantyClaimPolicyTest extends TestCase
             'first_name' => 'R',
             'last_name' => 'E',
         ]);
-        $contact->vendors()->attach($vendorId, ['is_primary' => true]);
+        $contact->vendors()->attach($vendorId, ['is_primary' => true, 'portal_access' => true]);
 
         $claim = WarrantyClaim::query()->create([
             'vendor_id' => $vendorId,
@@ -175,5 +237,25 @@ class WarrantyClaimPolicyTest extends TestCase
         ]);
 
         $this->assertTrue(Gate::forUser($contact)->allows('vendorRespond', $claim));
+    }
+
+    public function test_gate_vendor_respond_denies_for_draft_claim(): void
+    {
+        $vendorId = (int) Vendor::query()->create(['display_name' => 'Acme Mfg'])->id;
+        $contact = Contact::query()->create([
+            'email' => 'rep@example.com',
+            'display_name' => 'Rep',
+            'first_name' => 'R',
+            'last_name' => 'E',
+        ]);
+        $contact->vendors()->attach($vendorId, ['is_primary' => true, 'portal_access' => true]);
+
+        $claim = WarrantyClaim::query()->create([
+            'vendor_id' => $vendorId,
+            'status' => Status::Draft->value,
+            'total_amount' => 10,
+        ]);
+
+        $this->assertFalse(Gate::forUser($contact)->allows('vendorRespond', $claim));
     }
 }

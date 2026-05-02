@@ -138,7 +138,15 @@ class Contact extends Authenticatable
     public function vendors(): BelongsToMany
     {
         return $this->belongsToMany(Vendor::class, 'contact_vendor')
-            ->withPivot('is_primary');
+            ->withPivot(['is_primary', 'portal_access']);
+    }
+
+    /**
+     * Manufacturers this contact may access in the vendor portal (pivot flag).
+     */
+    public function vendorsWithPortalAccess(): BelongsToMany
+    {
+        return $this->vendors()->wherePivot('portal_access', true);
     }
 
     public function addresses(): HasMany

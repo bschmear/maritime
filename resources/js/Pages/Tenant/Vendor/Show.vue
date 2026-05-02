@@ -4,7 +4,12 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
+
+const isUpdatingPrimaryContact = ref(false);
+const isSendingVendorPortalLink = ref(false);
+/** Scroll target for the linked-contacts sublist (primary contact empty state). */
+const vendorContactsSection = ref(null);
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -35,6 +40,84 @@ const breadcrumbItems = computed(() => [
 
 const primaryContact = computed(() => props.record.primaryContact ?? props.record.primary_contact ?? null);
 
+/** Contacts linked to this vendor (ManyToMany), sorted for picker labels. */
+const linkedVendorContacts = computed(() => {
+    const raw = props.record.linkedContacts;
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+    return [...raw].sort((a, b) =>
+        contactPersonLabel(a).localeCompare(contactPersonLabel(b), undefined, { sensitivity: 'base' }),
+    );
+});
+
+const canSendVendorPortalLink = computed(() => {
+    const c = primaryContact.value;
+    if (!c?.id) {
+        return false;
+    }
+    const email = String(c.email ?? '').trim();
+    if (!email) {
+        return false;
+    }
+    return linkedVendorContacts.value.some((x) => Number(x.id) === Number(c.id));
+});
+
+const sendVendorPortalLink = () => {
+    isSendingVendorPortalLink.value = true;
+    router.post(
+        route('vendors.send-vendor-portal-link', props.record.id),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                isSendingVendorPortalLink.value = false;
+            },
+        },
+    );
+};
+
+const patchPrimaryContact = (contactId) => {
+    const id = Number(contactId);
+    if (!id || Number(props.record.primary_contact_id) === id) {
+        return;
+    }
+    isUpdatingPrimaryContact.value = true;
+    router.patch(
+        route('vendors.primary-contact', props.record.id),
+        { contact_id: id },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                isUpdatingPrimaryContact.value = false;
+            },
+        },
+    );
+};
+
+const onPrimaryContactSelectChange = (event) => {
+    const raw = event.target?.value;
+    if (raw === '' || raw == null) {
+        return;
+    }
+    patchPrimaryContact(raw);
+};
+
+const scrollToVendorContacts = () => {
+    nextTick(() => {
+        vendorContactsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+};
+
+/** When no contacts: jump to vendor contacts sublist, or open new contact if sublist is unavailable. */
+const goAddVendorContact = () => {
+    if (visibleSublists.value.length > 0 && props.domainName) {
+        scrollToVendorContacts();
+        return;
+    }
+    router.visit(route('contacts.create'));
+};
+
 const contactPersonLabel = (c) => {
     if (!c) {
         return '';
@@ -50,7 +133,7 @@ const contactPersonLabel = (c) => {
 const visibleSublists = computed(() => props.formSchema?.sublists ?? []);
 
 const onSublistMutated = ({ domain }) => {
-    if (domain === 'Contact') {
+    if (domain === 'Contact' || domain === 'WarrantyClaim') {
         router.reload({ only: ['record'], preserveScroll: true });
     }
 };
@@ -560,53 +643,159 @@ const confirmDelete = () => {
                     </div>
                 </div>
 
-                <div class="space-y-4">
-                    <div
-                        class="sticky top-[140px] space-y-4 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                    >
-                        <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Record
-                            </span>
-                        </div>
-                        <ul class="divide-y divide-gray-50 text-md dark:divide-gray-700/60">
-                            <li class="flex items-center gap-3 px-5 py-3">
-                                <span class="material-icons text-[16px] text-gray-400">person_pin</span>
-                                <span class="flex-1 text-gray-500 dark:text-gray-400">Assigned to</span>
-                                <span
-                                    class="max-w-[55%] truncate text-right text-sm font-medium"
-                                    :class="assignedUserName ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'"
-                                >
-                                    {{ assignedUserName || '—' }}
+                <div class="space-y-4 ">
+                    <div class="sticky top-[140px] space-y-4 ">
+                        <div class=" space-y-4 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Record
                                 </span>
-                            </li>
-                            <li class="flex items-center gap-3 px-5 py-3">
-                                <span class="material-icons text-[16px] text-gray-400">event</span>
-                                <span class="flex-1 text-gray-500 dark:text-gray-400">Created</span>
-                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
-                            </li>
-                            <li class="flex items-center gap-3 px-5 py-3">
-                                <span class="material-icons text-[16px] text-gray-400">update</span>
-                                <span class="flex-1 text-gray-500 dark:text-gray-400">Updated</span>
-                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
-                            </li>
-                            <li v-if="record.verified_at" class="flex items-center gap-3 px-5 py-3">
-                                <span class="material-icons text-[16px] text-gray-400">verified</span>
-                                <span class="flex-1 text-gray-500 dark:text-gray-400">Verified at</span>
-                                <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.verified_at) }}</span>
-                            </li>
-                        </ul>
+                            </div>
+                            <ul class="divide-y divide-gray-50 text-md dark:divide-gray-700/60">
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">person_pin</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Assigned to</span>
+                                    <span
+                                        class="max-w-[55%] truncate text-right text-sm font-medium"
+                                        :class="assignedUserName ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'"
+                                    >
+                                        {{ assignedUserName || '—' }}
+                                    </span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">event</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Created</span>
+                                    <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">update</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Updated</span>
+                                    <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
+                                </li>
+                                <li v-if="record.verified_at" class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">verified</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Verified at</span>
+                                    <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.verified_at) }}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Primary contact
+                                </span>
+                            </div>
+                            <div class="px-5 py-4">
+                                <div v-if="linkedVendorContacts.length === 0" class="space-y-3 text-sm text-gray-500 dark:text-gray-400">
+                                    <p>No contacts linked yet. Link a contact to this vendor, then choose who is primary.</p>
+                                    <button
+                                        type="button"
+                                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                                        @click="goAddVendorContact"
+                                    >
+                                        <span class="material-icons text-[18px]">person_add</span>
+                                        Add contact
+                                    </button>
+                                </div>
+                                <div v-else-if="linkedVendorContacts.length === 1" class="space-y-3">
+                                    <div>
+                                        <Link
+                                            :href="route('contacts.show', linkedVendorContacts[0].id)"
+                                            class="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                                        >
+                                            <span class="material-icons text-[18px]">person</span>
+                                            {{ contactPersonLabel(linkedVendorContacts[0]) }}
+                                        </Link>
+                                        <p
+                                            v-if="linkedVendorContacts[0].email"
+                                            class="mt-1 truncate text-sm text-gray-500 dark:text-gray-400"
+                                        >
+                                            {{ linkedVendorContacts[0].email }}
+                                        </p>
+                                    </div>
+                                    <p
+                                        v-if="Number(record.primary_contact_id) === Number(linkedVendorContacts[0].id)"
+                                        class="text-sm text-gray-500 dark:text-gray-400"
+                                    >
+                                        This is the primary contact for this vendor.
+                                    </p>
+                                    <button
+                                        v-else
+                                        type="button"
+                                        :disabled="isUpdatingPrimaryContact"
+                                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-medium text-teal-800 hover:bg-teal-100 disabled:opacity-50 dark:border-teal-800 dark:bg-teal-900/30 dark:text-teal-100 dark:hover:bg-teal-900/50"
+                                        @click="patchPrimaryContact(linkedVendorContacts[0].id)"
+                                    >
+                                        <span class="material-icons text-[18px]">star</span>
+                                        {{ isUpdatingPrimaryContact ? 'Saving…' : 'Set as primary contact' }}
+                                    </button>
+                                </div>
+                                <div v-else class="space-y-2">
+                                    <label class="block text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        Contact
+                                    </label>
+                                    <select
+                                        class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                                        :value="record.primary_contact_id != null ? String(record.primary_contact_id) : ''"
+                                        :disabled="isUpdatingPrimaryContact"
+                                        @change="onPrimaryContactSelectChange($event)"
+                                    >
+                                        <option value="" disabled>Select primary…</option>
+                                        <option
+                                            v-for="c in linkedVendorContacts"
+                                            :key="c.id"
+                                            :value="String(c.id)"
+                                        >
+                                            {{ contactPersonLabel(c) }}
+                                        </option>
+                                    </select>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        Only linked contacts can be primary. Add or remove contacts in the list below.
+                                    </p>
+                                </div>
+                                <div
+                                    v-if="canSendVendorPortalLink"
+                                    class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700"
+                                >
+                                    <button
+                                        type="button"
+                                        :disabled="isSendingVendorPortalLink"
+                                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700/80"
+                                        @click="sendVendorPortalLink"
+                                    >
+                                        <span class="material-icons text-[18px]">outgoing_mail</span>
+                                        {{
+                                            isSendingVendorPortalLink
+                                                ? 'Sending…'
+                                                : 'Email manufacturer portal link'
+                                        }}
+                                    </button>
+                                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                        Sends sign-in and registration links to
+                                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ primaryContact.email }}</span>
+                                        (primary contact).
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <Sublist
-                v-if="visibleSublists.length > 0 && domainName"
-                :parent-record="record"
-                :parent-domain="domainName"
-                :sublists="visibleSublists"
-                @sublist-mutated="onSublistMutated"
-            />
+            <div
+                id="vendor-linked-contacts"
+                ref="vendorContactsSection"
+                class="scroll-mt-28"
+            >
+                <Sublist
+                    v-if="visibleSublists.length > 0 && domainName"
+                    :parent-record="record"
+                    :parent-domain="domainName"
+                    :sublists="visibleSublists"
+                    @sublist-mutated="onSublistMutated"
+                />
+            </div>
         </div>
 
         <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">

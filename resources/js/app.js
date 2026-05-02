@@ -48,6 +48,12 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
+/** Inertia v2 visits do not use axios; Laravel still needs X-CSRF-TOKEN (or X-XSRF-TOKEN) on POSTs. */
+function inertiaCsrfHeaders() {
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    return token ? { 'X-CSRF-TOKEN': token } : {};
+}
+
 registerSW({ immediate: true });
 
 createInertiaApp({
@@ -57,6 +63,15 @@ createInertiaApp({
             `./Pages/${name}.vue`,
             import.meta.glob('./Pages/**/*.vue'),
         ),
+    defaults: {
+        visitOptions: (_href, options) => ({
+            ...options,
+            headers: {
+                ...(options.headers && typeof options.headers === 'object' ? options.headers : {}),
+                ...inertiaCsrfHeaders(),
+            },
+        }),
+    },
     setup({ el, App, props, plugin }) {
         const app = createApp({
             render: () => h(App, props),

@@ -387,6 +387,8 @@ td.sticky {
     #delivery-checklist-print-root *,
     #spec-sheet-print-root,
     #spec-sheet-print-root *,
+    #warranty-claim-print-root,
+    #warranty-claim-print-root *,
     #portal-service-ticket-print,
     #portal-service-ticket-print * {
         visibility: visible;
@@ -419,6 +421,14 @@ td.sticky {
     }
 
     #spec-sheet-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #warranty-claim-print-root {
         position: static !important;
         width: 100%;
         max-width: 100% !important;
