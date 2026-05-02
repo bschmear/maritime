@@ -30,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
 
         Request::macro('isPwa', function () {
             /** @var \Illuminate\Http\Request $this */
+            if ($this->query('pwa') === '0') {
+                return false;
+            }
+
             if ($this->boolean('pwa')) {
                 return true;
             }

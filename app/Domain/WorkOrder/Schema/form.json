@@ -192,10 +192,6 @@
       "domain": "Task"
     },
     {
-      "label": "Inventory Usage",
-      "domain": "InventoryUnit"
-    },
-    {
       "label": "Documents",
       "domain": "Document"
     },

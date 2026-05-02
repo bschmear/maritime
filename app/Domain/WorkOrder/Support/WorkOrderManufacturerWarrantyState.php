@@ -6,6 +6,7 @@ namespace App\Domain\WorkOrder\Support;
 
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\WarrantyClaim\Status;
 
@@ -32,10 +33,7 @@ final class WorkOrderManufacturerWarrantyState
             return false;
         }
 
-        return $workOrder->serviceItems()
-            ->where('warranty', true)
-            ->where('warranty_type', WarrantyCoverageType::Manufacturer)
-            ->exists();
+        return WorkOrderServiceItem::manufacturerWarrantyLinesForWorkOrder((int) $workOrder->getKey())->exists();
     }
 
     /**

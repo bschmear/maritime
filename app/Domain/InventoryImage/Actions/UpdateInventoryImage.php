@@ -3,6 +3,8 @@
 namespace App\Domain\InventoryImage\Actions;
 
 use App\Actions\PublicStorage;
+use App\Domain\Attachment\Models\AttachmentLink;
+use App\Domain\Attachment\Services\InventoryImageAttachmentService;
 use App\Domain\InventoryImage\Models\InventoryImage as RecordModel;
 use App\Domain\InventoryImage\Support\InventoryImageStorageDirectory;
 use Illuminate\Database\QueryException;
@@ -31,21 +33,43 @@ class UpdateInventoryImage
             'sort_order' => 'sometimes|integer',
             'role' => 'nullable|string',
             'is_primary' => 'sometimes|boolean',
+            'attachable_type' => 'sometimes|string',
+            'attachable_id' => 'sometimes|integer',
         ])->validate();
 
         try {
             $record = RecordModel::findOrFail($id);
 
-            // Handle primary image logic - ensure only one primary per parent
-            if (isset($validated['is_primary']) && $validated['is_primary']) {
-                // Unset primary status for all other images of the same parent
+            $attachableType = $validated['attachable_type'] ?? null;
+            $attachableId = isset($validated['attachable_id']) ? (int) $validated['attachable_id'] : null;
+            unset($validated['attachable_type'], $validated['attachable_id']);
+
+            $linkContext = $attachableType
+                && $attachableId !== null
+                && $attachableId > 0
+                && AttachmentLink::usesLinksForMorphClass((string) $attachableType);
+
+            if ($linkContext) {
+                $attach = app(InventoryImageAttachmentService::class);
+                if (array_key_exists('is_primary', $validated)) {
+                    if ($validated['is_primary']) {
+                        $attach->setPrimaryForAttachable((string) $attachableType, $attachableId, $id);
+                    }
+                    unset($validated['is_primary']);
+                }
+                if (array_key_exists('sort_order', $validated)) {
+                    $attach->updateSortOrderForAttachable((string) $attachableType, $attachableId, $id, (int) $validated['sort_order']);
+                    unset($validated['sort_order']);
+                }
+            }
+
+            if (! $linkContext && isset($validated['is_primary']) && $validated['is_primary']) {
                 RecordModel::where('imageable_type', $record->imageable_type)
                     ->where('imageable_id', $record->imageable_id)
                     ->where('id', '!=', $id)
                     ->update(['is_primary' => false]);
             }
 
-            // Handle file upload if a new file is provided
             if (isset($validated['file']) && $validated['file'] instanceof UploadedFile) {
                 $uploadedFile = $validated['file'];
                 $imageableType = $validated['imageable_type'] ?? $record->imageable_type;
@@ -60,16 +84,16 @@ class UpdateInventoryImage
                     false  // not private
                 );
 
-                // Replace file field with uploaded file info
                 $validated['file'] = $uploadResult['key'];
                 $validated['file_extension'] = $uploadResult['file_extension'];
                 $validated['file_size'] = $uploadResult['file_size'];
             }
 
-            // Set updated_by
             $validated['updated_by_id'] = auth()->id();
 
-            $record->update($validated);
+            if ($validated !== []) {
+                $record->update($validated);
+            }
 
             return [
                 'success' => true,

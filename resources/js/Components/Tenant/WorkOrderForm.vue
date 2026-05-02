@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import axios from 'axios';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -656,6 +657,61 @@ if (props.serviceTicket && props.mode === 'create') {
 
 const form = useForm(formData);
 
+const stTicketImages = ref([]);
+const stTicketImagesLoading = ref(false);
+const selectedStImageIds = ref([]);
+const linkAllStTicketImages = ref(false);
+
+const stTicketFqcn = 'App\\Domain\\ServiceTicket\\Models\\ServiceTicket';
+
+const fetchStTicketImagesForCreate = async () => {
+    if (props.mode !== 'create' || !props.serviceTicket?.id) {
+        stTicketImages.value = [];
+        return;
+    }
+    stTicketImagesLoading.value = true;
+    try {
+        const { data } = await axios.get(route('inventoryimages.index'), {
+            params: {
+                link_parent_type: stTicketFqcn,
+                link_parent_id: props.serviceTicket.id,
+                per_page: 200,
+            },
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        stTicketImages.value = data.records || [];
+    } catch {
+        stTicketImages.value = [];
+    } finally {
+        stTicketImagesLoading.value = false;
+    }
+};
+
+watch(
+    () => [props.mode, props.serviceTicket?.id],
+    () => {
+        selectedStImageIds.value = [];
+        linkAllStTicketImages.value = false;
+        fetchStTicketImagesForCreate();
+    },
+    { immediate: true },
+);
+
+const toggleStImage = (id) => {
+    const n = Number(id);
+    const set = new Set(selectedStImageIds.value.map(Number));
+    if (set.has(n)) {
+        set.delete(n);
+    } else {
+        set.add(n);
+    }
+    selectedStImageIds.value = [...set];
+};
+
+const isStImageSelected = (id) => selectedStImageIds.value.map(Number).includes(Number(id));
+
+const stImageThumbUrl = (img) => img?.url || '';
+
 // ==============================
 // Service Ticket Threshold Logic
 // ==============================
@@ -841,6 +897,13 @@ const submit = () => {
             }
         });
 
+        if (props.mode === 'create' && props.serviceTicket) {
+            allData.link_service_ticket_image_ids = linkAllStTicketImages.value
+                ? []
+                : [...selectedStImageIds.value];
+            allData.link_all_service_ticket_images = linkAllStTicketImages.value;
+        }
+
         return allData;
     });
 
@@ -940,6 +1003,47 @@ const handleCancel = () => {
                                     View Ticket
                                 </a>
                             </div>
+                        </div>
+
+                        <div
+                            v-if="mode === 'create' && serviceTicket"
+                            class="rounded-lg border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+                        >
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Ticket photos on this work order</h3>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                Link existing photos from the service ticket. The same files appear on both records; nothing is copied in storage.
+                            </p>
+                            <label class="mt-3 flex cursor-pointer items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+                                <input v-model="linkAllStTicketImages" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                                <span>Include all ticket photos</span>
+                            </label>
+                            <div v-if="stTicketImagesLoading" class="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading ticket images…</div>
+                            <template v-else-if="stTicketImages.length === 0">
+                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">This ticket has no images yet.</p>
+                            </template>
+                            <template v-else>
+                                <p v-if="linkAllStTicketImages" class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    All {{ stTicketImages.length }} ticket image(s) will be linked when the work order is saved.
+                                </p>
+                                <div v-else class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                                    <button
+                                        v-for="img in stTicketImages"
+                                        :key="img.id"
+                                        type="button"
+                                        class="group relative aspect-square overflow-hidden rounded-lg border-2 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                        :class="isStImageSelected(img.id) ? 'border-primary-600 ring-2 ring-primary-200 dark:border-primary-500 dark:ring-primary-900' : 'border-gray-200 dark:border-gray-600'"
+                                        @click.prevent="toggleStImage(img.id)"
+                                    >
+                                        <img :src="stImageThumbUrl(img)" :alt="img.display_name || 'Ticket image'" class="h-full w-full object-cover" loading="lazy" />
+                                        <span
+                                            class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-xs font-bold shadow"
+                                            :class="isStImageSelected(img.id) ? 'bg-primary-600 text-white' : 'bg-white/90 text-gray-600'"
+                                        >
+                                            {{ isStImageSelected(img.id) ? '✓' : '' }}
+                                        </span>
+                                    </button>
+                                </div>
+                            </template>
                         </div>
 
                         <!-- Customer & Unit Information -->

@@ -36,10 +36,6 @@ class DashboardController extends Controller
                 ];
             });
 
-        if ($request->isPwa()) {
-            $accounts = $accounts->filter(fn (array $row) => $row['has_active_subscription'])->values();
-        }
-
         // Get pending invitations for this user
         $pendingInvitations = Invitation::with(['account.owner', 'inviter'])
             ->where('email', $user->email)

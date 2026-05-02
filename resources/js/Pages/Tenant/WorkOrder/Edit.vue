@@ -1,6 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -60,6 +61,27 @@ const breadcrumbItems = computed(() => {
     ];
 });
 
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
+
 const handleCancelled = () => {
     router.visit(route('workorders.show', props.record.id));
 };
@@ -89,5 +111,16 @@ const handleCancelled = () => {
             mode="edit"
             @cancelled="handleCancelled"
         />
+        <div
+            v-if="visibleSublists.length > 0 && formSchema"
+            class="col-span-full mt-8 w-full"
+        >
+            <Sublist
+                :key="`work-order-edit-sublist-${record?.id || 'new'}`"
+                :parent-record="record"
+                parent-domain="WorkOrder"
+                :sublists="visibleSublists"
+            />
+        </div>
     </TenantLayout>
 </template>

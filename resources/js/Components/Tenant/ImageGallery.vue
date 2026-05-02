@@ -32,6 +32,13 @@
                     </span>
                 </div>
                 <div class="flex items-center gap-3">
+                    <label
+                        v-if="showAlsoAttachToTicket"
+                        class="hidden sm:inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none"
+                    >
+                        <input v-model="alsoAttachToServiceTicket" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                        <span>Also add to service ticket</span>
+                    </label>
                     <span v-if="images.length > 0" class="hidden sm:flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                         <span class="material-icons text-base">drag_indicator</span>
                         Drag to reorder
@@ -313,7 +320,8 @@ const props = defineProps({
     parentId: { type: Number, required: true },
     parentType: { type: String, required: true },
     domain: { type: String, required: true },
-    modelRelationship: { type: String, required: true }
+    modelRelationship: { type: String, required: true },
+    serviceTicketId: { type: Number, default: null },
 });
 
 const images = ref([]);
@@ -333,9 +341,28 @@ const isUpdatingImage = ref(false);
 const settingPrimaryImageId = ref(null);
 const deletingImageId = ref(null);
 const isReordering = ref(false);
+const alsoAttachToServiceTicket = ref(false);
+
+const attachableFqcn = computed(() => `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`);
+
+const useAttachmentLinks = computed(() =>
+    ['ServiceTicket', 'WorkOrder', 'WarrantyClaim'].includes(props.parentType),
+);
+
+const showAlsoAttachToTicket = computed(
+    () =>
+        props.parentType === 'WorkOrder' &&
+        props.serviceTicketId != null &&
+        Number(props.serviceTicketId) > 0,
+);
 
 const sortedImages = computed(() => {
     return [...images.value].sort((a, b) => a.sort_order - b.sort_order);
+});
+
+const linkContextParams = () => ({
+    attachable_type: attachableFqcn.value,
+    attachable_id: props.parentId,
 });
 
 const getImageUrl = (image) => image?.url || '';
@@ -354,18 +381,28 @@ const onDragLeave = () => {
 
 const fetchImages = async () => {
     try {
-        const response = await axios.get(route('inventoryimages.index'), {
-            params: {
+        const params = useAttachmentLinks.value
+            ? {
+                link_parent_type: attachableFqcn.value,
+                link_parent_id: props.parentId,
+                per_page: 100,
+            }
+            : {
                 filters: JSON.stringify([
-                    { field: 'imageable_type', operator: 'equals', value: `App\\Domain\\${props.parentType}\\Models\\${props.parentType}` },
-                    { field: 'imageable_id', operator: 'equals', value: props.parentId }
+                    { field: 'imageable_type', operator: 'equals', value: attachableFqcn.value },
+                    { field: 'imageable_id', operator: 'equals', value: props.parentId },
                 ]),
-                per_page: 100
-            },
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                per_page: 100,
+            };
+
+        const response = await axios.get(route('inventoryimages.index'), {
+            params,
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
         });
         images.value = response.data.records || [];
-        setTimeout(() => { initializeSortable(); }, 100);
+        setTimeout(() => {
+            initializeSortable();
+        }, 100);
     } catch (error) {
         console.error('Error fetching images:', error);
     }
@@ -399,9 +436,12 @@ const uploadFiles = async (files) => {
             formData.append('imageable_id', props.parentId);
             formData.append('display_name', file.name);
             formData.append('sort_order', images.value.length + completedFiles);
+            if (props.parentType === 'WorkOrder' && alsoAttachToServiceTicket.value) {
+                formData.append('also_attach_to_service_ticket', '1');
+            }
 
             await axios.post(route('inventoryimages.store'), formData, {
-                headers: { 'Content-Type': 'multipart/form-data', 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                headers: { 'Content-Type': 'multipart/form-data', 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             });
             completedFiles++;
             uploadProgress.value = Math.round((completedFiles / totalFiles) * 100);
@@ -429,7 +469,10 @@ const setPrimary = async (image) => {
     if (settingPrimaryImageId.value) return;
     settingPrimaryImageId.value = image.id;
     try {
-        await axios.patch(route('inventoryimages.update', image.id), { is_primary: true });
+        const body = useAttachmentLinks.value
+            ? { is_primary: true, ...linkContextParams() }
+            : { is_primary: true };
+        await axios.patch(route('inventoryimages.update', image.id), body);
         await fetchImages();
     } catch (error) {
         console.error('Error setting primary image:', error);
@@ -443,7 +486,10 @@ const deleteImage = async (image) => {
     if (deletingImageId.value) return;
     deletingImageId.value = image.id;
     try {
-        await axios.delete(route('inventoryimages.destroy', image.id));
+        const config = useAttachmentLinks.value
+            ? { params: linkContextParams() }
+            : {};
+        await axios.delete(route('inventoryimages.destroy', image.id), config);
         await fetchImages();
     } catch (error) {
         console.error('Error deleting image:', error);
@@ -468,8 +514,11 @@ const updateImage = async () => {
     if (!editingImage.value) return;
     isUpdatingImage.value = true;
     try {
-        await axios.patch(route('inventoryimages.update', editingImage.value.id), editForm.value, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        const body = useAttachmentLinks.value
+            ? { ...editForm.value, ...linkContextParams() }
+            : editForm.value;
+        await axios.patch(route('inventoryimages.update', editingImage.value.id), body, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
         });
         await fetchImages();
         closeEditModal();
@@ -498,9 +547,13 @@ const initializeSortable = () => {
             if (isReordering.value) return;
             isReordering.value = true;
             const sortedImageElements = Array.from(imageGrid.value.children);
-            const updates = sortedImageElements.map((el, i) =>
-                axios.patch(route('inventoryimages.update', parseInt(el.getAttribute('data-id'))), { sort_order: i })
-            );
+            const updates = sortedImageElements.map((el, i) => {
+                const inventoryImageId = parseInt(el.getAttribute('data-id'), 10);
+                const payload = useAttachmentLinks.value
+                    ? { sort_order: i, ...linkContextParams() }
+                    : { sort_order: i };
+                return axios.patch(route('inventoryimages.update', inventoryImageId), payload);
+            });
             try {
                 await Promise.all(updates);
             } catch (error) {
@@ -514,6 +567,7 @@ const initializeSortable = () => {
 };
 
 onMounted(async () => { await fetchImages(); });
+watch(() => [props.parentId, props.parentType], () => { fetchImages(); });
 watch(() => images.value.length, () => { setTimeout(() => { initializeSortable(); }, 100); });
 onUnmounted(() => {
     if (sortableInstance) sortableInstance.destroy();

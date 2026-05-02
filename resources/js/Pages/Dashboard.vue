@@ -15,8 +15,7 @@ defineProps({
 });
 
 const pwa = computed(() => Boolean(usePage().props.pwa));
-console.log(pwa.value);
-// Server pwa (cookie / ?pwa=1) is not set when the app is opened from the home screen alone.
+// Server pwa: ?pwa=1 or pwa_mode cookie (cookie is set only in standalone — see app.js).
 // Still treat the installed shell as in-app for navigation so "Open" does not use target=_blank.
 const pwaForLinks = computed(() => {
     if (pwa.value) {

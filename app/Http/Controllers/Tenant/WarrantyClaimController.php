@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
-use App\Domain\Document\Models\Document;
+use App\Domain\Attachment\Models\AttachmentLink;
+use App\Domain\Attachment\Services\InventoryImageAttachmentService;
+use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\WarrantyClaim\Actions\AttachWarrantyClaimImagesAfterCreate;
 use App\Domain\WarrantyClaim\Actions\CreateWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\DeleteWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\UpdateWarrantyClaim;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
@@ -64,9 +70,11 @@ class WarrantyClaimController extends BaseController
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
         $relationships['vendor'] = fn ($q) => $q->select(['id', 'display_name']);
-        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'sequence']);
+        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'work_order_number']);
+        $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
+        $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['lineItems'] = fn ($q) => $q->orderBy('id');
-        $relationships['images'] = fn ($q) => $q->orderBy('sort_order')->orderBy('id');
+        $relationships['images'] = fn ($q) => $q;
 
         return $relationships;
     }
@@ -144,9 +152,15 @@ class WarrantyClaimController extends BaseController
             $actualColumns[] = 'id';
         }
 
+        if (! in_array('sequence', $actualColumns, true)) {
+            $actualColumns[] = 'sequence';
+        }
+
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
         $relationships['vendor'] = fn ($q) => $q->select(['id', 'display_name']);
-        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'sequence']);
+        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'work_order_number']);
+        $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
+        $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
         $query = WarrantyClaim::query()
             ->select(array_map(static fn (string $c) => $tableName.'.'.$c, $actualColumns))
@@ -156,14 +170,15 @@ class WarrantyClaimController extends BaseController
         if ($search !== '') {
             $like = '%'.strtolower($search).'%';
             $query->where(function ($q) use ($like, $tableName) {
-                $q->whereRaw('LOWER('.$tableName.'.claim_number) LIKE ?', [$like])
+                $q->whereRaw('LOWER(CAST('.$tableName.'.sequence AS CHAR)) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER('.$tableName.'.claim_number) LIKE ?', [$like])
                     ->orWhereRaw('LOWER('.$tableName.'.status) LIKE ?', [$like]);
             });
         }
 
         $sort = (string) $request->get('sort', 'updated_at');
         $dir = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $sortable = ['id', 'claim_number', 'status', 'total_amount', 'submitted_at', 'paid_at', 'created_at', 'updated_at'];
+        $sortable = ['id', 'sequence', 'status', 'total_amount', 'submitted_at', 'paid_at', 'created_at', 'updated_at'];
         if (in_array($sort, $sortable, true)) {
             $query->orderBy($tableName.'.'.$sort, $dir);
         } else {
@@ -332,9 +347,174 @@ class WarrantyClaimController extends BaseController
         ]));
     }
 
+    /**
+     * Images linkable onto a new warranty claim from the work order and its linked service ticket,
+     * plus manufacturer warranty service lines for claim line items.
+     */
+    public function workOrderServiceTicketImages(WorkOrder $workorder): JsonResponse
+    {
+        $ticketFqcn = ServiceTicket::class;
+        $woFqcn = WorkOrder::class;
+        $stId = $workorder->service_ticket_id ? (int) $workorder->service_ticket_id : null;
+
+        $workOrderImages = $this->galleryRowsForAttachable($woFqcn, (int) $workorder->id);
+        $workOrderImages = $this->mergeMorphImagesBeyondLinks($woFqcn, (int) $workorder->id, $workOrderImages);
+
+        $base = [
+            'subsidiary_id' => $workorder->subsidiary_id ? (int) $workorder->subsidiary_id : null,
+            'location_id' => $workorder->location_id ? (int) $workorder->location_id : null,
+            'warranty_service_items' => $this->warrantyServiceItemsPayload($workorder),
+            'work_order_images' => $workOrderImages,
+        ];
+
+        if ($stId === null || $stId <= 0) {
+            return response()->json(array_merge($base, [
+                'service_ticket_id' => null,
+                'service_ticket_images' => [],
+            ]));
+        }
+
+        $serviceTicketImages = $this->galleryRowsForAttachable($ticketFqcn, $stId);
+        $serviceTicketImages = $this->mergeMorphImagesBeyondLinks($ticketFqcn, $stId, $serviceTicketImages);
+
+        return response()->json(array_merge($base, [
+            'service_ticket_id' => $stId,
+            'service_ticket_images' => $serviceTicketImages,
+        ]));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function warrantyServiceItemsPayload(WorkOrder $workorder): array
+    {
+        return WorkOrderServiceItem::manufacturerWarrantyLinesForWorkOrder((int) $workorder->id)
+            ->get([
+                'id',
+                'display_name',
+                'description',
+                'quantity',
+                'unit_price',
+                'unit_cost',
+                'total_price',
+                'total_cost',
+                'warranty_type',
+            ])
+            ->map(static function (WorkOrderServiceItem $row): array {
+                $type = $row->warranty_type;
+
+                return [
+                    'id' => $row->id,
+                    'display_name' => $row->display_name,
+                    'description' => $row->description,
+                    'quantity' => (float) $row->quantity,
+                    'unit_price' => (float) $row->unit_price,
+                    'unit_cost' => $row->unit_cost !== null ? (float) $row->unit_cost : null,
+                    'total_price' => (float) $row->total_price,
+                    'total_cost' => $row->total_cost !== null ? (float) $row->total_cost : null,
+                    'warranty_type' => $type?->value,
+                    'warranty_type_label' => $type?->label(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Include legacy morph-owned images not yet represented by attachment_links (same file row).
+     *
+     * @param  list<array<string, mixed>>  $linkRows
+     * @return list<array<string, mixed>>
+     */
+    private function mergeMorphImagesBeyondLinks(string $attachableFqcn, int $attachableId, array $linkRows): array
+    {
+        $linkedIds = collect($linkRows)->pluck('id')->all();
+
+        $orphanMorph = InventoryImage::query()
+            ->where('imageable_type', $attachableFqcn)
+            ->where('imageable_id', $attachableId)
+            ->when($linkedIds !== [], fn ($q) => $q->whereNotIn('id', $linkedIds))
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($orphanMorph as $img) {
+            $linkRows[] = $img->toArray();
+        }
+
+        return $linkRows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function galleryRowsForAttachable(string $attachableType, int $attachableId): array
+    {
+        $links = AttachmentLink::query()
+            ->where('attachable_type', $attachableType)
+            ->where('attachable_id', $attachableId)
+            ->with(['inventoryImage'])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $out = [];
+        foreach ($links as $link) {
+            $img = $link->inventoryImage;
+            if (! $img) {
+                continue;
+            }
+            $row = $img->toArray();
+            $row['attachment_link_id'] = $link->id;
+            $row['sort_order'] = (int) $link->sort_order;
+            $row['is_primary'] = (bool) $link->is_primary;
+
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
     public function store(Request $request, PublicStorage $publicStorage): RedirectResponse
     {
         try {
+            $request->validate([
+                'reuse_inventory_image_ids' => ['sometimes', 'array'],
+                'reuse_inventory_image_ids.*' => ['integer', 'distinct', 'exists:inventory_images,id'],
+                'claim_images' => ['sometimes', 'array'],
+                'claim_images.*' => ['file', 'image', 'max:51200'],
+            ]);
+
+            $reuseIds = $request->input('reuse_inventory_image_ids', []);
+            if (! is_array($reuseIds)) {
+                $reuseIds = [];
+            }
+            $reuseIds = array_values(array_unique(array_map(static fn ($v) => (int) $v, $reuseIds)));
+
+            if ($reuseIds !== [] && ! $request->filled('work_order_id')) {
+                throw ValidationException::withMessages([
+                    'reuse_inventory_image_ids' => ['Select a work order before reusing images.'],
+                ]);
+            }
+
+            if ($request->filled('work_order_id')) {
+                $wo = WorkOrder::query()->find((int) $request->input('work_order_id'));
+                if (! $wo) {
+                    throw ValidationException::withMessages([
+                        'work_order_id' => ['The selected work order is invalid.'],
+                    ]);
+                }
+
+                $attach = app(InventoryImageAttachmentService::class);
+                foreach ($reuseIds as $rid) {
+                    if (! $attach->imageIsUsableOnWarrantyClaimFromWorkOrder($rid, $wo)) {
+                        throw ValidationException::withMessages([
+                            'reuse_inventory_image_ids' => ['One or more selected images are not available from this work order or its linked service ticket.'],
+                        ]);
+                    }
+                }
+            }
+
             $data = $this->collectStoreUpdatePayload($request, $publicStorage);
             $result = ($this->createWarrantyClaim)($data);
 
@@ -343,6 +523,15 @@ class WarrantyClaimController extends BaseController
             }
 
             if (($result['success'] ?? false) && isset($result['record'])) {
+                $record = $result['record'];
+                if ($record instanceof WarrantyClaim) {
+                    $uploads = $request->file('claim_images', []);
+                    if (! is_array($uploads)) {
+                        $uploads = $uploads ? [$uploads] : [];
+                    }
+                    (new AttachWarrantyClaimImagesAfterCreate)($record, $reuseIds, $uploads);
+                }
+
                 return redirect()
                     ->route('warrantyclaims.show', $result['record']->id)
                     ->with('success', 'Warranty claim created successfully.')

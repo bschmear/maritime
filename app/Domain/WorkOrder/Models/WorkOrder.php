@@ -2,7 +2,7 @@
 
 namespace App\Domain\WorkOrder\Models;
 
-use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Database\Eloquent\Model;
 // use App\Domain\WorkOrder\Models\WorkOrderLineItem;
@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WorkOrder extends Model
 {
+    use HasLinkedInventoryImages;
     use SoftDeletes;
 
     protected $table = 'work_orders';
@@ -117,11 +118,6 @@ class WorkOrder extends Model
             \App\Domain\InventoryItem\Models\InventoryItem::class,
             'inventory_item_id'
         );
-    }
-
-    public function images()
-    {
-        return $this->morphMany(InventoryImage::class, 'imageable');
     }
 
     public function serviceItems()

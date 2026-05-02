@@ -3,6 +3,7 @@
 namespace App\Domain\WorkOrderServiceItem\Models;
 
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class WorkOrderServiceItem extends Model
@@ -75,6 +76,20 @@ class WorkOrderServiceItem extends Model
         return $this->belongsTo(
             \App\Domain\WorkOrder\Models\WorkOrder::class
         );
+    }
+
+    /**
+     * Active manufacturer-warranty lines on a work order (same scope as {@see \App\Domain\WorkOrder\Support\WorkOrderManufacturerWarrantyState}).
+     */
+    public static function manufacturerWarrantyLinesForWorkOrder(int $workOrderId): Builder
+    {
+        return static::query()
+            ->where('work_order_id', $workOrderId)
+            ->where('warranty', true)
+            ->where('warranty_type', WarrantyCoverageType::Manufacturer->value)
+            ->where('inactive', false)
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 
     public function serviceItem()

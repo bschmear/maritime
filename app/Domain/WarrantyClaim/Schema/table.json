@@ -1,7 +1,8 @@
 {
+  "allow_create_modal": false,
   "columns": [
     { "key": "id", "label": "ID", "sortable": true },
-    { "key": "claim_number", "label": "Claim #", "sortable": true },
+    { "key": "display_name", "label": "Claim #", "sortable": false },
     { "key": "vendor_id", "label": "Manufacturer", "sortable": false },
     { "key": "work_order_id", "label": "Work order", "sortable": false },
     { "key": "status", "label": "Status", "sortable": true },

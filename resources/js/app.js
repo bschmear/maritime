@@ -3,6 +3,31 @@ import './bootstrap';
 import { registerSW } from 'virtual:pwa-register';
 import { formatPhoneNumber } from './Utils/formatPhoneNumber';
 
+/**
+ * Keep pwa_mode in sync with the actual display context.
+ * Previously the server set this cookie for any ?pwa=1 visit (1 year), which made a normal
+ * browser behave like a PWA until the cookie expired. Only standalone should persist the cookie.
+ */
+function syncPwaModeCookie() {
+    if (typeof document === 'undefined') {
+        return;
+    }
+    const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+        window.navigator.standalone === true;
+    const secure = window.location.protocol === 'https:';
+    const suffix = `path=/; SameSite=Lax${secure ? '; Secure' : ''}`;
+    if (standalone) {
+        const maxAge = 60 * 60 * 24 * 365;
+        document.cookie = `pwa_mode=1; max-age=${maxAge}; ${suffix}`;
+    } else {
+        document.cookie = `pwa_mode=; max-age=0; ${suffix}`;
+    }
+}
+
+syncPwaModeCookie();
+
 // Clean up any previously-registered service workers that don't match the current
 // build (e.g. an old vite-plugin-pwa dev SW at /build/dev-sw.js). A stale SW will
 // keep requesting its own script URL to check for updates, producing 404s.

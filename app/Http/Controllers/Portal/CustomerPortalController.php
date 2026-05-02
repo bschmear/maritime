@@ -297,7 +297,7 @@ class CustomerPortalController extends Controller
                     }]);
                 },
                 'serviceItems' => fn ($q) => $q->where('inactive', false)->orderBy('sort_order')->orderBy('id'),
-                'images' => fn ($q) => $q->orderBy('sort_order')->orderBy('id'),
+                'images' => fn ($q) => $q,
             ])
             ->firstOrFail();
 
@@ -326,7 +326,7 @@ class CustomerPortalController extends Controller
             'id' => $img->id,
             'display_name' => $img->display_name,
             'url' => $img->url,
-            'is_primary' => (bool) $img->is_primary,
+            'is_primary' => (bool) ($img->pivot?->is_primary ?? $img->is_primary),
         ])->values()->all();
 
         return Inertia::render('Portal/ServiceTicketShow', [

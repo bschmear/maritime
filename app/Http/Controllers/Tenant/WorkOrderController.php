@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
+use App\Domain\Attachment\Services\InventoryImageAttachmentService;
 use App\Domain\WorkOrder\Actions\CreateWorkOrder as CreateAction;
 use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
+use App\Domain\WorkOrder\Actions\LinkInventoryImagesToWorkOrderAfterCreate;
 use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Enums\RecordType;
@@ -503,12 +505,40 @@ class WorkOrderController extends RecordController
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
+        $linkServiceTicketImageIds = $data['link_service_ticket_image_ids'] ?? [];
+        if (! is_array($linkServiceTicketImageIds)) {
+            $linkServiceTicketImageIds = [];
+        }
+        $linkServiceTicketImageIds = array_values(array_unique(array_map(static fn ($v) => (int) $v, $linkServiceTicketImageIds)));
+        $linkAllServiceTicketImages = filter_var($data['link_all_service_ticket_images'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['link_service_ticket_image_ids'], $data['link_all_service_ticket_images']);
+
         // Validate threshold if linked to a service ticket
         $serviceTicketId = $data['service_ticket_id'] ?? null;
         if ($serviceTicketId) {
             $thresholdError = $this->validateThreshold($serviceTicketId, $serviceItems, $data['tax_rate'] ?? 0);
             if ($thresholdError) {
                 return back()->withErrors(['threshold' => $thresholdError]);
+            }
+        }
+
+        if (($linkAllServiceTicketImages || $linkServiceTicketImageIds !== []) && ! $serviceTicketId) {
+            return back()->withErrors([
+                'link_service_ticket_image_ids' => ['Select a service ticket before linking ticket images to this work order.'],
+            ]);
+        }
+
+        if ($linkServiceTicketImageIds !== [] || $linkAllServiceTicketImages) {
+            $attach = app(InventoryImageAttachmentService::class);
+            foreach ($linkServiceTicketImageIds as $imgId) {
+                if ($imgId <= 0) {
+                    continue;
+                }
+                if (! $attach->imageBelongsToServiceTicket($imgId, (int) $serviceTicketId)) {
+                    return back()->withErrors([
+                        'link_service_ticket_image_ids' => ['One or more selected images are not on this service ticket.'],
+                    ]);
+                }
             }
         }
 
@@ -530,6 +560,14 @@ class WorkOrderController extends RecordController
                     } else {
                         // Recalculate totals even without service items
                         $calculator->recalculateWorkOrder($workOrder);
+                    }
+
+                    if ($linkAllServiceTicketImages || $linkServiceTicketImageIds !== []) {
+                        (new LinkInventoryImagesToWorkOrderAfterCreate)(
+                            $workOrder,
+                            $linkServiceTicketImageIds,
+                            $linkAllServiceTicketImages
+                        );
                     }
                 }
             }

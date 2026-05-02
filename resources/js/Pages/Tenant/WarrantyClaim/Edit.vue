@@ -22,7 +22,7 @@ const props = defineProps({
 
 const claimLabel = computed(() => {
     const r = props.record;
-    return (r.claim_number && String(r.claim_number).trim()) || `Claim #${r.id}`;
+    return r.display_name || (r.sequence != null ? `WCL-${r.sequence}` : null) || `Claim #${r.id}`;
 });
 
 const breadcrumbItems = computed(() => [

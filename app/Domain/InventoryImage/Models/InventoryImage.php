@@ -2,11 +2,12 @@
 
 namespace App\Domain\InventoryImage\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
+use App\Domain\Attachment\Models\AttachmentLink;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\Storage;
 
 class InventoryImage extends Model
 {
@@ -50,6 +51,14 @@ class InventoryImage extends Model
     }
 
     /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<AttachmentLink, InventoryImage>
+     */
+    public function attachmentLinks()
+    {
+        return $this->hasMany(AttachmentLink::class, 'inventory_image_id');
+    }
+
+    /**
      * Creator relationships
      */
     public function createdBy(): BelongsTo
@@ -80,7 +89,7 @@ class InventoryImage extends Model
      */
     public function getUrlAttribute(): string
     {
-        if (!$this->file) {
+        if (! $this->file) {
             return '';
         }
 
@@ -88,7 +97,8 @@ class InventoryImage extends Model
         if ($cdnUrl) {
             // Remove trailing slash from CDN URL to avoid double slashes
             $cdnUrl = rtrim($cdnUrl, '/');
-            return $cdnUrl . '/' . $this->file;
+
+            return $cdnUrl.'/'.$this->file;
         }
 
         // Generate temporary signed URL with cache headers (valid for 7 days)

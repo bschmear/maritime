@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
 import { computed } from 'vue';
 
@@ -55,6 +56,27 @@ const breadcrumbItems = computed(() => {
         { label: props.record.work_order_number || 'View' },
     ];
 });
+
+const isSublistVisible = (sub) => {
+    if (!sub?.conditional || typeof sub.conditional !== 'object') {
+        return true;
+    }
+    const { key, value, operator = 'equals' } = sub.conditional;
+    const current = props.record[key];
+    const boolCurrent = current === true || current === 1;
+    switch (operator) {
+        case 'equals':
+        case 'eq':
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+        case 'not_equals':
+        case 'neq':
+            return typeof value === 'boolean' ? boolCurrent !== value : current != value;
+        default:
+            return typeof value === 'boolean' ? boolCurrent === value : current == value;
+    }
+};
+
+const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 
 // Helper functions
 const getEnumLabel = (fieldKey, value) => {
@@ -240,6 +262,18 @@ const deleteWorkOrder = () => {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div
+                v-if="visibleSublists.length > 0 && formSchema"
+                class="w-full space-y-4 md:space-y-6"
+            >
+                <Sublist
+                    :key="`work-order-sublist-${record?.id || 'new'}`"
+                    :parent-record="record"
+                    parent-domain="WorkOrder"
+                    :sublists="visibleSublists"
+                />
             </div>
         </div>
     </TenantLayout>

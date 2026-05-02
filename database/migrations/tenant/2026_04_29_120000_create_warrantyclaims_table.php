@@ -10,6 +10,9 @@ return new class extends Migration
     {
         Schema::create('warrantyclaims', function (Blueprint $table) {
             $table->id();
+            $table->uuid('uuid')
+                ->unique();
+            $table->unsignedBigInteger('sequence')->unique();
 
             $table->foreignId('vendor_id')
                 ->nullable()
@@ -19,6 +22,15 @@ return new class extends Migration
             $table->foreignId('work_order_id')
                 ->nullable()
                 ->constrained('work_orders')
+                ->nullOnDelete();
+
+            $table->unsignedBigInteger('subsidiary_id')
+                ->nullable()
+                ->constrained('subsidiaries')
+                ->nullOnDelete();
+            $table->unsignedBigInteger('location_id')
+                ->nullable()
+                ->constrained('locations')
                 ->nullOnDelete();
 
             $table->string('claim_number')->nullable()->after('work_order_id');
@@ -35,6 +47,10 @@ return new class extends Migration
             $table->text('rejection_reason')->nullable()->after('voided_at');
             $table->text('notes')->nullable()->after('rejection_reason');
             $table->timestamps();
+
+            $table->index('subsidiary_id');
+            $table->index('location_id');
+            $table->index('vendor_id');
         });
 
         Schema::create('warranty_claim_line_items', function (Blueprint $table) {

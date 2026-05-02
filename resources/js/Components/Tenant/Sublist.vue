@@ -1340,6 +1340,7 @@ watch(
                         :parent-type="parentDomain"
                         :domain="activeTab.domain"
                         :model-relationship="activeTab.modelRelationship"
+                        :service-ticket-id="parentDomain === 'WorkOrder' ? (parentRecord?.service_ticket_id ?? null) : null"
                     />
                 </div>
 

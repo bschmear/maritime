@@ -2,17 +2,17 @@
 
 namespace App\Domain\ServiceTicket\Models;
 
-use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
 class ServiceTicket extends Model
 {
+    use HasLinkedInventoryImages;
     use SoftDeletes;
 
     protected $table = 'service_tickets';
@@ -128,11 +128,6 @@ class ServiceTicket extends Model
     public function revisions(): HasMany
     {
         return $this->hasMany(\App\Domain\ServiceTicketRevision\Models\ServiceTicketRevision::class);
-    }
-
-    public function images(): MorphMany
-    {
-        return $this->morphMany(InventoryImage::class, 'imageable');
     }
 
     public function workOrders(): HasMany

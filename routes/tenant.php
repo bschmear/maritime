@@ -255,6 +255,8 @@ Route::middleware([
         });
 
         Route::prefix('warrantyclaims')->name('warrantyclaims.')->group(function () {
+            Route::get('/by-work-order/{workorder}/service-ticket-images', [WarrantyClaimController::class, 'workOrderServiceTicketImages'])
+                ->name('by-work-order.service-ticket-images');
             Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
         });
 

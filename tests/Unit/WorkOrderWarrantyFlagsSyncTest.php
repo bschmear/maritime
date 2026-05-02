@@ -48,13 +48,18 @@ class WorkOrderWarrantyFlagsSyncTest extends TestCase
             $table->string('display_name')->default('Line');
             $table->boolean('warranty')->default(false);
             $table->string('warranty_type')->nullable();
+            $table->boolean('inactive')->default(false);
             $table->timestamps();
         });
 
         Schema::create('warrantyclaims', function (Blueprint $table) {
             $table->id();
+            $table->uuid('uuid')->unique();
+            $table->unsignedBigInteger('sequence')->unique();
             $table->foreignId('vendor_id')->nullable()->constrained('vendors')->nullOnDelete();
             $table->foreignId('work_order_id')->nullable()->constrained('work_orders')->nullOnDelete();
+            $table->unsignedBigInteger('subsidiary_id')->nullable();
+            $table->unsignedBigInteger('location_id')->nullable();
             $table->string('claim_number')->nullable();
             $table->string('status', 32)->default('draft');
             $table->decimal('total_amount', 10, 2)->default(0);

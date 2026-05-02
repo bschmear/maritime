@@ -8,7 +8,8 @@
       "fields": [
         { "key": "vendor_id", "required": true },
         { "key": "work_order_id", "required": false },
-        { "key": "claim_number", "required": false },
+        { "key": "subsidiary_id", "required": false },
+        { "key": "location_id", "required": false },
         { "key": "status", "required": true },
         { "key": "notes", "required": false },
         { "key": "rejection_reason", "required": false }

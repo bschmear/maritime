@@ -23,7 +23,8 @@ class UpdateWarrantyClaim
         $validator = Validator::make($data, [
             'vendor_id' => ['required', 'integer', 'exists:vendors,id'],
             'work_order_id' => ['nullable', 'integer', 'exists:work_orders,id'],
-            'claim_number' => ['nullable', 'string', 'max:255'],
+            'subsidiary_id' => ['nullable', 'integer', 'exists:subsidiaries,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'status' => ['nullable'],
             'notes' => ['nullable', 'string'],
             'rejection_reason' => ['nullable', 'string'],
@@ -35,6 +36,14 @@ class UpdateWarrantyClaim
             'items.*.work_order_service_item_id' => ['nullable', 'integer', 'exists:work_order_service_items,id'],
         ]);
         $validated = $validator->validate();
+
+        if (! empty($validated['work_order_id'])) {
+            $wo = WorkOrder::query()->find((int) $validated['work_order_id']);
+            if ($wo) {
+                $validated['subsidiary_id'] = $wo->subsidiary_id;
+                $validated['location_id'] = $wo->location_id;
+            }
+        }
 
         $items = array_key_exists('items', $data) ? ($validated['items'] ?? []) : null;
         unset($validated['items']);

@@ -14,9 +14,25 @@
     "nullable": true,
     "relationship": "workOrder"
   },
-  "claim_number": {
+  "subsidiary_id": {
+    "label": "Subsidiary",
+    "type": "record",
+    "typeDomain": "Subsidiary",
+    "nullable": true,
+    "relationship": "subsidiary"
+  },
+  "location_id": {
+    "label": "Location",
+    "type": "record",
+    "typeDomain": "Location",
+    "nullable": true,
+    "relationship": "location",
+    "filterby": "subsidiary_id"
+  },
+  "display_name": {
     "label": "Claim #",
     "type": "text",
+    "readOnly": true,
     "nullable": true
   },
   "status": {
