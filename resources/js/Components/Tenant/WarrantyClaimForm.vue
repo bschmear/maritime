@@ -2,7 +2,7 @@
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { useForm } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -21,6 +21,20 @@ const statusOptions = computed(() => props.enumOptions[statusEnumKey] || []);
 const merged = { ...props.prefill, ...(props.record ?? {}) };
 const rawStatus = merged.status?.value ?? merged.status ?? 'draft';
 
+function mapLineItemsFromRecord(record) {
+    if (!record) return [];
+    const rows = record.lineItems || record.line_items || [];
+    return rows.map((r) => ({
+        id: r.id,
+        work_order_service_item_id: r.work_order_service_item_id ?? null,
+        description: r.description ?? '',
+        cost_type: r.cost_type?.value ?? r.cost_type ?? 'quantity',
+        quantity: Math.max(1, parseInt(String(r.quantity), 10) || 1),
+        cost: Number(r.cost) || 0,
+        notes: r.notes ?? '',
+    }));
+}
+
 const form = useForm({
     vendor_id: merged.vendor_id ?? null,
     work_order_id: merged.work_order_id ?? null,
@@ -29,10 +43,24 @@ const form = useForm({
     status: rawStatus,
     notes: merged.notes ?? '',
     rejection_reason: merged.rejection_reason ?? '',
-    items: [],
+    items: props.mode === 'edit' ? mapLineItemsFromRecord(props.record) : [],
     reuse_inventory_image_ids: [],
     claim_images: [],
 });
+
+const isDraft = computed(() => {
+    const s = form.status;
+    const v = typeof s === 'object' && s != null && 'value' in s ? s.value : s;
+    return String(v || 'draft').toLowerCase() === 'draft';
+});
+
+const lineItemsNotesOnly = computed(() => props.mode === 'edit' && !isDraft.value);
+
+const showWorkOrderWarrantyPicker = computed(
+    () =>
+        selectedWorkOrderId.value != null &&
+        (props.mode === 'create' || (props.mode === 'edit' && isDraft.value && form.items.length === 0)),
+);
 
 const resolveWorkOrderId = (raw) => {
     if (raw == null || raw === '') return null;
@@ -52,6 +80,8 @@ const serviceTicketImages = ref([]);
 const imagesLoading = ref(false);
 const workOrderWarrantyItems = ref([]);
 const selectedWarrantyServiceItemIds = ref([]);
+/** Per work-order service line id: { cost_type, quantity, cost, notes } */
+const lineItemSettings = reactive({});
 const selectedReuseIds = ref([]);
 const additionalImageFiles = ref([]);
 const extraFileInput = ref(null);
@@ -71,7 +101,7 @@ const fetchWorkOrderContext = async (workOrderId) => {
         });
         workOrderImages.value = props.mode === 'create' ? data.work_order_images || [] : [];
         serviceTicketImages.value = props.mode === 'create' ? data.service_ticket_images || [] : [];
-        workOrderWarrantyItems.value = props.mode === 'create' ? data.warranty_service_items || [] : [];
+        workOrderWarrantyItems.value = showWorkOrderWarrantyPicker.value ? data.warranty_service_items || [] : [];
         form.subsidiary_id = data.subsidiary_id ?? null;
         form.location_id = data.location_id ?? null;
     } catch {
@@ -96,10 +126,58 @@ const warrantyLineQtyDisplay = (row) => {
     return Number.isInteger(q) ? String(q) : q.toFixed(2);
 };
 
+const clearLineItemSettings = () => {
+    for (const k of Object.keys(lineItemSettings)) {
+        delete lineItemSettings[k];
+    }
+};
+
+const defaultLineSettingsFromRow = (row) => {
+    const bt = Number(row.billing_type ?? 1);
+    if (bt === 2) {
+        const total =
+            row.total_cost != null && Number.isFinite(Number(row.total_cost))
+                ? Number(row.total_cost)
+                : (Number(row.unit_cost) || 0) * Math.max(1, Number(row.quantity) || 1);
+        return { cost_type: 'fixed', quantity: 1, cost: Math.round(total * 100) / 100, notes: '' };
+    }
+    const qty = Math.max(1, Math.round(Number(row.quantity) || 1));
+    const unit =
+        row.unit_cost != null && Number.isFinite(Number(row.unit_cost))
+            ? Number(row.unit_cost)
+            : row.total_cost != null && qty
+              ? Number(row.total_cost) / qty
+              : 0;
+    return { cost_type: 'quantity', quantity: qty, cost: Math.round(unit * 100) / 100, notes: '' };
+};
+
+const ensureLineSettings = (lineId) => {
+    const key = String(lineId);
+    if (lineItemSettings[key]) return;
+    const row = workOrderWarrantyItems.value.find((r) => Number(r.id) === Number(lineId));
+    if (row) {
+        lineItemSettings[key] = defaultLineSettingsFromRow(row);
+    }
+};
+
+const onLineCostTypeChange = (wid) => {
+    const key = String(wid);
+    if (lineItemSettings[key]?.cost_type === 'fixed') {
+        lineItemSettings[key].quantity = 1;
+    }
+};
+
 const toggleWarrantyServiceItem = (lineId) => {
     const n = Number(lineId);
     const set = new Set(selectedWarrantyServiceItemIds.value.map(Number));
-    set.has(n) ? set.delete(n) : set.add(n);
+    const key = String(n);
+    if (set.has(n)) {
+        set.delete(n);
+        delete lineItemSettings[key];
+    } else {
+        set.add(n);
+        ensureLineSettings(n);
+    }
     selectedWarrantyServiceItemIds.value = [...set];
 };
 
@@ -107,16 +185,17 @@ const isWarrantyServiceItemSelected = (lineId) => selectedWarrantyServiceItemIds
 
 const selectAllWarrantyLines = () => {
     selectedWarrantyServiceItemIds.value = workOrderWarrantyItems.value.map((r) => Number(r.id));
+    workOrderWarrantyItems.value.forEach((r) => ensureLineSettings(r.id));
 };
 
 const clearWarrantyLineSelection = () => {
     selectedWarrantyServiceItemIds.value = [];
+    clearLineItemSettings();
 };
 
 const createSubmitBlockedByWarrantyLines = computed(
     () =>
-        props.mode === 'create' &&
-        selectedWorkOrderId.value != null &&
+        showWorkOrderWarrantyPicker.value &&
         !imagesLoading.value &&
         workOrderWarrantyItems.value.length > 0 &&
         selectedWarrantyServiceItemIds.value.length === 0,
@@ -124,13 +203,18 @@ const createSubmitBlockedByWarrantyLines = computed(
 
 watch(selectedWorkOrderId, (id) => {
     selectedReuseIds.value = [];
-    selectedWarrantyServiceItemIds.value = [];
-    workOrderWarrantyItems.value = [];
+    if (props.mode === 'create') {
+        selectedWarrantyServiceItemIds.value = [];
+        clearLineItemSettings();
+        workOrderWarrantyItems.value = [];
+    }
     if (!id) {
         workOrderImages.value = [];
         serviceTicketImages.value = [];
-        form.subsidiary_id = null;
-        form.location_id = null;
+        if (props.mode === 'create') {
+            form.subsidiary_id = null;
+            form.location_id = null;
+        }
         return;
     }
     fetchWorkOrderContext(id);
@@ -156,12 +240,62 @@ const removeExtraFile = (index) => {
     additionalImageFiles.value = additionalImageFiles.value.filter((_, i) => i !== index);
 };
 
+const buildCreateItemsFromWoSelection = () => {
+    if (selectedWorkOrderId.value == null || workOrderWarrantyItems.value.length === 0) {
+        return [];
+    }
+    return selectedWarrantyServiceItemIds.value.map((wid) => {
+        const key = String(wid);
+        const row = workOrderWarrantyItems.value.find((r) => Number(r.id) === Number(wid));
+        const defaults = row ? defaultLineSettingsFromRow(row) : { cost_type: 'quantity', quantity: 1, cost: 0, notes: '' };
+        const s = lineItemSettings[key] || defaults;
+        const desc = (row?.display_name || row?.description || '').trim() || 'Warranty line';
+        return {
+            work_order_service_item_id: Number(wid),
+            description: desc,
+            cost_type: s.cost_type ?? defaults.cost_type,
+            quantity: s.quantity ?? defaults.quantity,
+            cost: Number(s.cost ?? defaults.cost),
+            notes: s.notes ?? '',
+        };
+    });
+};
+
+const buildEditItemsPayload = () => {
+    if (lineItemsNotesOnly.value) {
+        return form.items.map((row) => ({ id: row.id, notes: row.notes ?? '' }));
+    }
+    return form.items.map((row) => ({
+        work_order_service_item_id: row.work_order_service_item_id ?? null,
+        description: row.description ?? '',
+        cost_type: row.cost_type ?? 'quantity',
+        quantity: Math.max(1, Number(row.quantity) || 1),
+        cost: Number(row.cost) || 0,
+        notes: row.notes ?? '',
+    }));
+};
+
+const editLinePreviewTotal = (line) => {
+    const type = line.cost_type === 'fixed' ? 'fixed' : 'quantity';
+    const qty = type === 'fixed' ? 1 : Math.max(1, Number(line.quantity) || 1);
+    const cost = Number(line.cost) || 0;
+    if (type === 'fixed') return Math.round(cost * 100) / 100;
+    return Math.round(qty * cost * 100) / 100;
+};
+
+const onEditLineCostTypeChange = (idx) => {
+    const line = form.items[idx];
+    if (line?.cost_type === 'fixed') {
+        line.quantity = 1;
+    }
+};
+
 const submit = () => {
     if (props.mode === 'create') {
         form.reuse_inventory_image_ids = [...selectedReuseIds.value];
         form.claim_images = additionalImageFiles.value.length ? [...additionalImageFiles.value] : [];
         if (selectedWorkOrderId.value != null && workOrderWarrantyItems.value.length > 0) {
-            form.items = selectedWarrantyServiceItemIds.value.map((wid) => ({ work_order_service_item_id: Number(wid) }));
+            form.items = buildCreateItemsFromWoSelection();
         } else {
             form.items = [];
         }
@@ -169,8 +303,13 @@ const submit = () => {
     } else if (props.record?.id != null) {
         form
             .transform((data) => {
-                const { reuse_inventory_image_ids: _r, claim_images: _c, items: _i, ...rest } = data;
-                return rest;
+                let itemsPayload;
+                if (isDraft.value && form.items.length === 0 && showWorkOrderWarrantyPicker.value) {
+                    itemsPayload = buildCreateItemsFromWoSelection();
+                } else {
+                    itemsPayload = buildEditItemsPayload();
+                }
+                return { ...data, items: itemsPayload };
             })
             .put(route('warrantyclaims.update', props.record.id));
     }
@@ -294,9 +433,9 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                 </div>
                             </div>
 
-                            <!-- Manufacturer warranty lines (create, work order selected) -->
+                            <!-- Manufacturer warranty lines (create, or draft edit with no lines yet + work order) -->
                             <div
-                                v-if="mode === 'create' && selectedWorkOrderId != null"
+                                v-if="showWorkOrderWarrantyPicker"
                                 class="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4"
                             >
                                 <div class="flex flex-wrap items-start justify-between gap-3">
@@ -349,7 +488,7 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                                 </th>
                                                 <th scope="col" class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Line</th>
                                                 <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Qty</th>
-                                                <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Unit price</th>
+                                                <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300">Unit cost</th>
                                                 <th scope="col" class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Coverage</th>
                                             </tr>
                                         </thead>
@@ -377,7 +516,7 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                                     {{ warrantyLineQtyDisplay(row) }}
                                                 </td>
                                                 <td class="px-3 py-2 align-top text-right tabular-nums text-gray-700 dark:text-gray-300">
-                                                    {{ formatMoney(row.unit_price) }}
+                                                    {{ formatMoney(row.unit_cost) }}
                                                 </td>
                                                 <td class="px-3 py-2 align-top text-gray-600 dark:text-gray-400">
                                                     {{ row.warranty_type_label || row.warranty_type || '—' }}
@@ -386,12 +525,193 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                         </tbody>
                                     </table>
                                 </div>
+                                <div
+                                    v-if="
+                                        !imagesLoading
+                                        && workOrderWarrantyItems.length > 0
+                                        && selectedWarrantyServiceItemIds.length > 0
+                                    "
+                                    class="mt-4 space-y-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/30 p-4"
+                                >
+                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Cost & notes for selected lines</h4>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        <span class="font-medium text-gray-600 dark:text-gray-300">Quantity × cost:</span>
+                                        line total = quantity × cost (per unit).
+                                        <span class="font-medium text-gray-600 dark:text-gray-300"> Fixed total:</span>
+                                        line total = the cost amount only.
+                                    </p>
+                                    <div
+                                        v-for="wid in selectedWarrantyServiceItemIds"
+                                        :key="'linecfg-' + wid"
+                                        class="space-y-2 border-b border-gray-200 pb-4 last:border-0 last:pb-0 dark:border-gray-700"
+                                    >
+                                        <div v-if="lineItemSettings[String(wid)]" class="space-y-3">
+                                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                {{ workOrderWarrantyItems.find((r) => Number(r.id) === Number(wid))?.display_name }}
+                                            </div>
+                                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                                <div>
+                                                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Cost type</label>
+                                                    <select
+                                                        v-model="lineItemSettings[String(wid)].cost_type"
+                                                        class="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                        @change="onLineCostTypeChange(wid)"
+                                                    >
+                                                        <option value="quantity">Quantity × cost</option>
+                                                        <option value="fixed">Fixed total</option>
+                                                    </select>
+                                                </div>
+                                                <div v-if="lineItemSettings[String(wid)].cost_type === 'quantity'">
+                                                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Quantity</label>
+                                                    <input
+                                                        v-model.number="lineItemSettings[String(wid)].quantity"
+                                                        type="number"
+                                                        min="1"
+                                                        step="1"
+                                                        class="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    />
+                                                </div>
+                                                <div :class="lineItemSettings[String(wid)].cost_type === 'quantity' ? '' : 'sm:col-span-2'">
+                                                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                                                        {{
+                                                            lineItemSettings[String(wid)].cost_type === 'fixed'
+                                                                ? 'Total cost'
+                                                                : 'Cost per unit'
+                                                        }}
+                                                    </label>
+                                                    <input
+                                                        v-model.number="lineItemSettings[String(wid)].cost"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        class="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Line notes</label>
+                                                <textarea
+                                                    v-model="lineItemSettings[String(wid)].notes"
+                                                    rows="2"
+                                                    class="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    placeholder="Optional notes for this line…"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <p
                                     v-if="createSubmitBlockedByWarrantyLines"
                                     class="text-sm font-medium text-amber-700 dark:text-amber-400"
                                 >
-                                    Select at least one warranty line to create this claim.
+                                    Select at least one warranty line to {{ mode === 'create' ? 'create' : 'save' }} this claim.
                                 </p>
+                            </div>
+
+                            <!-- Line items (edit) -->
+                            <div
+                                v-if="mode === 'edit'"
+                                class="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4"
+                            >
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
+                                        Line items
+                                    </h3>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        <template v-if="lineItemsNotesOnly">
+                                            Only line notes can be changed after the claim leaves draft.
+                                        </template>
+                                        <template v-else>
+                                            Adjust cost type, quantity, cost, and notes while the claim is in draft.
+                                        </template>
+                                    </p>
+                                </div>
+                                <div
+                                    v-if="form.items.length === 0"
+                                    class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/30 px-4 py-3 text-sm text-gray-600 dark:text-gray-400"
+                                >
+                                    No line items on this claim yet.
+                                    <span v-if="isDraft && selectedWorkOrderId != null" class="block mt-1 text-gray-500 dark:text-gray-500">
+                                        Select manufacturer warranty lines from the work order above to add them.
+                                    </span>
+                                </div>
+                                <div v-else class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                                            <tr>
+                                                <th scope="col" class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Description</th>
+                                                <th scope="col" class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-40">Cost type</th>
+                                                <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300 w-24">Qty</th>
+                                                <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300 w-28">Cost</th>
+                                                <th scope="col" class="px-3 py-2 text-right font-medium text-gray-700 dark:text-gray-300 w-28">Line total</th>
+                                                <th scope="col" class="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 min-w-[10rem]">Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                                            <tr
+                                                v-for="(line, idx) in form.items"
+                                                :key="'edit-line-' + (line.id ?? idx)"
+                                                class="hover:bg-gray-50 dark:hover:bg-gray-700/50 align-top"
+                                            >
+                                                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">
+                                                    <textarea
+                                                        v-if="!lineItemsNotesOnly"
+                                                        v-model="form.items[idx].description"
+                                                        rows="2"
+                                                        class="w-full min-w-[12rem] rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    />
+                                                    <div v-else class="text-sm whitespace-pre-wrap">{{ line.description || '—' }}</div>
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                    <select
+                                                        v-if="!lineItemsNotesOnly"
+                                                        v-model="form.items[idx].cost_type"
+                                                        class="w-full rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                        @change="onEditLineCostTypeChange(idx)"
+                                                    >
+                                                        <option value="quantity">Quantity × cost</option>
+                                                        <option value="fixed">Fixed total</option>
+                                                    </select>
+                                                    <span v-else class="text-gray-600 dark:text-gray-400">{{ line.cost_type === 'fixed' ? 'Fixed total' : 'Quantity × cost' }}</span>
+                                                </td>
+                                                <td class="px-3 py-2 text-right tabular-nums">
+                                                    <input
+                                                        v-if="!lineItemsNotesOnly && form.items[idx].cost_type === 'quantity'"
+                                                        v-model.number="form.items[idx].quantity"
+                                                        type="number"
+                                                        min="1"
+                                                        step="1"
+                                                        class="w-full max-w-[6rem] ml-auto rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    />
+                                                    <span v-else-if="lineItemsNotesOnly" class="text-gray-700 dark:text-gray-300">{{ warrantyLineQtyDisplay(line) }}</span>
+                                                    <span v-else class="text-gray-700 dark:text-gray-300 tabular-nums">1</span>
+                                                </td>
+                                                <td class="px-3 py-2 text-right tabular-nums">
+                                                    <input
+                                                        v-if="!lineItemsNotesOnly"
+                                                        v-model.number="form.items[idx].cost"
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        class="w-full max-w-[7rem] ml-auto rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                    />
+                                                    <span v-else class="text-gray-700 dark:text-gray-300">{{ formatMoney(line.cost) }}</span>
+                                                </td>
+                                                <td class="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                                                    {{ formatMoney(editLinePreviewTotal(line)) }}
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                    <textarea
+                                                        v-model="form.items[idx].notes"
+                                                        rows="2"
+                                                        class="w-full min-w-[10rem] rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                                                        placeholder="Line notes…"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
 
                             <!-- Notes & Rejection -->
@@ -574,7 +894,7 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                 <!-- Actions Sidebar -->
                 <div class="lg:col-span-3 w-full">
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
-                        <div class="flex items-center px-5 py-4 font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
                             Actions
                         </div>
 

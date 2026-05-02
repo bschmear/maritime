@@ -81,7 +81,7 @@ const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter
         />
         <div
             v-if="visibleSublists.length > 0 && formSchema"
-            class="mx-auto mt-8 w-full max-w-6xl"
+            class="mx-auto mt-8 w-full "
         >
             <Sublist
                 :key="`warranty-claim-edit-sublist-${record?.id || 'new'}`"

@@ -13,11 +13,14 @@ use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Terms;
+use App\Enums\WarrantyClaim\LineItemCostType;
+use App\Enums\WarrantyClaim\Status as WarrantyClaimStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\NotificationService;
@@ -234,6 +237,68 @@ class PublicController extends Controller
         ]);
 
         return back();
+    }
+
+    public function reviewWarrantyClaim(Request $request, string $uuid): Response
+    {
+        $claim = WarrantyClaim::query()
+            ->where('uuid', $uuid)
+            ->with([
+                'vendor' => fn ($q) => $q->select(['id', 'display_name']),
+                'workOrder' => fn ($q) => $q->select(['id', 'display_name', 'work_order_number']),
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select(['id', 'display_name']),
+                'lineItems',
+                'images' => fn ($q) => $q,
+                'documents',
+            ])
+            ->firstOrFail();
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $account->logo_url ?? null;
+
+        $recordArray = $claim->toArray();
+        $recordArray['status'] = $claim->status instanceof WarrantyClaimStatus
+            ? $claim->status->value
+            : (string) $claim->getRawOriginal('status');
+        $recordArray['created_at'] = $claim->created_at?->toISOString();
+        $recordArray['submitted_at'] = $claim->submitted_at?->toISOString();
+        $recordArray['approved_at'] = $claim->approved_at?->toISOString();
+
+        $recordArray['line_items'] = $claim->lineItems->map(fn ($li) => [
+            'id' => $li->id,
+            'description' => $li->description,
+            'cost_type' => $li->cost_type instanceof \BackedEnum ? $li->cost_type->value : (string) $li->cost_type,
+            'quantity' => (int) $li->quantity,
+            'cost' => (float) $li->cost,
+            'line_total_cost' => $li->line_total_cost,
+            'notes' => $li->notes,
+        ])->values()->all();
+
+        $recordArray['images'] = $claim->images->map(fn ($img) => [
+            'id' => $img->id,
+            'display_name' => $img->display_name,
+            'url' => $img->url,
+            'is_primary' => (bool) ($img->pivot?->is_primary ?? false),
+        ])->values()->all();
+
+        $recordArray['documents'] = $claim->documents->map(fn ($doc) => [
+            'id' => $doc->id,
+            'display_name' => $doc->display_name,
+            'file_extension' => $doc->file_extension,
+        ])->values()->all();
+
+        $enumOptions = [
+            'cost_type' => LineItemCostType::options(),
+            'status' => WarrantyClaimStatus::options(),
+        ];
+
+        return Inertia::render('Tenant/Public/WarrantyClaimReview', [
+            'record' => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'enumOptions' => $enumOptions,
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

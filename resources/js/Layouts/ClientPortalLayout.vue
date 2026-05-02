@@ -11,9 +11,12 @@ const props = defineProps({
 const page = usePage();
 
 const customer = computed(() => page.props.auth?.customer ?? null);
+const vendorPrincipal = computed(() => page.props.auth?.vendor ?? null);
 
 /** From server when logged into portal; subsidiary logo first, then account. */
-const portalBrand = computed(() => customer.value?.portal_brand ?? null);
+const portalBrand = computed(
+    () => vendorPrincipal.value?.portal_brand ?? customer.value?.portal_brand ?? null,
+);
 
 const sidebarLogoUrl = computed(
     () =>
@@ -29,18 +32,32 @@ const sidebarTitleName = computed(() => {
     return typeof n === 'string' && n.trim() !== '' ? n.trim() : null;
 });
 
-const sidebarLogoAlt = computed(() => sidebarTitleName.value || 'Customer portal');
+const sidebarLogoAlt = computed(() => {
+    if (vendorPrincipal.value) {
+        return 'Vendor portal';
+    }
+    return sidebarTitleName.value || 'Customer portal';
+});
+
+const portalSubtitle = computed(() => (vendorPrincipal.value ? 'Vendor Portal' : 'Customer Portal'));
 
 const mobileMenuOpen = ref(false);
 
-const navItems = ref([
+const customerNavItems = [
     { name: 'Overview', href: 'portal.index', icon: 'dashboard' },
     { name: 'Estimates', href: 'portal.estimates', icon: 'request_quote' },
     { name: 'Invoices', href: 'portal.invoices', icon: 'receipt_long' },
     { name: 'Service Tickets', href: 'portal.servicetickets', icon: 'build_circle' },
     { name: 'Documents', href: 'portal.documents', icon: 'folder_open' },
     { name: 'Specification sheets', href: 'portal.specSheets.index', icon: 'description' },
-]);
+];
+
+const vendorNavItems = [
+    { name: 'Overview', href: 'vendor.portal.index', icon: 'dashboard' },
+    { name: 'Warranty claims', href: 'vendor.portal.warranty-claims.index', icon: 'verified_user' },
+];
+
+const navItems = computed(() => (vendorPrincipal.value ? vendorNavItems : customerNavItems));
 
 const isActive = (href) => {
     try {
@@ -50,11 +67,21 @@ const isActive = (href) => {
         if (href === 'portal.specSheets.index' && route().current('portal.specSheet.show')) {
             return true;
         }
+        if (
+            href === 'vendor.portal.warranty-claims.index' &&
+            route().current('vendor.portal.warranty-claims.show')
+        ) {
+            return true;
+        }
         return false;
     } catch {
         return false;
     }
 };
+
+const logoutRoute = computed(() => (vendorPrincipal.value ? 'vendor.portal.logout' : 'portal.logout'));
+
+const principalEmail = computed(() => vendorPrincipal.value?.email ?? customer.value?.email ?? null);
 </script>
 
 <template>
@@ -78,7 +105,7 @@ const isActive = (href) => {
                         class="w-[38px] h-[38px] rounded-lg bg-gradient-to-br from-secondary-400 to-secondary-700 flex items-center justify-center"
                     >
                         <span class="text-white text-lg font-semibold leading-none">
-                            {{ sidebarTitleName?.charAt(0) ?? 'C' }}
+                            {{ sidebarTitleName?.charAt(0) ?? (vendorPrincipal ? 'V' : 'C') }}
                         </span>
                     </div>
                 </div>
@@ -93,7 +120,7 @@ const isActive = (href) => {
                         class="text-[10px] font-normal text-white/40 uppercase tracking-widest"
                         :class="{ 'mt-0.5': sidebarTitleName }"
                     >
-                        Customer Portal
+                        {{ portalSubtitle }}
                     </span>
                 </div>
             </div>
@@ -123,11 +150,11 @@ const isActive = (href) => {
             <!-- Bottom: Customer info + Sign out -->
             <div class="p-3 pb-5 flex flex-col gap-2">
                 <div class="h-px bg-white/[0.08] mb-2"></div>
-                <div v-if="customer" class="px-3 pb-2">
-                    <p class="text-xs text-white/50 truncate">{{ customer.email }}</p>
+                <div v-if="principalEmail" class="px-3 pb-2">
+                    <p class="text-xs text-white/50 truncate">{{ principalEmail }}</p>
                 </div>
                 <Link
-                    :href="route('portal.logout')"
+                    :href="route(logoutRoute)"
                     method="post"
                     as="button"
                     class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg no-underline text-[13.5px] font-medium text-white/35 transition-all duration-150 cursor-pointer border-none bg-transparent w-full text-left hover:bg-white/[0.06] hover:text-white/65"

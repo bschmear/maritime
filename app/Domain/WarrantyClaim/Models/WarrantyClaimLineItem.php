@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\WarrantyClaim\Models;
 
+use App\Enums\WarrantyClaim\LineItemCostType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -15,15 +16,20 @@ class WarrantyClaimLineItem extends Model
         'warranty_claim_id',
         'work_order_service_item_id',
         'description',
+        'cost_type',
         'quantity',
-        'price',
         'cost',
+        'notes',
     ];
 
     protected $casts = [
+        'cost_type' => LineItemCostType::class,
         'quantity' => 'integer',
-        'price' => 'decimal:2',
         'cost' => 'decimal:2',
+    ];
+
+    protected $appends = [
+        'line_total_cost',
     ];
 
     public function warrantyClaim(): BelongsTo
@@ -34,5 +40,12 @@ class WarrantyClaimLineItem extends Model
     public function workOrderServiceItem(): BelongsTo
     {
         return $this->belongsTo(\App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::class, 'work_order_service_item_id');
+    }
+
+    public function getLineTotalCostAttribute(): float
+    {
+        $type = $this->cost_type ?? LineItemCostType::Quantity;
+
+        return $type->lineTotal((int) $this->quantity, (float) $this->cost);
     }
 }

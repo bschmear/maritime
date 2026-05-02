@@ -21,7 +21,7 @@ class HandleInertiaRequests extends Middleware
     public function rootView(Request $request): string
     {
         if (tenant() || $this->isTenantSubdomain($request)) {
-            if (str_starts_with($request->path(), 'portal')) {
+            if (str_starts_with($request->path(), 'portal') || str_starts_with($request->path(), 'vendor/portal')) {
                 return 'portal';
             }
 
@@ -77,6 +77,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'customer' => fn () => $this->resolveCustomer($request),
+                'vendor' => fn () => $this->resolveVendor($request),
                 'onTrial' => $user ? $user->onTrial() : false,
                 'trialEndsAt' => $user && $user->onTrial()
                     ? $user->subscription('default')?->trial_ends_at?->format('M j, Y')
@@ -113,6 +114,35 @@ class HandleInertiaRequests extends Middleware
                     'account_logo_url' => $account->logo_url,
                     'subsidiary_display_name' => $subsidiary?->display_name,
                     'subsidiary_logo_url' => $subsidiary?->logo_url,
+                ],
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveVendor(Request $request): ?array
+    {
+        if (! tenant()) {
+            return null;
+        }
+
+        $contact = $request->user('vendor');
+
+        if (! $contact) {
+            return null;
+        }
+
+        $account = AccountSettings::getCurrent();
+
+        return array_merge(
+            $contact->only('id', 'display_name', 'first_name', 'last_name', 'email'),
+            [
+                'portal_brand' => [
+                    'account_logo_url' => $account->logo_url,
+                    'subsidiary_display_name' => null,
+                    'subsidiary_logo_url' => null,
                 ],
             ],
         );

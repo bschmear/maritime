@@ -2,15 +2,18 @@
 
 namespace App\Services;
 
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\ServiceTicketApproved;
+use App\Mail\WarrantyClaimSentToVendor;
 use App\Models\Account;
 use App\Models\AccountSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -72,6 +75,41 @@ class NotificationService
             Mail::to($customerEmail)->send(new ServiceTicketApproved($ticket, $account));
         } catch (\Exception $e) {
             Log::error("Failed to send approval confirmation for ticket {$ticket->service_ticket_number}: ".$e->getMessage());
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Warranty claim → vendor contacts
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @param  iterable<int, Contact>  $contacts
+     */
+    public function sendWarrantyClaimToVendorContacts(WarrantyClaim $claim, AccountSettings $account, iterable $contacts): void
+    {
+        $tenant = tenant();
+        $domain = $tenant?->domains->first()?->domain;
+        $reviewPath = route('warranty-claims.review', ['uuid' => $claim->uuid], false);
+        $reviewUrl = $domain ? 'https://'.$domain.$reviewPath : url($reviewPath);
+        $vendorPortalLoginUrl = $domain ? 'https://'.$domain.'/vendor/portal/login' : url('/vendor/portal/login');
+
+        foreach ($contacts as $contact) {
+            if (! $contact instanceof Contact) {
+                continue;
+            }
+            $email = $contact->email ?: $contact->secondary_email;
+            if ($email === null || trim((string) $email) === '') {
+                continue;
+            }
+            try {
+                Mail::to($email)->send(new WarrantyClaimSentToVendor($claim, $account, $contact, $reviewUrl, $vendorPortalLoginUrl));
+            } catch (\Exception $e) {
+                Log::error('Failed to send warranty claim to vendor contact', [
+                    'claim_id' => $claim->id,
+                    'contact_id' => $contact->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

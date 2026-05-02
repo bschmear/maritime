@@ -58,6 +58,10 @@ return Application::configure(basePath: dirname(__DIR__))
             $parts = explode('.', $host);
             $isTenant = count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
 
+            if ($isTenant && str_starts_with($request->path(), 'vendor/portal')) {
+                return '/vendor/portal/login';
+            }
+
             if ($isTenant && str_starts_with($request->path(), 'portal')) {
                 return '/portal/login';
             }
@@ -70,6 +74,10 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->user('vendor')) {
+                return '/vendor/portal';
+            }
+
             if ($request->user('customer')) {
                 return '/portal';
             }

@@ -44,6 +44,10 @@ return [
             'driver' => 'session',
             'provider' => 'customers',
         ],
+        'vendor' => [
+            'driver' => 'session',
+            'provider' => 'vendor_contacts',
+        ],
     ],
 
     /*
@@ -70,6 +74,11 @@ return [
         ],
 
         'customers' => [
+            'driver' => 'eloquent',
+            'model' => App\Domain\Contact\Models\Contact::class,
+        ],
+
+        'vendor_contacts' => [
             'driver' => 'eloquent',
             'model' => App\Domain\Contact\Models\Contact::class,
         ],
@@ -103,6 +112,12 @@ return [
         ],
         'customers' => [
             'provider' => 'customers',
+            'table' => 'password_reset_tokens',
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        'vendor_contacts' => [
+            'provider' => 'vendor_contacts',
             'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,

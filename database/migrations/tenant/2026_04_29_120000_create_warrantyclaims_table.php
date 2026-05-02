@@ -32,6 +32,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('locations')
                 ->nullOnDelete();
+            $table->unsignedBigInteger('created_by_user_id')
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
 
             $table->string('claim_number')->nullable()->after('work_order_id');
 
@@ -63,9 +67,10 @@ return new class extends Migration
                 ->constrained('work_order_service_items')
                 ->nullOnDelete();
             $table->string('description');
+            $table->string('cost_type', 32)->default('quantity');
             $table->unsignedInteger('quantity')->default(1);
-            $table->decimal('price', 10, 2);
-            $table->decimal('cost', 10, 2)->nullable();
+            $table->decimal('cost', 10, 2)->default(0);
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

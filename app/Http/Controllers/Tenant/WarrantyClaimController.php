@@ -7,8 +7,11 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\PublicStorage;
 use App\Domain\Attachment\Models\AttachmentLink;
 use App\Domain\Attachment\Services\InventoryImageAttachmentService;
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Document\Models\Document;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WarrantyClaim\Actions\AttachWarrantyClaimImagesAfterCreate;
 use App\Domain\WarrantyClaim\Actions\CreateWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\DeleteWarrantyClaim;
@@ -17,8 +20,10 @@ use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\Timezone;
+use App\Enums\WarrantyClaim\Status as WarrantyClaimStatus;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
+use App\Services\NotificationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
@@ -41,6 +46,7 @@ class WarrantyClaimController extends BaseController
         protected CreateWarrantyClaim $createWarrantyClaim,
         protected UpdateWarrantyClaim $updateWarrantyClaim,
         protected DeleteWarrantyClaim $deleteWarrantyClaim,
+        protected NotificationService $notifications,
     ) {
         $this->middleware('auth');
         $this->recordModel = new WarrantyClaim;
@@ -74,6 +80,7 @@ class WarrantyClaimController extends BaseController
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['lineItems'] = fn ($q) => $q->orderBy('id');
+        $relationships['documents'] = fn ($q) => $q;
         $relationships['images'] = fn ($q) => $q;
 
         return $relationships;
@@ -399,6 +406,7 @@ class WarrantyClaimController extends BaseController
                 'total_price',
                 'total_cost',
                 'warranty_type',
+                'billing_type',
             ])
             ->map(static function (WorkOrderServiceItem $row): array {
                 $type = $row->warranty_type;
@@ -414,6 +422,7 @@ class WarrantyClaimController extends BaseController
                     'total_cost' => $row->total_cost !== null ? (float) $row->total_cost : null,
                     'warranty_type' => $type?->value,
                     'warranty_type_label' => $type?->label(),
+                    'billing_type' => (int) ($row->billing_type ?? 1),
                 ];
             })
             ->values()
@@ -516,7 +525,7 @@ class WarrantyClaimController extends BaseController
             }
 
             $data = $this->collectStoreUpdatePayload($request, $publicStorage);
-            $result = ($this->createWarrantyClaim)($data);
+            $result = ($this->createWarrantyClaim)($data, $request->user('web')?->id);
 
             if (! is_array($result)) {
                 $result = ['success' => true, 'record' => $result];
@@ -555,6 +564,34 @@ class WarrantyClaimController extends BaseController
 
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
+        $vendorContacts = [];
+        if ($record->vendor_id) {
+            $vendor = Vendor::query()
+                ->with([
+                    'contacts' => fn ($q) => $q->select([
+                        'contacts.id',
+                        'contacts.display_name',
+                        'contacts.first_name',
+                        'contacts.last_name',
+                        'contacts.email',
+                        'contacts.secondary_email',
+                    ]),
+                ])
+                ->find((int) $record->vendor_id);
+            if ($vendor) {
+                $primaryId = $vendor->primary_contact_id !== null ? (int) $vendor->primary_contact_id : null;
+                foreach ($vendor->contacts as $c) {
+                    $vendorContacts[] = [
+                        'id' => $c->id,
+                        'display_name' => $c->display_name ?? trim(($c->first_name ?? '').' '.($c->last_name ?? '')),
+                        'email' => $c->email,
+                        'secondary_email' => $c->secondary_email,
+                        'is_primary' => (bool) ($c->pivot?->is_primary ?? false) || ($primaryId !== null && $primaryId === (int) $c->id),
+                    ];
+                }
+            }
+        }
+
         return inertia('Tenant/WarrantyClaim/Show', [
             'record' => $record,
             'recordType' => 'warrantyclaims',
@@ -567,6 +604,7 @@ class WarrantyClaimController extends BaseController
             'timezones' => Timezone::options(),
             'imageUrls' => [],
             'availableSpecs' => [],
+            'vendorContacts' => $vendorContacts,
         ]);
     }
 
@@ -602,6 +640,62 @@ class WarrantyClaimController extends BaseController
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
+    }
+
+    public function sendToVendor(Request $request, WarrantyClaim $warrantyclaim): RedirectResponse
+    {
+        $claim = WarrantyClaim::query()->whereKey($warrantyclaim->getKey())->firstOrFail();
+
+        $this->authorize('sendToVendor', $claim);
+
+        $request->validate([
+            'contact_ids' => ['required', 'array', 'min:1'],
+            'contact_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $status = $claim->status instanceof WarrantyClaimStatus
+            ? $claim->status
+            : WarrantyClaimStatus::tryFrom((string) $claim->getRawOriginal('status')) ?? WarrantyClaimStatus::Draft;
+
+        if ($status !== WarrantyClaimStatus::Submitted) {
+            throw ValidationException::withMessages([
+                'contact_ids' => ['The claim must be submitted before sending to the vendor.'],
+            ]);
+        }
+
+        if (! $claim->vendor_id) {
+            throw ValidationException::withMessages([
+                'contact_ids' => ['This claim has no manufacturer selected.'],
+            ]);
+        }
+
+        $vendorId = (int) $claim->vendor_id;
+        $ids = array_values(array_unique(array_map(static fn ($v) => (int) $v, $request->input('contact_ids', []))));
+
+        $contacts = Contact::query()
+            ->whereIn('id', $ids)
+            ->whereHas('vendors', static fn ($q) => $q->where('vendors.id', $vendorId))
+            ->get();
+
+        if ($contacts->count() !== count($ids)) {
+            throw ValidationException::withMessages([
+                'contact_ids' => ['One or more contacts are invalid for this manufacturer.'],
+            ]);
+        }
+
+        foreach ($contacts as $c) {
+            $hasEmail = ($c->email !== null && trim((string) $c->email) !== '')
+                || ($c->secondary_email !== null && trim((string) $c->secondary_email) !== '');
+            if (! $hasEmail) {
+                throw ValidationException::withMessages([
+                    'contact_ids' => ["Contact #{$c->id} has no email address."],
+                ]);
+            }
+        }
+
+        $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
+
+        return back()->with('success', 'Warranty claim sent to '.count($ids).' contact(s).');
     }
 
     public function destroy(WarrantyClaim $warrantyclaim): RedirectResponse

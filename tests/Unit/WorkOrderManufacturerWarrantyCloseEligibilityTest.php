@@ -77,9 +77,10 @@ class WorkOrderManufacturerWarrantyCloseEligibilityTest extends TestCase
             $table->foreignId('warranty_claim_id')->constrained('warrantyclaims')->cascadeOnDelete();
             $table->unsignedBigInteger('work_order_service_item_id')->nullable();
             $table->string('description');
+            $table->string('cost_type', 32)->default('quantity');
             $table->unsignedInteger('quantity')->default(1);
-            $table->decimal('price', 10, 2);
-            $table->decimal('cost', 10, 2)->nullable();
+            $table->decimal('cost', 10, 2)->default(0);
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

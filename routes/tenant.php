@@ -104,6 +104,8 @@ Route::middleware([
     Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])->name('service-tickets.approve');
     Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])->name('service-tickets.decline');
 
+    Route::get('/warranty-claims/{uuid}/review', [PublicController::class, 'reviewWarrantyClaim'])->name('warranty-claims.review');
+
     Route::get('/estimates/{uuid}/review', [PublicController::class, 'reviewEstimate'])->name('estimates.review');
     Route::post('/estimates/{uuid}/approve', [PublicController::class, 'approveEstimate'])->name('estimates.approve');
     Route::post('/estimates/{uuid}/decline', [PublicController::class, 'declineEstimate'])->name('estimates.decline');
@@ -257,6 +259,8 @@ Route::middleware([
         Route::prefix('warrantyclaims')->name('warrantyclaims.')->group(function () {
             Route::get('/by-work-order/{workorder}/service-ticket-images', [WarrantyClaimController::class, 'workOrderServiceTicketImages'])
                 ->name('by-work-order.service-ticket-images');
+            Route::post('/{warrantyclaim}/send-to-vendor', [WarrantyClaimController::class, 'sendToVendor'])
+                ->name('send-to-vendor');
             Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
         });
 

@@ -3,8 +3,12 @@
 namespace App\Providers;
 
 use App\Domain\EmailTemplate\Models\EmailTemplate as TenantEmailTemplate;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Policies\WarrantyClaimPolicy;
 use App\Tenancy\CurrentTenantProfile;
+use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -26,6 +30,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(WarrantyClaim::class, WarrantyClaimPolicy::class);
+
+        RedirectIfAuthenticated::redirectUsing(function (Request $request): string {
+            if ($request->user('vendor')) {
+                return route('vendor.portal.index');
+            }
+
+            if ($request->user('customer')) {
+                return route('portal.index');
+            }
+
+            foreach (['dashboard', 'home'] as $name) {
+                if (Route::has($name)) {
+                    return route($name);
+                }
+            }
+
+            return '/';
+        });
+
         Vite::prefetch(concurrency: 3);
 
         Request::macro('isPwa', function () {

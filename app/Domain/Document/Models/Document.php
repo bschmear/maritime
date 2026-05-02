@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Document extends Model
 {
     protected $table = 'documents';
+
     protected $fillable = [
         'display_name',
         'description',
@@ -75,6 +76,11 @@ class Document extends Model
         return $this->morphedByMany(\App\Domain\Lead\Models\Lead::class, 'documentable')->withTimestamps();
     }
 
+    public function warrantyClaims()
+    {
+        return $this->morphedByMany(\App\Domain\WarrantyClaim\Models\WarrantyClaim::class, 'documentable')->withTimestamps();
+    }
+
     public function inventory_items()
     {
         return $this->morphedByMany(\App\Domain\InventoryItem\Models\InventoryItem::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
@@ -90,11 +96,12 @@ class Document extends Model
      */
     public function getKeyPointsArrayAttribute(): ?array
     {
-        if (!$this->key_points) {
+        if (! $this->key_points) {
             return null;
         }
 
         $decoded = json_decode($this->key_points, true);
+
         return is_array($decoded) ? $decoded : null;
     }
 
@@ -103,6 +110,6 @@ class Document extends Model
      */
     public function hasAnalysis(): bool
     {
-        return $this->ai_status === 'completed' && !empty($this->ai_summary);
+        return $this->ai_status === 'completed' && ! empty($this->ai_summary);
     }
 }

@@ -70,8 +70,10 @@ class WorkOrderWarrantyFlagsSyncTest extends TestCase
             $table->id();
             $table->foreignId('warranty_claim_id')->constrained('warrantyclaims')->cascadeOnDelete();
             $table->string('description')->default('x');
+            $table->string('cost_type', 32)->default('quantity');
             $table->unsignedInteger('quantity')->default(1);
-            $table->decimal('price', 10, 2)->default(0);
+            $table->decimal('cost', 10, 2)->default(0);
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

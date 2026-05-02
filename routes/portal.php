@@ -6,7 +6,13 @@ use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\Portal\CustomerAuthController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\CustomerRegistrationController;
+use App\Http\Controllers\Portal\VendorAuthController;
+use App\Http\Controllers\Portal\VendorEmailVerificationController;
+use App\Http\Controllers\Portal\VendorPortalController;
+use App\Http\Controllers\Portal\VendorRegistrationController;
+use App\Http\Controllers\Portal\VerifyVendorEmailController;
 use App\Http\Controllers\Tenant\PortalController;
+use App\Http\Middleware\EnsureVendorContactEmailVerified;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -48,4 +54,34 @@ Route::middleware([
         Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
+
+    Route::get('/vendor/portal/email/verify/{id}/{hash}', VerifyVendorEmailController::class)
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('vendor.portal.verification.verify');
+
+    Route::middleware('guest:vendor')->prefix('vendor/portal')->group(function () {
+        Route::get('/login', [VendorAuthController::class, 'create'])->name('vendor.portal.login');
+        Route::post('/login', [VendorAuthController::class, 'store']);
+        Route::get('/register', [VendorRegistrationController::class, 'create'])->name('vendor.portal.register');
+        Route::post('/register', [VendorRegistrationController::class, 'store']);
+    });
+
+    Route::middleware('auth:vendor')->prefix('vendor/portal')->name('vendor.portal.')->group(function () {
+        Route::post('/logout', [VendorAuthController::class, 'destroy'])->name('logout');
+        Route::get('/email/verify', [VendorEmailVerificationController::class, 'show'])->name('verification.notice');
+        Route::post('/email/verification-notification', [VendorEmailVerificationController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('verification.send');
+    });
+
+    Route::middleware(['auth:vendor', EnsureVendorContactEmailVerified::class])
+        ->prefix('vendor/portal')
+        ->name('vendor.portal.')
+        ->group(function () {
+            Route::get('/', [VendorPortalController::class, 'index'])->name('index');
+            Route::get('/warranty-claims', [VendorPortalController::class, 'warrantyClaims'])->name('warranty-claims.index');
+            Route::get('/warranty-claims/{warranty_claim}', [VendorPortalController::class, 'warrantyClaimShow'])->name('warranty-claims.show');
+            Route::post('/warranty-claims/{warranty_claim}/approve', [VendorPortalController::class, 'approveWarrantyClaim'])->name('warranty-claims.approve');
+            Route::post('/warranty-claims/{warranty_claim}/reject', [VendorPortalController::class, 'rejectWarrantyClaim'])->name('warranty-claims.reject');
+        });
 });
