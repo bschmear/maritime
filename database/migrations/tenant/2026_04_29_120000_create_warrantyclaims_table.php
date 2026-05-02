@@ -48,6 +48,8 @@ return new class extends Migration
             $table->timestamp('paid_at')->nullable()->after('approved_at');
             $table->timestamp('voided_at')->nullable()->after('paid_at');
 
+
+
             $table->text('rejection_reason')->nullable()->after('voided_at');
             $table->text('notes')->nullable()->after('rejection_reason');
             $table->timestamps();
@@ -67,6 +69,7 @@ return new class extends Migration
                 ->constrained('work_order_service_items')
                 ->nullOnDelete();
             $table->string('description');
+
             $table->string('cost_type', 32)->default('quantity');
             $table->unsignedInteger('quantity')->default(1);
             $table->decimal('cost', 10, 2)->default(0);
