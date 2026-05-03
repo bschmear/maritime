@@ -8,6 +8,9 @@ export function getResourceRouteParamName(recordType) {
     if (recordType === 'boat-show-layouts') {
         return 'layout';
     }
+    if (recordType === 'asset-options') {
+        return 'assetOption';
+    }
 
     let routeType = recordType;
     if (recordType.includes('.')) {

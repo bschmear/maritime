@@ -2,8 +2,8 @@
 /** Portal specification sheet — visual shell aligned with `Tenant/Public/ServiceTicketReview.vue`. */
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import AssignedUserContactCard from '@/Components/Portal/AssignedUserContactCard.vue';
-import { Head } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     shareUuid: String,
@@ -22,7 +22,49 @@ const props = defineProps({
     appName: { type: String, default: 'Maritime' },
     termsUrl: { type: String, default: '/terms' },
     assignedUser: { type: Object, default: null },
+    assetOptions: { type: Array, default: () => [] },
+    savedSelections: { type: Array, default: () => [] },
+    specSheetOptionsSaveUrl: { type: String, default: '' },
 });
+
+const selections = ref([]);
+
+watch(
+    () => props.savedSelections,
+    (v) => {
+        selections.value = (v || []).map((s) => ({
+            option_id: s.option_id,
+            option_value_id: s.option_value_id,
+        }));
+    },
+    { immediate: true, deep: true },
+);
+
+const isSelected = (optionId, valueId) =>
+    selections.value.some(
+        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
+    );
+
+const toggleMulti = (optionId, valueId, checked) => {
+    const rest = selections.value.filter(
+        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
+    );
+    if (checked) {
+        selections.value = [...rest, { option_id: optionId, option_value_id: valueId }];
+    } else {
+        selections.value = rest;
+    }
+};
+
+const setSingle = (optionId, valueId) => {
+    const rest = selections.value.filter((s) => Number(s.option_id) !== Number(optionId));
+    selections.value = [...rest, { option_id: optionId, option_value_id: valueId }];
+};
+
+const saveSelections = () => {
+    if (!props.specSheetOptionsSaveUrl) return;
+    router.post(props.specSheetOptionsSaveUrl, { selections: selections.value }, { preserveScroll: true });
+};
 
 const dh = computed(() => props.dealerHeader ?? {});
 
@@ -48,6 +90,13 @@ const formatPhoneNumber = (phone) => {
 };
 
 const handlePrint = () => window.print();
+
+const formatMoney = (n) => {
+    if (n === null || n === undefined || n === '') return '—';
+    const x = Number(n);
+    if (Number.isNaN(x)) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(x);
+};
 
 const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
 </script>
@@ -150,6 +199,72 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Description</h2>
                     <div class="prose prose-sm max-w-none">
                         <p class="text-gray-900 whitespace-pre-line">{{ description }}</p>
+                    </div>
+                </div>
+
+                <!-- Configurable options -->
+                <div
+                    v-if="assetOptions?.length"
+                    class="px-6 sm:px-8 py-6 border-t border-gray-200 print:break-inside-avoid"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Available options
+                        </h2>
+                        <button
+                            v-if="specSheetOptionsSaveUrl"
+                            type="button"
+                            class="print:hidden inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                            @click="saveSelections"
+                        >
+                            Save my selections
+                        </button>
+                    </div>
+                    <div class="space-y-6">
+                        <div v-for="opt in assetOptions" :key="opt.option_id" class="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
+                            <div class="text-sm font-semibold text-gray-900">
+                                {{ opt.name }}
+                                <span v-if="opt.is_required" class="text-red-500">*</span>
+                            </div>
+                            <div v-if="opt.input_type === 'multi_select'" class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                                <label
+                                    v-for="v in opt.values"
+                                    :key="v.id"
+                                    class="inline-flex items-center gap-2 text-sm text-gray-800"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        class="print:hidden rounded border-gray-300"
+                                        :checked="isSelected(opt.option_id, v.id)"
+                                        @change="toggleMulti(opt.option_id, v.id, $event.target.checked)"
+                                    />
+                                    <span>{{ v.label }}</span>
+                                    <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
+                                </label>
+                            </div>
+                            <div v-else class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                                <label
+                                    v-for="v in opt.values"
+                                    :key="v.id"
+                                    class="inline-flex items-center gap-2 text-sm text-gray-800"
+                                >
+                                    <input
+                                        type="radio"
+                                        class="print:hidden"
+                                        :name="`portal-ao-${opt.option_id}`"
+                                        :checked="isSelected(opt.option_id, v.id)"
+                                        @change="setSingle(opt.option_id, v.id)"
+                                    />
+                                    <span
+                                        v-if="v.color_hex"
+                                        class="inline-block h-4 w-4 rounded border border-gray-300"
+                                        :style="{ backgroundColor: v.color_hex }"
+                                    />
+                                    <span>{{ v.label }}</span>
+                                    <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

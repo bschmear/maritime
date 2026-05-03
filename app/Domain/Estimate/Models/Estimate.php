@@ -2,6 +2,7 @@
 
 namespace App\Domain\Estimate\Models;
 
+use App\Domain\AssetOption\Models\EstimateSelectedOption;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Estimate\EstimateStatus;
 use Illuminate\Database\Eloquent\Model;
@@ -95,6 +96,11 @@ class Estimate extends Model
     public function versions(): HasMany
     {
         return $this->hasMany(EstimateVersion::class);
+    }
+
+    public function selectedAssetOptions(): HasMany
+    {
+        return $this->hasMany(EstimateSelectedOption::class, 'estimate_id');
     }
 
     /** The estimate this record was revised from (parent). */

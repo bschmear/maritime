@@ -5,6 +5,7 @@ import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import axios from 'axios';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
 
@@ -30,7 +31,10 @@ const props = defineProps({
         validator: (v) => ['create', 'edit', 'view'].includes(v),
     },
     opportunityLineItems: { type: Object, default: null },
+    initialSelectedAssetOptions: { type: Array, default: () => [] },
 });
+
+const ASSET_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
 
 const emit = defineEmits(['saved', 'cancelled']);
 
@@ -334,6 +338,8 @@ const emptyAssetForm = () => ({
     unit_display_name: '',
     asset_description: '',
     catalog_description: '',
+    line_position: null,
+    asset_option_selections: [],
 });
 
 const assetForm = ref(emptyAssetForm());
@@ -496,6 +502,64 @@ const splitLineNotesFromStoredDescription = (storedFull, catalogDesc) => {
     return full;
 };
 
+const assetOptionChoices = ref({});
+
+const refreshAssetOptionChoices = async () => {
+    const next = { ...assetOptionChoices.value };
+    for (let i = 0; i < assetItems.value.length; i++) {
+        const item = assetItems.value[i];
+        if (item.itemable_type !== ASSET_ITEM_TYPE || !item.itemable_id) {
+            delete next[i];
+            continue;
+        }
+        if (item.has_variants && !item.asset_variant_id) {
+            delete next[i];
+            continue;
+        }
+        try {
+            const { data } = await axios.get(route('asset-options.resolve-context'), {
+                params: {
+                    asset_id: item.itemable_id,
+                    variant_id: item.asset_variant_id || undefined,
+                },
+            });
+            next[i] = data.options || [];
+        } catch {
+            delete next[i];
+        }
+    }
+    assetOptionChoices.value = next;
+};
+
+const debouncedRefreshAssetOptions = debounce(() => {
+    refreshAssetOptionChoices();
+}, 350);
+
+watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
+
+const isAssetOptionSelected = (item, optionId, valueId) =>
+    (item.asset_option_selections || []).some(
+        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
+    );
+
+const toggleAssetOptionMulti = (item, optionId, valueId, checked) => {
+    if (!item.asset_option_selections) item.asset_option_selections = [];
+    const rest = item.asset_option_selections.filter(
+        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
+    );
+    if (checked) {
+        item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
+    } else {
+        item.asset_option_selections = rest;
+    }
+};
+
+const setAssetOptionSingle = (item, optionId, valueId) => {
+    if (!item.asset_option_selections) item.asset_option_selections = [];
+    const rest = item.asset_option_selections.filter((s) => Number(s.option_id) !== Number(optionId));
+    item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
+};
+
 // ==============================
 // Load initial data
 // ==============================
@@ -536,6 +600,8 @@ onMounted(() => {
                 unit_display_name: asset.asset_unit?.display_name || '',
                 asset_description: desc,
                 catalog_description: catalogDesc,
+                line_position: null,
+                asset_option_selections: [],
             });
         });
 
@@ -594,6 +660,9 @@ onMounted(() => {
                 } else if (!lineData.has_variants) {
                     lineData.catalog_description = lineData.asset_description || '';
                 }
+                lineData.line_position = lineItem.position;
+                const match = (props.initialSelectedAssetOptions || []).find((g) => g.line_position === lineItem.position);
+                lineData.asset_option_selections = match?.selections ? [...match.selections] : [];
                 lineData.notes = splitLineNotesFromStoredDescription(
                     lineItem.description || '',
                     lineData.catalog_description,
@@ -606,8 +675,9 @@ onMounted(() => {
             }
         });
     }
-});
 
+    void refreshAssetOptionChoices();
+});
 // ==============================
 // Submit
 // ==============================
@@ -662,8 +732,13 @@ const submit = () => {
         });
     });
 
+    const selected_asset_options = assetItems.value.map((item, idx) => ({
+        line_position: item.line_position !== null && item.line_position !== undefined ? item.line_position : idx,
+        selections: [...(item.asset_option_selections || [])],
+    }));
+
     form.transform((data) => {
-        const transformed = { ...data, line_items: lineItemsData };
+        const transformed = { ...data, line_items: lineItemsData, selected_asset_options };
         return transformed;
     });
 
@@ -1009,6 +1084,58 @@ const handleCancel = () => emit('cancelled');
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                         </svg>
                                                     </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            v-if="mode !== 'view' && (assetOptionChoices[index] || []).length > 0"
+                                            class="bg-slate-50/90 dark:bg-slate-900/30"
+                                        >
+                                            <td colspan="11" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                                    Boat options
+                                                </div>
+                                                <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
+                                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {{ opt.name }}
+                                                        <span v-if="opt.is_required" class="text-red-500">*</span>
+                                                    </div>
+                                                    <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                        <label
+                                                            v-for="v in opt.values"
+                                                            :key="v.id"
+                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
+                                                            />
+                                                            <span>{{ v.label }}</span>
+                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                        </label>
+                                                    </div>
+                                                    <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                        <label
+                                                            v-for="v in opt.values"
+                                                            :key="v.id"
+                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                :name="`est-ao-${index}-${opt.option_id}`"
+                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                @change="setAssetOptionSingle(item, opt.option_id, v.id)"
+                                                            />
+                                                            <span
+                                                                v-if="v.color_hex"
+                                                                class="inline-block h-4 w-4 rounded border border-gray-300"
+                                                                :style="{ backgroundColor: v.color_hex }"
+                                                            />
+                                                            <span>{{ v.label }}</span>
+                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                        </label>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

@@ -46,6 +46,10 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    initialSelectedAssetOptions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const estimateLabel = computed(() =>
@@ -92,6 +96,7 @@ const handleCancelled = () => {
                 :account="account"
                 :timezones="timezones"
                 :initial-data="initialData"
+                :initial-selected-asset-options="initialSelectedAssetOptions"
                 mode="edit"
                 @saved="handleSaved"
                 @cancelled="handleCancelled"

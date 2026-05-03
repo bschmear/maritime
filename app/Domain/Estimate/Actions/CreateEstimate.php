@@ -2,6 +2,8 @@
 
 namespace App\Domain\Estimate\Actions;
 
+use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
@@ -11,6 +13,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class CreateEstimate
@@ -48,7 +51,7 @@ class CreateEstimate
             // 1. Create the Estimate
             $fillable = array_diff_key(
                 $data,
-                array_flip(['line_items', 'tenant_account'])
+                array_flip(['line_items', 'tenant_account', 'selected_asset_options'])
             );
             $record = RecordModel::create($fillable);
 
@@ -73,6 +76,8 @@ class CreateEstimate
             // 3. Create line items and add-ons
             $subtotal = 0;
 
+            $assetLineItemsByPosition = [];
+
             if (isset($data['line_items']) && is_array($data['line_items'])) {
 
                 foreach ($data['line_items'] as $position => $lineData) {
@@ -91,6 +96,10 @@ class CreateEstimate
                         'line_total' => $lineTotal,
                         'position' => $position,
                     ]);
+
+                    if (($lineData['itemable_type'] ?? '') === Asset::class) {
+                        $assetLineItemsByPosition[(int) $position] = $lineItem;
+                    }
 
                     $subtotal += $lineTotal;
 
@@ -113,6 +122,13 @@ class CreateEstimate
                 }
             }
 
+            app(EstimateSelectedOptionSync::class)->sync(
+                $record,
+                $data['line_items'] ?? [],
+                $assetLineItemsByPosition,
+                $data['selected_asset_options'] ?? [],
+            );
+
             // 4. Calculate tax and total
             $taxRate = (float) ($data['tax_rate'] ?? 0);
             $tax = $subtotal * ($taxRate / 100);
@@ -132,6 +148,15 @@ class CreateEstimate
             return [
                 'success' => true,
                 'record' => $record,
+            ];
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+                'record' => null,
             ];
         } catch (QueryException $e) {
             DB::rollBack();

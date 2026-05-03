@@ -2,6 +2,8 @@
 
 namespace App\Domain\Estimate\Actions;
 
+use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
@@ -10,6 +12,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class UpdateEstimate
@@ -52,7 +55,7 @@ class UpdateEstimate
 
             $fillable = array_diff_key(
                 $data,
-                array_flip(['line_items', 'tenant_account'])
+                array_flip(['line_items', 'tenant_account', 'selected_asset_options'])
             );
             $record->update($fillable);
 
@@ -88,6 +91,8 @@ class UpdateEstimate
 
                 $subtotal = 0;
 
+                $assetLineItemsByPosition = [];
+
                 if (isset($data['line_items']) && is_array($data['line_items'])) {
 
                     foreach ($data['line_items'] as $position => $lineData) {
@@ -106,6 +111,10 @@ class UpdateEstimate
                             'line_total' => $lineTotal,
                             'position' => $position,
                         ]);
+
+                        if (($lineData['itemable_type'] ?? '') === Asset::class) {
+                            $assetLineItemsByPosition[(int) $position] = $lineItem;
+                        }
 
                         $subtotal += $lineTotal;
 
@@ -128,6 +137,13 @@ class UpdateEstimate
                     }
                 }
 
+                app(EstimateSelectedOptionSync::class)->sync(
+                    $record,
+                    $data['line_items'] ?? [],
+                    $assetLineItemsByPosition,
+                    $data['selected_asset_options'] ?? [],
+                );
+
                 $taxRate = (float) ($data['tax_rate'] ?? 0);
                 $tax = $subtotal * ($taxRate / 100);
                 $total = $subtotal + $tax;
@@ -145,7 +161,17 @@ class UpdateEstimate
                 'success' => true,
                 'record' => $record,
             ];
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+                'record' => null,
+            ];
         } catch (QueryException $e) {
+            DB::rollBack();
             Log::error('Database query error in UpdateEstimate', [
                 'error' => $e->getMessage(),
                 'id' => $id,
@@ -158,6 +184,7 @@ class UpdateEstimate
                 'record' => null,
             ];
         } catch (Throwable $e) {
+            DB::rollBack();
             Log::error('Unexpected error in UpdateEstimate', [
                 'error' => $e->getMessage(),
                 'id' => $id,

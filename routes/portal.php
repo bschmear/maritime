@@ -53,6 +53,7 @@ Route::middleware([
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');
         Route::get('/spec-sheets', [CustomerPortalController::class, 'specSheets'])->name('specSheets.index');
         Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');
+        Route::post('/spec-sheets/{uuid}/options', [CustomerPortalController::class, 'storeSpecSheetOptionSelections'])->name('specSheet.options.save');
         Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
 

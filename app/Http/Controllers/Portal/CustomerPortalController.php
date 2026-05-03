@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portal;
 use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Customer\Models\CustomerAssetSpecSheetOptionSelection;
 use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
@@ -19,11 +20,14 @@ use App\Enums\ServiceItem\BillingType;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
+use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -393,6 +397,118 @@ class CustomerPortalController extends Controller
         return Inertia::render('Portal/SpecSheetShow', $this->specSheetInertiaProps($share, $customerProfile));
     }
 
+    public function storeSpecSheetOptionSelections(Request $request, string $uuid): \Illuminate\Http\RedirectResponse
+    {
+        ['customerProfile' => $customerProfile] = $this->portalContext();
+
+        abort_if($customerProfile === null, 403);
+
+        $validated = $request->validate([
+            'selections' => ['nullable', 'array'],
+            'selections.*.option_id' => ['required', 'integer'],
+            'selections.*.option_value_id' => ['required', 'integer'],
+        ]);
+
+        $share = CustomerAssetSpecSheetShare::query()
+            ->where('uuid', $uuid)
+            ->where('customer_profile_id', $customerProfile->id)
+            ->firstOrFail();
+
+        $share->load(['asset', 'assetVariant']);
+        $asset = $share->asset;
+        abort_if($asset === null, 404);
+
+        $variant = $share->assetVariant;
+        $resolved = app(AssetOptionResolver::class)->resolve($asset, $variant)->keyBy('option_id');
+
+        $selections = $validated['selections'] ?? [];
+
+        $selectedByOption = [];
+        foreach ($selections as $sel) {
+            $oid = (int) $sel['option_id'];
+            $vid = (int) $sel['option_value_id'];
+            $selectedByOption[$oid][$vid] = $vid;
+        }
+        foreach ($selectedByOption as $oid => $vids) {
+            $selectedByOption[$oid] = array_values($vids);
+        }
+
+        foreach ($resolved as $optionPayload) {
+            $optionId = (int) $optionPayload['option_id'];
+            $valueIds = $selectedByOption[$optionId] ?? [];
+
+            if (($optionPayload['is_required'] ?? false) && $valueIds === []) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Option "'.$optionPayload['name'].'" is required.',
+                ]);
+            }
+
+            $allowMultiple = (bool) ($optionPayload['allow_multiple'] ?? false);
+            if (! $allowMultiple && count($valueIds) > 1) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Option "'.$optionPayload['name'].'" allows only one selection.',
+                ]);
+            }
+
+            $min = $optionPayload['min_select'] ?? null;
+            $max = $optionPayload['max_select'] ?? null;
+            $count = count($valueIds);
+            if ($min !== null && $count < $min) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Option "'.$optionPayload['name'].'" requires at least '.$min.' selection(s).',
+                ]);
+            }
+            if ($max !== null && $count > $max) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Option "'.$optionPayload['name'].'" allows at most '.$max.' selection(s).',
+                ]);
+            }
+        }
+
+        foreach ($selections as $sel) {
+            $oid = (int) $sel['option_id'];
+            $vid = (int) $sel['option_value_id'];
+            $optionPayload = $resolved->get($oid);
+            if ($optionPayload === null) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Invalid option selection.',
+                ]);
+            }
+            $valueMeta = collect($optionPayload['values'] ?? [])->firstWhere('id', $vid);
+            if ($valueMeta === null) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Invalid option value.',
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($share, $selections, $resolved): void {
+            CustomerAssetSpecSheetOptionSelection::query()
+                ->where('customer_asset_spec_sheet_share_id', $share->id)
+                ->delete();
+
+            foreach ($selections as $sel) {
+                $oid = (int) $sel['option_id'];
+                $vid = (int) $sel['option_value_id'];
+                $optionPayload = $resolved->get($oid);
+                $valueMeta = collect($optionPayload['values'] ?? [])->firstWhere('id', $vid);
+
+                CustomerAssetSpecSheetOptionSelection::query()->create([
+                    'customer_asset_spec_sheet_share_id' => $share->id,
+                    'option_id' => $oid,
+                    'option_value_id' => $vid,
+                    'option_name' => $optionPayload['name'],
+                    'value_label' => $valueMeta['label'],
+                    'cost' => $valueMeta['cost'],
+                    'price' => $valueMeta['price'],
+                ]);
+            }
+        });
+
+        return redirect()->route('portal.specSheet.show', ['uuid' => $share->uuid])
+            ->with('success', 'Your option selections have been saved.');
+    }
+
     /**
      * Contact info for the tenant user assigned to this customer profile (portal spec sheets).
      *
@@ -438,6 +554,7 @@ class CustomerPortalController extends Controller
             'asset.specValues.definition',
             'assetVariant.specValues.definition',
             'assetVariant.asset.make',
+            'optionSelections',
         ]);
 
         $account = AccountSettings::getCurrent();
@@ -483,6 +600,16 @@ class CustomerPortalController extends Controller
             'email' => null,
         ];
 
+        $assetOptions = app(AssetOptionResolver::class)->resolve($asset, $variant)->values()->all();
+
+        $savedSelections = $share->optionSelections
+            ->map(fn (CustomerAssetSpecSheetOptionSelection $s) => [
+                'option_id' => $s->option_id,
+                'option_value_id' => $s->option_value_id,
+            ])
+            ->values()
+            ->all();
+
         return [
             'shareUuid' => $share->uuid,
             'documentRef' => strtoupper(Str::substr((string) $share->uuid, 0, 8)),
@@ -500,6 +627,9 @@ class CustomerPortalController extends Controller
             'appName' => (string) config('app.name', 'Maritime'),
             'termsUrl' => rtrim((string) config('app.url', ''), '/').'/terms',
             'assignedUser' => $this->portalAssignedUserForCustomerProfile($customerProfile),
+            'assetOptions' => $assetOptions,
+            'savedSelections' => $savedSelections,
+            'specSheetOptionsSaveUrl' => route('portal.specSheet.options.save', ['uuid' => $share->uuid]),
         ];
     }
 

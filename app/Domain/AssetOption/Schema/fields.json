@@ -1,0 +1,52 @@
+{
+  "fields": {
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "required": true
+    },
+    "slug": {
+      "label": "Slug",
+      "type": "text",
+      "required": false,
+      "description": "Leave blank to generate from name when creating."
+    },
+    "input_type": {
+      "label": "Input type",
+      "type": "select",
+      "required": true,
+      "enum": "App\\Enums\\AssetOption\\AssetOptionInputType"
+    },
+    "is_required": {
+      "label": "Required",
+      "type": "boolean"
+    },
+    "allow_multiple": {
+      "label": "Allow multiple values",
+      "type": "boolean"
+    },
+    "min_select": {
+      "label": "Minimum selections",
+      "type": "number"
+    },
+    "max_select": {
+      "label": "Maximum selections",
+      "type": "number"
+    },
+    "active": {
+      "label": "Active",
+      "type": "boolean",
+      "default": true
+    },
+    "created_at": {
+      "label": "Created",
+      "type": "datetime",
+      "readOnly": true
+    },
+    "updated_at": {
+      "label": "Updated",
+      "type": "datetime",
+      "readOnly": true
+    }
+  }
+}

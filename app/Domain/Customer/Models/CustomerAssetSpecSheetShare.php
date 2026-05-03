@@ -9,6 +9,7 @@ use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class CustomerAssetSpecSheetShare extends Model
@@ -55,5 +56,10 @@ class CustomerAssetSpecSheetShare extends Model
     public function sentBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sent_by_user_id');
+    }
+
+    public function optionSelections(): HasMany
+    {
+        return $this->hasMany(CustomerAssetSpecSheetOptionSelection::class, 'customer_asset_spec_sheet_share_id');
     }
 }

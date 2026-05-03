@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
+use App\Http\Controllers\Tenant\AssetOptionController;
 use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
@@ -230,6 +231,16 @@ Route::middleware([
 
         Route::prefix('addons')->name('addons.')->group(function () {
             Route::resource('/', AddOnController::class)->parameters(['' => 'addon']);
+        });
+
+        Route::prefix('asset-options')->name('asset-options.')->group(function () {
+            Route::get('/resolve-context', [AssetOptionController::class, 'resolveForAsset'])->name('resolve-context');
+            Route::get('/assignment-lookup', [AssetOptionController::class, 'assignmentLookup'])->name('assignment-lookup');
+            Route::post('/{assetOption}/sync-assignments', [AssetOptionController::class, 'syncAssignments'])->name('sync-assignments');
+            Route::post('/{assetOption}/values', [AssetOptionController::class, 'storeValue'])->name('values.store');
+            Route::put('/{assetOption}/values/{value}', [AssetOptionController::class, 'updateValue'])->name('values.update');
+            Route::delete('/{assetOption}/values/{value}', [AssetOptionController::class, 'destroyValue'])->name('values.destroy');
+            Route::resource('/', AssetOptionController::class)->parameters(['' => 'assetOption']);
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {

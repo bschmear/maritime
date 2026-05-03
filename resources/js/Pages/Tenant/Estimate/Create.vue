@@ -46,6 +46,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    initialSelectedAssetOptions: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const isFromOpportunity = computed(() => {
@@ -102,6 +106,7 @@ const handleCancel = () => {
                 :timezones="timezones"
                 :initial-data="initialData"
                 :opportunity-line-items="opportunityLineItems"
+                :initial-selected-asset-options="initialSelectedAssetOptions"
                 mode="create"
                 @saved="handleSaved"
                 @cancelled="handleCancel"

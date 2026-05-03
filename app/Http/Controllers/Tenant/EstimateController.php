@@ -4,25 +4,67 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
-use App\Domain\Location\Models\Location;
-use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
 use App\Domain\Estimate\Actions\DeleteEstimate as DeleteAction;
 use App\Domain\Estimate\Actions\UpdateEstimate as UpdateAction;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
+use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Timezone;
 use App\Mail\EstimateApprovalRequest;
 use App\Models\AccountSettings;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\MessageBag;
 
 class EstimateController extends RecordController
 {
     protected $recordType = 'Estimate';
 
     protected $table = null;
+
+    /**
+     * @return array<int, array{line_position: int, selections: array<int, array{option_id: int, option_value_id: int}>}>
+     */
+    protected function buildInitialSelectedAssetOptions(RecordModel $estimate): array
+    {
+        $estimate->loadMissing([
+            'selectedAssetOptions',
+            'primaryVersion.lineItems',
+        ]);
+
+        $version = $estimate->primaryVersion;
+        if ($version === null) {
+            return [];
+        }
+
+        $byLine = $estimate->selectedAssetOptions->groupBy('estimate_line_item_id');
+        $out = [];
+
+        foreach ($version->lineItems as $li) {
+            if (($li->itemable_type ?? '') !== \App\Domain\Asset\Models\Asset::class) {
+                continue;
+            }
+
+            $group = $byLine->get($li->id);
+            if ($group === null || $group->isEmpty()) {
+                continue;
+            }
+
+            $out[] = [
+                'line_position' => (int) $li->position,
+                'selections' => $group->map(fn ($s) => [
+                    'option_id' => $s->option_id,
+                    'option_value_id' => $s->option_value_id,
+                ])->values()->all(),
+            ];
+        }
+
+        return $out;
+    }
 
     public function __construct(Request $request)
     {
@@ -49,7 +91,7 @@ class EstimateController extends RecordController
 
         $query->where(function ($q) use ($normalized, $like) {
             $q->whereRaw('CAST(sequence AS TEXT) LIKE ?', [$like])
-              ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$like]);
+                ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$like]);
 
             // If numeric, also match exact sequence value for faster hits
             if (ctype_digit($normalized)) {
@@ -71,9 +113,17 @@ class EstimateController extends RecordController
                 ->with('success', 'Estimate created successfully.');
         }
 
-        return back()
-            ->withErrors(['error' => $result['message'] ?? 'Failed to create estimate'])
-            ->withInput();
+        $bag = new MessageBag;
+        foreach ($result['errors'] ?? [] as $key => $messages) {
+            foreach (Arr::wrap($messages) as $m) {
+                $bag->add($key, $m);
+            }
+        }
+        if (! empty($result['message'])) {
+            $bag->add('error', $result['message']);
+        }
+
+        return back()->withErrors($bag)->withInput();
     }
 
     public function create()
@@ -158,6 +208,7 @@ class EstimateController extends RecordController
             'timezones' => Timezone::options(),
             'initialData' => $initialData,
             'opportunityLineItems' => $opportunityLineItems,
+            'initialSelectedAssetOptions' => [],
         ]);
     }
 
@@ -262,6 +313,7 @@ class EstimateController extends RecordController
             'account' => $account,
             'timezones' => Timezone::options(),
             'initialData' => [],
+            'initialSelectedAssetOptions' => $this->buildInitialSelectedAssetOptions($record),
         ]);
     }
 
@@ -276,9 +328,17 @@ class EstimateController extends RecordController
                 ->with('success', 'Estimate updated successfully.');
         }
 
-        return back()
-            ->withErrors(['error' => $result['message'] ?? 'Failed to update estimate'])
-            ->withInput();
+        $bag = new MessageBag;
+        foreach ($result['errors'] ?? [] as $key => $messages) {
+            foreach (Arr::wrap($messages) as $m) {
+                $bag->add($key, $m);
+            }
+        }
+        if (! empty($result['message'])) {
+            $bag->add('error', $result['message']);
+        }
+
+        return back()->withErrors($bag)->withInput();
     }
 
     public function sendApprovalRequest(Request $request, $id)
