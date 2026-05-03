@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AccountInvitation;
 use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\Plan;
@@ -9,10 +10,9 @@ use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\AccountInvitation;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Inertia\Inertia;
 
 class AccountController extends Controller
 {
@@ -22,7 +22,7 @@ class AccountController extends Controller
     public function show(Request $request, Account $account)
     {
         // Ensure user has access to this account
-        if (!$this->userHasAccess($account)) {
+        if (! $this->userHasAccess($account)) {
             abort(403, 'You do not have access to this account.');
         }
 
@@ -34,7 +34,7 @@ class AccountController extends Controller
             'users',
             'tenant.domains',
             'subscription.plan',
-            'pendingInvitations.inviter'
+            'pendingInvitations.inviter',
         ]);
 
         // Get current plan
@@ -98,7 +98,7 @@ class AccountController extends Controller
      */
     public function inviteUser(Request $request, Account $account)
     {
-        if (!$this->userIsOwner($account)) {
+        if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can manage users.');
         }
 
@@ -154,7 +154,7 @@ class AccountController extends Controller
      */
     public function removeUser(Request $request, Account $account, User $user)
     {
-        if (!$this->userIsOwner($account)) {
+        if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can manage users.');
         }
 
@@ -177,7 +177,7 @@ class AccountController extends Controller
         if ($subscription && $subscription->isActive()) {
             try {
                 $owner = $account->owner;
-                $cashierSub = $owner->subscription('default');
+                $cashierSub = $owner->cashierSubscriptionForAccount($account);
 
                 if ($cashierSub && $cashierSub->active()) {
 
@@ -289,14 +289,12 @@ class AccountController extends Controller
         return redirect()->back()->with('success', 'User removed from account successfully.');
     }
 
-
-    
     /**
      * Update user role in the account.
      */
     public function updateUserRole(Request $request, Account $account, User $user)
     {
-        if (!$this->userIsOwner($account)) {
+        if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can manage user roles.');
         }
 
@@ -322,30 +320,30 @@ class AccountController extends Controller
      */
     public function switchPlan(Request $request, Account $account)
     {
-        if (!$this->userIsOwner($account)) {
+        if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can change plans.');
         }
-    
+
         $request->validate([
             'plan_id' => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,yearly',
         ]);
-    
+
         $plan = Plan::findOrFail($request->plan_id);
         $billingCycle = $request->billing_cycle;
-    
+
         // Get the Laravel Cashier subscription (owned by account owner)
         $owner = $account->owner;
-        $cashierSubscription = $owner->subscription('default');
-    
-        if (!$cashierSubscription || !$cashierSubscription->active()) {
+        $cashierSubscription = $owner->cashierSubscriptionForAccount($account);
+
+        if (! $cashierSubscription || ! $cashierSubscription->active()) {
             return redirect()->back()->withErrors(['subscription' => 'No active subscription found.']);
         }
-    
+
         try {
             // Get new price IDs
             $newPriceId = $plan->getStripePriceId($billingCycle);
-            if (!$newPriceId) {
+            if (! $newPriceId) {
                 return redirect()->back()->withErrors(['plan' => 'Stripe price ID not configured for this plan and billing cycle.']);
             }
 
@@ -357,20 +355,20 @@ class AccountController extends Controller
             // Use Stripe SDK directly for ALL updates (base plan + extra seats) in ONE atomic call
             $stripe = new \Stripe\StripeClient(config('cashier.secret'));
             $stripeSub = $cashierSubscription->asStripeSubscription();
-            
+
             // Identify subscription items
             $monthlyExtraSeatPriceId = config('app.extra_seats.monthly_price_id');
             $yearlyExtraSeatPriceId = config('app.extra_seats.yearly_price_id');
             $newExtraSeatPriceId = $billingCycle === 'yearly' ? $yearlyExtraSeatPriceId : $monthlyExtraSeatPriceId;
 
             // Find the BASE PLAN item (the main subscription item)
-            $basePlanItem = collect($stripeSub->items->data)->first(function($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
+            $basePlanItem = collect($stripeSub->items->data)->first(function ($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
                 // Base plan is any item that's NOT an extra seat price
                 return $item->price->id !== $monthlyExtraSeatPriceId && $item->price->id !== $yearlyExtraSeatPriceId;
             });
 
             // Find ALL extra seat line items (both monthly and yearly)
-            $extraSeatItems = collect($stripeSub->items->data)->filter(function($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
+            $extraSeatItems = collect($stripeSub->items->data)->filter(function ($item) use ($monthlyExtraSeatPriceId, $yearlyExtraSeatPriceId) {
                 return $item->price->id === $monthlyExtraSeatPriceId || $item->price->id === $yearlyExtraSeatPriceId;
             });
 
@@ -413,13 +411,13 @@ class AccountController extends Controller
             Log::info('Switched plan and updated subscription items atomically', [
                 'account_id' => $account->id,
                 'subscription_id' => $stripeSub->id,
-                'old_plan_id' => $subscription->plan_id ?? null,
+                'old_plan_id' => $account->subscription?->plan_id,
                 'new_plan_id' => $plan->id,
                 'extra_seats' => $extraSeats,
                 'billing_cycle' => $billingCycle,
                 'total_items_updated' => count($itemsToUpdate),
             ]);
-    
+
             // Update internal subscription record
             $subscription = $account->subscription;
             if ($subscription) {
@@ -429,7 +427,7 @@ class AccountController extends Controller
                     'quantity' => $totalUsers,
                 ]);
             }
-    
+
         } catch (\Laravel\Cashier\Exceptions\SubscriptionUpdateFailure $e) {
             Log::error('Stripe subscription update failed', [
                 'account_id' => $account->id,
@@ -458,28 +456,28 @@ class AccountController extends Controller
      */
     public function cancelSubscription(Request $request, Account $account)
     {
-        if (!$this->userIsOwner($account)) {
+        if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can cancel subscriptions.');
         }
 
         $subscription = $account->subscription;
 
-        if (!$subscription || !$subscription->isActive()) {
+        if (! $subscription || ! $subscription->isActive()) {
             return redirect()->back()->withErrors(['subscription' => 'No active subscription found.']);
         }
 
         try {
             $owner = $account->owner;
-            $cashierSubscription = $owner->subscription('default');
+            $cashierSubscription = $owner->cashierSubscriptionForAccount($account);
 
-            if (!$cashierSubscription || !$cashierSubscription->active()) {
+            if (! $cashierSubscription || ! $cashierSubscription->active()) {
                 return redirect()->back()->withErrors(['subscription' => 'No active subscription found.']);
             }
 
             // Cancel the subscription at period end (not immediately)
             $cashierSubscription->cancel();
 
-            return redirect()->back()->with('success', 'Subscription cancelled successfully. You will retain access until ' . $cashierSubscription->ends_at->format('F j, Y') . '.');
+            return redirect()->back()->with('success', 'Subscription cancelled successfully. You will retain access until '.$cashierSubscription->ends_at->format('F j, Y').'.');
 
         } catch (\Exception $e) {
             Log::error('Subscription cancellation failed', [
@@ -490,7 +488,6 @@ class AccountController extends Controller
             return redirect()->back()->withErrors(['stripe' => 'Failed to cancel subscription. Please try again or contact support.']);
         }
     }
-    
 
     /**
      * Check if user has access to account.
@@ -498,6 +495,7 @@ class AccountController extends Controller
     private function userHasAccess(Account $account): bool
     {
         $user = Auth::user();
+
         return $account->users()->where('users.id', $user->id)->exists() ||
                $account->owner_id === $user->id;
     }
@@ -513,18 +511,19 @@ class AccountController extends Controller
     private function syncExtraSeats(Account $account)
     {
         $subscription = $account->subscription;
-        if (!$subscription || !$subscription->isActive()) {
+        if (! $subscription || ! $subscription->isActive()) {
             return;
         }
-    
+
         $owner = $account->owner;
-        $cashierSub = $owner->subscription('default');
-    
-        if (!$cashierSub || !$cashierSub->active()) {
+        $cashierSub = $owner->cashierSubscriptionForAccount($account);
+
+        if (! $cashierSub || ! $cashierSub->active()) {
             Log::warning('No active Cashier subscription for account', ['account_id' => $account->id]);
+
             return;
         }
-    
+
         $totalUsers = $account->users()->count();
         $plan = $account->currentPlan();
         $includedSeats = $plan ? $plan->seat_limit : 1;
@@ -534,11 +533,12 @@ class AccountController extends Controller
             ? config('app.extra_seats.yearly_price_id')
             : config('app.extra_seats.monthly_price_id');
 
-        if (!$extraSeatPriceId) {
+        if (! $extraSeatPriceId) {
             Log::warning('Extra seat price ID not configured', [
                 'account_id' => $account->id,
                 'billing_cycle' => $subscription->billing_cycle,
             ]);
+
             return;
         }
 
@@ -609,5 +609,4 @@ class AccountController extends Controller
             ]);
         }
     }
-
 }

@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Cashier\Billable;
+use Laravel\Cashier\Subscription as CashierSubscription;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, Billable;
+    use Billable, HasFactory, Notifiable;
 
     /**
      * The database connection name for the model.
@@ -98,15 +99,14 @@ class User extends Authenticatable
         return $this->belongsTo(Tenant::class, 'current_tenant_id');
     }
 
-
     /**
      * Accounts this user belongs to.
      */
     public function accounts()
     {
         return $this->belongsToMany(Account::class)
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     /**
@@ -115,6 +115,15 @@ class User extends Authenticatable
     public function ownedAccounts()
     {
         return $this->hasMany(Account::class, 'owner_id');
+    }
+
+    /**
+     * The owner's Laravel Cashier subscription row for a given workspace account.
+     * Uses subscriptions.account_id so multiple workspaces per owner each have their own Stripe subscription.
+     */
+    public function cashierSubscriptionForAccount(Account $account): ?CashierSubscription
+    {
+        return $this->subscriptions()->where('account_id', $account->id)->first();
     }
 
     /**
@@ -133,7 +142,7 @@ class User extends Authenticatable
     public function getFullNameAttribute(): string
     {
         if ($this->first_name && $this->last_name) {
-            return trim($this->first_name . ' ' . $this->last_name);
+            return trim($this->first_name.' '.$this->last_name);
         }
 
         return $this->name ?? '';
@@ -147,7 +156,7 @@ class User extends Authenticatable
         $this->attributes['name'] = $value;
 
         // If we're setting name and don't have first/last, try to split it
-        if (!$this->first_name && !$this->last_name && $value) {
+        if (! $this->first_name && ! $this->last_name && $value) {
             $parts = explode(' ', $value, 2);
             $this->attributes['first_name'] = $parts[0] ?? '';
             $this->attributes['last_name'] = $parts[1] ?? '';
@@ -162,10 +171,9 @@ class User extends Authenticatable
     {
         // Return full name if available, otherwise fall back to name/email
         if ($this->first_name || $this->last_name) {
-            return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+            return trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
         }
 
         return $this->name ?: $this->email;
     }
-
 }

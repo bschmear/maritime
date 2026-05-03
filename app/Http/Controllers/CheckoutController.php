@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Role\Models\Role;
+use App\Domain\User\Models\User as TenantUserModel;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\Tenant;
+use Exception;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 use Stancl\Tenancy\Database\Models\Domain;
-use Exception;
-use App\Domain\User\Models\User as TenantUserModel;
-use App\Domain\Role\Models\Role;
 
 class CheckoutController extends Controller
 {
@@ -44,11 +44,6 @@ class CheckoutController extends Controller
         $accountName = $request->account_name;
         $user = Auth::user();
 
-        if ($user->subscribed()) {
-            return redirect()->route('dashboard')
-                ->with('error', 'You already have an active subscription.');
-        }
-
         $user->createOrGetStripeCustomer();
         $intent = $user->createSetupIntent();
 
@@ -61,99 +56,35 @@ class CheckoutController extends Controller
         ]);
     }
 
-public function process(Request $request)
-{
-    $request->validate([
-        'plan_id' => 'required|exists:plans,id',
-        'billing_cycle' => 'required|in:monthly,yearly',
-        'payment_method' => 'required|string',
-        'account_name' => 'required|string|max:255',
-    ]);
+    public function process(Request $request)
+    {
+        $request->validate([
+            'plan_id' => 'required|exists:plans,id',
+            'billing_cycle' => 'required|in:monthly,yearly',
+            'payment_method' => 'required|string',
+            'account_name' => 'required|string|max:255',
+        ]);
 
-    $plan = Plan::findOrFail($request->plan_id);
-    $user = Auth::user();
-    $tenant = null;
+        $plan = Plan::findOrFail($request->plan_id);
+        $user = Auth::user();
 
-    try {
-        // Add payment method to user
-        $user->updateDefaultPaymentMethod($request->payment_method);
+        try {
+            $user->updateDefaultPaymentMethod($request->payment_method);
 
-        // Get Stripe price ID
-        $stripePriceId = $plan->getStripePriceId($request->billing_cycle);
-        if (!$stripePriceId) {
-            throw new Exception('Stripe price ID not configured for this plan.');
-        }
-
-        // Check for existing account first
-        $account = $user->ownedAccounts()->first();
-
-        if (!$account) {
-            // Generate unique 6-digit subdomain
-            do {
-                $subdomain = str_pad((string) rand(100000, 999999), 6, '0', STR_PAD_LEFT);
-                $domainName = $subdomain . '.' . config('app.domain', 'localhost');
-            } while (Domain::where('domain', $domainName)->exists());
-
-            $tenantId = \Illuminate\Support\Str::uuid()->toString();
-            $schemaName = 'tenant' . $tenantId;
-
-            // Create schema directly
-            Log::info('Creating schema directly in controller', ['schema' => $schemaName]);
-            $centralConnection = DB::connection('pgsql');
-            $centralConnection->statement("CREATE SCHEMA IF NOT EXISTS \"{$schemaName}\"");
-
-            $schemaExists = $centralConnection->select(
-                "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?",
-                [$schemaName]
-            );
-
-            Log::info('Schema created', [
-                'schema' => $schemaName,
-                'exists' => !empty($schemaExists),
-            ]);
-
-            // Create tenant record
-            $tenant = Tenant::create(['id' => $tenantId]);
-
-            $tenant->domains()->create([
-                'domain' => $domainName,
-            ]);
-
-            // Tenant setup
-            try {
-                sleep(1); // optional delay for jobs
-                $account = Account::create([
-                    'name' => $request->account_name,
-                    'owner_id' => $user->id,
-                    'tenant_id' => $tenant->id,
-                ]);
-
-                $account->users()->attach($user->id, ['role' => 'owner']);
-
-                // Copy authenticated user to tenant users table
-                $this->copyUserToTenant($user, $tenant);
-
-            } catch (Exception $e) {
-                Log::error('Tenant setup failed', [
-                    'tenant_id' => $tenant->id,
-                    'error' => $e->getMessage(),
-                ]);
-                // do not rollback tenant or schema
+            $stripePriceId = $plan->getStripePriceId($request->billing_cycle);
+            if (! $stripePriceId) {
+                throw new Exception('Stripe price ID not configured for this plan.');
             }
-        }
 
-        // Create subscription with base plan
-        $subscriptionBuilder = $user->newSubscription('default', $stripePriceId)
-            ->trialDays(14)
-            ->quantity(1); // Base quantity (included seats covered by base plan)
+            $account = $this->provisionNewAccount($user, $request->account_name);
 
-        // Note: Extra seats will be added as separate line items when users are invited
-        // This allows for proper billing separation between included and extra seats
+            $subscriptionType = 'account_'.$account->id;
 
-        $subscription = $subscriptionBuilder->create($request->payment_method);
+            $subscription = $user->newSubscription($subscriptionType, $stripePriceId)
+                ->trialDays(14)
+                ->quantity(1)
+                ->create($request->payment_method);
 
-        // Link subscription to account and plan
-        if ($account) {
             $subscription->update([
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
@@ -164,25 +95,23 @@ public function process(Request $request)
                 'subscription_id' => $subscription->id,
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
+                'cashier_type' => $subscriptionType,
                 'initial_quantity' => 1,
             ]);
+
+            return redirect()->route('dashboard')
+                ->with('success', 'Subscription created successfully!');
+        } catch (Exception $e) {
+            Log::error('Checkout process failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->withErrors([
+                'error' => 'Payment or tenant setup failed. Please contact support.',
+            ]);
         }
-
-        return redirect()->route('dashboard')
-            ->with('success', 'Subscription created successfully!');
-
-    } catch (Exception $e) {
-        Log::error('Checkout process failed', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        return back()->withErrors([
-            'error' => 'Payment or tenant setup failed. Please contact support.',
-        ]);
     }
-}
-
 
     public function cart(Request $request)
     {
@@ -195,8 +124,11 @@ public function process(Request $request)
         $billingCycle = $request->billing_cycle;
         $user = Auth::user();
 
-        $existingAccount = $user->ownedAccounts()->first();
-        $defaultAccountName = $existingAccount ? $existingAccount->name : ($user->full_name . "'s Account");
+        $ownedCount = $user->ownedAccounts()->count();
+        $baseLabel = $user->full_name ?: $user->name ?: $user->email;
+        $defaultAccountName = $ownedCount > 0
+            ? trim($baseLabel.' Workspace '.($ownedCount + 1))
+            : ($baseLabel."'s Account");
         $addOns = $plan->items()->where('active', true)->get();
 
         return Inertia::render('Checkout/Cart', [
@@ -204,8 +136,56 @@ public function process(Request $request)
             'billingCycle' => $billingCycle,
             'addOns' => $addOns,
             'defaultAccountName' => $defaultAccountName,
-            'hasExistingAccount' => (bool) $existingAccount,
+            'hasExistingAccount' => $ownedCount > 0,
         ]);
+    }
+
+    /**
+     * Provision a new tenant schema, tenant record, domain, and central account for checkout.
+     */
+    private function provisionNewAccount(\App\Models\User $user, string $accountName): Account
+    {
+        do {
+            $subdomain = str_pad((string) rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+            $domainName = $subdomain.'.'.config('app.domain', 'localhost');
+        } while (Domain::where('domain', $domainName)->exists());
+
+        $tenantId = \Illuminate\Support\Str::uuid()->toString();
+        $schemaName = 'tenant'.$tenantId;
+
+        Log::info('Creating schema for new account checkout', ['schema' => $schemaName]);
+
+        $centralConnection = DB::connection('pgsql');
+        $centralConnection->statement("CREATE SCHEMA IF NOT EXISTS \"{$schemaName}\"");
+
+        $tenant = Tenant::create(['id' => $tenantId]);
+
+        $tenant->domains()->create([
+            'domain' => $domainName,
+        ]);
+
+        try {
+            sleep(1);
+
+            $account = Account::create([
+                'name' => $accountName,
+                'owner_id' => $user->id,
+                'tenant_id' => $tenant->id,
+            ]);
+
+            $account->users()->attach($user->id, ['role' => 'owner']);
+
+            $this->copyUserToTenant($user, $tenant);
+
+            return $account;
+        } catch (Exception $e) {
+            Log::error('Tenant setup failed during checkout', [
+                'tenant_id' => $tenant->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /**
@@ -219,7 +199,7 @@ public function process(Request $request)
 
             // Create tenant user with proper first/last name fields
             TenantUserModel::create([
-                'display_name' => trim($user->first_name . ' ' . $user->last_name),
+                'display_name' => trim($user->first_name.' '.$user->last_name),
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
                 'email' => $user->email,
@@ -256,6 +236,7 @@ public function process(Request $request)
             Log::error('Failed to get admin role ID', [
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

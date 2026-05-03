@@ -62,6 +62,19 @@ class HandleInertiaRequests extends Middleware
         // onTrial/trialEndsAt are tenant account (Cashier) concerns, not customer portal concerns.
         $user = $request->user('web');
 
+        $trialEndsAt = null;
+        if ($user) {
+            if ($user->onGenericTrial()) {
+                $trialEndsAt = $user->trial_ends_at?->format('M j, Y');
+            }
+            if ($trialEndsAt === null) {
+                $trialSubscription = $user->subscriptions->first(function ($sub) {
+                    return $sub->valid() && $sub->onTrial();
+                });
+                $trialEndsAt = $trialSubscription?->trial_ends_at?->format('M j, Y');
+            }
+        }
+
         return [
             ...parent::share($request),
             'app' => [
@@ -78,10 +91,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'customer' => fn () => $this->resolveCustomer($request),
                 'vendor' => fn () => $this->resolveVendor($request),
-                'onTrial' => $user ? $user->onTrial() : false,
-                'trialEndsAt' => $user && $user->onTrial()
-                    ? $user->subscription('default')?->trial_ends_at?->format('M j, Y')
-                    : null,
+                'onTrial' => $trialEndsAt !== null,
+                'trialEndsAt' => $trialEndsAt,
             ],
             'radar' => [
                 'publishable' => config('services.radar.publishable'),

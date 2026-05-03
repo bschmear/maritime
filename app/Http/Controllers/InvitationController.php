@@ -115,7 +115,7 @@ public function accept(Request $request, string $token)
 
             $account = $invitation->account;
             $owner = $account->owner;
-            $cashierSub = $owner->subscription('default');
+            $cashierSub = $owner->cashierSubscriptionForAccount($account);
 
             if ($cashierSub && $cashierSub->active()) {
 
