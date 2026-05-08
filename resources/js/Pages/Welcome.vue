@@ -34,19 +34,19 @@ defineProps({
 });
 
 // ── Hero rulers ──
-const DEPTH_STEP_FT = 10;
-const STRIP_HALF_STEPS = 80;
-const heroStripTicksFt = Array.from(
-    { length: STRIP_HALF_STEPS * 2 + 1 },
-    (_, i) => (i - STRIP_HALF_STEPS) * DEPTH_STEP_FT,
-);
-const heroVerticalStripTicksFt = [...heroStripTicksFt].reverse();
+// const DEPTH_STEP_FT = 10;
+// const STRIP_HALF_STEPS = 80;
+// const heroStripTicksFt = Array.from(
+//     { length: STRIP_HALF_STEPS * 2 + 1 },
+//     (_, i) => (i - STRIP_HALF_STEPS) * DEPTH_STEP_FT,
+// );
+// const heroVerticalStripTicksFt = [...heroStripTicksFt].reverse();
 
-const HORIZ_HALF_STEPS = 6;
-const heroHorizontalTickFt = Array.from(
-    { length: HORIZ_HALF_STEPS * 2 + 1 },
-    (_, i) => (i - HORIZ_HALF_STEPS) * DEPTH_STEP_FT,
-);
+// const HORIZ_HALF_STEPS = 6;
+// const heroHorizontalTickFt = Array.from(
+//     { length: HORIZ_HALF_STEPS * 2 + 1 },
+//     (_, i) => (i - HORIZ_HALF_STEPS) * DEPTH_STEP_FT,
+// );
 
 const scrollY = ref(0);
 const VERTICAL_RULER_SCROLL_FACTOR = 0.24;
@@ -57,9 +57,9 @@ const HERO_AXIS_ZERO_FRACTION = 0.70;
 const waveParallaxPx = computed(() => scrollY.value * VERTICAL_RULER_SCROLL_FACTOR);
 
 
-const leftRulerViewport = ref(null);
-const leftRulerStrip = ref(null);
-const verticalAlignPx = ref(0);
+// const leftRulerViewport = ref(null);
+// const leftRulerStrip = ref(null);
+// const verticalAlignPx = ref(0);
 
 
 function handleScroll() {
@@ -67,27 +67,27 @@ function handleScroll() {
 }
 
 function measureHeroRulers() {
-    nextTick(() => {
-        requestAnimationFrame(() => {
-            if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches) {
-                return;
-            }
-            const vVp = leftRulerViewport.value;
-            const vStrip = leftRulerStrip.value;
-            if (vVp && vStrip) {
-                const z = vStrip.querySelector('.hero-axis-zero');
-                if (z) {
-                    const vpr = vVp.getBoundingClientRect();
-                    const zr  = z.getBoundingClientRect();
-                    // Align strip so 0′ is ~3/4 down the ruler viewport (matches the wave)
-                    const vc = vpr.top + vpr.height * HERO_AXIS_ZERO_FRACTION;
-                    const zc = zr.top + zr.height / 2;
-                    verticalAlignPx.value += vc - zc;
+    // nextTick(() => {
+    //     requestAnimationFrame(() => {
+    //         if (typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches) {
+    //             return;
+    //         }
+    //         const vVp = leftRulerViewport.value;
+    //         const vStrip = leftRulerStrip.value;
+    //         if (vVp && vStrip) {
+    //             const z = vStrip.querySelector('.hero-axis-zero');
+    //             if (z) {
+    //                 const vpr = vVp.getBoundingClientRect();
+    //                 const zr  = z.getBoundingClientRect();
+    //                 // Align strip so 0′ is ~3/4 down the ruler viewport (matches the wave)
+    //                 const vc = vpr.top + vpr.height * HERO_AXIS_ZERO_FRACTION;
+    //                 const zc = zr.top + zr.height / 2;
+    //                 verticalAlignPx.value += vc - zc;
 
-                }
-            }
-        });
-    });
+    //             }
+    //         }
+    //     });
+    // });
 }
 
 
@@ -109,14 +109,14 @@ onMounted(() => {
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', measureHeroRulers);
+    // window.addEventListener('resize', measureHeroRulers);
     handleScroll();
-    measureHeroRulers();
+    // measureHeroRulers();
 });
 
 onUnmounted(() => {
     window.removeEventListener('scroll', handleScroll);
-    window.removeEventListener('resize', measureHeroRulers);
+    // window.removeEventListener('resize', measureHeroRulers);
 });
 </script>
 
@@ -127,7 +127,7 @@ onUnmounted(() => {
         <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 
     <!-- ── HERO ─────────────────────────────────────────────────────────── -->
-    <section class="relative flex min-h-[calc(100vh-65px)] flex-col justify-center overflow-hidden bg-white dark:bg-gray-950 px-6 sm:px-16 lg:px-24 border-b border-gray-300/70 dark:border-primary-400/35">
+    <section class="relative flex  flex-col justify-center overflow-hidden bg-white dark:bg-gray-950 px-6 sm:px-16 lg:px-24 border-b border-gray-300/70 dark:border-primary-400/35">
  
  <!-- ── Background: coordinate grid ───────────────────────────── -->
  <div class="pointer-events-none absolute inset-0 hidden select-none opacity-50 lg:block" aria-hidden="true">
@@ -170,79 +170,20 @@ onUnmounted(() => {
                      <stop offset="100%" stop-color="rgb(2 132 199)" stop-opacity="0.09" />
                  </linearGradient>
              </defs>
-             <path class="wave-back" fill="none" stroke="rgb(125 211 252 / 0.25)" stroke-width="2" d="M0,40 C180,20 360,60 540,40 C720,20 900,60 1080,40 C1260,20 1440,40 1440,40" />
-             <path class="wave-front" fill="none" stroke="rgb(56 189 248 / 0.6)" stroke-width="2.5" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38" />
-             <path class="wave-fill dark:hidden" fill="url(#waveFillLight)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,1000 L0,1000 Z" />
-             <path class="wave-fill hidden dark:block" fill="url(#waveFillDark)" d="M0,38 C200,18 400,58 600,38 C800,18 1000,58 1200,38 C1320,25 1380,32 1440,38 L1440,1000 L0,1000 Z" />
-         </svg>
+             <path class="wave-back" fill="none" stroke="rgb(125 211 252 / 0.25)" stroke-width="2"
+    d="M-200,45 C80,15 260,70 540,45 C720,20 980,75 1200,45 C1340,25 1500,60 1640,45" />
+
+<path class="wave-front" fill="none" stroke="rgb(56 189 248 / 0.6)" stroke-width="2.5"
+    d="M-200,42 C120,65 320,15 600,42 C800,68 1050,18 1250,42 C1400,62 1530,28 1640,42" />
+
+<path class="wave-fill dark:hidden" fill="url(#waveFillLight)"
+    d="M-200,42 C120,65 320,15 600,42 C800,68 1050,18 1250,42 C1400,62 1530,28 1640,42 L1640,99999 L-200,99999 Z" />
+
+<path class="wave-fill hidden dark:block" fill="url(#waveFillDark)"
+    d="M-200,42 C120,65 320,15 600,42 C800,68 1050,18 1250,42 C1400,62 1530,28 1640,42 L1640,99999 L-200,99999 Z" />
+            </svg>
  
      </div>
- </div>
-
- <!-- ── Left ruler ── -->
- <div
-     ref="leftRulerViewport"
-     class="pointer-events-none absolute bottom-16 left-0 top-16 z-10 hidden w-16 overflow-hidden border-r border-gray-300/70 dark:border-primary-400/35 select-none lg:block bg-white dark:bg-gray-950"
-     aria-hidden="true"
- >
-     <div
-         ref="leftRulerStrip"
-         class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
-         :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
-     >
-         <div
-             v-for="ft in heroVerticalStripTicksFt"
-             :key="`L-${ft}`"
-             class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50"
-             :class="{ 'text-sky-600 dark:text-sky-400 font-bold': ft === 0 }"
-         >
-             <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
-         </div>
-     </div>
- </div>
-
- <!-- ── Right ruler ── -->
- <div
-     class="pointer-events-none absolute bottom-16 right-0 top-16 z-10 hidden w-16 overflow-hidden border-l border-gray-300/70 dark:border-primary-400/35 select-none lg:block bg-white dark:bg-gray-950"
-     aria-hidden="true"
- >
-     <div
-         class="flex w-full flex-col items-center gap-12 py-24 will-change-transform"
-         :style="{ transform: `translateY(${verticalAlignPx - scrollY * VERTICAL_RULER_SCROLL_FACTOR}px)` }"
-     >
-         <div
-             v-for="ft in heroVerticalStripTicksFt"
-             :key="`R-${ft}`"
-             class="flex w-full shrink-0 justify-center text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50"
-             :class="{ 'text-sky-600 dark:text-sky-400 font-bold': ft === 0 }"
-         >
-             <span class="leading-none" :class="{ 'hero-axis-zero': ft === 0 }">{{ ft }}′</span>
-         </div>
-     </div>
- </div>
-
- <!-- ── Bottom tape ── -->
- <div class="pointer-events-none absolute bottom-0 left-16 right-16 z-10 hidden h-16 overflow-hidden border-t border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 select-none lg:block" aria-hidden="true">
-     <div class="flex h-full w-full flex-row items-center px-1">
-         <div v-for="ft in heroHorizontalTickFt" :key="`H-${ft}`" class="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-mono tabular-nums text-gray-500 dark:text-primary-400/50">
-             <div class="h-2 w-px shrink-0 bg-gray-400/60 dark:bg-primary-400/50" />
-             <span class="text-center leading-none">{{ ft }}′</span>
-         </div>
-     </div>
- </div>
-
- <!-- ── Frame corners ── -->
- <div class="pointer-events-none absolute left-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-r border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
-     <span class="material-icons text-[28px] leading-none">explore</span>
- </div>
- <div class="pointer-events-none absolute right-0 top-0 z-20 hidden h-16 w-16 items-center justify-center border-b border-l border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
-     <span class="material-icons text-[28px] leading-none">explore</span>
- </div>
- <div class="pointer-events-none absolute bottom-0 left-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-r border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
-     <span class="material-icons text-[28px] leading-none">explore</span>
- </div>
- <div class="pointer-events-none absolute bottom-0 right-0 z-20 hidden h-16 w-16 items-center justify-center border-t border-l border-gray-300/70 dark:border-primary-400/35 bg-white dark:bg-gray-950 text-gray-500 dark:text-primary-400/80 select-none lg:flex" aria-hidden="true">
-     <span class="material-icons text-[28px] leading-none">explore</span>
  </div>
 
  <!-- ── Content ───────────────────────────────────────────────── -->
@@ -383,7 +324,7 @@ onUnmounted(() => {
  
 
  <!-- ── Bottom fade into next section ─────────────────────────── -->
- <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 dark:from-gray-950 to-transparent" aria-hidden="true" />
+ <!-- <div class="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 dark:from-gray-950 to-transparent" aria-hidden="true" /> -->
 </section>
 
 
@@ -817,11 +758,11 @@ onUnmounted(() => {
 /* Wave animation — back wave drifts right, front wave drifts left */
 @keyframes waveSlideRight {
     from { transform: translateX(0); }
-    to   { transform: translateX(50px); }
+    to   { transform: translateX(150px); }
 }
 @keyframes waveSlideLeft {
     from { transform: translateX(0); }
-    to   { transform: translateX(-50px); }
+    to   { transform: translateX(-150px); }
 }
 
 .wave-back {
@@ -837,6 +778,10 @@ onUnmounted(() => {
 .wave-fill {
     animation: waveSlideLeft 3s ease-in-out infinite alternate;
     transform-origin: center;
+}
+@keyframes wave-drift {
+    0%   { transform: translateX(0%); }
+    100% { transform: translateX(33.333%); } /* slides one full "viewport" worth */
 }
 </style>
 

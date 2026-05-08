@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use Domain\Role\Models\Role;
+use App\Domain\Role\Models\Role;
 use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
@@ -49,8 +49,8 @@ class RoleSeeder extends Seeder
 
         foreach ($roles as $role) {
             Role::updateOrCreate(
-                ['slug' => $role['slug']], 
-                $role 
+                ['slug' => $role['slug']],
+                $role
             );
         }
     }

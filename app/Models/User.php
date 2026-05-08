@@ -123,7 +123,10 @@ class User extends Authenticatable
      */
     public function cashierSubscriptionForAccount(Account $account): ?CashierSubscription
     {
-        return $this->subscriptions()->where('account_id', $account->id)->first();
+        return $this->subscriptions()
+            ->where('account_id', $account->id)
+            ->latest('id')
+            ->first();
     }
 
     /**

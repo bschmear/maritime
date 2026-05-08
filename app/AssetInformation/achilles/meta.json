@@ -1,180 +1,180 @@
 [
-{
-  "id": "lex-series",
-  "brand": "Achilles",
-  "name": "LEX Series",
-  "type_display": "Classic Wood Floor Tender",
-  "boat_type_key": "power-tender",
-  "hull_type_key": "inflatable",
-  "hull_material_key": "hypalon",
-  "description": "The LEX Series represents Achilles' timeless line of traditional inflatable tenders, combining a classic aesthetic with modern structural refinements. These boats feature a full sectional wood floor and an inflatable air keel for improved tracking and stability. Built with Achilles' premium CSM reinforced fabric and four-layer seam construction, the LEX series is designed to be a solid, reliable, and economical tender that handles collisions with docks and hulls through its protective teardrop rub strake. They are lightweight enough for easy handling while remaining durable enough for consistent professional or recreational use.",
-  "features": [
-    "Achilles CSM Reinforced Fabric",
-    "Four-Layer Seam Construction",
-    "Full Sectional Wood Floorboards",
-    "Inflatable Air Keel",
-    "Fold-Down Locking Oar System with Aluminum Oars",
-    "Full-Length Teardrop Rubbing Strake",
-    "Removable Painted Wood Rowing Seat",
-    "Towing Bridle D-Rings",
-    "Protective Transom Motor Clamp Plate",
-    "Bailer Valve",
-    "Sleek Bow Design for increased interior space"
-  ],
-  "has_variants": true,
-  "construction": {
-    "material": "Achilles CSM Fabric / Wood Floorboards"
-  },
-  "length_range_mm": {
-    "min": 2300,
-    "max": 2900
-  },
-  "specifications": {
-    "length_mm": null,
-    "width_mm": null,
-    "height_mm": null,
-    "weight_kg": null,
-    "capacity_persons": null,
-    "max_hp": null,
-    "fuel_capacity_l": null
-  },
-  "variants": [
-    {
-      "id": "lex-77",
-      "name": "LEX-77",
-      "description": "The most compact model in the LEX series, ideal for two passengers and small davits.",
-      "specifications": {
-        "length_mm": 2300,
-        "width_mm": 1440,
-        "height_mm": null,
-        "weight_kg": 28,
-        "capacity_persons": 2,
-        "max_hp": 4,
-        "fuel_capacity_l": null
-      }
+  {
+    "id": "lex-series",
+    "brand": "Achilles",
+    "name": "LEX Series",
+    "type_display": "Classic Wood Floor Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "roll-up",
+    "hull_material_key": "hypalon",
+    "description": "The LEX Series represents Achilles' timeless line of traditional inflatable tenders, combining a classic aesthetic with modern structural refinements. These boats feature a full sectional wood floor and an inflatable air keel for improved tracking and stability. Built with Achilles' premium CSM reinforced fabric and four-layer seam construction, the LEX series is designed to be a solid, reliable, and economical tender that handles collisions with docks and hulls through its protective teardrop rub strake. They are lightweight enough for easy handling while remaining durable enough for consistent professional or recreational use.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Full Sectional Wood Floorboards",
+      "Inflatable Air Keel",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Removable Painted Wood Rowing Seat",
+      "Towing Bridle D-Rings",
+      "Protective Transom Motor Clamp Plate",
+      "Bailer Valve",
+      "Sleek Bow Design for increased interior space"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Wood Floorboards"
     },
-    {
-      "id": "lex-88",
-      "name": "LEX-88",
-      "description": "A versatile 8'8\" tender balancing portability with a 4-person capacity.",
-      "specifications": {
-        "length_mm": 2650,
-        "width_mm": 1440,
-        "height_mm": null,
-        "weight_kg": 31,
-        "capacity_persons": 4,
-        "max_hp": 6,
-        "fuel_capacity_l": null
-      }
+    "length_range_mm": {
+      "min": 2300,
+      "max": 2900
     },
-    {
-      "id": "lex-96",
-      "name": "LEX-96",
-      "description": "The largest variant in the LEX line, offering the most interior space and stability for a classic wood-floor tender.",
-      "specifications": {
-        "length_mm": 2900,
-        "width_mm": 1440,
-        "height_mm": null,
-        "weight_kg": 33.5,
-        "capacity_persons": 4,
-        "max_hp": 8,
-        "fuel_capacity_l": null
-      }
-    }
-  ]
-}, //lex-series
-{
-  "id": "lsr-e-series",
-  "brand": "Achilles",
-  "name": "LSR-E Series",
-  "type_display": "Aluminum Floor Sport Tender",
-  "boat_type_key": "power-tender",
-  "hull_type_key": "inflatable",
-  "hull_material_key": "hypalon",
-  "description": "The LSR-E series is the only line of inflatable tenders featuring a foldable aluminum floor system. This design provides the rigid, stable platform of a sport boat with the quick assembly and portability of a roll-up tender. Built with Achilles' signature CSM reinforced fabric and a four-layer seam construction, these boats include a high-volume inflatable air keel for precise tracking and responsive handling. The aluminum floorboards are non-skid, corrosion-resistant, and maintenance-free, making the LSR-E an ideal choice for boaters who need a rugged, heavy-duty floor that can be easily stowed.",
-  "features": [
-    "Achilles CSM Reinforced Fabric",
-    "Four-Layer Seam Construction",
-    "Non-Skid Sectional Aluminum Floorboards",
-    "Inflatable Air Keel",
-    "Fold-Down Locking Oar System with Aluminum Oars",
-    "Full-Length Teardrop Rubbing Strake",
-    "Fiberglass Encased V-Shaped Transom",
-    "Square Bow Design for maximized interior space",
-    "Towing Bridle D-Rings",
-    "Removable Wood Rowing Seat",
-    "Protective Transom Motor Clamp Plate",
-    "Gas Tank Tie-down Hardware"
-  ],
-  "has_variants": true,
-  "construction": {
-    "material": "Achilles CSM Fabric / Aluminum Floorboards"
-  },
-  "length_range_mm": {
-    "min": 2600,
-    "max": 3100
-  },
-  "specifications": {
-    "length_mm": null,
-    "width_mm": null,
-    "height_mm": null,
-    "weight_kg": null,
-    "capacity_persons": null,
-    "max_hp": null,
-    "fuel_capacity_l": null
-  },
-  "variants": [
-    {
-      "id": "lsr-260e",
-      "name": "LSR-260E",
-      "description": "A compact 8'6\" aluminum floor tender that balances portability with the stability of a rigid floor.",
-      "specifications": {
-        "length_mm": 2600,
-        "width_mm": 1580,
-        "height_mm": null,
-        "weight_kg": 35,
-        "capacity_persons": 4,
-        "max_hp": 6,
-        "fuel_capacity_l": null
-      }
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
     },
-    {
-      "id": "lsr-290e",
-      "name": "LSR-290E",
-      "description": "A versatile 9'6\" model offering increased interior volume and a higher weight capacity for gear and crew.",
-      "specifications": {
-        "length_mm": 2900,
-        "width_mm": 1580,
-        "height_mm": null,
-        "weight_kg": 38,
-        "capacity_persons": 4,
-        "max_hp": 8,
-        "fuel_capacity_l": null
+    "variants": [
+      {
+        "id": "lex-77",
+        "name": "LEX-77",
+        "description": "The most compact model in the LEX series, ideal for two passengers and small davits.",
+        "specifications": {
+          "length_mm": 2300,
+          "width_mm": 1440,
+          "height_mm": null,
+          "weight_kg": 28,
+          "capacity_persons": 2,
+          "max_hp": 4,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lex-88",
+        "name": "LEX-88",
+        "description": "A versatile 8'8\" tender balancing portability with a 4-person capacity.",
+        "specifications": {
+          "length_mm": 2650,
+          "width_mm": 1440,
+          "height_mm": null,
+          "weight_kg": 31,
+          "capacity_persons": 4,
+          "max_hp": 6,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lex-96",
+        "name": "LEX-96",
+        "description": "The largest variant in the LEX line, offering the most interior space and stability for a classic wood-floor tender.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1440,
+          "height_mm": null,
+          "weight_kg": 33.5,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
       }
+    ]
+  },
+  {
+    "id": "lsr-e-series",
+    "brand": "Achilles",
+    "name": "LSR-E Series",
+    "type_display": "Aluminum Floor Sport Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The LSR-E series is the only line of inflatable tenders featuring a foldable aluminum floor system. This design provides the rigid, stable platform of a sport boat with the quick assembly and portability of a roll-up tender. Built with Achilles' signature CSM reinforced fabric and a four-layer seam construction, these boats include a high-volume inflatable air keel for precise tracking and responsive handling. The aluminum floorboards are non-skid, corrosion-resistant, and maintenance-free, making the LSR-E an ideal choice for boaters who need a rugged, heavy-duty floor that can be easily stowed.",
+    "features": [
+      "Achilles CSM Reinforced Fabric",
+      "Four-Layer Seam Construction",
+      "Non-Skid Sectional Aluminum Floorboards",
+      "Inflatable Air Keel",
+      "Fold-Down Locking Oar System with Aluminum Oars",
+      "Full-Length Teardrop Rubbing Strake",
+      "Fiberglass Encased V-Shaped Transom",
+      "Square Bow Design for maximized interior space",
+      "Towing Bridle D-Rings",
+      "Removable Wood Rowing Seat",
+      "Protective Transom Motor Clamp Plate",
+      "Gas Tank Tie-down Hardware"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Achilles CSM Fabric / Aluminum Floorboards"
     },
-    {
-      "id": "lsr-310e",
-      "name": "LSR-310E",
-      "description": "The largest in the LSR line, providing a 10'2\" stable platform rated for up to 10HP.",
-      "specifications": {
-        "length_mm": 3100,
-        "width_mm": 1580,
-        "height_mm": null,
-        "weight_kg": 41,
-        "capacity_persons": 4,
-        "max_hp": 10,
-        "fuel_capacity_l": null
+    "length_range_mm": {
+      "min": 2600,
+      "max": 3100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "lsr-260e",
+        "name": "LSR-260E",
+        "description": "A compact 8'6\" aluminum floor tender that balances portability with the stability of a rigid floor.",
+        "specifications": {
+          "length_mm": 2600,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 35,
+          "capacity_persons": 4,
+          "max_hp": 6,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsr-290e",
+        "name": "LSR-290E",
+        "description": "A versatile 9'6\" model offering increased interior volume and a higher weight capacity for gear and crew.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 38,
+          "capacity_persons": 4,
+          "max_hp": 8,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "lsr-310e",
+        "name": "LSR-310E",
+        "description": "The largest in the LSR line, providing a 10'2\" stable platform rated for up to 10HP.",
+        "specifications": {
+          "length_mm": 3100,
+          "width_mm": 1580,
+          "height_mm": null,
+          "weight_kg": 41,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
       }
-    }
-  ]
-}, //lsr-e-series
-{
+    ]
+  },
+  {
     "id": "spd-e-series",
     "brand": "Achilles",
     "name": "SPD-E Series",
     "type_display": "Sport Inflatable with Aluminum Floors",
     "boat_type_key": "power-tender",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "planing",
     "hull_material_key": "hypalon",
     "description": "The SPD-E Series consists of classic sport boats designed for performance and versatility. These models feature a deep-V inflatable keel and a rugged, sectional aluminum floor system that provides a rigid platform for superior handling and stability at higher speeds. Built with Achilles' signature CSM fabric and four-layer seam construction, the SPD-E boats are engineered to handle larger outboards and more demanding coastal conditions while remaining portable enough to be broken down for storage.",
     "features": [
@@ -251,14 +251,14 @@
         }
       }
     ]
-  }, //spd-e-series
+  },
   {
     "id": "lsi-e-series",
     "brand": "Achilles",
     "name": "LSI-E Series",
     "type_display": "Lightweight High-Pressure AirFloor Tender",
     "boat_type_key": "power-tender",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "planing",
     "hull_material_key": "hypalon",
     "description": "The LSI-E Series represents the pinnacle of inflatable tender convenience, featuring Achilles' unique high-pressure AirFirm™ drop-stitch floors. These floors are reinforced with CSM to provide a rock-solid platform when inflated, yet they allow the boat to be rolled up instantly once deflated. The LSI-E models incorporate 'Performax' tubes with a staggered design that helps the boat plane faster and stay on plane at lower speeds. Combining the performance of a rigid floor with the lightest weight in the Achilles lineup, the LSI-E is the ultimate yacht tender for easy handling.",
     "features": [
@@ -377,14 +377,14 @@
         }
       }
     ]
-  }, //lsi-e-series
+  },
   {
     "id": "lt-series",
     "brand": "Achilles",
     "name": "LT Series",
     "type_display": "Compact Inflatable Dinghy",
     "boat_type_key": "power-tender",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "roll-up",
     "hull_material_key": "hypalon",
     "description": "The LT Series is Achilles' most compact and lightweight line of inflatable dinghies, designed for maximum portability and ease of use. These models feature a simple roll-up design with a folding wood floor, making them ideal for small cruisers or as a quick-deploy ship-to-shore tender. Despite their small footprint, they are built to the same high standards as larger Achilles models, using premium CSM reinforced fabric and four-layer seam construction to ensure durability and air retention in harsh marine environments.",
     "features": [
@@ -446,14 +446,14 @@
         }
       }
     ]
-  }, //lt-series
+  },
   {
     "id": "ls-ru-series",
     "brand": "Achilles",
     "name": "LS-RU Series",
     "type_display": "Roll-up Slatted Floor Dinghy",
     "boat_type_key": "power-tender",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "roll-up",
     "hull_material_key": "hypalon",
     "description": "The LS-RU (Roll-Up) series is engineered for the ultimate in convenience and storage efficiency. These dinghies feature a slatted wood floor that allows the boat to be rolled up instantly without removing the floorboards. This makes them perfect for boaters with limited storage space who still need a rugged Hypalon tender. The LS-RU combines the ease of a roll-up with a fixed transom, allowing for the use of small outboards while maintaining a very low weight profile for easy lifting and transport.",
     "features": [
@@ -515,7 +515,7 @@
         }
       }
     ]
-  }, //ls-ru-series
+  },
   {
     "id": "hb-al-series",
     "brand": "Achilles",
@@ -599,7 +599,7 @@
         }
       }
     ]
-  }, //hb-al-series
+  },
   {
     "id": "hb-ax-series",
     "brand": "Achilles",
@@ -669,7 +669,7 @@
         }
       }
     ]
-  }, //hb-ax-series
+  },
   {
     "id": "hb-fx-series",
     "brand": "Achilles",
@@ -739,7 +739,7 @@
         }
       }
     ]
-  }, //hb-fx-series
+  },
   {
     "id": "hb-lx-series",
     "brand": "Achilles",
@@ -824,7 +824,7 @@
         }
       }
     ]
-  }, //hb-lx-series
+  },
   {
     "id": "hb-dx-series",
     "brand": "Achilles",
@@ -923,14 +923,14 @@
         }
       }
     ]
-  }, //hb-dx-series
+  },
   {
     "id": "frb-series",
     "brand": "Achilles",
     "name": "FRB Series (Fast Rescue Boat)",
     "type_display": "Commercial Roll-up Utility Boat",
-    "boat_type_key": "utility-inflatable",
-    "hull_type_key": "inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "roll-up",
     "hull_material_key": "hypalon",
     "description": "Designed originally for fire departments and rapid response rescue units, the FRB (Fast Rescue Boat) series is a versatile utility boat built for speed and durability. It features a unique aluminum roll-up floor with an innovative hinge system and non-skid panels, allowing for set-up in minutes. These boats are equipped with over-pressure relief valves for safety and can be inflated via compressed air bottles. The deep-V inflatable keel ensures precise tracking, while specialized abrasion patches and rescue-focused hardware make it a practical alternative for a variety of professional on-water jobs.",
     "features": [
@@ -994,14 +994,14 @@
         }
       }
     ]
-  }, //frb-series
+  },
   {
     "id": "sgx-series",
     "brand": "Achilles",
     "name": "SGX Series",
     "type_display": "Aluminum & Wood Floor Sport Utility Boat",
-    "boat_type_key": "utility-inflatable",
-    "hull_type_key": "inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
     "hull_material_key": "hypalon",
     "description": "The SGX Series is a rugged line of sport utility boats designed for high-performance and heavy-duty use. These boats feature a deep 'V' inflatable keel and large tube diameters, making them ideal as dive boats, utility craft, or performance runabouts. The flooring system utilizes a mix of aluminum and wood floorboards with an aluminum stringer system for maximum rigidity. Built with Achilles CSM fabric and four-layer seam construction, the SGX is designed to handle demanding on-water tasks while providing a stable and dry ride.",
     "features": [
@@ -1065,14 +1065,14 @@
         }
       }
     ]
-  }, //sgx-series
+  },
   {
     "id": "sg-series",
     "brand": "Achilles",
     "name": "SG Series",
     "type_display": "Top-of-the-Line Aluminum & Fiberglass Floor Sport Boat",
-    "boat_type_key": "utility-inflatable",
-    "hull_type_key": "inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
     "hull_material_key": "hypalon",
     "description": "The SG Series is Achilles' premier sport boat line, recognized for its iconic square bow configuration that maximizes interior space for gear and personnel. These boats utilize a high-rigidity aluminum and fiberglass floorboard system (aluminum and wood on the SG-124) with an aluminum stringer system for uncompromised structural integrity. Frequently used by fire departments and first responders for rescue operations, the SG series balances professional-grade durability with the performance required for fishing and diving. The newer SG-140SV model introduces an internal intercommunicating valve system for rapid inflation.",
     "features": [
@@ -1164,14 +1164,14 @@
         }
       }
     ]
-  }, //sg-series
+  },
   {
     "id": "su-series",
     "brand": "Achilles",
     "name": "SU Series (Sport Utility)",
     "type_display": "Heavy-Duty Commercial Utility Boat",
-    "boat_type_key": "utility-inflatable",
-    "hull_type_key": "inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
     "hull_material_key": "hypalon",
     "description": "The SU Series represents the most rugged workhorses in the Achilles lineup, engineered specifically for heavy-duty commercial, military, and rescue applications. These boats are distinguished by their classic 'pointed bow' design and an exceptionally rigid recessed floor system. The flooring consists of high-density marine-grade wood and aluminum floorboards supported by a heavy-duty aluminum stringer system. Built with an extra-thick Achilles CSM fabric and reinforced with additional wear patches, the SU series is designed to carry massive payloads and handle the most extreme water conditions.",
     "features": [
@@ -1249,14 +1249,14 @@
         }
       }
     ]
-  }, //su-series
+  },
   {
     "id": "ksb-series",
     "brand": "Achilles",
     "name": "KSB Series (Kayaks)",
     "type_display": "Inflatable Whitewater & Touring Kayak",
-    "boat_type_key": "kayak",
-    "hull_type_key": "inflatable",
+    "boat_type_key": "unpowered-kayak",
+    "hull_type_key": "other",
     "hull_material_key": "hypalon",
     "description": "The KSB Series consists of high-performance inflatable kayaks built to handle everything from calm coastal touring to moderate whitewater. Unlike standard recreational inflatables, the KSB is constructed from Achilles' professional-grade CSM fabric, making it significantly more resistant to punctures, UV damage, and abrasion. These kayaks feature a self-bailing floor system and a rigid I-beam floor construction that provides a stable, efficient paddling platform. They are designed for quick inflation and compact transport, fitting easily into most car trunks.",
     "features": [
@@ -1318,14 +1318,14 @@
         }
       }
     ]
-  }, //ksb-series
+  },
   {
     "id": "rv-series",
     "brand": "Achilles",
     "name": "RV Series (River Rafts)",
     "type_display": "Professional Whitewater Raft",
     "boat_type_key": "raft",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "other",
     "hull_material_key": "hypalon",
     "description": "The RV Series is Achilles' premier line of non-bailing whitewater rafts, built to withstand the most punishing river environments. Constructed with heavy-duty Achilles CSM fabric, these rafts are favored by commercial outfitters and serious private boaters for their exceptional abrasion resistance and longevity. The design features a large tube diameter for maximum buoyancy and a high-rocker bow/stern profile to climb over waves. The non-bailing 'bucket boat' design offers a traditional rafting experience with a lower center of gravity and a significantly lighter weight than self-bailing alternatives.",
     "features": [
@@ -1401,14 +1401,14 @@
         }
       }
     ]
-  }, //rv-series
+  },
   {
     "id": "rv-sb-series",
     "brand": "Achilles",
     "name": "RV-SB Series (Self-Bailer)",
     "type_display": "Self-Bailing Whitewater Raft",
     "boat_type_key": "raft",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "other",
     "hull_material_key": "hypalon",
     "description": "The RV-SB Series combines the legendary durability of Achilles CSM fabric with a high-performance self-bailing floor system. Designed for high-volume whitewater and technical descents, the 'SB' floor features a laced-in, inflatable I-beam design that allows water to drain instantly through the floor-to-tube gap. This keeps the raft light and responsive even in the heaviest rapids. These rafts are built with extra-reinforced side wraps and a plethora of D-rings, making them the ultimate platform for both commercial paddle trips and heavy expedition rowing frames.",
     "features": [
@@ -1484,14 +1484,14 @@
         }
       }
     ]
-  }, //rv-sb-series
+  },
   {
     "id": "rv-sb-3t-series",
     "brand": "Achilles",
     "name": "RV-SB-3T Series",
     "type_display": "Triple-Thwart Self-Bailing Raft",
     "boat_type_key": "raft",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "other",
     "hull_material_key": "hypalon",
     "description": "The RV-SB-3T (Triple Thwart) series is a specialized evolution of Achilles' self-bailing river rafts, optimized for larger paddle crews and commercial whitewater applications. By including three reinforced thwarts as standard, these rafts provide superior structural rigidity and more secure seating positions for six to eight paddlers plus a guide. Featuring the same rugged Achilles CSM fabric and laced-in inflatable I-beam floor as the standard SB series, the 3T models are designed to drain water instantly while providing a stable, high-performance platform for the most challenging rapids.",
     "features": [
@@ -1553,14 +1553,14 @@
         }
       }
     ]
-  }, //rv-sb-3t-series
+  },
   {
     "id": "fr-series",
     "brand": "Achilles",
     "name": "FR Series (Fishing Rafts)",
     "type_display": "River Fishing & Expedition Raft",
     "boat_type_key": "raft",
-    "hull_type_key": "inflatable",
+    "hull_type_key": "other",
     "hull_material_key": "hypalon",
     "description": "The FR Series is specifically engineered for river anglers and expedition rowers who require a stable, high-buoyancy platform. Designed with a wider beam and a flatter floor profile than standard whitewater rafts, these boats offer exceptional stability for standing while casting. The FR series is built to accommodate heavy rowing frames, casting platforms, and large coolers. Constructed with Achilles' premium CSM fabric, these rafts are highly resistant to the abrasions and punctures common when navigating shallow, rocky riverbeds.",
     "features": [
@@ -1622,5 +1622,5 @@
         }
       }
     ]
-  } //fr-series
+  }
 ]

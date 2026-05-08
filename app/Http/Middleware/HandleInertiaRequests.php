@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\AccountSettings;
+use App\Services\WorkspaceNavCache;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -98,7 +99,28 @@ class HandleInertiaRequests extends Middleware
                 'publishable' => config('services.radar.publishable'),
             ],
             'pwa' => fn () => $this->rootView($request) === 'app' && $request->isPwa(),
+            'workspace_nav' => fn () => $this->workspaceNavAccounts($request),
         ];
+    }
+
+    /**
+     * Accounts the central user can open in the tenant app (member + provisioned tenant + active subscription).
+     * Host URLs are built on the client with {@see \App\Services\WorkspaceNavCache} (cached; same rules as the CRM entry list).
+     *
+     * @return array<int, array{id: int, name: string, domain: string}>
+     */
+    protected function workspaceNavAccounts(Request $request): array
+    {
+        if (tenant() || $this->isTenantSubdomain($request)) {
+            return [];
+        }
+
+        $user = $request->user('web');
+        if (! $user) {
+            return [];
+        }
+
+        return WorkspaceNavCache::get($user);
     }
 
     protected function resolveCustomer(Request $request): ?array

@@ -66,6 +66,7 @@ use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Tenant\WarrantyClaimController;
 use App\Http\Controllers\Tenant\WorkOrderController;
+use App\Http\Controllers\Tenant\WorkspaceBillingController;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
@@ -88,9 +89,14 @@ Route::middleware([
 
     Route::get('favicon.ico', FaviconController::class);
 
+    Route::middleware(['auth', 'tenant.access'])->group(function () {
+        Route::get('/workspace-billing-required', [WorkspaceBillingController::class, 'show'])
+            ->name('tenant.workspace.billing-required');
+    });
+
     // ── Admin Portal Access Management ───────────────────────────────────
 
-    Route::prefix('portal-accesses')->name('portal-accesses.')->middleware(['auth', 'tenant.access'])->group(function () {
+    Route::prefix('portal-accesses')->name('portal-accesses.')->middleware(['auth', 'tenant.access', 'workspace.subscription'])->group(function () {
         Route::get('/', [PortalAccessController::class, 'index'])->name('index');
         Route::post('/', [PortalAccessController::class, 'store'])->name('store');
         Route::get('/{portalAccess}', [PortalAccessController::class, 'show'])->name('show');
@@ -148,7 +154,7 @@ Route::middleware([
             ->name('surveysPublicSubmit');
     });
 
-    Route::middleware(['auth', 'tenant.access'])->group(function () {
+    Route::middleware(['auth', 'tenant.access', 'workspace.subscription'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 

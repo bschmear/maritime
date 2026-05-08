@@ -37,8 +37,15 @@ class AccountController extends Controller
             'pendingInvitations.inviter',
         ]);
 
-        // Get current plan
+        // Current plan + billing cycle come from the owner's Cashier subscription (same source as switch/cancel).
         $currentPlan = $account->currentPlan();
+        $hasActiveSubscription = $account->hasActiveSubscription();
+        if ($currentPlan) {
+            $cashierSub = $account->owner?->cashierSubscriptionForAccount($account);
+            if ($cashierSub) {
+                $currentPlan->billing_cycle = $cashierSub->billing_cycle;
+            }
+        }
 
         // Calculate seat usage
         $seatUsage = [
@@ -86,6 +93,7 @@ class AccountController extends Controller
                 ];
             }),
             'current_plan' => $currentPlan,
+            'has_active_subscription' => $hasActiveSubscription,
             'seat_usage' => $seatUsage,
             'plans' => $plans,
             'additional_seat_cost' => 15.00, // $15 per additional user
@@ -411,15 +419,15 @@ class AccountController extends Controller
             Log::info('Switched plan and updated subscription items atomically', [
                 'account_id' => $account->id,
                 'subscription_id' => $stripeSub->id,
-                'old_plan_id' => $account->subscription?->plan_id,
+                'old_plan_id' => $cashierSubscription->plan_id,
                 'new_plan_id' => $plan->id,
                 'extra_seats' => $extraSeats,
                 'billing_cycle' => $billingCycle,
                 'total_items_updated' => count($itemsToUpdate),
             ]);
 
-            // Update internal subscription record
-            $subscription = $account->subscription;
+            // Update internal subscription row (same id as Cashier model)
+            $subscription = Subscription::query()->find($cashierSubscription->getKey());
             if ($subscription) {
                 $subscription->update([
                     'plan_id' => $plan->id,
@@ -445,6 +453,21 @@ class AccountController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
+            if (str_contains($e->getMessage(), 'No such subscription')) {
+                try {
+                    $cashierSubscription->delete();
+                } catch (\Exception $deleteException) {
+                    Log::warning('Failed to delete stale subscription row', [
+                        'account_id' => $account->id,
+                        'error' => $deleteException->getMessage(),
+                    ]);
+                }
+
+                return redirect()->back()->withErrors([
+                    'subscription' => 'This workspace was linked to a subscription that no longer exists in Stripe. Choose a plan on Pricing to subscribe again.',
+                ]);
+            }
+
             return redirect()->back()->withErrors(['stripe' => 'Failed to update subscription. Please try again or contact support.']);
         }
 
@@ -458,12 +481,6 @@ class AccountController extends Controller
     {
         if (! $this->userIsOwner($account)) {
             abort(403, 'Only account owners can cancel subscriptions.');
-        }
-
-        $subscription = $account->subscription;
-
-        if (! $subscription || ! $subscription->isActive()) {
-            return redirect()->back()->withErrors(['subscription' => 'No active subscription found.']);
         }
 
         try {
@@ -510,33 +527,28 @@ class AccountController extends Controller
 
     private function syncExtraSeats(Account $account)
     {
-        $subscription = $account->subscription;
-        if (! $subscription || ! $subscription->isActive()) {
-            return;
-        }
-
         $owner = $account->owner;
-        $cashierSub = $owner->cashierSubscriptionForAccount($account);
+        $cashierSub = $owner?->cashierSubscriptionForAccount($account);
 
         if (! $cashierSub || ! $cashierSub->active()) {
-            Log::warning('No active Cashier subscription for account', ['account_id' => $account->id]);
-
             return;
         }
+
+        $localSubscription = Subscription::query()->find($cashierSub->getKey());
 
         $totalUsers = $account->users()->count();
         $plan = $account->currentPlan();
         $includedSeats = $plan ? $plan->seat_limit : 1;
         $extraSeats = max(0, $totalUsers - $includedSeats);
 
-        $extraSeatPriceId = $subscription->billing_cycle === 'yearly'
+        $extraSeatPriceId = $cashierSub->billing_cycle === 'yearly'
             ? config('app.extra_seats.yearly_price_id')
             : config('app.extra_seats.monthly_price_id');
 
         if (! $extraSeatPriceId) {
             Log::warning('Extra seat price ID not configured', [
                 'account_id' => $account->id,
-                'billing_cycle' => $subscription->billing_cycle,
+                'billing_cycle' => $cashierSub->billing_cycle,
             ]);
 
             return;
@@ -600,7 +612,9 @@ class AccountController extends Controller
             }
 
             // Always update internal subscription quantity
-            $subscription->update(['quantity' => $totalUsers]);
+            if ($localSubscription) {
+                $localSubscription->update(['quantity' => $totalUsers]);
+            }
 
         } catch (\Exception $e) {
             Log::error('Failed to sync extra seats', [

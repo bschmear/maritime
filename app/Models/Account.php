@@ -4,8 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\User;
-use App\Models\Tenant;
 
 class Account extends Model
 {
@@ -55,8 +53,8 @@ class Account extends Model
     public function users()
     {
         return $this->belongsToMany(User::class)
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     /**
@@ -90,10 +88,19 @@ class Account extends Model
 
     /**
      * Get the current plan for this account.
+     *
+     * Uses the account owner's Stripe (Cashier) subscription so the UI matches
+     * what switch/cancel and Stripe actually use — not merely the latest local row.
      */
-    public function currentPlan()
+    public function currentPlan(): ?Plan
     {
-        return $this->subscription?->plan;
+        $cashier = $this->owner?->cashierSubscriptionForAccount($this);
+
+        if (! $cashier || ! $cashier->active() || ! $cashier->plan_id) {
+            return null;
+        }
+
+        return Plan::query()->find($cashier->plan_id);
     }
 
     /**
@@ -101,8 +108,9 @@ class Account extends Model
      */
     public function hasActiveSubscription(): bool
     {
-        $subscription = $this->subscription;
-        return $subscription && $subscription->isActive();
+        $cashier = $this->owner?->cashierSubscriptionForAccount($this);
+
+        return $cashier !== null && $cashier->active();
     }
 
     /**
@@ -111,7 +119,9 @@ class Account extends Model
     public function withinSeatLimit(): bool
     {
         $plan = $this->currentPlan();
-        if (!$plan) return false;
+        if (! $plan) {
+            return false;
+        }
 
         return $this->users->count() <= $plan->seat_limit;
     }
@@ -122,7 +132,9 @@ class Account extends Model
     public function seatsOverLimit(): int
     {
         $plan = $this->currentPlan();
-        if (!$plan) return $this->users->count();
+        if (! $plan) {
+            return $this->users->count();
+        }
 
         return max(0, $this->users->count() - $plan->seat_limit);
     }
@@ -133,10 +145,13 @@ class Account extends Model
     public function additionalSeatCost(): float
     {
         $extraSeats = $this->seatsOverLimit();
-        if ($extraSeats <= 0) return 0;
+        if ($extraSeats <= 0) {
+            return 0;
+        }
 
         // Get global extra seat pricing from config
         $extraSeatConfig = config('app.extra_seats');
+
         return $extraSeats * ($extraSeatConfig['monthly_price'] ?? 15.00);
     }
 
@@ -146,10 +161,13 @@ class Account extends Model
     public function additionalYearlySeatCost(): float
     {
         $extraSeats = $this->seatsOverLimit();
-        if ($extraSeats <= 0) return 0;
+        if ($extraSeats <= 0) {
+            return 0;
+        }
 
         // Get global extra seat pricing from config
         $extraSeatConfig = config('app.extra_seats');
+
         return $extraSeats * ($extraSeatConfig['yearly_price'] ?? 150.00);
     }
 
@@ -159,7 +177,9 @@ class Account extends Model
     public function getCostBreakdown(): array
     {
         $plan = $this->currentPlan();
-        if (!$plan) return ['base' => 0, 'extra' => 0, 'total' => 0];
+        if (! $plan) {
+            return ['base' => 0, 'extra' => 0, 'total' => 0];
+        }
 
         $extraSeats = $this->seatsOverLimit();
         $extraCost = $extraSeats * ($plan->seat_extra ?? 0);

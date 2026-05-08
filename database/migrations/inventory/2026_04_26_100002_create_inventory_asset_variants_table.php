@@ -4,6 +4,9 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Same specification columns as inventory `assets` (meta.json keys), plus asset_id, key, and name.
+ */
 return new class extends Migration
 {
     protected $connection = 'inventory';
@@ -17,13 +20,33 @@ return new class extends Migration
         Schema::connection($this->connection)->create('asset_variants', function (Blueprint $table) {
             $table->id();
             $table->foreignId('asset_id')->constrained('assets')->cascadeOnDelete();
-            $table->string('name')->nullable();
-            $table->string('display_name')->nullable();
+            $table->unsignedTinyInteger('type');
+            $table->string('display_name');
+            $table->string('slug')->nullable();
             $table->string('key')->nullable();
+            $table->string('name')->nullable();
             $table->boolean('inactive')->default(false);
+            $table->foreignId('make_id')->nullable()->constrained('boat_make')->nullOnDelete();
+            $table->string('model')->nullable();
+            $table->string('year')->nullable();
+            $table->unsignedInteger('length_mm')->nullable();
+            $table->unsignedInteger('width_mm')->nullable();
+            $table->unsignedInteger('height_mm')->nullable();
+            $table->unsignedInteger('weight_kg')->nullable();
+            $table->unsignedInteger('capacity_persons')->nullable();
+            $table->unsignedInteger('max_hp')->nullable();
+            $table->unsignedInteger('fuel_capacity_l')->nullable();
+            $table->string('engine_shaft')->nullable();
+            $table->string('water_tank')->nullable();
+            $table->string('category')->nullable();
+            $table->text('engine_details')->nullable();
+            $table->json('attributes')->nullable();
+            $table->json('catalog_data')->nullable();
+            $table->json('features')->nullable();
+            $table->text('description')->nullable();
             $table->decimal('default_cost', 12, 2)->nullable();
             $table->decimal('default_price', 12, 2)->nullable();
-            $table->text('description')->nullable();
+            $table->boolean('has_variants')->default(false);
             $table->timestamps();
 
             $table->unique(['asset_id', 'key']);

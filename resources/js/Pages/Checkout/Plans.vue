@@ -7,9 +7,13 @@ const props = defineProps({
     plans: Array,
     selectedPlanId: Number,
     billingCycle: String,
+    prefilled_existing_account_id: {
+        type: Number,
+        default: null,
+    },
 });
 
-const billingCycle = ref(props.billingCycle || 'monthly');
+const billingCycle = ref(props.billingCycle === 'yearly' || props.billingCycle === 'annual' ? 'yearly' : 'monthly');
 const selectedPlan = ref(props.selectedPlanId || null);
 
 const selectPlan = (planId) => {
@@ -25,6 +29,9 @@ const proceedToCart = () => {
     router.get(route('checkout.cart'), {
         plan_id: selectedPlan.value,
         billing_cycle: billingCycle.value,
+        ...(props.prefilled_existing_account_id
+            ? { existing_account_id: props.prefilled_existing_account_id }
+            : {}),
     });
 };
 </script>
@@ -71,10 +78,10 @@ const proceedToCart = () => {
                         </button>
                         <button
                             type="button"
-                            @click="billingCycle = 'annual'"
+                            @click="billingCycle = 'yearly'"
                             :class="[
                                 'flex items-center gap-2 rounded-full px-6 py-2 font-semibold transition-all duration-200',
-                                billingCycle === 'annual'
+                                billingCycle === 'yearly'
                                     ? 'bg-primary-600 text-white shadow-md'
                                     : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white',
                             ]"

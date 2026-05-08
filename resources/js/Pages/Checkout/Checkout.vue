@@ -13,6 +13,10 @@ const props = defineProps({
     stripeKey: String,
     intent: Object,
     accountName: String,
+    existingAccountId: {
+        type: Number,
+        default: null,
+    },
 });
 
 const stripe = ref(null);
@@ -25,6 +29,7 @@ const form = useForm({
     billing_cycle: props.billingCycle,
     payment_method: '',
     account_name: props.accountName,
+    existing_account_id: props.existingAccountId ?? null,
 });
 
 onMounted(async () => {
@@ -157,7 +162,10 @@ const planPrice = props.billingCycle === 'yearly'
                                     </div>
                                     <div>
                                         <p class="font-semibold text-gray-900 dark:text-white">{{ accountName }}</p>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">Your workspace will be created after payment</p>
+                                        <p v-if="existingAccountId" class="text-sm text-gray-600 dark:text-gray-400">
+                                            You are adding a subscription to this existing workspace.
+                                        </p>
+                                        <p v-else class="text-sm text-gray-600 dark:text-gray-400">Your workspace will be created after payment</p>
                                     </div>
                                 </div>
                             </div>
@@ -188,6 +196,7 @@ const planPrice = props.billingCycle === 'yearly'
                                         {{ cardError }}
                                     </p>
                                     <InputError :message="form.errors.payment_method" class="mt-2" />
+                                    <InputError :message="form.errors.existing_account_id" class="mt-2" />
                                 </div>
 
                                 <!-- Security Notice -->
@@ -221,7 +230,7 @@ const planPrice = props.billingCycle === 'yearly'
                             <!-- Action Buttons -->
                             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                                 <Link
-                                    :href="route('checkout.cart', { plan_id: plan.id, billing_cycle: billingCycle })"
+                                    :href="route('checkout.cart', { plan_id: plan.id, billing_cycle: billingCycle, ...(existingAccountId ? { existing_account_id: existingAccountId } : {}) })"
                                     class="inline-flex items-center justify-center gap-2 px-6 py-3 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-secondary-300 dark:hover:border-secondary-600 transition-all duration-200"
                                 >
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

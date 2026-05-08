@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\WorkspaceNavCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -68,7 +69,7 @@ class Invitation extends Model
      */
     public function isAccepted(): bool
     {
-        return !is_null($this->accepted_at);
+        return ! is_null($this->accepted_at);
     }
 
     /**
@@ -76,7 +77,7 @@ class Invitation extends Model
      */
     public function isDeclined(): bool
     {
-        return !is_null($this->declined_at);
+        return ! is_null($this->declined_at);
     }
 
     /**
@@ -84,7 +85,7 @@ class Invitation extends Model
      */
     public function accept(User $user): bool
     {
-        if (!$this->isPending()) {
+        if (! $this->isPending()) {
             return false;
         }
 
@@ -94,6 +95,8 @@ class Invitation extends Model
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        WorkspaceNavCache::forgetUser($user);
 
         // Update invitation
         $this->update([
@@ -109,11 +112,12 @@ class Invitation extends Model
      */
     public function decline(): bool
     {
-        if (!$this->isPending()) {
+        if (! $this->isPending()) {
             return false;
         }
 
         $this->update(['declined_at' => now()]);
+
         return true;
     }
 

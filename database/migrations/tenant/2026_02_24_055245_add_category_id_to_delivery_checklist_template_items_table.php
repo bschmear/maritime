@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -16,19 +16,22 @@ return new class extends Migration
             $table->foreignId('category_id')->nullable()->after('category');
         });
 
-        // Create default categories
-        $categories = [
-            ['name' => 'Boat has been delivered with', 'color' => 'blue'],
-            ['name' => 'Engine has been delivered with', 'color' => 'green'],
-        ];
+        $ensureCategoryId = static function (string $name, string $color): int {
+            $row = DB::table('delivery_checklist_categories')->where('name', $name)->first();
+            if ($row !== null) {
+                return (int) $row->id;
+            }
 
-        foreach ($categories as $category) {
-            DB::table('delivery_checklist_categories')->insert($category);
-        }
+            return (int) DB::table('delivery_checklist_categories')->insertGetId([
+                'name' => $name,
+                'color' => $color,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        };
 
-        // Map existing category values to new category IDs
-        $preDeliveryId = DB::table('delivery_checklist_categories')->where('name', 'Pre Delivery')->first()->id;
-        $uponDeliveryId = DB::table('delivery_checklist_categories')->where('name', 'Upon Delivery')->first()->id;
+        $preDeliveryId = $ensureCategoryId('Pre Delivery', 'blue');
+        $uponDeliveryId = $ensureCategoryId('Upon Delivery', 'green');
 
         DB::table('delivery_checklist_template_items')
             ->where('category', 'pre_delivery')

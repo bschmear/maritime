@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -38,7 +39,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request): SymfonyResponse
     {
         $request->authenticate();
 
@@ -47,10 +48,13 @@ class AuthenticatedSessionController extends Controller
         // If there's an invitation token, redirect to the invitation page
         $invitationToken = $request->input('invitation_token');
         if ($invitationToken) {
-            return redirect()->route('invitations.show', ['token' => $invitationToken]);
+            return Inertia::location(route('invitations.show', ['token' => $invitationToken], absolute: true));
         }
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        // Full document navigation so CSRF meta/cookie matches the regenerated session (avoids 419 on next POST).
+        return Inertia::location(
+            redirect()->intended(route('dashboard', absolute: true))->getTargetUrl()
+        );
     }
 
     /**

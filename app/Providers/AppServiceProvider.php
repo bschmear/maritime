@@ -4,10 +4,14 @@ namespace App\Providers;
 
 use App\Domain\EmailTemplate\Models\EmailTemplate as TenantEmailTemplate;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Models\User;
 use App\Policies\WarrantyClaimPolicy;
+use App\Services\WorkspaceNavCache;
 use App\Tenancy\CurrentTenantProfile;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Vite;
@@ -67,6 +71,15 @@ class AppServiceProvider extends ServiceProvider
 
         Route::bind('email_template', function (string $value) {
             return TenantEmailTemplate::query()->findOrFail($value);
+        });
+
+        Event::listen(Login::class, function (Login $event): void {
+            if ($event->guard !== 'web' || ! $event->user instanceof User) {
+                return;
+            }
+
+            WorkspaceNavCache::forgetUser($event->user);
+            WorkspaceNavCache::put($event->user);
         });
     }
 }

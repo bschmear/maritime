@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -12,10 +12,30 @@ const props = defineProps({
     addOns: Array,
     defaultAccountName: String,
     hasExistingAccount: Boolean,
+    reactivable_accounts: {
+        type: Array,
+        default: () => [],
+    },
+    prefilled_existing_account_id: {
+        type: Number,
+        default: null,
+    },
 });
 
 const selectedAddOns = ref([]);
 const accountName = ref(props.defaultAccountName);
+
+const hasReactivable = computed(() => (props.reactivable_accounts?.length ?? 0) > 0);
+
+const checkoutMode = ref(
+    props.prefilled_existing_account_id || hasReactivable.value ? 'existing' : 'new',
+);
+
+const selectedExistingAccountId = ref(
+    props.prefilled_existing_account_id
+        ?? props.reactivable_accounts?.[0]?.id
+        ?? null,
+);
 
 const toggleAddOn = (addOnId) => {
     const index = selectedAddOns.value.indexOf(addOnId);
@@ -43,13 +63,31 @@ const totalPrice = computed(() => {
     return planPrice.value + addOnsTotal.value;
 });
 
+watch(checkoutMode, (mode) => {
+    if (mode === 'existing' && ! selectedExistingAccountId.value && props.reactivable_accounts?.[0]) {
+        selectedExistingAccountId.value = props.reactivable_accounts[0].id;
+    }
+});
+
+const canProceed = computed(() => {
+    if (checkoutMode.value === 'existing') {
+        return !! selectedExistingAccountId.value;
+    }
+    return !! accountName.value?.trim();
+});
+
 const proceedToCheckout = () => {
-    router.get(route('checkout.show'), {
+    const params = {
         plan_id: props.plan.id,
         billing_cycle: props.billingCycle,
         add_ons: selectedAddOns.value,
-        account_name: accountName.value,
-    });
+    };
+    if (checkoutMode.value === 'existing' && selectedExistingAccountId.value) {
+        params.existing_account_id = selectedExistingAccountId.value;
+    } else {
+        params.account_name = accountName.value;
+    }
+    router.get(route('checkout.show'), params);
 };
 </script>
 
@@ -79,8 +117,52 @@ const proceedToCheckout = () => {
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Main Content -->
                     <div class="lg:col-span-2 space-y-6">
+                        <!-- Workspace: existing vs new -->
+                        <div
+                            v-if="hasReactivable"
+                            class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8 transition-all duration-300 hover:shadow-2xl"
+                        >
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                                Workspace
+                            </h2>
+                            <div class="space-y-4">
+                                <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all"
+                                    :class="checkoutMode === 'existing' ? 'border-secondary-600 bg-secondary-50/50 dark:bg-secondary-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-secondary-300'">
+                                    <input v-model="checkoutMode" type="radio" value="existing" class="mt-1 text-secondary-600 focus:ring-secondary-500" />
+                                    <div>
+                                        <span class="font-semibold text-gray-900 dark:text-white">Subscribe an existing workspace</span>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            Add billing to a workspace you already own (no new tenant is created).
+                                        </p>
+                                        <select
+                                            v-show="checkoutMode === 'existing'"
+                                            v-model="selectedExistingAccountId"
+                                            class="mt-3 block w-full rounded-xl border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-secondary-500 focus:ring-secondary-500"
+                                        >
+                                            <option v-for="a in reactivable_accounts" :key="a.id" :value="a.id">
+                                                {{ a.name }} (ID {{ a.id }})
+                                            </option>
+                                        </select>
+                                    </div>
+                                </label>
+                                <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all"
+                                    :class="checkoutMode === 'new' ? 'border-secondary-600 bg-secondary-50/50 dark:bg-secondary-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-secondary-300'">
+                                    <input v-model="checkoutMode" type="radio" value="new" class="mt-1 text-secondary-600 focus:ring-secondary-500" />
+                                    <div>
+                                        <span class="font-semibold text-gray-900 dark:text-white">Create a new workspace</span>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                            Provisions a new tenant and subdomain. Your other workspaces stay as they are; remove unused ones anytime from the main dashboard.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         <!-- Account Name Card -->
-                        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8 transition-all duration-300 hover:shadow-2xl">
+                        <div
+                            v-show="checkoutMode === 'new'"
+                            class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8 transition-all duration-300 hover:shadow-2xl"
+                        >
                             <div class="flex items-center gap-3 mb-6">
                                 <div class="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center">
                                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -288,7 +370,8 @@ const proceedToCheckout = () => {
                                 <div class="space-y-3">
                                     <button
                                         @click="proceedToCheckout"
-                                        class="w-full px-6 py-4 bg-primary-500 hover:from-primary-700 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2"
+                                        :disabled="!canProceed"
+                                        class="w-full px-6 py-4 bg-primary-500 hover:from-primary-700 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                     >
                                         <span>Proceed to Checkout</span>
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

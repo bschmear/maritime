@@ -57,8 +57,13 @@ class Subscription extends Model
      */
     public function isActive(): bool
     {
-        return $this->stripe_status === 'active' ||
-               ($this->stripe_status === 'trialing' && $this->trial_ends_at->isFuture());
+        if ($this->stripe_status === 'active') {
+            return true;
+        }
+
+        return $this->stripe_status === 'trialing'
+            && $this->trial_ends_at
+            && $this->trial_ends_at->isFuture();
     }
 
     /**
@@ -66,7 +71,9 @@ class Subscription extends Model
      */
     public function onTrial(): bool
     {
-        return $this->stripe_status === 'trialing' && $this->trial_ends_at->isFuture();
+        return $this->stripe_status === 'trialing'
+            && $this->trial_ends_at
+            && $this->trial_ends_at->isFuture();
     }
 
     /**
@@ -74,6 +81,6 @@ class Subscription extends Model
      */
     public function cancelled(): bool
     {
-        return !is_null($this->ends_at);
+        return ! is_null($this->ends_at);
     }
 }

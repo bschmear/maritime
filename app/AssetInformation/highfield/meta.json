@@ -5,7 +5,7 @@
   "name": "Roll-Up Range",
   "type_display": "Portable Inflatable Tender",
   "boat_type_key": "power-tender",
-  "hull_type_key": "inflatable",
+  "hull_type_key": "roll-up",
   "hull_material_key": "aluminum",
   "description": "The Highfield Roll-Up range is designed for ultimate portability and ease of use. These boats feature high-tensile chromated and powder-coated aluminum floor slats or air-mats, offering a more rigid and durable alternative to traditional wood or plastic floors. Built with a choice of Mehler PVC or ORCA® Hypalon, they are lightweight enough to be easily stowed in a locker or on deck, yet rugged enough to handle daily tender duties. They can be assembled or packed away in minutes without the need for tools.",
   "features": [
@@ -443,7 +443,7 @@
     "brand": "Highfield",
     "name": "Patrol Range",
     "type_display": "Commercial & Coastal Workboat RIB",
-    "boat_type_key": "utility-rib",
+    "boat_type_key": "power-rib",
     "hull_type_key": "rib",
     "hull_material_key": "aluminum",
     "description": "The Patrol range is the commercial-grade powerhouse of the Highfield lineup. Built with 5083 aluminum plates and heavy-duty stringers (6mm and 10mm), these boats are designed to withstand the most extreme sea states. Used by police, rescue, and charter operators, the Patrol series offers a modular deck layout that can be customized with jockey seats, bolsters, and T-tops. With their super-deep V hulls and large diameter tubes, they provide high maneuverability and a soft, dry ride even when carrying heavy loads.",
@@ -532,7 +532,7 @@
         }
       }
     ]
-  }
+  },
   {
     "id": "highfield-escape",
     "brand": "Highfield",
@@ -691,7 +691,7 @@
   "brand": "Highfield",
   "name": "Adventure Range",
   "type_display": "Offshore Cabin RIB",
-  "boat_type_key": "power-cabin",
+  "boat_type_key": "power-pilot",
   "hull_type_key": "rib",
   "hull_material_key": "aluminum",
   "description": "The Adventure (ADV) range represents Highfield's evolution into the cabin crossover market, combining the offshore safety of a RIB with the year-round comfort of a fully enclosed pilot house. Built on a proven 26° deadrise high-tensile aluminum hull, these vessels are designed for long-distance exploration and multi-day voyages. The range features slide-on tubes for easier maintenance and a modular interior that includes berths, a galley, and a head. Engineered for professional-grade durability but finished with luxury amenities, the ADV series is the ultimate vessel for serious cruisers who want to extend their season into colder climates and rougher seas.",

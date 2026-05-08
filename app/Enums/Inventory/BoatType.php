@@ -69,6 +69,7 @@ enum BoatType: string
     case PowerUnspec = 'power-unspec';
     case PowerUtil = 'power-util';
     case PowerWalk = 'power-walk';
+    case Raft = 'raft';
     case SailAll = 'sail-all';
     case SailAntique = 'sail-antique';
     case SailBarge = 'sail-barge';

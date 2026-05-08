@@ -29,7 +29,10 @@ class BoatMetaAIService
             ->first();
 
         if ($existing !== null) {
-            $meta = data_get($existing->attributes, 'boat_meta');
+            $meta = data_get($existing->catalog_data, 'boat_meta');
+            if (! is_array($meta)) {
+                $meta = data_get($existing->attributes, 'boat_meta');
+            }
             if (is_array($meta)) {
                 return $meta;
             }
@@ -46,50 +49,77 @@ class BoatMetaAIService
     protected function persistToInventory(InventoryBoatMake $invMake, string $catalogKey, string $modelLabel, array $normalized): void
     {
         DB::connection('inventory')->transaction(function () use ($invMake, $catalogKey, $modelLabel, $normalized): void {
-            $specs = $normalized['specifications'] ?? [];
-            $attrs = [
+            $catalogData = [
                 'boat_meta' => $normalized,
                 'boat_type_key' => $normalized['boat_type_key'] ?? null,
-                'features' => $normalized['features'] ?? [],
                 'series' => $normalized['series'] ?? null,
                 'type_display' => $normalized['type_display'] ?? null,
             ];
 
             $hasVariants = isset($normalized['variants']) && is_array($normalized['variants']) && count($normalized['variants']) > 0;
 
+            $featureList = $this->normalizeAiFeatures($normalized['features'] ?? null);
+
+            $emptyMmSpecs = [
+                'length_mm' => null,
+                'width_mm' => null,
+                'height_mm' => null,
+                'weight_kg' => null,
+                'capacity_persons' => null,
+                'max_hp' => null,
+                'fuel_capacity_l' => null,
+            ];
+
             $asset = InventoryCatalogAsset::query()->updateOrCreate(
                 [
                     'make_id' => $invMake->id,
                     'slug' => $catalogKey,
                 ],
-                [
+                array_merge([
                     'type' => 1,
                     'display_name' => trim(($normalized['series'] ?? '').' '.$modelLabel) ?: $modelLabel,
                     'inactive' => false,
                     'model' => $modelLabel,
                     'description' => $normalized['description'] ?? null,
-                    'attributes' => $attrs,
+                    'attributes' => null,
+                    'features' => $featureList,
+                    'catalog_data' => $catalogData,
                     'has_variants' => $hasVariants,
-                    'length' => $specs['length'] ?? null,
-                    'beam' => $specs['width'] ?? null,
-                    'persons' => $specs['capacity_persons'] ?? null,
-                    'maximum_power' => $this->hpStringToInt($specs['max_hp'] ?? null),
-                    'fuel_tank' => $specs['fuel_capacity'] ?? null,
-                ]
+                ], $emptyMmSpecs)
             );
 
             InventoryCatalogAssetVariant::query()->where('asset_id', $asset->id)->delete();
 
             if ($hasVariants) {
                 foreach ($normalized['variants'] as $v) {
-                    InventoryCatalogAssetVariant::query()->create([
+                    $vs = $v['specifications'] ?? [];
+                    InventoryCatalogAssetVariant::query()->create(array_merge([
                         'asset_id' => $asset->id,
+                        'make_id' => $invMake->id,
+                        'type' => 1,
+                        'display_name' => $v['name'],
+                        'slug' => null,
                         'key' => $v['id'],
                         'name' => $v['name'],
-                        'display_name' => $v['name'],
                         'inactive' => false,
-                        'description' => json_encode(['specifications' => $v['specifications'] ?? []]),
-                    ]);
+                        'model' => $v['name'],
+                        'year' => null,
+                        'engine_shaft' => null,
+                        'water_tank' => null,
+                        'category' => null,
+                        'engine_details' => null,
+                        'attributes' => null,
+                        'features' => $featureList,
+                        'catalog_data' => [
+                            'boat_type_key' => $normalized['boat_type_key'] ?? null,
+                            'variant' => ['id' => $v['id'], 'name' => $v['name']],
+                            'specifications' => $vs,
+                        ],
+                        'description' => null,
+                        'default_cost' => null,
+                        'default_price' => null,
+                        'has_variants' => false,
+                    ], $emptyMmSpecs));
                 }
             }
         });
@@ -323,5 +353,29 @@ SYS;
             'max_hp' => ['type' => ['string', 'null']],
             'fuel_capacity' => ['type' => ['string', 'null']],
         ];
+    }
+
+    /**
+     * @param  mixed  $features
+     * @return list<string>|null
+     */
+    protected function normalizeAiFeatures($features): ?array
+    {
+        if (! is_array($features) || $features === []) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($features as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+            $t = trim($item);
+            if ($t !== '') {
+                $out[] = $t;
+            }
+        }
+
+        return $out === [] ? null : array_values($out);
     }
 }

@@ -13,36 +13,36 @@ return new class extends Migration
     {
         Schema::create('invoice_items', function (Blueprint $table) {
             $table->id();
-        
+
             $table->unsignedBigInteger('invoice_id')->index();
-        
+
             // Optional back-reference
             $table->unsignedBigInteger('transaction_item_id')->nullable();
-        
+
             // Snapshot data
             $table->string('name');
             $table->text('description')->nullable();
-        
+
             $table->decimal('quantity', 10, 2)->default(1);
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('discount', 12, 2)->default(0);
-        
+
             $table->decimal('subtotal', 12, 2)->default(0);
-        
+
             $table->boolean('taxable')->default(true);
             $table->decimal('tax_rate', 6, 3)->nullable();
             $table->decimal('tax_amount', 12, 2)->nullable();
-        
+
             $table->decimal('total', 12, 2)->default(0);
-        
+
             $table->integer('position')->default(0);
-        
+
             // Keep polymorphic reference if needed
             $table->string('itemable_type')->nullable();
             $table->unsignedBigInteger('itemable_id')->nullable();
-        
+
             $table->timestamps();
-        
+
             $table->foreign('invoice_id')
                 ->references('id')
                 ->on('invoices')

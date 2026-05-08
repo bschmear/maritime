@@ -49,6 +49,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'kiosk.domain' => \App\Http\Middleware\EnsureKioskDomain::class,
             'kiosk.admin' => \App\Http\Middleware\EnsureKioskAdmin::class,
             'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
+            'workspace.subscription' => \App\Http\Middleware\EnsureActiveWorkspaceSubscription::class,
             'redirect.unauthenticated' => \App\Http\Middleware\RedirectUnauthenticatedFromTenant::class,
             'portal.token' => \App\Http\Middleware\ValidatePortalToken::class,
         ]);

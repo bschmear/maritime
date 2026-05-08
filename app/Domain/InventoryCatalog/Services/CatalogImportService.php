@@ -174,21 +174,56 @@ class CatalogImportService
             'make_id' => $tenantMakeId,
             'model' => $src->model,
             'year' => $src->year,
-            'length' => $src->length,
-            'beam' => $src->beam,
-            'persons' => $src->persons,
-            'minimum_power' => $src->minimum_power,
-            'maximum_power' => $src->maximum_power,
-            'fuel_tank' => $src->fuel_tank,
+            'length' => $src->length_mm,
+            'beam' => $src->width_mm,
+            'width' => $src->width_mm,
+            'persons' => $src->capacity_persons,
+            'maximum_power' => $src->max_hp,
+            'fuel_tank' => $src->fuel_capacity_l !== null ? (string) $src->fuel_capacity_l : null,
             'engine_shaft' => $src->engine_shaft,
             'water_tank' => $src->water_tank,
             'category' => $src->category,
             'engine_details' => $src->engine_details,
-            'attributes' => $src->attributes,
+            'attributes' => $this->mergedInventoryCatalogAttributes($src),
             'description' => $src->description,
             'default_cost' => $src->default_cost,
             'default_price' => $src->default_price,
             'has_variants' => $src->has_variants,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mergedInventoryCatalogAttributes(InventoryCatalogAsset $src): array
+    {
+        $fromCatalog = is_array($src->catalog_data) ? $src->catalog_data : [];
+        $fromAttrs = is_array($src->attributes) ? $src->attributes : [];
+        $merged = array_merge($fromCatalog, $fromAttrs);
+        if (is_array($src->features) && $src->features !== []) {
+            $merged['features'] = $src->features;
+        }
+        $spec = $this->specificationsFromInventoryAsset($src);
+        if ($spec !== []) {
+            $merged['specifications'] = $spec;
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function specificationsFromInventoryAsset(InventoryCatalogAsset $src): array
+    {
+        $out = [];
+        foreach (['length_mm', 'width_mm', 'height_mm', 'weight_kg', 'capacity_persons', 'max_hp', 'fuel_capacity_l'] as $key) {
+            $v = $src->getAttribute($key);
+            if ($v !== null) {
+                $out[$key] = (int) $v;
+            }
+        }
+
+        return $out;
     }
 }

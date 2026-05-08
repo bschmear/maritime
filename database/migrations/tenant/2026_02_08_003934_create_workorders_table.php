@@ -21,6 +21,7 @@ return new class extends Migration
             $table->unsignedBigInteger('assigned_user_id')->nullable();
             $table->unsignedBigInteger('requested_by_user_id')->nullable();
             $table->unsignedBigInteger('location_id')->nullable();
+            $table->foreignId('inventory_item_id')->nullable()->constrained('inventory_items')->nullOnDelete();
 
             // Classification
             $table->unsignedSmallInteger('status')->default(0);
@@ -68,7 +69,6 @@ return new class extends Migration
             $table->index('assigned_user_id');
             $table->index('customer_id');
             $table->index('subsidiary_id');
-            $table->index('inventory_item_id');
             $table->index('due_at');
         });
     }

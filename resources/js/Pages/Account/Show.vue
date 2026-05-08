@@ -17,6 +17,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    has_active_subscription: {
+        type: Boolean,
+        default: false,
+    },
     seat_usage: {
         type: Object,
         required: true,
@@ -248,8 +252,10 @@ const switchPlan = () => {
         },
         onError: (errors) => {
             console.error('Error switching plan:', errors);
-            const errorMessage = errors?.stripe?.[0] ||
-                               errors?.plan?.[0] ||
+            const pickFirst = (val) => (Array.isArray(val) ? val[0] : val);
+            const errorMessage = pickFirst(errors?.subscription) ||
+                               pickFirst(errors?.stripe) ||
+                               pickFirst(errors?.plan) ||
                                'Failed to switch plan. Please try again.';
             isSwitchingPlan.value = false;
             showResultModal('error', 'Error', errorMessage);
@@ -352,7 +358,7 @@ const cancelAccount = () => {
                         'Subscription Cancelled',
                         'Your subscription has been cancelled. You will retain access until the end of your current billing period.'
                     );
-                    router.reload({ only: ['account', 'current_plan', 'seat_usage'] });
+                    router.reload({ only: ['account', 'current_plan', 'has_active_subscription', 'seat_usage'] });
                 },
                 onError: (errors) => {
                     console.error('Error cancelling account:', errors);
@@ -405,7 +411,7 @@ const cancelAccount = () => {
                                 <span class="sm:hidden">Invite</span>
                             </button>
                         </div>
-                            <div>
+                            <div v-if="has_active_subscription">
                             <button
                                 @click="openSwitchPlanModal"
                                 type="button"
@@ -418,7 +424,19 @@ const cancelAccount = () => {
                                 <span class="sm:hidden">Plan</span>
                             </button>
                             </div>
-                            <div>
+                            <div v-else>
+                                <Link
+                                    :href="route('checkout.plans')"
+                                    class="w-full inline-flex items-center justify-center text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 sm:px-5 py-2.5 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800"
+                                >
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                    </svg>
+                                    <span class="hidden sm:inline">Select a plan</span>
+                                    <span class="sm:hidden">Plan</span>
+                                </Link>
+                            </div>
+                            <div v-if="has_active_subscription">
                             <button
                                 @click="cancelAccount"
                                 type="button"
@@ -448,10 +466,10 @@ const cancelAccount = () => {
                             </svg>
                         </div>
                         <p class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                            {{ current_plan?.name || 'Free' }}
+                            {{ current_plan?.name || 'Select a plan' }}
                         </p>
                         <p class="text-sm text-gray-600 dark:text-gray-400">
-                            {{ current_plan ? `$${current_plan.monthly_price}/month` : 'No active subscription' }}
+                            {{ current_plan ? `$${current_plan.monthly_price}/month` : 'Choose a plan on the Pricing page to subscribe this workspace.' }}
                         </p>
                     </div>
 

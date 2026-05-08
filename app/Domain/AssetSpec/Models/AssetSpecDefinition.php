@@ -15,6 +15,7 @@ class AssetSpecDefinition extends Model
         'unit_imperial', // imperial unit
         'unit_metric',   // metric unit
         'use_metric',    // toggle for metric display
+        'step',          // increment for number inputs (e.g. 0.1 ft)
         'options',       // select options
         'is_filterable', // for marketplace filters
         'is_visible',    // UI display
@@ -31,6 +32,7 @@ class AssetSpecDefinition extends Model
         'is_required' => 'boolean',
         'show_on_table' => 'boolean',
         'use_metric' => 'boolean',
+        'step' => 'decimal:6',
         'asset_types' => 'array',
     ];
 
