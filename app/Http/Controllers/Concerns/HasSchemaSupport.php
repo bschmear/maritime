@@ -295,6 +295,82 @@ trait HasSchemaSupport
         return $field;
     }
 
+    /**
+     * Filters from ?filters= (JSON). When the query param is absent, apply table.json defaults.
+     * When present (including encoded empty array), use only URL filters — no merge.
+     */
+    protected function resolveIndexFiltersFromRequest(Request $request, ?array $tableSchema): array
+    {
+        $filtersParam = $request->query('filters');
+        if ($filtersParam !== null && $filtersParam !== '') {
+            try {
+                $decoded = json_decode(urldecode((string) $filtersParam), true);
+
+                return is_array($decoded) ? $decoded : [];
+            } catch (\Throwable $e) {
+                return [];
+            }
+        }
+
+        return $this->defaultFiltersFromTableSchema(is_array($tableSchema) ? $tableSchema : []);
+    }
+
+    /**
+     * Build filter rows from table.json "filters". Only rows that explicitly request a default
+     * are merged when ?filters= is absent — quick-filter-only rows (field + label, etc.) are skipped.
+     *
+     * Opt-in:
+     * - `apply_as_default`: true
+     * - `default_value`: present and not false (use true for unary ops; scalars/arrays for operands)
+     */
+    protected function defaultFiltersFromTableSchema(array $tableSchema): array
+    {
+        $defs = $tableSchema['filters'] ?? [];
+        $out = [];
+        $baseId = (int) (microtime(true) * 10000);
+
+        foreach ($defs as $i => $def) {
+            if (! is_array($def)) {
+                continue;
+            }
+
+            $field = $def['field'] ?? $def['key'] ?? null;
+            if (empty($field)) {
+                continue;
+            }
+
+            if (array_key_exists('default_value', $def) && $def['default_value'] === false) {
+                continue;
+            }
+
+            $explicitDefault =
+                ($def['apply_as_default'] ?? false) === true
+                || array_key_exists('default_value', $def);
+
+            if (! $explicitDefault) {
+                continue;
+            }
+
+            $row = [
+                'id' => $baseId + $i,
+                'field' => $field,
+                'operator' => $def['operator'] ?? 'equals',
+            ];
+
+            if (array_key_exists('value', $def)) {
+                $row['value'] = $def['value'];
+            } elseif (array_key_exists('default_value', $def)
+                && $def['default_value'] !== true
+                && $def['default_value'] !== false) {
+                $row['value'] = $def['default_value'];
+            }
+
+            $out[] = $row;
+        }
+
+        return $out;
+    }
+
     protected function applyFilters($query, array $filters, $fieldsSchema)
     {
         foreach ($filters as $key => $filter) {
@@ -486,6 +562,14 @@ trait HasSchemaSupport
                             ->orWhere($fieldWithPrefix, '=', false)
                             ->orWhereNull($fieldWithPrefix);
                     });
+                    break;
+                case 'is_null':
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereNull($fieldWithPrefix);
+                    break;
+                case 'is_not_null':
+                    $fieldWithPrefix = $this->getFieldWithTablePrefix($field);
+                    $query->whereNotNull($fieldWithPrefix);
                     break;
             }
         }

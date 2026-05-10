@@ -699,7 +699,7 @@
             </div>
 
             <!-- Dropdown (when in modal context) -->
-            <div v-if="showDropdown && modalContext && !disabled" class="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+            <div v-if="showDropdown && modalContext && !disabled" class="absolute z-[110] mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
                 <!-- Search Input -->
                 <div class="p-2 border-b border-gray-200 dark:border-gray-700">
                     <div class="relative">

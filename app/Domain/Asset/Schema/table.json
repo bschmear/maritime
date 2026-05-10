@@ -47,5 +47,19 @@
       "label": "Created",
       "sortable": true
     }
+  ],
+  "filters": [
+    {
+      "field": "make_id",
+      "label": "Brand"
+    },
+    {
+      "field": "type",
+      "label": "Type"
+    },
+    {
+      "field": "inactive",
+      "label": "Inactive"
+    }
   ]
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { Link, router, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue';
+import { computed, reactive, ref, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
@@ -239,6 +239,9 @@ const getRelationshipLink = (record, column) => {
 const hasEnumColor  = (column, record) => !!getEnumOption(column.key ?? column, record[column.key ?? column])?.color;
 const getColumnLabel = (col) => col.label || props.fieldsSchema[col.key]?.label || col.key;
 
+/** Column links to this resource's show page (schema `record_link`, or legacy `display_name`). */
+const columnLinksToRecord = (col) => col.record_link === true || col.key === 'display_name';
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 const getShowUrl = (id) => {
     if (!id) return '#';
@@ -330,6 +333,16 @@ const getQuickFieldDef = (field) => {
     return schema[field] ?? {};
 };
 
+/** Quick-filter chip title: schema label, else fields.json label, else field key */
+const getQuickFilterLabel = (qf) => {
+    if (qf?.label) {
+        return qf.label;
+    }
+    const key = quickFilterKey(qf);
+
+    return getQuickFieldDef(key).label || key;
+};
+
 const getQuickFilterOptions = (qf) => {
     const fieldKey = quickFilterKey(qf);
     if (qf?.enum && props.enumOptions[qf.enum]) {
@@ -375,8 +388,332 @@ const clearQuickFilter = (fieldKey) => {
     applyFilters(activeFilters.value.filter(f => f.field !== fieldKey));
 };
 
-const toggleQuickFilterDropdown = (fieldKey) => {
-    openQuickFilter.value = openQuickFilter.value === fieldKey ? null : fieldKey;
+const toggleQuickFilterDropdown = (qf) => {
+    if (isRecordQuickFilter(qf)) {
+        openRecordQuickModal(qf);
+
+        return;
+    }
+    const fieldKey = quickFilterKey(qf);
+    const next = openQuickFilter.value === fieldKey ? null : fieldKey;
+    openQuickFilter.value = next;
+    if (next && enumQuickSearch[next] === undefined) {
+        enumQuickSearch[next] = '';
+    }
+};
+
+/** Boolean field quick filters (no enum): unary is_true / is_false / cleared */
+const isBooleanQuickFilter = (qf) => {
+    const key = quickFilterKey(qf);
+    const fd = getQuickFieldDef(key);
+    if (fd?.type !== 'boolean') {
+        return false;
+    }
+    return getQuickFilterOptions(qf).length === 0;
+};
+
+const booleanQuickModes = (qf) => {
+    const key = quickFilterKey(qf);
+    const fieldLabel = getQuickFieldDef(key).label || key;
+
+    return [
+        { operator: 'is_false', name: `Not ${fieldLabel}` },
+        { operator: 'is_true', name: fieldLabel },
+    ];
+};
+
+const getQuickUnaryOperator = (fieldKey) => {
+    const f = activeFilters.value.find(
+        (x) => x.field === fieldKey && ['is_true', 'is_false'].includes(x.operator),
+    );
+
+    return f?.operator ?? null;
+};
+
+const setQuickUnaryOperator = (fieldKey, operator) => {
+    const others = activeFilters.value.filter((x) => x.field !== fieldKey);
+    if (!operator) {
+        applyFilters(others);
+
+        return;
+    }
+    applyFilters([
+        ...others,
+        { id: Date.now(), field: fieldKey, operator },
+    ]);
+};
+
+const quickFilterIsActive = (qf) => {
+    const key = quickFilterKey(qf);
+    if (getQuickUnaryOperator(key)) {
+        return true;
+    }
+
+    return getQuickActiveValues(key).length > 0;
+};
+
+/** fields.json record field → searchable multi-select via records.lookup */
+const isRecordQuickFilter = (qf) => {
+    const fd = getQuickFieldDef(quickFilterKey(qf));
+
+    return fd?.type === 'record' && !!fd?.typeDomain;
+};
+
+/** Enum / list options from enumOptions (not boolean / not record) */
+const isEnumQuickFilter = (qf) => {
+    if (isBooleanQuickFilter(qf) || isRecordQuickFilter(qf)) {
+        return false;
+    }
+
+    return getQuickFilterOptions(qf).length > 0;
+};
+
+const getQuickActiveRecordIds = (qf) =>
+    getQuickActiveValues(quickFilterKey(qf))
+        .map((x) => Number(x))
+        .filter((n) => !Number.isNaN(n) && n > 0);
+
+const setQuickRecordFilterValues = (fieldKey, ids) => {
+    const others = activeFilters.value.filter((f) => f.field !== fieldKey);
+    const arr = Array.isArray(ids) ? ids.map((x) => String(x)) : [];
+    if (! arr.length) {
+        applyFilters(others);
+    } else {
+        applyFilters([
+            ...others,
+            { id: Date.now(), field: fieldKey, operator: 'any_of', value: arr },
+        ]);
+    }
+};
+
+/** Optional table.json: `lookup_params` → query string on records.lookup (e.g. fleet_applies) */
+const quickFilterLookupExtraParams = (qf) => {
+    const raw = qf.lookup_params ?? qf.extra_lookup_params;
+
+    return typeof raw === 'object' && raw !== null ? raw : {};
+};
+
+/** Optional scoped lookup (e.g. filter boat makes by asset type); omit when null */
+const quickFilterLookupFilterValue = (qf) => qf.lookup_filter_value ?? null;
+
+// ── Record quick filter modal (records.lookup, A–Z first page, multi-select) ─────
+const recordQuickModalOpen = ref(false);
+const recordQuickModalQf = ref(null);
+const recordQuickRecords = ref([]);
+const recordQuickLoading = ref(false);
+const recordQuickPage = ref(1);
+const recordQuickTotalPages = ref(1);
+const recordQuickSearch = ref('');
+const recordQuickDraftIds = ref([]);
+const recordQuickDraftLabels = ref({});
+let recordQuickLookupSeq = 0;
+let recordQuickLookupAbort = null;
+let recordQuickSearchTimer = null;
+
+const recordQuickDisplayName = (r) => {
+    if (! r) {
+        return '';
+    }
+    if (r.display_name) {
+        return r.display_name;
+    }
+    if (r.first_name && r.last_name) {
+        return `${r.first_name} ${r.last_name}`;
+    }
+    if (r.first_name) {
+        return r.first_name;
+    }
+    if (r.last_name) {
+        return r.last_name;
+    }
+    if (r.name) {
+        return r.name;
+    }
+    if (r.email) {
+        return r.email;
+    }
+
+    return `Record #${r.id}`;
+};
+
+const openRecordQuickModal = (qf) => {
+    openQuickFilter.value = null;
+    recordQuickModalQf.value = qf;
+    recordQuickModalOpen.value = true;
+    recordQuickPage.value = 1;
+    recordQuickSearch.value = '';
+    recordQuickDraftIds.value = getQuickActiveRecordIds(qf);
+    recordQuickDraftLabels.value = {};
+    fetchRecordQuickLookup();
+};
+
+const closeRecordQuickModal = () => {
+    clearTimeout(recordQuickSearchTimer);
+    recordQuickSearchTimer = null;
+    recordQuickModalOpen.value = false;
+    recordQuickModalQf.value = null;
+    recordQuickRecords.value = [];
+    recordQuickSearch.value = '';
+    recordQuickLookupAbort?.abort();
+};
+
+const isRecordQuickDraftSelected = (id) => recordQuickDraftIds.value.includes(Number(id));
+
+const toggleRecordQuickDraft = (record) => {
+    const id = Number(record.id);
+    if (Number.isNaN(id) || id <= 0) {
+        return;
+    }
+    const label = recordQuickDisplayName(record);
+    const set = new Set(recordQuickDraftIds.value);
+    if (set.has(id)) {
+        set.delete(id);
+    } else {
+        set.add(id);
+    }
+    recordQuickDraftIds.value = Array.from(set);
+    recordQuickDraftLabels.value = { ...recordQuickDraftLabels.value, [id]: label };
+};
+
+const applyRecordQuickModal = () => {
+    if (! recordQuickModalQf.value) {
+        return;
+    }
+    setQuickRecordFilterValues(quickFilterKey(recordQuickModalQf.value), recordQuickDraftIds.value);
+    closeRecordQuickModal();
+};
+
+async function fetchRecordQuickLookup() {
+    const qf = recordQuickModalQf.value;
+    if (! qf) {
+        return;
+    }
+    const fd = getQuickFieldDef(quickFilterKey(qf));
+    if (! fd?.typeDomain) {
+        return;
+    }
+    const seq = ++recordQuickLookupSeq;
+    recordQuickLookupAbort?.abort();
+    recordQuickLookupAbort = new AbortController();
+    const { signal } = recordQuickLookupAbort;
+    recordQuickLoading.value = true;
+
+    try {
+        const domain = fd.typeDomain.toLowerCase();
+        const url = new URL(route('records.lookup'), window.location.origin);
+        url.searchParams.set('page', String(recordQuickPage.value));
+        url.searchParams.set('per_page', '15');
+        url.searchParams.set('type', domain);
+        const q = typeof recordQuickSearch.value === 'string' ? recordQuickSearch.value.trim() : '';
+        if (q) {
+            url.searchParams.set('search', q);
+        }
+        if (! q) {
+            url.searchParams.set('order_by', 'display_name');
+            url.searchParams.set('order_direction', 'asc');
+        }
+        const fv = quickFilterLookupFilterValue(qf);
+        const fb = fd.filterby || null;
+        if (fb && fv !== null && fv !== undefined && fv !== '') {
+            url.searchParams.set(
+                'filters',
+                JSON.stringify([{ field: fb, operator: 'equals', value: fv }]),
+            );
+        }
+        const extras = quickFilterLookupExtraParams(qf);
+        for (const [k, v] of Object.entries(extras)) {
+            if (v !== null && v !== undefined && v !== '') {
+                url.searchParams.set(k, String(v));
+            }
+        }
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+            signal,
+        });
+
+        if (seq !== recordQuickLookupSeq) {
+            return;
+        }
+        if (! response.ok) {
+            throw new Error('lookup failed');
+        }
+        const data = await response.json();
+        if (seq !== recordQuickLookupSeq) {
+            return;
+        }
+        const list = data.records ?? [];
+        recordQuickRecords.value = list;
+        recordQuickTotalPages.value = data.meta?.last_page || 1;
+        const nextLabels = { ...recordQuickDraftLabels.value };
+        for (const r of list) {
+            const rid = Number(r?.id);
+            if (! Number.isNaN(rid) && recordQuickDraftIds.value.includes(rid)) {
+                nextLabels[rid] = recordQuickDisplayName(r);
+            }
+        }
+        recordQuickDraftLabels.value = nextLabels;
+    } catch (e) {
+        if (e?.name === 'AbortError' || seq !== recordQuickLookupSeq) {
+            return;
+        }
+        recordQuickRecords.value = [];
+    } finally {
+        if (seq === recordQuickLookupSeq) {
+            recordQuickLoading.value = false;
+        }
+    }
+}
+
+const recordQuickPrevPage = () => {
+    if (recordQuickPage.value <= 1) {
+        return;
+    }
+    recordQuickPage.value -= 1;
+    fetchRecordQuickLookup();
+};
+
+const recordQuickNextPage = () => {
+    if (recordQuickPage.value >= recordQuickTotalPages.value) {
+        return;
+    }
+    recordQuickPage.value += 1;
+    fetchRecordQuickLookup();
+};
+
+const onRecordQuickSearchInput = () => {
+    clearTimeout(recordQuickSearchTimer);
+    recordQuickSearchTimer = setTimeout(() => {
+        recordQuickSearchTimer = null;
+        recordQuickPage.value = 1;
+        fetchRecordQuickLookup();
+    }, 280);
+};
+
+const enumQuickSearch = reactive({});
+
+const shouldShowEnumQuickSearch = (qf) =>
+    qf.type === 'multi-select' || getQuickFilterOptions(qf).length > 12;
+
+const filteredQuickEnumOptions = (qf) => {
+    const opts = getQuickFilterOptions(qf);
+    const key = quickFilterKey(qf);
+    const q = String(enumQuickSearch[key] ?? '').trim().toLowerCase();
+    if (! q) {
+        return opts;
+    }
+
+    return opts.filter((o) => {
+        const label = String(o.name ?? o.label ?? o.value ?? '').toLowerCase();
+
+        return label.includes(q);
+    });
 };
 
 const handleQuickFilterClickOutside = (e) => {
@@ -396,14 +733,27 @@ const applyFilters = (filters) => {
     activeFilters.value = filters;
     showFiltersModal.value = false;
     const params = new URLSearchParams(window.location.search);
-    params.delete('filters');
-    if (filters.length) params.set('filters', encodeURIComponent(JSON.stringify(filters)));
+    // Empty array must stay in the query as filters=[] so the server does not re-apply schema defaults.
+    params.set('filters', encodeURIComponent(JSON.stringify(filters)));
     const qs = params.toString();
     router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
 };
 
 const removeFilter  = (i) => { const f = [...activeFilters.value]; f.splice(i,1); applyFilters(f); };
-const clearAllFilters = () => { applyFilters([]); clearSearch(); };
+
+/** Single navigation: avoids stacking two `router.get` calls (search rebuild used a stale URL and dropped cleared filters). */
+const clearAllFilters = () => {
+    searchQuery.value = '';
+    activeFilters.value = [];
+    showFiltersModal.value = false;
+    const params = new URLSearchParams(window.location.search);
+    // Explicit empty array so the server does not re-apply table.json defaults (see HasSchemaSupport).
+    params.set('filters', encodeURIComponent(JSON.stringify([])));
+    params.delete('search');
+    params.delete('page');
+    const qs = params.toString();
+    router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
+};
 
 const getFilterLabel = (filter) => {
     const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
@@ -412,7 +762,7 @@ const getFilterLabel = (filter) => {
     let vl = '';
     if (filter.operator === 'between' && typeof filter.value === 'object') {
         vl = `${filter.value.start ?? filter.value.min} - ${filter.value.end ?? filter.value.max}`;
-    } else if (!['is_empty','is_not_empty','today','this_week','this_month','is_true','is_false'].includes(filter.operator)) {
+    } else if (!['is_empty','is_not_empty','today','this_week','this_month','is_true','is_false','is_null','is_not_null'].includes(filter.operator)) {
         if (fc.enum && props.enumOptions[fc.enum]) {
             if (Array.isArray(filter.value)) {
                 vl = filter.value.map(v => {
@@ -429,7 +779,7 @@ const getFilterLabel = (filter) => {
                   is_empty:'is empty', is_not_empty:'is not empty', not_equals:'is not', any_of:'is any of',
                   none_of:'is none of', before:'before', after:'after', between:'between', today:'is today',
                   this_week:'is this week', this_month:'is this month', greater_than:'>', less_than:'<',
-                  is_true:'is true', is_false:'is false' };
+                  is_true:'is true', is_false:'is false', is_null:'is null', is_not_null:'is not null' };
     return `${fl} ${ops[filter.operator] ?? filter.operator}${vl ? ` ${vl}` : ''}`;
 };
 
@@ -469,6 +819,9 @@ const toggleSort = (col) => {
 
 watch(() => page.url, () => {
     syncSortFromUrl();
+    if (new URLSearchParams(window.location.search).has('filters')) {
+        activeFilters.value = parseFiltersFromUrl();
+    }
 });
 
 watch(() => props.records.data, () => {
@@ -477,7 +830,13 @@ watch(() => props.records.data, () => {
 }, { immediate: true });
 
 onMounted(() => {
-    activeFilters.value = parseFiltersFromUrl();
+    const urlHasFiltersKey = new URLSearchParams(window.location.search).has('filters');
+    const applied = page.props.appliedFilters;
+    if (! urlHasFiltersKey && Array.isArray(applied)) {
+        activeFilters.value = applied.map((f) => ({ ...f }));
+    } else {
+        activeFilters.value = parseFiltersFromUrl();
+    }
     syncSortFromUrl();
     const s = new URLSearchParams(window.location.search).get('search');
     if (s) searchQuery.value = s;
@@ -521,7 +880,7 @@ defineExpose({
             </div>
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
 
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
@@ -537,12 +896,13 @@ defineExpose({
                 </div>
             </div>
 
-            <!-- Search (max width) left; quick filters + Filters on the right -->
-            <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-700/60 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <form
-                    @submit="handleSearch"
-                    class="w-full min-w-0 max-w-96 shrink-0"
-                >
+            <!-- Search + quick filters (left); advanced Filters button (right) -->
+            <div class="px-5 py-3 border-b border-gray-50 dark:border-gray-700/60 flex flex-col gap-3">
+                <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+                    <form
+                        @submit="handleSearch"
+                        class="w-full min-w-0 max-w-96 shrink-0"
+                    >
                     <div class="relative w-full">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,7 +937,7 @@ defineExpose({
                     </div>
                 </form>
 
-                <div class="flex flex-wrap items-center gap-2 sm:justify-end sm:min-w-0 sm:flex-1">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <!-- Quick filters (defined in schema.filters) -->
                 <template v-if="quickFilterDefs.length">
                     <div
@@ -588,56 +948,93 @@ defineExpose({
                     >
                         <button
                             type="button"
-                            @click.stop="toggleQuickFilterDropdown(quickFilterKey(qf))"
+                            @click.stop="toggleQuickFilterDropdown(qf)"
                             :class="[
                                 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors',
-                                getQuickActiveValues(quickFilterKey(qf)).length
+                                quickFilterIsActive(qf)
                                     ? 'border-primary-400 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
                                     : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700',
                             ]"
                         >
-                            {{ qf.label ?? quickFilterKey(qf) }}
+                            {{ getQuickFilterLabel(qf) }}
                             <span
-                                v-if="getQuickActiveValues(quickFilterKey(qf)).length"
+                                v-if="quickFilterIsActive(qf)"
                                 class="px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full"
                             >
-                                {{ getQuickActiveValues(quickFilterKey(qf)).length }}
+                                {{ getQuickUnaryOperator(quickFilterKey(qf)) ? '1' : getQuickActiveValues(quickFilterKey(qf)).length }}
                             </span>
                             <svg class="w-3.5 h-3.5 opacity-60" :class="openQuickFilter === quickFilterKey(qf) ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
 
-                        <!-- Dropdown panel -->
+                        <!-- Boolean field (no enum): unary operators -->
                         <div
-                            v-if="openQuickFilter === quickFilterKey(qf)"
-                            class="absolute right-0 top-full mt-1.5 z-50 min-w-[180px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden"
+                            v-if="openQuickFilter === quickFilterKey(qf) && isBooleanQuickFilter(qf)"
+                            class="absolute left-0 top-full z-[100] mt-1.5 min-w-[200px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
                         >
-                            <div class="max-h-64 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700/60">
+                            <button
+                                type="button"
+                                class="flex w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                :class="!getQuickUnaryOperator(quickFilterKey(qf)) ? 'bg-primary-50/80 font-medium text-primary-800 dark:bg-primary-900/25 dark:text-primary-200' : 'text-gray-900 dark:text-white'"
+                                @click="setQuickUnaryOperator(quickFilterKey(qf), null); openQuickFilter = null"
+                            >
+                                All
+                            </button>
+                            <button
+                                v-for="mode in booleanQuickModes(qf)"
+                                :key="mode.operator"
+                                type="button"
+                                class="flex w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                :class="getQuickUnaryOperator(quickFilterKey(qf)) === mode.operator ? 'bg-primary-50/80 font-medium text-primary-800 dark:bg-primary-900/25 dark:text-primary-200' : 'text-gray-900 dark:text-white'"
+                                @click="setQuickUnaryOperator(quickFilterKey(qf), mode.operator); openQuickFilter = null"
+                            >
+                                {{ mode.name }}
+                            </button>
+                        </div>
+
+                        <!-- Record field: opens modal (records.lookup, pagination) -->
+                        <div
+                            v-else-if="openQuickFilter === quickFilterKey(qf) && isEnumQuickFilter(qf)"
+                            class="absolute left-0 top-full z-[100] mt-1.5 min-w-[180px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <div
+                                v-if="shouldShowEnumQuickSearch(qf)"
+                                class="border-b border-gray-100 p-2 dark:border-gray-700/60"
+                            >
+                                <input
+                                    v-model="enumQuickSearch[quickFilterKey(qf)]"
+                                    type="search"
+                                    placeholder="Search…"
+                                    class="input-style py-1.5 text-sm"
+                                    @click.stop
+                                />
+                            </div>
+                            <div class="max-h-64 divide-y divide-gray-50 overflow-y-auto dark:divide-gray-700/60">
                                 <label
-                                    v-for="opt in getQuickFilterOptions(qf)"
+                                    v-for="opt in filteredQuickEnumOptions(qf)"
                                     :key="opt.id ?? opt.value"
-                                    class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    class="flex cursor-pointer items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                 >
                                     <input
                                         type="checkbox"
                                         :value="opt.id ?? opt.value"
                                         :checked="getQuickActiveValues(quickFilterKey(qf)).includes(String(opt.id ?? opt.value))"
                                         @change="toggleQuickValue(quickFilterKey(qf), opt.id ?? opt.value)"
-                                        class="w-4 h-4 rounded text-primary-600 border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-primary-500"
+                                        class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
                                     />
                                     <div v-if="opt.color" class="flex items-center gap-1.5">
-                                        <span class="w-2 h-2 rounded-full shrink-0" :class="`bg-${opt.color}-500`"></span>
+                                        <span class="h-2 w-2 shrink-0 rounded-full" :class="`bg-${opt.color}-500`"></span>
                                         <span class="text-sm text-gray-900 dark:text-white">{{ opt.name ?? opt.label }}</span>
                                     </div>
                                     <span v-else class="text-sm text-gray-900 dark:text-white">{{ opt.name ?? opt.label ?? opt.value }}</span>
                                 </label>
                             </div>
-                            <div v-if="getQuickActiveValues(quickFilterKey(qf)).length" class="px-3 py-2 border-t border-gray-100 dark:border-gray-700/60">
+                            <div v-if="getQuickActiveValues(quickFilterKey(qf)).length" class="border-t border-gray-100 px-3 py-2 dark:border-gray-700/60">
                                 <button
                                     type="button"
                                     @click="clearQuickFilter(quickFilterKey(qf))"
-                                    class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                    class="text-xs font-medium text-gray-500 transition-colors hover:text-rose-600 dark:text-gray-400 dark:hover:text-rose-400"
                                 >
                                     Clear
                                 </button>
@@ -645,21 +1042,24 @@ defineExpose({
                         </div>
                     </div>
                 </template>
+                    </div>
 
+                    <div class="flex flex-wrap items-center gap-2 lg:ml-auto">
                 <!-- Advanced filters button -->
                 <button
                     type="button"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shrink-0"
+                    class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     @click="showFiltersModal = true"
                 >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
                     </svg>
                     Filters
-                    <span v-if="activeFilters.length" class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 rounded-full">
+                    <span v-if="activeFilters.length" class="ml-1 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
                         {{ activeFilters.length }}
                     </span>
                 </button>
+                    </div>
                 </div>
             </div>
 
@@ -786,12 +1186,12 @@ defineExpose({
                                         {{ getRecordValue(record, col) }}
                                     </Link>
                                 </template>
-                                <!-- Display name -->
-                                <template v-else-if="col.key === 'display_name'">
-                                    <a :href="getShowUrl(record.id)" target="_blank"
-                                       class="font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                                <!-- Primary label column → show record (schema record_link or display_name) -->
+                                <template v-else-if="columnLinksToRecord(col)">
+                                    <Link :href="getShowUrl(record.id)"
+                                          class="font-medium text-primary-600 dark:text-primary-400 hover:underline">
                                         {{ getRecordValue(record, col) || '—' }}
-                                    </a>
+                                    </Link>
                                 </template>
                                 <!-- Primary key column (e.g. payment sequence) -->
                                 <template v-else-if="col.isKey">
@@ -958,6 +1358,93 @@ defineExpose({
                            :extra-route-params="extraRouteParams" :image-urls="selectedRecordImageUrls"
                            mode="edit" :prevent-redirect="true"
                            @updated="handleRecordUpdated" @submit="closeViewModal" @cancel="closeViewModal"/>
+            </div>
+        </Modal>
+
+        <!-- Record quick filter picker -->
+        <Modal :show="recordQuickModalOpen" max-width="lg" @close="closeRecordQuickModal">
+            <div class="flex max-h-[min(85vh,640px)] flex-col bg-white dark:bg-gray-900">
+                <div class="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                        {{ recordQuickModalQf ? getQuickFilterLabel(recordQuickModalQf) : '' }}
+                    </h3>
+                    <button type="button" class="text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-200"
+                            @click="closeRecordQuickModal">
+                        <span class="material-icons text-[20px]">close</span>
+                    </button>
+                </div>
+                <div class="border-b border-gray-100 px-5 py-3 dark:border-gray-700/80">
+                    <input
+                        v-model="recordQuickSearch"
+                        type="search"
+                        placeholder="Search…"
+                        class="input-style w-full py-2 text-sm"
+                        @input="onRecordQuickSearchInput"
+                    />
+                </div>
+                <div class="min-h-[200px] flex-1 overflow-y-auto px-2 py-2">
+                    <div v-if="recordQuickLoading && !recordQuickRecords.length" class="flex items-center justify-center py-12">
+                        <svg class="h-8 w-8 animate-spin text-primary-600 dark:text-primary-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                    </div>
+                    <ul v-else class="divide-y divide-gray-100 dark:divide-gray-700/80">
+                        <li v-for="r in recordQuickRecords" :key="r.id">
+                            <label class="flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/80">
+                                <input
+                                    type="checkbox"
+                                    class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-primary-600"
+                                    :checked="isRecordQuickDraftSelected(r.id)"
+                                    @change="toggleRecordQuickDraft(r)"
+                                />
+                                <span class="text-sm text-gray-900 dark:text-gray-100">{{ recordQuickDisplayName(r) }}</span>
+                            </label>
+                        </li>
+                    </ul>
+                    <p v-if="!recordQuickLoading && !recordQuickRecords.length" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No results.
+                    </p>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            :disabled="recordQuickPage <= 1 || recordQuickLoading"
+                            @click="recordQuickPrevPage"
+                        >
+                            Previous
+                        </button>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                            Page {{ recordQuickPage }} / {{ recordQuickTotalPages }}
+                        </span>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            :disabled="recordQuickPage >= recordQuickTotalPages || recordQuickLoading"
+                            @click="recordQuickNextPage"
+                        >
+                            Next
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            @click="closeRecordQuickModal"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                            @click="applyRecordQuickModal"
+                        >
+                            Apply
+                        </button>
+                    </div>
+                </div>
             </div>
         </Modal>
 

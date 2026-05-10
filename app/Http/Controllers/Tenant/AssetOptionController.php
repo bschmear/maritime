@@ -69,19 +69,20 @@ class AssetOptionController extends RecordController
     public function syncAssignments(Request $request, RecordModel $assetOption): JsonResponse|Response
     {
         $validated = $request->validate([
-            'make_id' => ['required', 'integer', 'exists:boat_make,id'],
-            'apply_to_all_models' => ['required', 'boolean'],
-            'rows' => ['nullable', 'array'],
-            'rows.*.asset_id' => ['required', 'integer', 'exists:assets,id'],
-            'rows.*.variant_id' => ['nullable', 'integer', 'exists:asset_variants,id'],
+            'sync_all_brands' => ['required', 'boolean'],
+            'brands' => ['nullable', 'array'],
+            'brands.*.make_id' => ['required', 'integer', 'exists:boat_make,id'],
+            'brands.*.apply_to_all_models' => ['required', 'boolean'],
+            'brands.*.rows' => ['nullable', 'array'],
+            'brands.*.rows.*.asset_id' => ['required', 'integer', 'exists:assets,id'],
+            'brands.*.rows.*.variant_id' => ['nullable', 'integer', 'exists:asset_variants,id'],
         ]);
 
         try {
             app(SyncAssetOptionAssignments::class)(
                 $assetOption->id,
-                (int) $validated['make_id'],
-                (bool) $validated['apply_to_all_models'],
-                $validated['rows'] ?? [],
+                (bool) $validated['sync_all_brands'],
+                $validated['brands'] ?? [],
             );
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['message' => 'Validation failed.', 'errors' => $e->errors()], 422);

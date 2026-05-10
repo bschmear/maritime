@@ -47,9 +47,9 @@ class AssetController extends RecordController
     /**
      * Spec definitions for the default asset type on the index “create” modal (matches fields.type default).
      */
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
-        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions);
+        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters);
 
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)

@@ -1,13 +1,12 @@
 {
   "settings": {
-    "max_width": "3xl"
+    "max_width": "4xl"
   },
   "form": {
     "primary": {
       "label": "Option",
       "fields": [
         { "key": "name", "required": true },
-        { "key": "slug", "required": false },
         { "key": "input_type", "required": true },
         { "key": "is_required", "required": false },
         { "key": "allow_multiple", "required": false },

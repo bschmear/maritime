@@ -27,11 +27,13 @@
     },
     "min_select": {
       "label": "Minimum selections",
-      "type": "number"
+      "type": "number",
+      "default": 0
     },
     "max_select": {
       "label": "Maximum selections",
-      "type": "number"
+      "type": "number",
+      "default": 1
     },
     "active": {
       "label": "Active",

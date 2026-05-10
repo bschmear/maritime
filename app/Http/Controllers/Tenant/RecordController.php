@@ -531,16 +531,9 @@ class RecordController extends BaseController
             } // end !customHandled
         }
 
-        $filtersParam = $request->get('filters');
-        if ($filtersParam) {
-            try {
-                $filters = json_decode(urldecode($filtersParam), true);
-                if (is_array($filters)) {
-                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
-                }
-            } catch (\Exception $e) {
-                // ignore invalid filters
-            }
+        $appliedFilters = $this->resolveIndexFiltersFromRequest($request, $schema);
+        if (! empty($appliedFilters)) {
+            $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
         $statsBaseQuery = clone $query;
@@ -598,7 +591,7 @@ class RecordController extends BaseController
         }
 
         // Normal initial page load - return Inertia page
-        $indexProps = $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions);
+        $indexProps = $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters);
         $indexProps['stats'] = $tableStats;
         $indexProps = array_merge($indexProps, $this->indexSupplementInertiaProps($request));
 
@@ -632,7 +625,7 @@ class RecordController extends BaseController
      *
      * @param  \Illuminate\Contracts\Pagination\LengthAwarePaginator  $records
      */
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
         return [
             'records' => $records,
@@ -643,6 +636,7 @@ class RecordController extends BaseController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'appliedFilters' => $appliedFilters,
         ];
     }
 

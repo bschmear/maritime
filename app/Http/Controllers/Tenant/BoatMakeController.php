@@ -38,9 +38,9 @@ class BoatMakeController extends RecordController
         );
     }
 
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
-        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions);
+        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters);
         $props['manufacturers'] = ManufacturerCatalog::entries();
         $props['existingBrandKeys'] = RecordModel::query()
             ->whereNotNull('brand_key')

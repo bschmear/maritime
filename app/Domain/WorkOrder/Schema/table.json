@@ -79,11 +79,13 @@
   "filters": [
     {
       "field": "draft",
-      "operator": "is_false"
+      "operator": "is_false",
+      "default_value": true
     },
     {
       "field": "inactive",
-      "operator": "is_false"
+      "operator": "is_false",
+      "default_value": true
     }
   ]
 }

@@ -55,7 +55,7 @@ class LeadController extends BaseController
         return is_array($unwrapped) ? $unwrapped : [];
     }
 
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
         return [
             'records' => $records,
@@ -66,6 +66,7 @@ class LeadController extends BaseController
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
+            'appliedFilters' => $appliedFilters,
         ];
     }
 
@@ -136,16 +137,9 @@ class LeadController extends BaseController
             });
         }
 
-        $filtersParam = $request->get('filters');
-        if ($filtersParam) {
-            try {
-                $filters = json_decode(urldecode($filtersParam), true);
-                if (is_array($filters)) {
-                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
-                }
-            } catch (\Exception $e) {
-                // ignore invalid filters
-            }
+        $appliedFilters = $this->resolveIndexFiltersFromRequest($request, $schema);
+        if (! empty($appliedFilters)) {
+            $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
         $allowedSort = $this->sortableColumnsFromTableSchema($schema);
@@ -193,7 +187,7 @@ class LeadController extends BaseController
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions)
+            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters)
         );
     }
 

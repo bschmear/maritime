@@ -69,7 +69,8 @@
   "filters": [
     {
       "field": "inactive",
-      "operator": "is_false"
+      "operator": "is_false",
+      "default_value": true
     }
   ]
 }

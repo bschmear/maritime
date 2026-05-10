@@ -56,7 +56,8 @@
     "filters": [
       {
         "field": "deleted_at",
-        "operator": "is_null"
+        "operator": "is_null",
+        "apply_as_default": true
       }
     ]
   }

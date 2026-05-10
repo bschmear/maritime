@@ -1,7 +1,7 @@
 {
+  "allow_create_modal": false,
   "columns": [
-    { "key": "name", "label": "Name", "sortable": true },
-    { "key": "slug", "label": "Slug", "sortable": true },
+    { "key": "name", "label": "Name", "sortable": true, "record_link": true },
     { "key": "input_type", "label": "Input type", "sortable": true },
     { "key": "active", "label": "Active", "sortable": true }
   ]

@@ -135,27 +135,6 @@ class CheckoutController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // #region agent log
-            try {
-                file_put_contents(
-                    base_path('.cursor/debug-46862b.log'),
-                    json_encode([
-                        'sessionId' => '46862b',
-                        'hypothesisId' => 'H_checkout_outer',
-                        'location' => 'CheckoutController::process',
-                        'message' => 'checkout_process_failed',
-                        'data' => [
-                            'exception' => $e::class,
-                            'code' => $e->getCode(),
-                        ],
-                        'timestamp' => (int) (microtime(true) * 1000),
-                    ], JSON_UNESCAPED_SLASHES)."\n",
-                    FILE_APPEND | LOCK_EX
-                );
-            } catch (\Throwable) {
-            }
-            // #endregion
-
             return back()->withErrors([
                 'error' => 'Payment or tenant setup failed. Please contact support.',
             ]);
@@ -313,24 +292,6 @@ class CheckoutController extends Controller
         }
 
         try {
-            // #region agent log
-            try {
-                file_put_contents(
-                    base_path('.cursor/debug-46862b.log'),
-                    json_encode([
-                        'sessionId' => '46862b',
-                        'hypothesisId' => 'H_provision_start',
-                        'location' => 'CheckoutController::completeCheckoutForNewAccount',
-                        'message' => 'provision_tenant_start',
-                        'data' => ['account_id' => $account->id],
-                        'timestamp' => (int) (microtime(true) * 1000),
-                    ], JSON_UNESCAPED_SLASHES)."\n",
-                    FILE_APPEND | LOCK_EX
-                );
-            } catch (\Throwable) {
-            }
-            // #endregion
-
             $this->provisionTenantForPendingAccount($account, $user);
         } catch (\Throwable $e) {
             Log::error('Tenant provisioning failed after successful Stripe subscription', [
@@ -338,27 +299,6 @@ class CheckoutController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-
-            // #region agent log
-            try {
-                file_put_contents(
-                    base_path('.cursor/debug-46862b.log'),
-                    json_encode([
-                        'sessionId' => '46862b',
-                        'hypothesisId' => 'H_provision_fail',
-                        'location' => 'CheckoutController::completeCheckoutForNewAccount',
-                        'message' => 'provision_tenant_failed',
-                        'data' => [
-                            'account_id' => $account->id,
-                            'exception' => $e::class,
-                        ],
-                        'timestamp' => (int) (microtime(true) * 1000),
-                    ], JSON_UNESCAPED_SLASHES)."\n",
-                    FILE_APPEND | LOCK_EX
-                );
-            } catch (\Throwable) {
-            }
-            // #endregion
 
             $this->rollbackNewWorkspaceCheckout($user, $cashierSubscription, $account);
 
@@ -372,24 +312,6 @@ class CheckoutController extends Controller
             'cashier_type' => $subscriptionType,
             'initial_quantity' => $seatQuantity,
         ]);
-
-        // #region agent log
-        try {
-            file_put_contents(
-                base_path('.cursor/debug-46862b.log'),
-                json_encode([
-                    'sessionId' => '46862b',
-                    'hypothesisId' => 'H_provision_ok',
-                    'location' => 'CheckoutController::completeCheckoutForNewAccount',
-                    'message' => 'provision_tenant_success',
-                    'data' => ['account_id' => $account->id],
-                    'timestamp' => (int) (microtime(true) * 1000),
-                ], JSON_UNESCAPED_SLASHES)."\n",
-                FILE_APPEND | LOCK_EX
-            );
-        } catch (\Throwable) {
-        }
-        // #endregion
 
         WorkspaceNavCache::forgetForAccount($account);
 

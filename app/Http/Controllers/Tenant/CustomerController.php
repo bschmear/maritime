@@ -168,16 +168,9 @@ class CustomerController extends RecordController
             });
         }
 
-        $filtersParam = $request->get('filters');
-        if ($filtersParam) {
-            try {
-                $filters = json_decode(urldecode($filtersParam), true);
-                if (is_array($filters)) {
-                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
-                }
-            } catch (\Exception $e) {
-                //
-            }
+        $appliedFilters = $this->resolveIndexFiltersFromRequest($request, $schema);
+        if (! empty($appliedFilters)) {
+            $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
         $query->orderByRaw('LOWER(contacts.display_name) ASC');
@@ -201,7 +194,7 @@ class CustomerController extends RecordController
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions)
+            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters)
         );
     }
 

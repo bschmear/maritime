@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     modelValue: {
@@ -29,10 +29,24 @@ const props = defineProps({
     max: {
         type: Number,
         default: null
-    }
+    },
+    /** Where to show the currency icon; `'none'` removes icon and extra horizontal padding. */
+    iconPosition: {
+        type: String,
+        default: 'left',
+        validator: (v) => ['left', 'right', 'none'].includes(v),
+    },
 });
 
 const emit = defineEmits(['update:modelValue']);
+
+const inputPaddingClass = computed(() => {
+    if (props.iconPosition === 'none') {
+        return '';
+    }
+
+    return props.iconPosition === 'right' ? 'pr-10' : 'pl-10';
+});
 
 const inputRef = ref(null);
 const displayValue = ref('');
@@ -105,9 +119,10 @@ const handleInput = (event) => {
 };
 
 const handleBlur = () => {
-    // Format to full currency on blur
-    if (props.modelValue !== null && props.modelValue !== undefined) {
+    if (props.modelValue !== null && props.modelValue !== undefined && props.modelValue !== '') {
         displayValue.value = formatCurrency(props.modelValue);
+    } else {
+        displayValue.value = '';
     }
 };
 
@@ -136,10 +151,14 @@ const handleFocus = (event) => {
             :required="required"
             :disabled="disabled"
             :placeholder="placeholder"
-            class="input-style pl-10"
+            :class="['input-style', inputPaddingClass]"
         />
-        <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-            <span class="text-gray-500 dark:text-gray-400 text-sm"></span>
+        <div
+            v-if="iconPosition !== 'none'"
+            class="pointer-events-none absolute inset-y-0 flex items-center"
+            :class="iconPosition === 'right' ? 'right-0 pr-3' : 'left-0 pl-3'"
+        >
+            <span class="material-icons text-[20px] leading-none text-gray-500 dark:text-gray-400">attach_money</span>
         </div>
     </div>
 </template>

@@ -1,28 +1,105 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
+import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
+
+const appInstance = getCurrentInstance();
+function toast(type, message) {
+    appInstance?.appContext.config.globalProperties.$toast?.(type, message);
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
-    recordType: { type: String, required: true },
+    enumOptions: { type: Object, default: () => ({}) },
+    /** Passed by RecordController; unused on this page but kept for Inertia compatibility. */
+    recordType: { type: String, default: '' },
     recordTitle: { type: String, default: 'Asset Option' },
     domainName: { type: String, default: 'AssetOption' },
-    formSchema: { type: Object, required: true },
-    fieldsSchema: { type: Object, required: () => ({}) },
-    enumOptions: { type: Object, default: () => ({}) },
+    formSchema: { type: Object, default: null },
+    fieldsSchema: { type: Object, default: () => ({}) },
     imageUrls: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
 });
 
 const isDeleting = ref(false);
+const showDeleteModal = ref(false);
+
+const INPUT_TYPE_ENUM_KEY = 'App\\Enums\\AssetOption\\AssetOptionInputType';
 
 const label = computed(() => props.record?.name || `Option #${props.record?.id}`);
+
+const activeLabel = computed(() => (props.record?.active ? 'Active' : 'Inactive'));
+
+const activeBadgeHeader = computed(() =>
+    props.record?.active
+        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
+        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+);
+
+const activeBadgeOnBlue = computed(() =>
+    props.record?.active
+        ? 'bg-white/20 text-white border border-white/35'
+        : 'bg-white/15 text-primary-100 border border-white/25',
+);
+
+const inputTypeLabel = computed(() => {
+    const raw = props.record?.input_type;
+    const opts = props.enumOptions?.[INPUT_TYPE_ENUM_KEY];
+    if (Array.isArray(opts)) {
+        const hit = opts.find((o) => o.id === raw);
+        if (hit?.name) {
+            return hit.name;
+        }
+    }
+    const fallback = {
+        select: 'Single select',
+        color: 'Color',
+        multi_select: 'Multi select',
+        toggle: 'Toggle',
+    };
+
+    return fallback[raw] ?? raw ?? '—';
+});
+
+const optionInputType = computed(() => props.record?.input_type ?? '');
+
+function normalizeHex(hex) {
+    if (!hex || typeof hex !== 'string') {
+        return '#000000';
+    }
+    const h = hex.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(h)) {
+        return h.toLowerCase();
+    }
+    if (/^[0-9a-fA-F]{6}$/.test(h)) {
+        return `#${h.toLowerCase()}`;
+    }
+
+    return '#000000';
+}
+
+function formatDate(value) {
+    if (!value) {
+        return '—';
+    }
+    return new Date(value).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+function yesNo(v) {
+    return v ? 'Yes' : 'No';
+}
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -33,10 +110,11 @@ const breadcrumbItems = computed(() => [
 const values = computed(() => props.record?.all_values ?? props.record?.allValues ?? []);
 
 const makers = ref([]);
-const lookupAssets = ref([]);
-const selectedMakeId = ref('');
-const applyAllModels = ref(false);
-const selectedAssetRows = ref([]);
+const assetsByMakeId = ref({});
+const syncAllBrands = ref(false);
+/** @type {import('vue').Ref<Array<{ make_id: string, apply_all: boolean, rows: Array<{ asset_id: number, variant_id: number|null }> }>>} */
+const brandBlocks = ref([]);
+const savingAssignments = ref(false);
 
 const valueModalOpen = ref(false);
 const editingValue = ref(null);
@@ -44,8 +122,8 @@ const valueForm = ref({
     label: '',
     value: '',
     color_hex: '',
-    cost: '',
-    price: '',
+    cost: null,
+    price: null,
     sort_order: 0,
     is_default: false,
     active: true,
@@ -53,69 +131,214 @@ const valueForm = ref({
 
 const csrf = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-const fetchAssignmentLookup = async (makeId = null) => {
-    const params = makeId ? { make_id: makeId } : {};
+function deriveBrandBlocks(record) {
+    const mas = record?.make_assignments ?? record?.makeAssignments ?? [];
+    const asg = record?.assignments ?? [];
+    const blocks = [];
+    const makesWithMakeWide = new Set(mas.map((m) => m.make_id));
+
+    mas.forEach((m) => {
+        blocks.push({
+            make_id: String(m.make_id),
+            apply_all: true,
+            rows: [],
+        });
+    });
+
+    const byMake = {};
+    asg.forEach((a) => {
+        const mk = a.asset?.make_id;
+        if (mk == null || makesWithMakeWide.has(mk)) {
+            return;
+        }
+        if (!byMake[mk]) {
+            byMake[mk] = [];
+        }
+        byMake[mk].push({
+            asset_id: a.asset_id,
+            variant_id: a.variant_id ?? null,
+        });
+    });
+    Object.keys(byMake).forEach((mk) => {
+        blocks.push({
+            make_id: String(mk),
+            apply_all: false,
+            rows: byMake[mk],
+        });
+    });
+
+    return blocks;
+}
+
+function detectSyncAllBrands(record, makersList) {
+    const mas = record?.make_assignments ?? record?.makeAssignments ?? [];
+    if (!makersList?.length || !mas.length) {
+        return false;
+    }
+    const makerIds = new Set(makersList.map((m) => m.id));
+    if (makerIds.size !== mas.length) {
+        return false;
+    }
+    for (const m of mas) {
+        if (!makerIds.has(m.make_id)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+const fetchMakersList = async () => {
     const { data } = await axios.get(route('asset-options.assignment-lookup'), {
-        params,
         headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     });
     if (data.makers) {
         makers.value = data.makers;
     }
-    if (makeId) {
-        lookupAssets.value = data.assets || [];
-    } else {
-        lookupAssets.value = [];
-    }
 };
 
-watch(selectedMakeId, (id) => {
-    if (!id) {
-        lookupAssets.value = [];
+const fetchAssetsForMake = async (makeId) => {
+    if (!makeId) {
         return;
     }
-    void fetchAssignmentLookup(id);
-});
-
-onMounted(async () => {
-    await fetchAssignmentLookup();
-    if (selectedMakeId.value) {
-        await fetchAssignmentLookup(selectedMakeId.value);
-    }
-});
-
-const initAssignmentState = () => {
-    const mas = props.record?.make_assignments ?? props.record?.makeAssignments ?? [];
-    const asg = props.record?.assignments ?? [];
-    if (mas.length > 0) {
-        selectedMakeId.value = String(mas[0].make_id);
-        applyAllModels.value = true;
-        selectedAssetRows.value = [];
-    } else if (asg.length > 0) {
-        const mk = asg[0]?.asset?.make_id;
-        selectedMakeId.value = mk ? String(mk) : '';
-        applyAllModels.value = false;
-        selectedAssetRows.value = asg.map((a) => ({
-            asset_id: a.asset_id,
-            variant_id: a.variant_id,
-        }));
-    } else {
-        selectedMakeId.value = '';
-        applyAllModels.value = false;
-        selectedAssetRows.value = [];
-    }
+    const { data } = await axios.get(route('asset-options.assignment-lookup'), {
+        params: { make_id: makeId },
+        headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    assetsByMakeId.value[String(makeId)] = data.assets || [];
 };
 
-initAssignmentState();
+function lookupAssetsForMake(makeId) {
+    return assetsByMakeId.value[String(makeId)] ?? [];
+}
+
+function makersOptionsForBlock(blockIndex) {
+    const current = brandBlocks.value[blockIndex]?.make_id;
+    const selectedElsewhere = new Set(
+        brandBlocks.value
+            .map((b, i) => (i !== blockIndex && b.make_id ? String(b.make_id) : null))
+            .filter(Boolean),
+    );
+
+    return makers.value.filter(
+        (m) => !selectedElsewhere.has(String(m.id)) || String(m.id) === String(current),
+    );
+}
+
+function addBrandBlock() {
+    brandBlocks.value.push({
+        make_id: '',
+        apply_all: true,
+        rows: [],
+    });
+}
+
+function removeBrandBlock(index) {
+    brandBlocks.value.splice(index, 1);
+}
+
+function toggleAssetRow(blockIndex, assetId, variantId = null) {
+    const block = brandBlocks.value[blockIndex];
+    if (!block) {
+        return;
+    }
+    const rows = block.rows;
+    const exists = rows.some(
+        (r) =>
+            Number(r.asset_id) === Number(assetId) &&
+            (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId)),
+    );
+    if (exists) {
+        block.rows = rows.filter(
+            (r) =>
+                !(
+                    Number(r.asset_id) === Number(assetId) &&
+                    (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId))
+                ),
+        );
+    } else {
+        block.rows = [...rows, { asset_id: assetId, variant_id: variantId }];
+    }
+}
+
+function isRowSelected(blockIndex, assetId, variantId = null) {
+    const rows = brandBlocks.value[blockIndex]?.rows ?? [];
+
+    return rows.some(
+        (r) =>
+            Number(r.asset_id) === Number(assetId) &&
+            (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId)),
+    );
+}
+
+onMounted(async () => {
+    await fetchMakersList();
+    if (detectSyncAllBrands(props.record, makers.value)) {
+        syncAllBrands.value = true;
+        brandBlocks.value = [];
+    } else {
+        syncAllBrands.value = false;
+        brandBlocks.value = deriveBrandBlocks(props.record);
+        for (const b of brandBlocks.value) {
+            if (!b.apply_all && b.make_id) {
+                await fetchAssetsForMake(Number(b.make_id));
+            }
+        }
+    }
+});
+
+async function ensureAssetsLoaded(blockIndex) {
+    const b = brandBlocks.value[blockIndex];
+    if (b?.make_id && !b.apply_all) {
+        await fetchAssetsForMake(Number(b.make_id));
+    }
+}
+
+async function onBlockMakeChange(blockIndex, event) {
+    const makeId = event.target.value;
+    const b = brandBlocks.value[blockIndex];
+    if (!b) {
+        return;
+    }
+    b.make_id = makeId ? String(makeId) : '';
+    b.rows = [];
+    await ensureAssetsLoaded(blockIndex);
+}
+
+async function onBlockApplyAllToggle(blockIndex, checked) {
+    const b = brandBlocks.value[blockIndex];
+    if (!b) {
+        return;
+    }
+    b.apply_all = checked;
+    if (checked) {
+        b.rows = [];
+    } else if (b.make_id) {
+        await fetchAssetsForMake(Number(b.make_id));
+    }
+}
+
+watch(syncAllBrands, async (on) => {
+    if (on) {
+        brandBlocks.value = [];
+    } else {
+        brandBlocks.value = deriveBrandBlocks(props.record);
+        for (const b of brandBlocks.value) {
+            if (!b.apply_all && b.make_id) {
+                await fetchAssetsForMake(Number(b.make_id));
+            }
+        }
+    }
+});
 
 const openNewValue = () => {
     editingValue.value = null;
     valueForm.value = {
         label: '',
         value: '',
-        color_hex: '',
-        cost: '',
-        price: '',
+        color_hex: '#2563eb',
+        cost: null,
+        price: null,
         sort_order: (values.value?.length || 0) * 10,
         is_default: false,
         active: true,
@@ -123,14 +346,23 @@ const openNewValue = () => {
     valueModalOpen.value = true;
 };
 
+function toNullableAmount(v) {
+    if (v === '' || v === null || v === undefined) {
+        return null;
+    }
+    const n = typeof v === 'number' ? v : Number(v);
+
+    return Number.isFinite(n) ? n : null;
+}
+
 const openEditValue = (v) => {
     editingValue.value = v;
     valueForm.value = {
         label: v.label || '',
         value: v.value || '',
-        color_hex: v.color_hex || '',
-        cost: v.cost ?? '',
-        price: v.price ?? '',
+        color_hex: v.color_hex || '#2563eb',
+        cost: toNullableAmount(v.cost),
+        price: toNullableAmount(v.price),
         sort_order: v.sort_order ?? 0,
         is_default: !!v.is_default,
         active: !!v.active,
@@ -140,6 +372,17 @@ const openEditValue = (v) => {
 
 const saveValue = async () => {
     const payload = { ...valueForm.value };
+    payload.sort_order =
+        editingValue.value?.sort_order ??
+        valueForm.value.sort_order ??
+        (values.value?.length || 0) * 10;
+    if (optionInputType.value === 'color') {
+        payload.color_hex = normalizeHex(payload.color_hex);
+        payload.value = payload.color_hex || payload.label?.trim() || null;
+    } else {
+        payload.value = payload.value?.trim() || payload.label?.trim() || null;
+    }
+
     const url = editingValue.value
         ? route('asset-options.values.update', { assetOption: props.record.id, value: editingValue.value.id })
         : route('asset-options.values.store', { assetOption: props.record.id });
@@ -164,46 +407,63 @@ const deleteValue = async (v) => {
     router.reload({ only: ['record'] });
 };
 
-const toggleAssetRow = (assetId, variantId = null) => {
-    const exists = selectedAssetRows.value.some(
-        (r) => Number(r.asset_id) === Number(assetId) && (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId)),
-    );
-    if (exists) {
-        selectedAssetRows.value = selectedAssetRows.value.filter(
-            (r) => !(Number(r.asset_id) === Number(assetId) && (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId))),
-        );
-    } else {
-        selectedAssetRows.value = [...selectedAssetRows.value, { asset_id: assetId, variant_id: variantId }];
-    }
-};
-
-const isRowSelected = (assetId, variantId = null) =>
-    selectedAssetRows.value.some(
-        (r) => Number(r.asset_id) === Number(assetId) && (r.variant_id == null ? variantId == null : Number(r.variant_id) === Number(variantId)),
-    );
-
 const saveAssignments = async () => {
-    if (!selectedMakeId.value) {
-        alert('Select a brand first.');
-        return;
+    if (!syncAllBrands.value) {
+        const filled = brandBlocks.value.filter((b) => b.make_id);
+        const incomplete = filled.some((b) => !b.apply_all && !(b.rows?.length > 0));
+        if (incomplete) {
+            toast('error', 'For each brand with “all models” off, pick at least one model or variant.');
+            return;
+        }
+        const orphanEmptyRows = brandBlocks.value.some((b) => !b.make_id) && filled.length > 0;
+        if (orphanEmptyRows) {
+            toast('error', 'Remove empty brand rows or select a brand for each.');
+            return;
+        }
     }
-    let rows = [];
-    if (!applyAllModels.value) {
-        rows = selectedAssetRows.value.map((r) => ({
-            asset_id: r.asset_id,
-            variant_id: r.variant_id,
-        }));
+
+    savingAssignments.value = true;
+    try {
+        const brands = syncAllBrands.value
+            ? []
+            : brandBlocks.value
+                  .filter((b) => b.make_id)
+                  .map((b) => ({
+                      make_id: Number(b.make_id),
+                      apply_to_all_models: b.apply_all,
+                      rows: b.apply_all
+                          ? []
+                          : (b.rows ?? []).map((r) => ({
+                                asset_id: Number(r.asset_id),
+                                variant_id: r.variant_id == null ? null : Number(r.variant_id),
+                            })),
+                  }));
+
+        await axios.post(
+            route('asset-options.sync-assignments', { assetOption: props.record.id }),
+            {
+                sync_all_brands: syncAllBrands.value,
+                brands,
+            },
+            { headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        );
+        toast('success', 'Assignments saved.');
+        await router.reload({ only: ['record'] });
+    } catch (err) {
+        const data = err.response?.data;
+        const errs = data?.errors;
+        let msg =
+            (typeof data?.message === 'string' && data.message) ||
+            (typeof errs?.brands === 'string' ? errs.brands : Array.isArray(errs?.brands) ? errs.brands[0] : null) ||
+            null;
+        if (!msg && errs && typeof errs === 'object') {
+            const first = Object.values(errs).find((v) => Array.isArray(v) && v[0]);
+            msg = first?.[0] ?? null;
+        }
+        toast('error', msg || 'Could not save assignments.');
+    } finally {
+        savingAssignments.value = false;
     }
-    await axios.post(
-        route('asset-options.sync-assignments', { assetOption: props.record.id }),
-        {
-            make_id: Number(selectedMakeId.value),
-            apply_to_all_models: applyAllModels.value,
-            rows,
-        },
-        { headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
-    );
-    router.reload({ only: ['record'] });
 };
 
 const confirmDelete = async () => {
@@ -222,178 +482,450 @@ const confirmDelete = async () => {
 
     <TenantLayout>
         <template #header>
-            <div class="col-span-full flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <Breadcrumb :items="breadcrumbItems" />
-                    <h2 class="mt-4 text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">{{ label }}</h2>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <Link
-                        :href="route('asset-options.edit', { assetOption: record.id })"
-                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-                    >
-                        Edit definition
-                    </Link>
-                    <button
-                        type="button"
-                        class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
-                        @click="showDeleteModal = true"
-                    >
-                        Delete
-                    </button>
+            <div class="col-span-full">
+                <Breadcrumb :items="breadcrumbItems" />
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">{{ label }}</h2>
+                        <span
+                            class="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold"
+                            :class="activeBadgeHeader"
+                        >
+                            {{ activeLabel }}
+                        </span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Link
+                            :href="route('asset-options.edit', { assetOption: record.id })"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                        >
+                            <span class="material-icons text-[16px]">edit</span>
+                            Edit definition
+                        </Link>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
+                            @click="showDeleteModal = true"
+                        >
+                            <span class="material-icons text-[16px]">delete</span>
+                            Delete
+                        </button>
+                    </div>
                 </div>
             </div>
         </template>
 
-        <div class="mx-auto w-full max-w-6xl space-y-8 px-4 py-6">
-            <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Summary</h3>
-                <Form
-                    :schema="formSchema"
-                    :fields-schema="fieldsSchema"
-                    :enum-options="enumOptions"
-                    :record="record"
-                    :record-type="recordType"
-                    :record-title="recordTitle"
-                    mode="view"
-                />
+        <div class="flex w-full flex-col space-y-6 p-4">
+            <div
+                class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <div
+                    class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-5 dark:from-primary-700 dark:to-primary-800"
+                >
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="min-w-0 flex-1">
+                            <p class="mb-1 text-sm font-semibold uppercase tracking-wider text-primary-200/90">Asset option</p>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h1 class="text-2xl font-bold tracking-tight text-white">
+                                    {{ record.name }}
+                                </h1>
+                                <span
+                                    class="inline-flex items-center rounded-full border px-2.5 py-1 text-sm font-semibold"
+                                    :class="activeBadgeOnBlue"
+                                >
+                                    {{ activeLabel }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="shrink-0 text-left sm:text-right">
+                            <div class="text-sm font-semibold uppercase tracking-wide text-primary-200/90">Input type</div>
+                            <div class="text-lg font-semibold leading-snug text-white">
+                                {{ inputTypeLabel }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6 p-6">
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div class="space-y-4">
+                            <h3
+                                class="border-b border-gray-200 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                            >
+                                Definition
+                            </h3>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Name
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ record.name ?? '—' }}
+                                </div>
+                            </div>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Required
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ yesNo(record.is_required) }}
+                                </div>
+                            </div>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Allow multiple values
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ yesNo(record.allow_multiple) }}
+                                </div>
+                            </div>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Minimum selections
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ record.min_select ?? '—' }}
+                                </div>
+                            </div>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Maximum selections
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ record.max_select ?? '—' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3
+                                class="border-b border-gray-200 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400"
+                            >
+                                Details
+                            </h3>
+                           
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Created
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ formatDate(record.created_at) }}
+                                </div>
+                            </div>
+                            <div>
+                                <div
+                                    class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    Updated
+                                </div>
+                                <div class="text-md text-gray-900 dark:text-white">
+                                    {{ formatDate(record.updated_at) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                <div class="mb-4 flex items-center justify-between gap-2">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Values</h3>
-                    <button
-                        type="button"
-                        class="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
-                        @click="openNewValue"
-                    >
-                        Add value
-                    </button>
+            <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Values</h3>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                            @click="openNewValue"
+                        >
+                            Add value
+                        </button>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="p-6 pt-0">
+                    <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-gray-200 text-left dark:border-gray-700">
-                                <th class="py-2 pr-4">Label</th>
-                                <th class="py-2 pr-4">Price</th>
-                                <th class="py-2 pr-4">Cost</th>
-                                <th class="py-2 pr-4">Sort</th>
-                                <th class="py-2 pr-4">Active</th>
-                                <th class="py-2"></th>
+                                <th class="py-2 pr-4 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Label</th>
+                                <th class="py-2 pr-4 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Price</th>
+                                <th class="py-2 pr-4 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Cost</th>
+                                <th class="py-2 pr-4 text-sm font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">Active</th>
+                                <th class="py-2"><span class="sr-only">Actions</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="v in values" :key="v.id" class="border-b border-gray-100 dark:border-gray-700/80">
-                                <td class="py-2 pr-4">{{ v.label }}</td>
-                                <td class="py-2 pr-4">{{ v.price ?? '—' }}</td>
-                                <td class="py-2 pr-4">{{ v.cost ?? '—' }}</td>
-                                <td class="py-2 pr-4">{{ v.sort_order }}</td>
-                                <td class="py-2 pr-4">{{ v.active ? 'Yes' : 'No' }}</td>
+                            <tr
+                                v-for="v in values"
+                                :key="v.id"
+                                class="border-b border-gray-100 transition-colors hover:bg-gray-50 dark:border-gray-700/80 dark:hover:bg-gray-700/30"
+                            >
+                                <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ v.label }}</td>
+                                <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ v.price ?? '—' }}</td>
+                                <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ v.cost ?? '—' }}</td>
+                                <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ v.active ? 'Yes' : 'No' }}</td>
                                 <td class="py-2 text-right">
-                                    <button type="button" class="text-primary-600 hover:underline" @click="openEditValue(v)">Edit</button>
-                                    <button type="button" class="ml-3 text-red-600 hover:underline" @click="deleteValue(v)">Delete</button>
+                                    <button
+                                        type="button"
+                                        class="text-primary-600 hover:underline dark:text-primary-400"
+                                        @click="openEditValue(v)"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="ml-3 text-red-600 hover:underline dark:text-red-400"
+                                        @click="deleteValue(v)"
+                                    >
+                                        Delete
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
-                    <p v-if="!values.length" class="py-6 text-center text-gray-500">No values yet.</p>
+                    <p v-if="!values.length" class="py-6 text-center text-gray-500 dark:text-gray-400">No values yet.</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Assignments by brand</h3>
-                <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Choose a brand, then either apply to all models or pick specific models (and variants).
-                </p>
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div>
-                        <label class="block text-xs font-medium uppercase text-gray-500">Brand</label>
-                        <select v-model="selectedMakeId" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-gray-600 dark:bg-gray-900">
-                            <option value="">Select brand…</option>
-                            <option v-for="m in makers" :key="m.id" :value="String(m.id)">{{ m.display_name }}</option>
-                        </select>
+            <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Assignments by brand</h3>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Apply everywhere, or choose one or more brands. Per brand, either all models or specific models and variants.
+                    </p>
+                </div>
+                <div class="space-y-6 p-6">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
+                        <input v-model="syncAllBrands" type="checkbox" class="mt-1 rounded border-gray-300" />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Apply to all brands (all models)</span>
+                            <span class="mt-0.5 block text-sm text-gray-600 dark:text-gray-400">
+                                Use when this option is not limited to specific brands. Saves one “all models” rule per active brand.
+                            </span>
+                        </span>
+                    </label>
+
+                    <p v-if="syncAllBrands" class="text-sm text-gray-600 dark:text-gray-400">
+                        This option will apply to every active brand in your catalog. Save to confirm.
+                    </p>
+
+                    <template v-else>
+                        <div
+                            v-for="(block, blockIndex) in brandBlocks"
+                            :key="blockIndex"
+                            class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+                        >
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="text-sm font-medium text-gray-900 dark:text-white">Brand {{ blockIndex + 1 }}</span>
+                                <button
+                                    type="button"
+                                    class="text-sm font-medium text-red-600 hover:underline dark:text-red-400"
+                                    @click="removeBrandBlock(blockIndex)"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label class="block text-sm font-medium uppercase text-gray-500">Brand</label>
+                                    <select
+                                        :value="block.make_id"
+                                        class="input-style"
+                                        @change="onBlockMakeChange(blockIndex, $event)"
+                                    >
+                                        <option value="">Select brand…</option>
+                                        <option v-for="m in makersOptionsForBlock(blockIndex)" :key="m.id" :value="String(m.id)">
+                                            {{ m.display_name }}
+                                        </option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        class="mt-2 text-sm text-primary-600 hover:underline"
+                                        @click="ensureAssetsLoaded(blockIndex)"
+                                    >
+                                        Refresh models list
+                                    </button>
+                                </div>
+                                <div class="flex items-center gap-2 ">
+                                    <input
+                                        :id="`apply_all_${blockIndex}`"
+                                        type="checkbox"
+                                        class="rounded border-gray-300"
+                                        :checked="block.apply_all"
+                                        @change="onBlockApplyAllToggle(blockIndex, $event.target.checked)"
+                                    />
+                                    <label :for="`apply_all_${blockIndex}`" class="text-sm text-gray-800 dark:text-gray-200">
+                                        Apply to all models under this brand
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div
+                                v-if="block.make_id && !block.apply_all"
+                                class="max-h-72 overflow-y-auto rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                            >
+                                <div v-for="a in lookupAssetsForMake(block.make_id)" :key="a.id" class="mb-3">
+                                    <label class="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
+                                        <input
+                                            type="checkbox"
+                                            :checked="isRowSelected(blockIndex, a.id, null)"
+                                            @change="toggleAssetRow(blockIndex, a.id, null)"
+                                        />
+                                        {{ a.display_name }}
+                                    </label>
+                                    <div v-if="a.has_variants && a.variants?.length" class="ml-6 mt-1 space-y-1">
+                                        <label
+                                            v-for="vv in a.variants"
+                                            :key="vv.id"
+                                            class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                :checked="isRowSelected(blockIndex, a.id, vv.id)"
+                                                @change="toggleAssetRow(blockIndex, a.id, vv.id)"
+                                            />
+                                            {{ vv.display_name || vv.name }}
+                                        </label>
+                                    </div>
+                                </div>
+                                <p v-if="!lookupAssetsForMake(block.make_id).length" class="text-sm text-gray-500">
+                                    Select a brand and click refresh.
+                                </p>
+                            </div>
+                        </div>
+
                         <button
                             type="button"
-                            class="mt-2 text-sm text-primary-600 hover:underline"
-                            @click="fetchAssignmentLookup(selectedMakeId || null)"
+                            class="inline-flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            @click="addBrandBlock"
                         >
-                            Refresh models list
+                            <span class="material-icons text-[18px]">add</span>
+                            Add brand
+                        </button>
+                    </template>
+
+                    <div>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:text-gray-100 disabled:hover:bg-gray-400"
+                            :disabled="savingAssignments"
+                            @click="saveAssignments"
+                        >
+                            {{ savingAssignments ? 'Saving…' : 'Save assignments' }}
                         </button>
                     </div>
-                    <div class="flex items-center gap-2 pt-6">
-                        <input id="apply_all" v-model="applyAllModels" type="checkbox" class="rounded border-gray-300" />
-                        <label for="apply_all" class="text-sm text-gray-800 dark:text-gray-200">Apply to all models under this brand</label>
-                    </div>
-                </div>
-
-                <div v-if="selectedMakeId && !applyAllModels" class="mt-6 max-h-72 overflow-y-auto rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                    <div v-for="a in lookupAssets" :key="a.id" class="mb-3">
-                        <label class="flex items-center gap-2 font-medium text-gray-900 dark:text-white">
-                            <input type="checkbox" :checked="isRowSelected(a.id, null)" @change="toggleAssetRow(a.id, null)" />
-                            {{ a.display_name }}
-                        </label>
-                        <div v-if="a.has_variants && a.variants?.length" class="ml-6 mt-1 space-y-1">
-                            <label v-for="vv in a.variants" :key="vv.id" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                <input type="checkbox" :checked="isRowSelected(a.id, vv.id)" @change="toggleAssetRow(a.id, vv.id)" />
-                                {{ vv.display_name || vv.name }}
-                            </label>
-                        </div>
-                    </div>
-                    <p v-if="!lookupAssets.length" class="text-sm text-gray-500">Select a brand and click refresh.</p>
-                </div>
-
-                <div class="mt-6">
-                    <button
-                        type="button"
-                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-                        @click="saveAssignments"
-                    >
-                        Save assignments
-                    </button>
                 </div>
             </div>
         </div>
 
         <Modal :show="valueModalOpen" max-width="lg" @close="valueModalOpen = false">
-            <div class="p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ editingValue ? 'Edit value' : 'New value' }}</h3>
-                <div class="mt-4 grid gap-3">
+            <div class="flex max-h-[90vh] flex-col">
+                <div class="flex shrink-0 items-start justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                        {{ editingValue ? 'Edit value' : 'New value' }}
+                    </h3>
+                    <button
+                        type="button"
+                        class="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                        @click="valueModalOpen = false"
+                    >
+                        <svg class="h-3 w-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                        </svg>
+                        <span class="sr-only">Close</span>
+                    </button>
+                </div>
+
+                <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                     <div>
-                        <label class="text-xs font-medium text-gray-500">Label</label>
-                        <input v-model="valueForm.label" type="text" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="asset-option-value-label">Label</label>
+                        <input
+                            id="asset-option-value-label"
+                            v-model="valueForm.label"
+                            type="text"
+                            class="mt-1 input-style"
+                            autocomplete="off"
+                        />
                     </div>
-                    <div>
-                        <label class="text-xs font-medium text-gray-500">Internal value</label>
-                        <input v-model="valueForm.value" type="text" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
+                    <div v-if="optionInputType === 'color'">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
+                        <div class="mt-1 flex flex-wrap items-center gap-3">
+                            <input
+                                :value="normalizeHex(valueForm.color_hex)"
+                                type="color"
+                                class="h-11 w-14 cursor-pointer rounded-lg border border-gray-300 bg-white p-1 shadow-sm dark:border-gray-600 dark:bg-gray-900"
+                                @input="(e) => { valueForm.color_hex = e.target.value }"
+                            />
+                            <span class="font-mono text-sm text-gray-600 dark:text-gray-300">{{ normalizeHex(valueForm.color_hex) }}</span>
+                        </div>
                     </div>
-                    <div>
-                        <label class="text-xs font-medium text-gray-500">Color hex</label>
-                        <input v-model="valueForm.color_hex" type="text" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 gap-4">
                         <div>
-                            <label class="text-xs font-medium text-gray-500">Cost</label>
-                            <input v-model="valueForm.cost" type="text" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="asset-option-value-cost">Cost</label>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Internal — not shown to customers</p>
+                            <div class="mt-1">
+                                <CurrencyInput
+                                    id="asset-option-value-cost"
+                                    v-model="valueForm.cost"
+                                    icon-position="right"
+                                />
+                            </div>
                         </div>
                         <div>
-                            <label class="text-xs font-medium text-gray-500">Price</label>
-                            <input v-model="valueForm.price" type="text" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="asset-option-value-price">Price</label>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Additional amount the customer pays</p>
+                            <div class="mt-1">
+                                <CurrencyInput
+                                    id="asset-option-value-price"
+                                    v-model="valueForm.price"
+                                    icon-position="right"
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <label class="text-xs font-medium text-gray-500">Sort order</label>
-                        <input v-model.number="valueForm.sort_order" type="number" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-900" />
-                    </div>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input v-model="valueForm.is_default" type="checkbox" /> Default
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                            v-model="valueForm.is_default"
+                            type="checkbox"
+                            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        Default
                     </label>
-                    <label class="flex items-center gap-2 text-sm">
-                        <input v-model="valueForm.active" type="checkbox" /> Active
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                            v-model="valueForm.active"
+                            type="checkbox"
+                            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        Active
                     </label>
                 </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="valueModalOpen = false">Cancel</button>
-                    <button type="button" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white" @click="saveValue">Save</button>
+
+                <div class="flex shrink-0 flex-wrap justify-end gap-3 border-t border-gray-200 p-4 dark:border-gray-700">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="valueModalOpen = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                        @click="saveValue"
+                    >
+                        Save
+                    </button>
                 </div>
             </div>
         </Modal>
