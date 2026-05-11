@@ -11,20 +11,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EstimateSelectedOption extends Model
 {
+    protected $table = 'transaction_line_item_selected_options';
+
     protected $fillable = [
         'estimate_id',
-        'estimate_line_item_id',
+        'transaction_line_item_id',
         'option_id',
         'option_value_id',
         'option_name',
         'value_label',
         'cost',
         'price',
+        'taxable',
     ];
 
     protected $casts = [
         'cost' => 'decimal:2',
         'price' => 'decimal:2',
+        'taxable' => 'boolean',
     ];
 
     public function option(): BelongsTo
@@ -44,6 +48,6 @@ class EstimateSelectedOption extends Model
 
     public function lineItem(): BelongsTo
     {
-        return $this->belongsTo(EstimateLineItem::class, 'estimate_line_item_id');
+        return $this->belongsTo(EstimateLineItem::class, 'transaction_line_item_id');
     }
 }

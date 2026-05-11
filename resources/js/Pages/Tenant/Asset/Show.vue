@@ -1,4 +1,5 @@
 <script setup>
+import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
@@ -58,6 +59,14 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    catalogResolvedOptions: {
+        type: Array,
+        default: () => [],
+    },
+    catalogContext: {
+        type: Object,
+        default: null,
+    },
 });
 
 const showSendSpecModal = ref(false);
@@ -95,6 +104,18 @@ const isSublistVisible = (sub) => {
 };
 
 const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
+
+const showAssetCatalogOptions = computed(() => {
+    if (!props.catalogContext) {
+        return false;
+    }
+    const hv = props.record?.has_variants;
+    if (hv === true || hv === 1 || hv === '1') {
+        return false;
+    }
+
+    return true;
+});
 
 const handleDelete = () => {
     showDeleteModal.value = true;
@@ -217,6 +238,13 @@ const cancelDelete = () => {
                 mode="view"
                 :prevent-redirect="true"
                 :form-id="`form-${recordType}-${record.id}`"
+            />
+
+            <AssetCatalogOptionsSection
+                v-if="showAssetCatalogOptions"
+                :resolved-options="catalogResolvedOptions"
+                :catalog-context="catalogContext"
+                intro="These options apply when quoting or configuring this asset. Assignments for the whole brand appear here automatically."
             />
 
             <Sublist

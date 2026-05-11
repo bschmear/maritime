@@ -53,18 +53,34 @@ const formatDateTime = (value) => {
 };
 
 const lineItemTotal = (item) => {
-    const qty       = Number(item.quantity) || 1;
-    const unitPrice = Number(item.unit_price) || 0;
-    const discount  = Number(item.discount) || 0;
-    const base      = Math.max(0, qty * unitPrice - discount);
     const addonsTotal = (item.addons ?? []).reduce(
-        (sum, a) => sum + Number(a.price || 0) * Number(a.quantity || 1), 0
+        (sum, a) => sum + Number(a.price || 0) * Number(a.quantity || 1),
+        0,
     );
+    // Server stores line_total = boat base + selected option premiums (addons excluded).
+    const storedLine = item.line_total;
+    if (storedLine != null && storedLine !== '' && !Number.isNaN(Number(storedLine))) {
+        return Number(storedLine) + addonsTotal;
+    }
+    const qty = Number(item.quantity) || 1;
+    const unitPrice = Number(item.unit_price) || 0;
+    const discount = Number(item.discount) || 0;
+    const base = Math.max(0, qty * unitPrice - discount);
     return base + addonsTotal;
+};
+
+const selectedOptionLabel = (opt) => {
+    const name = (opt.option_name || '').trim();
+    const val = (opt.value_label || '').trim();
+    if (name && val) return `${name}: ${val}`;
+    return name || val || 'Option';
 };
 
 const addonTotal = (addon) =>
     Number(addon.price || 0) * Number(addon.quantity || 1);
+
+/** Boat option premiums: display qty 1 and unit price = stored premium (same as line total). */
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
 
 const isAssetLineItem = (item) => item.itemable_type === ASSET_LINE_ITEM_TYPE;
 
@@ -210,6 +226,18 @@ const hasLegacySignature = computed(
                                         <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
                                         <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
                                         <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
+                                    </tr>
+                                    <tr
+                                        v-for="(opt, optIdx) in (item.selected_options || [])"
+                                        :key="'opt-' + item.id + '-' + optIdx"
+                                        class="bg-sky-50/80"
+                                    >
+                                        <td class="pl-10 pr-6 py-2 text-sm text-gray-700" colspan="2">
+                                            <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                        </td>
+                                        <td class="px-6 py-2 text-right text-sm text-gray-600">1</td>
+                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
+                                        <td class="px-6 py-2 text-right text-sm font-medium text-gray-800">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
                                     </tr>
                                     <tr
                                         v-for="addon in (item.addons || [])"
@@ -397,6 +425,18 @@ const hasLegacySignature = computed(
                                     <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
                                     <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
                                     <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
+                                </tr>
+                                <tr
+                                    v-for="(opt, optIdx) in (item.selected_options || [])"
+                                    :key="'opt-' + item.id + '-' + optIdx"
+                                    class="bg-sky-50/80"
+                                >
+                                    <td class="pl-10 pr-6 py-2 text-sm text-gray-700" colspan="2">
+                                        <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                    </td>
+                                    <td class="px-6 py-2 text-right text-sm text-gray-600">1</td>
+                                    <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
+                                    <td class="px-6 py-2 text-right text-sm font-medium text-gray-800">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
                                 </tr>
                                 <tr
                                     v-for="addon in (item.addons || [])"

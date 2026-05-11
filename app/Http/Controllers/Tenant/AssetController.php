@@ -20,6 +20,7 @@ use App\Enums\Communication\CommunicationType;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Mail\CustomerAssetSpecSheetShareMail;
+use App\Services\AssetOptionResolver;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,39 @@ class AssetController extends RecordController
             new DeleteAction,
             $recordType->domainName()
         );
+    }
+
+    /**
+     * Catalog asset options (resolved for this model + brand-wide assignments).
+     *
+     * @param  \App\Domain\Asset\Models\Asset  $record
+     */
+    protected function showPageExtraProps($record): array
+    {
+        if (! $record instanceof RecordModel) {
+            return [];
+        }
+
+        // Options are managed per variant on VariantShow when this model uses variants.
+        if (filter_var($record->getAttribute('has_variants'), FILTER_VALIDATE_BOOLEAN)) {
+            return [
+                'catalogResolvedOptions' => null,
+                'catalogContext' => null,
+            ];
+        }
+
+        $resolved = app(AssetOptionResolver::class)->resolve($record, null);
+
+        return [
+            'catalogResolvedOptions' => $resolved->values()->all(),
+            'catalogContext' => [
+                'asset_id' => $record->id,
+                'variant_id' => null,
+                'make_id' => $record->make_id,
+                'has_variants' => false,
+                'show_variant_scope' => false,
+            ],
+        ];
     }
 
     /**
@@ -423,17 +457,28 @@ class AssetController extends RecordController
 
         $asset->loadMissing('make');
 
+        $catalogResolved = app(AssetOptionResolver::class)->resolve($asset, $variant);
+
         return Inertia::render('Tenant/Asset/VariantShow', [
             'asset' => [
                 'id' => $asset->id,
                 'display_name' => $asset->display_name,
                 'year' => $asset->year,
                 'make_display_name' => $asset->make?->display_name,
+                'make_id' => $asset->make_id,
             ],
             'variant' => array_merge($variant->toArray(), [
                 'resolved_description' => $variant->resolvedDescription(),
             ]),
             'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
+            'catalogResolvedOptions' => $catalogResolved->values()->all(),
+            'catalogContext' => [
+                'asset_id' => $asset->id,
+                'variant_id' => $variant->id,
+                'make_id' => $asset->make_id,
+                'has_variants' => (bool) $asset->has_variants,
+                'show_variant_scope' => true,
+            ],
         ]);
     }
 

@@ -8,6 +8,7 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
+use App\Domain\Estimate\Support\RecalculateEstimateVersionTotals;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -86,10 +87,7 @@ class UpdateEstimate
             if ($primaryVersion) {
                 $primaryVersion->update(['tax_rate' => $data['tax_rate'] ?? null]);
 
-                $deletedCount = $primaryVersion->lineItems()->count();
                 $primaryVersion->lineItems()->delete();
-
-                $subtotal = 0;
 
                 $assetLineItemsByPosition = [];
 
@@ -110,18 +108,15 @@ class UpdateEstimate
                             'discount' => $lineData['discount'] ?? 0,
                             'line_total' => $lineTotal,
                             'position' => $position,
+                            'asset_options_fill_mode' => (($lineData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
                         ]);
 
                         if (($lineData['itemable_type'] ?? '') === Asset::class) {
                             $assetLineItemsByPosition[(int) $position] = $lineItem;
                         }
 
-                        $subtotal += $lineTotal;
-
                         if (isset($lineData['addons']) && is_array($lineData['addons'])) {
                             foreach ($lineData['addons'] as $addonData) {
-                                $addonTotal = (float) ($addonData['price'] ?? 0) * (int) ($addonData['quantity'] ?? 1);
-
                                 $lineItem->addons()->create([
                                     'addon_id' => $addonData['addon_id'] ?? null,
                                     'name' => $addonData['name'] ?? null,
@@ -130,8 +125,6 @@ class UpdateEstimate
                                     'notes' => $addonData['notes'] ?? null,
                                     'metadata' => $addonData['metadata'] ?? null,
                                 ]);
-
-                                $subtotal += $addonTotal;
                             }
                         }
                     }
@@ -144,15 +137,10 @@ class UpdateEstimate
                     $data['selected_asset_options'] ?? [],
                 );
 
-                $taxRate = (float) ($data['tax_rate'] ?? 0);
-                $tax = $subtotal * ($taxRate / 100);
-                $total = $subtotal + $tax;
-
-                $primaryVersion->update([
-                    'subtotal' => $subtotal,
-                    'tax' => $tax,
-                    'total' => $total,
-                ]);
+                RecalculateEstimateVersionTotals::apply(
+                    $primaryVersion->fresh(),
+                    (float) ($data['tax_rate'] ?? 0)
+                );
             }
 
             DB::commit();

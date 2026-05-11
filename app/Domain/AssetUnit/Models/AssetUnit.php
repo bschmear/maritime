@@ -114,11 +114,11 @@ class AssetUnit extends Model
         $assetName = $this->asset?->display_name ?? 'Unknown Asset';
         $unitIdentifier = '';
 
-        // Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
-        if (! empty($this->serial_number)) {
+        // Priority: Hull ID (HIN) > Serial Number > SKU > "Unit #{id}"
+        if (! empty($this->hin)) {
+            $unitIdentifier = "Hull ID: {$this->hin}";
+        } elseif (! empty($this->serial_number)) {
             $unitIdentifier = "SN: {$this->serial_number}";
-        } elseif (! empty($this->hin)) {
-            $unitIdentifier = "HIN: {$this->hin}";
         } elseif (! empty($this->sku)) {
             $unitIdentifier = "SKU: {$this->sku}";
         } else {

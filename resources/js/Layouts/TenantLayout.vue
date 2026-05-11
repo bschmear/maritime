@@ -177,6 +177,7 @@ const secondaryNavItems = ref([
                     { name: 'Asset Specifications', href: 'asset-specs.index' },
                 ] 
             },
+            { name: 'Add-Ons', href: 'addons.index' },
             { name: 'Parts & Accessories', href: 'inventoryitems.index' },
             { name: 'Service Items', href: 'serviceitems.index' }
         ]

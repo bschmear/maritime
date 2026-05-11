@@ -1,5 +1,6 @@
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
@@ -232,6 +233,23 @@ const normalizeItemBase = (item, isNew = false) => ({
     addons: normalizeAddons(item.addons, isNew),
 });
 
+/** Deal lines keep option rows on the originating estimate line (source_transaction_line_item_id). */
+const mergedTransactionLineAssetOptions = (item) => {
+    const direct = item.selected_asset_options ?? item.selectedAssetOptions ?? [];
+    if (direct.length) return direct;
+    return item.selected_asset_options_from_source_line ?? item.selectedAssetOptionsFromSourceLine ?? [];
+};
+
+const hydrateAssetSelectionsFromItem = (item) =>
+    mergedTransactionLineAssetOptions(item).map((r) => ({
+        option_id: Number(r.option_id),
+        option_value_id: Number(r.option_value_id),
+        option_name: r.option_name ?? '',
+        value_label: r.value_label ?? '',
+        price: r.price != null ? Number(r.price) : 0,
+        taxable: r.taxable !== false && r.taxable !== 0 && r.taxable !== '0',
+    }));
+
 // ─── Asset items ──────────────────────────────────────────────────────────────
 const assetItems = ref([]);
 const showAssetModal = ref(false);
@@ -256,6 +274,8 @@ const emptyAssetForm = () => ({
     catalog_description: '',
     asset_unit_id: null,
     unit_display_name: '',
+    selected_asset_options: [],
+    asset_options_fill_mode: 'staff',
 });
 const assetForm = ref(emptyAssetForm());
 
@@ -270,12 +290,25 @@ const rowToModalForm = (row) => ({
 
 const modalFormToRow = (form, existing = {}) => {
     const { notes, catalog_description: _catalog, ...rest } = form;
+    const preserved =
+        form.selected_asset_options ??
+        form.selectedAssetOptions ??
+        mergedTransactionLineAssetOptions(existing);
+    const rawUnit = form.asset_unit_id ?? rest.asset_unit_id ?? existing.asset_unit_id ?? null;
+    const unitNum =
+        rawUnit === '' || rawUnit === undefined || rawUnit === null ? null : Number(rawUnit);
+    const assetUnitId = unitNum != null && !Number.isNaN(unitNum) ? unitNum : null;
     return {
         ...rest,
         description: notes ?? '',
         taxable: existing.taxable ?? true,
         addons: [...(form.addons || [])],
         id: existing.id ?? null,
+        selected_asset_options: preserved,
+        asset_variant_id: form.asset_variant_id ?? rest.asset_variant_id ?? existing.asset_variant_id ?? null,
+        variant_display_name: form.variant_display_name ?? rest.variant_display_name ?? existing.variant_display_name ?? '',
+        asset_unit_id: assetUnitId,
+        unit_display_name: form.unit_display_name ?? rest.unit_display_name ?? existing.unit_display_name ?? '',
     };
 };
 
@@ -289,11 +322,12 @@ const openEditAssetModal = (index) => {
     assetForm.value = rowToModalForm(assetItems.value[index]);
     showAssetModal.value = true;
 };
-const saveAssetItem = () => {
+const saveAssetItem = (payloadFromModal) => {
+    const source = payloadFromModal ?? assetForm.value;
     const existing = editingAssetIndex.value !== null
         ? assetItems.value[editingAssetIndex.value]
         : {};
-    const row = modalFormToRow(assetForm.value, existing);
+    const row = modalFormToRow(source, existing);
     if (editingAssetIndex.value !== null) {
         assetItems.value[editingAssetIndex.value] = row;
     } else {
@@ -302,6 +336,91 @@ const saveAssetItem = () => {
     showAssetModal.value = false;
 };
 const removeAssetItem = (index) => assetItems.value.splice(index, 1);
+
+const ASSET_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
+
+const assetOptionChoices = ref({});
+
+const refreshAssetOptionChoices = async () => {
+    const next = { ...assetOptionChoices.value };
+    for (let i = 0; i < assetItems.value.length; i++) {
+        const asset = assetItems.value[i];
+        if (asset.itemable_type !== ASSET_ITEM_TYPE || !asset.itemable_id) {
+            delete next[i];
+            continue;
+        }
+        if (asset.has_variants && !asset.asset_variant_id) {
+            delete next[i];
+            continue;
+        }
+        try {
+            const { data } = await axios.get(route('asset-options.resolve-context'), {
+                params: {
+                    asset_id: asset.itemable_id,
+                    variant_id: asset.asset_variant_id || undefined,
+                },
+            });
+            next[i] = data.options || [];
+        } catch {
+            delete next[i];
+        }
+    }
+    assetOptionChoices.value = next;
+};
+
+const debouncedRefreshAssetOptionChoices = debounce(() => {
+    void refreshAssetOptionChoices();
+}, 350);
+
+watch(assetItems, () => debouncedRefreshAssetOptionChoices(), { deep: true });
+
+const metaForSelection = (index, optionId, valueId, taxable = true) => {
+    const opt = (assetOptionChoices.value[index] || []).find((o) => Number(o.option_id) === Number(optionId));
+    const val = opt?.values?.find((v) => Number(v.id) === Number(valueId));
+    const taxOk = taxable !== false && taxable !== 0 && taxable !== '0';
+    return {
+        option_id: Number(optionId),
+        option_value_id: Number(valueId),
+        option_name: opt?.name ?? '',
+        value_label: val?.label ?? '',
+        price: val?.price != null ? Number(val.price) : 0,
+        taxable: taxOk,
+    };
+};
+
+const ensureSelectionsArray = (asset) => {
+    if (!asset.selected_asset_options) asset.selected_asset_options = [];
+};
+
+const isAssetOptionSelected = (asset, optionId, valueId) =>
+    (asset.selected_asset_options || []).some(
+        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
+    );
+
+const toggleAssetOptionMulti = (asset, index, optionId, valueId, checked) => {
+    ensureSelectionsArray(asset);
+    const rest = asset.selected_asset_options.filter(
+        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
+    );
+    asset.selected_asset_options = checked
+        ? [...rest, metaForSelection(index, optionId, valueId)]
+        : rest;
+};
+
+const setAssetOptionSingle = (asset, index, optionId, valueId) => {
+    ensureSelectionsArray(asset);
+    const rest = asset.selected_asset_options.filter((s) => Number(s.option_id) !== Number(optionId));
+    asset.selected_asset_options = [...rest, metaForSelection(index, optionId, valueId, true)];
+};
+
+const removeAssetOptionSelection = (asset, optIdx) => {
+    ensureSelectionsArray(asset);
+    asset.selected_asset_options.splice(optIdx, 1);
+};
+
+const setAssetOptionsFillMode = (asset, mode) => {
+    asset.asset_options_fill_mode = mode;
+};
 
 // ─── Inventory items ─────────────────────────────────────────────────────────
 const inventoryItems = ref([]);
@@ -420,6 +539,8 @@ onMounted(() => {
                 variant_display_name: variantDisplayName,
                 asset_unit_id: unitId,
                 unit_display_name: unitDisplayName,
+                asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
+                selected_asset_options: hydrateAssetSelectionsFromItem(item),
             });
         } else if (item.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
             inventoryItems.value.push({
@@ -441,6 +562,7 @@ onMounted(() => {
             });
         }
     });
+    void refreshAssetOptionChoices();
 });
 
 // ─── Totals ───────────────────────────────────────────────────────────────────
@@ -450,7 +572,9 @@ const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 // Works for all item types; discount defaults to 0 for generic items.
 const lineBaseTotal = (item) => Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 const lineAddonsTotal = (item) => (item.addons || []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0);
-const lineTotal = (item) => lineBaseTotal(item) + lineAddonsTotal(item);
+const lineAssetOptionsPreTaxTotal = (item) =>
+    (item.selected_asset_options ?? []).reduce((s, o) => s + Number(o.price ?? 0), 0);
+const lineTotal = (item) => lineBaseTotal(item) + lineAddonsTotal(item) + lineAssetOptionsPreTaxTotal(item);
 
 const dealTaxRatePercent = () => Number(form.tax_rate) || 0;
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
@@ -465,8 +589,30 @@ const taxOnAddon = (addon) => {
     if (!addon.taxable || r <= 0) return 0;
     return roundMoney(addonPreTaxTotal(addon) * (r / 100));
 };
+
+const lineAssetSelectedOptions = (asset) => asset.selected_asset_options ?? [];
+
+const selectedOptionLabel = (opt) => {
+    const name = String(opt?.option_name ?? '').trim();
+    const val = String(opt?.value_label ?? '').trim();
+    if (name && val) return `${name}: ${val}`;
+    return name || val || 'Option';
+};
+
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
+
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+
+const taxOnAssetOptionRow = (opt) =>
+    taxOnAddon({ price: selectedOptionUnitPrice(opt), quantity: 1, taxable: optionRowTaxable(opt) });
+
+const taxOnAssetSelectionsForLine = (item) =>
+    (item.selected_asset_options ?? []).reduce((s, o) => s + taxOnAssetOptionRow(o), 0);
+
 const itemLineTaxTotal = (item) =>
-    taxOnItemBase(item) + (item.addons || []).reduce((s, a) => s + taxOnAddon(a), 0);
+    taxOnItemBase(item)
+    + (item.addons || []).reduce((acc, a) => acc + taxOnAddon(a), 0)
+    + taxOnAssetSelectionsForLine(item);
 
 /** Main line row “Total” only: base line + tax on base. Add-ons are separate rows and must not be included here. */
 const lineCoreTotalWithTax = (item) => lineBaseTotal(item) + taxOnItemBase(item);
@@ -597,8 +743,12 @@ const submit = () => {
                 type: 'asset',
                 itemable_type: item.itemable_type,
                 itemable_id: item.itemable_id || null,
-                asset_variant_id: item.asset_variant_id || null,
-                asset_unit_id: item.asset_unit_id || null,
+                asset_variant_id: item.asset_variant_id != null && item.asset_variant_id !== ''
+                    ? Number(item.asset_variant_id)
+                    : null,
+                asset_unit_id: item.asset_unit_id != null && item.asset_unit_id !== ''
+                    ? Number(item.asset_unit_id)
+                    : null,
                 name: item.name,
                 description: item.description || null,
                 quantity: Number(item.quantity) || 1,
@@ -607,6 +757,12 @@ const submit = () => {
                 position: idx,
                 taxable: !!item.taxable,
                 addons: mapAddons(item.addons),
+                asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
+                selected_asset_options: (item.selected_asset_options || []).map((s) => ({
+                    option_id: Number(s.option_id),
+                    option_value_id: Number(s.option_value_id),
+                    taxable: s.taxable !== false && s.taxable !== 0 && s.taxable !== '0',
+                })),
             }));
             inventoryItems.value.forEach((item, idx) => {
                 const legacyLine = item._txnLineType === 'line';
@@ -1050,6 +1206,132 @@ const handleCancel = () => emit('cancel');
                                         <span class="material-icons text-base">delete</span>
                                     </button>
                                 </div>
+                            </td>
+                        </tr>
+                        <tr
+                            v-if="mode !== 'show' && (assetOptionChoices[index] || []).length > 0"
+                            class="bg-slate-50/90 dark:bg-slate-900/30"
+                        >
+                            <td colspan="10" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                        Boat options
+                                    </div>
+                                    <div
+                                        class="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 bg-white dark:bg-gray-800 shadow-sm"
+                                        role="group"
+                                        aria-label="Who selects boat options"
+                                    >
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                            :class="
+                                                (asset.asset_options_fill_mode || 'staff') !== 'customer'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                            "
+                                            @click="setAssetOptionsFillMode(asset, 'staff')"
+                                        >
+                                            Staff selects here
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                            :class="
+                                                (asset.asset_options_fill_mode || 'staff') === 'customer'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                            "
+                                            @click="setAssetOptionsFillMode(asset, 'customer')"
+                                        >
+                                            Email customer
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <template v-if="(asset.asset_options_fill_mode || 'staff') !== 'customer'">
+                                    <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ opt.name }}
+                                            <span v-if="opt.is_required" class="text-red-500">*</span>
+                                        </div>
+                                        <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                            <label
+                                                v-for="v in opt.values"
+                                                :key="v.id"
+                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    :checked="isAssetOptionSelected(asset, opt.option_id, v.id)"
+                                                    @change="toggleAssetOptionMulti(asset, index, opt.option_id, v.id, $event.target.checked)"
+                                                />
+                                                <span>{{ v.label }}</span>
+                                                <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
+                                            </label>
+                                        </div>
+                                        <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                            <label
+                                                v-for="v in opt.values"
+                                                :key="v.id"
+                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    :name="`txn-ao-${index}-${opt.option_id}`"
+                                                    :checked="isAssetOptionSelected(asset, opt.option_id, v.id)"
+                                                    @change="setAssetOptionSingle(asset, index, opt.option_id, v.id)"
+                                                />
+                                                <span
+                                                    v-if="v.color_hex"
+                                                    class="inline-block h-4 w-4 rounded border border-gray-300"
+                                                    :style="{ backgroundColor: v.color_hex }"
+                                                />
+                                                <span>{{ v.label }}</span>
+                                                <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </template>
+                                <p v-else class="text-sm text-gray-600 dark:text-gray-400">
+                                    Boat options will be collected from the customer (email flow).
+                                </p>
+                            </td>
+                        </tr>
+                        <tr
+                            v-for="(opt, optIdx) in lineAssetSelectedOptions(asset)"
+                            :key="`asset-opt-${index}-${optIdx}`"
+                            class="bg-sky-50/80 dark:bg-sky-900/10"
+                        >
+                            <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                                <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                            </td>
+                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">1</td>
+                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                            <td class="px-4 py-2 text-center">
+                                <input
+                                    v-if="mode !== 'show'"
+                                    v-model="opt.taxable"
+                                    type="checkbox"
+                                    class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                                    title="Tax applies to this boat option"
+                                />
+                                <span v-else class="text-xs text-gray-500 dark:text-gray-400">{{ optionRowTaxable(opt) ? 'Yes' : 'No' }}</span>
+                            </td>
+                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAssetOptionRow(opt)) }}</td>
+                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOptionRow(opt)) }}</td>
+                            <td></td>
+                            <td v-if="mode !== 'show'" class="px-4 py-2 text-right">
+                                <button
+                                    type="button"
+                                    title="Remove this boat option from the deal line"
+                                    class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
+                                    @click="removeAssetOptionSelection(asset, optIdx)"
+                                >
+                                    <span class="material-icons text-base">close</span>
+                                </button>
                             </td>
                         </tr>
                         <tr

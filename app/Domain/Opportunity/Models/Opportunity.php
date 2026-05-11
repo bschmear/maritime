@@ -6,6 +6,7 @@ use App\Domain\AssetVariant\Models\AssetVariant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -87,7 +88,7 @@ class Opportunity extends Model
             'asset_opportunity',
             'opportunity_id',
             'asset_id'
-        )->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id')->withTimestamps();
+        )->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id', 'asset_unit_id')->withTimestamps();
     }
 
     /**
@@ -115,6 +116,62 @@ class Opportunity extends Model
         }
     }
 
+    /**
+     * Attach persisted option snapshots and add-ons onto loaded asset/inventory relations for Inertia JSON.
+     */
+    public static function attachLineItemSnapshotsForJson(self $record): void
+    {
+        $record->loadMissing(['assets', 'inventoryItems']);
+
+        $assets = $record->assets;
+        if ($assets->isNotEmpty()) {
+            $pivotIds = $assets->pluck('pivot.id')->filter()->values();
+            $options = OpportunityAssetSelectedOption::query()
+                ->whereIn('asset_opportunity_id', $pivotIds)
+                ->get()
+                ->groupBy('asset_opportunity_id');
+            $assetAddons = OpportunityAssetAddon::query()
+                ->whereIn('asset_opportunity_id', $pivotIds)
+                ->get()
+                ->groupBy('asset_opportunity_id');
+
+            foreach ($assets as $asset) {
+                $pid = $asset->pivot->id ?? null;
+                if ($pid === null) {
+                    continue;
+                }
+                $asset->setAttribute(
+                    'opportunity_selected_options',
+                    ($options->get($pid) ?? collect())->values()->all()
+                );
+                $asset->setAttribute(
+                    'opportunity_addons',
+                    ($assetAddons->get($pid) ?? collect())->values()->all()
+                );
+            }
+        }
+
+        $inventory = $record->inventoryItems;
+        if ($inventory->isNotEmpty()) {
+            $pivotIds = $inventory->pluck('pivot.id')->filter()->values();
+            $invAddons = OpportunityInventoryAddon::query()
+                ->whereIn('inventory_item_opportunity_id', $pivotIds)
+                ->get()
+                ->groupBy('inventory_item_opportunity_id');
+
+            foreach ($inventory as $item) {
+                $pid = $item->pivot->id ?? null;
+                if ($pid === null) {
+                    continue;
+                }
+                $item->setAttribute(
+                    'opportunity_addons',
+                    ($invAddons->get($pid) ?? collect())->values()->all()
+                );
+            }
+        }
+    }
+
     public function inventoryItems(): BelongsToMany
     {
         return $this->belongsToMany(
@@ -122,12 +179,17 @@ class Opportunity extends Model
             'inventory_item_opportunity',
             'opportunity_id',
             'inventory_item_id'
-        )->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes')->withTimestamps();
+        )->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes')->withTimestamps();
     }
 
     public function inventory_items(): BelongsToMany
     {
         return $this->inventoryItems();
+    }
+
+    public function featureRequests(): HasMany
+    {
+        return $this->hasMany(OpportunityFeatureRequest::class)->orderByDesc('submitted_at');
     }
 
     public function getDisplayNameAttribute()

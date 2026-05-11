@@ -2,14 +2,24 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\AddOn\Models\AddOn;
+use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Estimate\Models\EstimateCustomerOptionSignoff;
+use App\Domain\Estimate\Support\EstimateSyncPayloadFromVersion;
+use App\Domain\Estimate\Support\RecalculateEstimateVersionTotals;
+use App\Domain\FeatureRequest\Models\FeatureRequestInvite;
 use App\Domain\Invoice\Actions\FulfillPublicInvoiceCheckoutSession;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
+use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Opportunity\Models\OpportunityAssetAddon;
+use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
@@ -23,12 +33,17 @@ use App\Enums\WarrantyClaim\LineItemCostType;
 use App\Enums\WarrantyClaim\Status as WarrantyClaimStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
+use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
 use App\Services\Payments\StripeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -322,6 +337,7 @@ class PublicController extends Controller
                 'customer',
                 'user',
                 'opportunity',
+                'selectedAssetOptions',
                 'primaryVersion.lineItems' => fn ($q) => $q->with([
                     'addons',
                     'assetVariant',
@@ -344,6 +360,7 @@ class PublicController extends Controller
         $recordArray['subtotal'] = (float) ($estimate->primaryVersion?->subtotal ?? 0);
         $recordArray['tax'] = (float) ($estimate->primaryVersion?->tax ?? 0);
         $recordArray['total'] = (float) ($estimate->primaryVersion?->total ?? 0);
+        $recordArray['tax_rate'] = (float) ($estimate->tax_rate ?? $estimate->primaryVersion?->tax_rate ?? 0);
 
         return Inertia::render('Tenant/Public/EstimateReview', [
             'record' => $recordArray,
@@ -404,6 +421,632 @@ class PublicController extends Controller
         $this->notifications->notifyEstimateDeclined($estimate, AccountSettings::getCurrent());
 
         return back();
+    }
+
+    public function boatOptionsEstimate(Request $request, string $uuid, int $line)
+    {
+        $estimate = Estimate::where('uuid', $uuid)
+            ->with([
+                'customer',
+                'primaryVersion.lineItems',
+            ])
+            ->firstOrFail();
+
+        $version = $estimate->primaryVersion;
+        if ($version === null) {
+            abort(404);
+        }
+
+        $lineItem = $version->lineItems->firstWhere('position', $line);
+        if ($lineItem === null || ($lineItem->itemable_type ?? '') !== Asset::class) {
+            abort(404);
+        }
+
+        if (($lineItem->asset_options_fill_mode ?? 'staff') !== 'customer') {
+            abort(403, 'Boat options are not open for customer selection on this line.');
+        }
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $account->logo_url ?? null;
+
+        $asset = Asset::query()->with('make:id,display_name')->find((int) $lineItem->itemable_id);
+        if ($asset === null) {
+            abort(404);
+        }
+
+        $variantId = $lineItem->asset_variant_id ? (int) $lineItem->asset_variant_id : null;
+        $variant = $variantId
+            ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
+            : null;
+
+        $assetSummary = [
+            'display_name' => $asset->display_name ?? $lineItem->name,
+            'variant_label' => $variant ? ($variant->display_name ?: $variant->name) : null,
+            'year' => $asset->year,
+            'make_name' => $asset->make?->display_name,
+        ];
+
+        if ($lineItem->customer_asset_options_completed_at) {
+            return Inertia::render('Tenant/Public/BoatOptionsSelect', [
+                'context' => 'estimate',
+                'formTitle' => 'Boat options',
+                'recordLabel' => $estimate->display_name,
+                'estimate' => [
+                    'id' => $estimate->id,
+                    'uuid' => $estimate->uuid,
+                    'display_name' => $estimate->display_name,
+                ],
+                'lineItem' => [
+                    'position' => (int) $lineItem->position,
+                    'name' => $lineItem->name,
+                    'completed_at' => $lineItem->customer_asset_options_completed_at->toISOString(),
+                    'signer_name' => $lineItem->customer_asset_options_signer_name,
+                ],
+                'assetSummary' => $assetSummary,
+                'account' => $account,
+                'logoUrl' => $logoUrl,
+                'options' => [],
+                'addonsOffered' => [],
+                'includeAddonsInForm' => false,
+                'submitUrl' => null,
+                'alreadyCompleted' => true,
+            ]);
+        }
+
+        $resolver = app(AssetOptionResolver::class);
+        $options = $resolver->resolve($asset, $variant);
+
+        $submitUrl = URL::temporarySignedRoute(
+            'estimates.boat-options.submit',
+            now()->addDays(30),
+            ['uuid' => $estimate->uuid, 'line' => $line]
+        );
+
+        return Inertia::render('Tenant/Public/BoatOptionsSelect', [
+            'context' => 'estimate',
+            'formTitle' => 'Boat options',
+            'recordLabel' => $estimate->display_name,
+            'estimate' => [
+                'id' => $estimate->id,
+                'uuid' => $estimate->uuid,
+                'display_name' => $estimate->display_name,
+            ],
+            'lineItem' => [
+                'position' => (int) $lineItem->position,
+                'name' => $lineItem->name,
+            ],
+            'assetSummary' => $assetSummary,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'options' => $options,
+            'addonsOffered' => [],
+            'includeAddonsInForm' => false,
+            'submitUrl' => $submitUrl,
+            'alreadyCompleted' => false,
+        ]);
+    }
+
+    public function submitBoatOptionsEstimate(Request $request, string $uuid, int $line)
+    {
+        $validated = $request->validate([
+            'selections' => ['required', 'array'],
+            'selections.*.option_id' => ['required', 'integer'],
+            'selections.*.option_value_id' => ['required', 'integer'],
+            'signer_name' => ['required', 'string', 'max:255'],
+            'confirm' => ['sometimes'],
+        ]);
+
+        if (! $request->boolean('confirm')) {
+            throw ValidationException::withMessages([
+                'confirm' => 'Please confirm your selections before submitting.',
+            ]);
+        }
+
+        $estimate = Estimate::where('uuid', $uuid)->firstOrFail();
+
+        $estimate->loadMissing(['primaryVersion.lineItems']);
+        $version = $estimate->primaryVersion;
+        if ($version === null) {
+            abort(404);
+        }
+
+        $lineItem = $version->lineItems->firstWhere('position', $line);
+        if ($lineItem === null || ($lineItem->itemable_type ?? '') !== Asset::class) {
+            abort(404);
+        }
+
+        if (($lineItem->asset_options_fill_mode ?? 'staff') !== 'customer') {
+            abort(403);
+        }
+
+        if ($lineItem->customer_asset_options_completed_at) {
+            return back()->withErrors(['error' => 'Options have already been submitted for this line.']);
+        }
+
+        $payload = EstimateSyncPayloadFromVersion::forSelectedOptionSync($estimate);
+        $merged = $payload['selected_asset_options'];
+        $found = false;
+        foreach ($merged as $i => $group) {
+            if ((int) $group['line_position'] === $line) {
+                $merged[$i]['selections'] = $validated['selections'];
+                $found = true;
+                break;
+            }
+        }
+        if (! $found) {
+            $merged[] = [
+                'line_position' => $line,
+                'selections' => $validated['selections'],
+            ];
+        }
+
+        $lineItemsForSync = $payload['line_items'];
+        if (isset($lineItemsForSync[$line])) {
+            $lineItemsForSync[$line]['asset_options_fill_mode'] = 'staff';
+        }
+
+        app(EstimateSelectedOptionSync::class)->sync(
+            $estimate,
+            $lineItemsForSync,
+            $payload['asset_line_items_by_position'],
+            $merged,
+        );
+
+        $taxRate = (float) ($estimate->tax_rate ?? $version->tax_rate ?? 0);
+        RecalculateEstimateVersionTotals::apply($estimate->primaryVersion->fresh(), $taxRate);
+
+        $lineItem->refresh();
+
+        $lineItem->update([
+            'customer_asset_options_completed_at' => now(),
+            'customer_asset_options_signer_name' => $validated['signer_name'],
+            'customer_asset_options_signer_ip' => $request->ip(),
+        ]);
+
+        EstimateCustomerOptionSignoff::query()->create([
+            'estimate_id' => $estimate->id,
+            'transaction_line_item_id' => $lineItem->id,
+            'signer_name' => $validated['signer_name'],
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'signed_at' => now(),
+        ]);
+
+        return redirect()->to(URL::temporarySignedRoute(
+            'estimates.boat-options',
+            now()->addMinutes(30),
+            ['uuid' => $estimate->uuid, 'line' => $line]
+        ));
+    }
+
+    public function featureRequestInviteShow(Request $request, FeatureRequestInvite $invite): Response
+    {
+        return match ($invite->source) {
+            'opportunity' => $this->renderOpportunityFeatureRequestPageFromInvite($invite),
+            default => abort(404),
+        };
+    }
+
+    public function featureRequestInviteSubmit(Request $request, FeatureRequestInvite $invite): \Illuminate\Http\RedirectResponse
+    {
+        return match ($invite->source) {
+            'opportunity' => $this->submitOpportunityFeatureRequestFromInvite($request, $invite),
+            default => abort(404),
+        };
+    }
+
+    public function featureRequestOpportunity(Request $request, string $uuid, int $assetOpportunity, int $includeAddonsFlag): Response
+    {
+        $includeAddons = $includeAddonsFlag === 1;
+
+        $opportunity = Opportunity::where('uuid', $uuid)->with('customer')->firstOrFail();
+
+        $pivot = DB::table('asset_opportunity')
+            ->where('id', $assetOpportunity)
+            ->where('opportunity_id', $opportunity->id)
+            ->first();
+
+        if ($pivot === null) {
+            abort(404);
+        }
+
+        return $this->renderOpportunityFeatureRequestPage($opportunity, $pivot, $includeAddons, null);
+    }
+
+    private function renderOpportunityFeatureRequestPageFromInvite(FeatureRequestInvite $invite): Response
+    {
+        $opportunity = Opportunity::with('customer')->findOrFail($invite->opportunity_id);
+
+        $pivot = DB::table('asset_opportunity')
+            ->where('id', $invite->asset_opportunity_id)
+            ->where('opportunity_id', $opportunity->id)
+            ->first();
+
+        abort_if($pivot === null, 404);
+
+        return $this->renderOpportunityFeatureRequestPage($opportunity, $pivot, $invite->include_addons, $invite);
+    }
+
+    private function renderOpportunityFeatureRequestPage(
+        Opportunity $opportunity,
+        object $pivot,
+        bool $includeAddons,
+        ?FeatureRequestInvite $invite
+    ): Response {
+        $asset = Asset::query()->with('make:id,display_name')->find((int) $pivot->asset_id);
+        if ($asset === null) {
+            abort(404);
+        }
+
+        $variantId = $pivot->asset_variant_id ? (int) $pivot->asset_variant_id : null;
+        $variant = $variantId
+            ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
+            : null;
+
+        $variantLabel = $variant ? ($variant->display_name ?: $variant->name) : null;
+
+        $account = AccountSettings::getCurrent();
+        $logoUrl = $account->logo_url ?? null;
+
+        $completedRaw = $pivot->feature_request_completed_at ?? null;
+
+        $lastSubmission = OpportunityFeatureRequest::query()
+            ->where('asset_opportunity_id', $pivot->id)
+            ->orderByDesc('submitted_at')
+            ->first();
+
+        if ($completedRaw) {
+            return Inertia::render('Tenant/Public/BoatOptionsSelect', [
+                'context' => 'opportunity',
+                'formTitle' => 'Feature Request Form',
+                'recordLabel' => $opportunity->display_name,
+                'estimate' => null,
+                'lineItem' => [
+                    'position' => 0,
+                    'name' => $asset->display_name ?? $asset->name ?? 'Asset',
+                    'completed_at' => \Carbon\Carbon::parse((string) $completedRaw)->toISOString(),
+                    'signer_name' => $lastSubmission?->signer_name,
+                ],
+                'assetSummary' => [
+                    'display_name' => $asset->display_name ?? $asset->name,
+                    'variant_label' => $variantLabel,
+                    'year' => $asset->year,
+                    'make_name' => $asset->make?->display_name,
+                ],
+                'account' => $account,
+                'logoUrl' => $logoUrl,
+                'options' => [],
+                'addonsOffered' => [],
+                'includeAddonsInForm' => false,
+                'submitUrl' => null,
+                'alreadyCompleted' => true,
+            ]);
+        }
+
+        $resolver = app(AssetOptionResolver::class);
+        $options = $resolver->resolve($asset, $variant);
+
+        $addonsOffered = [];
+        if ($includeAddons) {
+            $allowedCatalogIds = $this->whitelistCatalogIdsFromInviteOrPivot($invite, $pivot);
+            if ($allowedCatalogIds !== []) {
+                $addonsOffered = AddOn::query()
+                    ->whereIn('id', $allowedCatalogIds)
+                    ->orderBy('name')
+                    ->get()
+                    ->map(fn (AddOn $a) => [
+                        'catalog_addon_id' => $a->id,
+                        'name' => $a->name,
+                        'price' => (float) ($a->default_price ?? 0),
+                        'quantity_default' => 1,
+                    ])
+                    ->values()
+                    ->all();
+            }
+        }
+
+        $showAddonSection = $includeAddons && $addonsOffered !== [];
+
+        $submitExpiry = now()->addDays(30);
+        $submitUrl = $invite !== null
+            ? URL::temporarySignedRoute('featurerequest.submit', $submitExpiry, ['invite' => $invite->uuid])
+            : URL::temporarySignedRoute(
+                'opportunities.feature-request.submit',
+                $submitExpiry,
+                [
+                    'uuid' => $opportunity->uuid,
+                    'assetOpportunity' => $pivot->id,
+                    'includeAddons' => $includeAddons ? 1 : 0,
+                ]
+            );
+
+        return Inertia::render('Tenant/Public/BoatOptionsSelect', [
+            'context' => 'opportunity',
+            'formTitle' => 'Feature Request Form',
+            'recordLabel' => $opportunity->display_name,
+            'estimate' => null,
+            'lineItem' => [
+                'position' => 0,
+                'name' => $asset->display_name ?? $asset->name ?? 'Asset',
+            ],
+            'assetSummary' => [
+                'display_name' => $asset->display_name ?? $asset->name,
+                'variant_label' => $variantLabel,
+                'year' => $asset->year,
+                'make_name' => $asset->make?->display_name,
+            ],
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'options' => $options,
+            'addonsOffered' => $addonsOffered,
+            'includeAddonsInForm' => $showAddonSection,
+            'submitUrl' => $submitUrl,
+            'alreadyCompleted' => false,
+        ]);
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function whitelistCatalogIdsFromInviteOrPivot(?FeatureRequestInvite $invite, object $pivot): array
+    {
+        if ($invite !== null && is_array($invite->addon_catalog_ids) && $invite->addon_catalog_ids !== []) {
+            return array_values(array_unique(array_map('intval', $invite->addon_catalog_ids)));
+        }
+
+        return $this->resolveFeatureRequestAddonWhitelistCatalogIds($pivot);
+    }
+
+    public function submitFeatureRequestOpportunity(Request $request, string $uuid, int $assetOpportunity, int $includeAddonsFlag): \Illuminate\Http\RedirectResponse
+    {
+        $includeAddons = $includeAddonsFlag === 1;
+
+        $rules = [
+            'selections' => ['required', 'array'],
+            'selections.*.option_id' => ['required', 'integer'],
+            'selections.*.option_value_id' => ['required', 'integer'],
+            'signer_name' => ['required', 'string', 'max:255'],
+            'confirm' => ['sometimes'],
+        ];
+
+        if ($includeAddons) {
+            $rules['addon_selections'] = ['nullable', 'array'];
+            $rules['addon_selections.*.quantity'] = ['required', 'integer', 'min:1'];
+            $rules['addon_selections.*.catalog_addon_id'] = ['sometimes', 'nullable', 'integer'];
+            $rules['addon_selections.*.opportunity_asset_addon_id'] = ['sometimes', 'nullable', 'integer'];
+        }
+
+        $validated = $request->validate($rules);
+
+        if (! $request->boolean('confirm')) {
+            throw ValidationException::withMessages([
+                'confirm' => 'Please confirm before submitting.',
+            ]);
+        }
+
+        $opportunity = Opportunity::where('uuid', $uuid)->firstOrFail();
+
+        $pivot = DB::table('asset_opportunity')
+            ->where('id', $assetOpportunity)
+            ->where('opportunity_id', $opportunity->id)
+            ->first();
+
+        if ($pivot === null) {
+            abort(404);
+        }
+
+        return $this->completeOpportunityFeatureRequestSubmission($request, $opportunity, $pivot, $includeAddons, null, $validated);
+    }
+
+    private function submitOpportunityFeatureRequestFromInvite(Request $request, FeatureRequestInvite $invite): \Illuminate\Http\RedirectResponse
+    {
+        $rules = [
+            'selections' => ['required', 'array'],
+            'selections.*.option_id' => ['required', 'integer'],
+            'selections.*.option_value_id' => ['required', 'integer'],
+            'signer_name' => ['required', 'string', 'max:255'],
+            'confirm' => ['sometimes'],
+        ];
+
+        if ($invite->include_addons) {
+            $rules['addon_selections'] = ['nullable', 'array'];
+            $rules['addon_selections.*.quantity'] = ['required', 'integer', 'min:1'];
+            $rules['addon_selections.*.catalog_addon_id'] = ['sometimes', 'nullable', 'integer'];
+            $rules['addon_selections.*.opportunity_asset_addon_id'] = ['sometimes', 'nullable', 'integer'];
+        }
+
+        $validated = $request->validate($rules);
+
+        if (! $request->boolean('confirm')) {
+            throw ValidationException::withMessages([
+                'confirm' => 'Please confirm before submitting.',
+            ]);
+        }
+
+        $opportunity = Opportunity::findOrFail($invite->opportunity_id);
+
+        $pivot = DB::table('asset_opportunity')
+            ->where('id', $invite->asset_opportunity_id)
+            ->where('opportunity_id', $opportunity->id)
+            ->first();
+
+        abort_if($pivot === null, 404);
+
+        return $this->completeOpportunityFeatureRequestSubmission(
+            $request,
+            $opportunity,
+            $pivot,
+            $invite->include_addons,
+            $invite,
+            $validated
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function completeOpportunityFeatureRequestSubmission(
+        Request $request,
+        Opportunity $opportunity,
+        object $pivot,
+        bool $includeAddons,
+        ?FeatureRequestInvite $invite,
+        array $validated
+    ): \Illuminate\Http\RedirectResponse {
+        if ($pivot->feature_request_completed_at ?? null) {
+            return back()->withErrors(['error' => 'A response has already been submitted for this request.']);
+        }
+
+        $asset = Asset::query()->with('make:id,display_name')->find((int) $pivot->asset_id);
+        abort_if($asset === null, 404);
+
+        $variantId = $pivot->asset_variant_id ? (int) $pivot->asset_variant_id : null;
+        $variant = $variantId
+            ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
+            : null;
+
+        $resolver = app(AssetOptionResolver::class);
+        $resolved = $resolver->resolve($asset, $variant);
+
+        $this->validatePublicAssetSelections($resolved, $validated['selections']);
+
+        $addonPayload = [];
+        if ($includeAddons) {
+            $allowedCatalogIds = $this->whitelistCatalogIdsFromInviteOrPivot($invite, $pivot);
+            $allowedCatalogIdSet = array_fill_keys($allowedCatalogIds, true);
+
+            foreach ($validated['addon_selections'] ?? [] as $row) {
+                $qty = max(1, (int) ($row['quantity'] ?? 1));
+                $catalogId = null;
+
+                if (! empty($row['catalog_addon_id'])) {
+                    $catalogId = (int) $row['catalog_addon_id'];
+                } elseif (! empty($row['opportunity_asset_addon_id'])) {
+                    $oaa = OpportunityAssetAddon::query()
+                        ->where('asset_opportunity_id', $pivot->id)
+                        ->whereKey((int) $row['opportunity_asset_addon_id'])
+                        ->first();
+                    $catalogId = $oaa?->addon_id !== null ? (int) $oaa->addon_id : null;
+                }
+
+                if ($catalogId === null) {
+                    throw ValidationException::withMessages(['addon_selections' => 'Invalid add-on selection.']);
+                }
+
+                if (! isset($allowedCatalogIdSet[$catalogId])) {
+                    throw ValidationException::withMessages(['addon_selections' => 'Invalid add-on selection.']);
+                }
+
+                $addonPayload[] = [
+                    'catalog_addon_id' => $catalogId,
+                    'quantity' => $qty,
+                ];
+            }
+        }
+
+        $variantLabel = $variant ? ($variant->display_name ?: $variant->name) : null;
+
+        $submission = DB::transaction(function () use (
+            $opportunity,
+            $pivot,
+            $includeAddons,
+            $asset,
+            $variantLabel,
+            $validated,
+            $addonPayload,
+            $request
+        ): OpportunityFeatureRequest {
+            $submission = OpportunityFeatureRequest::query()->create([
+                'opportunity_id' => $opportunity->id,
+                'asset_opportunity_id' => $pivot->id,
+                'include_addons' => $includeAddons,
+                'asset_display_name' => $asset->display_name ?? $asset->name,
+                'variant_label' => $variantLabel,
+                'asset_option_selections' => $validated['selections'],
+                'addon_selections' => $addonPayload !== [] ? $addonPayload : null,
+                'signer_name' => $validated['signer_name'],
+                'signer_ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'submitted_at' => now(),
+            ]);
+
+            DB::table('asset_opportunity')
+                ->where('id', $pivot->id)
+                ->update(['feature_request_completed_at' => now()]);
+
+            return $submission;
+        });
+
+        try {
+            $this->notifications->notifyOpportunityFeatureRequestSubmitted(
+                $opportunity->fresh(['customer', 'salesperson']),
+                $submission,
+                AccountSettings::getCurrent()
+            );
+        } catch (\Throwable $e) {
+            Log::error('Failed to notify salesperson of feature request submission', [
+                'opportunity_id' => $opportunity->id,
+                'feature_request_id' => $submission->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $thanksExpiry = now()->addMinutes(30);
+
+        if ($invite !== null) {
+            return redirect()->to(URL::temporarySignedRoute(
+                'featurerequest.show',
+                $thanksExpiry,
+                ['invite' => $invite->uuid]
+            ));
+        }
+
+        return redirect()->to(URL::temporarySignedRoute(
+            'opportunities.feature-request.show',
+            $thanksExpiry,
+            [
+                'uuid' => $opportunity->uuid,
+                'assetOpportunity' => $pivot->id,
+                'includeAddons' => $includeAddons ? 1 : 0,
+            ]
+        ));
+    }
+
+    /**
+     * Resolve catalog add-on IDs allowed for this feature-request invite.
+     * New invites store catalog `addons.id` values in JSON; legacy rows stored opportunity_asset_addon ids.
+     *
+     * @return array<int>
+     */
+    private function resolveFeatureRequestAddonWhitelistCatalogIds(object $pivot): array
+    {
+        $raw = $pivot->feature_request_addon_ids ?? null;
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $ids = is_string($raw) ? json_decode($raw, true) : $raw;
+        if (! is_array($ids) || $ids === []) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+
+        $catalogMatches = AddOn::query()->whereIn('id', $ids)->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if ($catalogMatches !== []) {
+            return array_values(array_intersect($ids, $catalogMatches));
+        }
+
+        return OpportunityAssetAddon::query()
+            ->where('asset_opportunity_id', $pivot->id)
+            ->whereIn('id', $ids)
+            ->get()
+            ->pluck('addon_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -814,18 +1457,57 @@ class PublicController extends Controller
         return Inertia::location($checkoutUrl);
     }
 
+    private function validatePublicAssetSelections(Collection $resolved, array $selections): void
+    {
+        $byOption = collect($selections)->groupBy(fn ($s) => (int) $s['option_id']);
+
+        foreach ($resolved as $opt) {
+            $oid = (int) $opt['option_id'];
+            $required = (bool) ($opt['is_required'] ?? false);
+            $picked = $byOption->get($oid, collect());
+            if ($required && $picked->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'selections' => 'Option "'.($opt['name'] ?? 'Unknown').'" is required.',
+                ]);
+            }
+
+            foreach ($picked as $row) {
+                $vid = (int) $row['option_value_id'];
+                $match = collect($opt['values'] ?? [])->firstWhere('id', $vid);
+                if ($match === null) {
+                    throw ValidationException::withMessages([
+                        'selections' => 'Invalid selection for "'.($opt['name'] ?? 'Unknown').'".',
+                    ]);
+                }
+            }
+        }
+    }
+
     private function buildLineItems(Estimate $estimate): array
     {
         if (! $estimate->primaryVersion) {
             return [];
         }
 
-        return $estimate->primaryVersion->lineItems->map(function ($li) {
+        $estimate->loadMissing('selectedAssetOptions');
+
+        $optionsByLineId = $estimate->selectedAssetOptions->groupBy('transaction_line_item_id');
+
+        return $estimate->primaryVersion->lineItems->map(function ($li) use ($optionsByLineId) {
             $v = $li->assetVariant;
             $variantLabel = $v ? ($v->display_name ?: $v->name) : null;
             if ($variantLabel === null && $li->asset_variant_id) {
                 $variantLabel = 'Variant #'.$li->asset_variant_id;
             }
+
+            $selectedOptions = ($optionsByLineId->get($li->id) ?? collect())
+                ->map(fn ($s) => [
+                    'option_name' => $s->option_name,
+                    'value_label' => $s->value_label,
+                    'price' => (float) $s->price,
+                ])
+                ->values()
+                ->all();
 
             return [
                 'id' => $li->id,
@@ -838,6 +1520,7 @@ class PublicController extends Controller
                 'unit_price' => (float) $li->unit_price,
                 'discount' => (float) ($li->discount ?? 0),
                 'line_total' => (float) $li->line_total,
+                'selected_options' => $selectedOptions,
                 'addons' => $li->addons->map(fn ($a) => [
                     'id' => $a->id,
                     'name' => $a->name,

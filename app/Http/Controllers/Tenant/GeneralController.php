@@ -32,6 +32,7 @@ class GeneralController extends BaseController
             'addon' => 'AddOn',
             // Str::studly('boatmake') is "Boatmake" but the domain / model is BoatMake
             'boatmake' => 'BoatMake',
+            'assetoption' => 'AssetOption',
             'delivery_location' => 'DeliveryLocation',
             'deliverylocation' => 'DeliveryLocation',
             'maintenancetype' => 'MaintenanceType',
@@ -89,6 +90,10 @@ class GeneralController extends BaseController
                 // display_name and address* accessors need contact + primary address; never select legacy
                 // address columns on this table. Customer::$with loads contact.primaryAddress.
                 $columns[] = 'contact_id';
+            } elseif ($typeKey === 'assetoption') {
+                $columns[] = 'name';
+                $columns[] = 'input_type';
+                $columns[] = 'active';
             }
         }
 
@@ -131,6 +136,10 @@ class GeneralController extends BaseController
         }
 
         $query = $recordModel->select(array_unique($columns));
+
+        if ($typeKey === 'assetoption') {
+            $query->where($recordModel->getTable().'.active', true);
+        }
 
         // Load relationships for models that need them for display names
         if ($type === 'assetunit') {
@@ -262,6 +271,9 @@ class GeneralController extends BaseController
                     $q->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm])
                         ->orWhereRaw('LOWER(COALESCE(category, \'\')) LIKE ?', [$searchTerm]);
                 });
+            } elseif ($typeKey === 'assetoption') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
@@ -328,6 +340,9 @@ class GeneralController extends BaseController
                     ->orderBy('inventory_items.display_name')
                     ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
             } elseif ($typeKey === 'addon') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('name', $dir);
+            } elseif ($typeKey === 'assetoption') {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {

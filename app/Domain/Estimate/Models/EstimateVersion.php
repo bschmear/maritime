@@ -4,7 +4,7 @@ namespace App\Domain\Estimate\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class EstimateVersion extends Model
 {
@@ -40,12 +40,12 @@ class EstimateVersion extends Model
         return $this->belongsTo(EstimateVersion::class, 'copied_from_version_id');
     }
 
-    public function lineItems(): HasMany
+    public function lineItems(): MorphMany
     {
-        return $this->hasMany(EstimateLineItem::class, 'estimate_version_id');
+        return $this->morphMany(EstimateLineItem::class, 'parent')->orderBy('position')->orderBy('id');
     }
 
-    public function line_items(): HasMany
+    public function line_items(): MorphMany
     {
         return $this->lineItems();
     }

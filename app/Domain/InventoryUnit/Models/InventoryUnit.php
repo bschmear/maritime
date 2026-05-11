@@ -2,12 +2,12 @@
 
 namespace App\Domain\InventoryUnit\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use App\Domain\InventoryItem\Models\InventoryItem;
-use App\Domain\Vendor\Models\Vendor;
-use App\Domain\Location\Models\Location;
 use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\InventoryItem\Models\InventoryItem;
+use App\Domain\Location\Models\Location;
+use App\Domain\Vendor\Models\Vendor;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Model;
 
 class InventoryUnit extends Model
 {
@@ -56,6 +56,7 @@ class InventoryUnit extends Model
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
+
     /**
      * Optional vendor (consignment)
      */
@@ -81,12 +82,12 @@ class InventoryUnit extends Model
         $itemName = $this->inventoryItem?->display_name ?? 'Unknown Item';
         $unitIdentifier = '';
 
-        // Priority: Serial Number > Hull ID > SKU > "Unit #{id}"
-        if (!empty($this->serial_number)) {
+        // Priority: Hull ID (HIN) > Serial Number > SKU > "Unit #{id}"
+        if (! empty($this->hin)) {
+            $unitIdentifier = "Hull ID: {$this->hin}";
+        } elseif (! empty($this->serial_number)) {
             $unitIdentifier = "SN: {$this->serial_number}";
-        } elseif (!empty($this->hin)) {
-            $unitIdentifier = "HIN: {$this->hin}";
-        } elseif (!empty($this->sku)) {
+        } elseif (! empty($this->sku)) {
             $unitIdentifier = "SKU: {$this->sku}";
         } else {
             $unitIdentifier = "Unit #{$this->id}";
@@ -99,5 +100,4 @@ class InventoryUnit extends Model
     {
         return $this->morphMany(InventoryImage::class, 'imageable');
     }
-
 }

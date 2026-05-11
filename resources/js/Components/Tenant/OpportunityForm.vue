@@ -1,10 +1,31 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import axios from 'axios';
+import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+
+const mapOppAddonsFromApi = (rows) =>
+    (rows || []).map((a) => ({
+        addon_id: a.addon_id ?? null,
+        name: a.name ?? '',
+        price: Number(a.price) || 0,
+        quantity: Number(a.quantity) || 1,
+        notes: a.notes ?? '',
+        metadata: a.metadata ?? null,
+    }));
+
+const mapOppSelectionsFromApi = (rows) =>
+    (rows || []).map((r) => ({
+        option_id: r.option_id,
+        option_value_id: r.option_value_id,
+    }));
+
+const sumSnapshotOptionPrices = (rows) =>
+    (rows || []).reduce((s, r) => s + Number(r.price || 0), 0);
 
 const debounce = (fn, delay) => {
     let timer;
@@ -77,9 +98,13 @@ const lineItemForm = ref({
     unit_price: 0,
     estimated_cost: 0,
     notes: '',
+    addons: [],
 });
 
-const lineTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 0);
+const lineBaseTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 0);
+const lineAddonTotal = (item) =>
+    (item.addons || []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0);
+const lineTotal = (item) => lineBaseTotal(item) + lineAddonTotal(item);
 const lineCost = (item) => Number(item.estimated_cost || 0) * Number(item.quantity || 0);
 
 const lineItemsSubtotal = computed(() =>
@@ -134,7 +159,16 @@ const debouncedFetchItems = debounce(() => fetchItems(true), 300);
 
 const openAddItemModal = () => {
     editingLineIndex.value = null;
-    lineItemForm.value = { inventory_item_id: null, display_name: '', sku: '', quantity: 1, unit_price: 0, estimated_cost: 0, notes: '' };
+    lineItemForm.value = {
+        inventory_item_id: null,
+        display_name: '',
+        sku: '',
+        quantity: 1,
+        unit_price: 0,
+        estimated_cost: 0,
+        notes: '',
+        addons: [],
+    };
     itemSearchQuery.value = '';
     itemCurrentPage.value = 1;
     fetchItems(true);
@@ -144,7 +178,7 @@ const openAddItemModal = () => {
 const openEditItemModal = (index) => {
     editingLineIndex.value = index;
     const item = lineItems.value[index];
-    lineItemForm.value = { ...item };
+    lineItemForm.value = { ...item, addons: [...(item.addons || [])] };
     showItemModal.value = true;
 };
 
@@ -196,6 +230,10 @@ const assetForm = ref({
     has_variants: false,
     asset_variant_id: null,
     variant_display_name: '',
+    asset_unit_id: null,
+    asset_option_selections: [],
+    addons: [],
+    option_premium_snapshot: 0,
 });
 
 /** Computed bridges so v-model on AssetLineVariantSelect syncs (nested ref keys + defineModel are unreliable). */
@@ -212,11 +250,33 @@ const assetFormVariantDisplayName = computed({
     },
 });
 
-const assetLineTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 0);
+const assetBaseLineTotal = (item) => Number(item.unit_price || 0) * Number(item.quantity || 0);
+const assetAddonTotal = (item) =>
+    (item.addons || []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0);
+
+const assetOptionChoices = ref({});
+
+const assetOptionPremiumForLine = (item, index) => {
+    const choices = assetOptionChoices.value[index] || [];
+    if (choices.length && (item.asset_option_selections || []).length) {
+        let sum = 0;
+        for (const s of item.asset_option_selections || []) {
+            const opt = choices.find((o) => Number(o.option_id) === Number(s.option_id));
+            const val = opt?.values?.find((v) => Number(v.id) === Number(s.option_value_id));
+            if (val) sum += Number(val.price || 0);
+        }
+        return sum;
+    }
+    return Number(item.option_premium_snapshot || 0);
+};
+
+const assetLineTotal = (item, index) =>
+    assetBaseLineTotal(item) + assetOptionPremiumForLine(item, index) + assetAddonTotal(item);
+
 const assetLineCost = (item) => Number(item.estimated_cost || 0) * Number(item.quantity || 0);
 
 const assetSubtotal = computed(() =>
-    assetItems.value.reduce((sum, item) => sum + assetLineTotal(item), 0)
+    assetItems.value.reduce((sum, item, idx) => sum + assetLineTotal(item, idx), 0)
 );
 const assetCostTotal = computed(() =>
     assetItems.value.reduce((sum, item) => sum + assetLineCost(item), 0)
@@ -225,6 +285,108 @@ const assetCostTotal = computed(() =>
 const combinedSubtotal = computed(() => lineItemsSubtotal.value + assetSubtotal.value);
 const combinedCostTotal = computed(() => lineItemsCostTotal.value + assetCostTotal.value);
 const grossProfit = computed(() => combinedSubtotal.value - combinedCostTotal.value);
+
+// ==============================
+// Boat options (resolve catalog like estimates)
+// ==============================
+const refreshAssetOptionChoices = async () => {
+    const next = { ...assetOptionChoices.value };
+    for (let i = 0; i < assetItems.value.length; i++) {
+        const item = assetItems.value[i];
+        if (!item.asset_id) {
+            delete next[i];
+            continue;
+        }
+        if (item.has_variants && !item.asset_variant_id) {
+            delete next[i];
+            continue;
+        }
+        try {
+            const { data } = await axios.get(route('asset-options.resolve-context'), {
+                params: {
+                    asset_id: item.asset_id,
+                    variant_id: item.asset_variant_id || undefined,
+                },
+            });
+            next[i] = data.options || [];
+        } catch {
+            delete next[i];
+        }
+    }
+    assetOptionChoices.value = next;
+};
+
+const debouncedRefreshAssetOptions = debounce(() => {
+    refreshAssetOptionChoices();
+}, 350);
+
+watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
+
+const isAssetOptionSelected = (item, optionId, valueId) =>
+    (item.asset_option_selections || []).some(
+        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
+    );
+
+const toggleAssetOptionMulti = (item, optionId, valueId, checked) => {
+    if (!item.asset_option_selections) item.asset_option_selections = [];
+    const rest = item.asset_option_selections.filter(
+        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
+    );
+    if (checked) {
+        item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
+    } else {
+        item.asset_option_selections = rest;
+    }
+    item.option_premium_snapshot = 0;
+};
+
+const setAssetOptionSingle = (item, optionId, valueId) => {
+    if (!item.asset_option_selections) item.asset_option_selections = [];
+    const rest = item.asset_option_selections.filter((s) => Number(s.option_id) !== Number(optionId));
+    item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
+    item.option_premium_snapshot = 0;
+};
+
+// ==============================
+// Add-ons
+// ==============================
+const showAddonModal = ref(false);
+const currentLineItem = ref(null);
+
+const openAddonModalForAsset = (item) => {
+    if (item.has_variants && !item.asset_variant_id) {
+        window.alert('Select a variant for this asset before adding add-ons.');
+        return;
+    }
+    currentLineItem.value = item;
+    showAddonModal.value = true;
+};
+
+const openAddonModalForInventory = (item) => {
+    currentLineItem.value = item;
+    showAddonModal.value = true;
+};
+
+const addonModalSubtitle = computed(() => {
+    const li = currentLineItem.value;
+    if (!li) return '';
+    const parts = [li.display_name || li.name].filter(Boolean);
+    if (li.variant_display_name) {
+        parts.push(li.variant_display_name);
+    }
+    return parts.join(' · ');
+});
+
+const onAddonPicked = (payload) => {
+    if (!currentLineItem.value) return;
+    const target = currentLineItem.value;
+    if (!target.addons) target.addons = [];
+    target.addons.push(payload);
+};
+
+const removeAddon = (lineItem, addonIndex) => {
+    if (lineItem.addons) lineItem.addons.splice(addonIndex, 1);
+};
 
 // ==============================
 // Asset Lookup
@@ -280,6 +442,10 @@ const openAddAssetModal = () => {
         has_variants: false,
         asset_variant_id: null,
         variant_display_name: '',
+        asset_unit_id: null,
+        asset_option_selections: [],
+        addons: [],
+        option_premium_snapshot: 0,
     };
     assetSearchQuery.value = '';
     assetCurrentPage.value = 1;
@@ -289,7 +455,12 @@ const openAddAssetModal = () => {
 
 const openEditAssetModal = (index) => {
     editingAssetIndex.value = index;
-    assetForm.value = { ...assetItems.value[index] };
+    const row = assetItems.value[index];
+    assetForm.value = {
+        ...row,
+        addons: [...(row.addons || [])],
+        asset_option_selections: [...(row.asset_option_selections || [])],
+    };
     showAssetModal.value = true;
 };
 
@@ -303,6 +474,10 @@ const selectAsset = (asset) => {
     assetForm.value.has_variants = Boolean(asset.has_variants);
     assetForm.value.asset_variant_id = null;
     assetForm.value.variant_display_name = '';
+    assetForm.value.asset_unit_id = null;
+    assetForm.value.asset_option_selections = [];
+    assetForm.value.addons = [];
+    assetForm.value.option_premium_snapshot = 0;
 };
 
 const clearSelectedAssetForChange = () => {
@@ -321,9 +496,17 @@ const saveAssetItem = () => {
     }
 
     if (editingAssetIndex.value !== null) {
-        assetItems.value[editingAssetIndex.value] = { ...assetForm.value };
+        assetItems.value[editingAssetIndex.value] = {
+            ...assetForm.value,
+            addons: [...(assetForm.value.addons || [])],
+            asset_option_selections: [...(assetForm.value.asset_option_selections || [])],
+        };
     } else {
-        assetItems.value.push({ ...assetForm.value });
+        assetItems.value.push({
+            ...assetForm.value,
+            addons: [...(assetForm.value.addons || [])],
+            asset_option_selections: [...(assetForm.value.asset_option_selections || [])],
+        });
     }
     showAssetModal.value = false;
 };
@@ -397,9 +580,9 @@ const buildInitialFormData = () => {
 const form = useForm(buildInitialFormData());
 
 // Initialize line items when editing
-watch(() => props.record?.inventory_items, (items) => {
+watch(() => props.record?.inventory_items ?? props.record?.inventoryItems, (items) => {
     if (items && Array.isArray(items)) {
-        lineItems.value = items.map(item => ({
+        lineItems.value = items.map((item) => ({
             inventory_item_id: item.id,
             display_name: item.display_name,
             sku: item.sku || '',
@@ -407,6 +590,7 @@ watch(() => props.record?.inventory_items, (items) => {
             unit_price: item.pivot?.unit_price != null ? Number(item.pivot.unit_price) : (Number(item.default_price) || 0),
             estimated_cost: item.pivot?.estimated_cost != null ? Number(item.pivot.estimated_cost) : (Number(item.default_cost) || 0),
             notes: item.pivot?.notes || '',
+            addons: mapOppAddonsFromApi(item.opportunity_addons),
         }));
     }
 }, { immediate: true });
@@ -417,6 +601,7 @@ watch(() => props.record?.assets, (items) => {
         assetItems.value = items.map((item) => {
             const vRel = item.asset_variant ?? item.assetVariant;
             const pivotVid = item.pivot?.asset_variant_id ?? null;
+            const selRows = item.opportunity_selected_options ?? [];
             return {
                 asset_id: item.id,
                 display_name: item.display_name,
@@ -430,6 +615,10 @@ watch(() => props.record?.assets, (items) => {
                 asset_variant_id: pivotVid,
                 variant_display_name:
                     vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : ''),
+                asset_unit_id: item.pivot?.asset_unit_id ?? null,
+                asset_option_selections: mapOppSelectionsFromApi(selRows),
+                addons: mapOppAddonsFromApi(item.opportunity_addons),
+                option_premium_snapshot: sumSnapshotOptionPrices(selRows),
             };
         });
     }
@@ -452,12 +641,20 @@ const submit = () => {
     form.transform((data) => ({
         ...omitReadonlySchemaFields(data),
         estimated_value: combinedSubtotal.value > 0 ? combinedSubtotal.value : (data.estimated_value || 0),
-        inventory_items: lineItems.value.map(item => ({
+        inventory_items: lineItems.value.map((item) => ({
             inventory_item_id: item.inventory_item_id,
             quantity: Number(item.quantity) || 1,
             unit_price: Number(item.unit_price) || 0,
             estimated_cost: Number(item.estimated_cost) || 0,
             notes: item.notes || '',
+            addons: (item.addons || []).map((a) => ({
+                addon_id: a.addon_id ?? null,
+                name: a.name ?? '',
+                price: Number(a.price) || 0,
+                quantity: Number(a.quantity) || 1,
+                notes: a.notes ?? '',
+                metadata: a.metadata ?? null,
+            })),
         })),
         assets: assetItems.value.map((item) => ({
             asset_id: item.asset_id,
@@ -466,6 +663,16 @@ const submit = () => {
             estimated_cost: Number(item.estimated_cost) || 0,
             notes: item.notes || '',
             asset_variant_id: item.asset_variant_id || null,
+            asset_unit_id: item.asset_unit_id || null,
+            asset_option_selections: item.asset_option_selections || [],
+            addons: (item.addons || []).map((a) => ({
+                addon_id: a.addon_id ?? null,
+                name: a.name ?? '',
+                price: Number(a.price) || 0,
+                quantity: Number(a.quantity) || 1,
+                notes: a.notes ?? '',
+                metadata: a.metadata ?? null,
+            })),
         })),
     }));
 
@@ -716,53 +923,136 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Line Total</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <tr
-                                        v-for="(item, index) in assetItems"
-                                        :key="`${item.asset_id}-${item.asset_variant_id ?? 'x'}-${index}`"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                                    >
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
-                                            <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            <AssetLineVariantCell
-                                                :label="item.variant_display_name"
-                                                :has-variants="item.has_variants"
-                                            />
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineTotal(item)) }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center justify-end gap-1">
-                                                <button type="button" @click="openEditAssetModal(index)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors" title="Edit">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    <template v-for="(item, index) in assetItems" :key="`${item.asset_id}-${item.asset_variant_id ?? 'x'}-${index}`">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="px-4 py-3">
+                                                <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
+                                                <div v-if="item.make" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make }}</div>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                <AssetLineVariantCell
+                                                    :label="item.variant_display_name"
+                                                    :has-variants="item.has_variants"
+                                                />
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineTotal(item, index)) }}</td>
+                                            <td class="px-4 py-3">
+                                                <button
+                                                    type="button"
+                                                    @click="openAddonModalForAsset(item)"
+                                                    class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    Add-ons ({{ (item.addons || []).length }})
+                                                </button>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-end gap-1">
+                                                    <button type="button" @click="openEditAssetModal(index)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors" title="Edit">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button type="button" @click="removeAssetItem(index)" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Remove">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            v-if="(assetOptionChoices[index] || []).length > 0"
+                                            class="bg-slate-50/90 dark:bg-slate-900/30"
+                                        >
+                                            <td colspan="9" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Boat options</div>
+                                                <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
+                                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {{ opt.name }}
+                                                        <span v-if="opt.is_required" class="text-red-500">*</span>
+                                                    </div>
+                                                    <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                        <label
+                                                            v-for="v in opt.values"
+                                                            :key="v.id"
+                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
+                                                            />
+                                                            <span>{{ v.label }}</span>
+                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                        </label>
+                                                    </div>
+                                                    <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                        <label
+                                                            v-for="v in opt.values"
+                                                            :key="v.id"
+                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                        >
+                                                            <input
+                                                                type="radio"
+                                                                :name="`opp-ao-${index}-${opt.option_id}`"
+                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                @change="setAssetOptionSingle(item, opt.option_id, v.id)"
+                                                            />
+                                                            <span
+                                                                v-if="v.color_hex"
+                                                                class="inline-block h-4 w-4 rounded border border-gray-300"
+                                                                :style="{ backgroundColor: v.color_hex }"
+                                                            />
+                                                            <span>{{ v.label }}</span>
+                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            v-for="(addon, addonIdx) in (item.addons || [])"
+                                            :key="`opp-asset-addon-${index}-${addonIdx}`"
+                                            class="bg-primary-50/40 dark:bg-primary-900/10"
+                                        >
+                                            <td colspan="3" class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ addon.name }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                {{ formatCurrency(Number(addon.price || 0) * Number(addon.quantity || 1)) }}
+                                            </td>
+                                            <td colspan="2" class="px-4 py-2"></td>
+                                            <td class="px-4 py-2 text-right">
+                                                <button type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded" title="Remove add-on">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
                                                 </button>
-                                                <button type="button" @click="removeAssetItem(index)" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Remove">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
                                         <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
-                                        <td colspan="2"></td>
+                                        <td colspan="3"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -805,43 +1095,76 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <tr
-                                        v-for="(item, index) in lineItems"
-                                        :key="index"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                                    >
-                                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.display_name }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center justify-end gap-1">
-                                                <button type="button" @click="openEditItemModal(index)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors" title="Edit">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    <template v-for="(item, index) in lineItems" :key="`${item.inventory_item_id}-${index}`">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.display_name }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
+                                            <td class="px-4 py-3">
+                                                <button
+                                                    type="button"
+                                                    @click="openAddonModalForInventory(item)"
+                                                    class="inline-flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                    Add-ons ({{ (item.addons || []).length }})
+                                                </button>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-end gap-1">
+                                                    <button type="button" @click="openEditItemModal(index)" class="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition-colors" title="Edit">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                    </button>
+                                                    <button type="button" @click="removeLineItem(index)" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Remove">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            v-for="(addon, addonIdx) in (item.addons || [])"
+                                            :key="`opp-inv-addon-${index}-${addonIdx}`"
+                                            class="bg-primary-50/40 dark:bg-primary-900/10"
+                                        >
+                                            <td colspan="2" class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ addon.name }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                {{ formatCurrency(Number(addon.price || 0) * Number(addon.quantity || 1)) }}
+                                            </td>
+                                            <td colspan="2" class="px-4 py-2"></td>
+                                            <td class="px-4 py-2 text-right">
+                                                <button type="button" @click="removeAddon(item, addonIdx)" class="p-1 text-gray-400 hover:text-red-500 rounded" title="Remove add-on">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
                                                 </button>
-                                                <button type="button" @click="removeLineItem(index)" class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded transition-colors" title="Remove">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
                                         <td colspan="4" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</td>
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</td>
-                                        <td colspan="2"></td>
+                                        <td colspan="3"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -954,6 +1277,13 @@ const handleCancel = () => emit('cancelled');
                 </div>
             </div>
         </form>
+
+        <AddonSelect
+            v-model:open="showAddonModal"
+            accent="primary"
+            :context-subtitle="addonModalSubtitle"
+            @picked="onAddonPicked"
+        />
 
         <!-- ============================
              Add/Edit Asset Modal

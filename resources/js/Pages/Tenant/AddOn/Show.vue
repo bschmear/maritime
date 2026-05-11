@@ -1,26 +1,74 @@
 <script setup>
-import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import ShowRecord from '@/Components/Tenant/ShowRecord.vue';
+
+const props = defineProps({
+    record: {
+        type: Object,
+        required: true,
+    },
+    recordType: {
+        type: String,
+        default: 'addons',
+    },
+    recordTitle: {
+        type: String,
+        default: 'Add-On',
+    },
+    pluralTitle: {
+        type: String,
+        default: 'Add-Ons',
+    },
+    formSchema: {
+        type: Object,
+        default: null,
+    },
+    fieldsSchema: {
+        type: Object,
+        default: () => ({}),
+    },
+    enumOptions: {
+        type: Object,
+        default: () => ({}),
+    },
+    domainName: {
+        type: String,
+        required: true,
+    },
+    account: {
+        type: Object,
+        default: null,
+    },
+    timezones: {
+        type: Array,
+        default: () => [],
+    },
+    imageUrls: {
+        type: Object,
+        default: () => ({}),
+    },
+    availableSpecs: {
+        type: Array,
+        default: () => [],
+    },
+});
 </script>
 
 <template>
-    <Head title="AddOn" />
-
-    <TenantLayout>
-        <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                AddOn
-            </h2>
-        </template>
-
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900 dark:text-gray-100">
-                        <p>AddOn details coming soon...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </TenantLayout>
+    <ShowRecord
+        :record="record"
+        :record-type="recordType"
+        :record-title="recordTitle"
+        :plural-title="pluralTitle"
+        :form-schema="formSchema"
+        :fields-schema="fieldsSchema"
+        :enum-options="enumOptions"
+        :domain-name="domainName"
+        :account="account"
+        :timezones="timezones"
+        :image-urls="imageUrls"
+        :available-specs="availableSpecs"
+        :show-sublists="false"
+        breadcrumb-parent-label="Add-Ons"
+        :breadcrumb-parent-href="route('addons.index')"
+    />
 </template>

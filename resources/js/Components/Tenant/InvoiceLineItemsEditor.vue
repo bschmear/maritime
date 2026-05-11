@@ -61,7 +61,7 @@ const normalizeItemBase = (item, isNew = false) => ({
     position: item.position ?? 0,
     taxable: normalizeTaxable(item.taxable ?? true),
     addons: normalizeAddons(item.addons, isNew),
-    transaction_item_id: item.transaction_item_id ?? item.id ?? null,
+    transaction_line_item_id: item.transaction_line_item_id ?? item.transaction_item_id ?? item.id ?? null,
     // Variant — can come from invoice item directly or from prefill via estimate_line_item
     asset_variant_id: item.asset_variant_id
         ?? item.estimate_line_item?.asset_variant_id
@@ -237,7 +237,7 @@ const emptyAssetForm = () => ({
 });
 const assetForm = ref(emptyAssetForm());
 
-// Row shape uses `description`, `variant_name`, and carries `taxable` + `kind` + `transaction_item_id`.
+// Row shape uses `description`, `variant_name`, and carries `taxable` + `kind` + `transaction_line_item_id`.
 // The shared modal uses `notes` + `variant_display_name`. Bridge between the two.
 const rowToModalForm = (row) => ({
     ...emptyAssetForm(),
@@ -256,7 +256,7 @@ const modalFormToRow = (form, existing = {}) => {
         description: notes ?? '',
         variant_name: variant_display_name ?? '',
         taxable: existing.taxable ?? true,
-        transaction_item_id: existing.transaction_item_id ?? null,
+        transaction_line_item_id: existing.transaction_line_item_id ?? existing.transaction_item_id ?? null,
         addons: [...(form.addons || [])],
     };
 };
@@ -323,7 +323,7 @@ const emptyLineItemForm = () => ({
     description: '',
     taxable: true,
     addons: [],
-    transaction_item_id: null,
+    transaction_line_item_id: null,
 });
 const lineItemForm = ref(emptyLineItemForm());
 
@@ -444,7 +444,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
     let pos = 0;
     lines.value.forEach((line) => {
         out.push({
-            transaction_item_id: line.transaction_item_id || null,
+            transaction_line_item_id: line.transaction_line_item_id ?? line.transaction_item_id ?? null,
             itemable_type: line.itemable_type || null,
             itemable_id: line.itemable_id || null,
             asset_variant_id: line.asset_variant_id || null,
@@ -464,7 +464,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
         });
         (line.addons || []).forEach((a) => {
             out.push({
-                transaction_item_id: null,
+                transaction_line_item_id: null,
                 itemable_type: null,
                 itemable_id: null,
                 name: `${line.name} — ${a.name || 'Add-on'}`,

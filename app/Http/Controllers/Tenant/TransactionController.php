@@ -325,6 +325,8 @@ class TransactionController extends BaseController
                 'items' => fn ($q) => $q
                     ->with([
                         'addons',
+                        'selectedAssetOptions',
+                        'selectedAssetOptionsFromSourceLine',
                         'itemable',
                         'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
                         'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
@@ -348,6 +350,7 @@ class TransactionController extends BaseController
                                 'lineItems' => fn ($ql) => $ql
                                     ->with([
                                         'addons',
+                                        'selectedAssetOptions',
                                         'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
                                         'assetUnit' => fn ($qau) => $qau->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                                     ])
@@ -391,6 +394,8 @@ class TransactionController extends BaseController
             ->with([
                 'items' => fn ($q) => $q->with([
                     'addons',
+                    'selectedAssetOptions',
+                    'selectedAssetOptionsFromSourceLine',
                     'itemable',
                     'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
                     'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),

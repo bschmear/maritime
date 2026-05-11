@@ -340,6 +340,7 @@ const emptyAssetForm = () => ({
     catalog_description: '',
     line_position: null,
     asset_option_selections: [],
+    asset_options_fill_mode: 'staff',
 });
 
 const assetForm = ref(emptyAssetForm());
@@ -347,16 +348,31 @@ const assetForm = ref(emptyAssetForm());
 const assetBaseLineTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 
-const assetLineTotal = (item) => {
+const assetOptionPremiumForLine = (item, index) => {
+    if (item.asset_options_fill_mode === 'customer') return 0;
+    const choices = assetOptionChoices.value[index] || [];
+    let sum = 0;
+    for (const s of item.asset_option_selections || []) {
+        const opt = choices.find((o) => Number(o.option_id) === Number(s.option_id));
+        const val = opt?.values?.find((v) => Number(v.id) === Number(s.option_value_id));
+        if (val) sum += Number(val.price || 0);
+    }
+    return sum;
+};
+
+const assetLinePreTaxBeforeAddons = (item, index) =>
+    assetBaseLineTotal(item) + assetOptionPremiumForLine(item, index);
+
+const assetLineTotal = (item, index) => {
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
-        0
+        0,
     );
-    return assetBaseLineTotal(item) + addonsTotal;
+    return assetLinePreTaxBeforeAddons(item, index) + addonsTotal;
 };
 
 const assetSubtotal = computed(() =>
-    assetItems.value.reduce((sum, item) => sum + assetLineTotal(item), 0)
+    assetItems.value.reduce((sum, item, idx) => sum + assetLineTotal(item, idx), 0),
 );
 
 const openAddAssetModal = () => {
@@ -463,8 +479,9 @@ const taxOnPreTax = (preTax) => {
 
 const assetSectionTax = computed(() => {
     let sum = 0;
-    for (const item of assetItems.value) {
-        sum += taxOnPreTax(assetBaseLineTotal(item));
+    for (let i = 0; i < assetItems.value.length; i++) {
+        const item = assetItems.value[i];
+        sum += taxOnPreTax(assetLinePreTaxBeforeAddons(item, i));
         for (const a of item.addons || []) {
             sum += taxOnPreTax(addonPreTaxTotal(a));
         }
@@ -537,6 +554,10 @@ const debouncedRefreshAssetOptions = debounce(() => {
 
 watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
 
+const setAssetOptionsFillMode = (item, mode) => {
+    item.asset_options_fill_mode = mode;
+};
+
 const isAssetOptionSelected = (item, optionId, valueId) =>
     (item.asset_option_selections || []).some(
         (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
@@ -592,7 +613,14 @@ onMounted(() => {
                 unit_price: Number(asset.pivot?.unit_price) || Number(asset.default_price) || 0,
                 discount: 0,
                 notes: asset.pivot?.notes || '',
-                addons: [],
+                addons: (asset.opportunity_addons || []).map((a) => ({
+                    addon_id: a.addon_id,
+                    name: a.name || '',
+                    price: Number(a.price) || 0,
+                    quantity: Number(a.quantity) || 1,
+                    notes: a.notes || '',
+                    metadata: a.metadata ?? null,
+                })),
                 has_variants: Boolean(asset.has_variants),
                 asset_variant_id: pivotVid,
                 variant_display_name: variantDisplay,
@@ -601,7 +629,11 @@ onMounted(() => {
                 asset_description: desc,
                 catalog_description: catalogDesc,
                 line_position: null,
-                asset_option_selections: [],
+                asset_option_selections: (asset.opportunity_selected_options || []).map((r) => ({
+                    option_id: r.option_id,
+                    option_value_id: r.option_value_id,
+                })),
+                asset_options_fill_mode: 'staff',
             });
         });
 
@@ -616,7 +648,14 @@ onMounted(() => {
                 unit_price: Number(item.pivot?.unit_price) || Number(item.default_price) || 0,
                 discount: 0,
                 notes: item.pivot?.notes || '',
-                addons: [],
+                addons: (item.opportunity_addons || []).map((a) => ({
+                    addon_id: a.addon_id,
+                    name: a.name || '',
+                    price: Number(a.price) || 0,
+                    quantity: Number(a.quantity) || 1,
+                    notes: a.notes || '',
+                    metadata: a.metadata ?? null,
+                })),
             });
         });
     }
@@ -661,6 +700,8 @@ onMounted(() => {
                     lineData.catalog_description = lineData.asset_description || '';
                 }
                 lineData.line_position = lineItem.position;
+                lineData.asset_options_fill_mode =
+                    lineItem.asset_options_fill_mode === 'customer' ? 'customer' : 'staff';
                 const match = (props.initialSelectedAssetOptions || []).find((g) => g.line_position === lineItem.position);
                 lineData.asset_option_selections = match?.selections ? [...match.selections] : [];
                 lineData.notes = splitLineNotesFromStoredDescription(
@@ -698,6 +739,7 @@ const submit = () => {
             catalog_description: (item.catalog_description || '').trim() || null,
             asset_variant_id: item.asset_variant_id || null,
             asset_unit_id: item.asset_unit_id || null,
+            asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
             position: idx,
             addons: (item.addons || []).map((addon) => ({
                 addon_id: addon.addon_id,
@@ -734,7 +776,10 @@ const submit = () => {
 
     const selected_asset_options = assetItems.value.map((item, idx) => ({
         line_position: item.line_position !== null && item.line_position !== undefined ? item.line_position : idx,
-        selections: [...(item.asset_option_selections || [])],
+        selections:
+            item.asset_options_fill_mode === 'customer'
+                ? []
+                : [...(item.asset_option_selections || [])],
     }));
 
     form.transform((data) => {
@@ -771,12 +816,12 @@ const handleCancel = () => emit('cancelled');
 <template>
     <div class="w-full flex flex-col space-y-6">
         <form @submit.prevent="submit">
-            <div class="grid gap-6 lg:grid-cols-12">
+            <div class="flex flex-col gap-6">
 
                 <!-- ============================
-                     Main Column
+                     Main column (line items + header — full width)
                      ============================ -->
-                <div class="lg:col-span-8 space-y-6">
+                <div class="w-full space-y-6">
 
                     <!-- Header Card -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
@@ -1056,8 +1101,8 @@ const handleCancel = () => emit('cancelled');
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetBaseLineTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetBaseLineTotal(item))) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLinePreTaxBeforeAddons(item, index)) }}</td>
+                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetLinePreTaxBeforeAddons(item, index))) }}</td>
                                             <td class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -1092,50 +1137,95 @@ const handleCancel = () => emit('cancelled');
                                             class="bg-slate-50/90 dark:bg-slate-900/30"
                                         >
                                             <td colspan="11" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
-                                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                                                    Boat options
+                                                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                        Boat options
+                                                    </div>
+                                                    <div
+                                                        class="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 bg-white dark:bg-gray-800 shadow-sm"
+                                                        role="group"
+                                                        aria-label="Who selects boat options"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                                            :class="
+                                                                (item.asset_options_fill_mode || 'staff') !== 'customer'
+                                                                    ? 'bg-primary-600 text-white'
+                                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                                            "
+                                                            @click="setAssetOptionsFillMode(item, 'staff')"
+                                                        >
+                                                            Staff selects here
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                                            :class="
+                                                                (item.asset_options_fill_mode || 'staff') === 'customer'
+                                                                    ? 'bg-primary-600 text-white'
+                                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                                            "
+                                                            @click="setAssetOptionsFillMode(item, 'customer')"
+                                                        >
+                                                            Email customer
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
-                                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {{ opt.name }}
-                                                        <span v-if="opt.is_required" class="text-red-500">*</span>
+
+                                                <template v-if="(item.asset_options_fill_mode || 'staff') !== 'customer'">
+                                                    <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
+                                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                                            {{ opt.name }}
+                                                            <span v-if="opt.is_required" class="text-red-500">*</span>
+                                                        </div>
+                                                        <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                            <label
+                                                                v-for="v in opt.values"
+                                                                :key="v.id"
+                                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                    @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
+                                                                />
+                                                                <span>{{ v.label }}</span>
+                                                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                            </label>
+                                                        </div>
+                                                        <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                                                            <label
+                                                                v-for="v in opt.values"
+                                                                :key="v.id"
+                                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    :name="`est-ao-${index}-${opt.option_id}`"
+                                                                    :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
+                                                                    @change="setAssetOptionSingle(item, opt.option_id, v.id)"
+                                                                />
+                                                                <span
+                                                                    v-if="v.color_hex"
+                                                                    class="inline-block h-4 w-4 rounded border border-gray-300"
+                                                                    :style="{ backgroundColor: v.color_hex }"
+                                                                />
+                                                                <span>{{ v.label }}</span>
+                                                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                            </label>
+                                                        </div>
                                                     </div>
-                                                    <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                        <label
-                                                            v-for="v in opt.values"
-                                                            :key="v.id"
-                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
-                                                            />
-                                                            <span>{{ v.label }}</span>
-                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
-                                                        </label>
-                                                    </div>
-                                                    <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                        <label
-                                                            v-for="v in opt.values"
-                                                            :key="v.id"
-                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                        >
-                                                            <input
-                                                                type="radio"
-                                                                :name="`est-ao-${index}-${opt.option_id}`"
-                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                @change="setAssetOptionSingle(item, opt.option_id, v.id)"
-                                                            />
-                                                            <span
-                                                                v-if="v.color_hex"
-                                                                class="inline-block h-4 w-4 rounded border border-gray-300"
-                                                                :style="{ backgroundColor: v.color_hex }"
-                                                            />
-                                                            <span>{{ v.label }}</span>
-                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
-                                                        </label>
-                                                    </div>
+                                                </template>
+                                                <div
+                                                    v-else
+                                                    class="rounded-lg border border-dashed border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+                                                >
+                                                    <p>
+                                                        The customer will choose options on a secure link. Save this estimate, then open it and use
+                                                        <strong class="font-semibold">Email boat options</strong>
+                                                        to send the form. Estimate totals exclude option prices until they submit and sign off.
+                                                    </p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1298,12 +1388,12 @@ const handleCancel = () => emit('cancelled');
                 </div>
 
                 <!-- ============================
-                     Sidebar
+                     Actions & totals (below line items, full width)
                      ============================ -->
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="sticky top-[140px] space-y-6">
+                <div class="w-full">
+                    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         <!-- Actions -->
-                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
+                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden md:col-span-1 lg:col-span-1">
                             <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                                 <span class="text-md font-semibold text-white">Actions</span>
                             </div>
@@ -1336,7 +1426,7 @@ const handleCancel = () => emit('cancelled');
                         </div>
 
                         <!-- Estimate Totals -->
-                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden md:col-span-1 lg:col-span-2">
                             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
                                 <span class="text-md font-semibold text-white">Estimate Total</span>
                             </div>

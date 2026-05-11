@@ -105,7 +105,7 @@ class CreateInvoice
             foreach ($items as $position => $item) {
                 InvoiceItem::create([
                     'invoice_id' => $record->id,
-                    'transaction_item_id' => $item['transaction_item_id'] ?? null,
+                    'transaction_line_item_id' => $item['transaction_line_item_id'] ?? $item['transaction_item_id'] ?? null,
                     'itemable_type' => $item['itemable_type'] ?? null,
                     'itemable_id' => isset($item['itemable_id']) ? (int) $item['itemable_id'] : null,
                     'asset_variant_id' => ! empty($item['asset_variant_id']) ? (int) $item['asset_variant_id'] : null,

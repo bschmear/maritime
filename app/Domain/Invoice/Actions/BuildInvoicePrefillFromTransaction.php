@@ -132,7 +132,7 @@ class BuildInvoicePrefillFromTransaction
                 ?? ($eli?->relationLoaded('assetUnit') ? $eli->assetUnit : null);
 
             return [
-                'transaction_item_id' => $item->id,
+                'transaction_line_item_id' => $item->id,
                 'itemable_type' => $item->itemable_type,
                 'itemable_id' => $item->itemable_id,
                 'asset_variant_id' => $variantId,

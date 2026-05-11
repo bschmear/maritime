@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, Teleport, watch } from 'vue';
+import { computed, nextTick, ref, Teleport, watch } from 'vue';
 import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import AssetLineUnitSelect from '@/Components/Tenant/AssetLineUnitSelect.vue';
 
@@ -206,13 +206,14 @@ const close = () => {
     emit('close');
 };
 
-const save = () => {
+const save = async () => {
     if (!model.value.itemable_id) return;
     if (model.value.has_variants && !model.value.asset_variant_id) {
         window.alert('This asset uses variants — select a variant before saving the line.');
         return;
     }
-    emit('save', model.value);
+    await nextTick();
+    emit('save', { ...model.value });
 };
 </script>
 

@@ -117,6 +117,31 @@ Route::middleware([
     Route::post('/estimates/{uuid}/approve', [PublicController::class, 'approveEstimate'])->name('estimates.approve');
     Route::post('/estimates/{uuid}/decline', [PublicController::class, 'declineEstimate'])->name('estimates.decline');
 
+    Route::get('/estimates/{uuid}/boat-options/{line}', [PublicController::class, 'boatOptionsEstimate'])
+        ->middleware('signed')
+        ->name('estimates.boat-options');
+    Route::post('/estimates/{uuid}/boat-options/{line}', [PublicController::class, 'submitBoatOptionsEstimate'])
+        ->middleware(['signed', 'throttle:30,1'])
+        ->name('estimates.boat-options.submit');
+
+    Route::get('/featurerequest/{invite}', [PublicController::class, 'featureRequestInviteShow'])
+        ->middleware('signed')
+        ->whereUuid('invite')
+        ->name('featurerequest.show');
+    Route::post('/featurerequest/{invite}', [PublicController::class, 'featureRequestInviteSubmit'])
+        ->middleware(['signed', 'throttle:30,1'])
+        ->whereUuid('invite')
+        ->name('featurerequest.submit');
+
+    Route::get('/opportunities/{uuid}/feature-request/{assetOpportunity}/{includeAddons}', [PublicController::class, 'featureRequestOpportunity'])
+        ->middleware('signed')
+        ->whereNumber('includeAddons')
+        ->name('opportunities.feature-request.show');
+    Route::post('/opportunities/{uuid}/feature-request/{assetOpportunity}/{includeAddons}', [PublicController::class, 'submitFeatureRequestOpportunity'])
+        ->middleware(['signed', 'throttle:30,1'])
+        ->whereNumber('includeAddons')
+        ->name('opportunities.feature-request.submit');
+
     Route::get('/deliveries/{uuid}/review', [PublicController::class, 'reviewDelivery'])->name('deliveries.review');
     Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])->name('deliveries.sign');
 
@@ -218,6 +243,9 @@ Route::middleware([
         });
 
         Route::prefix('opportunities')->name('opportunities.')->group(function () {
+            Route::post('/{opportunity}/send-feature-request', [OpportunityController::class, 'sendFeatureRequestInvite'])->name('send-feature-request');
+            Route::post('/{opportunity}/send-feature-requests', [OpportunityController::class, 'sendFeatureRequestInvites'])->name('send-feature-requests');
+            Route::post('/{opportunity}/feature-requests/{featureRequest}/review-addon', [OpportunityController::class, 'reviewFeatureRequestAddon'])->name('feature-request-review-addon');
             Route::resource('/', OpportunityController::class)->parameters(['' => 'opportunity']);
         });
 
@@ -227,6 +255,7 @@ Route::middleware([
             Route::post('/{estimate}/create-deal', [EstimateController::class, 'createDeal'])->name('create-deal');
             Route::resource('/', EstimateController::class)->parameters(['' => 'estimate']);
             Route::post('/{estimate}/send-approval', [EstimateController::class, 'sendApprovalRequest'])->name('send-approval');
+            Route::post('/{estimate}/send-boat-options', [EstimateController::class, 'sendBoatOptionsInvite'])->name('send-boat-options');
             Route::post('/{estimate}/revision', [EstimateController::class, 'createRevision'])->name('revision');
         });
 
@@ -242,6 +271,7 @@ Route::middleware([
         Route::prefix('asset-options')->name('asset-options.')->group(function () {
             Route::get('/resolve-context', [AssetOptionController::class, 'resolveForAsset'])->name('resolve-context');
             Route::get('/assignment-lookup', [AssetOptionController::class, 'assignmentLookup'])->name('assignment-lookup');
+            Route::post('/{assetOption}/attach-catalog', [AssetOptionController::class, 'attachCatalog'])->name('attach-catalog');
             Route::post('/{assetOption}/sync-assignments', [AssetOptionController::class, 'syncAssignments'])->name('sync-assignments');
             Route::post('/{assetOption}/values', [AssetOptionController::class, 'storeValue'])->name('values.store');
             Route::put('/{assetOption}/values/{value}', [AssetOptionController::class, 'updateValue'])->name('values.update');

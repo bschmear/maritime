@@ -2,9 +2,11 @@
 
 namespace App\Domain\Transaction\Actions;
 
+use App\Domain\AssetOption\Services\PersistAssetOptionSelectionsForLineItem;
 use App\Domain\Transaction\Models\Transaction as RecordModel;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Domain\Transaction\Support\FillTransactionCustomerSnapshot;
+use App\Domain\Transaction\Support\RecalculateTransactionTotals;
 use App\Support\TransactionEnumMapper;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -96,9 +98,9 @@ class CreateTransaction
                     $qty = floatval($itemData['quantity'] ?? 1);
                     $price = floatval($itemData['unit_price'] ?? 0);
                     $discount = floatval($itemData['discount'] ?? 0);
-                    $subtotal = max(0, $qty * $price - $discount);
+                    $baseSubtotal = max(0, $qty * $price - $discount);
                     $itemTaxable = ComputeTransactionLineTax::boolish($itemData['taxable'] ?? true);
-                    $itemTax = ComputeTransactionLineTax::amount($subtotal, $itemTaxable, $dealRate);
+                    $itemTax = ComputeTransactionLineTax::amount($baseSubtotal, $itemTaxable, $dealRate);
 
                     $addonsPreTax = 0.0;
                     $addonsTaxSum = 0.0;
@@ -113,26 +115,36 @@ class CreateTransaction
                         $addonsTaxSum += $aTax;
                     }
 
-                    $lineTotal = $subtotal + $addonsPreTax + $itemTax + $addonsTaxSum;
-
-                    $item = $transaction->items()->create([
+                    $createPayload = [
                         'type' => $itemData['type'] ?? 'line',
                         'itemable_type' => $itemData['itemable_type'] ?? null,
                         'itemable_id' => $itemData['itemable_id'] ?? null,
-                        'asset_variant_id' => ! empty($itemData['asset_variant_id']) ? (int) $itemData['asset_variant_id'] : null,
-                        'asset_unit_id' => ! empty($itemData['asset_unit_id']) ? (int) $itemData['asset_unit_id'] : null,
                         'name' => $itemData['name'] ?? 'Item',
                         'description' => $itemData['description'] ?? null,
                         'quantity' => $qty,
                         'unit_price' => $price,
                         'discount' => $discount,
-                        'subtotal' => $subtotal,
+                        'subtotal' => $baseSubtotal,
                         'taxable' => $itemTaxable,
                         'tax_rate' => $dealRate > 0 ? $dealRate : null,
                         'tax_amount' => $itemTax > 0 ? $itemTax : null,
-                        'total' => $lineTotal,
+                        'total' => $baseSubtotal + $addonsPreTax + $itemTax + $addonsTaxSum,
                         'position' => $itemData['position'] ?? $position,
-                    ]);
+                        'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                    ];
+
+                    if (array_key_exists('asset_variant_id', $itemData)) {
+                        $createPayload['asset_variant_id'] = ($itemData['asset_variant_id'] === '' || $itemData['asset_variant_id'] === null)
+                            ? null
+                            : (int) $itemData['asset_variant_id'];
+                    }
+                    if (array_key_exists('asset_unit_id', $itemData)) {
+                        $createPayload['asset_unit_id'] = ($itemData['asset_unit_id'] === '' || $itemData['asset_unit_id'] === null)
+                            ? null
+                            : (int) $itemData['asset_unit_id'];
+                    }
+
+                    $item = $transaction->items()->create($createPayload);
 
                     foreach ($itemData['addons'] ?? [] as $addonData) {
                         $aQty = floatval($addonData['quantity'] ?? 1);
@@ -152,7 +164,34 @@ class CreateTransaction
                             'notes' => $addonData['notes'] ?? null,
                         ]);
                     }
+
+                    if (($itemData['type'] ?? '') === 'asset') {
+                        $linePayload = [
+                            'itemable_type' => $itemData['itemable_type'] ?? null,
+                            'itemable_id' => $itemData['itemable_id'] ?? null,
+                            'asset_variant_id' => $itemData['asset_variant_id'] ?? null,
+                            'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                        ];
+                        app(PersistAssetOptionSelectionsForLineItem::class)(
+                            $item,
+                            $linePayload,
+                            is_array($itemData['selected_asset_options'] ?? null) ? $itemData['selected_asset_options'] : [],
+                            null,
+                            'Deal line '.(((int) $position) + 1),
+                        );
+                    }
+
+                    RecalculateTransactionTotals::finalizeLineItem(
+                        $item,
+                        $dealRate,
+                        $baseSubtotal,
+                        $itemTax,
+                        $addonsPreTax,
+                        $addonsTaxSum,
+                    );
                 }
+
+                RecalculateTransactionTotals::rollupTransaction($transaction->fresh());
 
                 return $transaction;
             });

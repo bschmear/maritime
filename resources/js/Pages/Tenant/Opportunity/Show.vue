@@ -3,8 +3,16 @@ import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue';
+
+const FEATURE_REQUEST_ADDON_PAGE_SIZE = 15;
+
+function sortAddonsAlphabetically(addons) {
+    return [...addons].sort((a, b) =>
+        String(a?.name ?? '').localeCompare(String(b?.name ?? ''), undefined, { sensitivity: 'base' })
+    );
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -17,6 +25,8 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     qualificationEnumOptions: { type: Object, default: () => ({}) },
+    /** Tenant Add-On catalog (`addons.id`, `name`, `default_price`) for feature-request picker */
+    catalogAddons: { type: Array, default: () => [] },
 });
 
 const opportunityLabel = computed(() =>
@@ -50,8 +60,45 @@ const statusLabel = computed(() =>
     getEnumLabel(props.enumOptions['App\\Enums\\Opportunity\\Status'], props.record?.status)
 );
 
+/** DB stores tinyint IDs; enum options use id + value — match either so Open/New enables sending. */
+const canSendFeatureRequest = computed(() => {
+    const statusOpts = props.enumOptions?.['App\\Enums\\Opportunity\\Status'];
+    const stageOpts = props.enumOptions?.['App\\Enums\\Opportunity\\Stage'];
+    const openOpt = Array.isArray(statusOpts) ? statusOpts.find((o) => o.value === 'open') : null;
+    const newOpt = Array.isArray(stageOpts) ? stageOpts.find((o) => o.value === 'new') : null;
+    const openId = openOpt != null ? Number(openOpt.id) : 1;
+    const newId = newOpt != null ? Number(newOpt.id) : 1;
+    const rs = props.record?.status;
+    const rg = props.record?.stage;
+    const statusOk =
+        rs === 'open' || rs === openOpt?.value || Number(rs) === openId;
+    const stageOk =
+        rg === 'new' || rg === newOpt?.value || Number(rg) === newId;
+    return Boolean(statusOk && stageOk);
+});
+
 const assets = computed(() => props.record?.assets ?? []);
-const assetTotal = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+
+const assetOptionPremiumSum = (item) =>
+    (item.opportunity_selected_options || []).reduce((s, r) => s + Number(r.price || 0), 0);
+
+const assetOptionCostSum = (item) =>
+    (item.opportunity_selected_options || []).reduce((s, r) => s + Number(r.cost || 0), 0);
+
+const assetAddonRevenue = (item) =>
+    (item.opportunity_addons || []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0);
+
+const assetBaseRevenue = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+
+/** Combined revenue for this asset line (base + selected options + add-ons). */
+const assetTotal = (item) => assetBaseRevenue(item) + assetOptionPremiumSum(item) + assetAddonRevenue(item);
+
+/** Pivot cost × qty plus option cost snapshots (when present). */
+const assetCostItem = (item) =>
+    Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0) + assetOptionCostSum(item);
+
+const assetSubtotal = computed(() => assets.value.reduce((sum, item) => sum + assetTotal(item), 0));
+const assetCostTotal = computed(() => assets.value.reduce((sum, item) => sum + assetCostItem(item), 0));
 
 /** Pivot variant display (matches estimate line item pattern). */
 const oppAssetVariantLabel = (item) => {
@@ -66,12 +113,15 @@ const oppAssetVariantLabel = (item) => {
     }
     return '';
 };
-const assetCostItem = (item) => Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0);
-const assetSubtotal = computed(() => assets.value.reduce((sum, item) => sum + assetTotal(item), 0));
-const assetCostTotal = computed(() => assets.value.reduce((sum, item) => sum + assetCostItem(item), 0));
 
-const lineItems = computed(() => props.record?.inventory_items ?? []);
-const lineTotal = (item) => Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0);
+const lineItems = computed(() => props.record?.inventory_items ?? props.record?.inventoryItems ?? []);
+
+const invAddonRevenue = (item) =>
+    (item.opportunity_addons || []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0);
+
+const lineTotal = (item) =>
+    Number(item.pivot?.unit_price || 0) * Number(item.pivot?.quantity || 0) + invAddonRevenue(item);
+
 const lineCostItem = (item) => Number(item.pivot?.estimated_cost || 0) * Number(item.pivot?.quantity || 0);
 const lineItemsSubtotal = computed(() => lineItems.value.reduce((sum, item) => sum + lineTotal(item), 0));
 const lineItemsCostTotal = computed(() => lineItems.value.reduce((sum, item) => sum + lineCostItem(item), 0));
@@ -92,6 +142,321 @@ const qualTimelineLabel = computed(() =>
 const handleDelete = () => {
     if (!confirm('Are you sure you want to delete this opportunity?')) return;
     router.delete(route('opportunities.destroy', buildResourceRouteParams('opportunities', props.record.id)));
+};
+
+const featureRequestModalOpen = ref(false);
+const featureRequestAddonSearch = ref('');
+/** 1-based page into the filtered, alphabetically sorted catalog list */
+const featureRequestAddonPage = ref(1);
+const featureRequestIncludeAddons = ref(false);
+/** Selected `asset_opportunity.id` values (numbers). */
+const featureRequestSelectedPivotIds = ref([]);
+/** Map pivot id → selected catalog `addons.id` values */
+const featureRequestCatalogSelections = ref({});
+
+const featureRequestBatchForm = useForm({
+    lines: [],
+    customer_note: '',
+});
+
+const featureRequests = computed(() => props.record?.feature_requests ?? []);
+
+function pivotId(item) {
+    const raw = item?.pivot?.id;
+    return raw != null ? Number(raw) : null;
+}
+
+/** Pivot ids from v-for / APIs may be string or number — normalize for lookups. */
+function normalizePivotId(pid) {
+    if (pid == null || pid === '') return null;
+    const n = Number(pid);
+    return Number.isFinite(n) ? n : null;
+}
+
+function addonsForPivot(pid) {
+    const n = normalizePivotId(pid);
+    if (n == null) return [];
+    const item = assets.value.find((a) => pivotId(a) === n);
+    return item?.opportunity_addons ?? [];
+}
+
+function assetLabelForPivot(pid) {
+    const n = normalizePivotId(pid);
+    if (n == null) return 'Asset';
+    const item = assets.value.find((a) => pivotId(a) === n);
+    return item?.display_name ?? `Asset #${pid}`;
+}
+
+const anyCatalogAddons = computed(() => (props.catalogAddons ?? []).length > 0);
+
+const catalogAddonsList = computed(() => sortAddonsAlphabetically(props.catalogAddons ?? []));
+
+function catalogAddonIdsPresetForPivot(pid) {
+    const fromLine = new Set();
+    for (const row of addonsForPivot(pid)) {
+        if (row.addon_id != null) {
+            fromLine.add(Number(row.addon_id));
+        }
+    }
+    return [...fromLine];
+}
+
+const allAssetsFeatureRequestSelected = computed(() => {
+    const ids = assets.value.map((a) => pivotId(a)).filter((id) => id != null);
+    return (
+        ids.length > 0 &&
+        ids.every((id) => featureRequestSelectedPivotIds.value.includes(id))
+    );
+});
+
+function toggleSelectAllFeatureRequestAssets(checked) {
+    if (checked) {
+        featureRequestSelectedPivotIds.value = assets.value.map((a) => pivotId(a)).filter((id) => id != null);
+    } else {
+        featureRequestSelectedPivotIds.value = [];
+    }
+}
+
+function toggleFeatureRequestAssetSelection(item) {
+    const id = pivotId(item);
+    if (id == null) return;
+    const arr = [...featureRequestSelectedPivotIds.value];
+    const i = arr.indexOf(id);
+    if (i >= 0) {
+        arr.splice(i, 1);
+    } else {
+        arr.push(id);
+    }
+    featureRequestSelectedPivotIds.value = arr;
+}
+
+function isPivotSelectedForFeatureRequest(item) {
+    const id = pivotId(item);
+    if (id == null) return false;
+    return featureRequestSelectedPivotIds.value.includes(id);
+}
+
+/** Lowercase haystack for catalog rows and pivot snapshot rows (name, ids, price). */
+function addonSearchHaystack(addon) {
+    const parts = [
+        addon?.name,
+        addon?.notes,
+        addon?.addon_id != null ? String(addon.addon_id) : '',
+        addon?.id != null ? String(addon.id) : '',
+        addon?.default_price != null ? String(addon.default_price) : '',
+    ];
+    return parts
+        .filter((p) => p != null && String(p).trim() !== '')
+        .map((p) => String(p).toLowerCase())
+        .join(' ');
+}
+
+/**
+ * Match every whitespace-separated token (order-independent).
+ * Fixes full-string `includes()` failing when query words differ from name order (e.g. "hitch trailer" vs "Trailer Hitch").
+ */
+function addonMatchesSearchQuery(addon, queryRaw) {
+    const raw = (queryRaw ?? '').trim();
+    if (!raw) return true;
+    const hay = addonSearchHaystack(addon);
+    if (!hay) return false;
+    const tokens = raw
+        .toLowerCase()
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+    if (tokens.length === 0) return true;
+    return tokens.every((t) => hay.includes(t));
+}
+
+const filteredCatalogAddons = computed(() => {
+    const q = featureRequestAddonSearch.value ?? '';
+    const list = catalogAddonsList.value;
+    const filtered = !q.trim() ? list : list.filter((a) => addonMatchesSearchQuery(a, q));
+    return sortAddonsAlphabetically(filtered);
+});
+
+const featureRequestAddonPageCount = computed(() => {
+    const n = filteredCatalogAddons.value.length;
+    if (n <= 0) return 1;
+    return Math.ceil(n / FEATURE_REQUEST_ADDON_PAGE_SIZE);
+});
+
+const featureRequestAddonEffectivePage = computed(() =>
+    Math.min(Math.max(1, featureRequestAddonPage.value), featureRequestAddonPageCount.value)
+);
+
+const paginatedCatalogAddons = computed(() => {
+    const all = filteredCatalogAddons.value;
+    const page = featureRequestAddonEffectivePage.value;
+    const start = (page - 1) * FEATURE_REQUEST_ADDON_PAGE_SIZE;
+    return all.slice(start, start + FEATURE_REQUEST_ADDON_PAGE_SIZE);
+});
+
+const featureRequestAddonRangeLabel = computed(() => {
+    const total = filteredCatalogAddons.value.length;
+    if (total === 0) return '';
+    const page = featureRequestAddonEffectivePage.value;
+    const start = (page - 1) * FEATURE_REQUEST_ADDON_PAGE_SIZE + 1;
+    const end = Math.min(page * FEATURE_REQUEST_ADDON_PAGE_SIZE, total);
+    return `${start}–${end} of ${total}`;
+});
+
+watch(featureRequestAddonSearch, () => {
+    featureRequestAddonPage.value = 1;
+});
+
+watch(
+    () => filteredCatalogAddons.value.length,
+    () => {
+        const max = featureRequestAddonPageCount.value;
+        if (featureRequestAddonPage.value > max) {
+            featureRequestAddonPage.value = max;
+        }
+    }
+);
+
+const openFeatureRequestModal = () => {
+    if (!canSendFeatureRequest.value || featureRequestSelectedPivotIds.value.length === 0) return;
+    featureRequestAddonSearch.value = '';
+    featureRequestAddonPage.value = 1;
+    featureRequestBatchForm.clearErrors();
+    featureRequestBatchForm.customer_note = '';
+    const next = {};
+    for (const pid of featureRequestSelectedPivotIds.value) {
+        next[pid] = catalogAddonIdsPresetForPivot(pid);
+    }
+    featureRequestCatalogSelections.value = next;
+    featureRequestIncludeAddons.value = false;
+    featureRequestModalOpen.value = true;
+};
+
+const closeFeatureRequestModal = () => {
+    featureRequestModalOpen.value = false;
+    featureRequestAddonSearch.value = '';
+    featureRequestAddonPage.value = 1;
+};
+
+const onFeatureRequestIncludeAddonsChange = (checked) => {
+    featureRequestIncludeAddons.value = checked;
+    if (checked) {
+        const next = { ...featureRequestCatalogSelections.value };
+        for (const pid of featureRequestSelectedPivotIds.value) {
+            next[pid] = catalogAddonIdsPresetForPivot(pid);
+        }
+        featureRequestCatalogSelections.value = next;
+    }
+};
+
+const toggleFeatureRequestCatalogAddonId = (pid, catalogAddonId) => {
+    const cid = Number(catalogAddonId);
+    const ids = [...(featureRequestCatalogSelections.value[pid] ?? [])].map(Number);
+    const i = ids.indexOf(cid);
+    if (i >= 0) {
+        ids.splice(i, 1);
+    } else {
+        ids.push(cid);
+    }
+    featureRequestCatalogSelections.value = {
+        ...featureRequestCatalogSelections.value,
+        [pid]: ids,
+    };
+};
+
+const featureRequestCatalogAddonSelected = (pid, catalogAddonId) =>
+    (featureRequestCatalogSelections.value[pid] ?? []).map(Number).includes(Number(catalogAddonId));
+
+function buildFeatureRequestLines() {
+    return featureRequestSelectedPivotIds.value.map((pid) => {
+        const wantInclude = featureRequestIncludeAddons.value;
+        return {
+            asset_opportunity_id: pid,
+            include_addons: wantInclude,
+            catalog_addon_ids: wantInclude ? (featureRequestCatalogSelections.value[pid] ?? []) : [],
+        };
+    });
+}
+
+const featureRequestSubmitDisabled = computed(() => {
+    if (featureRequestBatchForm.processing) return true;
+    if (!featureRequestIncludeAddons.value) return false;
+    for (const pid of featureRequestSelectedPivotIds.value) {
+        const picked = featureRequestCatalogSelections.value[pid] ?? [];
+        if (picked.length === 0) return true;
+    }
+    return false;
+});
+
+const submitFeatureRequestModal = () => {
+    featureRequestBatchForm.lines = buildFeatureRequestLines();
+    featureRequestBatchForm.post(route('opportunities.send-feature-requests', props.record.id), {
+        preserveScroll: true,
+        onFinish: async () => {
+            await nextTick();
+            if (!featureRequestBatchForm.hasErrors) {
+                const n = featureRequestSelectedPivotIds.value.length;
+                closeFeatureRequestModal();
+                featureRequestSelectedPivotIds.value = [];
+                const proxy = getCurrentInstance()?.proxy;
+                if (typeof proxy?.$root?.createToast === 'function') {
+                    proxy.$root.createToast(
+                        'success',
+                        n === 1
+                            ? 'Feature request link sent to the customer.'
+                            : `${n} feature request links sent to the customer.`
+                    );
+                }
+            }
+        },
+    });
+};
+
+const catalogAddonNameById = computed(() => {
+    const m = {};
+    for (const a of props.catalogAddons ?? []) {
+        if (a?.id != null) {
+            m[a.id] = a.name;
+        }
+    }
+    return m;
+});
+
+/** Customer-requested catalog add-ons for staff approve/deny (new submissions only). */
+function featureRequestAddonReviewRows(fr) {
+    const rows = fr.addon_selections || [];
+    const decisions = fr.addon_staff_decisions || {};
+    const out = [];
+    for (const row of rows) {
+        const cid = row.catalog_addon_id != null ? Number(row.catalog_addon_id) : null;
+        if (cid == null || !Number.isFinite(cid)) continue;
+        const decision = decisions[String(cid)] ?? null;
+        out.push({
+            catalog_addon_id: cid,
+            quantity: row.quantity ?? 1,
+            decision,
+            name: catalogAddonNameById.value[cid] ?? `Add-on #${cid}`,
+        });
+    }
+    return out;
+}
+
+function reviewFeatureRequestAddon(fr, catalogAddonId, decision) {
+    router.post(
+        route('opportunities.feature-request-review-addon', [props.record.id, fr.id]),
+        { catalog_addon_id: catalogAddonId, decision },
+        { preserveScroll: true }
+    );
+}
+
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
 };
 </script>
 
@@ -319,14 +684,50 @@ const handleDelete = () => {
                          Assets
                          ============================ -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div
+                            class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3"
+                        >
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
+                            <button
+                                v-if="assets.length > 0"
+                                type="button"
+                                class="inline-flex items-center justify-center rounded-lg border border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-900/25 px-3 py-2 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900/40 transition-colors disabled:opacity-50 shrink-0"
+                                :disabled="
+                                    !canSendFeatureRequest ||
+                                        featureRequestSelectedPivotIds.length === 0 ||
+                                        featureRequestBatchForm.processing
+                                "
+                                @click="openFeatureRequestModal"
+                            >
+                                Send feature request form(s)
+                            </button>
+                        </div>
+
+                        <div
+                            v-if="assets.length > 0 && !canSendFeatureRequest"
+                            class="px-6 py-3 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-100 dark:border-amber-900/40 text-sm text-amber-900 dark:text-amber-100"
+                        >
+                            Feature request forms can only be sent when <strong>status</strong> is Open and <strong>stage</strong> is New.
                         </div>
 
                         <div v-if="assets.length > 0" class="overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
+                                        <th class="w-12 px-2 py-3 text-center align-middle">
+                                            <input
+                                                type="checkbox"
+                                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                                                title="Select all asset lines"
+                                                :checked="allAssetsFeatureRequestSelected"
+                                                :disabled="
+                                                    featureRequestBatchForm.processing ||
+                                                    !canSendFeatureRequest ||
+                                                    assets.length === 0
+                                                "
+                                                @change="toggleSelectAllFeatureRequestAssets($event.target.checked)"
+                                            />
+                                        </th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Year</th>
@@ -338,43 +739,85 @@ const handleDelete = () => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <tr
-                                        v-for="item in assets"
-                                        :key="`${item.id}-${item.pivot?.asset_variant_id ?? 'n'}`"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                                    >
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
-                                            <div v-if="item.make?.display_name" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make.display_name }}</div>
-                                        </td>
-                                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                            <AssetLineVariantCell
-                                                :label="oppAssetVariantLabel(item)"
-                                                :has-variants="item.has_variants"
-                                                pending-label="—"
-                                            />
-                                        </td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetTotal(item)) }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.pivot?.notes || '—' }}</td>
-                                    </tr>
+                                    <template v-for="item in assets" :key="`${item.id}-${item.pivot?.asset_variant_id ?? 'n'}-${item.pivot?.id ?? ''}`">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="w-12 px-2 py-3 align-top text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                                                    :checked="isPivotSelectedForFeatureRequest(item)"
+                                                    :disabled="
+                                                        featureRequestBatchForm.processing ||
+                                                        !canSendFeatureRequest
+                                                    "
+                                                    @change="toggleFeatureRequestAssetSelection(item)"
+                                                />
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <div class="font-medium text-gray-900 dark:text-white">{{ item.display_name }}</div>
+                                                <div v-if="item.make?.display_name" class="text-xs text-gray-400 dark:text-gray-500">{{ item.make.display_name }}</div>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                                                <AssetLineVariantCell
+                                                    :label="oppAssetVariantLabel(item)"
+                                                    :has-variants="item.has_variants"
+                                                    pending-label="—"
+                                                />
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.pivot?.notes || '—' }}</td>
+                                        </tr>
+                                        <tr
+                                            v-for="opt in (item.opportunity_selected_options || [])"
+                                            :key="`opt-${opt.id}`"
+                                            class="bg-slate-50/70 dark:bg-slate-900/25"
+                                        >
+                                            <td class="w-12 px-2 py-2"></td>
+                                            <td colspan="3" class="px-4 py-2 pl-8 text-xs text-gray-600 dark:text-gray-400">
+                                                ↳ {{ opt.option_name }} · {{ opt.value_label }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(opt.cost) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(opt.price) }}</td>
+                                            <td class="px-4 py-2"></td>
+                                        </tr>
+                                        <tr
+                                            v-for="(addon, aix) in (item.opportunity_addons || [])"
+                                            :key="`addon-${item.id}-${aix}`"
+                                            class="bg-primary-50/35 dark:bg-primary-900/15"
+                                        >
+                                            <td class="w-12 px-2 py-2"></td>
+                                            <td colspan="3" class="px-4 py-2 pl-8 text-xs text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ addon.name }}
+                                            </td>
+                                            <td class="px-4 py-2"></td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                {{ formatCurrency(Number(addon.price || 0) * Number(addon.quantity || 1)) }}
+                                            </td>
+                                            <td class="px-4 py-2"></td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal (Revenue)</td>
+                                        <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal (Revenue)</td>
                                         <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td></td>
                                     </tr>
                                     <tr class="border-t border-gray-200 dark:border-gray-600">
-                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Assets Total Cost</td>
+                                        <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400">Assets Total Cost</td>
                                         <td class="px-4 py-3 text-right text-sm text-red-600 dark:text-red-400">{{ formatCurrency(assetCostTotal) }}</td>
                                         <td></td>
                                     </tr>
                                     <tr class="border-t border-dashed border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
-                                        <td colspan="6" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Gross Profit</td>
+                                        <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Assets Gross Profit</td>
                                         <td class="px-4 py-3 text-right text-sm font-bold"
                                             :class="(assetSubtotal - assetCostTotal) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'">
                                             {{ formatCurrency(assetSubtotal - assetCostTotal) }}
@@ -390,6 +833,104 @@ const handleDelete = () => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                             </svg>
                             <p class="text-sm text-gray-400 dark:text-gray-500">No assets attached</p>
+                        </div>
+                    </div>
+
+                    <!-- ============================
+                         Feature requests
+                         ============================ -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Feature requests</h2>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Customer submissions from the Feature Request Form (asset options and optional add-ons).
+                            </p>
+                        </div>
+                        <div v-if="featureRequests.length === 0" class="py-10 px-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            No submissions yet. Select one or more assets above, then use “Send feature request form(s)” to email the customer a secure link.
+                        </div>
+                        <div v-else class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Variant</th>
+                                        <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Add-ons</th>
+                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Options</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Signer</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <template v-for="fr in featureRequests" :key="fr.id">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                            <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatDateTime(fr.submitted_at) }}</td>
+                                            <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ fr.asset_display_name || '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ fr.variant_label || '—' }}</td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span
+                                                    :class="fr.include_addons ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-600/40'"
+                                                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                                                >
+                                                    {{ fr.include_addons ? 'Yes' : 'No' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                                                {{ (fr.asset_option_selections || []).length }}
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ fr.signer_name }}</td>
+                                        </tr>
+                                        <tr
+                                            v-if="featureRequestAddonReviewRows(fr).length > 0"
+                                            class="bg-amber-50/90 dark:bg-amber-900/20 border-t border-amber-100 dark:border-amber-900/40"
+                                        >
+                                            <td colspan="6" class="px-4 py-3">
+                                                <div class="text-xs font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide mb-2">
+                                                    Requested by customer — add-ons
+                                                </div>
+                                                <ul class="space-y-2">
+                                                    <li
+                                                        v-for="row in featureRequestAddonReviewRows(fr)"
+                                                        :key="`${fr.id}-addon-${row.catalog_addon_id}`"
+                                                        class="flex flex-wrap items-center gap-2 text-sm text-gray-800 dark:text-gray-200"
+                                                    >
+                                                        <span class="font-medium">{{ row.name }}</span>
+                                                        <span class="text-gray-500 dark:text-gray-400 tabular-nums">× {{ row.quantity }}</span>
+                                                        <span
+                                                            v-if="row.decision === 'approved'"
+                                                            class="ml-auto text-xs font-medium text-green-700 dark:text-green-400"
+                                                        >
+                                                            Approved
+                                                        </span>
+                                                        <span
+                                                            v-else-if="row.decision === 'denied'"
+                                                            class="ml-auto text-xs font-medium text-red-600 dark:text-red-400"
+                                                        >
+                                                            Declined
+                                                        </span>
+                                                        <span v-else class="ml-auto inline-flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                class="rounded-md bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700"
+                                                                @click="reviewFeatureRequestAddon(fr, row.catalog_addon_id, 'approved')"
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                class="rounded-md border border-gray-300 dark:border-gray-600 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800"
+                                                                @click="reviewFeatureRequestAddon(fr, row.catalog_addon_id, 'denied')"
+                                                            >
+                                                                Decline
+                                                            </button>
+                                                        </span>
+                                                    </li>
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -415,19 +956,33 @@ const handleDelete = () => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <tr
-                                        v-for="item in lineItems"
-                                        :key="item.id"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                                    >
-                                        <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.display_name }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
-                                        <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
-                                        <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.pivot?.notes || '—' }}</td>
-                                    </tr>
+                                    <template v-for="(item, ix) in lineItems" :key="`${item.id}-inv-${item.pivot?.id ?? ix}`">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.display_name }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.sku || '—' }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.estimated_cost) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.pivot?.unit_price) }}</td>
+                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.pivot?.quantity ?? 1 }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.pivot?.notes || '—' }}</td>
+                                        </tr>
+                                        <tr
+                                            v-for="(addon, aix) in (item.opportunity_addons || [])"
+                                            :key="`inv-addon-${item.id}-${aix}`"
+                                            class="bg-primary-50/35 dark:bg-primary-900/15"
+                                        >
+                                            <td colspan="2" class="px-4 py-2 pl-8 text-xs text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ addon.name }}
+                                            </td>
+                                            <td class="px-4 py-2"></td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                {{ formatCurrency(Number(addon.price || 0) * Number(addon.quantity || 1)) }}
+                                            </td>
+                                            <td class="px-4 py-2"></td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
@@ -716,4 +1271,161 @@ const handleDelete = () => {
             </div>
         </div>
     </TenantLayout>
+
+    <Teleport to="body">
+        <div
+            v-if="featureRequestModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            role="dialog"
+            aria-modal="true"
+            @click.self="closeFeatureRequestModal"
+        >
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-4 border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Feature Request Form</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Send
+                    {{ featureRequestSelectedPivotIds.length === 1 ? 'a link' : `${featureRequestSelectedPivotIds.length} links` }}
+                    so the customer can choose asset options for the selected boat{{ featureRequestSelectedPivotIds.length === 1 ? '' : 's' }}.
+                    Optionally include add-ons per line below.
+                </p>
+
+                <div class="space-y-1">
+                    <label for="feature-request-customer-note" class="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Note to customer <span class="font-normal normal-case text-gray-400">(optional)</span>
+                    </label>
+                    <textarea
+                        id="feature-request-customer-note"
+                        v-model="featureRequestBatchForm.customer_note"
+                        rows="3"
+                        maxlength="5000"
+                        placeholder="Add a short personalized message that will appear in the email…"
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 shadow-sm text-sm focus:border-primary-500 focus:ring-primary-500"
+                        :disabled="featureRequestBatchForm.processing"
+                    />
+                </div>
+
+                <label class="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        class="mt-1 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500"
+                        :checked="featureRequestIncludeAddons"
+                        :disabled="featureRequestBatchForm.processing || !anyCatalogAddons"
+                        @change="onFeatureRequestIncludeAddonsChange($event.target.checked)"
+                    />
+                    <span class="text-sm text-gray-800 dark:text-gray-200">
+                        Include add-ons
+                        <span v-if="!anyCatalogAddons" class="block text-xs font-normal text-amber-600 dark:text-amber-400 mt-1">
+                            No add-ons in your catalog yet — create them under Inventory → Add-Ons first.
+                        </span>
+                        <span v-else class="block text-xs font-normal text-gray-500 dark:text-gray-400 mt-1">
+                            Choose from all tenant add-ons for each boat line below.
+                        </span>
+                    </span>
+                </label>
+
+                <div v-if="featureRequestIncludeAddons && anyCatalogAddons" class="space-y-4">
+                    <input
+                        v-model="featureRequestAddonSearch"
+                        type="search"
+                        placeholder="Search add-ons…"
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-800 shadow-sm text-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+
+                    <div
+                        v-if="filteredCatalogAddons.length === 0 && catalogAddonsList.length > 0"
+                        class="text-xs text-gray-500 dark:text-gray-400 py-2 text-center"
+                    >
+                        No add-ons match your search.
+                    </div>
+
+                    <template v-else>
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-400"
+                        >
+                            <span>{{ featureRequestAddonRangeLabel }}</span>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none"
+                                    :disabled="featureRequestAddonEffectivePage <= 1 || featureRequestBatchForm.processing"
+                                    @click="featureRequestAddonPage = Math.max(1, featureRequestAddonPage - 1)"
+                                >
+                                    Previous
+                                </button>
+                                <span class="tabular-nums">
+                                    Page {{ featureRequestAddonEffectivePage }} / {{ featureRequestAddonPageCount }}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="rounded-md border border-gray-300 dark:border-gray-600 px-2 py-1 font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:pointer-events-none"
+                                    :disabled="
+                                        featureRequestAddonEffectivePage >= featureRequestAddonPageCount ||
+                                        featureRequestBatchForm.processing
+                                    "
+                                    @click="
+                                        featureRequestAddonPage = Math.min(
+                                            featureRequestAddonPageCount,
+                                            featureRequestAddonPage + 1
+                                        )
+                                    "
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            v-for="pid in featureRequestSelectedPivotIds"
+                            :key="`fr-addons-${pid}`"
+                            class="space-y-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 p-3"
+                        >
+                            <div class="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                {{ assetLabelForPivot(pid) }}
+                            </div>
+                            <div class="space-y-1 pr-1">
+                                <label
+                                    v-for="addon in paginatedCatalogAddons"
+                                    :key="`${pid}-cat-${addon.id}`"
+                                    class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-white/80 dark:hover:bg-gray-800/80 cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 shrink-0"
+                                        :checked="featureRequestCatalogAddonSelected(pid, addon.id)"
+                                        @change="toggleFeatureRequestCatalogAddonId(pid, addon.id)"
+                                    />
+                                    <span class="flex-1 truncate">{{ addon.name }}</span>
+                                    <span
+                                        v-if="addon.default_price != null"
+                                        class="text-xs text-gray-500 dark:text-gray-400 tabular-nums shrink-0"
+                                    >
+                                        {{ formatCurrency(addon.default_price) }}
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2 sm:justify-end pt-2">
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        :disabled="featureRequestBatchForm.processing"
+                        @click="closeFeatureRequestModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                        :disabled="featureRequestBatchForm.processing || featureRequestSubmitDisabled"
+                        @click="submitFeatureRequestModal"
+                    >
+                        Send {{ featureRequestSelectedPivotIds.length === 1 ? 'link' : 'links' }} to customer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </Teleport>
 </template>

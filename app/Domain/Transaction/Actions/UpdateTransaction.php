@@ -2,10 +2,12 @@
 
 namespace App\Domain\Transaction\Actions;
 
+use App\Domain\AssetOption\Services\PersistAssetOptionSelectionsForLineItem;
 use App\Domain\Transaction\Models\Transaction as RecordModel;
 use App\Domain\Transaction\Models\TransactionItem;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Domain\Transaction\Support\FillTransactionCustomerSnapshot;
+use App\Domain\Transaction\Support\RecalculateTransactionTotals;
 use App\Support\TransactionEnumMapper;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -101,6 +103,8 @@ class UpdateTransaction
 
                 if ($syncItems) {
                     $this->syncItems($record, $itemsData);
+                    $record->refresh();
+                    RecalculateTransactionTotals::rollupTransaction($record->fresh());
                 }
             });
 
@@ -152,9 +156,9 @@ class UpdateTransaction
             $qty = floatval($itemData['quantity'] ?? 1);
             $price = floatval($itemData['unit_price'] ?? 0);
             $discount = floatval($itemData['discount'] ?? 0);
-            $subtotal = max(0, $qty * $price - $discount);
+            $baseSubtotal = max(0, $qty * $price - $discount);
             $itemTaxable = ComputeTransactionLineTax::boolish($itemData['taxable'] ?? true);
-            $itemTax = ComputeTransactionLineTax::amount($subtotal, $itemTaxable, $dealRate);
+            $itemTax = ComputeTransactionLineTax::amount($baseSubtotal, $itemTaxable, $dealRate);
 
             $addonsPreTax = 0.0;
             $addonsTaxSum = 0.0;
@@ -168,32 +172,44 @@ class UpdateTransaction
                 $addonsTaxSum += ComputeTransactionLineTax::amount($aBase, $aTaxable, $dealRate);
             }
 
-            $lineTotal = $subtotal + $addonsPreTax + $itemTax + $addonsTaxSum;
+            $preliminaryLineTotal = $baseSubtotal + $addonsPreTax + $itemTax + $addonsTaxSum;
 
             $fill = [
                 'type' => $itemData['type'] ?? 'line',
                 'itemable_type' => $itemData['itemable_type'] ?? null,
                 'itemable_id' => $itemData['itemable_id'] ?? null,
-                'asset_variant_id' => ! empty($itemData['asset_variant_id']) ? (int) $itemData['asset_variant_id'] : null,
-                'asset_unit_id' => ! empty($itemData['asset_unit_id']) ? (int) $itemData['asset_unit_id'] : null,
                 'name' => $itemData['name'] ?? 'Item',
                 'description' => $itemData['description'] ?? null,
                 'quantity' => $qty,
                 'unit_price' => $price,
                 'discount' => $discount,
-                'subtotal' => $subtotal,
+                'subtotal' => $baseSubtotal,
                 'taxable' => $itemTaxable,
                 'tax_rate' => $dealRate > 0 ? $dealRate : null,
                 'tax_amount' => $itemTax > 0 ? $itemTax : null,
-                'total' => $lineTotal,
+                'total' => $preliminaryLineTotal,
                 'position' => $itemData['position'] ?? $position,
+                'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
             ];
+
+            // Only touch FK columns when the client sent those keys; omitting them avoids overwriting with null
+            // when JSON/Inertia drops null keys from the payload.
+            if (array_key_exists('asset_variant_id', $itemData)) {
+                $fill['asset_variant_id'] = ($itemData['asset_variant_id'] === '' || $itemData['asset_variant_id'] === null)
+                    ? null
+                    : (int) $itemData['asset_variant_id'];
+            }
+            if (array_key_exists('asset_unit_id', $itemData)) {
+                $fill['asset_unit_id'] = ($itemData['asset_unit_id'] === '' || $itemData['asset_unit_id'] === null)
+                    ? null
+                    : (int) $itemData['asset_unit_id'];
+            }
 
             $itemId = ! empty($itemData['id']) ? (int) $itemData['id'] : null;
 
             if ($itemId) {
                 $item = TransactionItem::find($itemId);
-                if ($item && $item->transaction_id === $record->id) {
+                if ($item && $item->parent_type === RecordModel::class && (int) $item->parent_id === $record->id) {
                     $item->update($fill);
                 } else {
                     $item = $record->items()->create($fill);
@@ -222,6 +238,31 @@ class UpdateTransaction
                     'notes' => $addonData['notes'] ?? null,
                 ]);
             }
+
+            if (($itemData['type'] ?? '') === 'asset') {
+                $linePayload = [
+                    'itemable_type' => $itemData['itemable_type'] ?? null,
+                    'itemable_id' => $itemData['itemable_id'] ?? null,
+                    'asset_variant_id' => $itemData['asset_variant_id'] ?? null,
+                    'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                ];
+                app(PersistAssetOptionSelectionsForLineItem::class)(
+                    $item,
+                    $linePayload,
+                    is_array($itemData['selected_asset_options'] ?? null) ? $itemData['selected_asset_options'] : [],
+                    null,
+                    'Deal line '.(((int) $position) + 1),
+                );
+            }
+
+            RecalculateTransactionTotals::finalizeLineItem(
+                $item,
+                $dealRate,
+                $baseSubtotal,
+                $itemTax,
+                $addonsPreTax,
+                $addonsTaxSum,
+            );
         }
     }
 }

@@ -7,8 +7,8 @@
       "hidden": true
     },
   
-    "transaction_item_id": {
-      "label": "Source Transaction Item",
+    "transaction_line_item_id": {
+      "label": "Source Transaction Line Item",
       "type": "record",
       "typeDomain": "TransactionItem",
       "nullable": true,

@@ -153,7 +153,8 @@ class CreateDealFromEstimate
                     };
 
                     $txItem = TransactionItem::create([
-                        'transaction_id' => $transaction->id,
+                        'parent_type' => Transaction::class,
+                        'parent_id' => $transaction->id,
                         'type' => $type,
                         'itemable_type' => $itemableType,
                         'itemable_id' => $line->itemable_id,
@@ -170,7 +171,7 @@ class CreateDealFromEstimate
                         'tax_amount' => $itemTax > 0 ? $itemTax : null,
                         'total' => $lineGrand,
                         'position' => $line->position ?? $position,
-                        'estimate_item_id' => $line->id,
+                        'source_transaction_line_item_id' => $line->id,
                     ]);
 
                     foreach ($line->addons as $estimateAddon) {
@@ -179,7 +180,7 @@ class CreateDealFromEstimate
                         $aTax = ComputeTransactionLineTax::amount($aBase, $aTaxable, $dealRate);
 
                         TransactionItemAddon::create([
-                            'transaction_item_id' => $txItem->id,
+                            'transaction_line_item_id' => $txItem->id,
                             'addon_id' => $estimateAddon->addon_id,
                             'name' => $estimateAddon->name,
                             'price' => $estimateAddon->price,

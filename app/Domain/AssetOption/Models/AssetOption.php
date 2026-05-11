@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AssetOption extends Model
 {
+    protected $appends = ['display_name'];
+
     protected $fillable = [
         'name',
         'slug',
@@ -52,5 +54,13 @@ class AssetOption extends Model
     public function makeAssignments(): HasMany
     {
         return $this->hasMany(AssetOptionMakeAssignment::class, 'option_id');
+    }
+
+    /**
+     * Used by records.lookup and pickers (there is no display_name column).
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return (string) ($this->attributes['name'] ?? '');
     }
 }

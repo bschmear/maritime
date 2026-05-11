@@ -7,11 +7,14 @@ use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Notification\Models\Notification;
+use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
+use App\Mail\OpportunityFeatureRequestSubmittedMail;
 use App\Mail\ServiceTicketApproved;
 use App\Mail\WarrantyClaimSentToVendor;
 use App\Models\Account;
@@ -291,6 +294,57 @@ class NotificationService
         } catch (\Exception $e) {
             Log::error('Failed to notify contract signed', [
                 'contract_id' => $contract->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Opportunity — customer feature request form
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function notifyOpportunityFeatureRequestSubmitted(
+        Opportunity $opportunity,
+        OpportunityFeatureRequest $submission,
+        AccountSettings $account
+    ): void {
+        try {
+            $opportunity->loadMissing(['customer', 'salesperson']);
+
+            $notifyUser = $opportunity->salesperson ?? $this->getAccountOwner();
+
+            if (! $notifyUser) {
+                Log::warning('No user found to notify for opportunity feature request submission', [
+                    'opportunity_id' => $opportunity->id,
+                    'submission_id' => $submission->id,
+                ]);
+
+                return;
+            }
+
+            $customerName = $opportunity->customer?->display_name ?? 'Customer';
+            $assetLabel = $submission->asset_display_name ?? 'Asset';
+
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type' => 'opportunity_feature_request_submitted',
+                'title' => 'Customer submitted feature request',
+                'message' => "{$submission->signer_name} submitted choices for {$assetLabel} on {$opportunity->display_name} ({$customerName}).",
+                'route' => 'opportunities.show',
+                'route_params' => ['opportunity' => $opportunity->id],
+            ]);
+
+            $email = $notifyUser->email ?? null;
+            if ($email !== null && trim((string) $email) !== '') {
+                Mail::to($email)->send(
+                    new OpportunityFeatureRequestSubmittedMail($opportunity, $submission, $account, $notifyUser)
+                );
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to notify opportunity feature request submission', [
+                'opportunity_id' => $opportunity->id,
+                'submission_id' => $submission->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

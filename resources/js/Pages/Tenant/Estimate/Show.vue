@@ -70,6 +70,23 @@ const sendApprovalRequest = () => {
     });
 };
 
+const sendBoatOptionsForm = useForm({});
+const sendBoatOptionsInvite = () => {
+    sendBoatOptionsForm.post(route('estimates.send-boat-options', props.record.id), {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash?.success) {
+                showToast('success', flash.success);
+            }
+            const err = page.props.errors?.error;
+            if (err) {
+                showToast('error', Array.isArray(err) ? err[0] : err);
+            }
+        },
+    });
+};
+
 const revisionForm = useForm({});
 const createRevision = () => {
     revisionForm.post(route('estimates.revision', props.record.id));
@@ -83,6 +100,15 @@ const canSendApproval = computed(() => {
     // Include pending_approval so staff can resend the review email to the customer.
     return (v === 'draft' || v === 'sent' || v === 'pending_approval') && !hasRevision.value;
 });
+
+const canSendBoatOptionsInvite = computed(() =>
+    lineItems.value.some(
+        (li) =>
+            li.itemable_type === 'App\\Domain\\Asset\\Models\\Asset' &&
+            li.asset_options_fill_mode === 'customer' &&
+            !li.customer_asset_options_completed_at,
+    ),
+);
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
 
@@ -151,13 +177,66 @@ const inventoryLines = computed(() =>
 const lineBaseTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 
+/** Boat/catalog line total including option premiums (addons excluded — same as stored line_total). */
+const assetLineCatalogTotal = (item) => {
+    const stored = item.line_total;
+    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
+        return Number(stored);
+    }
+    return lineBaseTotal(item);
+};
+
 const lineTotal = (item) => {
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0
     );
+    const stored = item.line_total;
+    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
+        return Number(stored) + addonsTotal;
+    }
     return lineBaseTotal(item) + addonsTotal;
 };
+
+const selectedOptionsByLineItemId = computed(() => {
+    const rows = props.record?.selected_asset_options ?? props.record?.selectedAssetOptions ?? [];
+    const map = {};
+    for (const row of rows) {
+        const lid = row.transaction_line_item_id;
+        if (lid == null) {
+            continue;
+        }
+        if (! map[lid]) {
+            map[lid] = [];
+        }
+        map[lid].push({
+            option_name: row.option_name,
+            value_label: row.value_label,
+            price: Number(row.price ?? 0),
+        });
+    }
+    return map;
+});
+
+const selectedOptionsForLine = (item) => selectedOptionsByLineItemId.value[item.id] ?? [];
+
+const selectedOptionLabel = (opt) => {
+    const name = String(opt.option_name ?? '').trim();
+    const val = String(opt.value_label ?? '').trim();
+    if (name && val) {
+        return `${name}: ${val}`;
+    }
+    return name || val || 'Option';
+};
+
+const assetOptionPremiumSubtotal = computed(() =>
+    assetLines.value.reduce((sum, item) => {
+        const stored = item.line_total;
+        if (stored == null || stored === '' || Number.isNaN(Number(stored))) {
+            return sum;
+        }
+        return sum + Math.max(0, Number(stored) - lineBaseTotal(item));
+    }, 0));
 
 const addonSubtotalForItems = (items) =>
     items.reduce((sum, item) =>
@@ -319,6 +398,20 @@ const confirmDelete = () => {
                         </span>
                     </div>
                     <div class="flex items-center gap-2">
+                        <button
+                            v-if="canSendBoatOptionsInvite"
+                            type="button"
+                            @click="sendBoatOptionsInvite"
+                            :disabled="sendBoatOptionsForm.processing"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 rounded-lg transition-colors"
+                            title="Email secure links so the customer can choose boat options"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            {{ sendBoatOptionsForm.processing ? 'Sending…' : 'Email boat options' }}
+                        </button>
+
                         <!-- Send for Approval -->
                         <button
                             v-if="canSendApproval"
@@ -663,7 +756,7 @@ const confirmDelete = () => {
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineCatalogTotal(item)) }}</td>
                                             <td class="px-4 py-3 text-center">
                                                 <button
                                                     v-if="lineItemNoteText(item)"
@@ -676,6 +769,20 @@ const confirmDelete = () => {
                                                 </button>
                                                 <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                             </td>
+                                        </tr>
+                                        <tr
+                                            v-for="(opt, optIdx) in selectedOptionsForLine(item)"
+                                            :key="`asset-opt-${item.id}-${optIdx}`"
+                                            class="bg-sky-50/70 dark:bg-sky-900/20"
+                                        >
+                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-700 dark:text-gray-300" colspan="4">
+                                                <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
+                                            <td class="px-4 py-2 text-center text-xs text-gray-400">—</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
                                         <tr
@@ -820,6 +927,20 @@ const confirmDelete = () => {
                         <div class="p-5 space-y-3">
 
 
+                            <!-- Email boat options -->
+                            <button
+                                v-if="canSendBoatOptionsInvite"
+                                type="button"
+                                @click="sendBoatOptionsInvite"
+                                :disabled="sendBoatOptionsForm.processing"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 rounded-lg transition-colors"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                {{ sendBoatOptionsForm.processing ? 'Sending…' : 'Email boat options' }}
+                            </button>
+
                             <!-- Send for Approval -->
                             <button
                                 v-if="canSendApproval"
@@ -910,6 +1031,10 @@ const confirmDelete = () => {
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="text-gray-500 dark:text-gray-400">Assets</span>
                                     <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="assetOptionPremiumSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Boat options</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetOptionPremiumSubtotal) }}</span>
                                 </div>
                                 <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
                                     <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>

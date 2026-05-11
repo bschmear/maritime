@@ -1,5 +1,6 @@
 <script setup>
 // Layout patterns match Tenant/Asset/Show.vue (breadcrumb, title, badges, spacing).
+import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, Link } from '@inertiajs/vue3';
@@ -9,6 +10,8 @@ const props = defineProps({
     asset: { type: Object, required: true },
     variant: { type: Object, required: true },
     specRows: { type: Array, default: () => [] },
+    catalogResolvedOptions: { type: Array, default: () => [] },
+    catalogContext: { type: Object, default: null },
 });
 
 const variantLabel = computed(
@@ -80,6 +83,13 @@ const breadcrumbItems = computed(() => [
                                 Parent asset
                             </button>
                         </Link>
+                        <a
+                            href="#asset-options"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                            <span class="material-icons text-base">tune</span>
+                            Options
+                        </a>
                         <a
                             href="#specifications"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -180,6 +190,12 @@ const breadcrumbItems = computed(() => [
                     </div>
                 </div>
             </div>
+
+            <AssetCatalogOptionsSection
+                v-if="catalogContext"
+                :resolved-options="catalogResolvedOptions"
+                :catalog-context="catalogContext"
+            />
 
             <div
                 id="specifications"

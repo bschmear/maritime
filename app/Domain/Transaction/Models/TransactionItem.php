@@ -1,59 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\Transaction\Models;
 
-use App\Domain\AssetUnit\Models\AssetUnit;
-use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Estimate\Models\EstimateLineItem;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-class TransactionItem extends Model
+class TransactionItem extends TransactionLineItem
 {
-    protected $table = 'transaction_items';
-
-    protected $guarded = ['id'];
-
-    protected $casts = [
-        'quantity' => 'decimal:2',
-        'unit_price' => 'decimal:2',
-        'discount' => 'decimal:2',
-        'subtotal' => 'decimal:2',
-        'taxable' => 'boolean',
-        'tax_rate' => 'decimal:3',
-        'tax_amount' => 'decimal:2',
-        'total' => 'decimal:2',
-    ];
-
-    public function itemable(): MorphTo
-    {
-        return $this->morphTo();
-    }
-
     public function transaction(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class);
+        return $this->belongsTo(Transaction::class, 'parent_id');
     }
 
     public function estimateLineItem(): BelongsTo
     {
-        return $this->belongsTo(EstimateLineItem::class, 'estimate_item_id');
-    }
-
-    public function assetVariant(): BelongsTo
-    {
-        return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
-    }
-
-    public function assetUnit(): BelongsTo
-    {
-        return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
-    }
-
-    public function addons(): HasMany
-    {
-        return $this->hasMany(TransactionItemAddon::class, 'transaction_item_id');
+        return $this->belongsTo(EstimateLineItem::class, 'source_transaction_line_item_id');
     }
 }

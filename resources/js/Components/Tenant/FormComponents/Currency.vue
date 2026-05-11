@@ -40,18 +40,29 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
+/** When an attach_money icon is shown, omit `$` inside the field to avoid double dollar signs. */
+const showDollarPrefixInField = computed(() => props.iconPosition === 'none');
+
 const inputPaddingClass = computed(() => {
     if (props.iconPosition === 'none') {
         return '';
     }
 
-    return props.iconPosition === 'right' ? 'pr-10' : 'pl-10';
+    return props.iconPosition === 'right' ? 'pr-10' : '!pl-8';
+});
+
+const resolvedPlaceholder = computed(() => {
+    if (props.placeholder !== '$0.00') {
+        return props.placeholder;
+    }
+
+    return showDollarPrefixInField.value ? '$0.00' : '0.00';
 });
 
 const inputRef = ref(null);
 const displayValue = ref('');
 
-// Format number as currency for display
+// Format number for display (optional leading $ when no currency icon)
 const formatCurrency = (value) => {
     if (value === null || value === undefined || value === '') return '';
 
@@ -60,7 +71,7 @@ const formatCurrency = (value) => {
 
     // Format with commas and 2 decimal places
     const formatted = numValue.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return `$${formatted}`;
+    return showDollarPrefixInField.value ? `$${formatted}` : formatted;
 };
 
 // Parse currency string to number
@@ -102,8 +113,12 @@ const handleInput = (event) => {
     const numValue = parseCurrency(cleaned);
     emit('update:modelValue', numValue);
 
-    // Format for display
-    const formatted = cleaned ? `$${cleaned}` : '';
+    // Format for display (no `$` prefix when attach_money icon is visible)
+    const formatted = cleaned
+        ? showDollarPrefixInField.value
+            ? `$${cleaned}`
+            : cleaned
+        : '';
     displayValue.value = formatted;
     input.value = formatted;
 
@@ -127,11 +142,14 @@ const handleBlur = () => {
 };
 
 const handleFocus = (event) => {
-    // On focus, if value is $0.00, clear it for easier input
-    if (displayValue.value === '$0.00') {
-        displayValue.value = '$';
+    // On focus, if value is zero, clear it for easier input
+    const zeroPlain = '0.00';
+    const zeroWithSymbol = '$0.00';
+    if (displayValue.value === zeroWithSymbol || displayValue.value === zeroPlain) {
+        displayValue.value = showDollarPrefixInField.value ? '$' : '';
         setTimeout(() => {
-            event.target.setSelectionRange(1, 1);
+            const pos = showDollarPrefixInField.value ? 1 : 0;
+            event.target.setSelectionRange(pos, pos);
         }, 0);
     }
 };
@@ -150,7 +168,7 @@ const handleFocus = (event) => {
             @focus="handleFocus"
             :required="required"
             :disabled="disabled"
-            :placeholder="placeholder"
+            :placeholder="resolvedPlaceholder"
             :class="['input-style', inputPaddingClass]"
         />
         <div

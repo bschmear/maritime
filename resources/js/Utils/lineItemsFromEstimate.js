@@ -12,22 +12,30 @@ export function getEstimatePrimaryLineItems(estimate) {
  * @returns {{ items: array, source: 'estimate' | 'deal' }}
  */
 export function resolveLineItemsForTransaction(record) {
+    const dealLines = record?.items ?? [];
+    if (dealLines.length > 0) {
+        return { items: dealLines, source: 'deal' };
+    }
     const fromEst = getEstimatePrimaryLineItems(record?.estimate);
     if (record?.estimate_id && fromEst.length > 0) {
         return { items: fromEst, source: 'estimate' };
     }
-    return { items: record?.items ?? [], source: 'deal' };
+    return { items: [], source: 'deal' };
 }
 
 /**
  * @returns {{ items: array, source: 'estimate' | 'deal' }}
  */
 export function resolveLineItemsForContract(record) {
+    const dealLines = record?.transaction?.items ?? [];
+    if (dealLines.length > 0) {
+        return { items: dealLines, source: 'deal' };
+    }
     const fromEst = getEstimatePrimaryLineItems(record?.estimate);
     if (record?.estimate_id && fromEst.length > 0) {
         return { items: fromEst, source: 'estimate' };
     }
-    return { items: record?.transaction?.items ?? [], source: 'deal' };
+    return { items: [], source: 'deal' };
 }
 
 /** Pre-tax line total (estimate lines include discount). */

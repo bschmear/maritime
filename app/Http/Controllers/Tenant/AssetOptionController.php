@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetOption\Actions\AttachAssetOptionToCatalog;
 use App\Domain\AssetOption\Actions\CreateAssetOption as CreateAction;
 use App\Domain\AssetOption\Actions\DeleteAssetOption as DeleteAction;
 use App\Domain\AssetOption\Actions\SyncAssetOptionAssignments;
@@ -17,6 +18,7 @@ use App\Services\AssetOptionResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 
 class AssetOptionController extends RecordController
 {
@@ -89,6 +91,48 @@ class AssetOptionController extends RecordController
         }
 
         return response()->noContent();
+    }
+
+    /**
+     * Add one catalog assignment for this option (does not replace other assignments — unlike sync-assignments).
+     */
+    public function attachCatalog(Request $request, RecordModel $assetOption): JsonResponse
+    {
+        $validated = $request->validate([
+            'asset_id' => ['required', 'integer', 'exists:assets,id'],
+            'variant_id' => ['nullable', 'integer', 'exists:asset_variants,id'],
+            'scope' => ['required', 'string', Rule::in(['variant', 'asset', 'brand'])],
+        ]);
+
+        $asset = Asset::query()->findOrFail((int) $validated['asset_id']);
+
+        $variant = null;
+        if (! empty($validated['variant_id'])) {
+            $variant = AssetVariant::query()
+                ->whereKey((int) $validated['variant_id'])
+                ->where('asset_id', $asset->id)
+                ->firstOrFail();
+        }
+
+        if ($validated['scope'] === 'variant' && $variant === null) {
+            return response()->json([
+                'message' => 'Validation failed.',
+                'errors' => ['variant_id' => ['A variant is required for this scope.']],
+            ], 422);
+        }
+
+        try {
+            app(AttachAssetOptionToCatalog::class)(
+                $assetOption->id,
+                $validated['scope'],
+                $asset,
+                $validated['scope'] === 'variant' ? $variant : null
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['message' => 'Validation failed.', 'errors' => $e->errors()], 422);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function storeValue(Request $request, RecordModel $assetOption): JsonResponse

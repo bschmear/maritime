@@ -64,6 +64,26 @@ const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
 
+const lineAssetSelectedOptions = (row) => {
+    const direct = row.selected_asset_options ?? row.selectedAssetOptions ?? [];
+    if (direct.length) return direct;
+    return row.selected_asset_options_from_source_line ?? row.selectedAssetOptionsFromSourceLine ?? [];
+};
+
+const selectedOptionLabel = (opt) => {
+    const name = String(opt?.option_name ?? '').trim();
+    const val = String(opt?.value_label ?? '').trim();
+    if (name && val) return `${name}: ${val}`;
+    return name || val || 'Option';
+};
+
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
+
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+
+const taxOnAssetOption = (opt) =>
+    taxOnAddon({ price: selectedOptionUnitPrice(opt), quantity: 1, taxable: optionRowTaxable(opt) });
+
 const effectiveTaxRatePercent = computed(() =>
     taxRateForResolvedLines(props.record, lineItemsResolution.value.source, props.record.tax_rate),
 );
@@ -292,16 +312,33 @@ const stepperSteps = computed(() => {
     return steps;
 });
 
-// ─── Grand total (all items + addons, including tax) ──────────────────────
+// ─── Grand total (all items + addons + boat option premiums, including tax) ─
 const computedGrandTotal = computed(() => {
     let total = 0;
     for (const item of items.value) {
         total += lineBaseTotal(item) + taxOnItemBase(item);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            total += selectedOptionUnitPrice(opt) + taxOnAssetOption(opt);
+        }
         for (const addon of (item.addons || [])) {
             total += addonPreTaxTotal(addon) + taxOnAddon(addon);
         }
     }
     return roundMoney(total);
+});
+
+const computedTaxFromDisplayedLines = computed(() => {
+    let t = 0;
+    for (const item of items.value) {
+        t += taxOnItemBase(item);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            t += taxOnAssetOption(opt);
+        }
+        for (const addon of (item.addons || [])) {
+            t += taxOnAddon(addon);
+        }
+    }
+    return roundMoney(t);
 });
 
 // ─── Create contract modal ─────────────────────────────────────────────────
@@ -834,9 +871,14 @@ const confirmAddStep = () => {
                                     v-else-if="record.estimate_id"
                                     class="ml-2 text-sm font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400"
                                 >
-                                    (from deal)
+                                    (saved on this deal)
                                 </span>
                             </h3>
+                            <p v-if="record.estimate_id" class="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">
+                                Boat options and line edits are managed on the deal.
+                                <Link :href="route('transactions.edit', record.id)" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">Edit transaction</Link>
+                                to change boat options, taxes, or add-ons.
+                            </p>
 
                             <div v-if="items.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
                                 <div class="inline-block min-w-full align-middle">
@@ -884,6 +926,23 @@ const confirmAddStep = () => {
                                                     <td class="px-4 py-3 text-right text-md font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row)) }}</td>
                                                     <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(row)) }}</td>
                                                     <td class="px-4 py-3 text-right text-md font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row) + taxOnItemBase(row)) }}</td>
+                                                </tr>
+                                                <tr
+                                                    v-for="(opt, optIdx) in lineAssetSelectedOptions(row)"
+                                                    :key="'opt-' + row.id + '-' + optIdx"
+                                                    class="bg-sky-50/80 dark:bg-sky-900/10"
+                                                >
+                                                    <td class="px-4 py-2 pl-10 text-md text-gray-700 dark:text-gray-300">
+                                                        <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                                    </td>
+                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
+                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
+                                                    <td class="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">{{ optionRowTaxable(opt) ? 'Yes' : 'No' }}</td>
+                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">1</td>
+                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAssetOption(opt)) }}</td>
+                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOption(opt)) }}</td>
                                                 </tr>
                                                 <tr
                                                     v-for="addon in (row.addons || [])"
@@ -985,7 +1044,7 @@ const confirmAddStep = () => {
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Tax ({{ record.tax_rate != null ? record.tax_rate : '—' }}%)</span>
-                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.tax_total) }}</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.tax_total != null && record.tax_total !== '' ? record.tax_total : computedTaxFromDisplayedLines) }}</span>
                         </div>
                         <div v-if="Number(record.discount_total) > 0" class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Discount</span>

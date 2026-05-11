@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Asset\Models\Asset;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
@@ -14,10 +15,12 @@ use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Timezone;
 use App\Mail\EstimateApprovalRequest;
+use App\Mail\EstimateBoatOptionsInvite;
 use App\Models\AccountSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\MessageBag;
 
 class EstimateController extends RecordController
@@ -41,7 +44,7 @@ class EstimateController extends RecordController
             return [];
         }
 
-        $byLine = $estimate->selectedAssetOptions->groupBy('estimate_line_item_id');
+        $byLine = $estimate->selectedAssetOptions->groupBy('transaction_line_item_id');
         $out = [];
 
         foreach ($version->lineItems as $li) {
@@ -142,12 +145,13 @@ class EstimateController extends RecordController
                 'customer',
                 'createdBy',
                 'salesperson',
-                'assets' => fn ($q) => $q->with('make:id,display_name')->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id'),
-                'inventoryItems' => fn ($q) => $q->withPivot('quantity', 'unit_price', 'estimated_cost', 'notes'),
+                'assets' => fn ($q) => $q->with('make:id,display_name')->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id', 'asset_unit_id'),
+                'inventoryItems' => fn ($q) => $q->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes'),
             ])->find($request->query('id'));
 
             if ($opportunity) {
                 Opportunity::hydratePivotAssetVariants($opportunity->assets);
+                Opportunity::attachLineItemSnapshotsForJson($opportunity);
                 $user = auth()->user();
 
                 $initialData = [
@@ -246,6 +250,13 @@ class EstimateController extends RecordController
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
+        // customer_id is on the form but not in fields.json — load explicitly for Show UI / links.
+        $relationships['customer'] = Customer::eagerWithContactSelect();
+
+        $relationships['selectedAssetOptions'] = fn ($q) => $q
+            ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+            ->orderBy('id');
+
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
         return inertia('Tenant/Estimate/Show', [
@@ -299,6 +310,8 @@ class EstimateController extends RecordController
         $relationships['contact'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone']);
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
+
+        $relationships['customer'] = Customer::eagerWithContactSelect();
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
@@ -386,6 +399,61 @@ class EstimateController extends RecordController
         return back()->with('success', $success);
     }
 
+    /**
+     * Email signed links so the customer can choose boat options for lines set to "customer" mode.
+     */
+    public function sendBoatOptionsInvite(Request $request, $id)
+    {
+        $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems'])->findOrFail($id);
+
+        $customerEmail = $estimate->customer?->email;
+        if (! $customerEmail) {
+            return back()->withErrors(['error' => 'This estimate has no customer email address.']);
+        }
+
+        $lines = [];
+        foreach ($estimate->primaryVersion?->lineItems ?? [] as $li) {
+            if (($li->itemable_type ?? '') !== Asset::class) {
+                continue;
+            }
+            if (($li->asset_options_fill_mode ?? 'staff') !== 'customer') {
+                continue;
+            }
+            if ($li->customer_asset_options_completed_at) {
+                continue;
+            }
+
+            $label = trim(($li->name ?: 'Boat').' (line '.(((int) $li->position) + 1).')');
+            $url = URL::temporarySignedRoute(
+                'estimates.boat-options',
+                now()->addDays(30),
+                ['uuid' => $estimate->uuid, 'line' => (int) $li->position]
+            );
+            $lines[] = ['label' => $label, 'url' => $url];
+        }
+
+        if ($lines === []) {
+            return back()->withErrors([
+                'error' => 'No boat lines are waiting on customer option selections. Mark lines as “customer chooses” on the estimate (and save), or all such lines are already completed.',
+            ]);
+        }
+
+        $account = AccountSettings::getCurrent();
+
+        try {
+            Mail::to($customerEmail)->send(new EstimateBoatOptionsInvite($estimate, $account, $lines));
+        } catch (\Exception $e) {
+            \Log::error('Failed to send boat options invite email', [
+                'estimate_id' => $estimate->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
+        }
+
+        return back()->with('success', 'Boat options link(s) sent to '.$customerEmail.'.');
+    }
+
     public function createRevision(Request $request, $id)
     {
         $original = RecordModel::with([
@@ -428,15 +496,22 @@ class EstimateController extends RecordController
 
             foreach ($original->primaryVersion->lineItems as $item) {
                 $itemData = $item->toArray();
-                unset($itemData['id'], $itemData['estimate_version_id'], $itemData['created_at'], $itemData['updated_at']);
-                $itemData['estimate_version_id'] = $newVersion->id;
+                unset(
+                    $itemData['id'],
+                    $itemData['parent_type'],
+                    $itemData['parent_id'],
+                    $itemData['created_at'],
+                    $itemData['updated_at'],
+                );
+                $itemData['parent_type'] = \App\Domain\Estimate\Models\EstimateVersion::class;
+                $itemData['parent_id'] = $newVersion->id;
 
                 $newItem = \App\Domain\Estimate\Models\EstimateLineItem::create($itemData);
 
                 foreach ($item->addons as $addon) {
                     $addonData = $addon->toArray();
-                    unset($addonData['id'], $addonData['estimate_line_item_id'], $addonData['created_at'], $addonData['updated_at']);
-                    $addonData['estimate_line_item_id'] = $newItem->id;
+                    unset($addonData['id'], $addonData['transaction_line_item_id'], $addonData['created_at'], $addonData['updated_at']);
+                    $addonData['transaction_line_item_id'] = $newItem->id;
                     \App\Domain\Estimate\Models\EstimateLineItemAddon::create($addonData);
                 }
             }

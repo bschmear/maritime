@@ -7,14 +7,16 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
-use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -97,14 +99,15 @@ class Transaction extends Model
     {
         return $this->belongsTo(Location::class);
     }
+
     public function serviceTickets(): HasMany
     {
         return $this->hasMany(ServiceTicket::class);
     }
 
-    public function items(): HasMany
+    public function items(): MorphMany
     {
-        return $this->hasMany(TransactionItem::class)->orderBy('position')->orderBy('id');
+        return $this->morphMany(TransactionItem::class, 'parent')->orderBy('position')->orderBy('id');
     }
 
     public function contract(): HasOne

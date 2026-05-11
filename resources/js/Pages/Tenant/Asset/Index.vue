@@ -57,6 +57,7 @@ const breadcrumbItems = computed(() => {
 });
 
 const recordTypeOptions = [
+    { value: 'addons', label: 'Add-Ons', route: 'addons.index' },
     { value: 'assets', label: 'Assets', route: 'assets.index' },
     { value: 'inventoryitems', label: 'Parts & Accessories', route: 'inventoryitems.index' },
     { value: 'serviceitems', label: 'Service Items', route: 'serviceitems.index' },

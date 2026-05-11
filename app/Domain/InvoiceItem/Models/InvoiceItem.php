@@ -14,7 +14,7 @@ class InvoiceItem extends Model
 
     protected $fillable = [
         'invoice_id',
-        'transaction_item_id',
+        'transaction_line_item_id',
 
         'name',
         'description',
