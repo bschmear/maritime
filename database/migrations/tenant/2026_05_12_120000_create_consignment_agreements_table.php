@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('consignment_agreements', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
+            $table->bigInteger('sequence')->unique();
 
             $table->foreignId('asset_unit_id')
                 ->constrained('asset_units')
@@ -24,10 +25,16 @@ return new class extends Migration
 
             $table->boolean('boat_title_signed_delivered')->default(false);
 
-            $table->string('owner_seller_name')->nullable();
-            $table->text('owner_address')->nullable();
-            $table->string('owner_phone_1')->nullable();
-            $table->string('owner_phone_2')->nullable();
+            $table->foreignId('owner_contact_id')
+                ->nullable()
+                ->constrained('contacts')
+                ->nullOnDelete();
+
+            $table->foreignId('owner_contact_address_id')
+                ->nullable()
+                ->constrained('contact_addresses')
+                ->nullOnDelete();
+
             $table->text('notes')->nullable();
 
             $table->decimal('asking_boat', 12, 2)->nullable();

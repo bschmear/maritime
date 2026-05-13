@@ -1,0 +1,36 @@
+{
+    "allow_create_modal": false,
+    "columns": [
+        {
+            "key": "id",
+            "label": "#",
+            "sortable": true
+        },
+        {
+            "key": "display_name",
+            "label": "Agreement",
+            "sortable": false,
+            "isKey": true
+        },
+        {
+            "key": "asset_unit_id",
+            "label": "Asset unit",
+            "sortable": false
+        },
+        {
+            "key": "agreement_date",
+            "label": "Date",
+            "sortable": true
+        },
+        {
+            "key": "signed_at",
+            "label": "Signed",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ]
+}

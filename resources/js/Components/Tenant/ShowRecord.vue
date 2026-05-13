@@ -91,6 +91,11 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    /** When false, hide edit/delete and keep the record read-only in the UI. */
+    canMutate: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const isEditMode = ref(false);
@@ -126,6 +131,9 @@ const isSublistVisible = (sub) => {
 const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
 
 const handleEdit = () => {
+    if (!props.canMutate) {
+        return;
+    }
     isEditMode.value = true;
 };
 
@@ -146,6 +154,9 @@ const handleUpdated = (updatedRecord) => {
 };
 
 const handleDelete = () => {
+    if (!props.canMutate) {
+        return;
+    }
     showDeleteModal.value = true;
 };
 
@@ -234,7 +245,7 @@ const breadcrumbItems = computed(() => {
 
                     <!-- View Mode Buttons -->
                     <div class="xl:hidden">
-                        <div v-if="!isEditMode" class="flex items-center space-x-3">
+                        <div v-if="!isEditMode && canMutate" class="flex items-center space-x-3">
                             <button
                                 @click="handleEdit"
                                 class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -256,7 +267,7 @@ const breadcrumbItems = computed(() => {
                         </div>
 
                         <!-- Edit Mode Buttons -->
-                        <div v-else class="flex items-center space-x-3">
+                        <div v-else-if="isEditMode && canMutate" class="flex items-center space-x-3">
                             <button
                                 @click="handleSave"
                                 :disabled="formRef?.isProcessing"
@@ -298,7 +309,7 @@ const breadcrumbItems = computed(() => {
                             :record-type="recordType"
                             :enum-options="enumOptions"
                             :extra-route-params="extraRouteParams"
-                            :mode="isEditMode ? 'edit' : 'view'"
+                            :mode="!canMutate ? 'view' : (isEditMode ? 'edit' : 'view')"
                             :prevent-redirect="true"
                             :form-id="`form-${recordType}-${record.id}`"
                             :account="account"
@@ -331,7 +342,7 @@ const breadcrumbItems = computed(() => {
                             </div>
 
                             <!-- View Mode Buttons -->
-                            <div v-if="!isEditMode" class="flex space-x-4">
+                            <div v-if="!isEditMode && canMutate" class="flex space-x-4">
                                 <button
                                     @click="handleEdit"
                                     class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
@@ -353,7 +364,7 @@ const breadcrumbItems = computed(() => {
                             </div>
 
                             <!-- Edit Mode Buttons -->
-                            <div v-else class="flex space-x-4">
+                            <div v-else-if="isEditMode && canMutate" class="flex space-x-4">
                                 <button
                                     @click="handleSave"
                                     :disabled="formRef?.isProcessing"

@@ -220,6 +220,14 @@ td.sticky {
         padding: 0 !important;
     }
 
+    #consignment-agreement-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     /* Invoice preview is Teleported to <body> (same as contract). */
     .invoice-preview-overlay {
         position: static !important;
@@ -389,6 +397,8 @@ td.sticky {
     #spec-sheet-print-root *,
     #warranty-claim-print-root,
     #warranty-claim-print-root *,
+    #consignment-agreement-print-root,
+    #consignment-agreement-print-root *,
     #portal-service-ticket-print,
     #portal-service-ticket-print * {
         visibility: visible;

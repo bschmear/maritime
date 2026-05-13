@@ -13,6 +13,8 @@ const props = defineProps({
     consentLabel: { type: String, required: true },
     /** When true, POST includes recipient_name equal to trimmed signed_name */
     includeRecipientName: { type: Boolean, default: false },
+    /** Optional Tailwind classes for the submit button (overrides default primary button). */
+    submitButtonClass: { type: String, default: '' },
 });
 
 const emit = defineEmits(['signed']);
@@ -223,7 +225,10 @@ const submit = () => {
         <button
             type="button"
             :disabled="signForm.processing || !consent"
-            class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-8 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            :class="
+                submitButtonClass ||
+                'inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-8 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto'
+            "
             @click="submit"
         >
             <span v-if="signForm.processing" class="material-icons animate-spin text-sm">refresh</span>

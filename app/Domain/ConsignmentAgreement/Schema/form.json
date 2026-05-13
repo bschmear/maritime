@@ -1,0 +1,49 @@
+{
+    "settings": {
+        "max_width": "5xl"
+    },
+    "form": {
+        "unit": {
+            "label": "Unit",
+            "fields": [
+                { "key": "asset_unit_id", "required": true }
+            ]
+        },
+        "details": {
+            "label": "Agreement details",
+            "fields": [
+                { "key": "agreement_date", "required": false },
+                { "key": "boat_title_signed_delivered", "required": false },
+                { "key": "boat_description", "required": false },
+                { "key": "motor_description", "required": false },
+                { "key": "other_description", "required": false },
+                { "key": "owner_contact_id", "required": true },
+                { "key": "owner_contact_address_id", "required": false },
+                { "key": "notes", "required": false }
+            ]
+        },
+        "pricing": {
+            "label": "Pricing",
+            "fields": [
+                { "key": "asking_boat", "required": false },
+                { "key": "asking_motor", "required": false },
+                { "key": "asking_other", "required": false },
+                { "key": "asking_sold", "required": false },
+                { "key": "minimum_boat", "required": false },
+                { "key": "minimum_motor", "required": false },
+                { "key": "minimum_other", "required": false },
+                { "key": "minimum_sold", "required": false }
+            ]
+        },
+        "signature": {
+            "label": "Customer signature",
+            "fields": [
+                { "key": "signed_at", "required": false },
+                { "key": "signed_name", "required": false },
+                { "key": "signed_ip", "required": false },
+                { "key": "signature_method", "required": false },
+                { "key": "signature_hash", "required": false }
+            ]
+        }
+    }
+}

@@ -326,6 +326,16 @@ Route::middleware([
             Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
         });
 
+        Route::prefix('consignmentagreements')->name('consignmentagreements.')->group(function () {
+            Route::get('/', [ConsignmentAgreementController::class, 'index'])->name('index');
+            Route::get('/create', [ConsignmentAgreementController::class, 'create'])->name('create');
+            Route::post('/', [ConsignmentAgreementController::class, 'store'])->name('store');
+            Route::get('/{consignmentagreement}/edit', [ConsignmentAgreementController::class, 'edit'])->name('edit');
+            Route::put('/{consignmentagreement}', [ConsignmentAgreementController::class, 'update'])->name('update');
+            Route::delete('/{consignmentagreement}', [ConsignmentAgreementController::class, 'destroy'])->name('destroy');
+            Route::get('/{consignmentagreement}', [ConsignmentAgreementController::class, 'show'])->name('show');
+        });
+
         Route::prefix('payments')->name('payments.')->group(function () {
             Route::get('/', [PaymentController::class, 'index'])->name('index');
             Route::get('/create/eligible-invoices', [PaymentController::class, 'eligibleInvoicesForCreate'])->name('create.eligible-invoices');
@@ -532,9 +542,9 @@ Route::middleware([
         Route::get('asset/units', [AssetUnitController::class, 'index'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
-            Route::post('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'store'])
+            Route::post('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'storeNested'])
                 ->name('consignment-agreement.store');
-            Route::put('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'update'])
+            Route::put('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'updateNested'])
                 ->name('consignment-agreement.update');
             Route::resource('/', AssetUnitController::class)->parameters(['' => 'assetunit']);
         });

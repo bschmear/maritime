@@ -1,24 +1,52 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\ConsignmentAgreement\Models;
 
 use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Contact\Models\ContactAddress;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ConsignmentAgreement extends Model
 {
-    protected $table = 'consignment_agreements';
-
-    protected $guarded = ['id'];
-
-    protected $appends = ['display_name'];
+    protected $fillable = [
+        'asset_unit_id',
+        'agreement_date',
+        'boat_description',
+        'motor_description',
+        'other_description',
+        'boat_title_signed_delivered',
+        'owner_contact_id',
+        'owner_contact_address_id',
+        'notes',
+        'asking_boat',
+        'asking_motor',
+        'asking_other',
+        'asking_sold',
+        'minimum_boat',
+        'minimum_motor',
+        'minimum_other',
+        'minimum_sold',
+        'signed_at',
+        'signed_name',
+        'signed_ip',
+        'signed_user_agent',
+        'signature_file',
+        'signature_hash',
+        'customer_signature',
+        'signature_method',
+    ];
 
     protected $casts = [
         'agreement_date' => 'date',
         'boat_title_signed_delivered' => 'boolean',
+        'sequence' => 'integer',
         'asking_boat' => 'decimal:2',
         'asking_motor' => 'decimal:2',
         'asking_other' => 'decimal:2',
@@ -31,45 +59,75 @@ class ConsignmentAgreement extends Model
         'signature_method' => 'integer',
     ];
 
+    protected $appends = ['display_name'];
+
     protected static function booted(): void
     {
-        static::creating(function (self $record): void {
-            if (empty($record->uuid)) {
-                $record->uuid = (string) Str::uuid();
+        static::creating(function (ConsignmentAgreement $model): void {
+            if ($model->uuid === null || $model->uuid === '') {
+                $model->uuid = (string) Str::uuid();
             }
+            $next = (int) (DB::table('consignment_agreements')->max('sequence') ?? 999);
+            $model->sequence = $next + 1;
         });
-    }
-
-    public function assetUnit(): BelongsTo
-    {
-        return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
     }
 
     public function getDisplayNameAttribute(): string
     {
-        return 'CON-'.strtoupper(Str::substr((string) $this->uuid, 0, 8));
+        if ($this->sequence !== null) {
+            return (string) (int) $this->sequence;
+        }
+
+        return $this->getKey() !== null ? (string) (int) $this->getKey() : '';
     }
 
+    /**
+     * Temporary URL for the drawn signature image (S3). Not appended globally — use {@see Model::append()} when serializing for views that need it.
+     */
     public function getSignatureUrlAttribute(): ?string
     {
-        if (! $this->signature_file) {
+        $path = $this->signature_file;
+        if ($path === null || $path === '') {
             return null;
         }
 
         try {
-            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addHours(2));
-        } catch (\Exception $e) {
-            return Storage::disk('s3')->url($this->signature_file);
+            return Storage::disk('s3')->temporaryUrl($path, now()->addHours(2));
+        } catch (\Throwable) {
+            return null;
         }
     }
 
-    public function scopeUnsigned($query)
+    public function assetUnit()
     {
-        return $query->whereNull('signed_at');
+        return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
     }
 
-    public function scopeSigned($query)
+    public function ownerContact()
+    {
+        return $this->belongsTo(Contact::class, 'owner_contact_id');
+    }
+
+    public function ownerContactAddress()
+    {
+        return $this->belongsTo(ContactAddress::class, 'owner_contact_address_id');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeSigned(Builder $query): Builder
     {
         return $query->whereNotNull('signed_at');
+    }
+
+    /**
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeUnsigned(Builder $query): Builder
+    {
+        return $query->whereNull('signed_at');
     }
 }

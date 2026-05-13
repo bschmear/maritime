@@ -7,6 +7,7 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\ConsignmentPolicy\Models\ConsignmentPolicy;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
@@ -1287,7 +1288,16 @@ class PublicController extends Controller
                         ->with(['make' => fn ($mq) => $mq->select(['id', 'display_name'])]),
                     'assetVariant' => fn ($vq) => $vq->select(['id', 'display_name', 'name']),
                     'customer' => fn ($cq) => $cq->select(['id']),
-                    'subsidiary' => fn ($sq) => $sq->select(['id', 'display_name', 'logo']),
+                    'subsidiary' => fn ($sq) => $sq->select([
+                        'id', 'display_name', 'logo',
+                        'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country',
+                        'phone', 'email',
+                    ]),
+                ]),
+                'ownerContact' => fn ($q) => $q->select(['id', 'display_name', 'phone', 'mobile', 'email']),
+                'ownerContactAddress' => fn ($q) => $q->select([
+                    'id', 'contact_id', 'label', 'is_primary',
+                    'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country',
                 ]),
             ])
             ->firstOrFail();
@@ -1304,7 +1314,6 @@ class PublicController extends Controller
         $logoUrl = $unit?->subsidiary?->logo_url ?? $account->logo_url;
 
         $recordArray = $agreement->toArray();
-        $recordArray['display_name'] = $agreement->display_name;
         $recordArray['agreement_date'] = $agreement->agreement_date?->toDateString();
         $recordArray['created_at'] = $agreement->created_at?->toISOString();
         $recordArray['updated_at'] = $agreement->updated_at?->toISOString();

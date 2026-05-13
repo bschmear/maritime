@@ -1,0 +1,107 @@
+{
+    "fields": {
+        "asset_unit_id": {
+            "label": "Asset unit",
+            "type": "record",
+            "typeDomain": "AssetUnit",
+            "relationship": "assetUnit",
+            "required": true
+        },
+        "agreement_date": {
+            "label": "Agreement date",
+            "type": "date"
+        },
+        "boat_description": {
+            "label": "Boat",
+            "type": "textarea"
+        },
+        "motor_description": {
+            "label": "Motor",
+            "type": "textarea"
+        },
+        "other_description": {
+            "label": "Other",
+            "type": "textarea"
+        },
+        "boat_title_signed_delivered": {
+            "label": "Boat title signed & delivered",
+            "type": "boolean",
+            "default": false
+        },
+        "owner_contact_id": {
+            "label": "Owner / seller (contact)",
+            "type": "record",
+            "typeDomain": "Contact",
+            "relationship": "ownerContact",
+            "required": true
+        },
+        "owner_contact_address_id": {
+            "label": "Owner mailing address",
+            "type": "record",
+            "typeDomain": "ContactAddress",
+            "relationship": "ownerContactAddress",
+            "required": false
+        },
+        "notes": {
+            "label": "Notes",
+            "type": "textarea"
+        },
+        "asking_boat": {
+            "label": "Asking — boat",
+            "type": "currency"
+        },
+        "asking_motor": {
+            "label": "Asking — motor",
+            "type": "currency"
+        },
+        "asking_other": {
+            "label": "Asking — other",
+            "type": "currency"
+        },
+        "asking_sold": {
+            "label": "Asking — sold",
+            "type": "currency"
+        },
+        "minimum_boat": {
+            "label": "Minimum — boat",
+            "type": "currency"
+        },
+        "minimum_motor": {
+            "label": "Minimum — motor",
+            "type": "currency"
+        },
+        "minimum_other": {
+            "label": "Minimum — other",
+            "type": "currency"
+        },
+        "minimum_sold": {
+            "label": "Minimum — sold",
+            "type": "currency"
+        },
+        "signed_at": {
+            "label": "Signed at",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "signed_name": {
+            "label": "Signed name",
+            "type": "text",
+            "readOnly": true
+        },
+        "signed_ip": {
+            "label": "Signed IP",
+            "type": "text",
+            "readOnly": true
+        },
+        "signature_method": {
+            "label": "Signature method",
+            "type": "number",
+            "readOnly": true
+        },
+        "signature_hash": {
+            "label": "Signature hash",
+            "type": "text",
+            "readOnly": true
+        }
+    }
+}
