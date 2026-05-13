@@ -4,6 +4,7 @@ namespace App\Domain\AssetUnit\Models;
 
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Location\Models\Location;
@@ -131,5 +132,10 @@ class AssetUnit extends Model
     public function images()
     {
         return $this->morphMany(InventoryImage::class, 'imageable');
+    }
+
+    public function consignmentAgreements()
+    {
+        return $this->hasMany(ConsignmentAgreement::class, 'asset_unit_id');
     }
 }

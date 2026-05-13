@@ -66,7 +66,7 @@
     "label": "Consignment",
     "type": "boolean",
     "default": false,
-    "description": "Indicates this unit is on consignment"
+    "description": "When enabled, a signed consignment agreement is required (create a draft on the unit page and share the customer link)"
   },
 
   "engine_hours": {

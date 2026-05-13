@@ -1,5 +1,6 @@
 <script setup>
 import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
+import ConsignmentAgreementSection from '@/Components/Tenant/ConsignmentAgreementSection.vue';
 import ShowRecord from '@/Components/Tenant/ShowRecord.vue';
 import { computed } from 'vue';
 
@@ -41,6 +42,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    consignmentAgreementContext: {
+        type: Object,
+        default: null,
+    },
 });
 
 /** Only show catalog options when the parent asset has no variants (options live on variant show otherwise). */
@@ -71,8 +76,15 @@ const showAssetCatalogOptions = computed(() => {
         :breadcrumb-parent-label="'Asset Unit'"
         :breadcrumb-parent-href="route(`${recordType}.index`)"
     >
-        <template v-if="showAssetCatalogOptions" #prepend>
+        <template #prepend>
+            <ConsignmentAgreementSection
+                v-if="consignmentAgreementContext"
+                class="mb-4 xl:mb-6"
+                :context="consignmentAgreementContext"
+                :record="record"
+            />
             <AssetCatalogOptionsSection
+                v-if="showAssetCatalogOptions"
                 class="mb-4 xl:mb-6"
                 :resolved-options="catalogResolvedOptions"
                 :catalog-context="catalogContext"

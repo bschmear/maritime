@@ -7,6 +7,7 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Domain\ConsignmentPolicy\Models\ConsignmentPolicy;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
@@ -1268,6 +1269,108 @@ class PublicController extends Controller
         $contract->refresh();
 
         $this->notifications->notifyContractSigned($contract, $account);
+
+        return back();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Consignment agreement (public review / sign)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function reviewConsignmentAgreement(Request $request, string $uuid): Response
+    {
+        $agreement = ConsignmentAgreement::query()
+            ->where('uuid', $uuid)
+            ->with([
+                'assetUnit' => fn ($q) => $q->with([
+                    'asset' => fn ($aq) => $aq->select(['id', 'display_name', 'year', 'make_id'])
+                        ->with(['make' => fn ($mq) => $mq->select(['id', 'display_name'])]),
+                    'assetVariant' => fn ($vq) => $vq->select(['id', 'display_name', 'name']),
+                    'customer' => fn ($cq) => $cq->select(['id']),
+                    'subsidiary' => fn ($sq) => $sq->select(['id', 'display_name', 'logo']),
+                ]),
+            ])
+            ->firstOrFail();
+
+        abort_unless($agreement->assetUnit?->is_consignment, 404);
+
+        $account = AccountSettings::getCurrent();
+        $policies = ConsignmentPolicy::query()
+            ->active()
+            ->ordered()
+            ->get(['id', 'body', 'sort_order']);
+
+        $unit = $agreement->assetUnit;
+        $logoUrl = $unit?->subsidiary?->logo_url ?? $account->logo_url;
+
+        $recordArray = $agreement->toArray();
+        $recordArray['display_name'] = $agreement->display_name;
+        $recordArray['agreement_date'] = $agreement->agreement_date?->toDateString();
+        $recordArray['created_at'] = $agreement->created_at?->toISOString();
+        $recordArray['updated_at'] = $agreement->updated_at?->toISOString();
+        $recordArray['signed_at'] = $agreement->signed_at?->toISOString();
+        $recordArray['signature_url'] = $agreement->signature_file
+            ? Storage::disk('s3')->temporaryUrl($agreement->signature_file, now()->addHours(2))
+            : null;
+
+        return Inertia::render('Tenant/Public/ConsignmentAgreementReview', [
+            'record' => $recordArray,
+            'account' => $account,
+            'logoUrl' => $logoUrl,
+            'consignmentPolicies' => $policies->map(fn ($p) => [
+                'id' => $p->id,
+                'body' => $p->body,
+            ])->values()->all(),
+        ]);
+    }
+
+    public function signConsignmentAgreement(Request $request, string $uuid)
+    {
+        $agreement = ConsignmentAgreement::query()
+            ->where('uuid', $uuid)
+            ->with('assetUnit')
+            ->firstOrFail();
+
+        abort_unless($agreement->assetUnit?->is_consignment, 404);
+
+        if ($agreement->signed_at) {
+            return back();
+        }
+
+        $request->validate([
+            'signature_method' => 'required|in:draw,type',
+            'signature_data' => 'required|string',
+            'signed_name' => 'required|string|max:255',
+            'consent' => 'required|accepted',
+        ]);
+
+        $signatureMethod = $request->signature_method === 'draw' ? 1 : 5;
+        $signatureFile = null;
+        if ($request->signature_method === 'draw') {
+            $signatureFile = $this->storeSignatureImage($request->signature_data, $agreement->uuid);
+        }
+
+        $signatureHash = hash('sha256', json_encode([
+            'consignment_agreement_id' => $agreement->id,
+            'uuid' => $agreement->uuid,
+            'asset_unit_id' => $agreement->asset_unit_id,
+            'signed_name' => $request->signed_name,
+            'timestamp' => now()->toISOString(),
+            'ip' => $request->ip(),
+        ]));
+
+        $agreement->update([
+            'signed_at' => now(),
+            'signed_ip' => $request->ip(),
+            'signed_user_agent' => $request->userAgent(),
+            'signed_name' => $request->signed_name,
+            'customer_signature' => $request->signature_method === 'type' ? $request->signature_data : null,
+            'signature_method' => $signatureMethod,
+            'signature_hash' => $signatureHash,
+            'signature_file' => $signatureFile,
+        ]);
+
+        $agreement->refresh();
 
         return back();
     }

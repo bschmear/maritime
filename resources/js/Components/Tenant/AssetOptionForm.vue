@@ -72,6 +72,7 @@ watch(
     (t) => {
         if (t === 'toggle') {
             props.form.values = [];
+            props.form.allow_multiple = false;
         }
     },
 );
@@ -125,7 +126,10 @@ watch(
                         <input v-model="form.is_required" type="checkbox" class="rounded border-gray-300 dark:border-gray-600" />
                         Required
                     </label>
-                    <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+                    <label
+                        v-if="form.input_type !== 'toggle'"
+                        class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200"
+                    >
                         <input v-model="form.allow_multiple" type="checkbox" class="rounded border-gray-300 dark:border-gray-600" />
                         Allow multiple values
                     </label>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Tenant\AccountConsignmentController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
 use App\Http\Controllers\Tenant\CommunicationController;
+use App\Http\Controllers\Tenant\ConsignmentAgreementController;
 use App\Http\Controllers\Tenant\ContactAddressController;
 use App\Http\Controllers\Tenant\ContactController;
 use App\Http\Controllers\Tenant\ContractController;
@@ -147,6 +149,9 @@ Route::middleware([
 
     Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
     Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
+
+    Route::get('/consignment-agreements/{uuid}/review', [PublicController::class, 'reviewConsignmentAgreement'])->name('consignment-agreements.review');
+    Route::post('/consignment-agreements/{uuid}/sign', [PublicController::class, 'signConsignmentAgreement'])->name('consignment-agreements.sign');
 
     Route::get('/invoices/{uuid}/view', [PublicController::class, 'viewInvoice'])->name('invoices.view');
     Route::post('/invoices/{uuid}/pay', [PublicController::class, 'startInvoicePayment'])
@@ -527,6 +532,10 @@ Route::middleware([
         Route::get('asset/units', [AssetUnitController::class, 'index'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
+            Route::post('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'store'])
+                ->name('consignment-agreement.store');
+            Route::put('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'update'])
+                ->name('consignment-agreement.update');
             Route::resource('/', AssetUnitController::class)->parameters(['' => 'assetunit']);
         });
 
@@ -582,6 +591,12 @@ Route::middleware([
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
+            Route::get('/consignment', [AccountConsignmentController::class, 'index'])->name('consignment.index');
+            Route::patch('/consignment/settings', [AccountConsignmentController::class, 'updateSettings'])->name('consignment.settings');
+            Route::post('/consignment/policies', [AccountConsignmentController::class, 'storePolicy'])->name('consignment.policies.store');
+            Route::patch('/consignment/policies/{consignmentPolicy}', [AccountConsignmentController::class, 'updatePolicy'])->name('consignment.policies.update');
+            Route::delete('/consignment/policies/{consignmentPolicy}', [AccountConsignmentController::class, 'destroyPolicy'])->name('consignment.policies.destroy');
+            Route::post('/consignment/policies/reorder', [AccountConsignmentController::class, 'reorderPolicies'])->name('consignment.policies.reorder');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
             Route::get('/payments/stripe', [PaymentConfigurationController::class, 'stripePage'])->name('payments.stripe');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');

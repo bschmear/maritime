@@ -560,7 +560,10 @@ const submit = () => {
                                         Default transaction settings
                                     </h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        Defaults for new contracts and deals (payment schedule, contract body, and term text)
+                                        Defaults for new contracts and deals (payment schedule, contract body, and term text).
+                                        Consignment fee, narrative terms, and policy bullets are managed on the
+                                        <Link :href="route('account.consignment.index')" class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">consignment configuration</Link>
+                                        page.
                                     </p>
                                 </div>
                             </div>

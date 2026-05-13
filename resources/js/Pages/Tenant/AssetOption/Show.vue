@@ -68,6 +68,13 @@ const inputTypeLabel = computed(() => {
 
 const optionInputType = computed(() => props.record?.input_type ?? '');
 
+const isToggleInput = computed(() => optionInputType.value === 'toggle');
+
+/** Preset choices / colors only — not used for toggle. */
+const showsOptionValuesSection = computed(() =>
+    ['select', 'multi_select', 'color'].includes(optionInputType.value),
+);
+
 function normalizeHex(hex) {
     if (!hex || typeof hex !== 'string') {
         return '#000000';
@@ -574,7 +581,7 @@ const confirmDelete = async () => {
                                     {{ yesNo(record.is_required) }}
                                 </div>
                             </div>
-                            <div>
+                            <div v-if="!isToggleInput">
                                 <div
                                     class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
                                 >
@@ -584,7 +591,7 @@ const confirmDelete = async () => {
                                     {{ yesNo(record.allow_multiple) }}
                                 </div>
                             </div>
-                            <div>
+                            <div v-if="!isToggleInput">
                                 <div
                                     class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
                                 >
@@ -594,7 +601,7 @@ const confirmDelete = async () => {
                                     {{ record.min_select ?? '—' }}
                                 </div>
                             </div>
-                            <div>
+                            <div v-if="!isToggleInput">
                                 <div
                                     class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"
                                 >
@@ -638,7 +645,10 @@ const confirmDelete = async () => {
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div
+                v-if="showsOptionValuesSection"
+                class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
                 <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
                     <div class="flex items-center justify-between gap-2">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Values</h3>

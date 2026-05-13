@@ -33,6 +33,8 @@ class AccountSettings extends Model
         'workday_hours',
         'start_time',
         'allow_overlap',
+        'consignment_fee_percent',
+        'consignment_terms',
     ];
 
     protected $casts = [
@@ -43,6 +45,7 @@ class AccountSettings extends Model
         'allow_overlap' => 'boolean',
         'settings' => 'array',
         'default_payment_term' => PaymentTermsCast::class,
+        'consignment_fee_percent' => 'decimal:2',
     ];
 
     protected $appends = ['logo_url'];
@@ -70,6 +73,7 @@ class AccountSettings extends Model
                 'workday_hours' => 6,
                 'start_time' => '08:00:00',
                 'allow_overlap' => false,
+                'consignment_fee_percent' => 20,
             ]);
         }
 

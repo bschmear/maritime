@@ -67,6 +67,13 @@ class AccountController extends Controller
                 'href' => route('account.payments'),
                 'stats' => null,
             ],
+            [
+                'title' => 'Consignment policy & agreements',
+                'description' => 'Configure consignment fee, terms, and policy bullets shown on owner-facing consignment agreements.',
+                'icon' => 'article',
+                'href' => route('account.consignment.index'),
+                'stats' => null,
+            ],
         ];
 
         return Inertia::render('Tenant/Account/Index', [
@@ -90,6 +97,8 @@ class AccountController extends Controller
             'estimate_threshold_percent' => 'required|integer|min:0|max:100',
             'service_ticket_ack_text' => 'required|string|max:1000',
             'service_ticket_signed_notify_user_id' => 'nullable|exists:users,id',
+            'default_contract_terms' => 'nullable|string|max:20000',
+            'default_payment_term' => 'nullable|string|max:64',
             'default_payment_terms' => 'nullable|string|max:20000',
             'default_delivery_terms' => 'nullable|string|max:20000',
             'workday_hours' => 'required|integer|min:4|max:10',
