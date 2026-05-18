@@ -38,6 +38,10 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * Handle an incoming authentication request.
+     *
+     * Logins use Inertia `useForm` (X-Inertia + XSRF cookie). After session regeneration, return
+     * `Inertia::location` so the client performs a full document load (fresh shell + CSRF meta).
+     * Failed auth stays a 422 from {@see LoginRequest} — never a 419 from a stale meta `_token`.
      */
     public function store(LoginRequest $request): SymfonyResponse
     {
@@ -45,22 +49,26 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // If there's an invitation token, redirect to the invitation page
-        $invitationToken = $request->input('invitation_token');
-        if ($invitationToken) {
-            return Inertia::location(route('invitations.show', ['token' => $invitationToken], absolute: true));
+        if ($request->filled('invitation_token')) {
+            $url = route('invitations.show', [
+                'token' => $request->input('invitation_token'),
+            ], absolute: true);
+        } else {
+            $url = redirect()->intended(route('dashboard', absolute: true))->getTargetUrl();
         }
 
-        // Full document navigation so CSRF meta/cookie matches the regenerated session (avoids 419 on next POST).
-        return Inertia::location(
-            redirect()->intended(route('dashboard', absolute: true))->getTargetUrl()
-        );
+        return Inertia::location($url);
     }
 
     /**
      * Destroy an authenticated session.
+     *
+     * On tenant workspace hosts (6-digit subdomains), avoid redirecting to `/` first: the next
+     * Inertia request would be redirected to the central {@see config('app.url')} login URL, and
+     * following that cross-origin redirect via XHR fails the browser CORS check. Use
+     * {@see Inertia::location()} so the client performs a full document navigation to central login.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): RedirectResponse|SymfonyResponse
     {
         Auth::guard('web')->logout();
 
@@ -68,10 +76,24 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
+        if ($this->isTenantWorkspaceHost($request)) {
+            $base = rtrim((string) config('app.url'), '/');
+            $login = $request->isPwa() ? $base.'/login?pwa=1' : $base.'/login';
+
+            return Inertia::location($login);
+        }
+
         if ($request->isPwa()) {
             return redirect()->route('login', ['pwa' => 1]);
         }
 
         return redirect('/');
+    }
+
+    private function isTenantWorkspaceHost(Request $request): bool
+    {
+        $parts = explode('.', $request->getHost());
+
+        return count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]) === 1;
     }
 }

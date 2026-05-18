@@ -2,8 +2,7 @@
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
-import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
     canResetPassword: {
@@ -16,24 +15,20 @@ const props = defineProps({
         type: Object,
         default: null,
     },
-    errors: {
-        type: Object,
-        default: () => ({}),
-    },
 });
 
-// Use regular reactive data for form fields
-const form = ref({
+const form = useForm({
     email: props.invitation?.email || '',
     password: '',
     remember: false,
     invitation_token: props.invitation?.token || null,
 });
 
-// Get CSRF token from meta tag
-const csrfToken = computed(() => {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-});
+const submit = () => {
+    form.post(route('login'), {
+        onFinish: () => form.reset('password'),
+    });
+};
 </script>
 
 <template>
@@ -100,10 +95,7 @@ const csrfToken = computed(() => {
 
                 <!-- Form Card -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
-                    <form method="POST" :action="route('login')" class="space-y-6">
-                        <input type="hidden" name="_token" :value="csrfToken">
-                        <input v-if="form.invitation_token" type="hidden" name="invitation_token" :value="form.invitation_token">
-
+                    <form class="space-y-6" @submit.prevent="submit">
                         <!-- Email Field -->
                         <div>
                             <InputLabel
@@ -113,16 +105,15 @@ const csrfToken = computed(() => {
                             />
                             <input
                                 id="email"
-                                name="email"
+                                v-model="form.email"
                                 type="email"
                                 class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
-                                v-model="form.email"
                                 required
                                 autofocus
                                 autocomplete="username"
                                 placeholder="you@example.com"
                             />
-                            <InputError class="mt-2" :message="errors.email" />
+                            <InputError class="mt-2" :message="form.errors.email" />
                         </div>
 
                         <!-- Password Field -->
@@ -134,24 +125,22 @@ const csrfToken = computed(() => {
                             />
                             <input
                                 id="password"
-                                name="password"
+                                v-model="form.password"
                                 type="password"
                                 class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
-                                v-model="form.password"
                                 required
                                 autocomplete="current-password"
                                 placeholder="••••••••"
                             />
-                            <InputError class="mt-2" :message="errors.password" />
+                            <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 
                         <!-- Remember Me & Forgot Password -->
                         <div class="flex items-center justify-between">
                             <label class="flex items-center">
                                 <input
-                                    type="checkbox"
-                                    name="remember"
                                     v-model="form.remember"
+                                    type="checkbox"
                                     class="rounded border-gray-300 dark:border-gray-700 text-secondary-600 focus:ring-secondary-500 dark:focus:ring-secondary-400"
                                 />
                                 <span class="ms-2 text-sm text-gray-600 dark:text-gray-400">
@@ -173,6 +162,7 @@ const csrfToken = computed(() => {
                             <button
                                 type="submit"
                                 class="w-full justify-center px-6 py-3 bg-primary-500 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                :disabled="form.processing"
                             >
                                 Sign In
                             </button>

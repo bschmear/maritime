@@ -10,11 +10,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('asset_opportunity', function (Blueprint $table) {
-            if (! Schema::hasColumn('asset_opportunity', 'feature_request_completed_at')) {
-                $table->timestamp('feature_request_completed_at')->nullable()->after('notes');
-            }
-        });
 
         Schema::create('opportunity_feature_requests', function (Blueprint $table) {
             $table->id();
@@ -36,6 +31,11 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['opportunity_id', 'submitted_at']);
+        });
+        Schema::table('asset_opportunity', function (Blueprint $table) {
+            if (! Schema::hasColumn('asset_opportunity', 'feature_request_completed_at')) {
+                $table->timestamp('feature_request_completed_at')->nullable()->after('notes');
+            }
         });
     }
 

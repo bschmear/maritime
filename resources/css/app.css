@@ -502,3 +502,7 @@ td.sticky {
 .stripe-button {
     @apply inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900;
 }
+
+main {
+    overflow-x: hidden;
+}

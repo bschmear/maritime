@@ -208,6 +208,9 @@ Route::middleware([
         });
 
         Route::prefix('contacts')->name('contacts.')->group(function () {
+            Route::post('parse-license-barcode', [ContactController::class, 'parseLicenseBarcode'])
+                ->middleware('throttle:60,1')
+                ->name('parse-license-barcode');
             Route::post('bulk-destroy', [ContactController::class, 'bulkDestroy'])->name('bulk-destroy');
             Route::get('{contact}/addresses', [ContactController::class, 'indexAddresses'])->name('addresses.index');
             Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
