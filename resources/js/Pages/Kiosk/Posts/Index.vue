@@ -100,9 +100,9 @@ const truncate = (text, length = 50) => {
                                 class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                             >
                                 <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
-                                    <div class="font-medium text-gray-900 dark:text-white">
+                                    <Link :href="route('kiosk.posts.edit', post.id)" class="font-medium text-gray-900 dark:text-white hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
                                         {{ truncate(post.title, 60) }}
-                                    </div>
+                                    </Link>
                                     <div v-if="post.short_description" class="text-gray-500 dark:text-gray-400 mt-1">
                                         {{ truncate(post.short_description, 80) }}
                                     </div>

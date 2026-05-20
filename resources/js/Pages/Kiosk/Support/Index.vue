@@ -33,7 +33,9 @@ const searchTickets = () => {
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         <tr v-for="ticket in tickets.data" :key="ticket.id">
-                            <td class="px-4 py-3 text-sm">{{ ticket.ticket_number }}</td>
+                            <td class="px-4 py-3 text-sm">
+                                <Link :href="route('kiosk.support-tickets.show', ticket.id)" class="text-primary-600 text-sm">{{ ticket.ticket_number }}</Link>
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">{{ ticket.subject }}</td>
                             <td class="px-4 py-3 text-sm text-gray-500">{{ ticket.user?.email }}</td>
                             <td class="px-4 py-3">
