@@ -1185,9 +1185,10 @@ const handleCancel = () => emit('cancelled');
                      Sidebar
                      ============================ -->
                 <div class="lg:col-span-4 space-y-6">
-
                     <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
+                    <div class="sticky top-[145px] space-y-6">
+
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
                         <div class="flex justify-between items-center px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
@@ -1274,6 +1275,7 @@ const handleCancel = () => emit('cancelled');
                             </div>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </form>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 
 const emit = defineEmits(['toggle-sidebar']);
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
@@ -13,6 +13,8 @@ const showingNavigationDropdown = ref(false);
 const userDropdownOpen = ref(false);
 const notificationDropdownOpen = ref(false);
 const notifications = ref([]);
+
+const isSandboxMode = computed(() => !!page.props.tenant_sandbox_mode);
 
 const { theme, setTheme, initTheme } = useTheme();
 
@@ -186,8 +188,18 @@ onMounted(() => {
                         <ApplicationLogo class="mr-3 h-8 fill-current text-gray-800 dark:text-white" />
                     </Link>
 
+                    <Link
+                        v-if="isSandboxMode"
+                        :href="route('account.index')"
+                        class="mr-4 flex max-w-[min(100%,20rem)] items-center gap-1.5 rounded-full border border-amber-400 bg-amber-300 px-2.5 py-1 text-[11px] font-bold uppercase leading-tight tracking-wide text-amber-950 shadow-sm transition hover:bg-amber-200 sm:px-3 sm:text-xs dark:border-amber-500 dark:bg-amber-500/90 dark:text-amber-950 dark:hover:bg-amber-400/90"
+                        title="Sandbox mode: customer emails and text notifications are sent to you (the signed-in user), not real customers. Click to open Account settings."
+                    >
+                        <span class="material-icons shrink-0 text-[16px] leading-none sm:text-[18px]" aria-hidden="true">science</span>
+                        <span class="min-w-0">Sandbox</span>
+                    </Link>
+
                     <!-- Desktop Search -->
-                    <form action="#" method="get" class="hidden md:block">
+                    <!-- <form action="#" method="get" class="hidden md:block">
                         <div class="flex">
                             <div class="relative w-full">
                                 <input
@@ -206,7 +218,7 @@ onMounted(() => {
                                 </button>
                             </div>
                         </div>
-                    </form>
+                    </form> -->
                 </div>
 
                 <div class="flex items-center justify-center">

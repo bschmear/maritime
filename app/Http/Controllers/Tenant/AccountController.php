@@ -74,6 +74,13 @@ class AccountController extends Controller
                 'href' => route('account.consignment.index'),
                 'stats' => null,
             ],
+            [
+                'title' => 'Text notifications',
+                'description' => 'Turn on transactional SMS alerts for your organization and choose which events send a text (not chat or marketing).',
+                'icon' => 'sms',
+                'href' => route('account.notifications.sms.index'),
+                'stats' => null,
+            ],
         ];
 
         return Inertia::render('Tenant/Account/Index', [
@@ -92,6 +99,7 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'logo' => 'nullable|image|max:2048',
+            'sandbox_mode' => 'required|boolean',
             'default_timezone' => 'required|string',
             'brand_color' => 'nullable|string|max:7',
             'estimate_threshold_percent' => 'required|integer|min:0|max:100',
@@ -132,6 +140,7 @@ class AccountController extends Controller
         $startTime = $validated['start_time'];
         $account->start_time = strlen($startTime) === 5 ? $startTime.':00' : $startTime;
         $account->allow_overlap = $request->boolean('allow_overlap');
+        $account->sandbox_mode = $validated['sandbox_mode'];
 
         $account->save();
 

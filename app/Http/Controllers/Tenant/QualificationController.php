@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\PublicStorage;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Lead\Models\Lead;
 use App\Domain\Qualification\Actions\CreateQualification as CreateAction;
 use App\Domain\Qualification\Actions\DeleteQualification as DeleteAction;
 use App\Domain\Qualification\Actions\UpdateQualification as UpdateAction;
@@ -11,6 +13,8 @@ use App\Enums\Opportunity\Stage as OpportunityStage;
 use App\Enums\Opportunity\Status as OpportunityStatus;
 use App\Enums\Timezone;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\MessageBag;
 
 class QualificationController extends RecordController
 {
@@ -32,6 +36,148 @@ class QualificationController extends RecordController
         );
     }
 
+    /**
+     * Dedicated create page (schema-driven form), same pattern as estimates.
+     */
+    public function create()
+    {
+        $request = request();
+        $formSchema = $this->getFormSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = $this->getEnumOptions();
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        $initialData = [];
+        $leadId = $request->query('lead_id');
+        if ($leadId !== null && $leadId !== '') {
+            $lead = Lead::query()
+                ->select(['id', 'contact_id', 'budget_range', 'purchase_timeline'])
+                ->with([
+                    'contact' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name']),
+                ])
+                ->find((int) $leadId);
+
+            if ($lead) {
+                $initialData['lead_id'] = $lead->id;
+                $initialData['lead'] = [
+                    'id' => $lead->id,
+                    'display_name' => $lead->display_name
+                        ?? trim(($lead->first_name ?? '').' '.($lead->last_name ?? '')),
+                ];
+                if ($lead->budget_range !== null) {
+                    $initialData['budget_range'] = $lead->budget_range;
+                }
+                if ($lead->purchase_timeline !== null && $lead->purchase_timeline !== '') {
+                    $initialData['purchase_timeline'] = $lead->purchase_timeline;
+                }
+            }
+        }
+
+        $user = $request->user();
+        if ($user) {
+            $initialData['user_id'] = $user->id;
+            $initialData['user'] = [
+                'id' => $user->id,
+                'display_name' => $user->display_name ?? $user->name ?? '',
+            ];
+        }
+
+        return inertia('Tenant/Qualification/Create', [
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'domainName' => $this->domainName,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => Timezone::options(),
+            'initialData' => $initialData,
+        ]);
+    }
+
+    public function store(Request $request, PublicStorage $publicStorage)
+    {
+        $data = $request->all();
+        $result = $this->createAction->__invoke($data);
+
+        if ($result['success']) {
+            return redirect()->route('qualifications.show', $result['record']->id)
+                ->with('success', 'Qualification created successfully.');
+        }
+
+        $bag = new MessageBag;
+        foreach ($result['errors'] ?? [] as $key => $messages) {
+            foreach (Arr::wrap($messages) as $m) {
+                $bag->add($key, $m);
+            }
+        }
+        if (! empty($result['message'])) {
+            $bag->add('error', $result['message']);
+        }
+
+        return back()->withErrors($bag)->withInput();
+    }
+
+    /**
+     * Dedicated edit page (schema-driven form).
+     */
+    public function edit($id)
+    {
+        $record = RecordModel::query()
+            ->with([
+                'lead' => fn ($q) => $q->select(['id', 'contact_id'])->with([
+                    'contact' => fn ($c) => $c->select(['id', 'display_name', 'first_name', 'last_name']),
+                ]),
+                'user' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email']),
+                'desired_brand' => fn ($q) => $q->select(['id', 'display_name']),
+                'opportunities' => fn ($q) => $q->select(['id', 'sequence', 'qualification_id']),
+                'createdBy' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name']),
+            ])
+            ->findOrFail($id);
+
+        $formSchema = $this->getFormSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = $this->getEnumOptions();
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return inertia('Tenant/Qualification/Edit', [
+            'record' => $record,
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'domainName' => $this->domainName,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => Timezone::options(),
+            'initialData' => [],
+            'imageUrls' => $this->getImageUrls($record, $fieldsSchema),
+        ]);
+    }
+
+    public function update(Request $request, $id, PublicStorage $publicStorage)
+    {
+        $data = $request->all();
+        $result = $this->updateAction->__invoke((int) $id, $data);
+
+        if ($result['success']) {
+            return redirect()->route('qualifications.show', (int) $id)
+                ->with('success', 'Qualification updated successfully.');
+        }
+
+        $bag = new MessageBag;
+        foreach ($result['errors'] ?? [] as $key => $messages) {
+            foreach (Arr::wrap($messages) as $m) {
+                $bag->add($key, $m);
+            }
+        }
+        if (! empty($result['message'])) {
+            $bag->add('error', $result['message']);
+        }
+
+        return back()->withErrors($bag)->withInput();
+    }
+
     public function show(Request $request, $id)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
@@ -43,6 +189,13 @@ class QualificationController extends RecordController
                 if (! isset($relationships[$relationshipName])) {
                     if (($fieldDef['typeDomain'] ?? '') === 'Customer') {
                         $relationships[$relationshipName] = Customer::eagerWithContactSelect();
+                    } elseif (in_array(($fieldDef['typeDomain'] ?? ''), ['Lead', 'LeadProfile'], true)) {
+                        $relationships[$relationshipName] = function ($query) {
+                            $query->select(['id', 'contact_id'])
+                                ->with(['contact' => function ($q) {
+                                    $q->select(['id', 'display_name', 'first_name', 'last_name']);
+                                }]);
+                        };
                     } else {
                         $relationships[$relationshipName] = function ($query) {
                             $query->select(['id', 'display_name']);

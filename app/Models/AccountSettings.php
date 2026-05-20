@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Casts\PaymentTermsCast;
 use App\Domain\Payment\Models\PaymentConfiguration;
+use App\Enums\SMS;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AccountSettings extends Model
 {
@@ -35,6 +37,8 @@ class AccountSettings extends Model
         'allow_overlap',
         'consignment_fee_percent',
         'consignment_terms',
+        'sms_enabled',
+        'sandbox_mode',
     ];
 
     protected $casts = [
@@ -46,6 +50,8 @@ class AccountSettings extends Model
         'settings' => 'array',
         'default_payment_term' => PaymentTermsCast::class,
         'consignment_fee_percent' => 'decimal:2',
+        'sms_enabled' => 'boolean',
+        'sandbox_mode' => 'boolean',
     ];
 
     protected $appends = ['logo_url'];
@@ -78,6 +84,56 @@ class AccountSettings extends Model
         }
 
         return $settings;
+    }
+
+    /**
+     * Master SMS toggle for the current tenant (account_settings row).
+     */
+    public function smsGloballyEnabled(): bool
+    {
+        return (bool) $this->sms_enabled;
+    }
+
+    public function smsSandboxMode(): bool
+    {
+        return (bool) $this->sandbox_mode;
+    }
+
+    /**
+     * Whether this tenant wants SMS for a notification category.
+     */
+    public function wantsSms(SMS|string $type): bool
+    {
+        if (! $this->smsGloballyEnabled()) {
+            return false;
+        }
+
+        $enum = $type instanceof SMS ? $type : SMS::tryFrom($type);
+        if ($enum === null) {
+            return false;
+        }
+
+        $pref = $this->smsNotificationPreference;
+        if ($pref === null) {
+            return false;
+        }
+
+        return (bool) $pref->getAttribute($enum->notifyColumn());
+    }
+
+    public function smsNotificationPreference(): HasOne
+    {
+        return $this->hasOne(SmsNotificationPreference::class);
+    }
+
+    public function getOrCreateSmsNotificationPreference(): SmsNotificationPreference
+    {
+        return $this->smsNotificationPreference()->firstOrCreate(
+            ['account_settings_id' => $this->id],
+            collect(SMS::cases())->mapWithKeys(
+                fn (SMS $case) => [$case->notifyColumn() => false],
+            )->all(),
+        );
     }
 
     /**
@@ -118,7 +174,7 @@ class AccountSettings extends Model
     }
 
     /**
-     * Boot method
+     * Payment configuration rows for this account.
      */
     public function paymentConfigurations(): HasMany
     {

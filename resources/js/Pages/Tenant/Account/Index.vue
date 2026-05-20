@@ -1,7 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
     accountSections: {
@@ -36,6 +36,15 @@ function timeInputValue(value) {
     return s.length >= 5 ? s.slice(0, 5) : '08:00';
 }
 
+/** Which account settings form tab is visible (single form, all fields still submit together). */
+const settingsTab = ref('general');
+const settingsTabs = [
+    { id: 'general', label: 'General account', title: 'General Account Settings', icon: 'settings' },
+    { id: 'scheduling', label: 'Scheduling', title: 'Scheduling board defaults', icon: 'calendar_view_week' },
+    { id: 'service_ticket', label: 'Service tickets', title: 'Service Ticket & Work Order Settings', icon: 'assignment' },
+    { id: 'transactions', label: 'Transactions', title: 'Default transaction settings', icon: 'receipt_long' },
+];
+
 const form = useForm({
     logo: null,
     default_timezone: props.account?.timezone || 'America/Chicago',
@@ -50,6 +59,7 @@ const form = useForm({
     workday_hours: parseInt(props.account?.workday_hours, 10) || 6,
     start_time: timeInputValue(props.account?.start_time),
     allow_overlap: !!props.account?.allow_overlap,
+    sandbox_mode: !!props.account?.sandbox_mode,
 });
 
 const logoPreview = ref(props.account?.logo_url || null);
@@ -107,6 +117,40 @@ const submit = () => {
         preserveScroll: true,
     });
 };
+
+/** After validation errors, show the tab that contains the first failing field. */
+watch(
+    () => form.errors,
+    (errs) => {
+        const keys = Object.keys(errs).filter((k) => errs[k]);
+        if (keys.length === 0) {
+            return;
+        }
+        const generalKeys = ['logo', 'default_timezone', 'brand_color', 'sandbox_mode'];
+        const schedulingKeys = ['workday_hours', 'start_time', 'allow_overlap'];
+        const serviceKeys = [
+            'estimate_threshold_percent',
+            'service_ticket_ack_text',
+            'service_ticket_signed_notify_user_id',
+        ];
+        const transactionKeys = [
+            'default_payment_term',
+            'default_contract_terms',
+            'default_payment_terms',
+            'default_delivery_terms',
+        ];
+        if (keys.some((k) => generalKeys.includes(k))) {
+            settingsTab.value = 'general';
+        } else if (keys.some((k) => schedulingKeys.includes(k))) {
+            settingsTab.value = 'scheduling';
+        } else if (keys.some((k) => serviceKeys.includes(k))) {
+            settingsTab.value = 'service_ticket';
+        } else if (keys.some((k) => transactionKeys.includes(k))) {
+            settingsTab.value = 'transactions';
+        }
+    },
+    { deep: true },
+);
 </script>
 
 <template>
@@ -175,23 +219,39 @@ const submit = () => {
             <div class="lg:col-span-4">
                 <div class="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <form @submit.prevent="submit">
-                        <!-- General Account Settings Section -->
-                        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                    <span class="material-icons text-blue-600 dark:text-blue-400">
-                                        settings
-                                    </span>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        General Account Settings
-                                    </h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        Configure your organization's branding and preferences
-                                    </p>
-                                </div>
-                            </div>
+                        <div class="border-b border-gray-200 dark:border-gray-700">
+                            <nav
+                                class="-mb-px flex gap-0.5 overflow-x-auto px-4 sm:px-6"
+                                aria-label="Account settings"
+                                role="tablist"
+                            >
+                                <button
+                                    v-for="tab in settingsTabs"
+                                    :key="tab.id"
+                                    type="button"
+                                    role="tab"
+                                    :title="tab.title"
+                                    :aria-selected="settingsTab === tab.id"
+                                    class="flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4"
+                                    :class="settingsTab === tab.id
+                                        ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'"
+                                    @click="settingsTab = tab.id"
+                                >
+                                    <span class="material-icons text-lg leading-none sm:text-xl" aria-hidden="true">{{ tab.icon }}</span>
+                                    {{ tab.label }}
+                                </button>
+                            </nav>
+                        </div>
+
+                        <div
+                            v-show="settingsTab === 'general'"
+                            role="tabpanel"
+                            class="p-6"
+                        >
+                            <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+                                Branding, timezone, and sandbox testing.
+                            </p>
 
                             <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                 <!-- Account Logo -->
@@ -314,25 +374,35 @@ const submit = () => {
                                     </p>
                                 </div>
                             </div>
+
+                            <div class="mt-6 rounded-lg border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-800/60 dark:bg-amber-950/25">
+                                <label class="flex cursor-pointer items-start gap-3 select-none">
+                                    <input
+                                        v-model="form.sandbox_mode"
+                                        type="checkbox"
+                                        class="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 dark:border-amber-600 dark:bg-gray-800"
+                                    />
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-semibold text-amber-950 dark:text-amber-100">Sandbox mode</span>
+                                        <span class="mt-1 block text-sm text-amber-900/90 dark:text-amber-200/90">
+                                            While sandbox mode is on, customer emails and text notifications go to you (the signed-in user) instead of real customers, so you can test safely. Turn this off before going live.
+                                        </span>
+                                    </span>
+                                </label>
+                                <p v-if="form.errors.sandbox_mode" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.sandbox_mode }}
+                                </p>
+                            </div>
                         </div>
 
-                        <!-- Scheduling defaults -->
-                        <div class="p-6 border-t border-b border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                                    <span class="material-icons text-amber-600 dark:text-amber-400">
-                                        calendar_view_week
-                                    </span>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        Scheduling board defaults
-                                    </h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        Initial workday length, start hour, and overlap behavior for the service yard schedule
-                                    </p>
-                                </div>
-                            </div>
+                        <div
+                            v-show="settingsTab === 'scheduling'"
+                            role="tabpanel"
+                            class="p-6"
+                        >
+                            <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+                                Workday length, start hour, and default overlap on the service yard schedule board.
+                            </p>
                             <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
                                 <div>
                                     <label for="workday_hours" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -386,25 +456,16 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <!-- Service Ticket & Work Order Settings Section -->
-                        <div class="p-6">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                                    <span class="material-icons text-green-600 dark:text-green-400">
-                                        assignment
-                                    </span>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        Service Ticket & Work Order Settings
-                                    </h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        Configure estimate thresholds and customer acknowledgment text
-                                    </p>
-                                </div>
-                            </div>
+                        <div
+                            v-show="settingsTab === 'service_ticket'"
+                            role="tabpanel"
+                            class="p-6"
+                        >
+                            <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+                                Estimate threshold, customer acknowledgment copy, and who gets notified when tickets are signed.
+                            </p>
 
-                            <div class="grid grid-cols-1 gap-6 md:grid-cols-3 ">
+                            <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
                                 <!-- Estimate Threshold -->
                                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
                                     <label for="estimate_threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -540,6 +601,12 @@ const submit = () => {
                                         </p>
                                     </div>
 
+                                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                        Transactional SMS to customers is separate from these in-app alerts. Configure it on the
+                                        <Link :href="route('account.notifications.sms.index')" class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">text notifications</Link>
+                                        page.
+                                    </p>
+
                                     <p v-if="form.errors.service_ticket_signed_notify_user_id" class="mt-2 text-xs text-red-600 dark:text-red-400">
                                         {{ form.errors.service_ticket_signed_notify_user_id }}
                                     </p>
@@ -547,26 +614,16 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <!-- Default transaction / contract terms -->
-                        <div class="p-6 border-t border-gray-200 dark:border-gray-700">
-                            <div class="flex items-center gap-3 mb-6">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                                    <span class="material-icons text-violet-600 dark:text-violet-400">
-                                        receipt_long
-                                    </span>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                        Default transaction settings
-                                    </h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                                        Defaults for new contracts and deals (payment schedule, contract body, and term text).
-                                        Consignment fee, narrative terms, and policy bullets are managed on the
-                                        <Link :href="route('account.consignment.index')" class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">consignment configuration</Link>
-                                        page.
-                                    </p>
-                                </div>
-                            </div>
+                        <div
+                            v-show="settingsTab === 'transactions'"
+                            role="tabpanel"
+                            class="p-6"
+                        >
+                            <p class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+                                Defaults for new contracts and deals. Consignment fee and policy bullets are on the
+                                <Link :href="route('account.consignment.index')" class="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">consignment configuration</Link>
+                                page.
+                            </p>
 
                             <!-- Default payment term (enum) -->
                             <div class="mb-6 max-w-xl">

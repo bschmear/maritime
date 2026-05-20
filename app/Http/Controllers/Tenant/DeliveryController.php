@@ -22,7 +22,9 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
+use App\Enums\SMS;
 use App\Models\AccountSettings;
+use App\Services\SMS\SmsService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -78,6 +80,16 @@ class DeliveryController extends RecordController
         }
         $monthEnd = $monthStart->copy()->endOfMonth();
 
+        $scheduleDay = now()->copy()->startOfDay();
+        $scheduleDateParam = $request->input('schedule_date');
+        if (is_string($scheduleDateParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $scheduleDateParam)) {
+            try {
+                $scheduleDay = Carbon::createFromFormat('Y-m-d', $scheduleDateParam, config('app.timezone'))->startOfDay();
+            } catch (\Throwable) {
+                $scheduleDay = now()->copy()->startOfDay();
+            }
+        }
+
         $calendarMonthQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($calendarMonthQuery, $request);
         $calendarMonthDeliveries = $calendarMonthQuery
@@ -102,7 +114,7 @@ class DeliveryController extends RecordController
         $todayQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($todayQuery, $request);
         $todayDeliveries = $todayQuery
-            ->whereDate('scheduled_at', today())
+            ->whereDate('scheduled_at', $scheduleDay)
             ->orderBy('scheduled_at')
             ->get();
 
@@ -137,6 +149,7 @@ class DeliveryController extends RecordController
 
         $paginationAppends = array_merge($request->query(), [
             'calendar_month' => $monthStart->format('Y-m'),
+            'schedule_date' => $scheduleDay->format('Y-m-d'),
         ]);
 
         return Inertia::render('Tenant/Delivery/Index', [
@@ -150,6 +163,9 @@ class DeliveryController extends RecordController
                 'subsidiary_id' => $request->input('subsidiary_id') ? (int) $request->input('subsidiary_id') : null,
                 'location_id' => $request->input('location_id') ? (int) $request->input('location_id') : null,
                 'calendar_month' => $monthStart->format('Y-m'),
+                'schedule_date' => $scheduleDay->format('Y-m-d'),
+                'schedule_is_today' => $scheduleDay->isToday(),
+                'schedule_display' => $scheduleDay->format('D, M j, Y'),
             ],
             'calendarMonthDeliveries' => $calendarMonthDeliveries,
             'locationOptions' => $locations,
@@ -224,6 +240,12 @@ class DeliveryController extends RecordController
 
         $account = \App\Models\AccountSettings::getCurrent();
 
+        $smsService = app(SmsService::class);
+        $wantsDeliverySms = $smsService->tenantWantsSms(SMS::Delivery);
+        $deliverySmsOffer = $wantsDeliverySms
+            ? $smsService->deliveryEnRouteSmsCanBeOffered($record->customer, $request->user())
+            : ['offered' => false, 'hint' => null];
+
         return Inertia::render('Tenant/Delivery/Show', [
             'record' => $record,
             'recordType' => 'deliveries',
@@ -235,6 +257,11 @@ class DeliveryController extends RecordController
             'checklistTemplates' => $checklistTemplates,
             'categories' => $categories,
             'customerAddresses' => $record->customer ? $record->customer->addresses()->get() : [],
+            'deliveryEnRouteSms' => [
+                'modal' => $wantsDeliverySms,
+                'offered' => $deliverySmsOffer['offered'],
+                'hint' => $deliverySmsOffer['hint'],
+            ],
         ]);
     }
 
@@ -542,6 +569,7 @@ class DeliveryController extends RecordController
             'scheduled_at' => 'required|date',
             'time_to_leave_by' => 'nullable|date',
             'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+            'estimated_return_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
             'delivery_duration_minutes' => 'nullable|integer|min:1|max:32767',
             'fleet_truck_id' => 'nullable|integer|exists:fleets,id',
             'fleet_trailer_id' => 'nullable|integer|exists:fleets,id',
@@ -709,8 +737,32 @@ class DeliveryController extends RecordController
         return response()->json(array_merge(['ok' => true], $result));
     }
 
-    public function markEnRoute(Request $request, $delivery)
+    public function computeTravel(Request $request, $delivery, ComputeDeliveryTravelEstimates $compute)
     {
+        $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
+        $model = RecordModel::with('location')->findOrFail($id);
+
+        if (in_array($model->status, ['en_route', 'delivered', 'cancelled'], true)) {
+            return back()->with('error', 'Drive times cannot be recalculated for this delivery status.');
+        }
+
+        $compute($model);
+        $model->save();
+
+        if ($model->estimated_travel_duration_seconds === null) {
+            return back()->with(
+                'error',
+                'Could not calculate drive times. Set a departure location, scheduled time, and a complete delivery address (or coordinates), and ensure the Maps API is configured.',
+            );
+        }
+
+        return back()->with('success', 'Drive times updated from Google Maps.');
+    }
+
+    public function markEnRoute(Request $request, $delivery, SmsService $smsService)
+    {
+        $notifySms = $request->boolean('notify_sms');
+
         $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
         $model = RecordModel::query()->findOrFail($id);
 
@@ -724,13 +776,57 @@ class DeliveryController extends RecordController
             return back()->with('error', $result['message'] ?? 'Update failed.');
         }
 
-        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
-            return response()->json(['success' => true, 'record' => $result['record'] ?? $model->fresh()]);
+        $fresh = RecordModel::with([
+            'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+        ])->findOrFail($id);
+
+        $successMessage = 'Marked en route. Estimated arrival time updated.';
+        $smsError = null;
+
+        if ($notifySms) {
+            if (! $smsService->tenantWantsSms(SMS::Delivery)) {
+                $smsError = 'SMS notifications for deliveries are turned off in account settings.';
+            } else {
+                $offer = $smsService->deliveryEnRouteSmsCanBeOffered($fresh->customer, $request->user());
+                if (! $offer['offered']) {
+                    $smsError = $offer['hint'] ?? 'SMS could not be sent.';
+                } else {
+                    $tenant = tenant();
+                    $domain = $tenant?->domains->first()?->domain;
+                    if (! $domain) {
+                        $smsError = 'Unable to resolve tenant domain for SMS.';
+                    } elseif ($request->user() === null) {
+                        $smsError = 'You must be signed in to send SMS.';
+                    } else {
+                        $trackUrl = "https://{$domain}/deliveries/{$fresh->uuid}/review";
+                        $smsResult = $smsService->sendDeliveryEnRouteSms($request->user(), $fresh->customer, $fresh, $trackUrl);
+                        if (! $smsResult->success && ($smsResult->status ?? '') === 'not_implemented') {
+                            $smsError = 'SMS is not wired yet (Twilio transport).';
+                        } elseif (! $smsResult->success) {
+                            $smsError = 'SMS failed: '.($smsResult->error ?? 'Unknown error');
+                        } else {
+                            $successMessage .= ' A text was sent to notify the customer.';
+                        }
+                    }
+                }
+            }
         }
 
-        return redirect()
-            ->route('deliveries.show', $id)
-            ->with('success', 'Marked en route. Estimated arrival time updated.');
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => true,
+                'record' => $result['record'] ?? $fresh,
+                'sms_error' => $smsError,
+            ]);
+        }
+
+        $redirect = redirect()->route('deliveries.show', $id)->with('success', $successMessage);
+
+        if ($smsError !== null) {
+            $redirect = $redirect->with('error', $smsError);
+        }
+
+        return $redirect;
     }
 
     public function sourceItems(Request $request)
@@ -992,6 +1088,12 @@ class DeliveryController extends RecordController
             }
         }
 
+        $estimatedReturnSeconds = $d->estimated_return_travel_duration_seconds;
+        if (($estimatedReturnSeconds === null || (int) $estimatedReturnSeconds <= 0)
+            && $estimatedTravelSeconds !== null && (int) $estimatedTravelSeconds > 0) {
+            $estimatedReturnSeconds = $estimatedTravelSeconds;
+        }
+
         $scheduledLocal = $d->scheduled_at?->copy()->timezone($tz);
         $gridOrigin = Carbon::parse($boardDateYmd.' '.$gridStartHour.':00:00', $tz);
         $blockStartMinutes = null;
@@ -1010,6 +1112,7 @@ class DeliveryController extends RecordController
             'fleet_truck_label' => $this->scheduleBoardFleetUnitLabel($d->fleetTruck),
             'fleet_trailer_label' => $this->scheduleBoardFleetUnitLabel($d->fleetTrailer),
             'estimated_travel_duration_seconds' => $estimatedTravelSeconds !== null ? (int) $estimatedTravelSeconds : null,
+            'estimated_return_travel_duration_seconds' => $estimatedReturnSeconds !== null ? (int) $estimatedReturnSeconds : null,
             'time_to_leave_by' => $d->time_to_leave_by?->copy()->timezone($tz)->toIso8601String(),
             'scheduled_at' => $d->scheduled_at?->copy()->timezone($tz)->toIso8601String(),
             'block_start_minutes' => $blockStartMinutes,

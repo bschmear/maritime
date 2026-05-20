@@ -453,7 +453,7 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'contact_id'])
                             ->with(['contact' => function ($q) {
@@ -752,7 +752,7 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
-                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                            } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'contact_id'])
                                         ->with(['contact' => function ($q) {
@@ -866,7 +866,7 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'contact_id'])
                             ->with(['contact' => function ($q) {
@@ -1013,7 +1013,7 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'contact_id'])
                             ->with(['contact' => function ($q) {
@@ -1210,7 +1210,7 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
-                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
+                            } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'contact_id'])
                                         ->with(['contact' => function ($q) {

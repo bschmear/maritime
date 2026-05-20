@@ -3,7 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import DeliveryPreview from '@/Components/Tenant/DeliveryPreview.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, ref } from 'vue';
 
@@ -15,7 +15,16 @@ const props = defineProps({
     checklistTemplates: { type: Array, default: () => [] },
     categories: { type: Array, default: () => [] },
     customerAddresses: { type: Array, default: () => [] },
+    deliveryEnRouteSms: {
+        type: Object,
+        default: () => ({ modal: false, offered: false, hint: null }),
+    },
 });
+
+const page = usePage();
+
+/** Delivery SMS category enabled in account settings (strict — avoids stale / loose truthy props). */
+const deliverySmsEnabledForEnRoute = computed(() => props.deliveryEnRouteSms?.modal === true);
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
 
@@ -151,7 +160,7 @@ const updateDeliveryStatus = async (event) => {
     statusUpdating.value = true;
     try {
         await axios.put(route('deliveries.update', props.record.id), { status: newStatus });
-        router.reload({ only: ['record'] });
+        router.reload({ only: ['record', 'deliveryEnRouteSms'] });
     } catch (e) {
         console.error(e);
         alert(e?.response?.data?.message ?? 'Failed to update status.');
@@ -199,6 +208,43 @@ const formatDateTimeWithZoneId = (v) => {
     if (!props.account?.timezone || s === '—') return s;
     return `${s} (${props.account.timezone})`;
 };
+
+const minutesFromSeconds = (sec) => {
+    if (sec == null || !Number.isFinite(Number(sec)) || Number(sec) <= 0) {
+        return null;
+    }
+    return Math.max(1, Math.round(Number(sec) / 60));
+};
+
+/** Outbound depot → customer (Google). */
+const routingOutboundMin = computed(() => minutesFromSeconds(props.record?.estimated_travel_duration_seconds));
+
+/** Return customer → depot; mirrors outbound when Google return not stored (legacy). */
+const routingReturnMin = computed(() => {
+    const r = props.record?.estimated_return_travel_duration_seconds;
+    if (r != null && Number(r) > 0) {
+        return minutesFromSeconds(r);
+    }
+
+    return routingOutboundMin.value;
+});
+
+const routingAtLocationMin = computed(() => {
+    const m = props.record?.delivery_duration_minutes;
+    if (m != null && Number(m) >= 1) {
+        return Number(m);
+    }
+    return 15;
+});
+
+const routingTotalDrivingMin = computed(() => {
+    const a = routingOutboundMin.value;
+    const b = routingReturnMin.value;
+    if (a == null && b == null) {
+        return null;
+    }
+    return (a ?? 0) + (b ?? 0);
+});
 
 /* ─── Items ─── */
 const items = computed(() => Array.isArray(props.record?.items) ? props.record.items : []);
@@ -267,18 +313,79 @@ const canMarkEnRoute = computed(
     () => !isSigned.value
         && ['scheduled', 'confirmed', 'rescheduled'].includes(props.record?.status),
 );
+
+const destinationCompleteForTravel = computed(() => {
+    const r = props.record;
+    if (r?.latitude != null && r?.longitude != null) return true;
+    const line1 = String(r?.address_line_1 ?? '').trim();
+    const city = String(r?.city ?? '').trim();
+    const state = String(r?.state ?? '').trim();
+    return !!(line1 && city && state);
+});
+
+const showTravelComputeButton = computed(
+    () => ['scheduled', 'confirmed', 'rescheduled'].includes(props.record?.status)
+        && props.record?.estimated_travel_duration_seconds == null,
+);
+
+const travelComputeReady = computed(
+    () => !!(props.record?.location_id && props.record?.scheduled_at && destinationCompleteForTravel.value),
+);
+
+const travelComputeDisabledTitle = computed(() => {
+    if (travelComputeReady.value) return '';
+    return 'Set a departure location, scheduled date and time, and a complete delivery address (or map coordinates) first.';
+});
+
+const computeTravelLoading = ref(false);
+const computeTravel = () => {
+    if (!travelComputeReady.value || computeTravelLoading.value) return;
+    computeTravelLoading.value = true;
+    router.post(
+        route('deliveries.compute-travel', props.record.id),
+        {},
+        {
+            preserveScroll: true,
+            onFinish: () => { computeTravelLoading.value = false; },
+        },
+    );
+};
+
+const showEnRouteModal = ref(false);
+const enRouteDeliveryChoice = ref('no_sms');
+
 const enRouteLoading = ref(false);
-const goEnRoute = () => {
-    if (!canMarkEnRoute.value) return;
+const submitEnRoute = (notifySms) => {
     enRouteLoading.value = true;
     router.post(
         route('deliveries.en-route', props.record.id),
-        {},
+        { notify_sms: notifySms },
         {
             preserveScroll: true,
             onFinish: () => { enRouteLoading.value = false; },
         },
     );
+};
+
+const goEnRoute = () => {
+    if (!canMarkEnRoute.value) return;
+    if (deliverySmsEnabledForEnRoute.value) {
+        enRouteDeliveryChoice.value = 'no_sms';
+        showEnRouteModal.value = true;
+        return;
+    }
+    submitEnRoute(false);
+};
+
+const closeEnRouteModal = () => {
+    showEnRouteModal.value = false;
+};
+
+const confirmEnRouteModal = () => {
+    const wantsSms = enRouteDeliveryChoice.value === 'sms';
+    if (wantsSms && !props.deliveryEnRouteSms?.offered) return;
+    showEnRouteModal.value = false;
+    submitEnRoute(wantsSms && !!props.deliveryEnRouteSms?.offered);
 };
 
 /* ─── Actions ─── */
@@ -330,7 +437,7 @@ const toggleItemDelivered = async (item) => {
         await axios.post(route('deliveries.items.mark-delivered', { delivery: props.record.id, item: item.id }), {
             delivered,
         });
-        router.reload({ only: ['record'] });
+        router.reload({ only: ['record', 'deliveryEnRouteSms'] });
     } catch (error) {
         console.error(error);
         alert('Failed to update item.');
@@ -752,9 +859,35 @@ const googleMapsDirectionsUrl = computed(() => {
       <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.scheduled_at) }}</p>
     </div>
 
-    <div v-if="record.estimated_travel_duration_seconds" class="px-4 py-3 bg-white dark:bg-gray-800">
-      <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Drive time</p>
-      <p class="text-md font-semibold text-gray-900 dark:text-white">~{{ Math.max(1, Math.round(record.estimated_travel_duration_seconds / 60)) }} min</p>
+    <div
+      v-if="routingOutboundMin != null"
+      class="col-span-2 sm:col-span-3 border-t border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30"
+    >
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Driving estimates (Google)</p>
+      <dl class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Drive to customer</dt>
+          <dd class="text-md font-semibold text-gray-900 dark:text-white">~{{ routingOutboundMin }} min</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-gray-500 dark:text-gray-400">At location</dt>
+          <dd class="text-md font-semibold text-gray-900 dark:text-white">{{ routingAtLocationMin }} min</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Drive back to base</dt>
+          <dd class="text-md font-semibold text-gray-900 dark:text-white">~{{ routingReturnMin }} min</dd>
+        </div>
+        <div>
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Total driving</dt>
+          <dd class="text-md font-semibold text-gray-900 dark:text-white">~{{ routingTotalDrivingMin }} min</dd>
+        </div>
+      </dl>
+      <p
+        v-if="!record.estimated_return_travel_duration_seconds && routingOutboundMin"
+        class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+      >
+        Return leg not stored separately yet; fleet scheduling assumes the same drive time as outbound until you recalculate travel on the delivery form.
+      </p>
     </div>
 
     <div v-if="record.en_route_at" class="px-4 py-3 bg-white dark:bg-gray-800">
@@ -785,7 +918,7 @@ const googleMapsDirectionsUrl = computed(() => {
       Open delivery route in Google Maps
     </a>
     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-      From your <strong>depart</strong> location to the <strong>delivery</strong> address (driving).
+      Opens Google Maps directions from your <strong>depart</strong> location to the <strong>delivery</strong> address (outbound leg). Estimated return time is computed separately for scheduling.
     </p>
   </div>
 </div>
@@ -980,6 +1113,19 @@ const googleMapsDirectionsUrl = computed(() => {
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions</h3>
                     <div class="space-y-3">
                         <button
+                            v-if="showTravelComputeButton"
+                            type="button"
+                            :title="travelComputeDisabledTitle"
+                            :disabled="!travelComputeReady || computeTravelLoading"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 hover:bg-primary-100 dark:hover:bg-primary-900/50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg"
+                            @click="computeTravel"
+                        >
+                            <span class="material-icons text-lg" :class="{ 'animate-spin': computeTravelLoading }">
+                                {{ computeTravelLoading ? 'sync' : 'route' }}
+                            </span>
+                            Calculate drive times
+                        </button>
+                        <button
                             v-if="canMarkEnRoute"
                             type="button"
                             @click="goEnRoute"
@@ -1150,6 +1296,82 @@ const googleMapsDirectionsUrl = computed(() => {
                         @click="showMarkDeliveredModal = false"
                         class="w-full px-4 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg"
                     >Cancel</button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Mark en route: optional SMS -->
+        <Modal :show="showEnRouteModal" max-width="md" @close="closeEnRouteModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Mark en route</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Confirm the driver is on the way. You can optionally send a text so the customer can track the delivery.
+                </p>
+                <p
+                    v-if="page.props.tenant_sandbox_mode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>Sandbox mode sends SMS to your staff user profile phone (matched by login email), not the customer.</span>
+                </p>
+
+                <fieldset class="mt-4 space-y-3">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
+                        <input v-model="enRouteDeliveryChoice" type="radio" name="en_route_notify" value="no_sms" class="mt-1 text-primary-600" />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Mark en route only</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">Do not send a text message.</span>
+                        </span>
+                    </label>
+                    <label
+                        class="flex items-start gap-3 rounded-lg border p-3"
+                        :class="
+                            deliveryEnRouteSms.offered
+                                ? 'cursor-pointer border-gray-200 dark:border-gray-600'
+                                : 'cursor-not-allowed border-gray-100 opacity-60 dark:border-gray-700'
+                        "
+                    >
+                        <input
+                            v-model="enRouteDeliveryChoice"
+                            type="radio"
+                            name="en_route_notify"
+                            value="sms"
+                            class="mt-1 text-primary-600 disabled:cursor-not-allowed"
+                            :disabled="!deliveryEnRouteSms.offered"
+                        />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Mark en route and notify by SMS</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">
+                                Send a short text with the tracking link.
+                            </span>
+                            <span
+                                v-if="!deliveryEnRouteSms.offered && deliveryEnRouteSms.hint"
+                                class="mt-1 block text-xs text-amber-800 dark:text-amber-200"
+                            >
+                                {{ deliveryEnRouteSms.hint }}
+                            </span>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        :disabled="enRouteLoading"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="closeEnRouteModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="enRouteLoading || (enRouteDeliveryChoice === 'sms' && !deliveryEnRouteSms.offered)"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-50"
+                        @click="confirmEnRouteModal"
+                    >
+                        <span v-if="enRouteLoading" class="material-icons animate-spin text-base">refresh</span>
+                        {{ enRouteLoading ? 'Updating…' : 'Confirm' }}
+                    </button>
                 </div>
             </div>
         </Modal>

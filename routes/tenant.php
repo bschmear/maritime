@@ -6,6 +6,7 @@ use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
 use App\Http\Controllers\Tenant\AccountController;
+use App\Http\Controllers\Tenant\AccountSmsNotificationsController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetOptionController;
@@ -401,6 +402,7 @@ Route::middleware([
             Route::get('/schedule-board', [DeliveryController::class, 'scheduleBoard'])->name('schedule-board');
             Route::post('/check-fleet-schedule', [DeliveryController::class, 'checkFleetSchedule'])->name('check-fleet-schedule');
             Route::post('/travel-estimate', [DeliveryController::class, 'travelEstimate'])->name('travel-estimate');
+            Route::post('/{delivery}/compute-travel', [DeliveryController::class, 'computeTravel'])->name('compute-travel');
             Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
             Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
@@ -610,6 +612,8 @@ Route::middleware([
             Route::patch('/consignment/policies/{consignmentPolicy}', [AccountConsignmentController::class, 'updatePolicy'])->name('consignment.policies.update');
             Route::delete('/consignment/policies/{consignmentPolicy}', [AccountConsignmentController::class, 'destroyPolicy'])->name('consignment.policies.destroy');
             Route::post('/consignment/policies/reorder', [AccountConsignmentController::class, 'reorderPolicies'])->name('consignment.policies.reorder');
+            Route::get('/notifications/sms', [AccountSmsNotificationsController::class, 'index'])->name('notifications.sms.index');
+            Route::patch('/notifications/sms', [AccountSmsNotificationsController::class, 'update'])->name('notifications.sms.update');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
             Route::get('/payments/stripe', [PaymentConfigurationController::class, 'stripePage'])->name('payments.stripe');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');

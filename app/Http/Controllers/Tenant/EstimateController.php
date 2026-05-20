@@ -17,6 +17,7 @@ use App\Enums\Timezone;
 use App\Mail\EstimateApprovalRequest;
 use App\Mail\EstimateBoatOptionsInvite;
 use App\Models\AccountSettings;
+use App\Services\SMS\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
@@ -251,13 +252,16 @@ class EstimateController extends RecordController
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
         // customer_id is on the form but not in fields.json — load explicitly for Show UI / links.
-        $relationships['customer'] = Customer::eagerWithContactSelect();
+        $relationships['customer'] = Customer::eagerWithContactSelect(['email', 'phone', 'mobile']);
 
         $relationships['selectedAssetOptions'] = fn ($q) => $q
             ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
             ->orderBy('id');
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
+
+        $smsService = app(SmsService::class);
+        $estimateApprovalSms = $smsService->estimateApprovalSmsCanBeOffered($record->customer, $request->user());
 
         return inertia('Tenant/Estimate/Show', [
             'record' => $record,
@@ -269,6 +273,7 @@ class EstimateController extends RecordController
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
+            'estimateApprovalSms' => $estimateApprovalSms,
         ]);
     }
 
@@ -354,16 +359,43 @@ class EstimateController extends RecordController
         return back()->withErrors($bag)->withInput();
     }
 
-    public function sendApprovalRequest(Request $request, $id)
+    public function sendApprovalRequest(Request $request, $id, SmsService $smsService)
     {
-        $estimate = RecordModel::with(['customer', 'primaryVersion'])->findOrFail($id);
+        $validated = $request->validate([
+            'delivery' => 'required|string|in:email,email_sms',
+        ]);
+
+        $estimate = RecordModel::with([
+            'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+            'primaryVersion',
+        ])->findOrFail($id);
 
         $wasPendingApproval = (int) $estimate->status === EstimateStatus::PendingApproval->id();
 
+        $account = AccountSettings::getCurrent();
+        $sandbox = $account->smsSandboxMode();
         $customerEmail = $estimate->customer?->email;
+        $authEmail = $request->user()?->email;
 
-        if (! $customerEmail) {
-            return back()->withErrors(['error' => 'This estimate has no customer email address.']);
+        if ($sandbox) {
+            if (! $authEmail) {
+                return back()->withErrors(['error' => 'Sandbox mode sends the approval email to you, but your account has no email address on file.']);
+            }
+            $approvalRecipientEmail = $authEmail;
+        } else {
+            if (! $customerEmail) {
+                return back()->withErrors(['error' => 'This estimate has no customer email address.']);
+            }
+            $approvalRecipientEmail = $customerEmail;
+        }
+
+        if ($validated['delivery'] === 'email_sms') {
+            $offer = $smsService->estimateApprovalSmsCanBeOffered($estimate->customer, $request->user());
+            if (! $offer['offered']) {
+                return back()->withErrors([
+                    'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                ]);
+            }
         }
 
         $tenant = tenant();
@@ -374,10 +406,9 @@ class EstimateController extends RecordController
         }
 
         $reviewUrl = "https://{$domain}/estimates/{$estimate->uuid}/review";
-        $account = AccountSettings::getCurrent();
 
         try {
-            Mail::to($customerEmail)->send(new EstimateApprovalRequest($estimate, $account, $reviewUrl));
+            Mail::to($approvalRecipientEmail)->send(new EstimateApprovalRequest($estimate, $account, $reviewUrl));
         } catch (\Exception $e) {
             \Log::error('Failed to send estimate approval request email', [
                 'estimate_id' => $estimate->id,
@@ -387,14 +418,34 @@ class EstimateController extends RecordController
             return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
+        $emailTarget = $sandbox
+            ? "{$approvalRecipientEmail} (sandbox — you)"
+            : $approvalRecipientEmail;
+
+        $smsNote = '';
+        if ($validated['delivery'] === 'email_sms') {
+            $result = $smsService->sendEstimateApprovalSms($request->user(), $estimate->customer, $estimate, $reviewUrl);
+            if (! $result->success && ($result->status ?? '') === 'not_implemented') {
+                $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
+            } elseif (! $result->success) {
+                return back()
+                    ->with('success', $wasPendingApproval
+                        ? "Approval email resent to {$emailTarget}."
+                        : "Estimate sent to {$emailTarget} for approval.")
+                    ->with('error', 'Email was sent, but SMS failed: '.($result->error ?? 'Unknown error'));
+            } else {
+                $smsNote = ' A text message was also sent.';
+            }
+        }
+
         $estimate->update([
             'sent_at' => now(),
             'status' => EstimateStatus::PendingApproval->id(),
         ]);
 
-        $success = $wasPendingApproval
-            ? "Approval email resent to {$customerEmail}."
-            : "Estimate sent to {$customerEmail} for approval.";
+        $success = ($wasPendingApproval
+            ? "Approval email resent to {$emailTarget}."
+            : "Estimate sent to {$emailTarget} for approval.").$smsNote;
 
         return back()->with('success', $success);
     }

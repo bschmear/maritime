@@ -54,6 +54,14 @@ const travelMinutes = computed(() => {
     return Math.round(Number(s) / 60);
 });
 
+const travelReturnMinutes = computed(() => {
+    const s = props.record?.estimated_return_travel_duration_seconds;
+    if (s != null && Number.isFinite(Number(s)) && Number(s) > 0) {
+        return Math.round(Number(s) / 60);
+    }
+    return travelMinutes.value;
+});
+
 const fleetLabel = (fleet) => {
     if (!fleet) return null;
     const n = fleet.display_name ?? fleet.name ?? null;
@@ -175,8 +183,12 @@ function technicianLabel(u) {
                     <div class="text-sm text-gray-900">{{ formatDateTime(record.time_to_leave_by) }}</div>
                 </div>
                 <div>
-                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Est. travel (one way)</div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Est. drive to customer</div>
                     <div class="text-sm text-gray-900">{{ travelMinutes != null ? `${travelMinutes} min` : '—' }}</div>
+                </div>
+                <div>
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Est. drive back to base</div>
+                    <div class="text-sm text-gray-900">{{ travelReturnMinutes != null ? `${travelReturnMinutes} min` : '—' }}</div>
                 </div>
                 <div>
                     <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">At-location (plan)</div>

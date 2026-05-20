@@ -25,6 +25,7 @@ class Delivery extends Model
         'estimated_arrival_at',
         'time_to_leave_by',
         'estimated_travel_duration_seconds',
+        'estimated_return_travel_duration_seconds',
         'delivery_duration_minutes',
         'en_route_at',
         'delivered_at',
@@ -63,6 +64,8 @@ class Delivery extends Model
         'en_route_at' => 'datetime',
         'delivered_at' => 'datetime',
         'signed_at' => 'datetime',
+        'estimated_travel_duration_seconds' => 'integer',
+        'estimated_return_travel_duration_seconds' => 'integer',
         'delivery_duration_minutes' => 'integer',
     ];
 

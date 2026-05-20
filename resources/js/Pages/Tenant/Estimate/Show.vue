@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 
 const inertiaApp = getCurrentInstance();
@@ -25,8 +25,13 @@ const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
+    estimateApprovalSms: {
+        type: Object,
+        default: () => ({ offered: false, hint: null }),
+    },
 });
 
+const page = usePage();
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 
@@ -53,18 +58,63 @@ const closeLineNotesModal = () => {
     lineNotesModalBody.value = '';
 };
 
-const sendApprovalForm = useForm({});
-const sendApprovalRequest = () => {
+const showApprovalDeliveryModal = ref(false);
+const approvalDelivery = ref('email');
+
+const openApprovalDeliveryModal = () => {
+    approvalDelivery.value = 'email';
+    showApprovalDeliveryModal.value = true;
+};
+
+const closeApprovalDeliveryModal = () => {
+    showApprovalDeliveryModal.value = false;
+};
+
+const customerApprovalEmail = computed(() => props.record?.customer?.email ?? '');
+
+/** Live: customer email. Sandbox: signed-in user email (matches server routing). */
+const approvalEmailPreview = computed(() => {
+    if (page.props.tenant_sandbox_mode) {
+        return page.props.auth?.user?.email ?? '';
+    }
+
+    return customerApprovalEmail.value;
+});
+
+const approvalModalSubtitle = computed(() =>
+    page.props.tenant_sandbox_mode
+        ? 'Sandbox is on: choose how you want to receive the test. Email and SMS go to you, not the customer.'
+        : 'Choose how to notify the customer.',
+);
+
+const sendApprovalForm = useForm({ delivery: 'email' });
+
+const confirmSendApproval = () => {
+    sendApprovalForm.delivery = approvalDelivery.value;
     sendApprovalForm.post(route('estimates.send-approval', props.record.id), {
         preserveScroll: true,
-        onSuccess: (page) => {
-            const flash = page.props.flash;
+        onSuccess: (p) => {
+            const errs = p.props.errors || {};
+            if (!errs.delivery && !errs.error) {
+                closeApprovalDeliveryModal();
+            }
+            const flash = p.props.flash;
             if (flash?.success) {
                 showToast('success', flash.success);
             }
-            const err = page.props.errors?.error;
+            const flashErr = flash?.error;
+            if (flashErr) {
+                showToast('error', Array.isArray(flashErr) ? flashErr[0] : flashErr);
+            }
+            const err = errs.error ?? errs.delivery;
             if (err) {
                 showToast('error', Array.isArray(err) ? err[0] : err);
+            }
+        },
+        onError: () => {
+            const d = sendApprovalForm.errors.delivery;
+            if (d) {
+                showToast('error', Array.isArray(d) ? d[0] : d);
             }
         },
     });
@@ -415,7 +465,7 @@ const confirmDelete = () => {
                         <!-- Send for Approval -->
                         <button
                             v-if="canSendApproval"
-                            @click="sendApprovalRequest"
+                            @click="openApprovalDeliveryModal"
                             :disabled="sendApprovalForm.processing"
                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
                             :title="record.sent_at ? `Resend (last sent ${new Date(record.sent_at).toLocaleDateString()})` : 'Send estimate to customer for approval'"
@@ -944,7 +994,7 @@ const confirmDelete = () => {
                             <!-- Send for Approval -->
                             <button
                                 v-if="canSendApproval"
-                                @click="sendApprovalRequest"
+                                @click="openApprovalDeliveryModal"
                                 :disabled="sendApprovalForm.processing"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
                             >
@@ -1184,6 +1234,90 @@ const confirmDelete = () => {
                 </div>
             </div>
         </div>
+
+        <!-- Send for approval: email vs email + SMS -->
+        <Modal :show="showApprovalDeliveryModal" max-width="md" @close="closeApprovalDeliveryModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Send for approval</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {{ approvalModalSubtitle }}
+                </p>
+                <p
+                    v-if="page.props.tenant_sandbox_mode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>Uses your login email for the message and your staff user profile phone for SMS (matched by email).</span>
+                </p>
+                <p v-if="approvalEmailPreview" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <template v-if="page.props.tenant_sandbox_mode">Email will be sent to you at </template>
+                    <template v-else>Email goes to </template>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ approvalEmailPreview }}</span>
+                </p>
+                <p v-if="sendApprovalForm.errors.delivery" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {{ sendApprovalForm.errors.delivery }}
+                </p>
+
+                <fieldset class="mt-4 space-y-3">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
+                        <input v-model="approvalDelivery" type="radio" name="approval_delivery" value="email" class="mt-1 text-primary-600" />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Email only</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">Send the approval request by email.</span>
+                        </span>
+                    </label>
+                    <label
+                        class="flex items-start gap-3 rounded-lg border p-3"
+                        :class="
+                            estimateApprovalSms.offered
+                                ? 'cursor-pointer border-gray-200 dark:border-gray-600'
+                                : 'cursor-not-allowed border-gray-100 opacity-60 dark:border-gray-700'
+                        "
+                    >
+                        <input
+                            v-model="approvalDelivery"
+                            type="radio"
+                            name="approval_delivery"
+                            value="email_sms"
+                            class="mt-1 text-primary-600 disabled:cursor-not-allowed"
+                            :disabled="!estimateApprovalSms.offered"
+                        />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Email and SMS</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">
+                                Also send a short text with the review link.
+                            </span>
+                            <span
+                                v-if="!estimateApprovalSms.offered && estimateApprovalSms.hint"
+                                class="mt-1 block text-xs text-amber-800 dark:text-amber-200"
+                            >
+                                {{ estimateApprovalSms.hint }}
+                            </span>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        :disabled="sendApprovalForm.processing"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="closeApprovalDeliveryModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="sendApprovalForm.processing"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-50"
+                        @click="confirmSendApproval"
+                    >
+                        <span v-if="sendApprovalForm.processing" class="material-icons animate-spin text-base">refresh</span>
+                        {{ sendApprovalForm.processing ? 'Sending…' : 'Send' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <!-- Create Deal Modal -->
         <Modal :show="showCreateDealModal" @close="closeCreateDealModal" max-width="md">

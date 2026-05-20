@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import DeliveryScheduler from '@/Components/Tenant/DeliveryScheduler.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -36,9 +36,16 @@ const breadcrumbItems = computed(() => [
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mt-4">
-                    Schedule Deliveries
-                </h2>
+                <div class="mt-4 flex flex-wrap items-end justify-between gap-3">
+                    <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">Schedule Deliveries</h2>
+                    <Link
+                        :href="route('deliveries.index')"
+                        class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                    >
+                        View schedule
+                        <span class="material-icons text-lg leading-none" aria-hidden="true">chevron_right</span>
+                    </Link>
+                </div>
             </div>
         </template>
         <div v-if="locationOptions.length" class="mb-4 max-w-md">

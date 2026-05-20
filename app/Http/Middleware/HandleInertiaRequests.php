@@ -100,6 +100,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'pwa' => fn () => $this->rootView($request) === 'app' && $request->isPwa(),
             'workspace_nav' => fn () => $this->workspaceNavAccounts($request),
+            'tenant_sandbox_mode' => fn () => tenant() ? (bool) AccountSettings::getCurrent()->sandbox_mode : false,
         ];
     }
 

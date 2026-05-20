@@ -48,6 +48,7 @@ class UpdateDelivery
 
             'time_to_leave_by' => 'nullable|date',
             'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+            'estimated_return_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
 
             'fleet_truck_id' => 'nullable|integer|exists:fleets,id',
             'fleet_trailer_id' => 'nullable|integer|exists:fleets,id',
@@ -214,6 +215,9 @@ class UpdateDelivery
         if (array_key_exists('estimated_travel_duration_seconds', $data) && $data['estimated_travel_duration_seconds'] === '') {
             $data['estimated_travel_duration_seconds'] = null;
         }
+        if (array_key_exists('estimated_return_travel_duration_seconds', $data) && $data['estimated_return_travel_duration_seconds'] === '') {
+            $data['estimated_return_travel_duration_seconds'] = null;
+        }
         foreach (['fleet_truck_id', 'fleet_trailer_id'] as $k) {
             if (array_key_exists($k, $data) && ($data[$k] === '' || $data[$k] === false)) {
                 $data[$k] = null;
@@ -239,14 +243,19 @@ class UpdateDelivery
         if ($tt !== null && $tt !== '') {
             return true;
         }
-        if (! array_key_exists('estimated_travel_duration_seconds', $data)) {
-            return false;
-        }
-        $sec = $data['estimated_travel_duration_seconds'];
-        if ($sec === null || $sec === '') {
-            return false;
+        foreach (['estimated_travel_duration_seconds', 'estimated_return_travel_duration_seconds'] as $k) {
+            if (! array_key_exists($k, $data)) {
+                continue;
+            }
+            $sec = $data[$k];
+            if ($sec === null || $sec === '') {
+                continue;
+            }
+            if (is_numeric($sec)) {
+                return true;
+            }
         }
 
-        return is_numeric($sec);
+        return false;
     }
 }

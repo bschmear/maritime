@@ -81,6 +81,12 @@ const buildDeliveriesIndexQueryParams = (overrides = {}) => {
             params.calendar_month = cm;
         }
     }
+    if (!('schedule_date' in overrides)) {
+        const sd = props.filters?.schedule_date;
+        if (sd && /^\d{4}-\d{2}-\d{2}$/.test(String(sd))) {
+            params.schedule_date = sd;
+        }
+    }
     return params;
 };
 
@@ -124,6 +130,39 @@ const navigateMiniCalendar = (delta) => {
     const nextKey = shiftCalendarMonthKey(props.filters?.calendar_month, delta);
     router.get(route('deliveries.index'), buildDeliveriesIndexQueryParams({ calendar_month: nextKey }), { preserveState: true, preserveScroll: true, replace: true });
 };
+
+/** Calendar day arithmetic for `YYYY-MM-DD` (UTC date parts, no time-of-day skew). */
+const addCalendarDaysToYmd = (ymd, deltaDays) => {
+    const parts = String(ymd).split('-').map((x) => parseInt(x, 10));
+    if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+        return null;
+    }
+    const [y, m, d] = parts;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + deltaDays);
+    const yy = dt.getUTCFullYear();
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getUTCDate()).padStart(2, '0');
+    return `${yy}-${mm}-${dd}`;
+};
+
+const navigateScheduleDay = (deltaDays) => {
+    const cur = props.filters?.schedule_date;
+    if (!cur || !/^\d{4}-\d{2}-\d{2}$/.test(String(cur))) {
+        return;
+    }
+    const next = addCalendarDaysToYmd(String(cur), deltaDays);
+    if (!next) {
+        return;
+    }
+    router.get(route('deliveries.index'), buildDeliveriesIndexQueryParams({ schedule_date: next }), {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
+};
+
+const scheduleCardTitle = computed(() => (props.filters?.schedule_is_today ? "Today's Schedule" : 'Schedule'));
 
 let searchDebounce = null;
 watch(searchQuery, () => {
@@ -512,23 +551,50 @@ onUnmounted(() => {
                 <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
 
                     <!-- Card Header -->
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <div class="flex items-center gap-2">
-                            <span class="material-icons text-blue-600 dark:text-blue-400">today</span>
-                            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Today's Schedule</h2>
-                            <span class="ml-1 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm font-bold">
+                    <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex min-w-0 flex-1 items-center gap-2">
+                            <span class="material-icons shrink-0 text-blue-600 dark:text-blue-400">today</span>
+                            <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">
+                                {{ scheduleCardTitle }}
+                            </h2>
+                            <span class="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-sm font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
                                 {{ todayDeliveries.length }}
                             </span>
                         </div>
-                        <span class="text-md text-gray-400 dark:text-gray-500">{{ new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}</span>
+                        <div class="flex shrink-0 items-center gap-1 sm:gap-2">
+                            <button
+                                type="button"
+                                class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                aria-label="Previous day"
+                                @click="navigateScheduleDay(-1)"
+                            >
+                                <span class="material-icons text-md sm:text-lg">chevron_left</span>
+                            </button>
+                            <span class="hidden min-w-[7.5rem] text-center text-sm font-medium text-gray-700 dark:text-gray-200 sm:block md:min-w-[9rem]">
+                                {{ filters.schedule_display }}
+                            </span>
+                            <button
+                                type="button"
+                                class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                aria-label="Next day"
+                                @click="navigateScheduleDay(1)"
+                            >
+                                <span class="material-icons text-md sm:text-lg">chevron_right</span>
+                            </button>
+                        </div>
                     </div>
+                    <p class="border-b border-gray-200 px-6 py-2 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400 sm:hidden">
+                        {{ filters.schedule_display }}
+                    </p>
 
                     <!-- Timeline -->
                     <div v-if="!todayDeliveries.length" class="px-6 py-16 flex flex-col items-center justify-center text-center">
                         <div class="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700/80 flex items-center justify-center mb-4">
                             <span class="material-icons text-4xl text-gray-400 dark:text-gray-500">event_busy</span>
                         </div>
-                        <p class="text-base font-medium text-gray-900 dark:text-white">No deliveries scheduled for today</p>
+                        <p class="text-base font-medium text-gray-900 dark:text-white">
+                            No deliveries scheduled for {{ filters.schedule_is_today ? 'today' : filters.schedule_display }}
+                        </p>
                     </div>
                     <div v-else class="p-6 space-y-0">
                         <div

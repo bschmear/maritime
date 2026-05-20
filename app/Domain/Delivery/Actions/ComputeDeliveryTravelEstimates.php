@@ -14,10 +14,12 @@ class ComputeDeliveryTravelEstimates
     ) {}
 
     /**
-     * Fills {@see Delivery::estimated_travel_duration_seconds} and
-     * {@see Delivery::time_to_leave_by} from Google when origin (location) and
+     * Fills {@see Delivery::estimated_travel_duration_seconds} (depot → destination),
+     * {@see Delivery::estimated_return_travel_duration_seconds} (destination → depot),
+     * and {@see Delivery::time_to_leave_by} from Google when origin (location) and
      * destination (delivery address) and scheduled time are available.
      *
+     * {@see Delivery::delivery_duration_minutes} is not changed here (at-location time).
      * Does not change {@see Delivery::estimated_arrival_at} (set when status → en route).
      */
     public function __invoke(Delivery $delivery): void
@@ -31,6 +33,7 @@ class ComputeDeliveryTravelEstimates
         if (! $delivery->location_id || ! $delivery->location || ! $delivery->scheduled_at) {
             $delivery->time_to_leave_by = null;
             $delivery->estimated_travel_duration_seconds = null;
+            $delivery->estimated_return_travel_duration_seconds = null;
 
             return;
         }
@@ -38,6 +41,7 @@ class ComputeDeliveryTravelEstimates
         if (! $this->destinationIsComplete($delivery)) {
             $delivery->time_to_leave_by = null;
             $delivery->estimated_travel_duration_seconds = null;
+            $delivery->estimated_return_travel_duration_seconds = null;
 
             return;
         }
@@ -48,25 +52,30 @@ class ComputeDeliveryTravelEstimates
         if ($origin === null || $dest === null) {
             $delivery->time_to_leave_by = null;
             $delivery->estimated_travel_duration_seconds = null;
+            $delivery->estimated_return_travel_duration_seconds = null;
 
             return;
         }
 
-        $seconds = $this->directions->drivingDurationSeconds($origin, $dest);
+        $outboundSeconds = $this->directions->drivingDurationSeconds($origin, $dest);
+        $returnSeconds = $this->directions->drivingDurationSeconds($dest, $origin);
 
-        if ($seconds === null) {
-            Log::info('Delivery travel: no duration from Google', ['delivery_id' => $delivery->id]);
+        if ($outboundSeconds === null) {
+            Log::info('Delivery travel: no outbound duration from Google', ['delivery_id' => $delivery->id]);
             $delivery->time_to_leave_by = null;
             $delivery->estimated_travel_duration_seconds = null;
+            $delivery->estimated_return_travel_duration_seconds = null;
 
             return;
         }
 
-        $delivery->estimated_travel_duration_seconds = $seconds;
+        $delivery->estimated_travel_duration_seconds = $outboundSeconds;
+        $delivery->estimated_return_travel_duration_seconds = $returnSeconds;
+
         $scheduled = $delivery->scheduled_at;
         if ($scheduled instanceof \DateTimeInterface) {
             $start = $scheduled instanceof \Carbon\Carbon ? $scheduled->copy() : \Carbon\Carbon::parse($scheduled);
-            $delivery->time_to_leave_by = $start->subSeconds($seconds);
+            $delivery->time_to_leave_by = $start->copy()->subSeconds($outboundSeconds);
         } else {
             $delivery->time_to_leave_by = null;
         }
@@ -135,7 +144,7 @@ class ComputeDeliveryTravelEstimates
     /**
      * Live preview for the delivery form (unsaved or partial state).
      *
-     * @return array{duration_seconds: int, time_to_leave_by: string|null}|null
+     * @return array{duration_seconds: int, duration_return_seconds: int|null, time_to_leave_by: string|null}|null
      */
     public function previewFromInputs(Location $location, array $dest, string $scheduledAtIso): ?array
     {
@@ -164,16 +173,19 @@ class ComputeDeliveryTravelEstimates
             return null;
         }
 
-        $seconds = $this->directions->drivingDurationSeconds($origin, $destination);
-        if ($seconds === null) {
+        $outboundSeconds = $this->directions->drivingDurationSeconds($origin, $destination);
+        if ($outboundSeconds === null) {
             return null;
         }
 
+        $returnSeconds = $this->directions->drivingDurationSeconds($destination, $origin);
+
         $start = \Carbon\Carbon::parse($scheduledAtIso);
-        $leaveBy = $start->copy()->subSeconds($seconds);
+        $leaveBy = $start->copy()->subSeconds($outboundSeconds);
 
         return [
-            'duration_seconds' => $seconds,
+            'duration_seconds' => $outboundSeconds,
+            'duration_return_seconds' => $returnSeconds,
             'time_to_leave_by' => $leaveBy->toIso8601String(),
         ];
     }

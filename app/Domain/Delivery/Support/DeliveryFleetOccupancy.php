@@ -10,6 +10,8 @@ use Carbon\CarbonInterface;
 
 /**
  * Fleet busy windows aligned with {@see \resources\js\Components\Tenant\DeliveryScheduler.vue} travel + at-location + return travel.
+ * Outbound uses {@see Delivery::estimated_travel_duration_seconds}; return uses
+ * {@see Delivery::estimated_return_travel_duration_seconds} when set, otherwise matches outbound (legacy).
  */
 final class DeliveryFleetOccupancy
 {
@@ -76,10 +78,16 @@ final class DeliveryFleetOccupancy
 
         $tz = (string) config('app.timezone');
         $scheduled = $scheduled->copy()->timezone($tz);
-        $travelMin = self::travelMinutes($d->estimated_travel_duration_seconds !== null ? (int) $d->estimated_travel_duration_seconds : null);
+        $travelOutMin = self::travelMinutes($d->estimated_travel_duration_seconds !== null ? (int) $d->estimated_travel_duration_seconds : null);
+        $returnSec = $d->estimated_return_travel_duration_seconds;
+        $travelBackMin = self::travelMinutes(
+            $returnSec !== null && (int) $returnSec > 0
+                ? (int) $returnSec
+                : ($d->estimated_travel_duration_seconds !== null ? (int) $d->estimated_travel_duration_seconds : null)
+        );
         $atLocMin = self::atLocationMinutes($d->delivery_duration_minutes !== null ? (int) $d->delivery_duration_minutes : null);
 
-        $leaveStart = $scheduled->copy()->subMinutes($travelMin);
+        $leaveStart = $scheduled->copy()->subMinutes($travelOutMin);
         $ttlb = self::asCarbon($d->getAttribute('time_to_leave_by'));
         if ($ttlb !== null) {
             $ttlb = $ttlb->copy()->timezone($tz);
@@ -88,7 +96,7 @@ final class DeliveryFleetOccupancy
             }
         }
 
-        $end = $scheduled->copy()->addMinutes($atLocMin)->addMinutes($travelMin);
+        $end = $scheduled->copy()->addMinutes($atLocMin)->addMinutes($travelBackMin);
 
         return [$leaveStart, $end];
     }
@@ -186,6 +194,7 @@ final class DeliveryFleetOccupancy
         }
         foreach ([
             'scheduled_at', 'time_to_leave_by', 'estimated_travel_duration_seconds',
+            'estimated_return_travel_duration_seconds',
             'delivery_duration_minutes', 'fleet_truck_id', 'fleet_trailer_id',
         ] as $k) {
             if (! array_key_exists($k, $attrs)) {

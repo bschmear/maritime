@@ -153,6 +153,7 @@ return new class extends Migration
             'transactions' => 'customer_id',
             'portal_accesses' => 'customer_id',
             'service_tickets' => 'customer_id',
+            'deliveries' => 'customer_id',
         ];
 
         foreach ($map as $table => $column) {
@@ -215,6 +216,15 @@ return new class extends Migration
                 ->on('customer_profiles')
                 ->cascadeOnDelete();
         });
+
+        if (Schema::hasTable('deliveries')) {
+            Schema::table('deliveries', function (Blueprint $table) {
+                $table->foreign('customer_id')
+                    ->references('id')
+                    ->on('customer_profiles')
+                    ->cascadeOnDelete();
+            });
+        }
     }
 
     private function syncAutoIncrement(string $table): void

@@ -1,9 +1,11 @@
 {
+  "allow_create_modal": false,
     "columns": [
       {
-        "key": "id",
-        "label": "#",
-        "sortable": true
+        "key": "display_name",
+        "label": "Qualification",
+        "sortable": true,
+        "isKey": true
       },
       { "key": "lead_id", "label": "Lead", "sortable": false },
       { "key": "user_id", "label": "Salesperson", "sortable": false },

@@ -30,7 +30,8 @@
         "setasign/fpdi": "^2.6",
         "spatie/pdf-to-image": "^1.2",
         "stancl/tenancy": "^3.9",
-        "tightenco/ziggy": "^2.0"
+        "tightenco/ziggy": "^2.0",
+        "twilio/sdk": "*"
     },
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.16",

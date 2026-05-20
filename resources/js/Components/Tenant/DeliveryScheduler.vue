@@ -546,6 +546,15 @@ function travelMins(delivery) {
     return Math.max(0, Math.round((delivery.estimated_travel_duration_seconds || 0) / 60));
 }
 
+function travelReturnMins(delivery) {
+    const r = delivery.estimated_return_travel_duration_seconds;
+    if (r != null && Number(r) > 0) {
+        return Math.max(0, Math.round(Number(r) / 60));
+    }
+
+    return travelMins(delivery);
+}
+
 const FLEET_NONE_ASSIGNED = 'None assigned';
 
 /** Schedule-board payload uses snake_case from API. */
@@ -615,7 +624,7 @@ function travelBackStyle(delivery) {
     const startMin = blockStartMinutes(delivery);
     const durMin = delivery.delivery_duration_minutes || 15;
     const E = startMin + durMin;
-    const T = travelMins(delivery);
+    const T = travelReturnMins(delivery);
     if (T <= 0) {
         return { left: '0%', width: '0%' };
     }
