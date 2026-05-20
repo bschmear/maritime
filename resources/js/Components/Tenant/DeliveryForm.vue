@@ -694,7 +694,7 @@ const getTravelPrereqBlockers = () => {
     return blockers;
 };
 
-const requestGoogleTravelEstimate = () => {
+const requestGoogleTravelEstimate = async () => {
     travelPreviewError.value = null;
     const blockers = getTravelPrereqBlockers();
     if (blockers.length) {
@@ -702,7 +702,7 @@ const requestGoogleTravelEstimate = () => {
         showTravelPrereqModal.value = true;
         return;
     }
-    runGoogleTravelEstimateRequest();
+    await runGoogleTravelEstimateRequest();
 };
 
 const runGoogleTravelEstimateRequest = async () => {
@@ -851,6 +851,21 @@ const googleTravelButtonTitle = computed(() => {
     }
     return 'Set a delivery destination: street, city, and state, or drop a map pin with coordinates.';
 });
+
+/** After the user commits a new scheduled arrival time, offer to refresh Google drive times if we already had route estimates. */
+const onScheduledAtCommittedChange = async () => {
+    if (!hasGoogleRouteEstimates.value) {
+        return;
+    }
+    if (
+        !window.confirm(
+            'The scheduled arrival time at the destination changed. Refresh drive times and leave-by time from Google Maps?',
+        )
+    ) {
+        return;
+    }
+    await requestGoogleTravelEstimate();
+};
 </script>
 
 <template>
@@ -1091,7 +1106,12 @@ const googleTravelButtonTitle = computed(() => {
                                         <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                                             Target time at the delivery address (account time zone, same as other schedule fields).
                                         </p>
-                                        <input type="datetime-local" v-model="form.scheduled_at" class="input-style" />
+                                        <input
+                                            type="datetime-local"
+                                            v-model="form.scheduled_at"
+                                            class="input-style"
+                                            @change="onScheduledAtCommittedChange"
+                                        />
                                         <p v-if="form.errors.scheduled_at" class="mt-1 text-sm text-red-500">{{ form.errors.scheduled_at }}</p>
                                     </div>
 

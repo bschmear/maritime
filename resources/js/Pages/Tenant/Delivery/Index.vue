@@ -561,26 +561,35 @@ onUnmounted(() => {
                                 {{ todayDeliveries.length }}
                             </span>
                         </div>
-                        <div class="flex shrink-0 items-center gap-1 sm:gap-2">
-                            <button
-                                type="button"
-                                class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-                                aria-label="Previous day"
-                                @click="navigateScheduleDay(-1)"
+                        <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
+                            <Link
+                                :href="route('deliveries.delivery-schedule')"
+                                class="inline-flex items-center gap-0.5 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                             >
-                                <span class="material-icons text-md sm:text-lg">chevron_left</span>
-                            </button>
-                            <span class="hidden min-w-[7.5rem] text-center text-sm font-medium text-gray-700 dark:text-gray-200 sm:block md:min-w-[9rem]">
-                                {{ filters.schedule_display }}
-                            </span>
-                            <button
-                                type="button"
-                                class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
-                                aria-label="Next day"
-                                @click="navigateScheduleDay(1)"
-                            >
-                                <span class="material-icons text-md sm:text-lg">chevron_right</span>
-                            </button>
+                                <span>Schedule board</span>
+                                <span class="material-icons text-lg leading-none" aria-hidden="true">chevron_right</span>
+                            </Link>
+                            <div class="flex items-center gap-1 sm:gap-2">
+                                <button
+                                    type="button"
+                                    class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                    aria-label="Previous day"
+                                    @click="navigateScheduleDay(-1)"
+                                >
+                                    <span class="material-icons text-md sm:text-lg">chevron_left</span>
+                                </button>
+                                <span class="hidden min-w-[7.5rem] text-center text-sm font-medium text-gray-700 dark:text-gray-200 sm:block md:min-w-[9rem]">
+                                    {{ filters.schedule_display }}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="rounded p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                                    aria-label="Next day"
+                                    @click="navigateScheduleDay(1)"
+                                >
+                                    <span class="material-icons text-md sm:text-lg">chevron_right</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <p class="border-b border-gray-200 px-6 py-2 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400 sm:hidden">
@@ -759,7 +768,7 @@ onUnmounted(() => {
                                 <span class="material-icons text-gray-500 dark:text-gray-400 text-xl">event_upcoming</span>
                                 <h3 class="text-md font-semibold text-gray-900 dark:text-white">Upcoming</h3>
                             </div>
-                            <Link :href="route('deliveries.index')" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all</Link>
+                            <!-- <Link :href="route('deliveries.index')" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium">View all</Link> -->
                         </div>
 
                         <div class="divide-y divide-gray-100 dark:divide-gray-700">

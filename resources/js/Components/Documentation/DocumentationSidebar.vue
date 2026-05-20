@@ -43,10 +43,77 @@ const closeMenu = () => {
             <div class="relative flex min-h-full flex-col px-4 pt-14 sm:px-6 lg:px-8 grow">
                 <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                     <div
-                        class="absolute -top-20 -right-16 h-64 w-80 rounded-full bg-primary-200/20 blur-3xl"
+                        class="absolute -top-20 -right-16 h-64 w-80 rounded-full bg-primary-200/15 blur-3xl"
                     />
                     <div
-                        class="absolute top-0 right-0 h-48 w-[min(100%,32rem)] bg-gradient-to-bl from-primary-100/30 via-primary-50/10 to-transparent"
+                        class="absolute -right-8 -top-6 h-[20rem] w-[28rem] text-primary-600/25 sm:h-[22rem] sm:w-[32rem]"
+                    >
+                        <svg
+                            class="h-full w-full"
+                            viewBox="0 0 480 360"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
+                            <defs>
+                                <pattern
+                                    id="doc-grid"
+                                    width="28"
+                                    height="28"
+                                    patternUnits="userSpaceOnUse"
+                                    patternTransform="rotate(-14 240 180)"
+                                >
+                                    <path
+                                        d="M 28 0 L 0 0 0 28"
+                                        stroke="currentColor"
+                                        stroke-width="0.75"
+                                        stroke-opacity="0.35"
+                                    />
+                                </pattern>
+                                <radialGradient
+                                    id="doc-fade"
+                                    cx="88%"
+                                    cy="12%"
+                                    r="70%"
+                                >
+                                    <stop offset="0%" stop-color="white" stop-opacity="1" />
+                                    <stop offset="55%" stop-color="white" stop-opacity="0.4" />
+                                    <stop offset="100%" stop-color="white" stop-opacity="0" />
+                                </radialGradient>
+                                <mask id="doc-corner-mask">
+                                    <rect width="480" height="360" fill="url(#doc-fade)" />
+                                </mask>
+                            </defs>
+                            <g mask="url(#doc-corner-mask)">
+                                <rect width="480" height="360" fill="url(#doc-grid)" />
+                                <circle
+                                    cx="360"
+                                    cy="72"
+                                    r="108"
+                                    stroke="currentColor"
+                                    stroke-width="1"
+                                    stroke-opacity="0.2"
+                                />
+                                <circle
+                                    cx="388"
+                                    cy="48"
+                                    r="64"
+                                    stroke="currentColor"
+                                    stroke-width="0.75"
+                                    stroke-opacity="0.15"
+                                />
+                                <path
+                                    d="M 420 24 L 468 96 L 352 96 Z"
+                                    stroke="currentColor"
+                                    stroke-width="0.75"
+                                    stroke-opacity="0.12"
+                                    fill="currentColor"
+                                    fill-opacity="0.04"
+                                />
+                            </g>
+                        </svg>
+                    </div>
+                    <div
+                        class="absolute top-0 right-0 h-56 w-[min(100%,28rem)] bg-gradient-to-bl from-primary-50/15 via-transparent to-transparent"
                     />
                 </div>
 

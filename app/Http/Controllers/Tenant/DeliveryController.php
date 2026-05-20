@@ -609,8 +609,19 @@ class DeliveryController extends RecordController
         $account = AccountSettings::getCurrent();
         $tz = ($account?->timezone) ?: (string) config('app.timezone');
 
+        /** Calendar day boundaries in the account (or app) timezone. */
         $dayStart = Carbon::parse($validated['date'], $tz)->startOfDay();
-        $dayEnd = $dayStart->copy()->endOfDay();
+        /** Half-open end: start of the next local calendar day. */
+        $dayEndExclusive = $dayStart->copy()->addDay();
+        $boardYmd = $validated['date'];
+
+        /**
+         * Deliveries store `scheduled_at` in UTC (see config/app.php). Compare using UTC instants so
+         * rows like 2026-05-21 01:00:00 UTC (8:00 PM prior calendar day in Chicago) are not dropped when
+         * the board date is built in America/Chicago.
+         */
+        $dayStartUtc = $dayStart->copy()->timezone('UTC');
+        $dayEndExclusiveUtc = $dayEndExclusive->copy()->timezone('UTC');
 
         $technicians = User::query()
             ->where('is_technician', true)
@@ -626,14 +637,23 @@ class DeliveryController extends RecordController
 
         $deliveryQuery = RecordModel::query()
             ->with(['customer.contact', 'location', 'deliveryLocation', 'fleetTruck', 'fleetTrailer'])
-            ->whereBetween('scheduled_at', [$dayStart, $dayEnd])
+            ->where('scheduled_at', '>=', $dayStartUtc)
+            ->where('scheduled_at', '<', $dayEndExclusiveUtc)
             ->whereNotNull('technician_id');
 
         if (! empty($validated['location_id'])) {
             $deliveryQuery->where('location_id', (int) $validated['location_id']);
         }
 
-        $deliveries = $deliveryQuery->orderBy('scheduled_at')->get();
+        $deliveries = $deliveryQuery->orderBy('scheduled_at')->get()->filter(
+            static function (RecordModel $d) use ($tz, $boardYmd): bool {
+                if (! $d->scheduled_at) {
+                    return false;
+                }
+
+                return $d->scheduled_at->copy()->timezone($tz)->format('Y-m-d') === $boardYmd;
+            }
+        )->values();
 
         /** @var array<string, list<array<string, mixed>>> $byTechnician */
         $byTechnician = [];
@@ -1101,6 +1121,12 @@ class DeliveryController extends RecordController
             $blockStartMinutes = (int) floor(($scheduledLocal->getTimestamp() - $gridOrigin->getTimestamp()) / 60);
         }
 
+        $leaveByLocal = $d->time_to_leave_by?->copy()->timezone($tz);
+        $leaveByMinutes = null;
+        if ($leaveByLocal) {
+            $leaveByMinutes = (int) floor(($leaveByLocal->getTimestamp() - $gridOrigin->getTimestamp()) / 60);
+        }
+
         return [
             'id' => $d->id,
             'display_name' => $d->display_name,
@@ -1116,6 +1142,8 @@ class DeliveryController extends RecordController
             'time_to_leave_by' => $d->time_to_leave_by?->copy()->timezone($tz)->toIso8601String(),
             'scheduled_at' => $d->scheduled_at?->copy()->timezone($tz)->toIso8601String(),
             'block_start_minutes' => $blockStartMinutes,
+            /** Minutes from midnight on board date (same basis as block_start_minutes); aligns outbound travel with Google "leave by". */
+            'leave_by_minutes' => $leaveByMinutes,
             'delivery_duration_minutes' => $d->delivery_duration_minutes,
         ];
     }

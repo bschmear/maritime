@@ -95,6 +95,11 @@ class UpdateDelivery
                     }
                 }
 
+                if (isset($validated['status']) && in_array($validated['status'], ['scheduled', 'confirmed'], true)) {
+                    $validated['estimated_arrival_at'] = null;
+                    $validated['en_route_at'] = null;
+                }
+
                 $record->update($validated);
 
                 if (is_array($items)) {

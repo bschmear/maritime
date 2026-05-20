@@ -115,18 +115,28 @@
                     class="sticky left-0 z-20 h-11 w-48 min-w-48 shrink-0 self-stretch border-r border-gray-200 bg-gray-100 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] dark:border-gray-600 dark:bg-gray-800/80"
                 />
                 <div class="relative h-11 min-w-0 flex-1 bg-gray-100 dark:bg-gray-800/80">
+                    <div
+                        v-if="grayOverlayLeftPct > 0"
+                        class="pointer-events-none absolute inset-y-0 left-0 z-0 bg-gray-300/55 dark:bg-gray-950/40"
+                        :style="{ width: grayOverlayLeftPct + '%' }"
+                    />
+                    <div
+                        v-if="grayOverlayRightPct > 0"
+                        class="pointer-events-none absolute inset-y-0 right-0 z-0 bg-gray-300/55 dark:bg-gray-950/40"
+                        :style="{ width: grayOverlayRightPct + '%' }"
+                    />
                     <!-- Hour ticks for alignment with rows below -->
                     <div
                         v-for="m in gridLineMinutes"
                         :key="'haxis-line-' + m"
-                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-600"
+                        class="pointer-events-none absolute top-0 bottom-0 z-[1] w-px bg-gray-300 dark:bg-gray-600"
                         :style="{ left: minuteToViewPercent(m) + '%' }"
                     />
                     <!-- One label per 1h cell, centered in that cell (not on the boundary lines) -->
                     <div
                         v-for="slot in hourLabelSlots"
                         :key="'hlabel-' + slot.h"
-                        class="absolute bottom-0 top-0 flex items-end justify-center pb-2"
+                        class="absolute bottom-0 top-0 z-[2] flex items-end justify-center pb-2"
                         :style="{ left: slot.leftPct + '%', transform: 'translateX(-50%)' }"
                     >
                         <span
@@ -139,80 +149,117 @@
             </div>
 
             <!-- Technician rows -->
-            <div
-                v-for="tech in technicians"
-                :key="tech.id"
-                class="flex w-full min-w-[1200px] h-20 min-h-[80px] items-stretch border-b border-gray-200 transition-colors dark:border-gray-600"
-                :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''"
-                @dragover.prevent="onDragOver(tech.id)"
-                @dragleave="onDragLeave"
-                @drop="onDrop(tech.id)"
-            >
+            <template v-for="(tech, techRowIndex) in technicians" :key="tech.id">
                 <div
-                    class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-gray-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
-                    :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : 'dark:bg-gray-800'"
-                >
-                    <div class="flex min-w-0 items-center gap-2">
-                        <div
-                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
-                        >
-                            {{ initials(tech.name) }}
-                        </div>
-                        <span class="truncate text-md font-semibold leading-tight text-gray-800 dark:text-gray-100">
-                            {{ tech.name }}
-                        </span>
-                    </div>
-                    <p class="pl-11 text-sm text-gray-500 dark:text-gray-400">
-                        Total deliveries: <span class="font-medium text-gray-700 dark:text-gray-300">{{ deliveriesForTech(tech.id).length }}</span>
-                    </p>
-                </div>
-
-                <div
-                    class="relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible"
-                    :class="
-                        dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/50' : 'bg-white dark:bg-gray-900/35'
-                    "
+                    v-if="techRowIndex > 0"
+                    class="flex w-full min-w-[1200px] shrink-0 items-stretch border-t-2 border-gray-300 bg-gray-100 dark:border-gray-500 dark:bg-gray-800/90"
+                    role="separator"
+                    aria-hidden="true"
                 >
                     <div
-                        v-for="m in gridLineMinutes"
-                        :key="'line-' + m + '-' + tech.id"
-                        class="pointer-events-none absolute top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-500"
-                        :style="{ left: minuteToViewPercent(m) + '%' }"
+                        class="sticky left-0 z-20 w-48 min-w-48 shrink-0 border-r border-gray-300 bg-gray-100 dark:border-gray-500 dark:bg-gray-800/90"
                     />
-
-                    <template v-for="delivery in deliveriesForTech(tech.id)" :key="deliveryKey(tech.id, delivery)">
-                        <!-- Outbound travel (clipped when leg starts before the timeline window) -->
-                        <div
-                            class="travel-line travel-line--to"
-                            :style="travelToStyle(delivery)"
-                            :title="`Travel to ${delivery.end_location}: ${travelMins(delivery)} min`"
-                        />
-                        <!-- At-location / drop-off block -->
-                        <div
-                            class="absolute top-1/2 z-[2] flex h-14 min-w-0.5 -translate-y-1/2 cursor-grab flex-col justify-center overflow-hidden rounded-md bg-blue-500 px-2 text-white shadow-md shadow-blue-500/35 transition hover:brightness-110 active:scale-[0.99] active:cursor-grabbing"
-                            :style="deliveryBlockStyle(delivery)"
-                            :title="`${delivery.display_name} — ${delivery.customer_name}\n${delivery.start_location} → ${delivery.end_location}\nScheduled: ${formatTime(delivery.scheduled_at)}`"
-                            draggable="true"
-                            @dragstart="onDragStart(delivery, tech.id)"
-                            @dragend="onDragEnd"
-                            @click="selectedDelivery = delivery"
-                        >
-                            <span class="truncate text-sm font-bold leading-tight text-white">
-                                {{ delivery.display_name }}
-                            </span>
-                            <span class="truncate text-[11px] text-white/90">
-                                {{ delivery.customer_name }}
+                    <div class="min-h-[2px] min-w-0 flex-1 bg-gray-100 dark:bg-gray-800/90" />
+                </div>
+                <div
+                    class="flex w-full min-w-[1200px] h-20 min-h-[80px] items-stretch border-b border-gray-200 transition-colors dark:border-gray-600"
+                    :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''"
+                    @dragover.prevent="onDragOver(tech.id)"
+                    @dragleave="onDragLeave"
+                    @drop="onDrop(tech.id)"
+                >
+                    <div
+                        class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-gray-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
+                        :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : 'dark:bg-gray-800'"
+                    >
+                        <div class="flex min-w-0 items-center gap-2">
+                            <div
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                            >
+                                {{ initials(tech.name) }}
+                            </div>
+                            <span class="truncate text-md font-semibold leading-tight text-gray-800 dark:text-gray-100">
+                                {{ tech.name }}
                             </span>
                         </div>
-                        <!-- Return travel (clipped when leg runs past the timeline window) -->
+                        <p class="pl-11 text-sm text-gray-500 dark:text-gray-400">
+                            Total deliveries: <span class="font-medium text-gray-700 dark:text-gray-300">{{ deliveriesForTech(tech.id).length }}</span>
+                        </p>
+                    </div>
+
+                    <div
+                        class="relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible"
+                        :class="
+                            dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/50' : 'bg-white dark:bg-gray-900/35'
+                        "
+                    >
                         <div
-                            class="travel-line travel-line--back"
-                            :style="travelBackStyle(delivery)"
-                            :title="`Return from ${delivery.end_location}: ${travelMins(delivery)} min`"
+                            v-if="grayOverlayLeftPct > 0"
+                            class="pointer-events-none absolute inset-y-0 left-0 z-0 bg-gray-200/70 dark:bg-gray-950/45"
+                            :style="{ width: grayOverlayLeftPct + '%' }"
                         />
-                    </template>
+                        <div
+                            v-if="grayOverlayRightPct > 0"
+                            class="pointer-events-none absolute inset-y-0 right-0 z-0 bg-gray-200/70 dark:bg-gray-950/45"
+                            :style="{ width: grayOverlayRightPct + '%' }"
+                        />
+                        <div
+                            v-for="m in gridLineMinutes"
+                            :key="'line-' + m + '-' + tech.id"
+                            class="pointer-events-none absolute top-0 bottom-0 z-[1] w-px bg-gray-200 dark:bg-gray-500"
+                            :style="{ left: minuteToViewPercent(m) + '%' }"
+                        />
+
+                        <template v-for="delivery in deliveriesForTech(tech.id)" :key="deliveryKey(tech.id, delivery)">
+                            <!-- Outbound travel (clipped when leg starts before the timeline window) -->
+                            <div
+                                class="travel-line travel-line--to z-[2]"
+                                :style="travelToStyle(delivery)"
+                                :title="`Travel to ${delivery.end_location}: ${travelOutboundMinsDisplayed(delivery)} min`"
+                            />
+                            <div
+                                v-if="travelOutboundMinsDisplayed(delivery) > 0"
+                                class="travel-line-label travel-line-label--below-to pointer-events-none"
+                                :style="travelToLabelStyle(delivery)"
+                            >
+                                <span class="material-icons travel-line-label__icon" aria-hidden="true">directions_car</span>
+                                <span class="travel-line-label__time">{{ travelOutboundMinsDisplayed(delivery) }} min</span>
+                            </div>
+                            <!-- At-location / drop-off block -->
+                            <div
+                                class="absolute top-1/2 z-[2] flex h-14 min-w-0.5 -translate-y-1/2 cursor-grab flex-col justify-center overflow-hidden rounded-md bg-blue-500 px-2 text-white shadow-md shadow-blue-500/35 transition hover:brightness-110 active:scale-[0.99] active:cursor-grabbing"
+                                :style="deliveryBlockStyle(delivery)"
+                                :title="`${delivery.display_name} — ${delivery.customer_name}\n${delivery.start_location} → ${delivery.end_location}\nScheduled: ${formatTime(delivery.scheduled_at)}`"
+                                draggable="true"
+                                @dragstart="onDragStart(delivery, tech.id)"
+                                @dragend="onDragEnd"
+                                @click="selectedDelivery = delivery"
+                            >
+                                <span class="truncate text-sm font-bold leading-tight text-white">
+                                    {{ delivery.display_name }}
+                                </span>
+                                <span class="truncate text-[11px] text-white/90">
+                                    {{ delivery.customer_name }}
+                                </span>
+                            </div>
+                            <!-- Return travel (clipped when leg runs past the timeline window) -->
+                            <div
+                                v-if="travelReturnMins(delivery) > 0"
+                                class="travel-line-label travel-line-label--above-back pointer-events-none"
+                                :style="travelBackLabelStyle(delivery)"
+                            >
+                                <span class="material-icons travel-line-label__icon" aria-hidden="true">directions_car</span>
+                                <span class="travel-line-label__time">{{ travelReturnMins(delivery) }} min</span>
+                            </div>
+                            <div
+                                class="travel-line travel-line--back z-[2]"
+                                :style="travelBackStyle(delivery)"
+                                :title="`Return from ${delivery.end_location}: ${travelReturnMins(delivery)} min`"
+                            />
+                        </template>
+                    </div>
                 </div>
-            </div>
+            </template>
             <div
                 v-if="!technicians.length && !scheduleLoading"
                 class="flex min-h-[120px] w-full items-center justify-center border-b border-gray-200 bg-white px-6 py-10 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-900/30 dark:text-gray-300"
@@ -277,16 +324,34 @@
                             {{ formatTime(selectedDelivery.time_to_leave_by) }}
                         </span>
                     </div>
-                    <div class="flex flex-col gap-0.5">
-                        <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Scheduled</span>
-                        <span class="text-md font-medium text-gray-900 dark:text-white">
-                            {{ formatTime(selectedDelivery.scheduled_at) }}
-                        </span>
+                    <div class="flex flex-col gap-0.5 sm:col-span-3 border-t border-gray-200 pt-3 dark:border-gray-600">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Scheduled arrival</span>
+                        <p class="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                            Wall time in {{ accountTimezone }}. Saving updates this delivery and refreshes the board.
+                        </p>
+                        <div class="flex max-w-xl flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                            <input
+                                v-model="detailScheduledLocal"
+                                type="datetime-local"
+                                class="input-style min-w-0 flex-1 bg-white dark:bg-gray-900"
+                                :disabled="detailTimeSaving"
+                            />
+                            <button
+                                type="button"
+                                class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="detailTimeSaving || !detailTimeDirty"
+                                @click="saveDetailScheduledAt"
+                            >
+                                {{ detailTimeSaving ? 'Saving…' : 'Save time' }}
+                            </button>
+                        </div>
+                        <p v-if="detailTimeError" class="text-sm text-red-600 dark:text-red-400">{{ detailTimeError }}</p>
                     </div>
                     <div class="flex flex-col gap-0.5">
                         <span class="text-sm font-semibold uppercase tracking-wider text-gray-400">Travel</span>
                         <span class="text-md font-medium text-gray-900 dark:text-white">
-                            {{ travelMins(selectedDelivery) }} min each way
+                            To: {{ travelOutboundMinsDisplayed(selectedDelivery) }} min · Back:
+                            {{ travelReturnMins(selectedDelivery) }} min
                         </span>
                     </div>
                     <div class="flex flex-col gap-0.5">
@@ -331,6 +396,30 @@ const props = defineProps({
 
 const { accountTimezone } = useTimezone();
 
+/** UTC / ISO from server → `datetime-local` string in account TZ (same as DeliveryForm). */
+function serverUtcToAccountDatetimeLocal(value) {
+    if (!value) {
+        return '';
+    }
+    const m = dayjs(value);
+    if (!m.isValid()) {
+        return '';
+    }
+    return m.tz(accountTimezone.value).format('YYYY-MM-DDTHH:mm');
+}
+
+/** `datetime-local` wall clock in account TZ → UTC ISO for the API. */
+function accountDatetimeLocalToUtcIso(localStr) {
+    if (!localStr || !String(localStr).trim()) {
+        return null;
+    }
+    const m = dayjs.tz(String(localStr).trim(), 'YYYY-MM-DDTHH:mm', accountTimezone.value);
+    if (!m.isValid()) {
+        return null;
+    }
+    return m.utc().toISOString();
+}
+
 /** First hour on the axis (0 = midnight). `block_start_minutes` from the API is minutes from midnight on the board date. */
 const dayStartHour = ref(6);
 /** Exclusive end hour (20 = axis ends at 8:00 PM tick; 24 = full calendar day). */
@@ -352,24 +441,192 @@ function formatHour(h) {
 /** Calendar day (Y-m-d) in account timezone — matches schedule-board `date` filter. */
 const viewingDateYmd = ref(dayjs().tz(accountTimezone.value).format('YYYY-MM-DD'));
 const selectedDelivery = ref(null);
+const detailScheduledLocal = ref('');
+const detailTimeSaving = ref(false);
+const detailTimeError = ref(null);
 const dragPayload = ref(null);
 const dragSourceTech = ref(null);
 const dragOverTech = ref(null);
 const scheduleLoading = ref(false);
 const scheduleError = ref(null);
 
-const timelineSpanMinutes = computed(() =>
-    Math.max(0, (dayEndHour.value - dayStartHour.value) * 60),
-);
+function parseDate(str) {
+    if (!str) {
+        return new Date(NaN);
+    }
+    const s = String(str);
+    if (s.includes('T') || s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
+        return new Date(s);
+    }
+    return new Date(s.replace(' ', 'T'));
+}
 
-/** Exclusive end hour shown as the day’s closing boundary (same as the old selects). */
+function minutesFromMidnight(dateStr) {
+    const d = parseDate(dateStr);
+    if (isNaN(d.getTime())) {
+        return 0;
+    }
+    return d.getHours() * 60 + d.getMinutes();
+}
+
+function travelMins(delivery) {
+    return Math.max(0, Math.round((delivery.estimated_travel_duration_seconds || 0) / 60));
+}
+
+function travelReturnMins(delivery) {
+    const r = delivery.estimated_return_travel_duration_seconds;
+    if (r != null && Number(r) > 0) {
+        return Math.max(0, Math.round(Number(r) / 60));
+    }
+
+    return travelMins(delivery);
+}
+
+/** Minutes from midnight on the board date (same basis as API `block_start_minutes`). */
+function blockStartMinutesMidnight(delivery) {
+    const raw = delivery?.block_start_minutes;
+    if (raw != null && Number.isFinite(Number(raw))) {
+        return Number(raw);
+    }
+    return minutesFromMidnight(delivery.scheduled_at);
+}
+
+/** Absolute-minute departure (outbound start), before subtracting view origin. */
+function outboundDepartureAbsoluteMinutes(delivery) {
+    const A = blockStartMinutesMidnight(delivery);
+    const T = travelMins(delivery);
+    let D = A - T;
+    const rawLeave = delivery?.leave_by_minutes;
+    if (rawLeave != null && Number.isFinite(Number(rawLeave))) {
+        const leaveAbs = Number(rawLeave);
+        if (Number.isFinite(leaveAbs) && leaveAbs < D) {
+            D = leaveAbs;
+        }
+    }
+    return D;
+}
+
+const VIEW_RANGE_PAD_MIN = 30;
+
+/** Expands the horizontal axis to include every delivery (travel + at-location + return); Start/End stays the preferred “office hours” window for gray shading only. */
+const scheduleViewBounds = computed(() => {
+    const windowStartMin = dayStartHour.value * 60;
+    const windowEndMin = dayEndHour.value * 60;
+
+    const flat = Object.values(deliveries.value).flat();
+    let minAbs = Infinity;
+    let maxAbs = -Infinity;
+    for (const d of flat) {
+        const A = blockStartMinutesMidnight(d);
+        if (!Number.isFinite(A)) {
+            continue;
+        }
+        const D = outboundDepartureAbsoluteMinutes(d);
+        if (!Number.isFinite(D)) {
+            continue;
+        }
+        const dur = d.delivery_duration_minutes || 15;
+        const R = travelReturnMins(d);
+        const endAbs = A + dur + R;
+        if (!Number.isFinite(endAbs)) {
+            continue;
+        }
+        minAbs = Math.min(minAbs, D);
+        maxAbs = Math.max(maxAbs, endAbs);
+    }
+
+    let viewStartMin = windowStartMin;
+    let viewEndMin = windowEndMin;
+
+    if (minAbs !== Infinity && maxAbs !== -Infinity) {
+        viewStartMin = Math.min(windowStartMin, minAbs - VIEW_RANGE_PAD_MIN);
+        viewEndMin = Math.max(windowEndMin, maxAbs + VIEW_RANGE_PAD_MIN);
+    }
+
+    viewStartMin = Math.max(0, Math.floor(viewStartMin / 60) * 60);
+    viewEndMin = Math.min(24 * 60, Math.max(viewStartMin + 60, Math.ceil(viewEndMin / 60) * 60));
+
+    const spanMin = Math.max(1, viewEndMin - viewStartMin);
+
+    return {
+        viewStartMin,
+        viewEndMin,
+        windowStartMin,
+        windowEndMin,
+        spanMin,
+    };
+});
+
+const timelineSpanMinutes = computed(() => scheduleViewBounds.value.spanMin);
+
+const grayOverlayLeftPct = computed(() => {
+    const { viewStartMin, windowStartMin, spanMin } = scheduleViewBounds.value;
+    if (spanMin <= 0) {
+        return 0;
+    }
+    const w = Math.max(0, windowStartMin - viewStartMin);
+    return (w / spanMin) * 100;
+});
+
+const grayOverlayRightPct = computed(() => {
+    const { viewEndMin, windowEndMin, spanMin } = scheduleViewBounds.value;
+    if (spanMin <= 0) {
+        return 0;
+    }
+    const w = Math.max(0, viewEndMin - windowEndMin);
+    return (w / spanMin) * 100;
+});
+
+const gridLineMinutes = computed(() => {
+    const v0 = scheduleViewBounds.value.viewStartMin;
+    const v1 = scheduleViewBounds.value.viewEndMin;
+    const span = v1 - v0;
+    const out = [];
+    let tick = Math.ceil(v0 / 60) * 60;
+    for (; tick < v1; tick += 60) {
+        out.push(tick - v0);
+    }
+    if (span > 0) {
+        if (out.length === 0 || out[0] > 0) {
+            out.unshift(0);
+        }
+        if (out[out.length - 1] < span) {
+            out.push(span);
+        }
+    }
+    return out;
+});
+
+const hourLabelSlots = computed(() => {
+    const v0 = scheduleViewBounds.value.viewStartMin;
+    const v1 = scheduleViewBounds.value.viewEndMin;
+    const span = v1 - v0;
+    if (span <= 0) {
+        return [];
+    }
+    const out = [];
+    const hStart = Math.ceil(v0 / 60);
+    const hEndExclusive = Math.min(24, Math.ceil(v1 / 60));
+    for (let h = hStart; h < hEndExclusive; h += 1) {
+        const blockStart = h * 60 - v0;
+        const blockEnd = Math.min((h + 1) * 60 - v0, span);
+        if (blockStart >= span) {
+            break;
+        }
+        const visibleEnd = Math.min(blockEnd, span);
+        const center = (blockStart + visibleEnd) / 2;
+        out.push({ h, leftPct: (center / span) * 100, text: formatHour(h) });
+    }
+    return out;
+});
+
 const timelineEndLabel = computed(() =>
     dayEndHour.value === 24 ? 'Midnight (end)' : formatHour(dayEndHour.value),
 );
 
 const timelineHint = computed(() => {
     const span = dayEndHour.value - dayStartHour.value;
-    return `Default is 6 AM–8 PM. Adjust start and end with − / + (${span}h shown). End is the hour tick where the axis stops.`;
+    return `Preferred window: ${span}h (Start–End). The axis expands when deliveries fall outside; shaded bands are outside that window.`;
 });
 
 function nudgeStartHour(delta) {
@@ -439,39 +696,66 @@ onMounted(() => {
     loadScheduleBoard();
 });
 
-/**
- * Hour lines for the full timeline (minutes from `dayStartHour`).
- */
-const gridLineMinutes = computed(() => {
-    const cap = timelineSpanMinutes.value;
-    const out = [];
-    for (let m = 0; m <= cap; m += 60) {
-        out.push(m);
+watch(selectedDelivery, (d) => {
+    detailTimeError.value = null;
+    if (!d?.id) {
+        detailScheduledLocal.value = '';
+        return;
     }
-    if (cap > 0 && cap % 60 !== 0 && (out.length === 0 || out[out.length - 1] < cap)) {
-        out.push(cap);
-    }
-    return out;
+    detailScheduledLocal.value = serverUtcToAccountDatetimeLocal(d.scheduled_at);
 });
 
-/** One label per 1h cell, centered in that column. */
-const hourLabelSlots = computed(() => {
-    const v1 = timelineSpanMinutes.value;
-    const out = [];
-    const start = dayStartHour.value;
-    const end = dayEndHour.value;
-    for (let h = start; h < end; h += 1) {
-        const blockStart = (h - start) * 60;
-        const blockEnd = blockStart + 60;
-        if (blockStart >= v1) {
-            break;
-        }
-        const visibleEnd = Math.min(blockEnd, v1);
-        const center = (blockStart + visibleEnd) / 2;
-        out.push({ h, leftPct: minuteToViewPercent(center), text: formatHour(h) });
+const detailTimeDirty = computed(() => {
+    if (!selectedDelivery.value?.id) {
+        return false;
     }
-    return out;
+    const cur = serverUtcToAccountDatetimeLocal(selectedDelivery.value.scheduled_at);
+    return (detailScheduledLocal.value || '') !== (cur || '');
 });
+
+function findDeliveryOnBoard(id) {
+    for (const list of Object.values(deliveries.value)) {
+        if (!Array.isArray(list)) {
+            continue;
+        }
+        const found = list.find((x) => x.id === id);
+        if (found) {
+            return found;
+        }
+    }
+    return null;
+}
+
+async function saveDetailScheduledAt() {
+    const d = selectedDelivery.value;
+    if (!d?.id || detailTimeSaving.value) {
+        return;
+    }
+    detailTimeError.value = null;
+    const iso = accountDatetimeLocalToUtcIso(detailScheduledLocal.value);
+    if (!iso) {
+        detailTimeError.value = 'Enter a valid date and time.';
+        return;
+    }
+    detailTimeSaving.value = true;
+    try {
+        await axios.put(route('deliveries.update', d.id), { scheduled_at: iso });
+        await loadScheduleBoard();
+        const fresh = findDeliveryOnBoard(d.id);
+        if (fresh) {
+            selectedDelivery.value = fresh;
+        } else {
+            selectedDelivery.value = null;
+        }
+    } catch (e) {
+        const errs = e.response?.data?.errors;
+        const flat = errs && typeof errs === 'object' ? Object.values(errs).flat() : [];
+        detailTimeError.value =
+            e.response?.data?.message || (flat.length ? flat.join(' ') : null) || 'Could not save scheduled time.';
+    } finally {
+        detailTimeSaving.value = false;
+    }
+}
 
 const formattedDate = computed(() =>
     dayjs.tz(viewingDateYmd.value, accountTimezone.value).format('dddd, MMMM D, YYYY'),
@@ -485,33 +769,9 @@ function deliveryKey(techId, delivery) {
     return `${techId}::${delivery.id ?? delivery.display_name}`;
 }
 
-function parseDate(str) {
-    if (!str) {
-        return new Date(NaN);
-    }
-    const s = String(str);
-    if (s.includes('T') || s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
-        return new Date(s);
-    }
-    return new Date(s.replace(' ', 'T'));
-}
-
-function minutesFromMidnight(dateStr) {
-    const d = parseDate(dateStr);
-    if (isNaN(d.getTime())) {
-        return 0;
-    }
-    return d.getHours() * 60 + d.getMinutes();
-}
-
-/** Minutes from `dayStartHour` on the board date; API sends minutes from midnight. */
+/** Minutes from expanded view origin (API uses minutes from midnight on the board date). */
 function blockStartMinutes(delivery) {
-    const origin = dayStartHour.value * 60;
-    const raw = delivery?.block_start_minutes;
-    if (raw != null && Number.isFinite(Number(raw))) {
-        return Number(raw) - origin;
-    }
-    return minutesFromMidnight(delivery.scheduled_at) - origin;
+    return blockStartMinutesMidnight(delivery) - scheduleViewBounds.value.viewStartMin;
 }
 
 /** Map [t0, t1] in timeline-relative minutes into % of the full timeline width. */
@@ -519,7 +779,7 @@ function segmentInView(t0, t1) {
     const v0 = 0;
     const v1 = timelineSpanMinutes.value;
     const span = v1 - v0;
-    if (span <= 0 || t1 <= t0) {
+    if (span <= 0 || t1 <= t0 || !Number.isFinite(t0) || !Number.isFinite(t1)) {
         return { left: '0%', width: '0%' };
     }
     const a = Math.max(t0, v0);
@@ -542,17 +802,16 @@ function minuteToViewPercent(minute) {
     return (Math.min(minute, v1) / v1) * 100;
 }
 
-function travelMins(delivery) {
-    return Math.max(0, Math.round((delivery.estimated_travel_duration_seconds || 0) / 60));
+/** Left edge of outbound travel on the timeline (view minutes). */
+function outboundDepartureViewMinutes(delivery) {
+    return outboundDepartureAbsoluteMinutes(delivery) - scheduleViewBounds.value.viewStartMin;
 }
 
-function travelReturnMins(delivery) {
-    const r = delivery.estimated_return_travel_duration_seconds;
-    if (r != null && Number(r) > 0) {
-        return Math.max(0, Math.round(Number(r) / 60));
-    }
-
-    return travelMins(delivery);
+/** Outbound bar duration in minutes (arrival at scheduled block minus departure). */
+function travelOutboundMinsDisplayed(delivery) {
+    const A = blockStartMinutes(delivery);
+    const D = outboundDepartureViewMinutes(delivery);
+    return Math.max(0, Math.round(A - D));
 }
 
 const FLEET_NONE_ASSIGNED = 'None assigned';
@@ -603,11 +862,10 @@ function deliveryBlockStyle(delivery) {
 
 function travelToStyle(delivery) {
     const A = blockStartMinutes(delivery);
-    const T = travelMins(delivery);
-    if (T <= 0) {
+    const D = outboundDepartureViewMinutes(delivery);
+    if (!(A > D)) {
         return { left: '0%', width: '0%' };
     }
-    const D = A - T;
     const cap = timelineSpanMinutes.value;
     if (D >= cap) {
         return { left: '0%', width: '0%' };
@@ -638,6 +896,42 @@ function travelBackStyle(delivery) {
         return { left: '0%', width: '0%' };
     }
     return segmentInView(t0, t1);
+}
+
+function travelToLabelStyle(delivery) {
+    const s = travelToStyle(delivery);
+    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) {
+        return { display: 'none' };
+    }
+    return {
+        position: 'absolute',
+        left: s.left,
+        width: s.width,
+        top: 'calc(34% + 5px)',
+        zIndex: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        lineHeight: 1,
+    };
+}
+
+function travelBackLabelStyle(delivery) {
+    const s = travelBackStyle(delivery);
+    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) {
+        return { display: 'none' };
+    }
+    return {
+        position: 'absolute',
+        left: s.left,
+        width: s.width,
+        top: 'calc(66% - 28px)',
+        zIndex: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        lineHeight: 1,
+    };
 }
 
 function changeDay(delta) {
@@ -711,5 +1005,41 @@ async function onDrop(targetTechId) {
     background: linear-gradient(90deg, #f59e0b, #fbbf24, #fde68a);
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
     opacity: 0.95;
+}
+
+.travel-line-label {
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #78350f;
+}
+
+.dark .travel-line-label {
+    color: #fde68a;
+}
+
+.travel-line-label__icon {
+    font-size: 13px !important;
+    line-height: 1 !important;
+    color: #92400e;
+}
+
+.dark .travel-line-label__icon {
+    color: #fcd34d;
+}
+
+.travel-line-label__time {
+    margin-top: 1px;
+    white-space: nowrap;
+}
+
+/* Time above, car just above the return bar (same DOM order as outbound: icon then text) */
+.travel-line-label--above-back {
+    flex-direction: column-reverse;
+}
+
+.travel-line-label--above-back .travel-line-label__time {
+    margin-top: 0;
+    margin-bottom: 1px;
 }
 </style>
