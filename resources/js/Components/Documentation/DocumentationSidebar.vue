@@ -1,86 +1,59 @@
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3';
+import ApplicationLogo from '@/Components/ApplicationLogo.vue';
+import DocumentationHeader from '@/Components/Documentation/DocumentationHeader.vue';
+import DocumentationNavigation from '@/Components/Documentation/DocumentationNavigation.vue';
+import { Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
-const page = usePage();
-const helpNav = page.props.helpNav || [];
 const mobileMenuOpen = ref(false);
+
+const closeMenu = () => {
+    mobileMenuOpen.value = false;
+};
 </script>
 
 <template>
-    <div class="flex h-screen overflow-hidden bg-gray-50">
-        <div class="fixed left-4 top-4 z-50 lg:hidden">
-            <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-gray-700 shadow-sm"
-                @click="mobileMenuOpen = !mobileMenuOpen"
-            >
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
-        </div>
-
-        <div
-            v-show="mobileMenuOpen"
-            class="fixed inset-0 z-40 bg-black/40 lg:hidden"
-            @click="mobileMenuOpen = false"
+    <div class="min-h-full bg-white antialiased">
+        <DocumentationHeader
+            :mobile-menu-open="mobileMenuOpen"
+            @toggle-menu="mobileMenuOpen = !mobileMenuOpen"
+            @close-menu="closeMenu"
         />
 
-        <aside
-            :class="[
-                'fixed inset-y-0 z-40 flex w-72 flex-col border-r border-gray-200 bg-white transition-transform lg:translate-x-0',
-                mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-            ]"
-        >
-            <div class="flex h-16 shrink-0 items-center border-b border-gray-100 px-6">
-                <Link :href="route('docs.home')" class="flex items-center gap-3" @click="mobileMenuOpen = false">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-sm">
-                        {{ page.props.app?.name?.charAt(0) || 'M' }}
-                    </div>
-                    <span class="text-lg font-semibold text-gray-900">{{ page.props.app?.name }} Docs</span>
+        <div class="lg:ml-72 xl:ml-80 min-h-screen flex flex-col">
+            <!-- Desktop sidebar -->
+            <div
+                class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:border-r lg:border-gray-900/10 lg:bg-white lg:px-6 lg:pt-6 lg:pb-10 xl:w-80"
+            >
+                <Link :href="route('docs.home')" class="flex items-center gap-3">
+                    <ApplicationLogo class="h-7 w-auto fill-current text-gray-800" />
+                    <span
+                        class="inline-flex items-center rounded-md bg-primary-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-700 ring-1 ring-inset ring-primary-600/15"
+                    >
+                        Documentation
+                    </span>
                 </Link>
+
+                <div class="mt-10 flex-1 overflow-y-auto">
+                    <DocumentationNavigation />
+                </div>
             </div>
 
-            <nav class="flex-1 overflow-y-auto px-4 py-6">
-                <ul class="space-y-6">
-                    <li v-for="category in helpNav" :key="category.id">
-                        <Link
-                            :href="route('docs.category', category.slug)"
-                            class="block text-sm font-semibold text-gray-900 hover:text-primary-600"
-                            @click="mobileMenuOpen = false"
-                        >
-                            {{ category.name }}
-                        </Link>
-                        <ul v-if="category.children?.length" class="mt-2 space-y-1 pl-3 border-l border-gray-200">
-                            <li v-for="child in category.children" :key="child.id">
-                                <Link
-                                    :href="route('docs.category', child.slug)"
-                                    class="block py-1 text-sm text-gray-600 hover:text-primary-600"
-                                    @click="mobileMenuOpen = false"
-                                >
-                                    {{ child.name }}
-                                </Link>
-                            </li>
-                        </ul>
-                        <ul v-if="category.articles?.length" class="mt-2 space-y-1">
-                            <li v-for="article in category.articles" :key="article.id">
-                                <Link
-                                    :href="route('docs.article', article.slug)"
-                                    class="block py-1 text-sm text-gray-500 hover:text-primary-600"
-                                    @click="mobileMenuOpen = false"
-                                >
-                                    {{ article.title }}
-                                </Link>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
-            </nav>
-        </aside>
+            <!-- Main content -->
+            <div class="relative flex min-h-full flex-col px-4 pt-14 sm:px-6 lg:px-8 grow">
+                <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                    <div
+                        class="absolute -top-20 -right-16 h-64 w-80 rounded-full bg-primary-200/20 blur-3xl"
+                    />
+                    <div
+                        class="absolute top-0 right-0 h-48 w-[min(100%,32rem)] bg-gradient-to-bl from-primary-100/30 via-primary-50/10 to-transparent"
+                    />
+                </div>
 
-        <div class="flex flex-1 flex-col lg:pl-72">
-            <slot />
+                <main class="relative z-10 mx-auto w-full max-w-3xl flex-auto py-10 lg:max-w-5xl lg:py-16 grow">
+                    <slot />
+                </main>
+            </div>
         </div>
     </div>
 </template>

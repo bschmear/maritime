@@ -13,39 +13,55 @@ defineProps({
     <Head :title="article.title" />
 
     <DocumentationLayout>
-        <nav class="mb-6 text-sm text-gray-500">
-            <Link :href="route('docs.home')" class="hover:text-primary-600">Documentation</Link>
+        <p class="text-sm text-gray-500">
+            <Link :href="route('docs.home')" class="transition hover:text-gray-900">Documentation</Link>
             <template v-if="article.category">
-                <span class="mx-2">/</span>
+                <span class="mx-2 text-gray-300">/</span>
                 <Link
                     :href="route('docs.category', article.category.slug)"
-                    class="hover:text-primary-600"
+                    class="transition hover:text-gray-900"
                 >
                     {{ article.category.name }}
                 </Link>
             </template>
-        </nav>
+        </p>
 
-        <article>
-            <h1 class="text-3xl font-bold text-gray-900">{{ article.title }}</h1>
-            <p v-if="article.excerpt" class="mt-3 text-lg text-gray-600">{{ article.excerpt }}</p>
-            <p v-if="article.updated_at" class="mt-2 text-xs text-gray-400">
+        <header class="mt-4">
+            <h1 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{{ article.title }}</h1>
+            <p v-if="article.excerpt" class="mt-4 text-lg text-gray-600">{{ article.excerpt }}</p>
+            <p v-if="article.updated_at" class="mt-3 text-xs text-gray-500">
                 Updated {{ new Date(article.updated_at).toLocaleDateString() }}
             </p>
-            <div
-                class="prose prose-gray mt-8 max-w-none prose-headings:font-semibold prose-a:text-primary-600"
-                v-html="article.body"
-            />
-        </article>
+        </header>
 
-        <nav v-if="prev || next" class="mt-12 flex justify-between gap-4 border-t border-gray-200 pt-8 text-sm">
-            <div>
-                <Link v-if="prev" :href="route('docs.article', prev.slug)" class="text-primary-600 hover:underline">
+        <article
+            class="prose prose-gray mt-10 max-w-none prose-headings:scroll-mt-24 prose-headings:font-semibold prose-headings:tracking-tight prose-a:font-medium prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline"
+            v-html="article.body"
+        />
+
+        <nav
+            v-if="prev || next"
+            class="not-prose mt-16 grid grid-cols-1 gap-8 border-t border-gray-900/5 pt-10 sm:grid-cols-2"
+        >
+            <div v-if="prev" class="flex flex-col items-start gap-2 sm:col-start-1">
+                <span class="text-xs font-medium text-gray-500">Previous</span>
+                <Link
+                    :href="route('docs.article', prev.slug)"
+                    class="text-base font-semibold text-gray-900 transition hover:text-primary-600"
+                >
                     ← {{ prev.title }}
                 </Link>
             </div>
-            <div class="text-right">
-                <Link v-if="next" :href="route('docs.article', next.slug)" class="text-primary-600 hover:underline">
+            <div
+                v-if="next"
+                class="flex flex-col gap-2"
+                :class="prev ? 'items-end text-right sm:col-start-2' : 'items-start sm:col-start-1'"
+            >
+                <span class="text-xs font-medium text-gray-500">Next</span>
+                <Link
+                    :href="route('docs.article', next.slug)"
+                    class="text-base font-semibold text-gray-900 transition hover:text-primary-600"
+                >
                     {{ next.title }} →
                 </Link>
             </div>

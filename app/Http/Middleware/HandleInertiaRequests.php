@@ -80,6 +80,7 @@ class HandleInertiaRequests extends Middleware
                 'helpNav' => fn () => \App\Services\Help\HelpCategoryTree::toNavArray(
                     \App\Services\Help\HelpCategoryTree::forPortal()
                 ),
+                'docSearchIndex' => fn () => \App\Services\Help\HelpArticleSearch::index(),
             ];
         }
 
