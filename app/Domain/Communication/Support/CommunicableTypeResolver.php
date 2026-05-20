@@ -7,6 +7,7 @@ namespace App\Domain\Communication\Support;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Lead\Models\Lead;
+use App\Domain\Qualification\Models\Qualification;
 use App\Domain\Vendor\Models\Vendor;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,7 +18,7 @@ final class CommunicableTypeResolver
      */
     public static function allowedShortNames(): array
     {
-        return ['Lead', 'Customer', 'Vendor', 'Contact'];
+        return ['Lead', 'Customer', 'Vendor', 'Contact', 'Qualification'];
     }
 
     /**
@@ -30,6 +31,7 @@ final class CommunicableTypeResolver
             'Customer', Customer::class => Customer::class,
             'Vendor', Vendor::class => Vendor::class,
             'Contact', Contact::class => Contact::class,
+            'Qualification', Qualification::class => Qualification::class,
             default => null,
         };
     }

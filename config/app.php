@@ -25,6 +25,8 @@ return [
     'app_url' => env('APP_TENANT'),
     'api_url' => env('APP_API'),
     'admin_url' => env('APP_ADMIN'),
+    'help_portal' => env('HELP_PORTAL', 'https://help.maritime.test'),
+    'help_portal_host' => parse_url(env('HELP_PORTAL', 'https://help.maritime.test'), PHP_URL_HOST) ?: 'help.maritime.test',
     'documents_url' => env('APP_DOCUMENTS'),
     'client_url' => env('APP_CLIENT'),
     'aws_url' => env('AWS_PUBLIC_URL', null),

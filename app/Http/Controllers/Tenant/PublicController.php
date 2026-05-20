@@ -22,6 +22,7 @@ use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\Opportunity\Models\OpportunityAssetAddon;
 use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
+use App\Domain\Opportunity\Services\ApplyFeatureRequestAssetOptionSelections;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
@@ -953,11 +954,20 @@ class PublicController extends Controller
             $pivot,
             $includeAddons,
             $asset,
+            $variantId,
             $variantLabel,
             $validated,
             $addonPayload,
             $request
         ): OpportunityFeatureRequest {
+            app(ApplyFeatureRequestAssetOptionSelections::class)->applySubmission(
+                $opportunity,
+                (int) $pivot->id,
+                $asset,
+                $variantId,
+                $validated['selections'],
+            );
+
             $submission = OpportunityFeatureRequest::query()->create([
                 'opportunity_id' => $opportunity->id,
                 'asset_opportunity_id' => $pivot->id,

@@ -30,6 +30,10 @@ const breadcrumbItems = computed(() => [
     { label: 'Edit' },
 ]);
 
+const handleSaved = () => {
+    router.visit(route('qualifications.show', props.record.id));
+};
+
 const handleCancelled = () => {
     router.visit(route('qualifications.show', props.record.id));
 };
@@ -61,6 +65,7 @@ const handleCancelled = () => {
                 :initial-data="initialData"
                 :image-urls="imageUrls"
                 mode="edit"
+                @saved="handleSaved"
                 @cancelled="handleCancelled"
             />
         </div>

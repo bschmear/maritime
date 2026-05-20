@@ -21,10 +21,15 @@ class UpdateQualification
         try {
             $record = RecordModel::findOrFail($id);
 
+            $noteBody = $data['note_body'] ?? null;
+            unset($data['note_body'], $data['customer_notes'], $data['internal_notes']);
+
             // Merge validated data with all input data to update everything
             $fieldsToUpdate = array_merge($data, $validated);
 
             $record->update($fieldsToUpdate);
+
+            app(SyncQualificationNote::class)($record, $noteBody);
 
             return [
                 'success' => true,

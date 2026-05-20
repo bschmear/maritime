@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\WorkspacePlanCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -111,6 +112,18 @@ class Account extends Model
         $cashier = $this->owner?->cashierSubscriptionForAccount($this);
 
         return $cashier !== null && $cashier->active();
+    }
+
+    public function hasTicketSupportAccess(): bool
+    {
+        if (tenant()) {
+            $cached = WorkspacePlanCache::get();
+            if ($cached !== null && ($cached['account_id'] ?? null) === $this->id) {
+                return (bool) ($cached['ticket_support_access'] ?? false);
+            }
+        }
+
+        return (bool) $this->currentPlan()?->ticket_support_access;
     }
 
     /**

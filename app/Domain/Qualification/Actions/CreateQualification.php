@@ -20,6 +20,9 @@ class CreateQualification
         ])->validate();
 
         try {
+            $noteBody = $data['note_body'] ?? null;
+            unset($data['note_body'], $data['customer_notes'], $data['internal_notes']);
+
             // Merge validated data with all input data to save everything
             $fieldsToSave = array_merge($data, $validated);
 
@@ -28,6 +31,8 @@ class CreateQualification
             $fieldsToSave['uuid'] = (string) Str::uuid();
 
             $record = RecordModel::create($fieldsToSave);
+
+            app(SyncQualificationNote::class)($record, $noteBody);
 
             return [
                 'success' => true,

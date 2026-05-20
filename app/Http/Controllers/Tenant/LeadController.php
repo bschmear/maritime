@@ -11,6 +11,7 @@ use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Actions\DeleteLead;
 use App\Domain\Lead\Actions\UpdateLead;
 use App\Domain\Lead\Models\Lead;
+use App\Enums\Entity\ContactStage;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
@@ -21,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class LeadController extends BaseController
 {
@@ -621,86 +623,115 @@ class LeadController extends BaseController
             ->with('error', $result['message'] ?? 'Failed to delete '.$this->recordTitle);
     }
 
-    public function convert(Request $request, $id)
+    public function convert(Request $request, $id): RedirectResponse
     {
-        $lead = Lead::findOrFail($id);
+        $lead = Lead::query()->with('contact')->findOrFail($id);
 
-        if ($lead->converted) {
-            return back()->with('error', 'Lead has already been converted.');
+        if (! $lead->contact_id) {
+            return back()->with('error', 'This lead has no linked contact and cannot be converted.');
         }
 
-        $customerData = [
-            'contact_id' => $lead->contact_id,
-            'first_name' => $lead->first_name,
-            'last_name' => $lead->last_name,
-            'email' => $lead->email,
-            'phone' => $lead->phone,
-            'mobile' => $lead->mobile,
-            'company' => $lead->company,
-            'position' => $lead->position,
-            'title' => $lead->title,
-            'secondary_email' => $lead->secondary_email,
-            'address_line_1' => $lead->address_line_1,
-            'address_line_2' => $lead->address_line_2,
-            'city' => $lead->city,
-            'state' => $lead->state,
-            'postal_code' => $lead->postal_code,
-            'country' => $lead->country,
-            'latitude' => $lead->latitude,
-            'longitude' => $lead->longitude,
-            'notes' => $lead->notes,
-            'status_id' => 1,
-            'source_id' => $lead->source_id,
-            'priority_id' => $lead->priority_id,
-            'assigned_user_id' => $lead->assigned_user_id,
-            'last_contacted_at' => $lead->last_contacted_at,
-            'next_followup_at' => $lead->next_followup_at,
-            'lead_score' => $lead->lead_score,
-            'campaign' => $lead->campaign,
-            'medium' => $lead->medium,
-            'source_details' => $lead->source_details,
-            'referrer' => $lead->referrer,
-            'preferred_contact_method' => $lead->preferred_contact_method,
-            'preferred_contact_time' => $lead->preferred_contact_time,
-            'purchase_timeline' => $lead->purchase_timeline,
-            'budget_min' => null,
-            'budget_max' => null,
-            'interested_model' => $lead->interested_model,
-            'has_trade_in' => $lead->has_trade_in,
-            'trade_in_value' => $lead->trade_in_value,
-            'marketing_opt_in' => $lead->marketing_opt_in,
-            'utm_source' => $lead->utm_source,
-            'utm_medium' => $lead->utm_medium,
-            'utm_campaign' => $lead->utm_campaign,
-            'utm_term' => $lead->utm_term,
-            'utm_content' => $lead->utm_content,
-            'website' => $lead->website,
-            'linkedin' => $lead->linkedin,
-            'facebook' => $lead->facebook,
-            'inactive' => false,
-            'converted_from_lead_id' => $lead->id,
+        if ($lead->converted && $lead->converted_customer_id) {
+            return $this->convertRedirect($request, (int) $lead->converted_customer_id, 'Lead is already converted.');
+        }
+
+        try {
+            $customer = Customer::query()
+                ->where('contact_id', $lead->contact_id)
+                ->first();
+
+            if (! $customer) {
+                $subsidiaryId = Customer::defaultSubsidiaryId();
+                if (! $subsidiaryId) {
+                    return back()->with('error', 'No subsidiary is configured. Add a subsidiary before converting leads.');
+                }
+
+                $profileFields = collect($lead->only([
+                    'assigned_user_id',
+                    'priority_id',
+                    'source_id',
+                    'referrer',
+                    'last_contacted_at',
+                    'next_followup_at',
+                    'purchase_timeline',
+                    'budget_min',
+                    'budget_max',
+                    'interested_model',
+                    'has_trade_in',
+                    'trade_in_value',
+                    'marketing_opt_in',
+                    'campaign',
+                    'medium',
+                    'source_details',
+                    'utm_source',
+                    'utm_medium',
+                    'utm_campaign',
+                    'utm_term',
+                    'utm_content',
+                ]))->filter(fn ($value) => $value !== null && $value !== '')->all();
+
+                $customerResult = app(CreateCustomerAction::class)(array_merge($profileFields, [
+                    'contact_id' => $lead->contact_id,
+                    'subsidiary_id' => $subsidiaryId,
+                    'converted_from_lead_id' => $lead->id,
+                    'status_id' => 1,
+                    'account_status' => 'active',
+                ]));
+
+                if (! ($customerResult['success'] ?? false) || ! $customerResult['record']) {
+                    return back()->with(
+                        'error',
+                        'Failed to create customer: '.($customerResult['message'] ?? 'Unknown error'),
+                    );
+                }
+
+                $customer = $customerResult['record'];
+            } elseif (! $customer->converted_from_lead_id) {
+                $customer->update(['converted_from_lead_id' => $lead->id]);
+            }
+
+            if ($lead->contact) {
+                $lead->contact->update(['stage_id' => ContactStage::Customer]);
+            }
+
+            $lead->update([
+                'converted' => true,
+                'status_id' => 4,
+                'converted_customer_id' => $customer->id,
+                'converted_at' => $lead->converted_at ?? now(),
+            ]);
+
+            return $this->convertRedirect(
+                $request,
+                (int) $customer->id,
+                'Lead successfully converted to customer.',
+            );
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * After conversion, optionally redirect (Inertia) or return to the previous page with flash data.
+     */
+    protected function convertRedirect(Request $request, int $customerId, string $message): RedirectResponse
+    {
+        $flash = [
+            'success' => $message,
+            'converted_customer_id' => $customerId,
         ];
 
-        $customerAction = new CreateCustomerAction;
-        $customerResult = $customerAction($customerData);
-
-        if (! $customerResult['success']) {
-            return back()->with('error', 'Failed to create customer: '.($customerResult['message'] ?? 'Unknown error'));
+        $redirect = $request->input('redirect');
+        if (is_string($redirect) && $redirect !== '') {
+            if (str_starts_with($redirect, 'http://') || str_starts_with($redirect, 'https://')) {
+                $parsed = parse_url($redirect);
+                $redirect = ($parsed['path'] ?? '').(isset($parsed['query']) ? '?'.$parsed['query'] : '');
+            }
+            if (str_starts_with($redirect, '/')) {
+                return redirect($redirect)->with($flash);
+            }
         }
 
-        $customer = $customerResult['record'];
-
-        $lead->update([
-            'converted' => true,
-            'status_id' => 4,
-            'converted_customer_id' => $customer->id,
-            'converted_at' => now(),
-        ]);
-
-        return back()->with([
-            'success' => 'Lead successfully converted to customer.',
-            'converted_customer_id' => $customer->id,
-            'converted_customer_name' => $customer->display_name,
-        ]);
+        return back()->with($flash);
     }
 }

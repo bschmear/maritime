@@ -297,6 +297,14 @@ onMounted(() => {
                         <ul class="py-2">
                             <li>
                                 <Link
+                                    :href="route('dashHelp')"
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
+                                >
+                                    Help
+                                </Link>
+                            </li>
+                            <li>
+                                <Link
                                     :href="route('profile.edit')"
                                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
                                 >

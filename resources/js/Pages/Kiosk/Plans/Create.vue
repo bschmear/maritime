@@ -17,6 +17,7 @@ const form = useForm({
     included: [],
     popular: false,
     active: true,
+    ticket_support_access: false,
 });
 
 const newIncludedItem = ref('');
@@ -316,6 +317,26 @@ const submit = () => {
                                     </div>
                                 </div>
                                 <InputError class="mt-2" :message="form.errors.active" />
+                            </div>
+
+                            <div>
+                                <div class="flex items-start">
+                                    <div class="flex h-6 items-center">
+                                        <input
+                                            v-model="form.ticket_support_access"
+                                            id="ticket_support_access"
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-600 dark:focus:ring-primary-400 bg-white dark:bg-gray-800"
+                                        />
+                                    </div>
+                                    <div class="ml-3">
+                                        <InputLabel for="ticket_support_access" value="Support ticket access" class="text-gray-900 dark:text-white" />
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            Allow workspaces on this plan to submit support tickets.
+                                        </p>
+                                    </div>
+                                </div>
+                                <InputError class="mt-2" :message="form.errors.ticket_support_access" />
                             </div>
                         </div>
                     </div>

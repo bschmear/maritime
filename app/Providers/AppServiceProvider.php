@@ -7,8 +7,10 @@ use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Models\User;
 use App\Policies\WarrantyClaimPolicy;
 use App\Services\WorkspaceNavCache;
+use App\Services\WorkspacePlanCache;
 use App\Tenancy\CurrentTenantProfile;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
@@ -80,6 +82,19 @@ class AppServiceProvider extends ServiceProvider
 
             WorkspaceNavCache::forgetUser($event->user);
             WorkspaceNavCache::put($event->user);
+            WorkspacePlanCache::forget();
+        });
+
+        Event::listen(Logout::class, function (Logout $event): void {
+            if ($event->guard !== 'web') {
+                return;
+            }
+
+            if ($event->user instanceof User) {
+                WorkspaceNavCache::forgetUser($event->user);
+            }
+
+            WorkspacePlanCache::forget();
         });
     }
 }

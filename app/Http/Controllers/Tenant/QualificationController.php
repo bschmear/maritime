@@ -132,6 +132,7 @@ class QualificationController extends RecordController
                 'desired_brand' => fn ($q) => $q->select(['id', 'display_name']),
                 'opportunities' => fn ($q) => $q->select(['id', 'sequence', 'qualification_id']),
                 'createdBy' => fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name']),
+                'notes' => fn ($q) => $q->with(['user:id,display_name,first_name,last_name']),
             ])
             ->findOrFail($id);
 
@@ -227,6 +228,19 @@ class QualificationController extends RecordController
                 'converted_customer' => Customer::eagerWithContactSelect(),
             ]);
         };
+
+        $relationships['user'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email']);
+        $relationships['desired_brand'] = fn ($q) => $q->select(['id', 'display_name']);
+        $relationships['opportunities'] = fn ($q) => $q->select([
+            'id',
+            'sequence',
+            'qualification_id',
+            'stage',
+            'status',
+            'estimated_value',
+        ]);
+
+        $relationships['notes'] = fn ($q) => $q->with(['user:id,display_name,first_name,last_name']);
 
         $record = RecordModel::with($relationships)->findOrFail($id);
 

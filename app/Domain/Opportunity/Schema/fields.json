@@ -57,6 +57,26 @@
             "label": "Needs Trailer",
             "type": "boolean"
         },
+        "delivery_location": {
+            "label": "Delivery Location",
+            "type": "text",
+            "nullable": true
+        },
+        "delivery_state": {
+            "label": "Delivery State",
+            "type": "text",
+            "nullable": true
+        },
+        "delivery_country": {
+            "label": "Delivery Country",
+            "type": "text",
+            "nullable": true
+        },
+        "requires_delivery": {
+            "label": "Requires Delivery",
+            "type": "boolean",
+            "default": false
+        },
         "customer_notes": {
             "label": "Customer Notes",
             "type": "textarea",

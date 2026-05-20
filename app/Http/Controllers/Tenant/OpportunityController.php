@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\AddOn\Models\AddOn;
 use App\Domain\Asset\Models\Asset;
+use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\FeatureRequest\Models\FeatureRequestInvite;
 use App\Domain\Opportunity\Actions\CreateOpportunity as CreateAction;
@@ -12,7 +13,9 @@ use App\Domain\Opportunity\Actions\EnsureOpportunityAssetAddonFromCatalog;
 use App\Domain\Opportunity\Actions\UpdateOpportunity as UpdateAction;
 use App\Domain\Opportunity\Models\Opportunity as RecordModel;
 use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
+use App\Domain\Opportunity\Services\ApplyFeatureRequestAssetOptionSelections;
 use App\Domain\Qualification\Models\Qualification;
+use App\Domain\Qualification\Support\ResolveQualificationAsset;
 use App\Enums\Entity\BudgetRange;
 use App\Enums\Entity\PurchaseTimeline;
 use App\Enums\Opportunity\Stage;
@@ -58,22 +61,59 @@ class OpportunityController extends RecordController
         $initialData = [];
 
         if ($request->query('from') === 'qualification' && $request->query('id')) {
-            $qualification = Qualification::with(['lead.converted_customer'])->find($request->query('id'));
+            $qualification = Qualification::with([
+                'lead.converted_customer',
+                'desired_brand:id,display_name',
+            ])->find($request->query('id'));
 
             if ($qualification) {
                 $user = auth()->user();
+                $makeId = $qualification->getRawOriginal('desired_brand');
+                $brandRelation = $qualification->relationLoaded('desired_brand')
+                    ? $qualification->getRelation('desired_brand')
+                    : null;
+                $brandName = $brandRelation instanceof BoatMake
+                    ? $brandRelation->display_name
+                    : ($makeId ? BoatMake::query()->whereKey($makeId)->value('display_name') : null);
 
                 $initialData = [
                     'qualification_id' => $qualification->id,
                     'qualification' => ['id' => $qualification->id, 'display_name' => $qualification->display_name],
                     'user_id' => $user->id,
                     'user' => ['id' => $user->id, 'display_name' => $user->display_name ?? $user->name ?? ''],
+                    'qualification_prefill' => [
+                        'desired_brand_id' => $makeId,
+                        'desired_brand_name' => $brandName,
+                        'desired_model' => $qualification->desired_model,
+                    ],
                 ];
 
                 if ($qualification->lead && $qualification->lead->converted_customer_id) {
                     $customer = $qualification->lead->converted_customer;
                     $initialData['customer_id'] = $qualification->lead->converted_customer_id;
                     $initialData['customer'] = ['id' => $customer->id, 'display_name' => $customer->display_name];
+                }
+
+                $initialData['needs_engine'] = (bool) $qualification->needs_engine;
+                $initialData['needs_trailer'] = (bool) $qualification->needs_trailer;
+                $initialData['requires_delivery'] = (bool) $qualification->requires_delivery;
+                $initialData['delivery_location'] = $qualification->delivery_location;
+                $initialData['delivery_state'] = $qualification->delivery_state;
+                $initialData['delivery_country'] = $qualification->delivery_country;
+
+                $resolvedAsset = app(ResolveQualificationAsset::class)($qualification);
+                if ($resolvedAsset) {
+                    $initialData['assets'] = [[
+                        'id' => $resolvedAsset->id,
+                        'display_name' => $resolvedAsset->display_name,
+                        'year' => $resolvedAsset->year,
+                        'make' => $resolvedAsset->make ? [
+                            'display_name' => $resolvedAsset->make->display_name,
+                        ] : null,
+                        'default_price' => $resolvedAsset->default_price,
+                        'default_cost' => $resolvedAsset->default_cost,
+                        'has_variants' => $resolvedAsset->has_variants,
+                    ]];
                 }
             }
         }
@@ -150,6 +190,7 @@ class OpportunityController extends RecordController
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
         RecordModel::hydratePivotAssetVariants($record->assets);
+        app(ApplyFeatureRequestAssetOptionSelections::class)->reconcileOpportunity($record);
         RecordModel::attachLineItemSnapshotsForJson($record);
 
         $catalogAddons = AddOn::query()
@@ -497,6 +538,7 @@ class OpportunityController extends RecordController
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
         RecordModel::hydratePivotAssetVariants($record->assets);
+        app(ApplyFeatureRequestAssetOptionSelections::class)->reconcileOpportunity($record);
         RecordModel::attachLineItemSnapshotsForJson($record);
 
         return inertia('Tenant/Opportunity/Edit', [

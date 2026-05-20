@@ -9,9 +9,12 @@ use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
 use App\Http\Controllers\Kiosk\FaqController;
+use App\Http\Controllers\Kiosk\HelpArticleController;
+use App\Http\Controllers\Kiosk\HelpCategoryController;
 use App\Http\Controllers\Kiosk\PlanItemsController;
 use App\Http\Controllers\Kiosk\PlansController;
 use App\Http\Controllers\Kiosk\PostController;
+use App\Http\Controllers\Kiosk\SupportTicketsController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
 use App\Http\Controllers\MailchimpOAuthController;
@@ -34,6 +37,13 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
         Route::resource('categories', CategoryController::class);
         Route::resource('tags', TagController::class);
         Route::resource('faqs', FaqController::class);
+        Route::resource('help-categories', HelpCategoryController::class);
+        Route::get('help-articles/siblings', [HelpArticleController::class, 'siblings'])->name('help-articles.siblings');
+        Route::post('help-articles/reorder', [HelpArticleController::class, 'reorder'])->name('help-articles.reorder');
+        Route::resource('help-articles', HelpArticleController::class);
+        Route::resource('support-tickets', SupportTicketsController::class)->only(['index', 'show', 'update']);
+        Route::post('support-tickets/{support_ticket}/responses', [SupportTicketsController::class, 'storeResponse'])
+            ->name('support-tickets.responses.store');
         Route::resource('plans', PlansController::class);
         Route::resource('plan-items', PlanItemsController::class);
 

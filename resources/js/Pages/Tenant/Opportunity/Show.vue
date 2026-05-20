@@ -652,6 +652,46 @@ const formatDateTime = (value) => {
                                         <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                         {{ fieldsSchema.needs_trailer?.label || 'Needs Trailer' }}
                                     </span>
+                                    <span
+                                        :class="record.requires_delivery
+                                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                                    >
+                                        <svg v-if="record.requires_delivery" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        {{ fieldsSchema.requires_delivery?.label || 'Requires Delivery' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Delivery -->
+                            <div
+                                v-if="record.requires_delivery && (record.delivery_location || record.delivery_state || record.delivery_country)"
+                                class="border-t border-gray-200 dark:border-gray-700 pt-5"
+                            >
+                                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
+                                    Delivery
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div v-if="record.delivery_location">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema.delivery_location?.label || 'Delivery Location' }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ record.delivery_location }}</div>
+                                    </div>
+                                    <div v-if="record.delivery_state">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema.delivery_state?.label || 'Delivery State' }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ record.delivery_state }}</div>
+                                    </div>
+                                    <div v-if="record.delivery_country">
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema.delivery_country?.label || 'Delivery Country' }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ record.delivery_country }}</div>
+                                    </div>
                                 </div>
                             </div>
 

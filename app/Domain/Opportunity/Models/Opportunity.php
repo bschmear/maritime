@@ -29,6 +29,7 @@ class Opportunity extends Model
     protected $casts = [
         'needs_engine' => 'boolean',
         'needs_trailer' => 'boolean',
+        'requires_delivery' => 'boolean',
         'estimated_value' => 'decimal:2',
         'opened_at' => 'datetime',
         'won_at' => 'datetime',

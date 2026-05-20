@@ -18,11 +18,26 @@ return Application::configure(basePath: dirname(__DIR__))
             //     return;
             // }
 
+            $helpPortalHost = config('app.help_portal_host');
+
+            // Documentation portal (HELP_PORTAL host)
+            if ($helpPortalHost && $host === $helpPortalHost) {
+                Route::middleware('web')
+                    ->name('docs.')
+                    ->group(base_path('routes/documentation.php'));
+
+                return;
+            }
+
             // Tenant subdomain (6-digit): CRM + portal routes register together so named routes
             // like portal.* resolve when rendering emails/links from the tenant app.
             if (count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0])) {
                 require base_path('routes/portal.php');
                 require base_path('routes/tenant.php');
+
+                Route::middleware(['web', 'auth', 'tenant.access'])
+                    ->prefix('api')
+                    ->group(base_path('routes/api.php'));
 
                 return;
             }
@@ -52,6 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'workspace.subscription' => \App\Http\Middleware\EnsureActiveWorkspaceSubscription::class,
             'redirect.unauthenticated' => \App\Http\Middleware\RedirectUnauthenticatedFromTenant::class,
             'portal.token' => \App\Http\Middleware\ValidatePortalToken::class,
+            'ticket.support' => \App\Http\Middleware\EnsureTicketSupportAccess::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

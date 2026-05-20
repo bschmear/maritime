@@ -46,9 +46,8 @@ class GeneralController extends BaseController
         // Models whose display_name is a virtual accessor (not a real DB column).
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
-        // "customer" is a customer_profile row: label and billing-style fields come from the linked contact
-        // (and its primary address), not from columns on customer_profiles.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer'];
+        // "customer" / "lead" are profile rows: labels come from the linked contact (and primary address), not profile tables.
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -86,9 +85,9 @@ class GeneralController extends BaseController
                 $columns[] = 'latitude';
                 $columns[] = 'longitude';
                 $columns[] = 'active';
-            } elseif (strtolower($type) === 'customer') {
+            } elseif (in_array($typeKey, ['customer', 'lead'], true)) {
                 // display_name and address* accessors need contact + primary address; never select legacy
-                // address columns on this table. Customer::$with loads contact.primaryAddress.
+                // address columns on profile tables. Customer/Lead::$with loads contact.primaryAddress.
                 $columns[] = 'contact_id';
             } elseif ($typeKey === 'assetoption') {
                 $columns[] = 'name';
@@ -245,11 +244,11 @@ class GeneralController extends BaseController
                         ->orWhereRaw('LOWER(COALESCE(city, \'\')) LIKE ?', [$searchTerm])
                         ->orWhereRaw('LOWER(COALESCE(state, \'\')) LIKE ?', [$searchTerm]);
                 });
-            } elseif (strtolower($type) === 'customer') {
+            } elseif (in_array($typeKey, ['customer', 'lead'], true)) {
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $trim = trim((string) $searchQuery);
-                $customerTable = $recordModel->getTable();
-                $query->where(function ($q) use ($searchTerm, $trim, $customerTable) {
+                $profileTable = $recordModel->getTable();
+                $query->where(function ($q) use ($searchTerm, $trim, $profileTable) {
                     $q->whereHas('contact', function ($q2) use ($searchTerm) {
                         $q2->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm])
                             ->orWhereRaw('LOWER(COALESCE(first_name, \'\')) LIKE ?', [$searchTerm])
@@ -260,9 +259,9 @@ class GeneralController extends BaseController
                             ->orWhereRaw('LOWER(COALESCE(mobile, \'\')) LIKE ?', [$searchTerm]);
                     });
                     if ($trim !== '' && ctype_digit($trim)) {
-                        $q->orWhere($customerTable.'.id', '=', (int) $trim);
+                        $q->orWhere($profileTable.'.id', '=', (int) $trim);
                     } elseif ($trim !== '') {
-                        $q->orWhereRaw('CAST('.$customerTable.'.id AS TEXT) LIKE ?', ['%'.strtolower($trim).'%']);
+                        $q->orWhereRaw('CAST('.$profileTable.'.id AS TEXT) LIKE ?', ['%'.strtolower($trim).'%']);
                     }
                 });
             } elseif ($typeKey === 'maintenancetype') {
@@ -351,7 +350,7 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
-            } elseif (strtolower($type) === 'customer') {
+            } elseif (in_array($typeKey, ['customer', 'lead'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $t = $recordModel->getTable();
                 $query->leftJoin('contacts', 'contacts.id', '=', $t.'.contact_id')

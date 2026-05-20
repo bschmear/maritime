@@ -57,7 +57,10 @@ class CommunicationController extends Controller
         $communications = Communication::query()
             ->where('communicable_type', $entityClass)
             ->where('communicable_id', $validated['id'])
-            ->with(['user:id,display_name'])
+            ->with([
+                'user:id,display_name',
+                'assignedUser:id,display_name,first_name,last_name,email',
+            ])
             ->orderByDesc('created_at')
             ->paginate($perPage);
 

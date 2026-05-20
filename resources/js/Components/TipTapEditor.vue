@@ -154,7 +154,7 @@
                             </svg>
                         </button>
 
-                        <button
+                        <!-- <button
                             @click="editor.chain().focus().toggleCode().run()"
                             :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': editor?.isActive('code') }"
                             class="p-2 text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -176,7 +176,7 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                             </svg>
-                        </button>
+                        </button> -->
                     </div>
 
                     <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>

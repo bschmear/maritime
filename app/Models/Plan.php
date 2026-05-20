@@ -9,6 +9,13 @@ class Plan extends Model
 {
     use HasFactory;
 
+    /**
+     * Plans live on the central database, not tenant schemas.
+     *
+     * @var string|null
+     */
+    protected $connection = 'pgsql';
+
     protected $fillable = [
         'name',
         'monthly_price',
@@ -21,12 +28,14 @@ class Plan extends Model
         'included',
         'active',
         'popular',
+        'ticket_support_access',
     ];
 
     protected $casts = [
         'included' => 'array',
         'active' => 'boolean',
         'popular' => 'boolean',
+        'ticket_support_access' => 'boolean',
         'monthly_price' => 'decimal:2',
         'yearly_price' => 'decimal:2',
         'seat_extra' => 'decimal:2',
@@ -37,8 +46,8 @@ class Plan extends Model
      */
     public function getStripePriceId(string $billingCycle): ?string
     {
-        return $billingCycle === 'yearly' 
-            ? $this->stripe_yearly_id 
+        return $billingCycle === 'yearly'
+            ? $this->stripe_yearly_id
             : $this->stripe_monthly_id;
     }
 
@@ -47,8 +56,8 @@ class Plan extends Model
      */
     public function getPrice(string $billingCycle): float
     {
-        return $billingCycle === 'yearly' 
-            ? (float) $this->yearly_price 
+        return $billingCycle === 'yearly'
+            ? (float) $this->yearly_price
             : (float) $this->monthly_price;
     }
 

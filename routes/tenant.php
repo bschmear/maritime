@@ -33,6 +33,7 @@ use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\FleetController;
 use App\Http\Controllers\Tenant\FleetMaintenanceController;
 use App\Http\Controllers\Tenant\GeneralController;
+use App\Http\Controllers\Tenant\HelpController;
 use App\Http\Controllers\Tenant\IntegrationController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
 use App\Http\Controllers\Tenant\Integrations\QuickbooksController;
@@ -61,6 +62,7 @@ use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\SupportTicketsController;
 use App\Http\Controllers\Tenant\Surveys\PublicSurveyController;
 use App\Http\Controllers\Tenant\Surveys\SurveyController;
 use App\Http\Controllers\Tenant\TaskController;
@@ -708,6 +710,21 @@ Route::middleware([
                 Route::delete('/', [QuickbooksController::class, 'destroy'])->name('quickbooks.destroy');
                 Route::get('/connect', [QuickbooksController::class, 'connect'])->name('quickbooks.connect');
                 Route::post('/import-customers', [QuickbooksController::class, 'importCustomers'])->name('quickbooks.import-customers');
+            });
+        });
+
+        Route::prefix('help')->group(function () {
+            Route::get('/', [HelpController::class, 'index'])->name('dashHelp');
+            Route::get('/documentation', [HelpController::class, 'documentation'])->name('dashDocumentation');
+            Route::middleware('ticket.support')->group(function () {
+                Route::get('/support', [SupportTicketsController::class, 'index'])->name('dashSupport');
+                Route::get('/support/ticket', [SupportTicketsController::class, 'show'])->name('showTicket');
+                Route::post('/ticket', [SupportTicketsController::class, 'store'])->name('storeTicket');
+                Route::prefix('ticket')->group(function () {
+                    Route::post('/reply', [SupportTicketsController::class, 'reply'])->name('ticketReply');
+                    Route::put('/reopen', [SupportTicketsController::class, 'reopen'])->name('reopenTicket');
+                    Route::put('/response', [SupportTicketsController::class, 'update'])->name('ticketResponseUpdate');
+                });
             });
         });
 

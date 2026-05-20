@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\AccountSettings;
 use App\Services\WorkspaceNavCache;
+use App\Services\WorkspacePlanCache;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -21,6 +22,10 @@ class HandleInertiaRequests extends Middleware
      */
     public function rootView(Request $request): string
     {
+        if ($this->isHelpPortalHost($request)) {
+            return 'documentation';
+        }
+
         if (tenant() || $this->isTenantSubdomain($request)) {
             if (str_starts_with($request->path(), 'portal') || str_starts_with($request->path(), 'vendor/portal')) {
                 return 'portal';
@@ -44,6 +49,13 @@ class HandleInertiaRequests extends Middleware
         return count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
     }
 
+    protected function isHelpPortalHost(Request $request): bool
+    {
+        $host = config('app.help_portal_host');
+
+        return $host && $request->getHost() === $host;
+    }
+
     /**
      * Determine the current asset version.
      */
@@ -59,6 +71,18 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        if ($this->isHelpPortalHost($request)) {
+            return [
+                ...parent::share($request),
+                'app' => [
+                    'name' => config('app.name'),
+                ],
+                'helpNav' => fn () => \App\Services\Help\HelpCategoryTree::toNavArray(
+                    \App\Services\Help\HelpCategoryTree::forPortal()
+                ),
+            ];
+        }
+
         // Explicitly use the web guard so auth:customer never bleeds over.
         // onTrial/trialEndsAt are tenant account (Cashier) concerns, not customer portal concerns.
         $user = $request->user('web');
@@ -100,6 +124,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'pwa' => fn () => $this->rootView($request) === 'app' && $request->isPwa(),
             'workspace_nav' => fn () => $this->workspaceNavAccounts($request),
+            'workspace_plan' => fn () => tenant() ? WorkspacePlanCache::get() : null,
             'tenant_sandbox_mode' => fn () => tenant() ? (bool) AccountSettings::getCurrent()->sandbox_mode : false,
         ];
     }

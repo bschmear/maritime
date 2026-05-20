@@ -2,13 +2,14 @@
 
 namespace App\Domain\Qualification\Models;
 
+use App\Domain\Lead\Models\Lead;
+use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Domain\Lead\Models\Lead;
-use App\Domain\User\Models\User;
-use App\Domain\Opportunity\Models\Opportunity;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 class Qualification extends Model
@@ -86,7 +87,19 @@ class Qualification extends Model
 
     public function desired_brand(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\BoatMake\Models\BoatMake::class);
+        return $this->belongsTo(\App\Domain\BoatMake\Models\BoatMake::class, 'desired_brand');
+    }
+
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+            ->orderByDesc('created_at');
+    }
+
+    public function notes(): MorphMany
+    {
+        return $this->morphMany(\App\Domain\Note\Models\Note::class, 'notifiable')
+            ->latest('id');
     }
 
     /*
@@ -105,6 +118,6 @@ class Qualification extends Model
 
     public function getDisplayNameAttribute()
     {
-        return 'QLF-' . ($this->sequence ?: $this->id ?: '???');
+        return 'QLF-'.($this->sequence ?: $this->id ?: '???');
     }
 }

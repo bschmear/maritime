@@ -30,14 +30,6 @@
         { "key": "delivery_state", "required": false },
         { "key": "delivery_country", "required": false }
       ]
-    },
-
-    "notes": {
-      "label": "Notes",
-      "fields": [
-        { "key": "internal_notes", "required": false },
-        { "key": "customer_notes", "required": false }
-      ]
     }
   },
 
@@ -46,6 +38,12 @@
       "label": "Opportunities",
       "domain": "Opportunity",
       "modelRelationship": "opportunities"
+    },
+    {
+      "label": "Activity",
+      "domain": "Communication",
+      "modelRelationship": "communications",
+      "sublistKind": "morphCommunication"
     }
   ]
 }

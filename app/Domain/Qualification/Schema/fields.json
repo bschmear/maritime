@@ -9,7 +9,7 @@
         },
 
         "user_id": {
-          "label": "Salesperson",
+          "label": "Qualified By",
           "type": "record",
           "typeDomain": "User",
           "required": true
@@ -49,7 +49,7 @@
           "label": "Desired Brand",
           "type": "record",
           "typeDomain": "BoatMake",
-          "required": true
+          "required": false
         },
 
         "desired_model": {
@@ -128,20 +128,6 @@
           "label": "Lead Source",
           "type": "select",
           "enum": "App\\Enums\\Entity\\Source",
-          "nullable": true
-        },
-
-        "customer_notes": {
-          "label": "Customer Notes",
-          "type": "textarea",
-          "help": "Visible to the customer",
-          "nullable": true
-        },
-
-        "internal_notes": {
-          "label": "Internal Notes",
-          "type": "textarea",
-          "help": "Visible only to staff",
           "nullable": true
         },
 

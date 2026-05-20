@@ -27,6 +27,35 @@ const mapOppSelectionsFromApi = (rows) =>
 const sumSnapshotOptionPrices = (rows) =>
     (rows || []).reduce((s, r) => s + Number(r.price || 0), 0);
 
+const mapAssetRecordToLineItem = (item) => {
+    const vRel = item.asset_variant ?? item.assetVariant;
+    const pivotVid = item.pivot?.asset_variant_id ?? item.asset_variant_id ?? null;
+    const selRows = item.opportunity_selected_options ?? [];
+    const makeLabel =
+        item.make?.display_name
+        ?? item.make_display_name
+        ?? (typeof item.make === 'string' ? item.make : '');
+
+    return {
+        asset_id: item.id ?? item.asset_id,
+        display_name: item.display_name,
+        year: item.year || '',
+        make: makeLabel,
+        quantity: item.pivot?.quantity ?? item.quantity ?? 1,
+        unit_price: item.pivot?.unit_price != null ? Number(item.pivot.unit_price) : (Number(item.default_price) || 0),
+        estimated_cost: item.pivot?.estimated_cost != null ? Number(item.pivot.estimated_cost) : (Number(item.default_cost) || 0),
+        notes: item.pivot?.notes ?? item.notes ?? '',
+        has_variants: Boolean(item.has_variants),
+        asset_variant_id: pivotVid,
+        variant_display_name:
+            vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : ''),
+        asset_unit_id: item.pivot?.asset_unit_id ?? item.asset_unit_id ?? null,
+        asset_option_selections: mapOppSelectionsFromApi(selRows),
+        addons: mapOppAddonsFromApi(item.opportunity_addons ?? item.addons),
+        option_premium_snapshot: sumSnapshotOptionPrices(selRows),
+    };
+};
+
 const debounce = (fn, delay) => {
     let timer;
     return (...args) => {
@@ -404,6 +433,17 @@ const fetchAssets = async (resetPage = false) => {
             url.searchParams.append('search', assetSearchQuery.value.trim());
         }
 
+        const prefill = props.initialData?.qualification_prefill;
+        if (prefill?.desired_brand_id) {
+            url.searchParams.append(
+                'filters',
+                JSON.stringify([{ field: 'make_id', operator: 'equals', value: prefill.desired_brand_id }]),
+            );
+        }
+        if (!assetSearchQuery.value.trim() && prefill?.desired_model) {
+            url.searchParams.append('search', String(prefill.desired_model).trim());
+        }
+
         const response = await fetch(url.toString(), {
             headers: {
                 'Accept': 'application/json',
@@ -447,7 +487,8 @@ const openAddAssetModal = () => {
         addons: [],
         option_premium_snapshot: 0,
     };
-    assetSearchQuery.value = '';
+    const prefill = props.initialData?.qualification_prefill;
+    assetSearchQuery.value = prefill?.desired_model ? String(prefill.desired_model).trim() : '';
     assetCurrentPage.value = 1;
     fetchAssets(true);
     showAssetModal.value = true;
@@ -539,6 +580,8 @@ const isReadonly = computed(() => props.mode === 'edit' && false); // future: lo
 // ==============================
 const pseudoRecord = computed(() => props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null));
 
+const qualificationAssetPrefill = computed(() => props.initialData?.qualification_prefill ?? null);
+
 // ==============================
 // Initialize Form
 // ==============================
@@ -598,31 +641,24 @@ watch(() => props.record?.inventory_items ?? props.record?.inventoryItems, (item
 // Initialize asset items when editing
 watch(() => props.record?.assets, (items) => {
     if (items && Array.isArray(items)) {
-        assetItems.value = items.map((item) => {
-            const vRel = item.asset_variant ?? item.assetVariant;
-            const pivotVid = item.pivot?.asset_variant_id ?? null;
-            const selRows = item.opportunity_selected_options ?? [];
-            return {
-                asset_id: item.id,
-                display_name: item.display_name,
-                year: item.year || '',
-                make: item.make?.display_name || '',
-                quantity: item.pivot?.quantity ?? 1,
-                unit_price: item.pivot?.unit_price != null ? Number(item.pivot.unit_price) : (Number(item.default_price) || 0),
-                estimated_cost: item.pivot?.estimated_cost != null ? Number(item.pivot.estimated_cost) : (Number(item.default_cost) || 0),
-                notes: item.pivot?.notes || '',
-                has_variants: Boolean(item.has_variants),
-                asset_variant_id: pivotVid,
-                variant_display_name:
-                    vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : ''),
-                asset_unit_id: item.pivot?.asset_unit_id ?? null,
-                asset_option_selections: mapOppSelectionsFromApi(selRows),
-                addons: mapOppAddonsFromApi(item.opportunity_addons),
-                option_premium_snapshot: sumSnapshotOptionPrices(selRows),
-            };
-        });
+        assetItems.value = items.map(mapAssetRecordToLineItem);
     }
 }, { immediate: true });
+
+// Pre-fill asset lines when creating from a qualification
+watch(
+    () => props.initialData?.assets,
+    (items) => {
+        if (props.mode !== 'create' || !Array.isArray(items) || items.length === 0) {
+            return;
+        }
+        if (assetItems.value.length > 0) {
+            return;
+        }
+        assetItems.value = items.map(mapAssetRecordToLineItem);
+    },
+    { immediate: true },
+);
 
 // ==============================
 // Submit
@@ -856,7 +892,7 @@ const handleCancel = () => emit('cancelled');
                             <!-- Product Requirements -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
                                 <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Product Requirements</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input type="checkbox" v-model="form.needs_engine" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
                                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ fieldsSchema.needs_engine?.label || 'Needs Engine' }}</span>
@@ -865,6 +901,46 @@ const handleCancel = () => emit('cancelled');
                                         <input type="checkbox" v-model="form.needs_trailer" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
                                         <span class="text-sm text-gray-700 dark:text-gray-300">{{ fieldsSchema.needs_trailer?.label || 'Needs Trailer' }}</span>
                                     </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" v-model="form.requires_delivery" class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ fieldsSchema.requires_delivery?.label || 'Requires Delivery' }}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Delivery -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 space-y-4">
+                                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Delivery
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            {{ fieldsSchema.delivery_location?.label || 'Delivery Location' }}
+                                        </label>
+                                        <input v-model="form.delivery_location" type="text" class="input-style w-full" />
+                                        <p v-if="form.errors.delivery_location" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                            {{ form.errors.delivery_location }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            {{ fieldsSchema.delivery_state?.label || 'Delivery State' }}
+                                        </label>
+                                        <input v-model="form.delivery_state" type="text" class="input-style w-full" />
+                                        <p v-if="form.errors.delivery_state" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                            {{ form.errors.delivery_state }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                            {{ fieldsSchema.delivery_country?.label || 'Delivery Country' }}
+                                        </label>
+                                        <input v-model="form.delivery_country" type="text" class="input-style w-full" />
+                                        <p v-if="form.errors.delivery_country" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                            {{ form.errors.delivery_country }}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -900,6 +976,19 @@ const handleCancel = () => emit('cancelled');
                          Assets
                          ============================ -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div
+                            v-if="fromQualification && qualificationAssetPrefill?.desired_brand_name"
+                            class="px-6 py-3 bg-purple-50 dark:bg-purple-900/20 border-b border-purple-100 dark:border-purple-800/50 text-sm text-purple-800 dark:text-purple-200"
+                        >
+                            <span class="font-medium">From qualification:</span>
+                            {{ qualificationAssetPrefill.desired_brand_name }}
+                            <template v-if="qualificationAssetPrefill.desired_model">
+                                — {{ qualificationAssetPrefill.desired_model }}
+                            </template>
+                            <span v-if="assetItems.length === 0" class="block mt-1 text-xs text-purple-600 dark:text-purple-300">
+                                No matching catalog asset was found; use Add Asset to search by brand and model.
+                            </span>
+                        </div>
                         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
                             <button

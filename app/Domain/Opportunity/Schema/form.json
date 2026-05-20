@@ -24,8 +24,18 @@
       "fields": [
         { "key": "needs_engine", "required": false },
         { "key": "needs_trailer", "required": false },
+        { "key": "requires_delivery", "required": false },
         { "key": "customer_notes", "required": false },
         { "key": "internal_notes", "required": false }
+      ]
+    },
+
+    "delivery": {
+      "label": "Delivery",
+      "fields": [
+        { "key": "delivery_location", "required": false },
+        { "key": "delivery_state", "required": false },
+        { "key": "delivery_country", "required": false }
       ]
     }
   },

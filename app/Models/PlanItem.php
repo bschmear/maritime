@@ -9,6 +9,8 @@ class PlanItem extends Model
 {
     use HasFactory;
 
+    protected $connection = 'pgsql';
+
     protected $fillable = [
         'plan_id',
         'name',

@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class TicketResponse extends Model
+{
+    protected $connection = 'pgsql';
+
+    protected $fillable = [
+        'support_ticket_id',
+        'response',
+        'internal',
+        'user_id',
+    ];
+
+    protected $casts = [
+        'internal' => 'boolean',
+    ];
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(SupportTicket::class, 'support_ticket_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

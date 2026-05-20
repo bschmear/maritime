@@ -58,6 +58,12 @@ return new class extends Migration
             $table->boolean('needs_engine')->default(false);
             $table->boolean('needs_trailer')->default(false);
 
+            $table->string('delivery_location')->nullable();
+            $table->string('delivery_state')->nullable();
+            $table->string('delivery_country')->nullable();
+
+            $table->boolean('requires_delivery')->default(false);
+
             $table->text('customer_notes')->nullable();
             $table->text('internal_notes')->nullable();
 

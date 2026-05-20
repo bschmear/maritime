@@ -40,10 +40,11 @@ class PlansController extends Controller
             'included' => 'nullable|array',
             'popular' => 'boolean',
             'active' => 'boolean',
+            'ticket_support_access' => 'boolean',
         ]);
 
         // Ensure included is stored as JSON array
-        if (!isset($validated['included'])) {
+        if (! isset($validated['included'])) {
             $validated['included'] = [];
         }
 
@@ -83,10 +84,11 @@ class PlansController extends Controller
             'included' => 'nullable|array',
             'popular' => 'boolean',
             'active' => 'boolean',
+            'ticket_support_access' => 'boolean',
         ]);
 
         // Ensure included is stored as JSON array
-        if (!isset($validated['included'])) {
+        if (! isset($validated['included'])) {
             $validated['included'] = [];
         }
 

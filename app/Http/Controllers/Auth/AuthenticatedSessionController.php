@@ -63,10 +63,12 @@ class AuthenticatedSessionController extends Controller
     /**
      * Destroy an authenticated session.
      *
-     * On tenant workspace hosts (6-digit subdomains), avoid redirecting to `/` first: the next
-     * Inertia request would be redirected to the central {@see config('app.url')} login URL, and
-     * following that cross-origin redirect via XHR fails the browser CORS check. Use
-     * {@see Inertia::location()} so the client performs a full document navigation to central login.
+     * Match login: return {@see Inertia::location()} for Inertia visits so the browser performs a
+     * full document load (fresh CSRF meta + session cookie). Plain redirects leave a stale SPA
+     * shell and cause 419s on the next POST.
+     *
+     * Tenant workspace hosts must land on central login (cross-origin); non-Inertia fallbacks
+     * use normal redirects.
      */
     public function destroy(Request $request): RedirectResponse|SymfonyResponse
     {
@@ -76,18 +78,28 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
+        $url = $this->logoutRedirectUrl($request);
+
+        if ($request->inertia()) {
+            return Inertia::location($url);
+        }
+
+        return redirect($url);
+    }
+
+    private function logoutRedirectUrl(Request $request): string
+    {
         if ($this->isTenantWorkspaceHost($request)) {
             $base = rtrim((string) config('app.url'), '/');
-            $login = $request->isPwa() ? $base.'/login?pwa=1' : $base.'/login';
 
-            return Inertia::location($login);
+            return $request->isPwa() ? $base.'/login?pwa=1' : $base.'/login';
         }
 
         if ($request->isPwa()) {
-            return redirect()->route('login', ['pwa' => 1]);
+            return route('login', ['pwa' => 1], absolute: true);
         }
 
-        return redirect('/');
+        return url('/');
     }
 
     private function isTenantWorkspaceHost(Request $request): bool

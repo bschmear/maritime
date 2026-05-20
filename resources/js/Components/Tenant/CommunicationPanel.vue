@@ -3,6 +3,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 
 const props = defineProps({
     recid: { type: [Number, String], required: true },
@@ -11,6 +12,26 @@ const props = defineProps({
 
 const page = usePage();
 const currentUserId = computed(() => page.props.auth?.user?.id ?? null);
+
+const assignedToField = { type: 'record', typeDomain: 'User', label: 'Logged by' };
+
+/** Selected user stub for RecordSelect label resolution (`assigned_to_user_id` → `assigned_to_user`). */
+const assignedUserStub = ref(null);
+
+function authUserStub() {
+    const u = page.props.auth?.user;
+    if (!u?.id) {
+        return null;
+    }
+
+    return {
+        id: u.id,
+        display_name: u.display_name ?? u.name ?? u.email ?? null,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        email: u.email,
+    };
+}
 
 const records = ref([]);
 const loading = ref(false);
@@ -53,6 +74,21 @@ const createForm = reactive({
     date_contacted: '',
     assigned_to: null,
 });
+
+const assignedToPickerRecord = computed(() => {
+    if (!createForm.assigned_to && !assignedUserStub.value) {
+        return null;
+    }
+
+    return {
+        assigned_to_user_id: createForm.assigned_to,
+        assigned_to_user: assignedUserStub.value,
+    };
+});
+
+function onAssignedToSelected(user) {
+    assignedUserStub.value = user ?? null;
+}
 
 function notify(type, text) {
     banner.value = { type, text: text || '' };
@@ -152,6 +188,7 @@ function resetForm() {
     createForm.next_action_at = '';
     createForm.date_contacted = formatDateTimeLocal(new Date());
     createForm.assigned_to = currentUserId.value;
+    assignedUserStub.value = authUserStub();
     currentRecordId.value = null;
     isEditing.value = false;
 }
@@ -178,6 +215,7 @@ function openEdit(row) {
     createForm.next_action_at = formatDateTimeLocal(row.next_action_at);
     createForm.date_contacted = formatDateTimeLocal(row.date_contacted) || formatDateTimeLocal(new Date());
     createForm.assigned_to = row.assigned_to ?? currentUserId.value;
+    assignedUserStub.value = row.assigned_user ?? null;
     showModal.value = true;
 }
 
@@ -539,11 +577,14 @@ watch(
                     />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Assigned to (user id)</label>
-                    <input
-                        v-model.number="createForm.assigned_to"
-                        type="number"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Logged by</label>
+                    <RecordSelect
+                        id="communication_assigned_to"
+                        :field="assignedToField"
+                        v-model="createForm.assigned_to"
+                        :record="assignedToPickerRecord"
+                        field-key="assigned_to_user_id"
+                        @record-selected="onAssignedToSelected"
                     />
                 </div>
                 <div class="sm:col-span-2">

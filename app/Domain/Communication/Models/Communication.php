@@ -4,6 +4,7 @@ namespace App\Domain\Communication\Models;
 
 use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Communication extends Model
@@ -45,9 +46,14 @@ class Communication extends Model
         parent::boot();
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function communicable(): MorphTo

@@ -1,7 +1,8 @@
 <script setup>
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { useForm } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -73,7 +74,12 @@ const buildInitialFormData = () => {
             return;
         }
         if (props.record && props.record[key] !== undefined && props.record[key] !== null) {
-            data[key] = props.record[key];
+            const raw = props.record[key];
+            if (field?.type === 'record' && typeof raw === 'object') {
+                data[key] = raw.id ?? null;
+            } else {
+                data[key] = raw;
+            }
         } else if (props.initialData[key] !== undefined && props.initialData[key] !== null) {
             data[key] = props.initialData[key];
         } else if (field?.default !== undefined && field?.default !== null && field.default !== '') {
@@ -99,10 +105,138 @@ const buildInitialFormData = () => {
         data.user_id = props.initialData.user_id;
     }
 
+    if (props.record) {
+        if (props.record.lead_id != null) {
+            data.lead_id = props.record.lead_id;
+        }
+        if (props.record.user_id != null) {
+            data.user_id = props.record.user_id;
+        }
+    }
+
     return data;
 };
 
-const form = useForm(buildInitialFormData());
+const primaryNoteBody = () => {
+    const notes = props.record?.notes;
+    if (!Array.isArray(notes) || notes.length === 0) {
+        return '';
+    }
+
+    return notes[0]?.body ?? '';
+};
+
+const form = useForm({
+    ...buildInitialFormData(),
+    note_body: primaryNoteBody(),
+});
+
+/** Catalog asset id for the model picker; persisted value is `form.desired_model` (display name). */
+const desiredModelAssetId = ref(null);
+
+const desiredModelAssetField = computed(() => ({
+    label: fieldLabel('desired_model'),
+    type: 'record',
+    typeDomain: 'Asset',
+}));
+
+const modelPickerRecord = computed(() => {
+    const base = pseudoRecord.value ? { ...pseudoRecord.value } : {};
+    if (desiredModelAssetId.value && form.desired_model) {
+        base.desired_model_asset = {
+            id: desiredModelAssetId.value,
+            display_name: form.desired_model,
+        };
+    }
+    return Object.keys(base).length > 0 ? base : null;
+});
+
+const assetDisplayLabel = (asset) =>
+    (asset?.display_name || asset?.model || '').trim() || null;
+
+const onDesiredModelSelected = (asset) => {
+    if (!asset?.id) {
+        desiredModelAssetId.value = null;
+        form.desired_model = '';
+        return;
+    }
+    desiredModelAssetId.value = asset.id;
+    form.desired_model = assetDisplayLabel(asset) ?? '';
+};
+
+const resolveDesiredModelAssetId = async () => {
+    const makeId = form.desired_brand;
+    const modelName = (form.desired_model || '').trim();
+    if (!makeId || !modelName) {
+        desiredModelAssetId.value = null;
+        return;
+    }
+
+    try {
+        const url = new URL(route('records.lookup'), window.location.origin);
+        url.searchParams.set('type', 'asset');
+        url.searchParams.set('per_page', '50');
+        url.searchParams.set('search', modelName);
+        url.searchParams.set(
+            'filters',
+            JSON.stringify([{ field: 'make_id', operator: 'equals', value: makeId }]),
+        );
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN':
+                    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        const records = data.records || data.data || [];
+        const needle = modelName.toLowerCase();
+        const match = records.find((r) => {
+            const label = assetDisplayLabel(r);
+            return label && label.toLowerCase() === needle;
+        });
+
+        desiredModelAssetId.value = match?.id ?? null;
+    } catch (err) {
+        console.error('Failed to resolve desired model asset:', err);
+    }
+};
+
+watch(
+    () => form.desired_brand,
+    (newBrand, oldBrand) => {
+        if (oldBrand === undefined || newBrand === oldBrand) {
+            return;
+        }
+        form.desired_model = '';
+        desiredModelAssetId.value = null;
+    },
+);
+
+watch(desiredModelAssetId, (id, oldId) => {
+    if (id || oldId === undefined) {
+        return;
+    }
+    form.desired_model = '';
+});
+
+watch(
+    () => [props.record?.id, props.record?.desired_brand, props.record?.desired_model],
+    () => {
+        if (props.mode === 'edit' && props.record?.desired_model) {
+            resolveDesiredModelAssetId();
+        }
+    },
+    { immediate: true },
+);
 
 watch(
     () => props.initialData?.lead,
@@ -171,12 +305,12 @@ const fieldHelp = (key) => resolvedFieldsSchema.value[key]?.help ?? null;
                         </div>
 
                         <div class="p-6 space-y-6">
-                            <!-- Lead & assignment | Status & timeline -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Lead &amp; assignment
-                                    </h3>
+                            <!-- Lead & assignment -->
+                            <div class="space-y-4">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Lead &amp; assignment
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                                     <div>
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -217,12 +351,14 @@ const fieldHelp = (key) => resolvedFieldsSchema.value[key]?.help ?? null;
                                         </p>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Qualification details
-                                    </h3>
-
+                            <!-- Qualification details -->
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 space-y-4">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    Qualification details
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             {{ fieldLabel('status') }}
@@ -348,12 +484,29 @@ const fieldHelp = (key) => resolvedFieldsSchema.value[key]?.help ?? null;
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             {{ fieldLabel('desired_model') }}
                                         </label>
-                                        <input
-                                            v-model="form.desired_model"
-                                            type="text"
-                                            class="input-style w-full"
-                                            :placeholder="fieldLabel('desired_model')"
+                                        <RecordSelect
+                                            id="qualification_desired_model"
+                                            :field="desiredModelAssetField"
+                                            v-model="desiredModelAssetId"
+                                            :record="modelPickerRecord"
+                                            field-key="desired_model_asset"
+                                            filter-by="make_id"
+                                            :filter-value="form.desired_brand"
+                                            :disabled="!form.desired_brand"
+                                            @record-selected="onDesiredModelSelected"
                                         />
+                                        <p
+                                            v-if="!form.desired_brand"
+                                            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                        >
+                                            Select a brand first to choose a model from the catalog.
+                                        </p>
+                                        <p
+                                            v-else-if="form.desired_model && !desiredModelAssetId"
+                                            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                        >
+                                            Saved model: {{ form.desired_model }}
+                                        </p>
                                         <p v-if="form.errors.desired_model" class="mt-1 text-sm text-red-600 dark:text-red-400">
                                             {{ form.errors.desired_model }}
                                         </p>
@@ -477,43 +630,6 @@ const fieldHelp = (key) => resolvedFieldsSchema.value[key]?.help ?? null;
                                 </div>
                             </div>
 
-                            <!-- Notes -->
-                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        {{ fieldLabel('customer_notes') }}
-                                    </label>
-                                    <p v-if="fieldHelp('customer_notes')" class="text-sm text-gray-500 dark:text-gray-400 mb-1.5">
-                                        {{ fieldHelp('customer_notes') }}
-                                    </p>
-                                    <textarea
-                                        v-model="form.customer_notes"
-                                        rows="4"
-                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                                        placeholder="Notes visible to the customer..."
-                                    />
-                                    <p v-if="form.errors.customer_notes" class="mt-1 text-sm text-red-600 dark:text-red-400">
-                                        {{ form.errors.customer_notes }}
-                                    </p>
-                                </div>
-                                <div>
-                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                        {{ fieldLabel('internal_notes') }}
-                                    </label>
-                                    <p v-if="fieldHelp('internal_notes')" class="text-sm text-gray-500 dark:text-gray-400 mb-1.5">
-                                        {{ fieldHelp('internal_notes') }}
-                                    </p>
-                                    <textarea
-                                        v-model="form.internal_notes"
-                                        rows="4"
-                                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                                        placeholder="Internal team notes..."
-                                    />
-                                    <p v-if="form.errors.internal_notes" class="mt-1 text-sm text-red-600 dark:text-red-400">
-                                        {{ form.errors.internal_notes }}
-                                    </p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -586,6 +702,25 @@ const fieldHelp = (key) => resolvedFieldsSchema.value[key]?.help ?? null;
                                 </div>
                             </dl>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notes (full width) -->
+            <div class="col-span-full mt-4 lg:mt-6">
+                <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Notes</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            Rich-text notes for this qualification (visible to your team).
+                        </p>
+                    </div>
+                    <div class="p-6">
+                        <TipTapEditor
+                            id="qualification_note_body"
+                            v-model="form.note_body"
+                            :error="form.errors.note_body"
+                        />
                     </div>
                 </div>
             </div>
