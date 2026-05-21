@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\AddOn\Models\AddOn;
 use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\FeatureRequest\Models\FeatureRequestInvite;
@@ -23,6 +24,7 @@ use App\Enums\Opportunity\Status;
 use App\Enums\Timezone;
 use App\Mail\OpportunityFeatureRequestInvite;
 use App\Models\AccountSettings;
+use App\Services\AssetOptionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -48,6 +50,51 @@ class OpportunityController extends RecordController
             new DeleteAction,
             $this->recordType // Domain name for schema lookup
         );
+    }
+
+    /**
+     * Opportunity {@see RecordModel::getDisplayNameAttribute()} is not a DB column, so the default
+     * list search never hits it. Match opportunity number, salesperson, or customer contact.
+     */
+    protected function applyCustomSearch($query, string $rawSearch): bool
+    {
+        $trimmed = trim($rawSearch);
+        $normalized = preg_replace('/^OPP-/i', '', $trimmed);
+        $like = '%'.strtolower($normalized).'%';
+        $fullLike = '%'.strtolower($trimmed).'%';
+        $t = $query->getModel()->getTable();
+
+        $query->where(function ($q) use ($normalized, $like, $fullLike, $t) {
+            $q->whereRaw("CAST({$t}.sequence AS TEXT) LIKE ?", [$like])
+                ->orWhereRaw("CAST({$t}.id AS TEXT) LIKE ?", [$like])
+                ->orWhereRaw("LOWER(CONCAT('opp-', CAST({$t}.sequence AS TEXT))) LIKE ?", [$fullLike]);
+
+            if ($normalized !== '' && ctype_digit($normalized)) {
+                $q->orWhere("{$t}.sequence", '=', (int) $normalized);
+            }
+
+            $q->orWhereHas('salesperson', function ($sq) use ($like) {
+                $sq->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$like])
+                    ->orWhereRaw(
+                        'LOWER(TRIM(CONCAT(COALESCE(first_name, \'\'), \' \', COALESCE(last_name, \'\')))) LIKE ?',
+                        [$like]
+                    )
+                    ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$like]);
+            });
+
+            $q->orWhereHas('customer', function ($cq) use ($like) {
+                $cq->whereHas('contact', function ($contactQ) use ($like) {
+                    $contactQ->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$like])
+                        ->orWhereRaw(
+                            'LOWER(TRIM(CONCAT(COALESCE(first_name, \'\'), \' \', COALESCE(last_name, \'\')))) LIKE ?',
+                            [$like]
+                        )
+                        ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$like]);
+                });
+            });
+        });
+
+        return true;
     }
 
     public function create()
@@ -192,6 +239,14 @@ class OpportunityController extends RecordController
         RecordModel::hydratePivotAssetVariants($record->assets);
         app(ApplyFeatureRequestAssetOptionSelections::class)->reconcileOpportunity($record);
         RecordModel::attachLineItemSnapshotsForJson($record);
+
+        $optionResolver = app(AssetOptionResolver::class);
+        foreach ($record->featureRequests as $featureRequest) {
+            $featureRequest->setAttribute(
+                'asset_option_selections_display',
+                $this->buildFeatureRequestAssetOptionDisplayRows($featureRequest, $optionResolver)
+            );
+        }
 
         $catalogAddons = AddOn::query()
             ->orderBy('name')
@@ -553,5 +608,100 @@ class OpportunityController extends RecordController
             'timezones' => Timezone::options(),
             'initialData' => [],
         ]);
+    }
+
+    /**
+     * Resolve stored option ids to labels for the opportunity show “Feature requests” table.
+     *
+     * @return list<array{option_name: string, value_label: string, price: ?float}>
+     */
+    private function buildFeatureRequestAssetOptionDisplayRows(
+        OpportunityFeatureRequest $featureRequest,
+        AssetOptionResolver $resolver
+    ): array {
+        $selections = $featureRequest->asset_option_selections;
+        if (! is_array($selections) || $selections === []) {
+            return [];
+        }
+
+        $pivotId = (int) ($featureRequest->asset_opportunity_id ?? 0);
+        if ($pivotId <= 0) {
+            return $this->fallbackFeatureRequestSelectionLabels($selections);
+        }
+
+        $pivot = DB::table('asset_opportunity')->where('id', $pivotId)->first();
+        if ($pivot === null) {
+            return $this->fallbackFeatureRequestSelectionLabels($selections);
+        }
+
+        $asset = Asset::query()->find((int) $pivot->asset_id);
+        if ($asset === null) {
+            return $this->fallbackFeatureRequestSelectionLabels($selections);
+        }
+
+        $variantId = ! empty($pivot->asset_variant_id) ? (int) $pivot->asset_variant_id : null;
+        $variant = $variantId
+            ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
+            : null;
+
+        $resolved = $resolver->resolve($asset, $variant)->keyBy('option_id');
+
+        $out = [];
+        foreach ($selections as $sel) {
+            if (! is_array($sel)) {
+                continue;
+            }
+            $oid = (int) ($sel['option_id'] ?? 0);
+            $vid = (int) ($sel['option_value_id'] ?? 0);
+            $opt = $resolved->get($oid);
+            if ($opt === null) {
+                $out[] = [
+                    'option_name' => $oid > 0 ? 'Option #'.$oid : 'Option',
+                    'value_label' => $vid > 0 ? 'Value #'.$vid : '—',
+                    'price' => null,
+                ];
+
+                continue;
+            }
+
+            $valueMeta = collect($opt['values'] ?? [])->firstWhere(
+                fn (array $v) => (int) ($v['id'] ?? 0) === $vid
+            );
+
+            $out[] = [
+                'option_name' => (string) ($opt['name'] ?? 'Option'),
+                'value_label' => is_array($valueMeta)
+                    ? (string) ($valueMeta['label'] ?? ($vid > 0 ? 'Value #'.$vid : '—'))
+                    : ($vid > 0 ? 'Value #'.$vid : '—'),
+                'price' => is_array($valueMeta) && array_key_exists('price', $valueMeta)
+                    ? (float) $valueMeta['price']
+                    : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<int, mixed>  $selections
+     * @return list<array{option_name: string, value_label: string, price: ?float}>
+     */
+    private function fallbackFeatureRequestSelectionLabels(array $selections): array
+    {
+        $out = [];
+        foreach ($selections as $sel) {
+            if (! is_array($sel)) {
+                continue;
+            }
+            $oid = (int) ($sel['option_id'] ?? 0);
+            $vid = (int) ($sel['option_value_id'] ?? 0);
+            $out[] = [
+                'option_name' => $oid > 0 ? 'Option #'.$oid : 'Option',
+                'value_label' => $vid > 0 ? 'Value #'.$vid : '—',
+                'price' => null,
+            ];
+        }
+
+        return $out;
     }
 }

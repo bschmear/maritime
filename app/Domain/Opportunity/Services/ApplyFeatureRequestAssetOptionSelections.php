@@ -35,6 +35,8 @@ class ApplyFeatureRequestAssetOptionSelections
         $this->optionSync->sync($opportunity, [[
             'asset_id' => (int) $asset->id,
             'asset_variant_id' => $variantId,
+            /** Must match the invite / pivot row — sync cannot infer this when the same asset appears on multiple lines. */
+            'asset_opportunity_id' => $assetOpportunityId,
             'asset_option_selections' => $selections,
         ]]);
     }

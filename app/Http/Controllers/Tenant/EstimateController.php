@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetOption\Models\EstimateSelectedOption;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
 use App\Domain\Estimate\Actions\DeleteEstimate as DeleteAction;
 use App\Domain\Estimate\Actions\UpdateEstimate as UpdateAction;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
+use App\Domain\Estimate\Models\EstimateLineItem;
+use App\Domain\Estimate\Models\EstimateLineItemAddon;
+use App\Domain\Estimate\Models\EstimateVersion;
 use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\Subsidiary\Models\Subsidiary;
@@ -68,6 +72,40 @@ class EstimateController extends RecordController
         }
 
         return $out;
+    }
+
+    /**
+     * Eager-load constraints for estimate header + record picks.
+     * getRelationshipsToLoad() returns a list with numeric keys; normalize so isset($relationships[$name]) works.
+     */
+    protected function buildEstimateRecordEagerRelationships(array $fieldsSchema): array
+    {
+        $relationships = [];
+        foreach (array_unique($this->getRelationshipsToLoad($fieldsSchema)) as $relName) {
+            if (! is_string($relName)) {
+                continue;
+            }
+            $typeDomain = null;
+            foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+                if (($fieldDef['type'] ?? '') !== 'record') {
+                    continue;
+                }
+                $rn = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
+                if ($rn === $relName) {
+                    $typeDomain = $fieldDef['typeDomain'] ?? null;
+                    break;
+                }
+            }
+            if ($typeDomain === 'Customer') {
+                $relationships[$relName] = Customer::eagerWithContactSelect();
+            } elseif ($typeDomain === 'User') {
+                $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email']);
+            } else {
+                $relationships[$relName] = fn ($q) => $q->select(['id', 'display_name']);
+            }
+        }
+
+        return $relationships;
     }
 
     public function __construct(Request $request)
@@ -224,18 +262,7 @@ class EstimateController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $account = \App\Models\AccountSettings::getCurrent();
 
-        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                if (! isset($relationships[$relName])) {
-                    $relationships[$relName] = ($fieldDef['typeDomain'] ?? '') === 'Customer'
-                        ? Customer::eagerWithContactSelect()
-                        : fn ($q) => $q->select(['id', 'display_name']);
-                }
-            }
-        }
+        $relationships = $this->buildEstimateRecordEagerRelationships($fieldsSchema);
 
         $relationships['primaryVersion'] = fn ($q) => $q->with([
             'lineItems' => fn ($q2) => $q2->with([
@@ -291,18 +318,7 @@ class EstimateController extends RecordController
         $enumOptions = $this->getEnumOptions();
         $account = \App\Models\AccountSettings::getCurrent();
 
-        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                if (! isset($relationships[$relName])) {
-                    $relationships[$relName] = ($fieldDef['typeDomain'] ?? '') === 'Customer'
-                        ? Customer::eagerWithContactSelect()
-                        : fn ($q) => $q->select(['id', 'display_name']);
-                }
-            }
-        }
+        $relationships = $this->buildEstimateRecordEagerRelationships($fieldsSchema);
 
         $relationships['primaryVersion'] = fn ($q) => $q->with([
             'lineItems' => fn ($q2) => $q2->with([
@@ -368,6 +384,7 @@ class EstimateController extends RecordController
         $estimate = RecordModel::with([
             'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
             'primaryVersion',
+            'salesperson',
         ])->findOrFail($id);
 
         $wasPendingApproval = (int) $estimate->status === EstimateStatus::PendingApproval->id();
@@ -455,7 +472,7 @@ class EstimateController extends RecordController
      */
     public function sendBoatOptionsInvite(Request $request, $id)
     {
-        $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems'])->findOrFail($id);
+        $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems', 'salesperson'])->findOrFail($id);
 
         $customerEmail = $estimate->customer?->email;
         if (! $customerEmail) {

@@ -31,7 +31,7 @@
             "label": "Salesperson",
             "type": "record",
             "typeDomain": "User",
-            "relationship": "salesperson",
+            "relationship": "user",
             "required": true
         },
         "status": {

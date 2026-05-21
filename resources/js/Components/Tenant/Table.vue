@@ -723,10 +723,33 @@ const handleQuickFilterClickOutside = (e) => {
 };
 
 // ── Filters ───────────────────────────────────────────────────────────────────
+/** Parse ?filters= JSON; tolerate plain, single-, or double-encoded query values (avoid double encodeURIComponent on set). */
+const parseFiltersJsonParam = (p) => {
+    if (p == null || p === '') return [];
+    const tryParse = (str) => {
+        const x = JSON.parse(str);
+        return Array.isArray(x) ? x : [];
+    };
+    try {
+        return tryParse(p);
+    } catch {
+        /* continue */
+    }
+    try {
+        return tryParse(decodeURIComponent(p));
+    } catch {
+        /* continue */
+    }
+    try {
+        return tryParse(decodeURIComponent(decodeURIComponent(p)));
+    } catch {
+        return [];
+    }
+};
+
 const parseFiltersFromUrl = () => {
     const p = new URLSearchParams(window.location.search).get('filters');
-    if (!p) return [];
-    try { const f = JSON.parse(decodeURIComponent(p)); return Array.isArray(f) ? f : []; } catch { return []; }
+    return parseFiltersJsonParam(p);
 };
 
 const applyFilters = (filters) => {
@@ -734,7 +757,7 @@ const applyFilters = (filters) => {
     showFiltersModal.value = false;
     const params = new URLSearchParams(window.location.search);
     // Empty array must stay in the query as filters=[] so the server does not re-apply schema defaults.
-    params.set('filters', encodeURIComponent(JSON.stringify(filters)));
+    params.set('filters', JSON.stringify(filters));
     const qs = params.toString();
     router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
 };
@@ -748,11 +771,37 @@ const clearAllFilters = () => {
     showFiltersModal.value = false;
     const params = new URLSearchParams(window.location.search);
     // Explicit empty array so the server does not re-apply table.json defaults (see HasSchemaSupport).
-    params.set('filters', encodeURIComponent(JSON.stringify([])));
+    params.set('filters', JSON.stringify([]));
     params.delete('search');
     params.delete('page');
     const qs = params.toString();
     router.get(window.location.pathname + (qs ? '?' + qs : ''), {}, { preserveState: true, preserveScroll: true });
+};
+
+const humanFilterValueLabel = (filter) => {
+    const raw = filter.valueText ?? filter.value_text;
+    if (raw == null) return '';
+    let s = String(raw).trim();
+    if (s === '') return '';
+    if (/%[0-9A-Fa-f]{2}/.test(s)) {
+        try {
+            s = decodeURIComponent(s);
+        } catch {
+            /* keep */
+        }
+    }
+    return s;
+};
+
+const recordOptionLabelForFilter = (filter, fc) => {
+    if (Array.isArray(filter.value)) return '';
+    if (fc.type !== 'record' && !fc.typeDomain) return '';
+    const opts = props.enumOptions?.[filter.field];
+    if (!Array.isArray(opts) || opts.length === 0) return '';
+    const o = opts.find(
+        (x) => String(x.id) === String(filter.value) || String(x.value) === String(filter.value),
+    );
+    return o?.name != null && String(o.name).trim() !== '' ? String(o.name).trim() : '';
 };
 
 const getFilterLabel = (filter) => {
@@ -763,7 +812,12 @@ const getFilterLabel = (filter) => {
     if (filter.operator === 'between' && typeof filter.value === 'object') {
         vl = `${filter.value.start ?? filter.value.min} - ${filter.value.end ?? filter.value.max}`;
     } else if (!['is_empty','is_not_empty','today','this_week','this_month','is_true','is_false','is_null','is_not_null'].includes(filter.operator)) {
-        if (fc.enum && props.enumOptions[fc.enum]) {
+        const vt = humanFilterValueLabel(filter);
+        if (!Array.isArray(filter.value) && vt !== '') {
+            vl = vt;
+        } else if (!Array.isArray(filter.value) && (fc.type === 'record' || fc.typeDomain)) {
+            vl = recordOptionLabelForFilter(filter, fc) || String(filter.value ?? '');
+        } else if (fc.enum && props.enumOptions[fc.enum]) {
             if (Array.isArray(filter.value)) {
                 vl = filter.value.map(v => {
                     const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(v) || String(o.value) === String(v));
@@ -773,7 +827,9 @@ const getFilterLabel = (filter) => {
                 const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(filter.value) || String(o.value) === String(filter.value));
                 vl = o ? o.name : filter.value;
             }
-        } else { vl = Array.isArray(filter.value) ? filter.value.join(', ') : filter.value; }
+        } else {
+            vl = Array.isArray(filter.value) ? filter.value.join(', ') : filter.value;
+        }
     }
     const ops = { contains:'contains', equals:'is', starts_with:'starts with', ends_with:'ends with',
                   is_empty:'is empty', is_not_empty:'is not empty', not_equals:'is not', any_of:'is any of',

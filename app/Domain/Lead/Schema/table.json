@@ -64,6 +64,23 @@
         "label": "Created",
         "sortable": true
       }
+    ],
+    "filters": [
+        {
+            "field": "status",
+            "label": "Status",
+            "type": "multi-select"
+        },
+        {
+            "field": "source_id",
+            "label": "Source",
+            "type": "multi-select"
+        },
+        {
+            "field": "priority_id",
+            "label": "Priority",
+            "type": "multi-select"
+        }
     ]
   }
   

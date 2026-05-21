@@ -2,11 +2,6 @@
   "allow_create_modal": false,
     "columns": [
       {
-        "key": "id",
-        "label": "#",
-        "sortable": true
-      },
-      {
           "key": "display_name",
           "label": "Opportunity #",
           "sortable": true,
@@ -18,5 +13,16 @@
       { "key": "stage", "label": "Stage", "sortable": true },
       { "key": "created_at", "label": "Created", "sortable": true }
     ],
-    "filters": []
+    "filters": [
+        {
+            "field": "status",
+            "label": "Status",
+            "type": "multi-select"
+        },
+        {
+          "field": "stage",
+          "label": "Stage",
+          "type": "multi-select"
+      }
+    ]
   }

@@ -380,6 +380,32 @@ const clearAllFilters = () => {
     applyFilters([]);
 };
 
+const humanFilterValueLabelSublist = (filter) => {
+    const raw = filter.valueText ?? filter.value_text;
+    if (raw == null) return '';
+    let s = String(raw).trim();
+    if (s === '') return '';
+    if (/%[0-9A-Fa-f]{2}/.test(s)) {
+        try {
+            s = decodeURIComponent(s);
+        } catch {
+            /* keep */
+        }
+    }
+    return s;
+};
+
+const recordOptionLabelSublist = (filter, fieldConfig) => {
+    if (Array.isArray(filter.value)) return '';
+    if (fieldConfig?.type !== 'record' && !fieldConfig?.typeDomain) return '';
+    const opts = sublistCreateFormData.value?.enumOptions?.[filter.field];
+    if (!Array.isArray(opts) || opts.length === 0) return '';
+    const o = opts.find(
+        (x) => String(x.id) === String(filter.value) || String(x.value) === String(filter.value),
+    );
+    return o?.name != null && String(o.name).trim() !== '' ? String(o.name).trim() : '';
+};
+
 const getFilterLabel = (filter) => {
     const fieldConfig = getFieldDef(filter.field) || {};
     const fieldLabel = fieldConfig.label || filter.field;
@@ -392,14 +418,28 @@ const getFilterLabel = (filter) => {
     } else if (['is_empty', 'is_not_empty', 'today', 'this_week', 'this_month', 'is_true', 'is_false'].includes(filter.operator)) {
         valueLabel = '';
     } else {
-        // For select fields, get the label from enum options
-        if (fieldConfig.enum && sublistCreateFormData.value?.enumOptions?.[fieldConfig.enum]) {
-            const option = sublistCreateFormData.value.enumOptions[fieldConfig.enum].find(opt => 
-                String(opt.id) === String(filter.value) || String(opt.value) === String(filter.value)
-            );
-            valueLabel = option ? option.name : filter.value;
+        const vt = humanFilterValueLabelSublist(filter);
+        if (!Array.isArray(filter.value) && vt !== '') {
+            valueLabel = vt;
+        } else if (!Array.isArray(filter.value) && (fieldConfig.type === 'record' || fieldConfig.typeDomain)) {
+            valueLabel = recordOptionLabelSublist(filter, fieldConfig) || String(filter.value ?? '');
+        } else if (fieldConfig.enum && sublistCreateFormData.value?.enumOptions?.[fieldConfig.enum]) {
+            const opts = sublistCreateFormData.value.enumOptions[fieldConfig.enum];
+            if (Array.isArray(filter.value)) {
+                valueLabel = filter.value.map((v) => {
+                    const option = opts.find(opt =>
+                        String(opt.id) === String(v) || String(opt.value) === String(v),
+                    );
+                    return option ? option.name : v;
+                }).join(', ');
+            } else {
+                const option = opts.find(opt =>
+                    String(opt.id) === String(filter.value) || String(opt.value) === String(filter.value),
+                );
+                valueLabel = option ? option.name : filter.value;
+            }
         } else {
-            valueLabel = filter.value;
+            valueLabel = Array.isArray(filter.value) ? filter.value.join(', ') : filter.value;
         }
     }
     

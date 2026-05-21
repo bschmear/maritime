@@ -10,5 +10,12 @@
     { "key": "submitted_at", "label": "Submitted", "sortable": true },
     { "key": "paid_at", "label": "Paid", "sortable": true },
     { "key": "updated_at", "label": "Updated", "sortable": true }
+  ],
+  "filters": [
+      {
+          "field": "status",
+          "label": "Status",
+          "type": "multi-select"
+      }
   ]
 }

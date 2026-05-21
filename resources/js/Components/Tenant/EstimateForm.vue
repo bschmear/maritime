@@ -816,12 +816,12 @@ const handleCancel = () => emit('cancelled');
 <template>
     <div class="w-full flex flex-col space-y-6">
         <form @submit.prevent="submit">
-            <div class="flex flex-col gap-6">
+            <div class="grid gap-6 lg:grid-cols-12">
 
                 <!-- ============================
-                     Main column (line items + header — full width)
+                     Main column
                      ============================ -->
-                <div class="w-full space-y-6">
+                <div class="lg:col-span-8 space-y-6">
 
                     <!-- Header Card -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
@@ -843,15 +843,12 @@ const handleCancel = () => emit('cancelled');
                         </div>
 
                         <div class="p-6 space-y-6">
-                            <!-- Customer + Opportunity + Salesperson -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                                <!-- Left: People -->
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Contact & Lead
-                                    </h3>
-
+                            <!-- Contact & Lead — full width (stacked above estimate details) -->
+                            <div class="space-y-4">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    Contact & Lead
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <!-- Contact (contact-first flow) -->
                                     <div>
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -902,13 +899,14 @@ const handleCancel = () => emit('cancelled');
                                         <p v-if="form.errors.user_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.user_id }}</p>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- Right: Estimate Details -->
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Estimate Details
-                                    </h3>
-
+                            <!-- Estimate Details — full width below contact & lead -->
+                            <div class="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    Estimate Details
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <!-- Issue Date -->
                                     <div>
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -1388,90 +1386,84 @@ const handleCancel = () => emit('cancelled');
                 </div>
 
                 <!-- ============================
-                     Actions & totals (below line items, full width)
+                     Sidebar (matches opportunity show layout)
                      ============================ -->
-                <div class="w-full">
-                    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        <!-- Actions -->
-                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden md:col-span-1 lg:col-span-1">
-                            <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                                <span class="text-md font-semibold text-white">Actions</span>
-                            </div>
-
-                            <div class="p-5 space-y-3">
-                                <button
-                                    v-if="mode !== 'view'"
-                                    type="submit"
-                                    :disabled="form.processing"
-                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                                >
-                                    <svg v-if="form.processing" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                                    </svg>
-                                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                    </svg>
-                                    {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Estimate') }}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    @click="handleCancel"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+                <div class="lg:col-span-4 space-y-6">
+                    <!-- Actions -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
                         </div>
+                        <div class="p-5 space-y-3">
+                            <button
+                                v-if="mode !== 'view'"
+                                type="submit"
+                                :disabled="form.processing"
+                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                            >
+                                <svg v-if="form.processing" class="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                </svg>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Estimate') }}
+                            </button>
 
-                        <!-- Estimate Totals -->
-                        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden md:col-span-1 lg:col-span-2">
-                            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600 bg-gray-700 dark:bg-gray-700">
-                                <span class="text-md font-semibold text-white">Estimate Total</span>
+                            <button
+                                type="button"
+                                @click="handleCancel"
+                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Estimate totals -->
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                        <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600">
+                            <span class="text-base font-semibold text-gray-900 dark:text-white">Estimate Total</span>
+                        </div>
+                        <div class="p-5 space-y-2.5">
+                            <template v-if="assetItems.length > 0">
+                                <div class="flex justify-between items-center text-base">
+                                    <span class="text-gray-500 dark:text-gray-400">Assets</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
+                                </div>
+                            </template>
+
+                            <template v-if="inventoryItems.length > 0">
+                                <div class="flex justify-between items-center text-base">
+                                    <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
+                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
+                                </div>
+                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                    <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
+                                    <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
+                                </div>
+                            </template>
+
+                            <div class="flex justify-between items-center text-base pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
+                                <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
                             </div>
-                            <div class="p-5 space-y-2.5">
-                                <!-- Assets -->
-                                <template v-if="assetItems.length > 0">
-                                    <div class="flex justify-between items-center text-md">
-                                        <span class="text-gray-500 dark:text-gray-400">Assets</span>
-                                        <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
-                                    </div>
-                                    <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-md pl-3 border-l-2 border-primary-200 dark:border-primary-800">
-                                        <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
-                                        <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
-                                    </div>
-                                </template>
-
-                                <!-- Parts & Accessories -->
-                                <template v-if="inventoryItems.length > 0">
-                                    <div class="flex justify-between items-center text-md">
-                                        <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
-                                        <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
-                                    </div>
-                                    <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-md pl-3 border-l-2 border-primary-200 dark:border-primary-800">
-                                        <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
-                                        <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
-                                    </div>
-                                </template>
-
-                                <div class="flex justify-between items-center text-md pt-2 border-t border-gray-100 dark:border-gray-700">
-                                    <span class="font-medium text-gray-700 dark:text-gray-300">Subtotal</span>
-                                    <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(combinedSubtotal) }}</span>
-                                </div>
-                                <div class="flex justify-between items-center text-md">
-                                    <span class="text-gray-500 dark:text-gray-400">Tax ({{ form.tax_rate }}%)</span>
-                                    <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(taxAmount) }}</span>
-                                </div>
-                                <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
-                                    <span class="text-lg font-bold text-gray-900 dark:text-white">Total</span>
-                                    <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(grandTotal) }}</span>
-                                </div>
+                            <div class="flex justify-between items-center text-base">
+                                <span class="text-gray-500 dark:text-gray-400">Tax ({{ form.tax_rate }}%)</span>
+                                <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(taxAmount) }}</span>
+                            </div>
+                            <div class="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                                <span class="text-lg font-bold text-gray-900 dark:text-white">Total</span>
+                                <span class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ formatCurrency(grandTotal) }}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-
 
             </div>
         </form>

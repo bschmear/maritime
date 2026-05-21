@@ -18,7 +18,7 @@ class OpportunitySelectedOptionSync
     public function __construct(private AssetOptionResolver $resolver) {}
 
     /**
-     * @param  array<int, array<string, mixed>>  $assetsPayload  Opportunity form asset rows (asset_id, asset_variant_id, asset_option_selections).
+     * @param  array<int, array<string, mixed>>  $assetsPayload  Rows: asset_id, optional asset_opportunity_id (pivot id), optional asset_variant_id, asset_option_selections.
      */
     public function sync(Opportunity $opportunity, array $assetsPayload): void
     {
@@ -26,6 +26,7 @@ class OpportunitySelectedOptionSync
             ['assets' => $assetsPayload],
             [
                 'assets' => ['present', 'array'],
+                'assets.*.asset_opportunity_id' => ['sometimes', 'integer', 'min:1'],
                 'assets.*.asset_option_selections' => ['nullable', 'array'],
                 'assets.*.asset_option_selections.*.option_id' => ['required', 'integer'],
                 'assets.*.asset_option_selections.*.option_value_id' => ['required', 'integer'],
@@ -42,7 +43,7 @@ class OpportunitySelectedOptionSync
                 continue;
             }
 
-            $pivotId = $this->assetPivotId($opportunity->id, $assetId);
+            $pivotId = $this->resolveAssetOpportunityPivotId($opportunity, $assetId, $item);
             if ($pivotId === null) {
                 continue;
             }
@@ -121,7 +122,9 @@ class OpportunitySelectedOptionSync
                     ]);
                 }
 
-                $valueMeta = collect($optionPayload['values'] ?? [])->firstWhere('id', $vid);
+                $valueMeta = collect($optionPayload['values'] ?? [])->firstWhere(
+                    fn (array $v) => (int) ($v['id'] ?? 0) === $vid
+                );
                 if ($valueMeta === null) {
                     throw ValidationException::withMessages([
                         'assets' => 'Invalid option value for "'.$optionPayload['name'].'".',
@@ -139,6 +142,31 @@ class OpportunitySelectedOptionSync
                 ]);
             }
         }
+    }
+
+    /**
+     * Prefer an explicit pivot id (feature requests, precise line edits). Otherwise resolve by opportunity + asset.
+     */
+    private function resolveAssetOpportunityPivotId(Opportunity $opportunity, int $assetId, array $item): ?int
+    {
+        $explicit = isset($item['asset_opportunity_id']) ? (int) $item['asset_opportunity_id'] : 0;
+        if ($explicit > 0) {
+            $ok = DB::table('asset_opportunity')
+                ->where('id', $explicit)
+                ->where('opportunity_id', $opportunity->id)
+                ->where('asset_id', $assetId)
+                ->exists();
+
+            if (! $ok) {
+                throw ValidationException::withMessages([
+                    'assets' => 'Invalid asset line for this opportunity.',
+                ]);
+            }
+
+            return $explicit;
+        }
+
+        return $this->assetPivotId($opportunity->id, $assetId);
     }
 
     private function assetPivotId(int $opportunityId, int $assetId): ?int

@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Domain\Estimate\Models\Estimate;
+use App\Mail\Concerns\RepliesToEstimateSalesperson;
 use App\Models\AccountSettings;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -14,6 +15,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class EstimateApprovalRequest extends Mailable
 {
+    use RepliesToEstimateSalesperson;
     use SerializesModels;
 
     public function __construct(
@@ -28,6 +30,7 @@ class EstimateApprovalRequest extends Mailable
 
         return new Envelope(
             subject: "Estimate {$this->estimate->display_name} — Review & Approval Required — {$companyName}",
+            replyTo: $this->replyToSalespersonOnEstimate(),
         );
     }
 

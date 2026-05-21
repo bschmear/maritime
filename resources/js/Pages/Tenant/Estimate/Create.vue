@@ -96,7 +96,7 @@ const handleCancel = () => {
             </div>
         </template>
 
-        <div class="w-full flex flex-col space-y-6 mx-auto">
+        <div class="w-full flex flex-col space-y-6">
             <EstimateForm
                 :record="null"
                 :form-schema="formSchema"

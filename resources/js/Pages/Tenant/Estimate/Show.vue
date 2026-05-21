@@ -35,29 +35,6 @@ const page = usePage();
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
 
-const showLineNotesModal = ref(false);
-const lineNotesModalTitle = ref('');
-const lineNotesModalBody = ref('');
-
-/** Stored line copy is usually `description`; fall back to `notes` if present. */
-const lineItemNoteText = (item) => {
-    const d = String(item?.description ?? '').trim();
-    const n = String(item?.notes ?? '').trim();
-    return d || n || '';
-};
-
-const openLineNotesModal = (title, body) => {
-    lineNotesModalTitle.value = title;
-    lineNotesModalBody.value = body;
-    showLineNotesModal.value = true;
-};
-
-const closeLineNotesModal = () => {
-    showLineNotesModal.value = false;
-    lineNotesModalTitle.value = '';
-    lineNotesModalBody.value = '';
-};
-
 const showApprovalDeliveryModal = ref(false);
 const approvalDelivery = ref('email');
 
@@ -217,6 +194,9 @@ const assetLineUnitDisplay = (item) => {
     const uid = assetLineUnitId(item);
     return uid ? `Unit #${uid}` : '—';
 };
+
+/** Polymorphic catalog asset id (snake or camel). */
+const assetLineAssetId = (item) => item.itemable_id ?? item.itemable?.id ?? null;
 
 const inventoryLines = computed(() =>
     lineItems.value.filter(
@@ -441,7 +421,7 @@ const confirmDelete = () => {
                             {{ estimateLabel }}
                         </h2>
                         <span
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                            class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                             :class="[statusInfo.bgClass, statusTextClass]"
                         >
                             {{ statusInfo.name }}
@@ -609,7 +589,7 @@ const confirmDelete = () => {
                                     <div class="flex items-center gap-3 mb-1">
                                         <h1 class="text-2xl font-bold text-white">ESTIMATE</h1>
                                         <span
-                                            class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
+                                            class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
                                             :class="[statusInfo.bgClass, statusTextClass]"
                                         >
                                             {{ statusInfo.name }}
@@ -618,7 +598,7 @@ const confirmDelete = () => {
                                     <p class="text-primary-100 text-base">Customer estimate details</p>
                                 </div>
                                 <div class="text-right">
-                                    <div class="text-primary-200 text-xs font-medium">Reference</div>
+                                    <div class="text-primary-200 text-sm font-medium">Reference</div>
                                     <div class="text-white text-lg font-mono">{{ estimateLabel }}</div>
                                 </div>
                             </div>
@@ -629,13 +609,13 @@ const confirmDelete = () => {
 
                                 <!-- Left: Customer & Lead -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Customer & Lead
                                     </h3>
 
                                     <!-- Customer -->
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Customer</div>
                                         <Link
                                             v-if="record.customer"
                                             :href="route('customers.show', record.customer_id)"
@@ -648,7 +628,7 @@ const confirmDelete = () => {
 
                                     <!-- Opportunity -->
                                     <div v-if="record.opportunity_id">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Opportunity</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Opportunity</div>
                                         <Link
                                             v-if="record.opportunity"
                                             :href="route('opportunities.show', record.opportunity_id)"
@@ -661,7 +641,7 @@ const confirmDelete = () => {
 
                                     <!-- Salesperson -->
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Salesperson</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Salesperson</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">
                                             {{ record.salesperson?.display_name ?? record.user?.display_name ?? '—' }}
                                         </div>
@@ -669,7 +649,7 @@ const confirmDelete = () => {
 
                                     <!-- Customer Contact -->
                                     <div v-if="record.customer_name || record.customer_email || record.customer_phone">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contact Info</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contact Info</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
                                             <div v-if="record.customer_name">{{ record.customer_name }}</div>
                                             <div v-if="record.customer_email" class="text-gray-600 dark:text-gray-400">{{ record.customer_email }}</div>
@@ -679,7 +659,7 @@ const confirmDelete = () => {
 
                                     <!-- Billing Address -->
                                     <div v-if="record.billing_address_line1 || record.billing_city">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Billing Address</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
                                             <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
                                             <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
@@ -693,24 +673,24 @@ const confirmDelete = () => {
 
                                 <!-- Right: Estimate Details -->
                                 <div class="space-y-4">
-                                    <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                         Estimate Details
                                     </h3>
 
                                     <!-- Issue Date -->
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Issue Date</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Issue Date</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">{{ formatDate(record.issue_date) }}</div>
                                     </div>
 
                                     <!-- Expiration Date -->
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Expiration Date</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Expiration Date</div>
                                         <div class="flex items-center gap-2">
                                             <div class="text-sm text-gray-900 dark:text-gray-100">{{ formatDate(record.expiration_date) }}</div>
                                             <span
                                                 v-if="isExpired && record.expiration_date"
-                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
                                             >
                                                 Expired
                                             </span>
@@ -719,13 +699,13 @@ const confirmDelete = () => {
 
                                     <!-- Version -->
                                     <div v-if="primaryVersion">
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Version</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Version</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">v{{ primaryVersion.version }}</div>
                                     </div>
 
                                     <!-- Tax Rate -->
                                     <div>
-                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Rate</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Rate</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">{{ taxRate }}%</div>
                                     </div>
                                 </div>
@@ -737,11 +717,11 @@ const confirmDelete = () => {
                                 class="border-t border-gray-200 dark:border-gray-700 pt-5 grid grid-cols-1 md:grid-cols-2 gap-4"
                             >
                                 <div v-if="record.notes">
-                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notes</div>
+                                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Notes</div>
                                     <div class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.notes }}</div>
                                 </div>
                                 <div v-if="record.terms">
-                                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Terms</div>
+                                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Terms</div>
                                     <div class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ record.terms }}</div>
                                 </div>
                             </div>
@@ -756,29 +736,138 @@ const confirmDelete = () => {
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
                         </div>
 
-                        <div v-if="assetLines.length > 0" class="overflow-x-auto">
+                        <!-- Mobile: asset cards -->
+                        <div v-if="assetLines.length > 0" class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                            <div
+                                v-for="(item, index) in assetLines"
+                                :key="`asset-m-${item.id}-${index}`"
+                                class="p-4 space-y-3"
+                            >
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <Link
+                                            v-if="assetLineAssetId(item)"
+                                            :href="route('assets.show', assetLineAssetId(item))"
+                                            class="font-semibold text-base text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ item.name }}
+                                        </Link>
+                                        <div v-else class="font-semibold text-base text-gray-900 dark:text-white">{{ item.name }}</div>
+                                        <div v-if="item.itemable?.make?.display_name" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                            {{ item.itemable.make.display_name }}
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <div class="font-semibold text-base text-gray-900 dark:text-white tabular-nums">
+                                            {{ formatCurrency(assetLineCatalogTotal(item)) }}
+                                        </div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">Line total</div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Variant</div>
+                                        <div class="text-base text-gray-900 dark:text-white">
+                                            <span v-if="assetLineVariantId(item)">{{ assetLineVariantDisplay(item) }}</span>
+                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit</div>
+                                        <div class="text-base text-gray-900 dark:text-white">
+                                            <span v-if="assetLineUnitId(item)">{{ assetLineUnitDisplay(item) }}</span>
+                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Year</div>
+                                        <div class="text-base text-gray-900 dark:text-white">{{ item.itemable?.year || '—' }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit price</div>
+                                        <div class="text-base text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(item.unit_price) }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Discount</div>
+                                        <div
+                                            class="text-base tabular-nums"
+                                            :class="item.discount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
+                                        >
+                                            {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Qty</div>
+                                        <div class="text-base text-gray-900 dark:text-white">{{ item.quantity }}</div>
+                                    </div>
+                                </div>
+                                <div
+                                    v-if="selectedOptionsForLine(item).length > 0"
+                                    class="pl-3 space-y-2 border-l-2 border-sky-200 dark:border-sky-700"
+                                >
+                                    <div
+                                        v-for="(opt, optIdx) in selectedOptionsForLine(item)"
+                                        :key="`asset-m-opt-${item.id}-${optIdx}`"
+                                        class="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                    >
+                                        <span><span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}</span>
+                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">{{ formatCurrency(opt.price) }}</span>
+                                    </div>
+                                </div>
+                                <div
+                                    v-if="item.addons && item.addons.length > 0"
+                                    class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                                >
+                                    <div
+                                        v-for="(addon, addonIdx) in item.addons"
+                                        :key="`asset-m-addon-${item.id}-${addonIdx}`"
+                                        class="flex flex-wrap items-center justify-between gap-2 text-sm"
+                                    >
+                                        <div class="text-gray-600 dark:text-gray-400 italic min-w-0">
+                                            ↳ {{ addon.name }} (× {{ addon.quantity }})
+                                        </div>
+                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">
+                                            {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
+                                <div class="flex justify-between text-base">
+                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</span>
+                                    <span class="font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(assetSubtotal) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Desktop: assets table -->
+                        <div v-if="assetLines.length > 0" class="hidden md:block overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                        <th class="w-14 px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                            Notes
-                                        </th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                     <template v-for="(item, index) in assetLines" :key="index">
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td class="px-4 py-3">
-                                                <div class="font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
-                                                <div v-if="item.itemable?.make?.display_name" class="text-xs text-gray-400 dark:text-gray-500">
+                                                <Link
+                                                    v-if="assetLineAssetId(item)"
+                                                    :href="route('assets.show', assetLineAssetId(item))"
+                                                    class="font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                                >
+                                                    {{ item.name }}
+                                                </Link>
+                                                <div v-else class="font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
+                                                <div v-if="item.itemable?.make?.display_name" class="text-sm text-gray-400 dark:text-gray-500">
                                                     {{ item.itemable.make.display_name }}
                                                 </div>
                                             </td>
@@ -807,32 +896,19 @@ const confirmDelete = () => {
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineCatalogTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-center">
-                                                <button
-                                                    v-if="lineItemNoteText(item)"
-                                                    type="button"
-                                                    class="inline-flex rounded-lg p-1.5 text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-900/30"
-                                                    title="View notes"
-                                                    @click="openLineNotesModal(item.name || 'Asset line', lineItemNoteText(item))"
-                                                >
-                                                    <span class="material-icons text-xl leading-none">visibility</span>
-                                                </button>
-                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                            </td>
                                         </tr>
                                         <tr
                                             v-for="(opt, optIdx) in selectedOptionsForLine(item)"
                                             :key="`asset-opt-${item.id}-${optIdx}`"
                                             class="bg-sky-50/70 dark:bg-sky-900/20"
                                         >
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-700 dark:text-gray-300" colspan="4">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300" colspan="4">
                                                 <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
                                             </td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
-                                            <td class="px-4 py-2 text-center text-xs text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
                                         <tr
@@ -840,26 +916,14 @@ const confirmDelete = () => {
                                             :key="`asset-addon-${index}-${addonIdx}`"
                                             class="bg-primary-50/40 dark:bg-primary-900/10"
                                         >
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="4">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
                                                 ↳ {{ addon.name }}
                                             </td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
-                                            </td>
-                                            <td class="px-4 py-2 text-center">
-                                                <button
-                                                    v-if="(addon.notes || '').trim()"
-                                                    type="button"
-                                                    class="inline-flex rounded p-1 text-primary-600 hover:bg-primary-100/80 dark:text-primary-400 dark:hover:bg-primary-900/40"
-                                                    title="View add-on notes"
-                                                    @click="openLineNotesModal(addon.name || 'Add-on', (addon.notes || '').trim())"
-                                                >
-                                                    <span class="material-icons text-base leading-none">visibility</span>
-                                                </button>
-                                                <span v-else class="text-xs text-gray-400">—</span>
                                             </td>
                                         </tr>
                                     </template>
@@ -872,7 +936,6 @@ const confirmDelete = () => {
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
                                             {{ formatCurrency(assetSubtotal) }}
                                         </td>
-                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -894,31 +957,96 @@ const confirmDelete = () => {
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
                         </div>
 
-                        <div v-if="inventoryLines.length > 0" class="overflow-x-auto">
+                        <!-- Mobile: parts cards -->
+                        <div v-if="inventoryLines.length > 0" class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                            <div
+                                v-for="(item, index) in inventoryLines"
+                                :key="`inv-m-${item.id}-${index}`"
+                                class="p-4 space-y-3"
+                            >
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-semibold text-base text-gray-900 dark:text-white">{{ item.name }}</div>
+                                        <div v-if="item.itemable?.sku" class="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
+                                            SKU {{ item.itemable.sku }}
+                                        </div>
+                                    </div>
+                                    <div class="text-right shrink-0">
+                                        <div class="font-semibold text-base text-gray-900 dark:text-white tabular-nums">
+                                            {{ formatCurrency(lineBaseTotal(item)) }}
+                                        </div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400">Line total</div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit price</div>
+                                        <div class="text-base text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(item.unit_price) }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Discount</div>
+                                        <div
+                                            class="text-base tabular-nums"
+                                            :class="item.discount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
+                                        >
+                                            {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Qty</div>
+                                        <div class="text-base text-gray-900 dark:text-white">{{ item.quantity }}</div>
+                                    </div>
+                                </div>
+                                <div
+                                    v-if="item.addons && item.addons.length > 0"
+                                    class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                                >
+                                    <div
+                                        v-for="(addon, addonIdx) in item.addons"
+                                        :key="`inv-m-addon-${item.id}-${addonIdx}`"
+                                        class="flex flex-wrap items-start justify-between gap-2 text-sm"
+                                    >
+                                        <div class="text-gray-600 dark:text-gray-400 italic min-w-0">
+                                            ↳ {{ addon.name }} (× {{ addon.quantity }})
+                                        </div>
+                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">
+                                            {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
+                                <div class="flex justify-between text-base">
+                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</span>
+                                    <span class="font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(inventorySubtotal) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Desktop: parts table -->
+                        <div v-if="inventoryLines.length > 0" class="hidden md:block overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
+                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                     <template v-for="(item, index) in inventoryLines" :key="index">
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                                             <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.name }}</td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-xs">{{ item.itemable?.sku || '—' }}</td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-sm">{{ item.itemable?.sku || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs truncate max-w-[160px]">{{ item.notes || '—' }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
                                         <tr
@@ -926,16 +1054,15 @@ const confirmDelete = () => {
                                             :key="`inv-addon-${index}-${addonIdx}`"
                                             class="bg-primary-50/40 dark:bg-primary-900/10"
                                         >
-                                            <td class="pl-10 pr-4 py-2 text-xs text-gray-600 dark:text-gray-400 italic" colspan="2">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="2">
                                                 ↳ {{ addon.name }}
                                             </td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-xs text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-xs font-medium text-gray-700 dark:text-gray-300">
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
                                                 {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
                                             </td>
-                                            <td class="px-4 py-2 text-xs text-gray-400">{{ addon.notes || '—' }}</td>
                                         </tr>
                                     </template>
                                 </tbody>
@@ -947,7 +1074,6 @@ const confirmDelete = () => {
                                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
                                             {{ formatCurrency(inventorySubtotal) }}
                                         </td>
-                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -1005,7 +1131,7 @@ const confirmDelete = () => {
                             </button>
 
                             <!-- Sent at info -->
-                            <div v-if="record.sent_at" class="text-xs text-gray-500 dark:text-gray-400 text-center">
+                            <div v-if="record.sent_at" class="text-sm text-gray-500 dark:text-gray-400 text-center">
                                 Last sent {{ formatDateTime(record.sent_at) }}
                             </div>
 
@@ -1016,7 +1142,7 @@ const confirmDelete = () => {
                                 :disabled="revisionForm.processing"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors"
                             >
-                                <span class="material-icons text-base text-sm">content_copy</span>
+                                <span class="material-icons text-base">content_copy</span>
                                 {{ revisionForm.processing ? 'Creating Revision…' : 'Create Revision' }}
                             </button>
 
@@ -1026,7 +1152,7 @@ const confirmDelete = () => {
                                 :href="route('estimates.show', record.revision.id)"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
                             >
-                                <span class="material-icons text-base text-sm">arrow_forward</span>
+                                <span class="material-icons text-base">arrow_forward</span>
                                 View Latest Version
                             </Link>
 
@@ -1117,11 +1243,11 @@ const confirmDelete = () => {
 
                             <!-- Stored totals from version (fallback / source of truth) -->
                             <div v-if="primaryVersion?.total != null" class="pt-3 border-t border-dashed border-gray-200 dark:border-gray-600 space-y-1.5">
-                                <div class="flex justify-between items-center text-xs">
+                                <div class="flex justify-between items-center text-sm">
                                     <span class="text-gray-400 dark:text-gray-500">Saved Subtotal</span>
                                     <span class="text-gray-500 dark:text-gray-400">{{ formatCurrency(primaryVersion.subtotal) }}</span>
                                 </div>
-                                <div class="flex justify-between items-center text-xs">
+                                <div class="flex justify-between items-center text-sm">
                                     <span class="text-gray-400 dark:text-gray-500">Saved Total</span>
                                     <span class="text-gray-500 dark:text-gray-400">{{ formatCurrency(primaryVersion.total) }}</span>
                                 </div>
@@ -1158,7 +1284,7 @@ const confirmDelete = () => {
                                     <span class="text-gray-900 dark:text-gray-100">{{ formatDate(record.expiration_date) }}</span>
                                     <span
                                         v-if="isExpired && record.expiration_date"
-                                        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                        class="inline-flex items-center px-1.5 py-0.5 rounded text-sm font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
                                     >
                                         Expired
                                     </span>
@@ -1188,7 +1314,7 @@ const confirmDelete = () => {
                                 v-if="canCreateDeal"
                                 class="mt-3 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800"
                             >
-                                <p class="text-xs font-semibold text-primary-800 dark:text-primary-200 uppercase tracking-wide mb-1">
+                                <p class="text-sm font-semibold text-primary-800 dark:text-primary-200 uppercase tracking-wide mb-1">
                                     Next step
                                 </p>
                                 <p class="text-sm text-primary-900 dark:text-primary-100 mb-2">
@@ -1204,7 +1330,7 @@ const confirmDelete = () => {
                                 </button>
                                 <Link
                                     :href="route('transactions.create', { estimate_id: record.id })"
-                                    class="mt-2 block w-full text-center text-xs font-medium text-primary-700 underline hover:text-primary-900 dark:text-primary-300 dark:hover:text-primary-100"
+                                    class="mt-2 block w-full text-center text-sm font-medium text-primary-700 underline hover:text-primary-900 dark:text-primary-300 dark:hover:text-primary-100"
                                 >
                                     Create transaction (form)
                                 </Link>
@@ -1213,7 +1339,7 @@ const confirmDelete = () => {
                                 v-else-if="hasDeal"
                                 class="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600"
                             >
-                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
+                                <p class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-1">
                                     Deal
                                 </p>
                                 <Link
@@ -1244,7 +1370,7 @@ const confirmDelete = () => {
                 </p>
                 <p
                     v-if="page.props.tenant_sandbox_mode"
-                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
                 >
                     <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
                     <span>Uses your login email for the message and your staff user profile phone for SMS (matched by email).</span>
@@ -1289,7 +1415,7 @@ const confirmDelete = () => {
                             </span>
                             <span
                                 v-if="!estimateApprovalSms.offered && estimateApprovalSms.hint"
-                                class="mt-1 block text-xs text-amber-800 dark:text-amber-200"
+                                class="mt-1 block text-sm text-amber-800 dark:text-amber-200"
                             >
                                 {{ estimateApprovalSms.hint }}
                             </span>
@@ -1373,28 +1499,6 @@ const confirmDelete = () => {
                         Create transaction in form instead
                     </Link>
                 </p>
-            </div>
-        </Modal>
-
-        <!-- Line notes (asset / line item description) -->
-        <Modal :show="showLineNotesModal" max-width="lg" @close="closeLineNotesModal">
-            <div class="p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    {{ lineNotesModalTitle }}
-                </h3>
-                <p class="mt-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</p>
-                <div class="mt-3 max-h-[min(60vh,24rem)] overflow-y-auto text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">
-                    {{ lineNotesModalBody }}
-                </div>
-                <div class="mt-6 flex justify-end">
-                    <button
-                        type="button"
-                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                        @click="closeLineNotesModal"
-                    >
-                        Close
-                    </button>
-                </div>
             </div>
         </Modal>
 

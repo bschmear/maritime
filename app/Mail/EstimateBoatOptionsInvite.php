@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Mail;
 
 use App\Domain\Estimate\Models\Estimate;
+use App\Mail\Concerns\RepliesToEstimateSalesperson;
 use App\Models\AccountSettings;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -16,6 +17,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class EstimateBoatOptionsInvite extends Mailable
 {
+    use RepliesToEstimateSalesperson;
     use SerializesModels;
 
     /**
@@ -33,6 +35,7 @@ class EstimateBoatOptionsInvite extends Mailable
 
         return new Envelope(
             subject: "Boat options — {$this->estimate->display_name} — {$companyName}",
+            replyTo: $this->replyToSalespersonOnEstimate(),
         );
     }
 

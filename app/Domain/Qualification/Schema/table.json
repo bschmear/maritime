@@ -18,5 +18,11 @@
       { "key": "converted_at", "label": "Converted At", "sortable": true },
       { "key": "created_at", "label": "Created", "sortable": true }
     ],
-    "filters": []
+    "filters": [
+        {
+            "field": "status",
+            "label": "Status",
+            "type": "multi-select"
+        }
+    ]
   }
