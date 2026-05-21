@@ -353,6 +353,43 @@ class PublicController extends Controller
             ])
             ->firstOrFail();
 
+        $leaf = $estimate->latestRevisionLeaf();
+        if ($leaf->getKey() !== $estimate->getKey()) {
+            $leafStatus = (int) $leaf->status;
+            if ($leafStatus === EstimateStatus::PendingApproval->id()) {
+                return redirect()->route('estimates.review', ['uuid' => $leaf->uuid]);
+            }
+            if ($leafStatus === EstimateStatus::Draft->id()) {
+                $account = AccountSettings::getCurrent();
+                $logoUrl = $account->logo_url ?? null;
+
+                return Inertia::render('Tenant/Public/EstimateReviewSuperseded', [
+                    'variant' => 'superseded',
+                    'estimateDisplayName' => $estimate->display_name,
+                    'expirationDateLabel' => null,
+                    'salesperson' => $this->salespersonPayloadForPublicEstimate($estimate),
+                    'account' => $account,
+                    'logoUrl' => $logoUrl,
+                ]);
+            }
+
+            return redirect()->route('estimates.review', ['uuid' => $leaf->uuid]);
+        }
+
+        if ($this->shouldShowPublicEstimateReviewExpiredScreen($estimate)) {
+            $account = AccountSettings::getCurrent();
+            $logoUrl = $account->logo_url ?? null;
+
+            return Inertia::render('Tenant/Public/EstimateReviewSuperseded', [
+                'variant' => 'expired',
+                'estimateDisplayName' => $estimate->display_name,
+                'expirationDateLabel' => $estimate->expiration_date?->format('F j, Y'),
+                'salesperson' => $this->salespersonPayloadForPublicEstimate($estimate),
+                'account' => $account,
+                'logoUrl' => $logoUrl,
+            ]);
+        }
+
         $account = AccountSettings::getCurrent();
         $logoUrl = $account->logo_url ?? null;
 
@@ -383,6 +420,12 @@ class PublicController extends Controller
 
         if ($estimate->status == EstimateStatus::Approved->id() || $estimate->approved_at) {
             return back();
+        }
+
+        if ($this->estimateIsExpiredForPublicReview($estimate)) {
+            throw ValidationException::withMessages([
+                'consent' => 'This estimate has expired and can no longer be approved. Please contact us to extend it or request a new estimate.',
+            ]);
         }
 
         $request->validate([
@@ -564,7 +607,7 @@ class PublicController extends Controller
         }
 
         if (($lineItem->asset_options_fill_mode ?? 'staff') !== 'customer') {
-            abort(403);
+            abort(403, 'Boat options are not open for customer selection on this line.');
         }
 
         if ($lineItem->customer_asset_options_completed_at) {
@@ -1609,6 +1652,59 @@ class PublicController extends Controller
                 }
             }
         }
+    }
+
+    private function estimateIsExpiredForPublicReview(Estimate $estimate): bool
+    {
+        if ((int) $estimate->status === EstimateStatus::Expired->id()) {
+            return true;
+        }
+
+        $exp = $estimate->expiration_date;
+        if ($exp === null) {
+            return false;
+        }
+
+        return ! $exp->copy()->endOfDay()->isFuture();
+    }
+
+    /**
+     * Show the expired / invalid public screen (not when already approved or declined — those have their own views).
+     */
+    private function shouldShowPublicEstimateReviewExpiredScreen(Estimate $estimate): bool
+    {
+        if (! $this->estimateIsExpiredForPublicReview($estimate)) {
+            return false;
+        }
+
+        if ((int) $estimate->status === EstimateStatus::Approved->id() || $estimate->approved_at) {
+            return false;
+        }
+
+        if ((int) $estimate->status === EstimateStatus::Declined->id() || $estimate->declined_at) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array{name: string, email: ?string, phone: ?string}|null
+     */
+    private function salespersonPayloadForPublicEstimate(Estimate $estimate): ?array
+    {
+        $estimate->loadMissing('user');
+        if (! $estimate->user_id || ! $estimate->user) {
+            return null;
+        }
+
+        $u = $estimate->user;
+
+        return [
+            'name' => $u->display_name_or_full_name,
+            'email' => $u->email,
+            'phone' => $u->office_phone ?: $u->mobile_phone ?: null,
+        ];
     }
 
     private function buildLineItems(Estimate $estimate): array

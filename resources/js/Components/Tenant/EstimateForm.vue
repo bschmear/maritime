@@ -586,7 +586,8 @@ const setAssetOptionSingle = (item, optionId, valueId) => {
 // ==============================
 onMounted(() => {
     if (props.opportunityLineItems) {
-        (props.opportunityLineItems.assets || []).forEach((asset) => {
+        const opportunityAssets = props.opportunityLineItems.assets || [];
+        opportunityAssets.forEach((asset, assetIdx) => {
             const desc = (asset.description || '').trim() || '';
             const pivotVid = asset.pivot?.asset_variant_id ?? null;
             const vRel = asset.asset_variant ?? asset.assetVariant;
@@ -628,7 +629,7 @@ onMounted(() => {
                 unit_display_name: asset.asset_unit?.display_name || '',
                 asset_description: desc,
                 catalog_description: catalogDesc,
-                line_position: null,
+                line_position: assetIdx,
                 asset_option_selections: (asset.opportunity_selected_options || []).map((r) => ({
                     option_id: r.option_id,
                     option_value_id: r.option_value_id,
@@ -637,7 +638,7 @@ onMounted(() => {
             });
         });
 
-        (props.opportunityLineItems.inventoryItems || []).forEach((item) => {
+        (props.opportunityLineItems.inventoryItems || []).forEach((item, invIdx) => {
             inventoryItems.value.push({
                 itemable_type: 'App\\Domain\\InventoryItem\\Models\\InventoryItem',
                 itemable_id: item.id,
@@ -656,6 +657,7 @@ onMounted(() => {
                     notes: a.notes || '',
                     metadata: a.metadata ?? null,
                 })),
+                line_position: opportunityAssets.length + invIdx,
             });
         });
     }
@@ -712,6 +714,7 @@ onMounted(() => {
             } else if (lineItem.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
                 lineData.inventory_item_id = lineItem.itemable_id;
                 lineData.sku = lineItem.itemable?.sku || '';
+                lineData.line_position = lineItem.position;
                 inventoryItems.value.push(lineData);
             }
         });
@@ -725,62 +728,105 @@ onMounted(() => {
 const submit = () => {
     if (props.mode === 'view') return;
 
-    const lineItemsData = [];
-
-    assetItems.value.forEach((item, idx) => {
-        lineItemsData.push({
-            itemable_type: item.itemable_type,
-            itemable_id: item.itemable_id,
-            name: item.name,
-            quantity: Number(item.quantity) || 1,
-            unit_price: Number(item.unit_price) || 0,
-            discount: Number(item.discount) || 0,
-            notes: item.notes || '',
-            catalog_description: (item.catalog_description || '').trim() || null,
-            asset_variant_id: item.asset_variant_id || null,
-            asset_unit_id: item.asset_unit_id || null,
-            asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
-            position: idx,
-            addons: (item.addons || []).map((addon) => ({
-                addon_id: addon.addon_id,
-                name: addon.name,
-                price: Number(addon.price) || 0,
-                quantity: Number(addon.quantity) || 1,
-                notes: addon.notes || '',
-            })),
-        });
+    const toAssetLinePayload = (item) => ({
+        itemable_type: item.itemable_type,
+        itemable_id: item.itemable_id,
+        name: item.name,
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.unit_price) || 0,
+        discount: Number(item.discount) || 0,
+        notes: item.notes || '',
+        catalog_description: (item.catalog_description || '').trim() || null,
+        asset_variant_id: item.asset_variant_id || null,
+        asset_unit_id: item.asset_unit_id || null,
+        asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
+        addons: (item.addons || []).map((addon) => ({
+            addon_id: addon.addon_id,
+            name: addon.name,
+            price: Number(addon.price) || 0,
+            quantity: Number(addon.quantity) || 1,
+            notes: addon.notes || '',
+        })),
     });
 
-    inventoryItems.value.forEach((item, idx) => {
-        lineItemsData.push({
-            itemable_type: item.itemable_type,
-            itemable_id: item.itemable_id,
-            name: item.name,
-            quantity: Number(item.quantity) || 1,
-            unit_price: Number(item.unit_price) || 0,
-            discount: Number(item.discount) || 0,
-            notes: item.notes || '',
-            catalog_description: null,
-            asset_variant_id: null,
-            asset_unit_id: null,
-            position: assetItems.value.length + idx,
-            addons: (item.addons || []).map((addon) => ({
-                addon_id: addon.addon_id,
-                name: addon.name,
-                price: Number(addon.price) || 0,
-                quantity: Number(addon.quantity) || 1,
-                notes: addon.notes || '',
-            })),
-        });
+    const toInventoryLinePayload = (item) => ({
+        itemable_type: item.itemable_type,
+        itemable_id: item.itemable_id,
+        name: item.name,
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.unit_price) || 0,
+        discount: Number(item.discount) || 0,
+        notes: item.notes || '',
+        catalog_description: null,
+        asset_variant_id: null,
+        asset_unit_id: null,
+        addons: (item.addons || []).map((addon) => ({
+            addon_id: addon.addon_id,
+            name: addon.name,
+            price: Number(addon.price) || 0,
+            quantity: Number(addon.quantity) || 1,
+            notes: addon.notes || '',
+        })),
     });
 
-    const selected_asset_options = assetItems.value.map((item, idx) => ({
-        line_position: item.line_position !== null && item.line_position !== undefined ? item.line_position : idx,
-        selections:
-            item.asset_options_fill_mode === 'customer'
-                ? []
-                : [...(item.asset_option_selections || [])],
+    const explicitPositions = [
+        ...assetItems.value.map((i) => i.line_position),
+        ...inventoryItems.value.map((i) => i.line_position),
+    ].filter((p) => p !== null && p !== undefined);
+
+    const maxExplicit = explicitPositions.length ? Math.max(...explicitPositions.map(Number)) : -1;
+
+    let synthKey = maxExplicit + 1;
+    const sortKeyForItem = (item, fallbackKey) => {
+        if (item.line_position !== null && item.line_position !== undefined) {
+            return Number(item.line_position);
+        }
+        if (explicitPositions.length === 0) {
+            return fallbackKey;
+        }
+        return synthKey++;
+    };
+
+    const assetRows = assetItems.value.map((item, idx) => ({
+        kind: 'asset',
+        item,
+        sortKey: sortKeyForItem(item, idx),
     }));
+    const inventoryRows = inventoryItems.value.map((item, idx) => ({
+        kind: 'inventory',
+        item,
+        sortKey: sortKeyForItem(item, assetItems.value.length + idx),
+    }));
+
+    const mergedRows = [...assetRows, ...inventoryRows].sort((a, b) => {
+        if (a.sortKey !== b.sortKey) {
+            return a.sortKey - b.sortKey;
+        }
+        if (a.kind === b.kind) {
+            return 0;
+        }
+        return a.kind === 'asset' ? -1 : 1;
+    });
+
+    const lineItemsData = mergedRows.map((row) =>
+        row.kind === 'asset' ? toAssetLinePayload(row.item) : toInventoryLinePayload(row.item),
+    );
+
+    const selected_asset_options = mergedRows
+        .map((row, index) => {
+            if (row.kind !== 'asset') {
+                return null;
+            }
+            const item = row.item;
+            return {
+                line_position: index,
+                selections:
+                    item.asset_options_fill_mode === 'customer'
+                        ? []
+                        : [...(item.asset_option_selections || [])],
+            };
+        })
+        .filter(Boolean);
 
     form.transform((data) => {
         const transformed = { ...data, line_items: lineItemsData, selected_asset_options };

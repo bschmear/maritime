@@ -127,6 +127,27 @@ class Estimate extends Model
     }
 
     /**
+     * Follow the revision chain (each row's child where revised_from_id = this id) to the newest estimate.
+     */
+    public function latestRevisionLeaf(): self
+    {
+        $leaf = $this;
+        $guard = 0;
+        while ($guard++ < 100) {
+            $next = static::query()
+                ->where('revised_from_id', $leaf->getKey())
+                ->orderByDesc('id')
+                ->first();
+            if ($next === null) {
+                return $leaf;
+            }
+            $leaf = $next;
+        }
+
+        return $leaf;
+    }
+
+    /**
      * Locked when sent or pending approval — must create a revision to make changes.
      */
     public function getIsLockedAttribute(): bool
