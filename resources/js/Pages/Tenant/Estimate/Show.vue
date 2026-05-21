@@ -228,18 +228,27 @@ const lineTotal = (item) => {
     return lineBaseTotal(item) + addonsTotal;
 };
 
+const lineItemKey = (item) => {
+    if (item == null) {
+        return null;
+    }
+    const id = item.id ?? item.line_item_id;
+    return id == null ? null : String(id);
+};
+
 const selectedOptionsByLineItemId = computed(() => {
     const rows = props.record?.selected_asset_options ?? props.record?.selectedAssetOptions ?? [];
     const map = {};
     for (const row of rows) {
-        const lid = row.transaction_line_item_id;
+        const lid = row.transaction_line_item_id ?? row.transactionLineItemId;
         if (lid == null) {
             continue;
         }
-        if (! map[lid]) {
-            map[lid] = [];
+        const key = String(lid);
+        if (! map[key]) {
+            map[key] = [];
         }
-        map[lid].push({
+        map[key].push({
             option_name: row.option_name,
             value_label: row.value_label,
             price: Number(row.price ?? 0),
@@ -248,7 +257,18 @@ const selectedOptionsByLineItemId = computed(() => {
     return map;
 });
 
-const selectedOptionsForLine = (item) => selectedOptionsByLineItemId.value[item.id] ?? [];
+const selectedOptionsForLine = (item) => {
+    const nested = item.selected_asset_options ?? item.selectedAssetOptions;
+    if (Array.isArray(nested) && nested.length > 0) {
+        return nested.map((row) => ({
+            option_name: row.option_name,
+            value_label: row.value_label,
+            price: Number(row.price ?? 0),
+        }));
+    }
+    const key = lineItemKey(item);
+    return key != null ? (selectedOptionsByLineItemId.value[key] ?? []) : [];
+};
 
 const selectedOptionLabel = (opt) => {
     const name = String(opt.option_name ?? '').trim();
@@ -258,6 +278,31 @@ const selectedOptionLabel = (opt) => {
     }
     return name || val || 'Option';
 };
+
+const customerBoatOptionSignoffsList = computed(() =>
+    props.record?.customer_boat_option_signoffs ?? props.record?.customerBoatOptionSignoffs ?? [],
+);
+
+/** Asset lines where the customer completed the secure boat-options form (mirrors Opportunity “Feature requests”). */
+const boatOptionCustomerSubmissions = computed(() => {
+    const signoffs = customerBoatOptionSignoffsList.value;
+    return assetLines.value
+        .filter((li) => li.customer_asset_options_completed_at)
+        .map((li) => {
+            const key = lineItemKey(li);
+            const signoff =
+                key == null
+                    ? null
+                    : signoffs.find(
+                          (s) => String(s.transaction_line_item_id ?? s.transactionLineItemId) === key,
+                      );
+            return {
+                line: li,
+                signoff,
+                options: selectedOptionsForLine(li),
+            };
+        });
+});
 
 const assetOptionPremiumSubtotal = computed(() =>
     assetLines.value.reduce((sum, item) => {
@@ -605,13 +650,26 @@ const confirmDelete = () => {
                         </div>
 
                         <div class="p-6 space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                                <!-- Left: Customer & Lead -->
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Customer & Lead
-                                    </h3>
+                            <!-- Contact & Lead — full width (stacked above estimate details, mirrors EstimateForm) -->
+                            <div class="space-y-4">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    Contact & Lead
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                    <!-- Contact -->
+                                    <div v-if="record.contact_id">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.contact_id?.label || 'Contact' }}
+                                        </div>
+                                        <Link
+                                            v-if="record.contact"
+                                            :href="route('contacts.show', record.contact_id)"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ record.contact.display_name }}
+                                        </Link>
+                                        <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
+                                    </div>
 
                                     <!-- Customer -->
                                     <div>
@@ -627,27 +685,39 @@ const confirmDelete = () => {
                                     </div>
 
                                     <!-- Opportunity -->
-                                    <div v-if="record.opportunity_id">
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Opportunity</div>
-                                        <Link
-                                            v-if="record.opportunity"
-                                            :href="route('opportunities.show', record.opportunity_id)"
-                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                        >
-                                            {{ record.opportunity.display_name }}
-                                        </Link>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.opportunity_id?.label || 'Opportunity' }}
+                                        </div>
+                                        <template v-if="record.opportunity_id">
+                                            <Link
+                                                v-if="record.opportunity"
+                                                :href="route('opportunities.show', record.opportunity_id)"
+                                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                            >
+                                                {{ record.opportunity.display_name }}
+                                            </Link>
+                                            <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
+                                        </template>
                                         <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
                                     </div>
 
                                     <!-- Salesperson -->
                                     <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Salesperson</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.user_id?.label || 'Salesperson' }}
+                                        </div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">
-                                            {{ record.salesperson?.display_name ?? record.user?.display_name ?? '—' }}
+                                            {{ record.user?.display_name ?? record.salesperson?.display_name ?? '—' }}
                                         </div>
                                     </div>
+                                </div>
 
-                                    <!-- Customer Contact -->
+                                <div
+                                    v-if="record.customer_name || record.customer_email || record.customer_phone || record.billing_address_line1 || record.billing_city"
+                                    class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2"
+                                >
+                                    <!-- Estimate customer / billing contact (name, email, phone on record) -->
                                     <div v-if="record.customer_name || record.customer_email || record.customer_phone">
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Contact Info</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100 space-y-0.5">
@@ -670,23 +740,28 @@ const confirmDelete = () => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- Right: Estimate Details -->
-                                <div class="space-y-4">
-                                    <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
-                                        Estimate Details
-                                    </h3>
-
+                            <!-- Estimate Details — full width row below -->
+                            <div class="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    Estimate Details
+                                </h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <!-- Issue Date -->
                                     <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Issue Date</div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.issue_date?.label || 'Issue Date' }}
+                                        </div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">{{ formatDate(record.issue_date) }}</div>
                                     </div>
 
                                     <!-- Expiration Date -->
                                     <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Expiration Date</div>
-                                        <div class="flex items-center gap-2">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.expiration_date?.label || 'Expiration Date' }}
+                                        </div>
+                                        <div class="flex items-center gap-2 flex-wrap">
                                             <div class="text-sm text-gray-900 dark:text-gray-100">{{ formatDate(record.expiration_date) }}</div>
                                             <span
                                                 v-if="isExpired && record.expiration_date"
@@ -697,16 +772,48 @@ const confirmDelete = () => {
                                         </div>
                                     </div>
 
+                                    <!-- Tax Rate -->
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.tax_rate?.label || 'Tax Rate' }}
+                                        </div>
+                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ taxRate }}%</div>
+                                    </div>
+
+                                    <!-- Subsidiary -->
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.subsidiary_id?.label || 'Subsidiary' }}
+                                        </div>
+                                        <Link
+                                            v-if="record.subsidiary_id && record.subsidiary"
+                                            :href="route('subsidiaries.show', record.subsidiary_id)"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ record.subsidiary.display_name }}
+                                        </Link>
+                                        <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
+                                    </div>
+
+                                    <!-- Location -->
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                            {{ fieldsSchema?.location_id?.label || 'Location' }}
+                                        </div>
+                                        <Link
+                                            v-if="record.location_id && record.location"
+                                            :href="route('locations.show', record.location_id)"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ record.location.display_name }}
+                                        </Link>
+                                        <div v-else class="text-sm text-gray-400 dark:text-gray-500">—</div>
+                                    </div>
+
                                     <!-- Version -->
                                     <div v-if="primaryVersion">
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Version</div>
                                         <div class="text-sm text-gray-900 dark:text-gray-100">v{{ primaryVersion.version }}</div>
-                                    </div>
-
-                                    <!-- Tax Rate -->
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Rate</div>
-                                        <div class="text-sm text-gray-900 dark:text-gray-100">{{ taxRate }}%</div>
                                     </div>
                                 </div>
                             </div>
@@ -946,6 +1053,90 @@ const confirmDelete = () => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                             </svg>
                             <p class="text-sm text-gray-400 dark:text-gray-500">No assets on this estimate</p>
+                        </div>
+                    </div>
+
+                    <!-- Customer boat option submissions (secure form — same idea as Opportunity feature requests) -->
+                    <div
+                        v-if="boatOptionCustomerSubmissions.length > 0"
+                        class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden"
+                    >
+                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Customer boat options</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                Signed submissions from the customer boat-options link. Selections are stored on the estimate line and included in totals — review here, then use
+                                <span class="font-medium text-gray-700 dark:text-gray-300">Send for Approval</span>
+                                when the estimate is ready.
+                            </p>
+                        </div>
+                        <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <div
+                                v-for="(sub, subIdx) in boatOptionCustomerSubmissions"
+                                :key="`boat-opt-sub-${lineItemKey(sub.line) ?? subIdx}`"
+                                class="p-6 space-y-4"
+                            >
+                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <div class="font-semibold text-base text-gray-900 dark:text-white">
+                                            {{ sub.line.name || 'Boat line' }}
+                                        </div>
+                                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                            <span v-if="assetLineVariantId(sub.line)">{{ assetLineVariantDisplay(sub.line) }}</span>
+                                            <span v-if="assetLineVariantId(sub.line) && assetLineUnitId(sub.line)"> · </span>
+                                            <span v-if="assetLineUnitId(sub.line)">{{ assetLineUnitDisplay(sub.line) }}</span>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="inline-flex shrink-0 items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-200"
+                                    >
+                                        Customer signed
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Submitted</div>
+                                        <div class="text-gray-900 dark:text-gray-100">
+                                            {{ formatDateTime(sub.signoff?.signed_at ?? sub.line.customer_asset_options_completed_at) }}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Signer</div>
+                                        <div class="text-gray-900 dark:text-gray-100">
+                                            {{ sub.signoff?.signer_name ?? sub.line.customer_asset_options_signer_name ?? '—' }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div
+                                    v-if="sub.options.length > 0"
+                                    class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-900/25 px-3 py-3"
+                                >
+                                    <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wide mb-2">
+                                        Selected options
+                                    </div>
+                                    <ul class="space-y-2">
+                                        <li
+                                            v-for="(row, oidx) in sub.options"
+                                            :key="`boat-opt-row-${subIdx}-${oidx}`"
+                                            class="flex flex-wrap items-baseline justify-between gap-2 text-sm text-gray-800 dark:text-gray-200"
+                                        >
+                                            <span>
+                                                <span class="font-medium text-gray-900 dark:text-white">{{ row.option_name }}</span>
+                                                <span class="text-gray-500 dark:text-gray-400"> → </span>
+                                                <span>{{ row.value_label }}</span>
+                                            </span>
+                                            <span class="tabular-nums text-sm text-gray-500 dark:text-gray-400 shrink-0">
+                                                {{ formatCurrency(row.price) }}
+                                            </span>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div
+                                    v-else
+                                    class="rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-900/15 px-3 py-2 text-sm text-amber-900 dark:text-amber-100"
+                                >
+                                    Submission is on file, but no option rows were found for this line. Refresh the page; if this persists, the line may need to be re-saved from the estimate editor.
+                                </div>
+                            </div>
                         </div>
                     </div>
 

@@ -17,7 +17,7 @@ trait RepliesToEstimateSalesperson
      */
     protected function replyToSalespersonOnEstimate(): array
     {
-        $user = $this->estimate->salesperson;
+        $user = $this->estimate->user ?? $this->estimate->salesperson;
 
         if ($user === null) {
             return [];

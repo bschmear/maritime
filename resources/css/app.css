@@ -220,6 +220,14 @@ td.sticky {
         padding: 0 !important;
     }
 
+    #estimate-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     #consignment-agreement-print-root {
         position: static !important;
         width: 100%;
@@ -383,6 +391,8 @@ td.sticky {
     #invoice-print-root *,
     #service-ticket-print-root,
     #service-ticket-print-root *,
+    #estimate-print-root,
+    #estimate-print-root *,
     #boat-show-public-print-root,
     #boat-show-public-print-root *,
     #delivery-print-root,

@@ -270,6 +270,9 @@ class EstimateController extends RecordController
                 'itemable',
                 'assetVariant',
                 'assetUnit',
+                'selectedAssetOptions' => fn ($q3) => $q3
+                    ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+                    ->orderBy('id'),
             ]),
         ]);
         $relationships['revision'] = fn ($q) => $q->select('id', 'sequence', 'revised_from_id');
@@ -284,6 +287,10 @@ class EstimateController extends RecordController
         $relationships['selectedAssetOptions'] = fn ($q) => $q
             ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
             ->orderBy('id');
+
+        $relationships['customerBoatOptionSignoffs'] = fn ($q) => $q
+            ->select(['id', 'estimate_id', 'transaction_line_item_id', 'signer_name', 'signed_at', 'ip_address'])
+            ->orderByDesc('signed_at');
 
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
@@ -326,6 +333,9 @@ class EstimateController extends RecordController
                 'itemable',
                 'assetVariant',
                 'assetUnit',
+                'selectedAssetOptions' => fn ($q3) => $q3
+                    ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+                    ->orderBy('id'),
             ]),
         ]);
         $relationships['contact'] = fn ($q) => $q->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'phone']);
@@ -384,7 +394,7 @@ class EstimateController extends RecordController
         $estimate = RecordModel::with([
             'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
             'primaryVersion',
-            'salesperson',
+            'user',
         ])->findOrFail($id);
 
         $wasPendingApproval = (int) $estimate->status === EstimateStatus::PendingApproval->id();
@@ -472,7 +482,7 @@ class EstimateController extends RecordController
      */
     public function sendBoatOptionsInvite(Request $request, $id)
     {
-        $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems', 'salesperson'])->findOrFail($id);
+        $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems', 'user'])->findOrFail($id);
 
         $customerEmail = $estimate->customer?->email;
         if (! $customerEmail) {
@@ -526,6 +536,8 @@ class EstimateController extends RecordController
     {
         $original = RecordModel::with([
             'primaryVersion.lineItems.addons',
+            'primaryVersion.lineItems.selectedAssetOptions',
+            'customer',
         ])->findOrFail($id);
 
         // Already has a revision — navigate to it
@@ -535,52 +547,99 @@ class EstimateController extends RecordController
                 ->with('info', 'A revision already exists for this estimate.');
         }
 
-        // Create the new revision estimate
-        $revision = RecordModel::create([
-            'customer_id' => $original->customer_id,
-            'user_id' => $original->user_id,
-            'opportunity_id' => $original->opportunity_id,
+        // Copy the full estimate row from raw attributes. `Model::create([...])` can drop keys when
+        // `guarded = ['id']` combines with `isGuardableColumn()` (columns missing from the schema
+        // cache), which previously stripped contact/subsidiary/location and billing fields.
+        $revision = $original->replicateQuietly([
+            'uuid',
+            'sequence',
+            'primary_version_id',
+        ]);
+        $revision->unsetRelations();
+
+        if (! $revision->contact_id && $original->customer?->contact_id) {
+            $revision->contact_id = (int) $original->customer->contact_id;
+        }
+
+        $revision->forceFill([
             'status' => EstimateStatus::Draft->id(),
-            'tax_rate' => $original->tax_rate,
-            'notes' => $original->notes,
-            'terms' => $original->terms,
-            'issue_date' => now()->toDateString(),
             'revised_from_id' => $original->id,
+            'sent_at' => null,
+            'signed_at' => null,
+            'signed_name' => null,
+            'signed_email' => null,
+            'signed_ip' => null,
+            'signed_user_agent' => null,
+            'signature_file' => null,
+            'signature_hash' => null,
+            'paper_signature_document_id' => null,
+            'approved_at' => null,
+            'approval_note' => null,
+            'declined_at' => null,
+            'decline_reason' => null,
+            'transaction_id' => null,
         ]);
 
-        // Copy the primary version + all line items + addons
+        $revision->save();
+
         if ($original->primaryVersion) {
-            $newVersion = \App\Domain\Estimate\Models\EstimateVersion::create([
+            $pv = $original->primaryVersion;
+            $newVersion = EstimateVersion::create([
                 'estimate_id' => $revision->id,
                 'version' => 1,
                 'is_primary' => true,
-                'tax_rate' => $original->primaryVersion->tax_rate,
-                'subtotal' => $original->primaryVersion->subtotal,
-                'tax' => $original->primaryVersion->tax,
-                'total' => $original->primaryVersion->total,
+                'copied_from_version_id' => $pv->id,
+                'status' => 'draft',
+                'tax_rate' => $pv->tax_rate,
+                'subtotal' => $pv->subtotal,
+                'tax' => $pv->tax,
+                'total' => $pv->total,
+                'sent_at' => null,
+                'viewed_at' => null,
+                'approved_at' => null,
+                'rejected_at' => null,
             ]);
 
             $revision->update(['primary_version_id' => $newVersion->id]);
 
-            foreach ($original->primaryVersion->lineItems as $item) {
-                $itemData = $item->toArray();
-                unset(
-                    $itemData['id'],
-                    $itemData['parent_type'],
-                    $itemData['parent_id'],
-                    $itemData['created_at'],
-                    $itemData['updated_at'],
-                );
-                $itemData['parent_type'] = \App\Domain\Estimate\Models\EstimateVersion::class;
-                $itemData['parent_id'] = $newVersion->id;
+            foreach ($pv->lineItems as $item) {
+                $attrs = $item->only([
+                    'itemable_type', 'itemable_id', 'type', 'name', 'description', 'quantity',
+                    'unit_price', 'discount', 'line_total', 'subtotal', 'total', 'position',
+                    'asset_variant_id', 'asset_unit_id', 'inventory_unit_id',
+                    'taxable', 'tax_rate', 'tax_amount',
+                    'asset_options_fill_mode',
+                ]);
+                $attrs['parent_type'] = EstimateVersion::class;
+                $attrs['parent_id'] = $newVersion->id;
+                $attrs['customer_asset_options_completed_at'] = null;
+                $attrs['customer_asset_options_signer_name'] = null;
+                $attrs['customer_asset_options_signer_ip'] = null;
+                $attrs['source_transaction_line_item_id'] = null;
 
-                $newItem = \App\Domain\Estimate\Models\EstimateLineItem::create($itemData);
+                $newItem = EstimateLineItem::create($attrs);
 
                 foreach ($item->addons as $addon) {
-                    $addonData = $addon->toArray();
-                    unset($addonData['id'], $addonData['transaction_line_item_id'], $addonData['created_at'], $addonData['updated_at']);
+                    $addonData = $addon->only([
+                        'addon_id', 'name', 'price', 'quantity', 'notes', 'metadata',
+                        'taxable', 'tax_rate', 'tax_amount',
+                    ]);
                     $addonData['transaction_line_item_id'] = $newItem->id;
-                    \App\Domain\Estimate\Models\EstimateLineItemAddon::create($addonData);
+                    EstimateLineItemAddon::create($addonData);
+                }
+
+                foreach ($item->selectedAssetOptions ?? [] as $sel) {
+                    EstimateSelectedOption::create([
+                        'estimate_id' => $revision->id,
+                        'transaction_line_item_id' => $newItem->id,
+                        'option_id' => $sel->option_id,
+                        'option_value_id' => $sel->option_value_id,
+                        'option_name' => $sel->option_name,
+                        'value_label' => $sel->value_label,
+                        'cost' => $sel->cost,
+                        'price' => $sel->price,
+                        'taxable' => $sel->taxable ?? true,
+                    ]);
                 }
             }
         }

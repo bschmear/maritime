@@ -1,18 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useForm, Head } from '@inertiajs/vue3';
 
 const props = defineProps({
-    record:  { type: Object, required: true },
+    record: { type: Object, required: true },
     account: { type: Object, required: true },
     logoUrl: { type: String, default: null },
 });
 
 const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
 
-const consent         = ref(false);
+const consent = ref(false);
 const showDeclineForm = ref(false);
-const approvalError   = ref('');
+const approvalError = ref('');
 
 const approveForm = useForm({
     approval_note: '',
@@ -23,11 +23,34 @@ const declineForm = useForm({
     decline_reason: '',
 });
 
-// status may be stored as integer id (4) or string ('approved') depending on context
 const statusIs = (val, id) => props.record.status == id || props.record.status === val;
 const isApproved = computed(() => statusIs('approved', 4) || !!props.record.approved_at);
 const isDeclined = computed(() => statusIs('declined', 5) || !!props.record.declined_at);
-const canAct     = computed(() => !isApproved.value && !isDeclined.value);
+const canAct = computed(() => !isApproved.value && !isDeclined.value);
+
+const companyName = computed(
+    () => props.record.subsidiary?.display_name || props.account?.name || 'Company Name',
+);
+
+const locationLine1 = computed(() => {
+    const loc = props.record.location;
+    if (!loc) return '';
+    const a1 = loc.address_line_1 ?? loc.address_line1;
+    const a2 = loc.address_line_2 ?? loc.address_line2;
+    const parts = [a1, a2].filter(Boolean);
+    return parts.join(', ');
+});
+
+const locationLine2 = computed(() => {
+    const loc = props.record.location;
+    if (!loc) return '';
+    const city = loc.city;
+    const state = loc.state;
+    const postal = loc.postal_code ?? loc.postalCode;
+    const parts = [city, state].filter(Boolean);
+    const line = parts.join(', ');
+    return [line, postal].filter(Boolean).join(' ');
+});
 
 const formatCurrency = (value) =>
     value != null
@@ -40,7 +63,9 @@ const formatDate = (value) => {
         const d = new Date(value);
         if (isNaN(d.getTime())) return '—';
         return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    } catch { return '—'; }
+    } catch {
+        return '—';
+    }
 };
 
 const formatDateTime = (value) => {
@@ -48,16 +73,35 @@ const formatDateTime = (value) => {
     try {
         const d = new Date(value);
         if (isNaN(d.getTime())) return '—';
-        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-    } catch { return '—'; }
+        return d.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    } catch {
+        return '—';
+    }
 };
+
+const formatPhoneNumber = (phone) => {
+    if (!phone) return '';
+    const cleaned = String(phone).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+        return `(${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return phone;
+};
+
+const footerPhone = computed(() => props.record.location?.phone || props.account?.phone || null);
 
 const lineItemTotal = (item) => {
     const addonsTotal = (item.addons ?? []).reduce(
         (sum, a) => sum + Number(a.price || 0) * Number(a.quantity || 1),
         0,
     );
-    // Server stores line_total = boat base + selected option premiums (addons excluded).
     const storedLine = item.line_total;
     if (storedLine != null && storedLine !== '' && !Number.isNaN(Number(storedLine))) {
         return Number(storedLine) + addonsTotal;
@@ -76,10 +120,8 @@ const selectedOptionLabel = (opt) => {
     return name || val || 'Option';
 };
 
-const addonTotal = (addon) =>
-    Number(addon.price || 0) * Number(addon.quantity || 1);
+const addonTotal = (addon) => Number(addon.price || 0) * Number(addon.quantity || 1);
 
-/** Boat option premiums: display qty 1 and unit price = stored premium (same as line total). */
 const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
 
 const isAssetLineItem = (item) => item.itemable_type === ASSET_LINE_ITEM_TYPE;
@@ -91,10 +133,12 @@ const lineItemVariantLabel = (item) => {
     return item.variant_display_name?.trim() || `Variant #${item.asset_variant_id}`;
 };
 
-const subtotal   = computed(() => Number(props.record.subtotal) || props.record.line_items?.reduce((s, i) => s + lineItemTotal(i), 0) || 0);
-const tax        = computed(() => Number(props.record.tax) || 0);
+const subtotal = computed(
+    () => Number(props.record.subtotal) || props.record.line_items?.reduce((s, i) => s + lineItemTotal(i), 0) || 0,
+);
+const tax = computed(() => Number(props.record.tax) || 0);
 const grandTotal = computed(() => Number(props.record.total) || subtotal.value + tax.value);
-const taxRate    = computed(() => Number(props.record.tax_rate) || 0);
+const taxRate = computed(() => Number(props.record.tax_rate) || 0);
 
 const submitApproval = () => {
     approvalError.value = '';
@@ -114,474 +158,482 @@ const submitDecline = () => {
 
 const handlePrint = () => window.print();
 
-/** Legacy estimates may still have a drawn or typed customer signature on file. */
 const hasLegacySignature = computed(
     () => !!(props.record.signature_url || (props.record.signed_name && String(props.record.signed_name).trim())),
 );
 
+const ackText = computed(() => {
+    const raw = props.account?.service_ticket_ack_text;
+    if (!raw) return '';
+    return String(raw).replace('[COMPANY NAME]', companyName.value);
+});
+
+onMounted(() => {
+    try {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('autoprint') === '1') {
+            setTimeout(() => window.print(), 800);
+        }
+    } catch {
+        /* ignore */
+    }
+});
 </script>
 
 <template>
     <Head :title="`Estimate ${record.display_name ?? record.id}`" />
 
     <div class="min-h-screen bg-gray-100">
-
-        <!-- ======================== APPROVED STATE ======================== -->
-        <div v-if="isApproved" class="min-h-screen flex flex-col">
-            <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white py-10 px-4 text-center print:bg-emerald-600">
-                <div class="max-w-3xl mx-auto">
-                    <div class="flex justify-center mb-4">
-                        <span class="material-icons text-5xl">check_circle</span>
+        <!-- ======================== DECLINED STATE ======================== -->
+        <div v-if="isDeclined" class="min-h-screen flex flex-col">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 w-full">
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div class="bg-red-600 px-8 py-10 text-center">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4">
+                            <span class="material-icons text-white text-4xl">cancel</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-white">Estimate Declined</h1>
+                        <p class="text-red-100 mt-2">
+                            Estimate <strong>{{ record.display_name }}</strong> has been declined.
+                        </p>
                     </div>
-                    <h1 class="text-3xl font-bold mb-2">Estimate Approved</h1>
-                    <p class="text-emerald-100 text-lg">{{ record.display_name }}</p>
-                    <p class="text-emerald-200 text-sm mt-2">Approved on {{ formatDateTime(record.approved_at) }}</p>
+                    <div class="px-8 py-8 space-y-4">
+                        <p class="text-sm text-gray-600 text-center">
+                            If you have any questions or would like to discuss alternatives, please contact us<span v-if="footerPhone"> at {{ formatPhoneNumber(footerPhone) }}</span>.
+                        </p>
+                        <div v-if="record.decline_reason" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reason</p>
+                            <p class="text-sm text-gray-800 whitespace-pre-line">{{ record.decline_reason }}</p>
+                        </div>
+                        <p class="text-xs text-gray-500 text-center">Declined on {{ formatDateTime(record.declined_at) }}</p>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <div class="flex-1 max-w-3xl mx-auto w-full px-4 py-8 space-y-6">
-                <!-- Company header (read-only, matches review layout for print) -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-5 flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="h-10 w-auto object-contain" />
-                            <div>
-                                <p class="text-white font-bold text-lg leading-tight">{{ account?.name ?? 'Company' }}</p>
-                                <p class="text-primary-200 text-sm">Approved estimate</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-primary-200 text-xs">Estimate #</p>
-                            <p class="text-white font-mono font-bold text-xl">{{ record.display_name }}</p>
-                        </div>
+        <!-- ==================== REVIEW / APPROVED (printable document) ==================== -->
+        <div v-else>
+            <div
+                id="estimate-print-root"
+                class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:mx-0 print:max-w-none"
+            >
+                <div class="mb-4 flex justify-end print:hidden">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                        @click="handlePrint"
+                    >
+                        <span class="material-icons text-base">print</span>
+                        Print
+                    </button>
+                </div>
+
+                <!-- Approved Banner -->
+                <div
+                    v-if="isApproved"
+                    class="mb-4 bg-green-600 text-white rounded-t-lg px-6 py-4 print:px-0 flex items-center gap-4 print:rounded-none print:bg-white print:text-green-700 print:border-2 print:border-green-600 print:mb-0"
+                >
+                    <span class="material-icons text-3xl">check_circle</span>
+                    <div class="flex-1">
+                        <h2 class="text-lg font-bold leading-tight">Estimate Approved</h2>
+                        <p class="text-sm text-green-50 print:text-green-700">
+                            Approved on {{ formatDateTime(record.approved_at) }}
+                            <span v-if="record.signed_name"> by {{ record.signed_name }}</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Customer & Estimate Info -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Estimate Details</h3>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p class="text-gray-500 text-xs">Customer</p>
-                            <p class="font-medium text-gray-900">{{ record.customer?.display_name ?? record.customer_name ?? '—' }}</p>
-                            <div v-if="record.customer_email || record.customer_phone" class="mt-1 text-xs text-gray-600 space-y-0.5">
-                                <div v-if="record.customer_email">{{ record.customer_email }}</div>
-                                <div v-if="record.customer_phone">{{ record.customer_phone }}</div>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="text-gray-500 text-xs">Sales Contact</p>
-                            <p class="font-medium text-gray-900">{{ record.user?.display_name ?? record.user?.name ?? '—' }}</p>
-                        </div>
-                        <div v-if="record.issue_date">
-                            <p class="text-gray-500 text-xs">Issue Date</p>
-                            <p class="font-medium text-gray-900">{{ formatDate(record.issue_date) }}</p>
-                        </div>
-                        <div v-if="record.expiration_date">
-                            <p class="text-gray-500 text-xs">Valid Until</p>
-                            <p class="font-medium text-gray-900">{{ formatDate(record.expiration_date) }}</p>
-                        </div>
-                        <div v-if="record.billing_address_line1 || record.billing_city" class="col-span-2">
-                            <p class="text-gray-500 text-xs mb-1">Billing Address</p>
-                            <div class="font-medium text-gray-900 space-y-0.5">
-                                <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
-                                <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
-                                <div v-if="record.billing_city || record.billing_state || record.billing_postal">
-                                    {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                <div class="bg-white shadow-lg print:shadow-none">
+                    <!-- Company Header (matches ServiceTicketReview) -->
+                    <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex items-start gap-6 min-w-0">
+                                <div v-if="logoUrl" class="flex-shrink-0">
+                                    <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
                                 </div>
-                                <div v-if="record.billing_country">{{ record.billing_country }}</div>
+                                <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
+                                    <span class="material-icons text-4xl text-gray-400">business</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <h1 class="text-2xl font-bold text-gray-900">
+                                        {{ companyName }}
+                                    </h1>
+                                    <div class="mt-2 text-sm text-gray-600 space-y-1">
+                                        <p v-if="locationLine1">{{ locationLine1 }}</p>
+                                        <p v-if="locationLine2">{{ locationLine2 }}</p>
+                                        <p v-if="record.location?.phone" class="flex items-center gap-1">
+                                            <span class="material-icons text-sm">phone</span>
+                                            {{ record.location.phone }}
+                                        </p>
+                                        <p v-if="record.location?.email" class="flex items-center gap-1">
+                                            <span class="material-icons text-sm">email</span>
+                                            {{ record.location.email }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <div class="text-sm font-medium text-gray-600 uppercase">Estimate</div>
+                                <div class="text-3xl font-bold text-gray-900 font-mono">
+                                    {{ record.display_name }}
+                                </div>
+                                <div class="text-sm text-gray-600 mt-1">
+                                    {{ formatDate(record.issue_date || record.created_at) }}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Line Items -->
-                <div v-if="record.line_items?.length" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100">
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line Items</h3>
+                    <!-- Customer & estimate meta -->
+                    <div class="px-8 print:px-0 py-6 bg-gray-50">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
+                                <div class="bg-white rounded-lg p-4 border border-gray-200">
+                                    <div class="space-y-2">
+                                        <div class="font-semibold text-gray-900 text-lg">
+                                            {{ record.customer?.display_name ?? record.customer_name ?? '—' }}
+                                        </div>
+                                        <div
+                                            v-if="record.customer?.email || record.customer_email"
+                                            class="flex items-center gap-2 text-sm text-gray-600"
+                                        >
+                                            <span class="material-icons text-sm">email</span>
+                                            {{ record.customer?.email || record.customer_email }}
+                                        </div>
+                                        <div
+                                            v-if="record.customer?.phone || record.customer_phone"
+                                            class="flex items-center gap-2 text-sm text-gray-600"
+                                        >
+                                            <span class="material-icons text-sm">phone</span>
+                                            {{ record.customer?.phone || record.customer_phone }}
+                                        </div>
+                                        <div
+                                            v-if="record.billing_address_line1 || record.billing_city"
+                                            class="flex items-start gap-2 text-sm text-gray-600 mt-3"
+                                        >
+                                            <span class="material-icons text-sm mt-0.5">location_on</span>
+                                            <div>
+                                                <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
+                                                <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
+                                                <div v-if="record.billing_city || record.billing_state || record.billing_postal">
+                                                    {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
+                                                </div>
+                                                <div v-if="record.billing_country">{{ record.billing_country }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estimate Details</h2>
+                                <div class="bg-white rounded-lg p-4 border border-gray-200 space-y-3 text-sm">
+                                    <div class="flex justify-between gap-4">
+                                        <span class="text-gray-500">Sales contact</span>
+                                        <span class="font-medium text-gray-900 text-right">{{ record.user?.display_name ?? record.user?.name ?? '—' }}</span>
+                                    </div>
+                                    <div v-if="record.issue_date" class="flex justify-between gap-4">
+                                        <span class="text-gray-500">Issue date</span>
+                                        <span class="font-medium text-gray-900">{{ formatDate(record.issue_date) }}</span>
+                                    </div>
+                                    <div v-if="record.expiration_date" class="flex justify-between gap-4">
+                                        <span class="text-gray-500">Valid until</span>
+                                        <span class="font-medium text-gray-900">{{ formatDate(record.expiration_date) }}</span>
+                                    </div>
+                                    <div v-if="record.opportunity?.display_name" class="flex justify-between gap-4">
+                                        <span class="text-gray-500">Opportunity</span>
+                                        <span class="font-medium text-gray-900 text-right">{{ record.opportunity.display_name }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[6rem]">Variant</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+
+                    <!-- Line Items -->
+                    <div v-if="record.line_items?.length" class="px-8 print:px-0 py-6 border-t border-gray-200">
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Line Items</h2>
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b-2 border-gray-900">
+                                    <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
+                                    <th class="text-left py-3 text-sm font-semibold text-gray-900 min-w-[6rem]">Variant</th>
+                                    <th class="text-right py-3 text-sm font-semibold text-gray-900">Qty</th>
+                                    <th class="text-right py-3 text-sm font-semibold text-gray-900">Unit Price</th>
+                                    <th class="text-right py-3 text-sm font-semibold text-gray-900">Amount</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100">
+                            <tbody class="divide-y divide-gray-200">
                                 <template v-for="item in record.line_items" :key="item.id">
-                                    <tr>
-                                        <td class="px-6 py-3">
-                                            <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-medium text-gray-900">{{ item.name || '—' }}</div>
                                         </td>
-                                        <td class="px-6 py-3 text-sm text-gray-700">
+                                        <td class="py-3 text-sm text-gray-700">
                                             <span v-if="lineItemVariantLabel(item)" class="font-medium text-gray-900">
                                                 {{ lineItemVariantLabel(item) }}
                                             </span>
                                             <span v-else class="text-gray-400">—</span>
                                         </td>
-                                        <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
-                                        <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
-                                        <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
+                                        <td class="py-3 text-right text-gray-900">{{ item.quantity }}</td>
+                                        <td class="py-3 text-right text-gray-900">{{ formatCurrency(item.unit_price) }}</td>
+                                        <td class="py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
                                     </tr>
                                     <tr
-                                        v-for="(opt, optIdx) in (item.selected_options || [])"
+                                        v-for="(opt, optIdx) in item.selected_options || []"
                                         :key="'opt-' + item.id + '-' + optIdx"
-                                        class="bg-sky-50/80"
+                                        class="bg-sky-50/70 dark:bg-sky-900/20"
                                     >
-                                        <td class="pl-10 pr-6 py-2 text-sm text-gray-700" colspan="2">
-                                            <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                        <td class="pl-8 pr-4 py-2 text-sm text-gray-700" colspan="2">
+                                            <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
                                         </td>
-                                        <td class="px-6 py-2 text-right text-sm text-gray-600">1</td>
-                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
-                                        <td class="px-6 py-2 text-right text-sm font-medium text-gray-800">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
+                                        <td class="py-2 text-right text-sm text-gray-600">1</td>
+                                        <td class="py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
+                                        <td class="py-2 text-right text-sm font-medium text-gray-800">
+                                            {{ formatCurrency(selectedOptionUnitPrice(opt)) }}
+                                        </td>
                                     </tr>
                                     <tr
-                                        v-for="addon in (item.addons || [])"
+                                        v-for="addon in item.addons || []"
                                         :key="'addon-' + addon.id"
                                         class="bg-gray-50"
                                     >
-                                        <td class="pl-10 pr-6 py-2 text-sm text-gray-600" colspan="2">
-                                            <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
+                                        <td class="pl-8 pr-4 py-2 text-sm text-gray-600 italic" colspan="2">
+                                            ↳ {{ addon.name }}
                                         </td>
-                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
-                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
-                                        <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addonTotal(addon)) }}</td>
+                                        <td class="py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
+                                        <td class="py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
+                                        <td class="py-2 text-right text-sm font-medium text-gray-700">{{ formatCurrency(addonTotal(addon)) }}</td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                     </div>
-                    <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
-                        <div class="ml-auto max-w-xs space-y-1 text-sm">
-                            <div class="flex justify-between text-gray-600">
-                                <span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span>
-                            </div>
-                            <div v-if="taxRate > 0" class="flex justify-between text-gray-600">
-                                <span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span>
-                            </div>
-                            <div class="flex justify-between text-base font-bold text-gray-900 border-t border-gray-300 pt-2 mt-2">
-                                <span>Total</span><span>{{ formatCurrency(grandTotal) }}</span>
+
+                    <!-- Totals -->
+                    <div class="px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
+                        <div class="flex justify-end">
+                            <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Subtotal:</span>
+                                    <span class="font-medium text-gray-900">{{ formatCurrency(subtotal) }}</span>
+                                </div>
+                                <div v-if="taxRate > 0" class="flex justify-between text-sm">
+                                    <span class="text-gray-600">Tax ({{ taxRate }}%):</span>
+                                    <span class="font-medium text-gray-900">{{ formatCurrency(tax) }}</span>
+                                </div>
+                                <div class="flex justify-between text-xl font-bold border-t-2 border-gray-900 pt-3">
+                                    <span class="text-gray-900">Total:</span>
+                                    <span class="text-gray-900">{{ formatCurrency(grandTotal) }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Notes / Terms -->
-                <div v-if="record.notes || record.terms" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-                    <div v-if="record.notes">
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h3>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.notes }}</p>
+                    <!-- Notes / Terms -->
+                    <div
+                        v-if="record.notes || record.terms"
+                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                    >
+                        <div v-if="record.notes" class="mb-6">
+                            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notes</h2>
+                            <div class="prose prose-sm max-w-none">
+                                <p class="text-gray-900 whitespace-pre-line">{{ record.notes }}</p>
+                            </div>
+                        </div>
+                        <div v-if="record.terms">
+                            <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Terms &amp; Conditions</h2>
+                            <div class="prose prose-sm max-w-none">
+                                <p class="text-gray-900 whitespace-pre-line">{{ record.terms }}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div v-if="record.terms">
-                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Terms &amp; Conditions</h3>
-                        <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.terms }}</p>
-                    </div>
-                </div>
 
-                <!-- Legacy customer signature (drawn image or typed name), if present -->
-                <div v-if="hasLegacySignature" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Approval Signature</h3>
-                    <div v-if="record.signature_url" class="border border-gray-200 rounded-lg p-2 bg-gray-50">
-                        <img :src="record.signature_url" alt="Signature" class="max-h-24 mx-auto" />
+                    <!-- Legacy signature / approval note (approved) -->
+                    <div
+                        v-if="isApproved && hasLegacySignature"
+                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                    >
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Signature</h2>
+                        <div class="flex items-start gap-6 flex-wrap">
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <img
+                                    v-if="record.signature_url"
+                                    :src="record.signature_url"
+                                    alt="Customer Signature"
+                                    class="max-h-24 w-auto"
+                                />
+                                <p v-else class="signature-cursive text-3xl text-gray-900">{{ record.signed_name }}</p>
+                            </div>
+                            <div class="text-sm text-gray-600 space-y-1 pt-1">
+                                <div>
+                                    <span class="text-gray-500">Signed by:</span>
+                                    <span class="font-medium text-gray-900">{{ record.signed_name || '—' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">Date:</span>
+                                    <span class="font-medium text-gray-900">{{ formatDateTime(record.signed_at) }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <p v-else-if="record.signed_name" class="signature-cursive text-4xl text-gray-800 text-center py-4">
-                        {{ record.signed_name }}
-                    </p>
-                    <div class="mt-3 text-sm text-gray-500 grid grid-cols-2 gap-2">
-                        <div><span class="font-medium">Signed by:</span> {{ record.signed_name || '—' }}</div>
-                        <div><span class="font-medium">Date:</span> {{ formatDateTime(record.signed_at) }}</div>
-                    </div>
-                    <div v-if="record.approval_note" class="mt-4 pt-4 border-t border-gray-100">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Approval note</p>
+
+                    <div
+                        v-if="isApproved && record.approval_note"
+                        class="px-8 print:px-0 py-6 border-t border-gray-200"
+                    >
+                        <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Approval note</h2>
                         <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.approval_note }}</p>
                     </div>
-                </div>
 
-                <div v-else-if="record.approval_note" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Approval note</h3>
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.approval_note }}</p>
-                </div>
+                    <!-- Customer authorization (pending only) -->
+                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:hidden">
+                        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
-                <div class="text-center print:hidden">
-                    <button @click="handlePrint" class="inline-flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
-                        <span class="material-icons text-base">print</span> Print / Save PDF
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ======================== DECLINED STATE ======================== -->
-        <div v-else-if="isDeclined" class="min-h-screen flex flex-col">
-            <div class="bg-gradient-to-r from-red-600 to-red-700 text-white py-10 px-4 text-center">
-                <div class="max-w-2xl mx-auto">
-                    <div class="flex justify-center mb-4">
-                        <span class="material-icons text-5xl">cancel</span>
-                    </div>
-                    <h1 class="text-3xl font-bold mb-2">Estimate Declined</h1>
-                    <p class="text-red-100 text-lg">{{ record.display_name }}</p>
-                    <p class="text-red-200 text-sm mt-2">Declined on {{ formatDateTime(record.declined_at) }}</p>
-                    <p v-if="record.decline_reason" class="text-red-200 text-sm mt-1">Reason: {{ record.decline_reason }}</p>
-                </div>
-            </div>
-            <div class="max-w-2xl mx-auto w-full px-4 py-8">
-                <div v-if="record.decline_reason" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Reason Provided</h3>
-                    <p class="text-gray-700">{{ record.decline_reason }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ======================== REVIEW STATE ======================== -->
-        <div v-else class="max-w-3xl mx-auto px-4 py-8 space-y-6">
-
-            <!-- Company Header -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-5 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <img v-if="logoUrl" :src="logoUrl" alt="Logo" class="h-10 w-auto object-contain" />
-                        <div>
-                            <p class="text-white font-bold text-lg leading-tight">{{ account?.name ?? 'Company' }}</p>
-                            <p class="text-primary-200 text-sm">Estimate for Approval</p>
+                        <div v-if="ackText" class="mb-8 p-5 bg-gray-50 border border-gray-200 rounded-lg">
+                            <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-line">{{ ackText }}</p>
                         </div>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-primary-200 text-xs">Estimate #</p>
-                        <p class="text-white font-mono font-bold text-xl">{{ record.display_name }}</p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Customer & Estimate Info -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Estimate Details</h3>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p class="text-gray-500 text-xs">Customer</p>
-                        <p class="font-medium text-gray-900">{{ record.customer?.display_name ?? record.customer_name ?? '—' }}</p>
-                        <div v-if="record.customer_email || record.customer_phone" class="mt-1 text-xs text-gray-600 space-y-0.5">
-                            <div v-if="record.customer_email">{{ record.customer_email }}</div>
-                            <div v-if="record.customer_phone">{{ record.customer_phone }}</div>
+                        <label class="flex items-start gap-3 cursor-pointer mb-5">
+                            <input
+                                v-model="consent"
+                                type="checkbox"
+                                class="mt-0.5 h-5 w-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                            />
+                            <span class="text-sm text-gray-700 leading-relaxed">
+                                I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.
+                            </span>
+                        </label>
+
+                        <div class="mb-5">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Approval note (optional)</label>
+                            <textarea
+                                v-model="approveForm.approval_note"
+                                rows="2"
+                                placeholder="Any additional notes or comments…"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-gray-900 focus:ring-0 resize-none"
+                            />
                         </div>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 text-xs">Sales Contact</p>
-                        <p class="font-medium text-gray-900">{{ record.user?.display_name ?? record.user?.name ?? '—' }}</p>
-                    </div>
-                    <div v-if="record.issue_date">
-                        <p class="text-gray-500 text-xs">Issue Date</p>
-                        <p class="font-medium text-gray-900">{{ formatDate(record.issue_date) }}</p>
-                    </div>
-                    <div v-if="record.expiration_date">
-                        <p class="text-gray-500 text-xs">Valid Until</p>
-                        <p class="font-medium text-gray-900">{{ formatDate(record.expiration_date) }}</p>
-                    </div>
-                    <div v-if="record.billing_address_line1 || record.billing_city" class="col-span-2">
-                        <p class="text-gray-500 text-xs mb-1">Billing Address</p>
-                        <div class="font-medium text-gray-900 space-y-0.5">
-                            <div v-if="record.billing_address_line1">{{ record.billing_address_line1 }}</div>
-                            <div v-if="record.billing_address_line2">{{ record.billing_address_line2 }}</div>
-                            <div v-if="record.billing_city || record.billing_state || record.billing_postal">
-                                {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
-                            </div>
-                            <div v-if="record.billing_country">{{ record.billing_country }}</div>
+
+                        <p v-if="approvalError" class="text-sm text-red-600 mb-4">{{ approvalError }}</p>
+
+                        <div v-if="Object.keys(approveForm.errors).length" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <ul class="text-sm text-red-700 space-y-1">
+                                <li v-for="(error, key) in approveForm.errors" :key="key">{{ error }}</li>
+                            </ul>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Line Items -->
-            <div v-if="record.line_items?.length" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Line Items</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[6rem]">Variant</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <template v-for="item in record.line_items" :key="item.id">
-                                <tr>
-                                    <td class="px-6 py-3">
-                                        <p class="font-medium text-gray-900">{{ item.name || '—' }}</p>
-                                        <!-- <p v-if="item.description" class="text-xs text-gray-500 mt-0.5 whitespace-pre-line">{{ item.description }}</p> -->
-                                    </td>
-                                    <td class="px-6 py-3 text-sm text-gray-700">
-                                        <span v-if="lineItemVariantLabel(item)" class="font-medium text-gray-900">
-                                            {{ lineItemVariantLabel(item) }}
-                                        </span>
-                                        <span v-else class="text-gray-400">—</span>
-                                    </td>
-                                    <td class="px-6 py-3 text-right text-gray-700">{{ item.quantity }}</td>
-                                    <td class="px-6 py-3 text-right text-gray-700">{{ formatCurrency(item.unit_price) }}</td>
-                                    <td class="px-6 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
-                                </tr>
-                                <tr
-                                    v-for="(opt, optIdx) in (item.selected_options || [])"
-                                    :key="'opt-' + item.id + '-' + optIdx"
-                                    class="bg-sky-50/80"
-                                >
-                                    <td class="pl-10 pr-6 py-2 text-sm text-gray-700" colspan="2">
-                                        <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
-                                    </td>
-                                    <td class="px-6 py-2 text-right text-sm text-gray-600">1</td>
-                                    <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
-                                    <td class="px-6 py-2 text-right text-sm font-medium text-gray-800">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
-                                </tr>
-                                <tr
-                                    v-for="addon in (item.addons || [])"
-                                    :key="'addon-' + addon.id"
-                                    class="bg-gray-50"
-                                >
-                                    <td class="pl-10 pr-6 py-2 text-sm text-gray-600" colspan="2">
-                                        <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
-                                    </td>
-                                    <td class="px-6 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
-                                    <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
-                                    <td class="px-6 py-2 text-right text-sm text-gray-600">{{ formatCurrency(addonTotal(addon)) }}</td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Totals -->
-                <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
-                    <div class="ml-auto max-w-xs space-y-1 text-sm">
-                        <div class="flex justify-between text-gray-600">
-                            <span>Subtotal</span><span>{{ formatCurrency(subtotal) }}</span>
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                            <button
+                                type="button"
+                                :disabled="approveForm.processing"
+                                class="inline-flex items-center justify-center gap-2 px-8 py-3 text-base font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shadow-sm"
+                                @click="submitApproval"
+                            >
+                                <span v-if="approveForm.processing" class="material-icons text-sm animate-spin">refresh</span>
+                                <span v-else class="material-icons text-sm">check_circle</span>
+                                {{ approveForm.processing ? 'Submitting…' : 'Approve Estimate' }}
+                            </button>
+                            <button
+                                v-if="!showDeclineForm"
+                                type="button"
+                                class="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+                                @click="showDeclineForm = true"
+                            >
+                                Decline
+                            </button>
                         </div>
-                        <div v-if="taxRate > 0" class="flex justify-between text-gray-600">
-                            <span>Tax ({{ taxRate }}%)</span><span>{{ formatCurrency(tax) }}</span>
-                        </div>
-                        <div class="flex justify-between text-base font-bold text-gray-900 border-t border-gray-300 pt-2 mt-2">
-                            <span>Total</span><span>{{ formatCurrency(grandTotal) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Notes / Terms -->
-            <div v-if="record.notes || record.terms" class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-                <div v-if="record.notes">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h3>
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.notes }}</p>
-                </div>
-                <div v-if="record.terms">
-                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Terms &amp; Conditions</h3>
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.terms }}</p>
-                </div>
-            </div>
-
-            <!-- ── Approval Section ── -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-1">Approval</h3>
-                <p class="text-sm text-gray-500 mb-6">Please review this estimate and approve or decline the proposed work.</p>
-
-                <!-- Consent -->
-                <label class="flex items-start gap-3 cursor-pointer mb-5">
-                    <input v-model="consent" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                    <span class="text-sm text-gray-600 leading-relaxed">
-                        I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.
-                    </span>
-                </label>
-
-                <!-- Approval Note (Optional) -->
-                <div class="mb-5">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Approval Note (Optional)</label>
-                    <textarea
-                        v-model="approveForm.approval_note"
-                        rows="2"
-                        placeholder="Any additional notes or comments..."
-                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none resize-none"
-                    />
-                </div>
-
-                <!-- Error -->
-                <p v-if="approvalError" class="text-sm text-red-600 mb-4">{{ approvalError }}</p>
-
-                <!-- Submit Approve -->
-                <button
-                    @click="submitApproval"
-                    :disabled="approveForm.processing"
-                    class="w-full py-3 px-6 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                    <span class="material-icons text-base" v-if="!approveForm.processing">check_circle</span>
-                    <svg v-else class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                    {{ approveForm.processing ? 'Submitting…' : 'Approve Estimate' }}
-                </button>
-
-                <!-- Decline Toggle -->
-                <div class="mt-4 text-center">
-                    <button
-                        @click="showDeclineForm = !showDeclineForm"
-                        class="text-sm text-gray-400 hover:text-red-500 underline transition-colors"
-                    >
-                        {{ showDeclineForm ? 'Cancel' : 'I need to decline this estimate' }}
-                    </button>
-                </div>
-
-                <!-- Decline Form -->
-                <Transition name="slide">
-                    <div v-if="showDeclineForm" class="mt-5 border border-red-200 rounded-lg p-5 bg-red-50">
-                        <h4 class="text-sm font-semibold text-red-700 mb-3">Decline Estimate</h4>
-                        <p class="text-xs text-red-600 mb-3">Please provide a reason so we can better assist you.</p>
-                        <textarea
-                            v-model="declineForm.decline_reason"
-                            rows="3"
-                            placeholder="Reason for declining (required)…"
-                            class="w-full border border-red-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-400 outline-none bg-white resize-none"
-                        />
-                        <p v-if="declineForm.errors.decline_reason" class="text-xs text-red-600 mt-1">{{ declineForm.errors.decline_reason }}</p>
-                        <button
-                            @click="submitDecline"
-                            :disabled="!declineForm.decline_reason.trim() || declineForm.processing"
-                            class="mt-3 w-full py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
+                        <Transition
+                            enter-active-class="transition-all duration-200 ease-out"
+                            enter-from-class="opacity-0 -translate-y-2 max-h-0"
+                            enter-to-class="opacity-100 translate-y-0 max-h-96"
+                            leave-active-class="transition-all duration-150 ease-in"
+                            leave-from-class="opacity-100 translate-y-0 max-h-96"
+                            leave-to-class="opacity-0 -translate-y-2 max-h-0"
                         >
-                            {{ declineForm.processing ? 'Submitting…' : 'Confirm Decline' }}
-                        </button>
+                            <div v-if="showDeclineForm" class="mt-6 p-6 bg-red-50 border border-red-200 rounded-lg overflow-hidden">
+                                <h3 class="text-sm font-semibold text-red-900 mb-3">Decline estimate</h3>
+                                <p class="text-sm text-red-700 mb-4">Please provide a reason so we can assist you.</p>
+                                <textarea
+                                    v-model="declineForm.decline_reason"
+                                    rows="3"
+                                    placeholder="Reason for declining (required)…"
+                                    class="w-full px-4 py-3 border border-red-300 rounded-lg text-sm focus:border-red-500 focus:ring-0 mb-4"
+                                />
+                                <p v-if="declineForm.errors.decline_reason" class="text-xs text-red-600 mb-2">
+                                    {{ declineForm.errors.decline_reason }}
+                                </p>
+                                <div class="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        :disabled="!declineForm.decline_reason?.trim() || declineForm.processing"
+                                        class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors"
+                                        @click="submitDecline"
+                                    >
+                                        <span v-if="declineForm.processing" class="material-icons text-sm animate-spin">refresh</span>
+                                        {{ declineForm.processing ? 'Submitting…' : 'Confirm decline' }}
+                                    </button>
+                                    <button type="button" class="text-sm text-gray-600 hover:text-gray-900" @click="showDeclineForm = false">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </Transition>
                     </div>
-                </Transition>
-            </div>
 
+                    <!-- Footer -->
+                    <div class="px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
+                        <p>Thank you for your business!</p>
+                        <p v-if="footerPhone" class="mt-1">Questions? Call us at {{ formatPhoneNumber(footerPhone) }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
-<style scoped>
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap');
 
 .signature-cursive {
     font-family: 'Dancing Script', cursive;
 }
 
-.slide-enter-active,
-.slide-leave-active {
-    transition: all 0.25s ease;
-    overflow: hidden;
-}
-.slide-enter-from,
-.slide-leave-to {
-    max-height: 0;
-    opacity: 0;
-}
-.slide-enter-to,
-.slide-leave-from {
-    max-height: 400px;
-    opacity: 1;
-}
-
 @media print {
-    .no-print { display: none !important; }
-    body { background: white; }
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body {
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .min-h-screen {
+        min-height: auto !important;
+        background: white !important;
+    }
+
+    .shadow-lg,
+    .shadow-sm {
+        box-shadow: none !important;
+    }
+
+    .bg-gray-100 {
+        background: white !important;
+    }
+
+    @page {
+        margin: 0.35in 0.15in;
+    }
+
+    #estimate-print-root {
+        max-width: none !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
 }
 </style>

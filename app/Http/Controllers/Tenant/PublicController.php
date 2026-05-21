@@ -340,6 +340,11 @@ class PublicController extends Controller
                 'customer',
                 'user',
                 'opportunity',
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select([
+                    'id', 'display_name', 'phone', 'email',
+                    'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country',
+                ]),
                 'selectedAssetOptions',
                 'primaryVersion.lineItems' => fn ($q) => $q->with([
                     'addons',
@@ -604,6 +609,7 @@ class PublicController extends Controller
             'customer_asset_options_completed_at' => now(),
             'customer_asset_options_signer_name' => $validated['signer_name'],
             'customer_asset_options_signer_ip' => $request->ip(),
+            'asset_options_fill_mode' => 'staff',
         ]);
 
         EstimateCustomerOptionSignoff::query()->create([

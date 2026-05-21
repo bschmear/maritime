@@ -103,6 +103,12 @@ class Estimate extends Model
         return $this->hasMany(EstimateSelectedOption::class, 'estimate_id');
     }
 
+    /** Customer sign-offs from the secure boat-options form (one or more per estimate). */
+    public function customerBoatOptionSignoffs(): HasMany
+    {
+        return $this->hasMany(EstimateCustomerOptionSignoff::class, 'estimate_id')->latest('signed_at');
+    }
+
     /** The estimate this record was revised from (parent). */
     public function transaction(): BelongsTo
     {
