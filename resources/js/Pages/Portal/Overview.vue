@@ -142,7 +142,7 @@ const statCards = [
                     <div v-for="ticket in recentServiceTickets" :key="ticket.id" class="px-5 py-3 hover:bg-gray-50 transition-colors">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-900">{{ ticket.title || `Ticket #${ticket.id}` }}</p>
+                                <p class="text-sm font-medium text-gray-900">{{ ticket.display_name || ticket.service_ticket_number || `Ticket #${ticket.id}` }}</p>
                                 <p class="text-xs text-gray-400 mt-0.5">{{ ticket.created_at }}</p>
                             </div>
                             <span

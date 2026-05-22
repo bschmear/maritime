@@ -3,7 +3,6 @@
 namespace App\Domain\WorkOrder\Actions;
 
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
-use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -21,8 +20,8 @@ class CreateWorkOrder
         try {
             $validated = $data; // For now, just pass through all data
 
-            // Extract service_items before creating WorkOrder
-            $serviceItems = $validated['service_items'] ?? [];
+            // service_items are persisted by WorkOrderController::store via createServiceItems()
+            // (recalculateLineItem / recalculateWorkOrder). Do not insert them here or they duplicate.
             unset($validated['service_items']);
 
             // Generate UUID if not provided
@@ -35,43 +34,20 @@ class CreateWorkOrder
             $validated['parts_cost'] = $validated['parts_cost'] ?? 0;
             $validated['total_cost'] = $validated['total_cost'] ?? 0;
 
-            // Auto-generate work_order_number if not provided
+            // Auto-generate work_order_number if not provided.
+            // Soft-deleted work orders still hold their number (unique constraint), so the next
+            // number must be based on max across all rows including trashed.
             if (empty($validated['work_order_number'])) {
-                $lastWorkOrder = RecordModel::orderBy('work_order_number', 'desc')->first();
-                $validated['work_order_number'] = $lastWorkOrder ? $lastWorkOrder->work_order_number + 1 : 1000;
+                $maxNumber = RecordModel::withTrashed()->max('work_order_number');
+                $validated['work_order_number'] = $maxNumber !== null
+                    ? ((int) $maxNumber) + 1
+                    : 1000;
             }
 
             // Remove timestamp fields to let Laravel handle them automatically
             unset($validated['created_at'], $validated['updated_at']);
 
             $record = RecordModel::create($validated);
-
-            // Create WorkOrderServiceItem line items
-            foreach ($serviceItems as $idx => $item) {
-                if (empty($item['display_name'])) {
-                    continue;
-                }
-                WorkOrderServiceItem::create([
-                    'billable_to' => $item['billable_to']
-                        ?? (! empty($item['warranty'])
-                            ? (($item['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal')
-                            : 'customer'),
-                    'work_order_id' => $record->id,
-                    'service_item_id' => $item['service_item_id'] ?? null,
-                    'display_name' => $item['display_name'],
-                    'description' => $item['description'] ?? null,
-                    'quantity' => $item['quantity'] ?? 1,
-                    'unit_price' => $item['unit_price'] ?? 0,
-                    'unit_cost' => $item['unit_cost'] ?? null,
-                    'estimated_hours' => $item['estimated_hours'] ?? null,
-                    'actual_hours' => $item['actual_hours'] ?? null,
-                    'billable' => $item['billable'] ?? true,
-                    'warranty' => $item['warranty'] ?? false,
-                    'warranty_type' => ! empty($item['warranty']) ? ($item['warranty_type'] ?? null) : null,
-                    'billing_type' => $item['billing_type'] ?? null,
-                    'sort_order' => $item['sort_order'] ?? $idx,
-                ]);
-            }
 
             return [
                 'success' => true,

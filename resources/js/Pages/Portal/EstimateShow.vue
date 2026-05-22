@@ -82,18 +82,32 @@ const formatDateTime = (v) => {
 };
 
 const lineItemTotal = (item) => {
-    const qty  = Number(item.quantity) || 1;
-    const price = Number(item.unit_price) || 0;
-    const disc  = Number(item.discount) || 0;
-    const base  = Math.max(0, qty * price - disc);
     const addonsTotal = (item.addons ?? []).reduce(
-        (sum, a) => sum + Number(a.price || 0) * Number(a.quantity || 1), 0
+        (sum, a) => sum + Number(a.price || 0) * Number(a.quantity || 1),
+        0,
     );
+    const storedLine = item.line_total;
+    if (storedLine != null && storedLine !== '' && !Number.isNaN(Number(storedLine))) {
+        return Number(storedLine) + addonsTotal;
+    }
+    const qty = Number(item.quantity) || 1;
+    const unitPrice = Number(item.unit_price) || 0;
+    const discount = Number(item.discount) || 0;
+    const base = Math.max(0, qty * unitPrice - discount);
     return base + addonsTotal;
 };
 
 const addonTotal = (addon) =>
     Number(addon.price || 0) * Number(addon.quantity || 1);
+
+const selectedOptionLabel = (opt) => {
+    const name = (opt.option_name || '').trim();
+    const val = (opt.value_label || '').trim();
+    if (name && val) return `${name}: ${val}`;
+    return name || val || 'Option';
+};
+
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
 
 const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
 
@@ -172,7 +186,7 @@ const submitDecline = () => {
                     <span class="material-icons text-lg shrink-0 text-amber-600 dark:text-amber-400">info</span>
                     <p class="leading-snug">
                         <span class="font-semibold">Tax notice.</span>
-                        This estimate does not include tax. Any applicable taxes will be calculated and shown on your final invoice or agreement.
+                        Taxes and applicable fees are estimated and may change at final sale or invoicing.
                     </p>
                 </div>
 
@@ -204,6 +218,7 @@ const submitDecline = () => {
             <div v-if="canAct" class="px-6 py-3 bg-amber-50 border-b border-amber-100 flex items-center justify-between gap-4">
                 <p class="text-sm text-amber-800 font-medium">This estimate is awaiting your approval.</p>
                 <button
+                    type="button"
                     @click="showApprovalForm = true"
                     class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
@@ -211,6 +226,58 @@ const submitDecline = () => {
                     Review &amp; Approve
                 </button>
             </div>
+
+            <!-- Inline approval: keep directly under CTA so it is visible without scrolling past line items -->
+            <Transition name="slide">
+                <div v-if="showApprovalForm && canAct" class="px-6 py-5 border-t border-gray-100 bg-gray-50/80">
+                    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between mb-5">
+                            <h3 class="font-semibold text-gray-900">Review &amp; Approve Estimate</h3>
+                            <button type="button" @click="showApprovalForm = false" class="text-gray-400 hover:text-gray-600">
+                                <span class="material-icons text-xl">close</span>
+                            </button>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-xs font-medium text-gray-700 mb-1">Approval Note (Optional)</label>
+                            <textarea v-model="approveForm.approval_note" rows="3" placeholder="Any comments or notes about this approval…"
+                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:ring-2 focus:ring-primary-500" />
+                        </div>
+
+                        <label class="flex items-start gap-2 cursor-pointer mb-4">
+                            <input v-model="consent" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                            <span class="text-sm text-gray-600 leading-relaxed">I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.</span>
+                        </label>
+
+                        <p v-if="approvalError" class="text-xs text-red-600 mb-3">{{ approvalError }}</p>
+
+                        <button type="button" @click="submitApproval" :disabled="approveForm.processing"
+                            class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                            <span class="material-icons text-base" v-if="!approveForm.processing">check_circle</span>
+                            <svg v-else class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                            {{ approveForm.processing ? 'Submitting…' : 'Approve Estimate' }}
+                        </button>
+
+                        <div class="mt-3 text-center">
+                            <button type="button" @click="showDeclineForm = !showDeclineForm" class="text-sm text-gray-400 hover:text-red-500 underline transition-colors">
+                                {{ showDeclineForm ? 'Cancel decline' : 'I need to decline' }}
+                            </button>
+                        </div>
+
+                        <Transition name="slide">
+                            <div v-if="showDeclineForm" class="mt-4 border border-red-200 rounded-lg p-4 bg-red-50">
+                                <p class="text-sm font-semibold text-red-700 mb-2">Please tell us why you're declining:</p>
+                                <textarea v-model="declineForm.decline_reason" rows="3" placeholder="Reason for declining (required)…"
+                                    class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm outline-none bg-white resize-none focus:ring-1 focus:ring-red-400" />
+                                <button type="button" @click="submitDecline" :disabled="!declineForm.decline_reason.trim() || declineForm.processing"
+                                    class="mt-2 w-full py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
+                                    {{ declineForm.processing ? 'Submitting…' : 'Confirm Decline' }}
+                                </button>
+                            </div>
+                        </Transition>
+                    </div>
+                </div>
+            </Transition>
 
             <!-- Approved confirmation banner -->
             <div v-if="isApproved" class="px-6 py-3 bg-green-50 border-b border-green-100 flex items-center gap-2">
@@ -263,11 +330,25 @@ const submitDecline = () => {
                                 <td class="px-5 py-3 text-right font-medium text-gray-900">{{ formatCurrency(lineItemTotal(item)) }}</td>
                             </tr>
                             <tr
-                                v-for="addon in item.addons"
+                                v-for="(opt, optIdx) in item.selected_options || []"
+                                :key="'opt-' + item.id + '-' + optIdx"
+                                class="bg-sky-50/70"
+                            >
+                                <td class="pl-8 pr-5 py-2 text-sm text-gray-700" colspan="2">
+                                    <span class="text-sky-600/90 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                </td>
+                                <td class="px-5 py-2 text-right text-sm text-gray-600">1</td>
+                                <td class="px-5 py-2 text-right text-sm text-gray-600">{{ formatCurrency(selectedOptionUnitPrice(opt)) }}</td>
+                                <td class="px-5 py-2 text-right text-sm font-medium text-gray-800">
+                                    {{ formatCurrency(selectedOptionUnitPrice(opt)) }}
+                                </td>
+                            </tr>
+                            <tr
+                                v-for="addon in item.addons || []"
                                 :key="'addon-' + addon.id"
                                 class="bg-gray-50"
                             >
-                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600" colspan="2">
+                                <td class="pl-10 pr-5 py-2 text-sm text-gray-600 italic" colspan="2">
                                     <span class="text-gray-400 mr-1">↳</span>{{ addon.name }}
                                 </td>
                                 <td class="px-5 py-2 text-right text-sm text-gray-600">{{ addon.quantity }}</td>
@@ -310,58 +391,6 @@ const submitDecline = () => {
                 Open Review Page
             </a>
         </div>
-
-        <!-- ── Inline Approval Form (modal-like panel) ── -->
-        <Transition name="slide">
-            <div v-if="showApprovalForm && canAct" class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-                <div class="flex items-center justify-between mb-5">
-                    <h3 class="font-semibold text-gray-900">Review &amp; Approve Estimate</h3>
-                    <button @click="showApprovalForm = false" class="text-gray-400 hover:text-gray-600">
-                        <span class="material-icons text-xl">close</span>
-                    </button>
-                </div>
-
-                <!-- Approval Note (Optional) -->
-                <div class="mb-4">
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Approval Note (Optional)</label>
-                    <textarea v-model="approveForm.approval_note" rows="3" placeholder="Any comments or notes about this approval…"
-                        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:ring-2 focus:ring-primary-500" />
-                </div>
-
-                <!-- Consent -->
-                <label class="flex items-start gap-2 cursor-pointer mb-4">
-                    <input v-model="consent" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                    <span class="text-sm text-gray-600 leading-relaxed">I have reviewed this estimate and confirm that the details and pricing look correct. I understand this approval allows the process to move forward and that a formal agreement may follow.</span>
-                </label>
-
-                <p v-if="approvalError" class="text-xs text-red-600 mb-3">{{ approvalError }}</p>
-
-                <button @click="submitApproval" :disabled="approveForm.processing"
-                    class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
-                    <span class="material-icons text-base" v-if="!approveForm.processing">check_circle</span>
-                    <svg v-else class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                    {{ approveForm.processing ? 'Submitting…' : 'Approve Estimate' }}
-                </button>
-
-                <div class="mt-3 text-center">
-                    <button @click="showDeclineForm = !showDeclineForm" class="text-sm text-gray-400 hover:text-red-500 underline transition-colors">
-                        {{ showDeclineForm ? 'Cancel decline' : 'I need to decline' }}
-                    </button>
-                </div>
-
-                <Transition name="slide">
-                    <div v-if="showDeclineForm" class="mt-4 border border-red-200 rounded-lg p-4 bg-red-50">
-                        <p class="text-sm font-semibold text-red-700 mb-2">Please tell us why you're declining:</p>
-                        <textarea v-model="declineForm.decline_reason" rows="3" placeholder="Reason for declining (required)…"
-                            class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm outline-none bg-white resize-none focus:ring-1 focus:ring-red-400" />
-                        <button @click="submitDecline" :disabled="!declineForm.decline_reason.trim() || declineForm.processing"
-                            class="mt-2 w-full py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors">
-                            {{ declineForm.processing ? 'Submitting…' : 'Confirm Decline' }}
-                        </button>
-                    </div>
-                </Transition>
-            </div>
-        </Transition>
 
     </ClientPortalLayout>
 </template>

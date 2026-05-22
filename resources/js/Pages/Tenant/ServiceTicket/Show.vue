@@ -112,7 +112,14 @@ const isSublistVisible = (sub) => {
     }
 };
 
-const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
+// Only Images belong in Sublist here — service items and revisions are covered elsewhere on the ticket UI.
+const ALLOWED_SERVICE_TICKET_SUBLIST_DOMAINS = new Set(['InventoryImage']);
+
+const visibleSublists = computed(() =>
+    (props.formSchema?.sublists || [])
+        .filter(isSublistVisible)
+        .filter((sub) => ALLOWED_SERVICE_TICKET_SUBLIST_DOMAINS.has(sub?.domain)),
+);
 
 // Status options from enum
 const statusOptions = computed(() => {

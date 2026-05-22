@@ -15,9 +15,6 @@
         <meta name="author" content="{{ config('app.name') ?? '' }}">
         <meta name="robots" content="noindex, nofollow">
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
         
         <!-- Material Design Icons -->
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">

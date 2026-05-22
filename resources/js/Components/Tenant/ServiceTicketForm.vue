@@ -614,7 +614,135 @@ watch(() => form.subsidiary_id, (newValue, oldValue) => {
 
 // Equipment: catalog asset → variant → serialized unit (same flow as estimates)
 const showServiceAssetModal = ref(false);
-const serviceAssetLineSummary = ref('');
+
+/** Structured equipment summary for create/edit (modal save); show mode uses record.asset_unit directly. */
+const equipmentBreakdown = ref(null);
+
+const pickMakeDisplayName = (asset) => {
+    if (!asset || typeof asset !== 'object') {
+        return '';
+    }
+    const rel = asset.make ?? asset.boat_make ?? asset.boatMake;
+    return (rel?.display_name ?? '').trim();
+};
+
+const joinUnitIdentifiers = (u) => {
+    if (!u || typeof u !== 'object') {
+        return '';
+    }
+    const parts = [];
+    if ((u.hin ?? '').toString().trim()) {
+        parts.push(`HIN ${String(u.hin).trim()}`);
+    }
+    if ((u.serial_number ?? '').toString().trim()) {
+        parts.push(`Serial ${String(u.serial_number).trim()}`);
+    }
+    if ((u.sku ?? '').toString().trim()) {
+        parts.push(`SKU ${String(u.sku).trim()}`);
+    }
+    return parts.join(' · ');
+};
+
+const equipmentBreakdownFromAssetUnit = (u) => {
+    if (!u || typeof u !== 'object') {
+        return null;
+    }
+    const a = u.asset;
+    const make = pickMakeDisplayName(a);
+    const catalogAsset = (a?.display_name ?? '').trim() || null;
+    const model = (a?.model ?? '').toString().trim();
+    const year = a?.year != null && a.year !== '' ? String(a.year) : '';
+    const modelYear = [model || null, year || null].filter(Boolean).join(' · ') || null;
+    const variant = (
+        u.asset_variant?.display_name
+        ?? u.asset_variant?.name
+        ?? u.variant?.display_name
+        ?? ''
+    ).toString().trim();
+    const unitTitle = (u.display_name ?? '').toString().trim();
+    const unitLine =
+        unitTitle && unitTitle !== String(catalogAsset || '').trim() ? unitTitle : null;
+    const identifiers = joinUnitIdentifiers(u);
+
+    const hasAny = make || catalogAsset || modelYear || variant || unitLine || identifiers;
+    if (!hasAny) {
+        return null;
+    }
+
+    return {
+        make: make || null,
+        catalogAsset,
+        modelYear: modelYear || null,
+        variant: variant || null,
+        unit: unitLine || null,
+        identifiers: identifiers || null,
+    };
+};
+
+const equipmentBreakdownFromModal = (m) => {
+    if (!m || typeof m !== 'object') {
+        return null;
+    }
+    const make = (m.make ?? '').toString().trim();
+    const catalogAsset = (m.name ?? '').toString().trim() || null;
+    const year = m.year != null && m.year !== '' ? String(m.year) : '';
+    const modelYear = year || null;
+    const variant = m.has_variants ? (m.variant_display_name ?? '').toString().trim() || null : null;
+    const unit = (m.unit_display_name ?? '').toString().trim() || null;
+    const hasAny = make || catalogAsset || modelYear || variant || unit;
+    if (!hasAny) {
+        return null;
+    }
+    return {
+        make: make || null,
+        catalogAsset,
+        modelYear,
+        variant,
+        unit,
+        identifiers: null,
+    };
+};
+
+const equipmentDisplay = computed(() => {
+    if (props.mode === 'show') {
+        return equipmentBreakdownFromAssetUnit(props.record?.asset_unit);
+    }
+    return equipmentBreakdown.value;
+});
+
+const equipmentDisplayRows = computed(() => {
+    const d = equipmentDisplay.value;
+    if (!d) {
+        return [];
+    }
+    const rows = [];
+    if (d.make) {
+        rows.push({ key: 'make', label: 'Make / brand', value: d.make });
+    }
+    if (d.catalogAsset) {
+        rows.push({ key: 'catalog', label: 'Catalog asset', value: d.catalogAsset });
+    }
+    if (d.modelYear) {
+        rows.push({ key: 'model', label: 'Model & year', value: d.modelYear });
+    }
+    if (d.variant) {
+        rows.push({ key: 'variant', label: 'Variant', value: d.variant });
+    }
+    if (d.unit) {
+        rows.push({ key: 'unit', label: 'Unit', value: d.unit });
+    }
+    if (d.identifiers) {
+        rows.push({ key: 'ids', label: 'Identifiers', value: d.identifiers });
+    }
+    return rows;
+});
+
+const hasEquipmentSelectionUi = computed(() => {
+    if (props.mode === 'show') {
+        return !!(props.record?.asset_unit?.id);
+    }
+    return !!(form.asset_unit_id || equipmentBreakdown.value);
+});
 
 const emptyServiceAssetForm = () => ({
     itemable_type: 'App\\Domain\\Asset\\Models\\Asset',
@@ -648,7 +776,7 @@ const hydrateServiceAssetFormFromRecord = () => {
         return;
     }
     const a = u.asset;
-    const makeName = a?.make?.display_name ?? '';
+    const makeName = pickMakeDisplayName(a);
     serviceAssetForm.value = {
         ...emptyServiceAssetForm(),
         itemable_id: a?.id ?? u.asset_id,
@@ -683,20 +811,13 @@ const openServiceAssetSelect = () => {
 const onServiceAssetModalSave = (m) => {
     const uid = m.asset_unit_id;
     form.asset_unit_id = uid != null && uid !== '' ? Number(uid) : null;
-    if (form.asset_unit_id) {
-        const parts = [m.name, m.has_variants ? m.variant_display_name : null, m.unit_display_name].filter(Boolean);
-        serviceAssetLineSummary.value = parts.length
-            ? parts.join(' — ')
-            : m.unit_display_name || `Unit #${form.asset_unit_id}`;
-    } else {
-        serviceAssetLineSummary.value = m.name ? `${m.name} (no specific serialized unit)` : '';
-    }
+    equipmentBreakdown.value = form.asset_unit_id ? equipmentBreakdownFromModal(m) : null;
     showServiceAssetModal.value = false;
 };
 
 const clearServiceAssetSelection = () => {
     form.asset_unit_id = null;
-    serviceAssetLineSummary.value = '';
+    equipmentBreakdown.value = null;
     serviceAssetForm.value = emptyServiceAssetForm();
 };
 
@@ -707,13 +828,14 @@ watch(() => form.customer_id, (newValue, oldValue) => {
 });
 
 watch(
-    () => props.record?.asset_unit?.display_name,
-    (name) => {
-        if (name && (props.mode === 'edit' || props.mode === 'create')) {
-            serviceAssetLineSummary.value = name;
+    () => props.record?.asset_unit,
+    (u) => {
+        if (props.mode === 'show') {
+            return;
         }
+        equipmentBreakdown.value = u ? equipmentBreakdownFromAssetUnit(u) : null;
     },
-    { immediate: true },
+    { immediate: true, deep: true },
 );
 
 // Watch for location changes to auto-populate tax rate
@@ -1021,7 +1143,7 @@ const handleCancel = () => {
                                             <p v-if="form.errors.location_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                         </div>
 
-                                        <!-- Equipment: asset → variant → unit (same as estimates), units scoped to customer or unassigned -->
+                                        <!-- Equipment: catalog asset → variant → unit -->
                                         <div v-if="fieldsSchema.asset_unit_id">
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 {{ fieldsSchema.asset_unit_id?.label || 'Asset' }}
@@ -1031,7 +1153,7 @@ const handleCancel = () => {
                                                 <p v-if="!form.customer_id" class="text-md text-amber-700 dark:text-amber-300">
                                                     Select a customer first.
                                                 </p>
-                                                <div v-else class="space-y-2">
+                                                <div v-else class="space-y-3">
                                                     <div class="flex flex-wrap items-center gap-2">
                                                         <button
                                                             type="button"
@@ -1040,14 +1162,10 @@ const handleCancel = () => {
                                                             class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <span class="material-icons text-lg text-primary-600 dark:text-primary-400">inventory_2</span>
-                                                            {{
-                                                                form.asset_unit_id || serviceAssetLineSummary
-                                                                    ? 'Change equipment'
-                                                                    : 'Select equipment'
-                                                            }}
+                                                            {{ hasEquipmentSelectionUi ? 'Change equipment' : 'Select equipment' }}
                                                         </button>
                                                         <button
-                                                            v-if="(form.asset_unit_id || serviceAssetLineSummary) && !isFieldReadonly('asset_unit_id') && !isLocked"
+                                                            v-if="hasEquipmentSelectionUi && !isFieldReadonly('asset_unit_id') && !isLocked"
                                                             type="button"
                                                             @click="clearServiceAssetSelection"
                                                             class="text-md text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
@@ -1055,23 +1173,53 @@ const handleCancel = () => {
                                                             Clear
                                                         </button>
                                                     </div>
-                                                    <p
-                                                        v-if="serviceAssetLineSummary"
-                                                        class="text-md text-gray-900 dark:text-gray-100"
+                                                    <div
+                                                        v-if="equipmentDisplayRows.length"
+                                                        class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/90 dark:bg-gray-900/40 px-4 py-3"
                                                     >
-                                                        {{ serviceAssetLineSummary }}
-                                                    </p>
+                                                        <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-8">
+                                                            <div
+                                                                v-for="row in equipmentDisplayRows"
+                                                                :key="row.key"
+                                                                class="min-w-0"
+                                                            >
+                                                                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                                    {{ row.label }}
+                                                                </dt>
+                                                                <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100 break-words">
+                                                                    {{ row.value }}
+                                                                </dd>
+                                                            </div>
+                                                        </dl>
+                                                    </div>
                                                     <p
                                                         v-else-if="!form.asset_unit_id"
-                                                        class="text-sm text-gray-500 dark:text-gray-400"
+                                                        class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed"
                                                     >
-                                                        Optional: choose catalog asset, variant if applicable, and a serialized unit.
+                                                        Optional: choose catalog asset, variant if applicable, and a serialized unit. Make / brand and identifiers appear here after you save.
                                                     </p>
                                                 </div>
                                             </template>
-                                            <p v-else class="text-md text-gray-900 dark:text-white">
-                                                {{ record?.asset_unit?.display_name || '—' }}
-                                            </p>
+                                            <div
+                                                v-else-if="equipmentDisplayRows.length"
+                                                class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/90 dark:bg-gray-900/40 px-4 py-3"
+                                            >
+                                                <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-8">
+                                                    <div
+                                                        v-for="row in equipmentDisplayRows"
+                                                        :key="row.key"
+                                                        class="min-w-0"
+                                                    >
+                                                        <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                            {{ row.label }}
+                                                        </dt>
+                                                        <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-white break-words">
+                                                            {{ row.value }}
+                                                        </dd>
+                                                    </div>
+                                                </dl>
+                                            </div>
+                                            <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                             <p v-if="fieldsSchema.asset_unit_id?.help && mode !== 'show'" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                                 {{ fieldsSchema.asset_unit_id.help }}
                                             </p>

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Asset\Models\Asset;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Transaction\Models\Transaction;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
@@ -176,6 +178,8 @@ class ServiceTicketController extends BaseController
             ? (int) $request->get('transaction_id')
             : null;
 
+        $transactionBootstrap = $this->transactionBootstrapForServiceTicketCreate($transactionId);
+
         return inertia('Tenant/ServiceTicket/Create', [
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
@@ -183,7 +187,111 @@ class ServiceTicketController extends BaseController
             'account' => $account,
             'timezones' => Timezone::options(),
             'transactionId' => $transactionId,
+            'transactionBootstrap' => $transactionBootstrap,
         ]);
+    }
+
+    /**
+     * Prefill data when opening the service-ticket wizard from a transaction (customer + asset units on the deal).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function transactionBootstrapForServiceTicketCreate(?int $transactionId): ?array
+    {
+        if (! $transactionId) {
+            return null;
+        }
+
+        $tx = Transaction::query()
+            ->select(['id', 'customer_id', 'sequence', 'subsidiary_id', 'location_id'])
+            ->with([
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select(['id', 'display_name']),
+                'items' => function ($q) {
+                    $q->where('itemable_type', Asset::class)
+                        ->whereNotNull('asset_unit_id')
+                        ->orderBy('position')
+                        ->orderBy('id')
+                        ->with([
+                            'assetUnit' => function ($uq) {
+                                $uq->select([
+                                    'id',
+                                    'serial_number',
+                                    'hin',
+                                    'sku',
+                                    'asset_id',
+                                    'customer_id',
+                                    'asset_variant_id',
+                                ])->with([
+                                    'asset' => function ($aq) {
+                                        $aq->select(['id', 'display_name', 'year', 'make_id', 'has_variants'])
+                                            ->with(['make' => fn ($mq) => $mq->select(['id', 'display_name'])]);
+                                    },
+                                    'assetVariant' => fn ($vq) => $vq->select(['id', 'name', 'display_name']),
+                                ]);
+                            },
+                        ]);
+                },
+            ])
+            ->find($transactionId);
+
+        if (! $tx || ! $tx->customer_id) {
+            return null;
+        }
+
+        $seenUnitIds = [];
+        $assetUnits = [];
+        foreach ($tx->items as $line) {
+            $unit = $line->assetUnit;
+            if (! $unit || isset($seenUnitIds[$unit->id])) {
+                continue;
+            }
+            $seenUnitIds[$unit->id] = true;
+            $asset = $unit->asset;
+            $make = $asset?->make;
+            $variant = $unit->assetVariant;
+            $assetUnits[] = [
+                'id' => $unit->id,
+                'display_name' => $unit->display_name ?: ($asset?->display_name ?? 'Unit #'.$unit->id),
+                'serial_number' => $unit->serial_number,
+                'hin' => $unit->hin,
+                'sku' => $unit->sku,
+                'asset_id' => $unit->asset_id,
+                'customer_id' => $unit->customer_id,
+                'asset_variant_id' => $unit->asset_variant_id,
+                'asset' => $asset ? [
+                    'id' => $asset->id,
+                    'display_name' => $asset->display_name,
+                    'year' => $asset->year,
+                    'has_variants' => (bool) $asset->has_variants,
+                    'make' => $make ? ['id' => $make->id, 'display_name' => $make->display_name] : null,
+                ] : null,
+                'asset_variant' => $variant ? [
+                    'id' => $variant->id,
+                    'name' => $variant->name,
+                    'display_name' => $variant->display_name,
+                ] : null,
+            ];
+        }
+
+        return [
+            'transaction' => [
+                'id' => $tx->id,
+                'display_name' => $tx->display_name,
+            ],
+            'customer_id' => $tx->customer_id,
+            'subsidiary_id' => $tx->subsidiary_id,
+            'location_id' => $tx->location_id,
+            'subsidiary' => $tx->subsidiary ? [
+                'id' => $tx->subsidiary->id,
+                'display_name' => $tx->subsidiary->display_name,
+            ] : null,
+            'location' => $tx->location ? [
+                'id' => $tx->location->id,
+                'display_name' => $tx->location->display_name,
+            ] : null,
+            'asset_units' => $assetUnits,
+        ];
     }
 
     /**
@@ -219,13 +327,16 @@ class ServiceTicketController extends BaseController
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
         $relationships['assetUnit'] = function ($query) {
-            $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                ->with(['asset' => function ($q) {
-                    $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
-                        ->with(['make' => function ($mq) {
-                            $mq->select(['id', 'display_name']);
-                        }]);
-                }]);
+            $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id', 'asset_variant_id'])
+                ->with([
+                    'asset' => function ($q) {
+                        $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                            ->with(['make' => function ($mq) {
+                                $mq->select(['id', 'display_name']);
+                            }]);
+                    },
+                    'assetVariant' => fn ($vq) => $vq->select(['id', 'name', 'display_name']),
+                ]);
         };
 
         $relationships['serviceItems'] = function ($query) {
@@ -317,13 +428,16 @@ class ServiceTicketController extends BaseController
 
                 if ($fieldDef['typeDomain'] === 'AssetUnit') {
                     $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                            ->with(['asset' => function ($q) {
-                                $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
-                                    ->with(['make' => function ($mq) {
-                                        $mq->select(['id', 'display_name']);
-                                    }]);
-                            }]);
+                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id', 'asset_variant_id'])
+                            ->with([
+                                'asset' => function ($q) {
+                                    $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                                        ->with(['make' => function ($mq) {
+                                            $mq->select(['id', 'display_name']);
+                                        }]);
+                                },
+                                'assetVariant' => fn ($vq) => $vq->select(['id', 'name', 'display_name']),
+                            ]);
                     };
                 } else {
                     $selectFields = ['id', 'display_name'];

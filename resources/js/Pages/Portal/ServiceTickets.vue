@@ -52,7 +52,7 @@ const openPrintReview = (uuid) => {
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="bg-gray-50 text-left">
-                            <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Title</th>
+                            <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Ticket</th>
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Status</th>
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider">Date</th>
                             <th class="px-5 py-3 font-medium text-gray-500 text-xs uppercase tracking-wider text-right">Actions</th>
@@ -66,16 +66,16 @@ const openPrintReview = (uuid) => {
                                     :href="route('portal.servicetickets.show', ticket.uuid)"
                                     class="text-primary-600 hover:text-primary-700 hover:underline"
                                 >
-                                    {{ ticket.title || `Ticket #${ticket.id}` }}
+                                    {{ ticket.display_name || ticket.service_ticket_number || `Ticket #${ticket.id}` }}
                                 </Link>
-                                <span v-else>{{ ticket.title || `Ticket #${ticket.id}` }}</span>
+                                <span v-else>{{ ticket.display_name || ticket.service_ticket_number || `Ticket #${ticket.id}` }}</span>
                             </td>
                             <td class="px-5 py-3">
                                 <span :class="statusBadgeClass(ticket.status)">
                                     {{ statusLabel(ticket.status) }}
                                 </span>
                             </td>
-                            <td class="px-5 py-3 text-gray-500">{{ ticket.created_at }}</td>
+                            <td class="px-5 py-3 text-gray-500">{{ $formatDate(ticket.created_at) }}</td>
                             <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <template v-if="ticket.uuid">
                                     <Link

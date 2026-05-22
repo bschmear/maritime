@@ -288,6 +288,7 @@ class CustomerPortalController extends Controller
         $ticket = ServiceTicket::query()
             ->where('uuid', $uuid)
             ->where('customer_id', $customerId)
+            ->where('status', '!=', ServiceTicketStatus::Draft->id())
             ->with([
                 'customer',
                 'subsidiary',
@@ -668,7 +669,8 @@ class CustomerPortalController extends Controller
                 $customerId !== null,
                 fn ($q) => $q->where('customer_id', $customerId),
                 fn ($q) => $q->whereRaw('0 = 1'),
-            );
+            )
+            ->where('status', '!=', ServiceTicketStatus::Draft->id());
     }
 
     private function buildLineItems(Estimate $estimate): array
@@ -677,12 +679,25 @@ class CustomerPortalController extends Controller
             return [];
         }
 
-        return $estimate->primaryVersion->lineItems->map(function ($li) {
+        $estimate->loadMissing('selectedAssetOptions');
+
+        $optionsByLineId = $estimate->selectedAssetOptions->groupBy('transaction_line_item_id');
+
+        return $estimate->primaryVersion->lineItems->map(function ($li) use ($optionsByLineId) {
             $v = $li->assetVariant;
             $variantLabel = $v ? ($v->display_name ?: $v->name) : null;
             if ($variantLabel === null && $li->asset_variant_id) {
                 $variantLabel = 'Variant #'.$li->asset_variant_id;
             }
+
+            $selectedOptions = ($optionsByLineId->get($li->id) ?? collect())
+                ->map(fn ($s) => [
+                    'option_name' => $s->option_name,
+                    'value_label' => $s->value_label,
+                    'price' => (float) $s->price,
+                ])
+                ->values()
+                ->all();
 
             return [
                 'id' => $li->id,
@@ -695,6 +710,7 @@ class CustomerPortalController extends Controller
                 'unit_price' => (float) $li->unit_price,
                 'discount' => (float) ($li->discount ?? 0),
                 'line_total' => (float) $li->line_total,
+                'selected_options' => $selectedOptions,
                 'addons' => $li->addons->map(fn ($a) => [
                     'id' => $a->id,
                     'name' => $a->name,

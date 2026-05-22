@@ -3,8 +3,8 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
-import { Head, router } from '@inertiajs/vue3';
-import { computed, nextTick, ref, watch } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     formSchema: {
@@ -29,6 +29,11 @@ const props = defineProps({
     },
     transactionId: {
         type: Number,
+        default: null,
+    },
+    /** When present (from ?transaction_id=), prefill customer + deal asset units and link back to the deal. */
+    transactionBootstrap: {
+        type: Object,
         default: null,
     },
 });
@@ -83,6 +88,12 @@ const assetIsLoading = ref(false);
 // Final data to pass to the form
 const initialFormData = ref(null);
 
+/** While applying transactionBootstrap on first paint (avoids a blank step 1 flash). */
+const transactionInitLoading = ref(Boolean(props.transactionBootstrap?.customer_id));
+
+/** Asset rows from the deal; reused when returning to step 2 from the form. */
+const prefetchedTransactionAssetUnits = ref([]);
+
 // ==============================
 // Step Progress
 // ==============================
@@ -122,7 +133,11 @@ const goToAssetStep = () => {
     currentStep.value = 2;
     assetSearchQuery.value = '';
     selectedAssetUnit.value = null;
-    fetchAssets();
+    if (prefetchedTransactionAssetUnits.value.length) {
+        assetRecords.value = prefetchedTransactionAssetUnits.value;
+    } else {
+        fetchAssets();
+    }
 };
 
 /**
@@ -336,6 +351,20 @@ const proceedToTicketForm = () => {
         data.transaction_id = props.transactionId;
     }
 
+    const boot = props.transactionBootstrap;
+    if (boot?.subsidiary_id != null && boot.subsidiary_id !== '') {
+        data.subsidiary_id = Number(boot.subsidiary_id);
+    }
+    if (boot?.location_id != null && boot.location_id !== '') {
+        data.location_id = Number(boot.location_id);
+    }
+    if (boot?.subsidiary?.id != null) {
+        data.subsidiary = { id: boot.subsidiary.id, display_name: boot.subsidiary.display_name ?? '' };
+    }
+    if (boot?.location?.id != null) {
+        data.location = { id: boot.location.id, display_name: boot.location.display_name ?? '' };
+    }
+
     initialFormData.value = data;
     currentStep.value = 3;
 };
@@ -357,12 +386,64 @@ const goBackToCustomerStep = async () => {
 const goBackToAssetStep = () => {
     currentStep.value = 2;
     initialFormData.value = null;
-    fetchAssets();
+    if (prefetchedTransactionAssetUnits.value.length) {
+        assetRecords.value = prefetchedTransactionAssetUnits.value;
+    } else {
+        fetchAssets();
+    }
 };
 
 const handleCancelled = () => {
     router.visit(route('servicetickets.index'));
 };
+
+const applyTransactionBootstrap = async () => {
+    const boot = props.transactionBootstrap;
+    if (!boot?.customer_id) {
+        return;
+    }
+
+    transactionInitLoading.value = true;
+    try {
+        if (Array.isArray(boot.asset_units) && boot.asset_units.length) {
+            prefetchedTransactionAssetUnits.value = boot.asset_units;
+        } else {
+            prefetchedTransactionAssetUnits.value = [];
+        }
+
+        skipCustomerIdAdvance.value = true;
+        customerId.value = boot.customer_id;
+        await fetchCustomerDetails(boot.customer_id);
+        await nextTick();
+        skipCustomerIdAdvance.value = false;
+
+        if (!selectedCustomer.value?.id) {
+            currentStep.value = 1;
+            return;
+        }
+
+        const units = prefetchedTransactionAssetUnits.value;
+        assetRecords.value = units;
+
+        if (units.length > 0) {
+            const first = units[0];
+            selectedAssetUnit.value = first;
+            await fetchAssetDetails(first.id);
+            proceedToTicketForm();
+        } else {
+            currentStep.value = 2;
+            await fetchAssets();
+        }
+    } finally {
+        transactionInitLoading.value = false;
+    }
+};
+
+onMounted(() => {
+    if (props.transactionBootstrap?.customer_id) {
+        applyTransactionBootstrap();
+    }
+});
 
 </script>
 
@@ -376,6 +457,26 @@ const handleCancelled = () => {
             </div>
         </template>
 
+        <div v-if="transactionBootstrap?.transaction?.id" class="max-w-4xl mx-auto mb-4">
+            <Link
+                :href="route('transactions.show', transactionBootstrap.transaction.id)"
+                class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
+            >
+                <span class="material-icons text-base">arrow_back</span>
+                Back to {{ transactionBootstrap.transaction.display_name }}
+            </Link>
+        </div>
+
+        <div v-if="transactionInitLoading" class="max-w-4xl mx-auto">
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-10 flex flex-col items-center justify-center gap-4">
+                <div class="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-blue-600" />
+                <p class="text-sm text-gray-600 dark:text-gray-400 text-center">
+                    Loading customer and assets from this deal…
+                </p>
+            </div>
+        </div>
+
+        <template v-else>
         <!-- ==============================
              Step 1: Customer Selection
              ============================== -->
@@ -699,6 +800,15 @@ const handleCancelled = () => {
                 </div>
             </div>
 
+            <p
+                v-if="prefetchedTransactionAssetUnits.length > 1"
+                class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+                This deal includes {{ prefetchedTransactionAssetUnits.length }} serialized units. The first unit is selected for this ticket. Use
+                <span class="font-semibold">Back to Asset Selection</span>
+                to choose a different unit.
+            </p>
+
             <ServiceTicketForm
                 :record="initialFormData"
                 :form-schema="formSchema"
@@ -710,5 +820,7 @@ const handleCancelled = () => {
                 @cancelled="handleCancelled"
             />
         </div>
+        </template>
+
     </TenantLayout>
 </template>

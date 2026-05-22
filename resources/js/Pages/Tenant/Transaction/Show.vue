@@ -781,7 +781,7 @@ const confirmAddStep = () => {
                                             <span class="material-icons text-gray-300 group-hover:text-blue-400 text-md">chevron_right</span>
                                         </a>
                                     </div>
-                                    <a :href="route('servicetickets.create') + `?transaction_id=${record.id}`"
+                                    <a :href="route('servicetickets.create', { transaction_id: record.id })"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700 transition-colors">
                                         <span class="material-icons text-md">add</span>
                                         Create Service Ticket

@@ -35,7 +35,10 @@ class AssetUnitController extends RecordController
     protected function appendShowRelationships(array &$relationships): void
     {
         $relationships['asset'] = function ($query) {
-            $query->select(['id', 'display_name', 'has_variants', 'make_id']);
+            $query->select(['id', 'display_name', 'has_variants', 'make_id', 'year', 'model'])
+                ->with([
+                    'make' => fn ($q) => $q->select(['id', 'display_name']),
+                ]);
         };
     }
 
@@ -47,7 +50,10 @@ class AssetUnitController extends RecordController
         $base = parent::showPageExtraProps($record);
 
         $asset = Asset::query()
-            ->select(['id', 'display_name', 'has_variants', 'make_id'])
+            ->select(['id', 'display_name', 'has_variants', 'make_id', 'year', 'model'])
+            ->with([
+                'make' => fn ($q) => $q->select(['id', 'display_name']),
+            ])
             ->find($record->asset_id);
 
         if ($asset === null) {

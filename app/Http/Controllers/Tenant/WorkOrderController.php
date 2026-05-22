@@ -544,6 +544,10 @@ class WorkOrderController extends RecordController
 
         // Create the work order first
         $request->merge($data);
+        // merge() does not remove keys omitted from $data; the original request may still carry these.
+        $request->request->remove('service_items');
+        $request->request->remove('link_service_ticket_image_ids');
+        $request->request->remove('link_all_service_ticket_images');
         $response = parent::store($request, $publicStorage);
 
         // If successful, always recalculate work order totals
