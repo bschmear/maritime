@@ -250,20 +250,10 @@ td.sticky {
         backdrop-filter: none !important;
     }
 
-    body:has(.invoice-preview-overlay) .invoice-preview-panel {
-        display: block !important;
-        max-height: none !important;
-        height: auto !important;
-        overflow: visible !important;
+    /* Invoice preview — same full-viewport shell as contract / service ticket */
+    .invoice-preview-shell {
+        min-height: 0 !important;
         background: white !important;
-    }
-
-    body:has(.invoice-preview-overlay) .invoice-preview-scroll {
-        display: block !important;
-        flex: none !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow: visible !important;
     }
 
     #invoice-print-root {
@@ -500,6 +490,21 @@ td.sticky {
     }
 
     #contract-print-document tfoot {
+        display: table-row-group;
+    }
+
+    #invoice-print-document {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    #invoice-print-document thead {
+        display: table-row-group;
+    }
+
+    #invoice-print-document tfoot {
         display: table-row-group;
     }
 }

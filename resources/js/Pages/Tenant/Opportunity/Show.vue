@@ -490,28 +490,31 @@ const formatDateTime = (value) => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                         {{ opportunityLabel }}
                     </h2>
-                    <div class="flex items-center gap-2">
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
                         <Link
                             :href="route('opportunities.edit', buildResourceRouteParams('opportunities', record.id))"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            aria-label="Edit opportunity"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            Edit
+                            <span class="hidden md:inline">Edit</span>
                         </Link>
                         <button
+                            type="button"
+                            aria-label="Delete opportunity"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-red-200 bg-white p-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20 md:gap-1.5 md:px-4 md:py-2"
                             @click="handleDelete"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            Delete
+                            <span class="hidden md:inline">Delete</span>
                         </button>
                     </div>
                 </div>
@@ -783,7 +786,7 @@ const formatDateTime = (value) => {
 
                         <!-- Assets -->
                         <!-- Mobile: Card Layout -->
-                        <div v-if="assets.length > 0" class="block md:hidden">
+                        <div v-if="assets.length > 0" class="block lg:hidden">
                             <!-- Select All -->
                             <div v-if="canSendFeatureRequest" class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                                 <label class="flex items-center gap-2 text-sm">
@@ -936,8 +939,8 @@ const formatDateTime = (value) => {
                         </div>
 
                         <!-- Desktop: Table Layout -->
-                        <div v-if="assets.length > 0" class="hidden md:block overflow-x-auto">
-                            <table class="w-full text-base">
+                        <div v-if="assets.length > 0" class="hidden lg:block overflow-x-auto">
+                            <table class="w-full min-w-[56rem] text-base">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="w-12 px-2 py-3 text-center align-middle">
@@ -1075,7 +1078,7 @@ const formatDateTime = (value) => {
                             No submissions yet. Select one or more assets above, then use “Send feature request form(s)” to email the customer a secure link.
                         </div>
                         <!-- Mobile: stacked cards (avoids wide table overflow) -->
-                        <div v-else class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                        <div v-else class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700">
                             <div
                                 v-for="fr in featureRequests"
                                 :key="`fr-m-${fr.id}`"
@@ -1187,7 +1190,7 @@ const formatDateTime = (value) => {
                             </div>
                         </div>
                         <!-- Desktop: wide table -->
-                        <div v-if="featureRequests.length > 0" class="hidden md:block overflow-x-auto">
+                        <div v-if="featureRequests.length > 0" class="hidden lg:block overflow-x-auto">
                             <table class="w-full text-base">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
@@ -1307,82 +1310,84 @@ const formatDateTime = (value) => {
                             <h2 class="text-base font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
                         </div>
 
-                        <!-- Mobile: card layout -->
-                        <div v-if="lineItems.length > 0" class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                        <!-- Mobile / tablet: card layout (wide table from lg — matches estimate / service ticket patterns) -->
+                        <div v-if="lineItems.length > 0" class="block lg:hidden px-4 pb-4 sm:px-6">
+                            <div class="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                             <div
                                 v-for="(item, ix) in lineItems"
                                 :key="`inv-m-${item.id}-${item.pivot?.id ?? ix}`"
-                                class="p-4 space-y-3"
+                                class="space-y-3 bg-white p-4 dark:bg-gray-800"
                             >
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0 flex-1">
-                                        <div class="font-semibold text-base text-gray-900 dark:text-white">{{ item.display_name }}</div>
-                                        <div v-if="item.sku" class="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">SKU {{ item.sku }}</div>
+                                        <div class="text-base font-semibold text-gray-900 dark:text-white">{{ item.display_name }}</div>
+                                        <div v-if="item.sku" class="mt-1 font-mono text-sm text-gray-500 dark:text-gray-400">SKU {{ item.sku }}</div>
                                     </div>
-                                    <div class="text-right shrink-0">
-                                        <div class="font-semibold text-base text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</div>
-                                        <div class="text-sm text-gray-500 dark:text-gray-400">Line total</div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Est. cost</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ formatCurrency(item.pivot?.estimated_cost) }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit price</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ formatCurrency(item.pivot?.unit_price) }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Qty</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ item.pivot?.quantity ?? 1 }}</div>
+                                    <div class="shrink-0 text-right">
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Line total</div>
+                                        <div class="text-base font-semibold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</div>
                                     </div>
                                 </div>
-                                <div v-if="item.pivot?.notes" class="pt-2 border-t border-gray-100 dark:border-gray-700">
-                                    <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Notes</div>
-                                    <div class="text-base text-gray-700 dark:text-gray-300">{{ item.pivot.notes }}</div>
+                                <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                                    <div>
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Est. cost</div>
+                                        <div class="tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(item.pivot?.estimated_cost) }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Unit price</div>
+                                        <div class="tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(item.pivot?.unit_price) }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Qty</div>
+                                        <div class="tabular-nums text-gray-900 dark:text-white">{{ item.pivot?.quantity ?? 1 }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="item.pivot?.notes" class="border-t border-gray-100 pt-2 dark:border-gray-700">
+                                    <div class="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</div>
+                                    <div class="text-sm text-gray-700 dark:text-gray-300">{{ item.pivot.notes }}</div>
                                 </div>
                                 <div
                                     v-if="item.opportunity_addons && item.opportunity_addons.length > 0"
-                                    class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                                    class="space-y-2 border-l-2 border-primary-200 pl-3 dark:border-primary-700"
                                 >
                                     <div
                                         v-for="(addon, aix) in item.opportunity_addons"
                                         :key="`inv-m-addon-${item.id}-${aix}`"
-                                        class="flex items-center justify-between gap-2 text-base"
+                                        class="flex items-center justify-between gap-2 text-sm"
                                     >
-                                        <div class="text-gray-600 dark:text-gray-400 italic min-w-0">
+                                        <div class="min-w-0 italic text-gray-600 dark:text-gray-400">
                                             ↳ {{ addon.name }} (× {{ addon.quantity }})
                                         </div>
-                                        <div class="font-medium text-gray-900 dark:text-white shrink-0 tabular-nums">
+                                        <div class="shrink-0 font-medium tabular-nums text-gray-900 dark:text-white">
                                             {{ formatCurrency(Number(addon.price || 0) * Number(addon.quantity || 1)) }}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4 space-y-2">
-                                <div class="flex justify-between text-base">
-                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Acc. Subtotal (Revenue)</span>
-                                    <span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</span>
+                            <div class="space-y-2 border-t-2 border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700/50">
+                                <div class="flex justify-between gap-3 text-sm sm:text-base">
+                                    <span class="min-w-0 shrink font-semibold leading-snug text-gray-700 dark:text-gray-300">Parts &amp; Acc. Subtotal (Revenue)</span>
+                                    <span class="shrink-0 text-right font-bold tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(lineItemsSubtotal) }}</span>
                                 </div>
-                                <div class="flex justify-between text-base border-t border-gray-200 dark:border-gray-600 pt-2">
-                                    <span class="font-semibold text-gray-500 dark:text-gray-400">Parts &amp; Acc. Total Cost</span>
-                                    <span class="text-red-600 dark:text-red-400">{{ formatCurrency(lineItemsCostTotal) }}</span>
+                                <div class="flex justify-between gap-3 border-t border-gray-200 pt-2 text-sm sm:text-base dark:border-gray-600">
+                                    <span class="min-w-0 shrink font-semibold leading-snug text-gray-500 dark:text-gray-400">Parts &amp; Acc. Total Cost</span>
+                                    <span class="shrink-0 text-right tabular-nums text-red-600 dark:text-red-400">{{ formatCurrency(lineItemsCostTotal) }}</span>
                                 </div>
-                                <div class="flex justify-between text-base border-t border-dashed border-gray-200 dark:border-gray-600 pt-2">
-                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Acc. Gross Profit</span>
+                                <div class="flex justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm sm:text-base dark:border-gray-600">
+                                    <span class="min-w-0 shrink font-semibold leading-snug text-gray-700 dark:text-gray-300">Parts &amp; Acc. Gross Profit</span>
                                     <span
-                                        class="font-bold"
+                                        class="shrink-0 text-right font-bold tabular-nums"
                                         :class="(lineItemsSubtotal - lineItemsCostTotal) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
                                     >
                                         {{ formatCurrency(lineItemsSubtotal - lineItemsCostTotal) }}
                                     </span>
                                 </div>
                             </div>
+                            </div>
                         </div>
                         <!-- Desktop: table -->
-                        <div v-if="lineItems.length > 0" class="hidden md:block overflow-x-auto">
-                            <table class="w-full text-base">
+                        <div v-if="lineItems.length > 0" class="hidden lg:block overflow-x-auto">
+                            <table class="w-full min-w-[52rem] text-base">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>

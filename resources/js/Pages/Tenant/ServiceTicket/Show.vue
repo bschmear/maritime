@@ -93,9 +93,6 @@ const approving = ref(false);
 // Preview state
 const showPreview = ref(false);
 
-// Dropdown menu state
-const showActionsMenu = ref(false);
-
 const isSublistVisible = (sub) => {
     if (!sub?.conditional || typeof sub.conditional !== 'object') {
         return true;
@@ -196,134 +193,90 @@ const linkedTransaction = computed(() => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                         Service Ticket Details
                     </h2>
 
-                    <!-- Desktop Actions -->
-                    <div class="hidden lg:flex items-center gap-2">
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
                         <Link :href="route('servicetickets.index')">
-                            <button class="inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-2">arrow_back</span>
-                                Back to List
+                            <button
+                                type="button"
+                                aria-label="Back to service tickets"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-300 bg-white p-2 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 md:gap-1.5 md:px-4 md:py-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">arrow_back</span>
+                                <span class="hidden md:inline">Back to List</span>
                             </button>
                         </Link>
-                        <!-- Work Order Button -->
                         <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
-                                <span class="material-icons text-md mr-1">assignment</span>
-                                View Work Order
+                            <button
+                                type="button"
+                                aria-label="View work order"
+                                class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-amber-600 p-2 text-md font-medium text-white transition-colors hover:bg-amber-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">assignment</span>
+                                <span class="hidden md:inline">View Work Order</span>
                             </button>
                         </Link>
                         <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id">
-                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors whitespace-nowrap">
-                                <span class="material-icons text-md mr-1">add_circle</span>
-                                Create Work Order
+                            <button
+                                type="button"
+                                aria-label="Create work order"
+                                class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-amber-600 p-2 text-md font-medium text-white transition-colors hover:bg-amber-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">add_circle</span>
+                                <span class="hidden md:inline">Create Work Order</span>
                             </button>
                         </Link>
                         <button
+                            type="button"
+                            aria-label="Customer preview"
+                            class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-purple-600 p-2 text-md font-medium text-white transition-colors hover:bg-purple-700 md:gap-1.5 md:px-4 md:py-2.5"
                             @click="openPreview"
-                            class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors whitespace-nowrap"
                         >
-                            <span class="material-icons text-md mr-1">visibility</span>
-                            Customer Preview
+                            <span class="material-icons text-xl leading-none md:text-md">visibility</span>
+                            <span class="hidden md:inline">Customer Preview</span>
                         </button>
                         <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-1">edit</span>
-                                Edit
+                            <button
+                                type="button"
+                                aria-label="Edit service ticket"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg bg-blue-600 p-2 text-md font-medium text-white transition-colors hover:bg-blue-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">edit</span>
+                                <span class="hidden md:inline">Edit</span>
                             </button>
                         </Link>
-                        <button v-else disabled class="inline-flex items-center px-4 py-2.5 text-md font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
-                            <span class="material-icons text-md mr-1">lock</span>
-                            Locked
+                        <button
+                            v-else
+                            type="button"
+                            disabled
+                            aria-label="Ticket is locked"
+                            class="inline-flex cursor-not-allowed items-center justify-center gap-0 rounded-lg bg-gray-200 p-2 text-md font-medium text-gray-400 md:gap-1.5 md:px-4 md:py-2.5"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-md">lock</span>
+                            <span class="hidden md:inline">Locked</span>
                         </button>
                         <button
+                            type="button"
+                            aria-label="Delete service ticket"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-red-600 p-2 text-md font-medium text-white transition-colors hover:bg-red-700 md:gap-1.5 md:px-3 md:py-2.5"
                             @click="deleteTicket"
-                            class="inline-flex items-center justify-center px-2 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                         >
-                            <span class="material-icons">delete_forever</span>
+                            <span class="material-icons text-xl leading-none">delete_forever</span>
+                            <span class="hidden md:inline">Delete</span>
                         </button>
-                    </div>
-
-                    <!-- Mobile Actions - With Dropdown -->
-                    <div class="flex items-center gap-2 lg:hidden">
-                        <Link :href="route('servicetickets.index')" class="flex-1">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-2">arrow_back</span>
-                                Back
-                            </button>
-                        </Link>
-                        
-                        <Link v-if="!isLocked" :href="route('servicetickets.edit', record.id)" class="flex-1">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-1">edit</span>
-                                Edit
-                            </button>
-                        </Link>
-                        <button v-else disabled class="flex-1 w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-400 bg-gray-200 cursor-not-allowed rounded-lg">
-                            <span class="material-icons text-md mr-1">lock</span>
-                            Locked
-                        </button>
-
-                        <!-- Dropdown Menu -->
-                        <div class="relative">
-                            <button
-                                @click="showActionsMenu = !showActionsMenu"
-                                class="inline-flex items-center justify-center p-2.5 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons">more_vert</span>
-                            </button>
-
-                            <!-- Dropdown Backdrop -->
-                            <div
-                                v-if="showActionsMenu"
-                                @click="showActionsMenu = false"
-                                class="fixed inset-0 z-40"
-                            ></div>
-                            
-                            <!-- Dropdown Menu -->
-                            <div
-                                v-if="showActionsMenu"
-                                class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-                            >
-                                <div class="py-1">
-                                    <Link v-if="workOrders.length > 0" :href="route('workorders.show', workOrders[0].id)" class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <span class="material-icons text-lg text-amber-600 dark:text-amber-400">assignment</span>
-                                        <span>View Work Order</span>
-                                    </Link>
-                                    <Link v-else :href="route('workorders.create') + '?service_ticket_id=' + record.id" class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                        <span class="material-icons text-lg text-amber-600 dark:text-amber-400">add_circle</span>
-                                        <span>Create Work Order</span>
-                                    </Link>
-                                    <button
-                                        @click="openPreview(); showActionsMenu = false"
-                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
-                                    >
-                                        <span class="material-icons text-lg text-purple-600 dark:text-purple-400">visibility</span>
-                                        <span>Customer Preview</span>
-                                    </button>
-                                    <button
-                                        @click="deleteTicket(); showActionsMenu = false"
-                                        class="w-full flex items-center gap-3 px-4 py-2.5 text-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-gray-100 dark:border-gray-700"
-                                    >
-                                        <span class="material-icons text-lg">delete_forever</span>
-                                        <span>Delete Ticket</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
         </template>
 
-        <div class="border-t  border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900 mb-4 dark:mb-0">
+        <div class="border-t  border-gray-200 dark:border-gray-700  top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900 mb-4 dark:mb-0">
             <div class="w-full px-4 py-4 sm:py-5">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
                     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</span>
                             <div class="flex items-center gap-2">
                                 <select
@@ -365,7 +318,7 @@ const linkedTransaction = computed(() => {
                             <span class="material-icons text-lg text-blue-500 dark:text-blue-400">handshake</span>
                             <span class="text-md font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap group-hover:underline">{{ linkedTransaction.title }}</span>
                         </Link>
-                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
                             <div class="flex items-center gap-2">
                                 <span v-if="record.approved" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-md text-md font-semibold shadow-sm whitespace-nowrap">

@@ -202,6 +202,88 @@ class SmsService
         return SmsProviderFactory::make()->send($to, $message, $from ?: null);
     }
 
+    /**
+     * Whether the UI may offer “email + SMS” when sending a contract for review/signature.
+     *
+     * @param  WebUser|TenantUser|null  $authUser  Session user is usually {@see WebUser}; phones live on the tenant {@see TenantUser} row matched by email.
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function contractReviewSmsCanBeOffered(?Customer $customer, WebUser|TenantUser|null $authUser): array
+    {
+        if (! $this->tenantWantsSms(SMS::Contract)) {
+            return ['offered' => false, 'hint' => null];
+        }
+
+        if ($authUser === null) {
+            return ['offered' => false, 'hint' => 'Sign in to send SMS.'];
+        }
+
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            if ($tenantStaff === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'No staff user in this tenant matches your login email; create or link your staff profile to send sandbox SMS.',
+                ];
+            }
+
+            $to = $this->normalizePhoneForSms($tenantStaff->mobile_phone ?? $tenantStaff->office_phone ?? null);
+            if ($to === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'Sandbox mode sends texts to you: add a mobile or office phone on your staff user profile.',
+                ];
+            }
+
+            return ['offered' => true, 'hint' => null];
+        }
+
+        if ($customer === null) {
+            return ['offered' => false, 'hint' => 'This contract has no customer to text.'];
+        }
+
+        $raw = $customer->mobile ?? $customer->phone ?? null;
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return [
+                'offered' => false,
+                'hint' => 'Add a mobile or phone number on the customer record to send SMS.',
+            ];
+        }
+
+        return ['offered' => true, 'hint' => null];
+    }
+
+    /**
+     * Send a short SMS with the public contract review / sign link.
+     */
+    public function sendContractReviewSms(WebUser|TenantUser $authUser, ?Customer $customer, string $contractLabel, string $reviewUrl): SmsResult
+    {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $customer?->mobile ?? $customer?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $label = trim($contractLabel) !== '' ? $contractLabel : 'Contract';
+        $message = "Your contract {$label} is ready to review and sign: {$reviewUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
     private function normalizePhoneForSms(?string $raw): ?string
     {
         if ($raw === null || trim($raw) === '') {

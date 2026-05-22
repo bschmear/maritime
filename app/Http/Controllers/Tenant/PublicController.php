@@ -1253,7 +1253,14 @@ class PublicController extends Controller
                         'billing_state', 'billing_postal', 'billing_country',
                     ])
                     ->with([
-                        'items' => fn ($q2) => $q2->with('addons')->orderBy('position')->orderBy('id'),
+                        'items' => fn ($q2) => $q2
+                            ->with([
+                                'addons',
+                                'selectedAssetOptions',
+                                'selectedAssetOptionsFromSourceLine',
+                            ])
+                            ->orderBy('position')
+                            ->orderBy('id'),
                         'subsidiary' => fn ($q2) => $q2->select(['id', 'display_name']),
                         'location' => fn ($q2) => $q2->select([
                             'id', 'display_name',

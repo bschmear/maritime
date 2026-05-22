@@ -125,6 +125,12 @@ class Invoice extends Model
                 },
                 'assetVariant' => fn ($q2) => $q2->select(['id', 'name', 'display_name']),
                 'assetUnit' => fn ($q2) => $q2->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                'transactionLineItem' => fn ($q2) => $q2
+                    ->select(['id', 'source_transaction_line_item_id'])
+                    ->with([
+                        'selectedAssetOptions',
+                        'selectedAssetOptionsFromSourceLine',
+                    ]),
             ]),
             'transaction' => fn ($q) => $q->select(['id', 'sequence', 'subsidiary_id', 'location_id'])
                 ->with([

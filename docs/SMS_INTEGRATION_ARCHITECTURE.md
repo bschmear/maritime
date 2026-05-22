@@ -85,7 +85,7 @@ Add columns on `account_settings` (see `database/migrations/tenant/*_add_sms_not
 - `sms_enabled` — master switch for SMS
 - `sandbox_mode` — global testing mode (UI banner + routing customer emails and SMS to the signed-in user are implemented separately). Toggle lives under **General Account Settings** on `/account` (`account.update`), not on `/account/notifications/sms`.
 
-Per-category toggles live in **`sms_notification_preferences`** (one row per `account_settings`, `account_settings_id` FK). Boolean columns follow `notify_{enumValue}` (e.g. `notify_invoice`, `notify_estimate`, `notify_delivery`). Categories are defined by the backed enum `App\Enums\SMS` (currently estimate, invoice, delivery; more can be added later).
+Per-category toggles live in **`sms_notification_preferences`** (one row per `account_settings`, `account_settings_id` FK). Boolean columns follow `notify_{enumValue}` (e.g. `notify_invoice`, `notify_estimate`, `notify_delivery`, `notify_contract`). Categories are defined by the backed enum `App\Enums\SMS` (estimate, invoice, delivery, contract).
 
 Listeners and `SmsService` should use `AccountSettings::getCurrent()->wantsSms(App\Enums\SMS::Invoice)` (or another `SMS` case / matching string value).
 SMS Message Logs (planned)

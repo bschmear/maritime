@@ -6,6 +6,7 @@
 import { computed, onMounted, ref, watchEffect } from 'vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
+import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
 const debounce = (fn, delay) => {
     let timer;
@@ -48,6 +49,33 @@ const normalizeAddons = (addons, isNew = false) =>
         taxable: normalizeTaxable(a.taxable ?? true),
     }));
 
+/** Boat options from prefill JSON or from the linked deal line when editing an invoice row. */
+const hydrateInvoiceLineAssetOptions = (item) => {
+    const direct = item.selected_asset_options ?? item.selectedAssetOptions ?? [];
+    if (direct.length) {
+        return direct.map((r) => ({
+            option_id: Number(r.option_id),
+            option_value_id: Number(r.option_value_id),
+            option_name: r.option_name ?? '',
+            value_label: r.value_label ?? '',
+            price: r.price != null ? Number(r.price) : 0,
+            taxable: normalizeTaxable(r.taxable ?? true),
+        }));
+    }
+    const tli = item.transaction_line_item ?? item.transactionLineItem;
+    if (tli) {
+        return lineAssetSelectedOptions(tli).map((r) => ({
+            option_id: Number(r.option_id),
+            option_value_id: Number(r.option_value_id),
+            option_name: r.option_name ?? '',
+            value_label: r.value_label ?? '',
+            price: r.price != null ? Number(r.price) : 0,
+            taxable: normalizeTaxable(r.taxable ?? true),
+        }));
+    }
+    return [];
+};
+
 const normalizeItemBase = (item, isNew = false) => ({
     name: item.name ?? '',
     description: item.description ?? '',
@@ -61,7 +89,8 @@ const normalizeItemBase = (item, isNew = false) => ({
     position: item.position ?? 0,
     taxable: normalizeTaxable(item.taxable ?? true),
     addons: normalizeAddons(item.addons, isNew),
-    transaction_line_item_id: item.transaction_line_item_id ?? item.transaction_item_id ?? item.id ?? null,
+    selected_asset_options: hydrateInvoiceLineAssetOptions(item),
+    transaction_line_item_id: item.transaction_line_item_id ?? item.transaction_item_id ?? null,
     // Variant — can come from invoice item directly or from prefill via estimate_line_item
     asset_variant_id: item.asset_variant_id
         ?? item.estimate_line_item?.asset_variant_id
@@ -133,7 +162,11 @@ const lineBaseTotal = (item) =>
         : Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
 const lineAddonsTotal = (item) => (item.addons || []).reduce((s, a) => s + addonPreTaxTotal(a), 0);
-const lineTotal = (item) => lineBaseTotal(item) + lineAddonsTotal(item);
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+const lineAssetOptionsPreTaxTotal = (item) =>
+    (item.selected_asset_options ?? []).reduce((s, o) => s + selectedOptionUnitPrice(o), 0);
+const lineTotal = (item) => lineBaseTotal(item) + lineAddonsTotal(item) + lineAssetOptionsPreTaxTotal(item);
 
 const dealTaxRatePercent = () => Number(props.form.tax_rate) || 0;
 const taxOnItemBase = (item) => {
@@ -146,8 +179,15 @@ const taxOnAddon = (addon) => {
     if (!addon.taxable || r <= 0) return 0;
     return roundMoney(addonPreTaxTotal(addon) * (r / 100));
 };
+const taxOnAssetOptionRow = (opt) => {
+    const r = dealTaxRatePercent();
+    if (!optionRowTaxable(opt) || r <= 0) return 0;
+    return roundMoney(selectedOptionUnitPrice(opt) * (r / 100));
+};
 const itemLineTaxTotal = (item) =>
-    taxOnItemBase(item) + (item.addons || []).reduce((s, a) => s + taxOnAddon(a), 0);
+    taxOnItemBase(item)
+    + (item.addons || []).reduce((s, a) => s + taxOnAddon(a), 0)
+    + (item.selected_asset_options ?? []).reduce((s, o) => s + taxOnAssetOptionRow(o), 0);
 const lineCoreTotalWithTax = (item) => lineBaseTotal(item) + taxOnItemBase(item);
 
 const computedSubtotal = computed(() => lines.value.reduce((s, i) => s + lineTotal(i), 0));
@@ -234,6 +274,7 @@ const emptyAssetForm = () => ({
     catalog_description: '',
     asset_unit_id: null,
     unit_display_name: '',
+    selected_asset_options: [],
 });
 const assetForm = ref(emptyAssetForm());
 
@@ -258,6 +299,7 @@ const modalFormToRow = (form, existing = {}) => {
         taxable: existing.taxable ?? true,
         transaction_line_item_id: existing.transaction_line_item_id ?? existing.transaction_item_id ?? null,
         addons: [...(form.addons || [])],
+        selected_asset_options: [...(form.selected_asset_options ?? existing.selected_asset_options ?? [])],
     };
 };
 
@@ -505,7 +547,8 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                 <p class="text-sm text-gray-500 dark:text-gray-400">No assets added yet</p>
                 <p v-if="!readonly" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to get started</p>
             </div>
-            <div v-else class="overflow-x-auto -mx-6 sm:mx-0">
+            <template v-else>
+            <div class="hidden lg:block overflow-x-auto -mx-6 sm:mx-0">
                 <div class="inline-block min-w-full align-middle">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -612,6 +655,32 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         </td>
                                     </tr>
                                     <tr
+                                        v-for="(opt, oidx) in (line.selected_asset_options || [])"
+                                        :key="`asset-opt-${idx}-${oidx}`"
+                                        class="bg-sky-50/30 dark:bg-sky-900/10"
+                                    >
+                                        <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                                            ↳ {{ selectedOptionLabel(opt) }}
+                                        </td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-400"></td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-400"></td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-400">1</td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                        <td class="px-4 py-2 text-center">
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">—</span>
+                                        </td>
+                                        <td class="px-4 py-2 text-xs text-gray-400 dark:text-gray-500">—</td>
+                                        <td class="px-4 py-2 text-center">
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ optionRowTaxable(opt) ? 'Yes' : 'No' }}</span>
+                                        </td>
+                                        <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
+                                        <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAssetOptionRow(opt)) }}</td>
+                                        <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOptionRow(opt)) }}</td>
+                                        <td class="px-4 py-2"></td>
+                                        <td v-if="!readonly" class="px-4 py-2"></td>
+                                    </tr>
+                                    <tr
                                         v-for="(addon, aidx) in (line.addons || [])"
                                         :key="`asset-addon-${idx}-${aidx}`"
                                         class="bg-blue-50/30 dark:bg-blue-900/10"
@@ -687,6 +756,94 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                     </table>
                 </div>
             </div>
+
+            <div class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden -mx-6 sm:mx-0">
+                <template v-for="(line, idx) in lines" :key="`asset-m-${idx}`">
+                    <div v-if="line.kind === 'asset'" class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0 flex-1 space-y-1">
+                                <div class="font-semibold text-base text-gray-900 dark:text-white">{{ line.name }}</div>
+                                <div v-if="line.year || line.make" class="text-sm text-gray-500 dark:text-gray-400">{{ [line.year, line.make].filter(Boolean).join(' ') }}</div>
+                                <div v-if="line.variant_name" class="text-sm text-gray-500 dark:text-gray-400">Variant: {{ line.variant_name }}</div>
+                                <div v-if="line.asset_unit_id" class="text-sm text-gray-500 dark:text-gray-400">Unit: {{ formatUnitCell(line.unit_display_name) || `Unit #${line.asset_unit_id}` }}</div>
+                            </div>
+                            <div v-if="!readonly" class="flex shrink-0 gap-1">
+                                <button type="button" class="text-blue-600 dark:text-blue-400 p-1" @click="openEditLineModal(idx)">
+                                    <span class="material-icons text-base">edit</span>
+                                </button>
+                                <button type="button" class="text-red-600 dark:text-red-400 p-1" @click="removeLine(idx)">
+                                    <span class="material-icons text-base">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Qty</div>
+                                <div class="text-gray-900 dark:text-white">{{ +line.quantity }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Unit price</div>
+                                <div class="text-gray-900 dark:text-white tabular-nums">{{ formatMoney(line.unit_price) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Discount</div>
+                                <div class="text-gray-900 dark:text-white tabular-nums">{{ formatMoney(line.discount) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Line + tax (base)</div>
+                                <div class="font-semibold text-gray-900 dark:text-white tabular-nums">{{ formatMoney(lineCoreTotalWithTax(line)) }}</div>
+                            </div>
+                        </div>
+                        <div
+                            v-if="(line.selected_asset_options || []).length"
+                            class="pl-3 space-y-2 border-l-2 border-sky-200 dark:border-sky-700"
+                        >
+                            <div
+                                v-for="(opt, oix) in line.selected_asset_options"
+                                :key="`m-opt-${idx}-${oix}`"
+                                class="flex justify-between gap-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
+                                <span><span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}</span>
+                                <span class="font-medium tabular-nums shrink-0">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOptionRow(opt)) }}</span>
+                            </div>
+                        </div>
+                        <div
+                            v-if="(line.addons || []).length"
+                            class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                        >
+                            <div
+                                v-for="(addon, aix) in line.addons"
+                                :key="`m-ad-${idx}-${aix}`"
+                                class="flex justify-between gap-2 text-sm"
+                            >
+                                <span class="text-gray-600 dark:text-gray-400 italic min-w-0">↳ {{ addon.name }} (× {{ addon.quantity }})</span>
+                                <span class="font-medium tabular-nums shrink-0">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</span>
+                            </div>
+                        </div>
+                        <div v-if="!readonly" class="pt-1">
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400"
+                                @click="openAddonModal(line)"
+                            >
+                                <span class="material-icons text-sm">add_circle_outline</span>
+                                Add-ons
+                            </button>
+                        </div>
+                    </div>
+                </template>
+                <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4 space-y-1">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">Assets subtotal (pre-tax)</span>
+                        <span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600 dark:text-gray-400">Tax on assets</span>
+                        <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedAssetTax) }}</span>
+                    </div>
+                </div>
+            </div>
+            </template>
         </div>
 
         <!-- ─── Parts & Accessories ─────────────────────────────── -->
@@ -709,7 +866,8 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                 <p class="text-sm text-gray-500 dark:text-gray-400">No parts or accessories added yet</p>
                 <p v-if="!readonly" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Part" to get started</p>
             </div>
-            <div v-else class="overflow-x-auto -mx-6 sm:mx-0">
+            <template v-else>
+            <div class="hidden lg:block overflow-x-auto -mx-6 sm:mx-0">
                 <div class="inline-block min-w-full align-middle">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -876,6 +1034,80 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                     </table>
                 </div>
             </div>
+
+            <div class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden -mx-6 sm:mx-0">
+                <template v-for="(line, idx) in lines" :key="`inv-m-${idx}`">
+                    <div v-if="line.kind === 'inventory' || line.kind === 'legacy'" class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0 flex-1 space-y-1">
+                                <div class="font-semibold text-base text-gray-900 dark:text-white">{{ line.name }}</div>
+                                <span v-if="line.kind === 'legacy'" class="inline-block text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">Legacy line</span>
+                                <div v-if="line.sku" class="text-sm text-gray-500 dark:text-gray-400">SKU: {{ line.sku }}</div>
+                            </div>
+                            <div v-if="!readonly" class="flex shrink-0 gap-1">
+                                <button type="button" class="text-blue-600 dark:text-blue-400 p-1" @click="openEditLineModal(idx)">
+                                    <span class="material-icons text-base">edit</span>
+                                </button>
+                                <button type="button" class="text-red-600 dark:text-red-400 p-1" @click="removeLine(idx)">
+                                    <span class="material-icons text-base">delete</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Qty</div>
+                                <div class="text-gray-900 dark:text-white">{{ +line.quantity }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Unit price</div>
+                                <div class="text-gray-900 dark:text-white tabular-nums">{{ formatMoney(line.unit_price) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Discount</div>
+                                <div class="text-gray-900 dark:text-white tabular-nums">{{ formatMoney(line.discount) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Line + tax (base)</div>
+                                <div class="font-semibold text-gray-900 dark:text-white tabular-nums">{{ formatMoney(lineCoreTotalWithTax(line)) }}</div>
+                            </div>
+                        </div>
+                        <div
+                            v-if="(line.addons || []).length"
+                            class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                        >
+                            <div
+                                v-for="(addon, aix) in line.addons"
+                                :key="`inv-m-ad-${idx}-${aix}`"
+                                class="flex justify-between gap-2 text-sm"
+                            >
+                                <span class="text-gray-600 dark:text-gray-400 italic min-w-0">↳ {{ addon.name }} (× {{ addon.quantity }})</span>
+                                <span class="font-medium tabular-nums shrink-0">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</span>
+                            </div>
+                        </div>
+                        <div v-if="!readonly" class="pt-1">
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400"
+                                @click="openAddonModal(line)"
+                            >
+                                <span class="material-icons text-sm">add_circle_outline</span>
+                                Add-ons
+                            </button>
+                        </div>
+                    </div>
+                </template>
+                <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4 space-y-1">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">Parts subtotal (pre-tax)</span>
+                        <span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedInventorySubtotal) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600 dark:text-gray-400">Tax on parts</span>
+                        <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedInventoryTax) }}</span>
+                    </div>
+                </div>
+            </div>
+            </template>
         </div>
 
         <!-- ─── Invoice totals + tax rate (optional; parent can render in sidebar) ─── -->

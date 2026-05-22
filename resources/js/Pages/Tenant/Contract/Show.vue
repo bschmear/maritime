@@ -1,24 +1,41 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import Modal from '@/Components/Modal.vue';
 import ContractPreview from '@/Components/Tenant/ContractPreview.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
+    lineAssetSelectedOptions,
     lineItemPreTaxTotal,
-    lineUnitDisplay,
-    lineUnitId,
-    lineVariantDisplay,
-    lineVariantId,
     resolveLineItemsForContract,
     taxRateForResolvedLines,
 } from '@/Utils/lineItemsFromEstimate';
-import { ref, computed } from 'vue';
+import { ref, computed, getCurrentInstance, onMounted } from 'vue';
+
+const inertiaApp = getCurrentInstance();
+
+function showToast(type, message) {
+    if (!message) return;
+    const root = inertiaApp?.appContext?.app?._instance?.proxy;
+    if (typeof root?.createToast === 'function') {
+        root.createToast(type, String(message));
+    }
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
+    contractReviewSms: {
+        type: Object,
+        default: () => ({ offered: false, hint: null }),
+    },
+    /** When signed + linked deal has no invoices yet — show “next step” modal (same idea as estimate → create deal). */
+    suggestCreateInvoice: { type: Boolean, default: false },
 });
+
+const page = usePage();
 
 const STATUS_ENUM_KEY = 'App\\Enums\\Contract\\ContractStatus';
 const PAYMENT_ENUM_KEY = 'App\\Enums\\Contract\\ContractPaymentStatus';
@@ -76,10 +93,71 @@ const isSigned = computed(() => props.record?.status === 'signed' || !!props.rec
 const isDraft = computed(() => props.record?.status === 'draft');
 const isSent = computed(() => props.record?.status === 'pending_approval');
 
-const sendToCustomer = () => {
-    if (confirm('Send this contract to the customer for electronic signature?')) {
-        router.post(route('contracts.send-to-customer', props.record.id));
+const logoUrl = computed(() => props.account?.logo_url ?? null);
+
+const showSendContractDeliveryModal = ref(false);
+const contractDelivery = ref('email');
+
+const openSendContractDeliveryModal = () => {
+    contractDelivery.value = 'email';
+    showSendContractDeliveryModal.value = true;
+};
+
+const closeSendContractDeliveryModal = () => {
+    showSendContractDeliveryModal.value = false;
+};
+
+const customerContractEmail = computed(() => props.record?.customer?.email ?? props.record?.transaction?.customer_email ?? '');
+
+const contractEmailPreview = computed(() => {
+    if (page.props.tenant_sandbox_mode) {
+        return page.props.auth?.user?.email ?? '';
     }
+    return customerContractEmail.value;
+});
+
+const sendContractModalSubtitle = computed(() =>
+    page.props.tenant_sandbox_mode
+        ? 'Sandbox is on: choose how you want to receive the test. Email and SMS go to you, not the customer.'
+        : 'Choose how to notify the customer.',
+);
+
+const sendContractForm = useForm({ delivery: 'email' });
+
+const confirmSendContract = () => {
+    sendContractForm.delivery = contractDelivery.value;
+    sendContractForm.post(route('contracts.send-to-customer', props.record.id), {
+        preserveScroll: true,
+        onSuccess: (p) => {
+            const errs = p.props.errors || {};
+            if (!errs.delivery && !errs.error) {
+                closeSendContractDeliveryModal();
+                showPreview.value = false;
+            }
+            const flash = p.props.flash;
+            if (flash?.success) {
+                showToast('success', flash.success);
+            }
+            const flashErr = flash?.error;
+            if (flashErr) {
+                showToast('error', Array.isArray(flashErr) ? flashErr[0] : flashErr);
+            }
+            const err = errs.error ?? errs.delivery;
+            if (err) {
+                showToast('error', Array.isArray(err) ? err[0] : err);
+            }
+        },
+        onError: () => {
+            const d = sendContractForm.errors.delivery;
+            if (d) {
+                showToast('error', Array.isArray(d) ? d[0] : d);
+            }
+        },
+    });
+};
+
+const onPreviewRequestSend = () => {
+    openSendContractDeliveryModal();
 };
 
 const contractLabel = computed(() =>
@@ -181,10 +259,20 @@ const taxOnAddon = (addon) => {
     return roundMoney(addonPreTaxTotal(addon) * (taxRate.value / 100));
 };
 
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
+
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+
+const taxOnAssetOption = (opt) =>
+    taxOnAddon({ price: selectedOptionUnitPrice(opt), quantity: 1, taxable: optionRowTaxable(opt) });
+
 const lineItemsSubtotal = computed(() => {
     let total = 0;
     for (const item of transactionItems.value) {
         total += lineBaseTotal(item) + taxOnItemBase(item);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            total += selectedOptionUnitPrice(opt) + taxOnAssetOption(opt);
+        }
         for (const addon of (item.addons ?? [])) {
             total += addonPreTaxTotal(addon) + taxOnAddon(addon);
         }
@@ -195,6 +283,27 @@ const lineItemsSubtotal = computed(() => {
 const showPreview = ref(false);
 const openPreview = () => { showPreview.value = true; };
 const closePreview = () => { showPreview.value = false; };
+
+const showCreateInvoiceModal = ref(false);
+
+const createInvoiceHref = computed(() => {
+    const tid = props.record?.transaction_id;
+    if (!tid) {
+        return route('invoices.create');
+    }
+    const cid = props.record?.customer?.contact_id ?? '';
+    return `${route('invoices.create')}?transaction_id=${tid}&contact_id=${cid}`;
+});
+
+const closeCreateInvoiceModal = () => {
+    showCreateInvoiceModal.value = false;
+};
+
+onMounted(() => {
+    if (props.suggestCreateInvoice) {
+        showCreateInvoiceModal.value = true;
+    }
+});
 </script>
 
 <template>
@@ -204,49 +313,67 @@ const closePreview = () => { showPreview.value = false; };
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:gap-3">
+                        <h2 class="truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                             {{ contractLabel }}
                         </h2>
                         <span
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
+                            class="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold md:px-2.5 md:py-1 md:text-sm"
                             :class="[statusInfo.bgClass, statusTextClass]"
                         >
                             {{ statusInfo.name }}
                         </span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
                         <Link :href="route('contracts.index')">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                                <span class="material-icons text-lg">arrow_back</span>
-                                Back
+                            <button
+                                type="button"
+                                aria-label="Back to contracts"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-300 bg-white p-2 text-md font-medium text-gray-700 hover:bg-gray-50 md:gap-1.5 md:px-4 md:py-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-lg">arrow_back</span>
+                                <span class="hidden md:inline">Back</span>
                             </button>
                         </Link>
                         <Link v-if="!isSigned" :href="route('contracts.edit', record.id)">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-md font-medium text-white hover:bg-blue-700">
-                                <span class="material-icons text-lg">edit</span>
-                                Edit
+                            <button
+                                type="button"
+                                aria-label="Edit contract"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg bg-blue-600 p-2 text-md font-medium text-white hover:bg-blue-700 md:gap-1.5 md:px-4 md:py-2"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-lg">edit</span>
+                                <span class="hidden md:inline">Edit</span>
                             </button>
                         </Link>
-                        <button v-if="!isSigned" type="button"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-md font-medium text-white hover:bg-purple-700"
-                            @click="openPreview">
-                            <span class="material-icons text-lg">visibility</span>
-                            Preview
+                        <button
+                            v-if="!isSigned"
+                            type="button"
+                            aria-label="Preview contract"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-purple-600 p-2 text-md font-medium text-white hover:bg-purple-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="openPreview"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">visibility</span>
+                            <span class="hidden md:inline">Preview</span>
                         </button>
                         <button
                             v-if="!isSigned && record.status !== 'cancelled' && record.status !== 'expired'"
                             type="button"
-                            class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-md font-medium text-white hover:bg-green-700"
-                            @click="sendToCustomer"
+                            aria-label="Send contract to customer"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-green-600 p-2 text-md font-medium text-white hover:bg-green-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="openSendContractDeliveryModal"
                         >
-                            <span class="material-icons text-lg">send</span>
-                            Send to Customer
+                            <span class="material-icons text-xl leading-none md:text-lg">send</span>
+                            <span class="hidden md:inline">Send to Customer</span>
                         </button>
-                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-md font-medium text-white hover:bg-red-700" @click="deleteContract">
-                            <span class="material-icons text-lg">delete</span>
-                            Delete
+                        <button
+                            type="button"
+                            aria-label="Delete contract"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-red-600 p-2 text-md font-medium text-white hover:bg-red-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="deleteContract"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">delete</span>
+                            <span class="hidden md:inline">Delete</span>
                         </button>
                     </div>
                 </div>
@@ -431,94 +558,16 @@ const closePreview = () => { showPreview.value = false; };
                                 </span>
                             </h3>
 
-                            <div v-if="transactionItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
-                                <div class="inline-block min-w-full align-middle">
-                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-md">
-                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
-                                            <tr>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm">Item</th>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm min-w-[7rem]">Variant</th>
-                                                <th class="px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm min-w-[7rem]">Unit</th>
-                                                <th class="px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-20">Taxable</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-16">Qty</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-28">Unit Price</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-24">Tax</th>
-                                                <th class="px-4 py-3 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider text-sm w-28">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            <template v-for="row in transactionItems" :key="row.id">
-                                                <!-- Main line item -->
-                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                                    <td class="px-4 py-3">
-                                                        <div class="font-medium text-gray-900 dark:text-white">{{ row.name }}</div>
-                                                        <!-- <div v-if="row.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ row.description }}</div> -->
-                                                    </td>
-                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
-                                                        <span
-                                                            v-if="lineVariantId(row)"
-                                                            class="font-medium text-gray-800 dark:text-gray-200"
-                                                        >
-                                                            {{ lineVariantDisplay(row) }}
-                                                        </span>
-                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
-                                                        <span
-                                                            v-if="lineUnitId(row)"
-                                                            class="font-medium text-gray-800 dark:text-gray-200"
-                                                        >
-                                                            {{ lineUnitDisplay(row) }}
-                                                        </span>
-                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}
-                                                    </td>
-                                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
-                                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(row.unit_price) }}</td>
-                                                    <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">{{ formatCurrency(taxOnItemBase(row)) }}</td>
-                                                    <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(row) + taxOnItemBase(row)) }}</td>
-                                                </tr>
-                                                <!-- Add-on rows -->
-                                                <tr v-for="addon in (row.addons ?? [])" :key="'addon-' + addon.id"
-                                                    class="bg-blue-50/30 dark:bg-blue-900/10">
-                                                    <td class="px-4 py-2 pl-10 text-sm text-gray-600 dark:text-gray-400 italic">
-                                                        ↳ {{ addon.name || 'Add-on' }}
-                                                        <span v-if="addon.notes" class="block text-gray-400 not-italic">{{ addon.notes }}</span>
-                                                    </td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                        {{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}
-                                                    </td>
-                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                                    <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(taxOnAddon(addon)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                        <!-- Totals footer -->
-                                        <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-300 dark:border-gray-600">
-                                            <tr v-if="taxRate > 0">
-                                                <td colspan="7" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">
-                                                    Tax rate: {{ taxRate }}%
-                                                </td>
-                                                <td></td>
-                                            </tr>
-                                            <tr>
-                                                <td colspan="7" class="px-4 py-3 text-right text-md font-semibold text-gray-900 dark:text-white">
-                                                    Total
-                                                </td>
-                                                <td class="px-4 py-3 text-right text-md font-bold text-blue-600 dark:text-blue-400">
-                                                    {{ formatCurrency(lineItemsSubtotal) }}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            </div>
+                            <ResolvedLineItemsEstimateStyle
+                                v-if="transactionItems.length > 0"
+                                :items="transactionItems"
+                                variant="tenant"
+                                embedded
+                                :format-money="(v) => formatCurrency(v)"
+                                :show-summary="true"
+                                :summary-tax-rate-percent="taxRate"
+                                :summary-grand-total="lineItemsSubtotal"
+                            />
 
                             <div v-else class="text-center py-10 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
                                 <span class="material-icons text-4xl text-gray-400 dark:text-gray-600 mb-2 block">receipt_long</span>
@@ -684,9 +733,137 @@ const closePreview = () => { showPreview.value = false; };
                     :record="record"
                     :account="account"
                     :enum-options="enumOptions"
+                    :logo-url="logoUrl"
                     @close="closePreview"
+                    @request-send="onPreviewRequestSend"
                 />
             </div>
         </Teleport>
+
+        <Modal :show="showCreateInvoiceModal" max-width="md" @close="closeCreateInvoiceModal">
+            <div class="p-6">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40">
+                    <span class="material-icons text-2xl text-primary-600 dark:text-primary-300">receipt_long</span>
+                </div>
+                <h3 class="text-center text-xl font-semibold text-gray-900 dark:text-white">
+                    Contract signed
+                </h3>
+                <p class="mt-2 text-center text-md text-gray-600 dark:text-gray-400">
+                    This contract was signed on
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDateTime(record.signed_at) }}</span>.
+                </p>
+                <p class="mt-2 text-center text-md text-gray-600 dark:text-gray-400">
+                    Next step: create an invoice from the linked deal to bill your customer.
+                </p>
+                <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                    <Link
+                        :href="createInvoiceHref"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                        @click="closeCreateInvoiceModal"
+                    >
+                        <span class="material-icons text-base">add</span>
+                        Create invoice
+                    </Link>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="closeCreateInvoiceModal"
+                    >
+                        Not now
+                    </button>
+                </div>
+                <p v-if="record.transaction_id" class="mt-4 text-center">
+                    <Link
+                        :href="route('transactions.show', record.transaction_id)"
+                        class="text-md font-medium text-primary-600 hover:underline dark:text-primary-400"
+                        @click="closeCreateInvoiceModal"
+                    >
+                        View deal instead
+                    </Link>
+                </p>
+            </div>
+        </Modal>
+
+        <Modal :show="showSendContractDeliveryModal" max-width="md" @close="closeSendContractDeliveryModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Send contract</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {{ sendContractModalSubtitle }}
+                </p>
+                <p
+                    v-if="page.props.tenant_sandbox_mode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>Uses your login email for the message and your staff user profile phone for SMS (matched by email).</span>
+                </p>
+                <p v-if="contractEmailPreview" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <template v-if="page.props.tenant_sandbox_mode">Email will be sent to you at </template>
+                    <template v-else>Email goes to </template>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ contractEmailPreview }}</span>
+                </p>
+                <p v-if="sendContractForm.errors.delivery" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {{ sendContractForm.errors.delivery }}
+                </p>
+
+                <fieldset class="mt-4 space-y-3">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
+                        <input v-model="contractDelivery" type="radio" name="contract_delivery" value="email" class="mt-1 text-primary-600" />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Email only</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">Send the contract for signature by email.</span>
+                        </span>
+                    </label>
+                    <label
+                        class="flex items-start gap-3 rounded-lg border p-3"
+                        :class="
+                            contractReviewSms.offered
+                                ? 'cursor-pointer border-gray-200 dark:border-gray-600'
+                                : 'cursor-not-allowed border-gray-100 opacity-60 dark:border-gray-700'
+                        "
+                    >
+                        <input
+                            v-model="contractDelivery"
+                            type="radio"
+                            name="contract_delivery"
+                            value="email_sms"
+                            class="mt-1 text-primary-600 disabled:cursor-not-allowed"
+                            :disabled="!contractReviewSms.offered"
+                        />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Email and SMS</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">
+                                Also send a short text with the review link.
+                            </span>
+                            <span
+                                v-if="!contractReviewSms.offered && contractReviewSms.hint"
+                                class="mt-1 block text-sm text-amber-800 dark:text-amber-200"
+                            >
+                                {{ contractReviewSms.hint }}
+                            </span>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="closeSendContractDeliveryModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex justify-center items-center gap-2 rounded-lg border border-transparent bg-orange-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-700 disabled:opacity-50"
+                        :disabled="sendContractForm.processing"
+                        @click="confirmSendContract"
+                    >
+                        <span v-if="sendContractForm.processing" class="material-icons animate-spin text-base">refresh</span>
+                        {{ sendContractForm.processing ? 'Sending…' : 'Send' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </TenantLayout>
 </template>

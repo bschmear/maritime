@@ -1,3 +1,7 @@
+/** Polymorphic catalog types on estimate / deal line rows (match Laravel `::class` strings). */
+export const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
+export const INVENTORY_LINE_ITEM_TYPE = 'App\\Domain\\InventoryItem\\Models\\InventoryItem';
+
 /**
  * Primary-version line rows from an estimate (Inertia may use snake_case or camelCase).
  */
@@ -113,4 +117,85 @@ export function lineUnitDisplay(item) {
     }
     const uid = lineUnitId(item);
     return uid ? `Unit #${uid}` : '—';
+}
+
+/** Catalog asset id for links (snake or camel). */
+export function lineItemAssetCatalogId(item) {
+    return item.itemable_id ?? item.itemable?.id ?? null;
+}
+
+/**
+ * Boat options on a deal or estimate line: direct rows first, then rows keyed from the source estimate line.
+ * Same behavior as `lineAssetSelectedOptions` in `Transaction/Show.vue`.
+ */
+export function lineAssetSelectedOptions(row) {
+    const direct = row.selected_asset_options ?? row.selectedAssetOptions ?? [];
+    if (direct.length) {
+        return direct;
+    }
+    return row.selected_asset_options_from_source_line ?? row.selectedAssetOptionsFromSourceLine ?? [];
+}
+
+export function selectedOptionLabel(opt) {
+    const name = String(opt?.option_name ?? '').trim();
+    const val = String(opt?.value_label ?? '').trim();
+    if (name && val) {
+        return `${name}: ${val}`;
+    }
+    return name || val || 'Option';
+}
+
+/** Stable key for v-for (estimate id or deal line id). */
+export function lineItemRowKey(item) {
+    if (item == null) {
+        return null;
+    }
+    const id = item.id ?? item.line_item_id;
+    return id == null ? null : String(id);
+}
+
+/**
+ * Pre-tax catalog total for an asset line (base + option premiums when `line_total` is populated).
+ * Mirrors Estimate Show `assetLineCatalogTotal`.
+ */
+export function assetLineCatalogTotal(item) {
+    const stored = item.line_total;
+    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
+        return Number(stored);
+    }
+    return lineItemPreTaxTotal(item);
+}
+
+/**
+ * Full line total including add-ons (stored `line_total` + add-on extension, or computed fallback).
+ * Mirrors Estimate Show `lineTotal`.
+ */
+export function lineTotalWithAddons(item) {
+    const addonsTotal = (item.addons || []).reduce(
+        (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
+        0,
+    );
+    const stored = item.line_total;
+    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
+        return Number(stored) + addonsTotal;
+    }
+    return lineItemPreTaxTotal(item) + addonsTotal;
+}
+
+export function partitionLineItemsByCatalogType(items) {
+    const list = items ?? [];
+    const assetLines = [];
+    const inventoryLines = [];
+    const otherLines = [];
+    for (const row of list) {
+        const t = row.itemable_type ?? row.itemableType;
+        if (t === ASSET_LINE_ITEM_TYPE) {
+            assetLines.push(row);
+        } else if (t === INVENTORY_LINE_ITEM_TYPE) {
+            inventoryLines.push(row);
+        } else {
+            otherLines.push(row);
+        }
+    }
+    return { assetLines, inventoryLines, otherLines };
 }

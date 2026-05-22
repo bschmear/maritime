@@ -13,12 +13,14 @@ class SmsNotificationPreference extends Model
         'notify_estimate',
         'notify_invoice',
         'notify_delivery',
+        'notify_contract',
     ];
 
     protected $casts = [
         'notify_estimate' => 'boolean',
         'notify_invoice' => 'boolean',
         'notify_delivery' => 'boolean',
+        'notify_contract' => 'boolean',
     ];
 
     public function accountSettings(): BelongsTo

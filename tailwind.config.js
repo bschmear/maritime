@@ -104,6 +104,15 @@ export default {
       fontFamily: {
         sans: ['Figtree', ...defaultTheme.fontFamily.sans],
       },
+      // Slightly wider defaults so small / mini tablets keep “mobile” and `md`
+      // layouts longer (e.g. iPad mini landscape stays below `lg`).
+      screens: {
+        sm: '704px',
+        md: '832px',
+        lg: '1184px',
+        xl: '1344px',
+        '2xl': '1600px',
+      },
     },
   },
 

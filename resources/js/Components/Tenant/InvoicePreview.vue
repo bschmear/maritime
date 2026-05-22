@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import InvoiceDocumentBody from '@/Components/Tenant/InvoiceDocumentBody.vue';
 
 defineProps({
@@ -8,80 +9,79 @@ defineProps({
     logoUrl: { type: String, default: null },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'request-send']);
+
+const printing = ref(false);
 
 const handlePrint = () => {
-    window.print();
+    printing.value = true;
+    setTimeout(() => {
+        window.print();
+        printing.value = false;
+    }, 100);
 };
 </script>
 
 <template>
-    <!-- Teleport to body so print CSS can display:none #app (same pattern as contract preview). -->
-    <Teleport to="body">
-        <div
-            class="invoice-preview-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm sm:p-6 print:static print:inset-auto print:bg-white print:p-0"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Invoice preview"
-            @click.self="emit('close')"
-        >
-            <div
-                class="invoice-preview-panel flex max-h-[min(calc(100dvh-2rem),56rem)] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-gray-100 shadow-2xl dark:bg-gray-900 print:max-h-none print:overflow-visible print:shadow-none"
-                @click.stop
-            >
-                <!-- Toolbar (aligned with ServiceTicketPreview action bar) -->
-                <div
-                    class="invoice-preview-toolbar flex shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-6 lg:px-8 print:hidden"
-                >
+    <!-- Shell matches ContractPreview / ServiceTicketPreview: full-height gray canvas, sticky chrome, paper card below. -->
+    <div class="invoice-preview-shell min-h-screen bg-gray-100 dark:bg-gray-900">
+        <div class="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm print:hidden">
+            <div class="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-2 lg:py-4">
+                <div class="flex items-center justify-between gap-2 lg:gap-4">
                     <div class="min-w-0 flex-1">
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                            Customer preview
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white lg:text-lg truncate">
+                            Customer Preview
                         </h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="hidden text-sm text-gray-500 dark:text-gray-400 lg:block mt-0.5">
                             This is how the invoice will appear to the customer
                         </p>
-                        <p class="mt-1 truncate text-sm font-medium text-gray-700 dark:text-gray-200">
-                            {{ record.display_name || `Invoice #${record.sequence ?? record.id}` }}
-                        </p>
                     </div>
-                    <div class="flex shrink-0 items-center gap-3">
+
+                    <div class="flex shrink-0 items-center gap-1.5 lg:gap-3">
                         <button
                             type="button"
-                            class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
-                            @click="handlePrint"
-                        >
-                            <span class="material-icons text-sm">print</span>
-                            Print
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            aria-label="Close preview"
+                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 lg:px-4"
                             @click="emit('close')"
                         >
-                            <span class="material-icons text-sm">close</span>
-                            Close
+                            <span class="material-icons text-[18px]">close</span>
+                            <span class="hidden lg:inline">Close</span>
                         </button>
-                    </div>
-                </div>
 
-                <!-- Scrollable document area (same padding rhythm as ServiceTicketPreview) -->
-                <div
-                    class="invoice-preview-scroll min-h-0 flex-1 overflow-y-auto print:block print:h-auto print:min-h-0 print:flex-none print:overflow-visible"
-                >
-                    <div
-                        id="invoice-print-root"
-                        class="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 print:max-w-none print:px-0 print:py-0"
-                    >
-                        <InvoiceDocumentBody
-                            :record="record"
-                            :account="account"
-                            :enum-options="enumOptions"
-                            :logo-url="logoUrl"
-                        />
+                        <button
+                            type="button"
+                            aria-label="Send invoice link to customer"
+                            class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
+                            @click="emit('request-send')"
+                        >
+                            <span class="material-icons text-[18px]">send</span>
+                            <span class="hidden lg:inline">Send to customer</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            :aria-label="printing ? 'Preparing print' : 'Print preview'"
+                            :aria-busy="printing"
+                            :disabled="printing"
+                            class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
+                            @click="handlePrint"
+                        >
+                            <span v-if="printing" class="material-icons animate-spin text-[18px]">refresh</span>
+                            <span v-else class="material-icons text-[18px]">print</span>
+                            <span class="hidden lg:inline">{{ printing ? 'Preparing…' : 'Print' }}</span>
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-    </Teleport>
-</template>
 
+        <div id="invoice-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
+            <InvoiceDocumentBody
+                :record="record"
+                :account="account"
+                :enum-options="enumOptions"
+                :logo-url="logoUrl"
+            />
+        </div>
+    </div>
+</template>

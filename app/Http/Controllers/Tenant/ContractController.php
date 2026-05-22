@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Asset\Models\Asset;
 use App\Domain\Contract\Actions\CreateContract;
 use App\Domain\Contract\Actions\DeleteContract;
 use App\Domain\Contract\Actions\UpdateContract;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Payments\Terms;
@@ -15,11 +17,14 @@ use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ContractReviewRequest;
 use App\Models\AccountSettings;
+use App\Services\SMS\SmsService;
 use App\Support\ContractEnumMapper;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class ContractController extends BaseController
@@ -309,7 +314,7 @@ class ContractController extends BaseController
         return redirect()->route('contracts.show', $result['record']->id);
     }
 
-    public function show(int $contract)
+    public function show(Request $request, int $contract)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->relationshipClosuresForSchema();
@@ -327,6 +332,11 @@ class ContractController extends BaseController
                 'items' => fn ($q2) => $q2
                     ->with([
                         'addons',
+                        'selectedAssetOptions',
+                        'selectedAssetOptionsFromSourceLine',
+                        'itemable' => fn (MorphTo $morphTo) => $morphTo->morphWith([
+                            Asset::class => ['make'],
+                        ]),
                         'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
                         'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                         'estimateLineItem' => fn ($q3) => $q3
@@ -355,6 +365,8 @@ class ContractController extends BaseController
                         'lineItems' => fn ($ql) => $ql
                             ->with([
                                 'addons',
+                                'selectedAssetOptions',
+                                'itemable',
                                 'assetVariant' => fn ($qav) => $qav->select(['id', 'display_name', 'name']),
                                 'assetUnit' => fn ($qau) => $qau->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
                             ])
@@ -374,6 +386,22 @@ class ContractController extends BaseController
         $recordArray['updated_at'] = $record->updated_at?->toISOString();
         $recordArray['signed_at'] = $record->signed_at?->toISOString();
 
+        $smsService = app(SmsService::class);
+
+        $isContractSigned = $record->signed_at !== null
+            || $record->status === ContractStatus::Signed->value;
+
+        $suggestCreateInvoice = false;
+        if ($isContractSigned && $record->transaction_id) {
+            $hasInvoice = Invoice::query()
+                ->where(function ($q) use ($record) {
+                    $q->where('transaction_id', $record->transaction_id)
+                        ->orWhere('contract_id', $record->id);
+                })
+                ->exists();
+            $suggestCreateInvoice = ! $hasInvoice;
+        }
+
         return inertia('Tenant/Contract/Show', [
             'record' => $recordArray,
             'formSchema' => $this->getFormSchema(),
@@ -381,6 +409,8 @@ class ContractController extends BaseController
             'enumOptions' => $this->getContractEnumOptions(),
             'account' => $settings,
             'timezones' => Timezone::options(),
+            'contractReviewSms' => $smsService->contractReviewSmsCanBeOffered($record->customer, $request->user()),
+            'suggestCreateInvoice' => $suggestCreateInvoice,
         ]);
     }
 
@@ -437,27 +467,86 @@ class ContractController extends BaseController
         return redirect()->route('contracts.show', $contract);
     }
 
-    public function sendToCustomer(int $contract)
+    public function sendToCustomer(Request $request, int $contract, SmsService $smsService)
     {
+        $validated = $request->validate([
+            'delivery' => 'required|string|in:email,email_sms',
+        ]);
+
         $settings = AccountSettings::getCurrent();
         $record = Contract::query()
             ->where('account_settings_id', $settings->id)
             ->with(['customer', 'transaction'])
             ->findOrFail($contract);
 
-        $customerEmail = $record->customer?->email
+        $sandbox = $settings->smsSandboxMode();
+        $customerEmailLive = $record->customer?->email
             ?? $record->transaction?->customer_email;
+        $authEmail = $request->user()?->email;
 
-        if (! $customerEmail) {
-            return back()->with('error', 'No customer email found for this contract.');
+        if ($sandbox) {
+            if (! $authEmail) {
+                return back()->withErrors(['error' => 'Sandbox mode sends email to you, but your account has no email address on file.']);
+            }
+            $recipientEmail = $authEmail;
+        } else {
+            if (! $customerEmailLive) {
+                return back()->withErrors(['error' => 'No customer email found for this contract.']);
+            }
+            $recipientEmail = $customerEmailLive;
+        }
+
+        if ($validated['delivery'] === 'email_sms') {
+            $offer = $smsService->contractReviewSmsCanBeOffered($record->customer, $request->user());
+            if (! $offer['offered']) {
+                return back()->withErrors([
+                    'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                ]);
+            }
+        }
+
+        $tenant = tenant();
+        $domain = $tenant?->domains->first()?->domain;
+
+        if (! $domain) {
+            return back()->withErrors(['error' => 'Unable to resolve tenant domain.']);
+        }
+
+        $reviewUrl = "https://{$domain}/contracts/{$record->uuid}/review";
+
+        try {
+            Mail::to($recipientEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
+        } catch (\Exception $e) {
+            Log::error('Failed to send contract review request email', [
+                'contract_id' => $record->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
         $record->update(['status' => ContractStatus::PendingApproval->value]);
 
-        $reviewUrl = route('contracts.review', $record->uuid);
-        Mail::to($customerEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
+        $emailTarget = $sandbox
+            ? "{$recipientEmail} (sandbox — you)"
+            : $recipientEmail;
 
-        return back()->with('success', 'Contract sent to '.$customerEmail);
+        $smsNote = '';
+        if ($validated['delivery'] === 'email_sms') {
+            $label = $record->display_name ?? $record->contract_number ?? 'Contract';
+            $result = $smsService->sendContractReviewSms($request->user(), $record->customer, $label, $reviewUrl);
+            if (! $result->success && ($result->status ?? '') === 'not_implemented') {
+                $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
+            } elseif (! $result->success) {
+                return back()
+                    ->with('success', "Contract sent to {$emailTarget} for signature.")
+                    ->with('error', 'Email was sent, but SMS failed: '.($result->error ?? 'Unknown error'));
+            } else {
+                $smsNote = ' A text message was also sent.';
+            }
+        }
+
+        return back()->with('success', "Contract sent to {$emailTarget} for signature.".$smsNote);
     }
 
     public function destroy(int $contract)

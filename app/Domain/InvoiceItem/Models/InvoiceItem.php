@@ -4,6 +4,7 @@ namespace App\Domain\InvoiceItem\Models;
 
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Domain\Transaction\Models\TransactionLineItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -84,6 +85,12 @@ class InvoiceItem extends Model
     public function assetUnit(): BelongsTo
     {
         return $this->belongsTo(AssetUnit::class, 'asset_unit_id');
+    }
+
+    /** Linked deal line (when the invoice row was created from a transaction line). Used for boat options / configuration premiums. */
+    public function transactionLineItem(): BelongsTo
+    {
+        return $this->belongsTo(TransactionLineItem::class, 'transaction_line_item_id');
     }
 
     /*

@@ -3,14 +3,12 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import {
+    lineAssetSelectedOptions,
     lineItemPreTaxTotal,
-    lineUnitDisplay,
-    lineUnitId,
-    lineVariantDisplay,
-    lineVariantId,
     resolveLineItemsForTransaction,
     taxRateForResolvedLines,
 } from '@/Utils/lineItemsFromEstimate';
+import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -63,19 +61,6 @@ const lineBaseTotal = (item) => lineItemPreTaxTotal(item);
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 
 const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
-
-const lineAssetSelectedOptions = (row) => {
-    const direct = row.selected_asset_options ?? row.selectedAssetOptions ?? [];
-    if (direct.length) return direct;
-    return row.selected_asset_options_from_source_line ?? row.selectedAssetOptionsFromSourceLine ?? [];
-};
-
-const selectedOptionLabel = (opt) => {
-    const name = String(opt?.option_name ?? '').trim();
-    const val = String(opt?.value_label ?? '').trim();
-    if (name && val) return `${name}: ${val}`;
-    return name || val || 'Option';
-};
 
 const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
 
@@ -398,40 +383,49 @@ const confirmAddStep = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex  gap-3 md:flex-row md:items-start md:justify-between">
+                    <div class="min-w-0 flex-1">
+                        <h2 class="truncate text-lg font-semibold text-gray-800 md:text-xl dark:text-gray-200">
                             {{ record.title || `Deal #${record.sequence}` }}
                         </h2>
-                        <!-- <p class="mt-1 text-md text-gray-500 dark:text-gray-400">
-                            Deal #{{ record.sequence }}
-                            <span v-if="record.uuid" class="ml-2 font-mono text-md text-gray-400 dark:text-gray-500">{{ record.uuid }}</span>
-                        </p> -->
                         <div class="mt-2 flex flex-wrap items-center gap-2">
-                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-md font-medium" :class="statusMeta.bgClass">
+                            <span class="inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium md:px-2.5 md:py-0.5 md:text-md" :class="statusMeta.bgClass">
                                 {{ statusMeta.label }}
                             </span>
-                            <span v-if="record.closed_at" class="text-md text-gray-500 dark:text-gray-400">
+                            <span v-if="record.closed_at" class="text-sm text-gray-500 md:text-md dark:text-gray-400">
                                 Closed {{ formatDateTime(record.closed_at) }}
                             </span>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
                         <Link :href="route('transactions.index')">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                                <span class="material-icons text-lg">arrow_back</span>
-                                Back
+                            <button
+                                type="button"
+                                aria-label="Back to deals"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-300 bg-white p-2 text-md font-medium text-gray-700 hover:bg-gray-50 md:gap-1.5 md:px-4 md:py-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-lg">arrow_back</span>
+                                <span class="hidden md:inline">Back</span>
                             </button>
                         </Link>
                         <Link :href="route('transactions.edit', record.id)">
-                            <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-md font-medium text-white hover:bg-blue-700">
-                                <span class="material-icons text-lg">edit</span>
-                                Edit
+                            <button
+                                type="button"
+                                aria-label="Edit deal"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg bg-blue-600 p-2 text-md font-medium text-white hover:bg-blue-700 md:gap-1.5 md:px-4 md:py-2"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-lg">edit</span>
+                                <span class="hidden md:inline">Edit</span>
                             </button>
                         </Link>
-                        <button type="button" class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-md font-medium text-white hover:bg-red-700" @click="deleteTransaction">
-                            <span class="material-icons text-lg">delete</span>
-                            Delete
+                        <button
+                            type="button"
+                            aria-label="Delete deal"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-red-600 p-2 text-md font-medium text-white hover:bg-red-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="deleteTransaction"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">delete</span>
+                            <span class="hidden md:inline">Delete</span>
                         </button>
                     </div>
                 </div>
@@ -447,7 +441,7 @@ const confirmAddStep = () => {
         </div>
 
 <!-- ─── Deal Progress Stepper ─────────────────────────────────────────── -->
-<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg px-6 py-5 ">
+<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg px-6 py-5 hidden md:block">
     <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">Deal Progress</h3>
     <div class="relative flex items-start justify-between">
 
@@ -880,94 +874,14 @@ const confirmAddStep = () => {
                                 to change boat options, taxes, or add-ons.
                             </p>
 
-                            <div v-if="items.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
-                                <div class="inline-block min-w-full align-middle">
-                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                                        <thead class="bg-gray-50 dark:bg-gray-900/50">
-                                            <tr>
-                                                <th class="px-4 py-3 text-left text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                                                <th class="px-4 py-3 text-left text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[7rem]">Variant</th>
-                                                <th class="px-4 py-3 text-left text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[7rem]">Unit</th>
-                                                <th class="px-4 py-3 text-center text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
-                                                <th class="px-4 py-3 text-right text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-16">Qty</th>
-                                                <th class="px-4 py-3 text-right text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
-                                                <th class="px-4 py-3 text-right text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
-                                                <th class="px-4 py-3 text-right text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
-                                                <th class="px-4 py-3 text-right text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                            <template v-for="row in items" :key="row.id">
-                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                                    <td class="px-4 py-3">
-                                                        <div class="font-medium text-md text-gray-900 dark:text-white">{{ row.name }}</div>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
-                                                        <span
-                                                            v-if="lineVariantId(row)"
-                                                            class="font-medium text-gray-800 dark:text-gray-200"
-                                                        >
-                                                            {{ lineVariantDisplay(row) }}
-                                                        </span>
-                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-md text-gray-600 dark:text-gray-300">
-                                                        <span
-                                                            v-if="lineUnitId(row)"
-                                                            class="font-medium text-gray-800 dark:text-gray-200"
-                                                        >
-                                                            {{ lineUnitDisplay(row) }}
-                                                        </span>
-                                                        <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-center text-sm text-gray-500 dark:text-gray-400">{{ row.taxable !== false && row.taxable !== 0 ? 'Yes' : 'No' }}</td>
-                                                    <td class="px-4 py-3 text-right text-md text-gray-700 dark:text-gray-300">{{ row.quantity }}</td>
-                                                    <td class="px-4 py-3 text-right text-md text-gray-700 dark:text-gray-300">{{ formatMoney(row.unit_price) }}</td>
-                                                    <td class="px-4 py-3 text-right text-md font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row)) }}</td>
-                                                    <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(row)) }}</td>
-                                                    <td class="px-4 py-3 text-right text-md font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(row) + taxOnItemBase(row)) }}</td>
-                                                </tr>
-                                                <tr
-                                                    v-for="(opt, optIdx) in lineAssetSelectedOptions(row)"
-                                                    :key="'opt-' + row.id + '-' + optIdx"
-                                                    class="bg-sky-50/80 dark:bg-sky-900/10"
-                                                >
-                                                    <td class="px-4 py-2 pl-10 text-md text-gray-700 dark:text-gray-300">
-                                                        <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
-                                                    </td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">{{ optionRowTaxable(opt) ? 'Yes' : 'No' }}</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">1</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAssetOption(opt)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOption(opt)) }}</td>
-                                                </tr>
-                                                <tr
-                                                    v-for="addon in (row.addons || [])"
-                                                    :key="'addon-' + addon.id"
-                                                    class="bg-blue-50/30 dark:bg-blue-900/10"
-                                                >
-                                                    <td class="px-4 py-2 pl-10 text-md text-gray-600 dark:text-gray-400 italic">
-                                                        ↳ {{ addon.name || 'Add-on' }}
-                                                        <span v-if="addon.notes" class="block text-gray-400 dark:text-gray-500 not-italic">{{ addon.notes }}</span>
-                                                    </td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-md text-gray-400 dark:text-gray-500">—</td>
-                                                    <td class="px-4 py-2 text-center text-sm text-gray-500 dark:text-gray-400">{{ addon.taxable !== false && addon.taxable !== 0 ? 'Yes' : 'No' }}</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-400">{{ addon.quantity }}</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-700 dark:text-gray-300">{{ formatMoney(addonPreTaxTotal(addon)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAddon(addon)) }}</td>
-                                                    <td class="px-4 py-2 text-right text-md font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
+                            <ResolvedLineItemsEstimateStyle
+                                v-if="items.length > 0"
+                                :items="items"
+                                variant="tenant"
+                                embedded
+                                :format-money="(v) => formatMoney(v)"
+                                :show-summary="false"
+                            />
                             <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
                                 <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
                                 <p class="text-md text-gray-500 dark:text-gray-400">No line items on this deal</p>

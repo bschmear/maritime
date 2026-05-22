@@ -7,6 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, ref, watch } from 'vue';
+import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
 const page = usePage();
 const inertiaApp = getCurrentInstance();
@@ -33,6 +34,7 @@ const STATUS_ENUM_KEY       = 'App\\Enums\\Invoice\\Status';
 const PAYMENT_TERM_ENUM_KEY = 'App\\Enums\\Payments\\Terms';
 const ASSET_TYPE            = 'App\\Domain\\Asset\\Models\\Asset';
 const INVENTORY_TYPE        = 'App\\Domain\\InventoryItem\\Models\\InventoryItem';
+const INVOICE_ADDON_NAME_SEP = ' — ';
 
 const previewOpen = ref(false);
 
@@ -69,6 +71,53 @@ const lineItems = computed(() => {
     const raw = props.record?.items ?? props.record?.line_items ?? [];
     return Array.isArray(raw) ? raw : [];
 });
+
+/** Stable order for grouping flattened add-on rows under their parent line. */
+const sortedLineItems = computed(() => {
+    const list = [...lineItems.value];
+    return list.sort((a, b) => {
+        const pa = Number(a.position);
+        const pb = Number(b.position);
+        if (!Number.isNaN(pa) && !Number.isNaN(pb) && pa !== pb) {
+            return pa - pb;
+        }
+        return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+});
+
+const isIndentedInvoiceAddonRow = (primary, row) => {
+    if (!primary?.name || !row?.name) return false;
+    if (row.itemable_type) return false;
+    const n = String(row.name);
+    return n.startsWith(String(primary.name) + INVOICE_ADDON_NAME_SEP);
+};
+
+const groupedInvoiceLineItems = computed(() => {
+    const groups = [];
+    for (const row of sortedLineItems.value) {
+        const last = groups[groups.length - 1];
+        if (last && isIndentedInvoiceAddonRow(last.primary, row)) {
+            last.flatAddons.push(row);
+        } else {
+            groups.push({ primary: row, flatAddons: [] });
+        }
+    }
+    return groups;
+});
+
+const flatAddonDisplayName = (primaryName, row) => {
+    const prefix = String(primaryName) + INVOICE_ADDON_NAME_SEP;
+    const n = String(row.name ?? '');
+    return n.startsWith(prefix) ? n.slice(prefix.length) : (row.name ?? '—');
+};
+
+/** Boat options: invoice rows created from a deal line include `transaction_line_item`. */
+const invoiceLineBoatOptions = (item) => {
+    if (item.itemable_type !== ASSET_TYPE) return [];
+    const tli = item.transaction_line_item ?? item.transactionLineItem;
+    if (tli) return lineAssetSelectedOptions(tli);
+    return lineAssetSelectedOptions(item);
+};
 
 const assetLines     = computed(() => lineItems.value.filter(li => li.itemable_type === ASSET_TYPE));
 const inventoryLines = computed(() => lineItems.value.filter(li => li.itemable_type === INVENTORY_TYPE));
@@ -229,54 +278,72 @@ const submitManualPayment = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:gap-3">
+                        <h2 class="truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                             {{ invoiceLabel }}
                         </h2>
-                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
-                              :class="[statusInfo.bgClass, statusTextClass]">
+                        <span
+                            class="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold md:px-2.5 md:py-1 md:text-sm"
+                            :class="[statusInfo.bgClass, statusTextClass]"
+                        >
                             {{ statusInfo.name }}
                         </span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button type="button"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                                @click="previewOpen = true">
-                            <span class="material-icons text-[16px]">visibility</span>
-                            Customer preview
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
+                        <button
+                            type="button"
+                            aria-label="Customer preview"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-300 bg-white p-2 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 md:gap-1.5 md:px-4 md:py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            @click="previewOpen = true"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-[16px]">visibility</span>
+                            <span class="hidden md:inline">Customer preview</span>
                         </button>
-                        <button type="button"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2  text-md font-medium text-white bg-secondary-600 hover:bg-secondary-700 rounded-lg transition-colors"
-                                @click="sendToCustomer">
-                            <span class="material-icons text-[16px]">send</span>
-                            Send to customer
+                        <button
+                            type="button"
+                            aria-label="Send invoice to customer"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-secondary-600 p-2 text-md font-medium text-white transition-colors hover:bg-secondary-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="sendToCustomer"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-[16px]">send</span>
+                            <span class="hidden md:inline">Send to customer</span>
                         </button>
-                        <button v-if="canRecordManualPayment"
-                                type="button"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-gray-800 dark:text-gray-100 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded-lg transition-colors"
-                                @click="openRecordPaymentModal">
-                            <span class="material-icons text-[16px]">payments</span>
-                            Record payment
+                        <button
+                            v-if="canRecordManualPayment"
+                            type="button"
+                            aria-label="Record payment"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-amber-300 bg-amber-100 p-2 text-md font-medium text-gray-800 transition-colors hover:bg-amber-200 md:gap-1.5 md:px-4 md:py-2 dark:border-amber-700 dark:bg-amber-900/40 dark:text-gray-100 dark:hover:bg-amber-900/60"
+                            @click="openRecordPaymentModal"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-[16px]">payments</span>
+                            <span class="hidden md:inline">Record payment</span>
                         </button>
-                        <a :href="route('invoices.edit', record.id)"
-                           class="inline-flex items-center gap-1.5 px-4 py-2 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
-                            <span class="material-icons text-[16px]">edit</span>
-                            Edit
+                        <a
+                            :href="route('invoices.edit', record.id)"
+                            aria-label="Edit invoice"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-md font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-[16px]">edit</span>
+                            <span class="hidden md:inline">Edit</span>
                         </a>
                     </div>
                 </div>
             </div>
         </template>
 
-        <InvoicePreview
-            v-if="previewOpen"
-            :record="record"
-            :account="account"
-            :enum-options="enumOptions"
-            :logo-url="logoUrl"
-            @close="previewOpen = false"
-        />
+        <Teleport to="body">
+            <div v-if="previewOpen" class="invoice-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
+                <InvoicePreview
+                    :record="record"
+                    :account="account"
+                    :enum-options="enumOptions"
+                    :logo-url="logoUrl"
+                    @close="previewOpen = false"
+                    @request-send="sendToCustomer"
+                />
+            </div>
+        </Teleport>
 
         <div class="w-full flex flex-col space-y-6 p-4">
 
@@ -415,8 +482,87 @@ const submitManualPayment = () => {
                             <h2 class="text-md font-semibold text-gray-900 dark:text-white">Line Items</h2>
                         </div>
 
-                        <div v-if="lineItems.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-md">
+                        <div v-if="lineItems.length > 0" class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                            <!-- Mobile: stacked line cards -->
+                            <div class="block lg:hidden">
+                                <div
+                                    v-for="(group, gIdx) in groupedInvoiceLineItems"
+                                    :key="`inv-m-${group.primary.id}-${gIdx}`"
+                                    class="p-4 space-y-3"
+                                >
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0 flex-1 space-y-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-semibold text-base text-gray-900 dark:text-white">{{ group.primary.name ?? '—' }}</span>
+                                                <span v-if="itemableBadge(group.primary)"
+                                                      class="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+                                                    {{ itemableBadge(group.primary) }}
+                                                </span>
+                                            </div>
+                                            <div v-if="variantLabel(group.primary)" class="text-sm text-gray-500 dark:text-gray-400">
+                                                Variant: {{ variantLabel(group.primary) }}
+                                            </div>
+                                            <div v-if="unitLabel(group.primary)" class="text-sm text-gray-500 dark:text-gray-400">
+                                                Unit: {{ unitLabel(group.primary) }}
+                                            </div>
+                                        </div>
+                                        <div class="text-right shrink-0">
+                                            <div class="font-semibold text-base text-gray-900 dark:text-white tabular-nums">
+                                                {{ formatCurrency(group.primary.total ?? group.primary.line_total) }}
+                                            </div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">Line total</div>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                        <div>
+                                            <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Qty</div>
+                                            <div class="text-gray-900 dark:text-white">{{ group.primary.quantity ?? 1 }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Unit price</div>
+                                            <div class="text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Discount</div>
+                                            <div class="text-gray-900 dark:text-white tabular-nums">{{ discountCell(group.primary) }}</div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="invoiceLineBoatOptions(group.primary).length > 0"
+                                        class="pl-3 space-y-2 border-l-2 border-sky-200 dark:border-sky-700"
+                                    >
+                                        <div
+                                            v-for="(opt, optIdx) in invoiceLineBoatOptions(group.primary)"
+                                            :key="`m-opt-${group.primary.id}-${optIdx}`"
+                                            class="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-300"
+                                        >
+                                            <span><span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}</span>
+                                            <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">{{ formatCurrency(opt.price) }}</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="group.flatAddons.length > 0"
+                                        class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
+                                    >
+                                        <div
+                                            v-for="(add, addIdx) in group.flatAddons"
+                                            :key="`m-ad-${add.id}-${addIdx}`"
+                                            class="flex flex-wrap items-center justify-between gap-2 text-sm"
+                                        >
+                                            <span class="text-gray-600 dark:text-gray-400 italic min-w-0">
+                                                ↳ {{ flatAddonDisplayName(group.primary.name, add) }}
+                                            </span>
+                                            <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">
+                                                {{ formatCurrency(add.total ?? add.line_total) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Desktop: wide table -->
+                            <div class="hidden lg:block overflow-x-auto">
+                            <table class="w-full text-md min-w-[640px]">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
                                         <th class="px-5 py-3 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
@@ -427,28 +573,55 @@ const submitManualPayment = () => {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-50 dark:divide-gray-700/60">
-                                    <tr v-for="item in lineItems" :key="item.id"
-                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                        <td class="px-5 py-3.5 align-top">
-                                            <div class="flex flex-wrap items-center gap-2 mb-0.5">
-                                                <span class="font-medium text-gray-900 dark:text-white">{{ item.name ?? '—' }}</span>
-                                                <span v-if="itemableBadge(item)"
-                                                      class="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-sm font-medium text-gray-600 dark:text-gray-300">
-                                                    {{ itemableBadge(item) }}
-                                                </span>
-                                            </div>
-                                            <div v-if="variantLabel(item)" class="text-sm text-gray-500 dark:text-gray-400">
-                                                Variant: {{ variantLabel(item) }}
-                                            </div>
-                                            <div v-if="unitLabel(item)" class="text-sm text-gray-500 dark:text-gray-400">
-                                                Unit: {{ unitLabel(item) }}
-                                            </div>
-                                        </td>
-                                        <td class="px-5 py-3.5 text-right align-top text-gray-700 dark:text-gray-300">{{ item.quantity ?? 1 }}</td>
-                                        <td class="px-5 py-3.5 text-right align-top text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price ?? item.price) }}</td>
-                                        <td class="px-5 py-3.5 text-right align-top text-gray-500 dark:text-gray-400">{{ discountCell(item) }}</td>
-                                        <td class="px-5 py-3.5 text-right align-top font-semibold text-gray-900 dark:text-white">{{ formatCurrency(item.total ?? item.line_total) }}</td>
-                                    </tr>
+                                    <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`grp-${group.primary.id}-${gIdx}`">
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                                            <td class="px-5 py-3.5 align-top">
+                                                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                                                    <span class="font-medium text-gray-900 dark:text-white">{{ group.primary.name ?? '—' }}</span>
+                                                    <span v-if="itemableBadge(group.primary)"
+                                                          class="rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-sm font-medium text-gray-600 dark:text-gray-300">
+                                                        {{ itemableBadge(group.primary) }}
+                                                    </span>
+                                                </div>
+                                                <div v-if="variantLabel(group.primary)" class="text-sm text-gray-500 dark:text-gray-400">
+                                                    Variant: {{ variantLabel(group.primary) }}
+                                                </div>
+                                                <div v-if="unitLabel(group.primary)" class="text-sm text-gray-500 dark:text-gray-400">
+                                                    Unit: {{ unitLabel(group.primary) }}
+                                                </div>
+                                            </td>
+                                            <td class="px-5 py-3.5 text-right align-top text-gray-700 dark:text-gray-300">{{ group.primary.quantity ?? 1 }}</td>
+                                            <td class="px-5 py-3.5 text-right align-top text-gray-700 dark:text-gray-300">{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</td>
+                                            <td class="px-5 py-3.5 text-right align-top text-gray-500 dark:text-gray-400">{{ discountCell(group.primary) }}</td>
+                                            <td class="px-5 py-3.5 text-right align-top font-semibold text-gray-900 dark:text-white">{{ formatCurrency(group.primary.total ?? group.primary.line_total) }}</td>
+                                        </tr>
+                                        <tr
+                                            v-for="(opt, optIdx) in invoiceLineBoatOptions(group.primary)"
+                                            :key="`d-opt-${group.primary.id}-${optIdx}`"
+                                            class="bg-sky-50/40 dark:bg-sky-900/10"
+                                        >
+                                            <td class="pl-10 pr-5 py-2.5 text-sm text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ selectedOptionLabel(opt) }}
+                                            </td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-500 dark:text-gray-400">1</td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(opt.price) }}</td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-400 dark:text-gray-500">—</td>
+                                            <td class="px-5 py-2.5 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
+                                        </tr>
+                                        <tr
+                                            v-for="(add, addIdx) in group.flatAddons"
+                                            :key="`d-ad-${add.id}-${addIdx}`"
+                                            class="bg-blue-50/30 dark:bg-blue-900/10"
+                                        >
+                                            <td class="pl-10 pr-5 py-2.5 text-sm text-gray-600 dark:text-gray-400 italic">
+                                                ↳ {{ flatAddonDisplayName(group.primary.name, add) }}
+                                            </td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-600 dark:text-gray-300">{{ add.quantity ?? 1 }}</td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatCurrency(add.unit_price ?? add.price) }}</td>
+                                            <td class="px-5 py-2.5 text-right text-sm text-gray-500 dark:text-gray-400">{{ discountCell(add) }}</td>
+                                            <td class="px-5 py-2.5 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(add.total ?? add.line_total) }}</td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr v-if="record.discount_total && parseFloat(record.discount_total) !== 0">
@@ -477,6 +650,7 @@ const submitManualPayment = () => {
                                     </tr>
                                 </tfoot>
                             </table>
+                            </div>
                         </div>
 
                         <div v-else class="flex flex-col items-center justify-center py-12 text-center px-6">

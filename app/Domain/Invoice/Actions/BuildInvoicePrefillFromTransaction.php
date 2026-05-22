@@ -26,6 +26,8 @@ class BuildInvoicePrefillFromTransaction
             'items' => fn ($q) => $q
                 ->with([
                     'addons',
+                    'selectedAssetOptions',
+                    'selectedAssetOptionsFromSourceLine',
                     'itemable' => function (MorphTo $morph) {
                         $morph->constrain([
                             Asset::class => fn ($query) => $query
@@ -178,6 +180,7 @@ class BuildInvoicePrefillFromTransaction
                     'tax_rate' => $a->tax_rate !== null ? (float) $a->tax_rate : null,
                     'notes' => $a->notes,
                 ])->values()->all(),
+                'selected_asset_options' => self::mapSelectedAssetOptionsForPrefill($item),
                 'estimate_line_item' => $eli ? [
                     'id' => $eli->id,
                     'asset_variant_id' => $eli->asset_variant_id,
@@ -197,5 +200,26 @@ class BuildInvoicePrefillFromTransaction
         })->values()->all();
 
         return $initialData;
+    }
+
+    /**
+     * @param  \App\Domain\Transaction\Models\TransactionLineItem  $item
+     * @return array<int, array<string, mixed>>
+     */
+    private static function mapSelectedAssetOptionsForPrefill($item): array
+    {
+        $rows = $item->selectedAssetOptions;
+        if ($rows->isEmpty()) {
+            $rows = $item->selectedAssetOptionsFromSourceLine ?? collect();
+        }
+
+        return $rows->map(fn ($o) => [
+            'option_id' => (int) $o->option_id,
+            'option_value_id' => (int) $o->option_value_id,
+            'option_name' => $o->option_name ?? '',
+            'value_label' => $o->value_label ?? '',
+            'price' => (float) ($o->price ?? 0),
+            'taxable' => (bool) ($o->taxable ?? true),
+        ])->values()->all();
     }
 }

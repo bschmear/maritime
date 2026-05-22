@@ -137,47 +137,59 @@ const handleSendEmail = () => {
     <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
         <!-- Action Bar - Hidden when printing -->
         <div class="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm print:hidden">
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                            Customer Preview
-                        </h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            This is how the service ticket will appear to the customer
-                        </p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <button
-                            @click="$emit('close')"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                        >
-                            <span class="material-icons text-sm">close</span>
-                            Close
-                        </button>
-                        <button
-                            @click="handleSendEmail"
-                            :disabled="sending"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                        >
-                            <span v-if="sending" class="material-icons text-sm animate-spin">refresh</span>
-                            <span v-else class="material-icons text-sm">send</span>
-                            {{ sending ? 'Sending...' : 'Send Approval Request' }}
-                        </button>
-                        <button
-                            @click="handlePrint"
-                            :disabled="printing"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                        >
-                            <span v-if="printing" class="material-icons text-sm animate-spin">refresh</span>
-                            <span v-else class="material-icons text-sm">print</span>
-                            {{ printing ? 'Preparing...' : 'Print' }}
-                        </button>
-                    </div>
-                </div>
+    <div class="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-2 lg:py-4">
+        <div class="flex items-center justify-between gap-2 lg:gap-4">
+            <!-- Title: shrinks on mobile, full on desktop -->
+            <div class="min-w-0 flex-1">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white lg:text-lg truncate">
+                    Customer Preview
+                </h2>
+                <p class="hidden text-sm text-gray-500 dark:text-gray-400 lg:block mt-0.5">
+                    This is how the service ticket will appear to the customer
+                </p>
+            </div>
+
+            <!-- Buttons: always in a row, icon-only on mobile -->
+            <div class="flex shrink-0 items-center gap-1.5 lg:gap-3">
+                <button
+                    type="button"
+                    aria-label="Close preview"
+                    class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 lg:px-4"
+                    @click="$emit('close')"
+                >
+                    <span class="material-icons text-[18px]">close</span>
+                    <span class="hidden lg:inline">Close</span>
+                </button>
+
+                <button
+                    type="button"
+                    :aria-label="sending ? 'Sending approval request' : 'Send approval request to customer'"
+                    :aria-busy="sending"
+                    :disabled="sending"
+                    class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
+                    @click="handleSendEmail"
+                >
+                    <span v-if="sending" class="material-icons animate-spin text-[18px]">refresh</span>
+                    <span v-else class="material-icons text-[18px]">send</span>
+                    <span class="hidden lg:inline">{{ sending ? 'Sending...' : 'Send Approval Request' }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    :aria-label="printing ? 'Preparing print' : 'Print preview'"
+                    :aria-busy="printing"
+                    :disabled="printing"
+                    class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
+                    @click="handlePrint"
+                >
+                    <span v-if="printing" class="material-icons animate-spin text-[18px]">refresh</span>
+                    <span v-else class="material-icons text-[18px]">print</span>
+                    <span class="hidden lg:inline">{{ printing ? 'Preparing...' : 'Print' }}</span>
+                </button>
             </div>
         </div>
-
+    </div>
+</div>
         <!-- Printable Document -->
         <div id="service-ticket-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
             <div class="bg-white shadow-lg print:shadow-none">
@@ -298,53 +310,108 @@ const handleSendEmail = () => {
                 <!-- Service Items -->
                 <div class="px-8 py-6 border-t border-gray-200">
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Service Items</h2>
-                    
-                    <table class="w-full">
-                        <thead>
-                            <tr class="border-b-2 border-gray-900">
-                                <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Qty</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Type</th>
-                                <th class="text-center py-3 text-sm font-semibold text-gray-900">Est Hrs</th>
-                                <th class="text-right py-3 text-sm font-semibold text-gray-900">Rate</th>
-                                <th class="text-right py-3 text-sm font-semibold text-gray-900">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <tr v-for="(item, index) in billableLineItems" :key="index" class="hover:bg-gray-50">
-                                <td class="py-3 pr-4">
-                                    <div class="font-medium text-gray-900">{{ item.display_name }}</div>
-                                    <div v-if="item.description && item.description !== item.display_name" class="text-sm text-gray-600 mt-1">
-                                        {{ item.description }}
+
+                    <template v-if="billableLineItems.length > 0">
+                        <!-- Mobile: stacked cards -->
+                        <div class="md:hidden divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200">
+                            <div
+                                v-for="(item, index) in billableLineItems"
+                                :key="`preview-item-m-${index}`"
+                                class="space-y-3 bg-white p-4"
+                            >
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <div class="font-semibold text-gray-900">
+                                            {{ item.display_name }}
+                                        </div>
+                                        <div v-if="item.description && item.description !== item.display_name" class="mt-1 text-sm text-gray-600">
+                                            {{ item.description }}
+                                        </div>
+                                        <div v-if="item.warranty" class="mt-2 inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                            <span class="material-icons text-xs">verified_user</span>
+                                            Warranty
+                                        </div>
                                     </div>
-                                    <div v-if="item.warranty" class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium mt-1">
-                                        <span class="material-icons text-xs">verified_user</span>
-                                        Warranty
+                                    <div class="shrink-0 text-right">
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Amount</div>
+                                        <div class="text-base font-semibold tabular-nums text-gray-900">
+                                            {{ formatCurrency(calculateLineItemPrice(item)) }}
+                                        </div>
                                     </div>
-                                </td>
-                                <td class="py-3 text-center text-gray-900">
-                                    {{ item.quantity }}
-                                </td>
-                                <td class="py-3 text-center">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                                        {{ getBillingTypeLabel(item.billing_type) }}
-                                    </span>
-                                </td>
-                                <td class="py-3 text-center text-gray-900">
-                                    {{ item.estimated_hours ?? 0 }}
-                                </td>
-                                <td class="py-3 text-right text-gray-900">
-                                    {{ formatCurrency(item.unit_price) }}
-                                </td>
-                                <td class="py-3 text-right font-medium text-gray-900">
-                                    {{ formatCurrency(calculateLineItemPrice(item)) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                                <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                                    <div>
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Qty</div>
+                                        <div class="text-gray-900">{{ item.quantity }}</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Est hrs</div>
+                                        <div class="text-gray-900">{{ item.estimated_hours ?? 0 }}</div>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Type</div>
+                                        <span class="mt-0.5 inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                            {{ getBillingTypeLabel(item.billing_type) }}
+                                        </span>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <div class="text-xs font-medium uppercase tracking-wide text-gray-500">Rate</div>
+                                        <div class="tabular-nums text-gray-900">{{ formatCurrency(item.unit_price) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- md+: table -->
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full min-w-[32rem]">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-900">
+                                        <th class="py-3 text-left text-sm font-semibold text-gray-900">Description</th>
+                                        <th class="py-3 text-center text-sm font-semibold text-gray-900">Qty</th>
+                                        <th class="py-3 text-center text-sm font-semibold text-gray-900">Type</th>
+                                        <th class="py-3 text-center text-sm font-semibold text-gray-900">Est Hrs</th>
+                                        <th class="py-3 text-right text-sm font-semibold text-gray-900">Rate</th>
+                                        <th class="py-3 text-right text-sm font-semibold text-gray-900">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr v-for="(item, index) in billableLineItems" :key="index" class="hover:bg-gray-50">
+                                        <td class="py-3 pr-4">
+                                            <div class="font-medium text-gray-900">{{ item.display_name }}</div>
+                                            <div v-if="item.description && item.description !== item.display_name" class="mt-1 text-sm text-gray-600">
+                                                {{ item.description }}
+                                            </div>
+                                            <div v-if="item.warranty" class="mt-1 inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                                <span class="material-icons text-xs">verified_user</span>
+                                                Warranty
+                                            </div>
+                                        </td>
+                                        <td class="py-3 text-center text-gray-900">
+                                            {{ item.quantity }}
+                                        </td>
+                                        <td class="py-3 text-center">
+                                            <span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                                {{ getBillingTypeLabel(item.billing_type) }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 text-center text-gray-900">
+                                            {{ item.estimated_hours ?? 0 }}
+                                        </td>
+                                        <td class="py-3 text-right text-gray-900">
+                                            {{ formatCurrency(item.unit_price) }}
+                                        </td>
+                                        <td class="py-3 text-right font-medium text-gray-900">
+                                            {{ formatCurrency(calculateLineItemPrice(item)) }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </template>
 
                     <!-- Empty State -->
-                    <div v-if="billableLineItems.length === 0" class="text-center py-8 text-gray-500">
+                    <div v-else class="py-8 text-center text-gray-500">
                         No billable items
                     </div>
                 </div>

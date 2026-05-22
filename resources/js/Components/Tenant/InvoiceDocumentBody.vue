@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue';
+import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
 const ASSET_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
 const INVENTORY_TYPE = 'App\\Domain\\InventoryItem\\Models\\InventoryItem';
+const INVOICE_ADDON_NAME_SEP = ' — ';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -21,15 +23,75 @@ const lineItems = computed(() => {
     return Array.isArray(raw) ? raw : [];
 });
 
+const sortedLineItems = computed(() => {
+    const list = [...lineItems.value];
+    return list.sort((a, b) => {
+        const pa = Number(a.position);
+        const pb = Number(b.position);
+        if (!Number.isNaN(pa) && !Number.isNaN(pb) && pa !== pb) {
+            return pa - pb;
+        }
+        return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+});
+
+const isIndentedInvoiceAddonRow = (primary, row) => {
+    if (!primary?.name || !row?.name) return false;
+    if (row.itemable_type) return false;
+    return String(row.name).startsWith(String(primary.name) + INVOICE_ADDON_NAME_SEP);
+};
+
+const groupedInvoiceLineItems = computed(() => {
+    const groups = [];
+    for (const row of sortedLineItems.value) {
+        const last = groups[groups.length - 1];
+        if (last && isIndentedInvoiceAddonRow(last.primary, row)) {
+            last.flatAddons.push(row);
+        } else {
+            groups.push({ primary: row, flatAddons: [] });
+        }
+    }
+    return groups;
+});
+
+const flatAddonDisplayName = (primaryName, row) => {
+    const prefix = String(primaryName) + INVOICE_ADDON_NAME_SEP;
+    const n = String(row.name ?? '');
+    return n.startsWith(prefix) ? n.slice(prefix.length) : (row.name ?? '—');
+};
+
+const invoiceLineBoatOptions = (item) => {
+    if (item.itemable_type !== ASSET_TYPE) return [];
+    const tli = item.transaction_line_item ?? item.transactionLineItem;
+    if (tli) return lineAssetSelectedOptions(tli);
+    return lineAssetSelectedOptions(item);
+};
+
+const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
+
+const transactionLocationPreview = computed(() => {
+    const loc = props.record?.transaction?.location;
+    if (!loc) return null;
+    const line1 = loc.address_line_1 ?? loc.address_line1 ?? '';
+    const line2 = loc.address_line_2 ?? loc.address_line2 ?? '';
+    const city = loc.city ?? '';
+    const state = loc.state ?? '';
+    const postal = loc.postal_code ?? '';
+    const phone = loc.phone ?? '';
+    const email = loc.email ?? '';
+    if (!line1 && !city && !phone && !email) return null;
+    return { line1, line2, city, state, postal, phone, email };
+});
+
+const invoiceHeaderTitle = computed(
+    () => props.record.display_name || `INV-${props.record.sequence ?? props.record.id}`,
+);
+
 const accountDisplayName = computed(() =>
     props.account?.settings?.business_name ?? props.account?.business_name ?? 'Company'
 );
 
 const transaction = computed(() => props.record?.transaction ?? null);
-
-const companyName = computed(
-    () => transaction.value?.subsidiary?.display_name ?? accountDisplayName.value,
-);
 
 const companyLocation = computed(() => transaction.value?.location ?? null);
 
@@ -93,6 +155,14 @@ const itemPrimaryLabel  = (item) => item.name ?? '—';
 const assetVariantOf    = (item) => item.asset_variant ?? item.assetVariant ?? null;
 const variantLabel      = (item) => { const v = assetVariantOf(item); return v ? (v.display_name ?? v.name ?? null) : null; };
 
+const unitLabel = (item) => {
+    const u = item.asset_unit ?? item.assetUnit ?? null;
+    const raw = u?.display_name;
+    if (!raw) return null;
+    const parts = String(raw).split(' - ');
+    return parts.length > 1 ? parts.slice(1).join(' - ') : parts[0];
+};
+
 const itemableBadge = (item) => {
     if (!item.itemable_type) return null;
     if (item.itemable_type === ASSET_TYPE) return 'Asset';
@@ -145,35 +215,70 @@ const customerFacingLineTotal = (item) => {
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     <template v-if="lineItems.length">
-                        <tr v-for="item in lineItems" :key="item.id" class="hover:bg-gray-50">
-                            <td class="py-3 pr-4 align-top">
-                                <div class="space-y-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="font-medium text-gray-900">{{ itemPrimaryLabel(item) }}</span>
-                                        <span
-                                            v-if="itemableBadge(item)"
-                                            class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
-                                        >
-                                            {{ itemableBadge(item) }}
-                                        </span>
+                        <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`bo-${group.primary.id}-${gIdx}`">
+                            <tr class="hover:bg-gray-50">
+                                <td class="py-3 pr-4 align-top">
+                                    <div class="space-y-1">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="font-medium text-gray-900">{{ itemPrimaryLabel(group.primary) }}</span>
+                                            <span
+                                                v-if="itemableBadge(group.primary)"
+                                                class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                                            >
+                                                {{ itemableBadge(group.primary) }}
+                                            </span>
+                                        </div>
+                                        <div v-if="variantLabel(group.primary)" class="text-sm text-gray-600">
+                                            <span class="font-medium text-gray-700">Variant:</span>
+                                            {{ variantLabel(group.primary) }}
+                                        </div>
+                                        <div v-if="unitLabel(group.primary)" class="text-sm text-gray-600">
+                                            <span class="font-medium text-gray-700">Unit:</span>
+                                            {{ unitLabel(group.primary) }}
+                                        </div>
                                     </div>
-                                    <div v-if="variantLabel(item)" class="text-sm text-gray-600">
-                                        <span class="font-medium text-gray-700">Variant:</span>
-                                        {{ variantLabel(item) }}
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="py-3 text-center align-top text-gray-900">{{ item.quantity ?? 1 }}</td>
-                            <td class="py-3 text-right align-top text-gray-900">
-                                <span v-if="isCoveredWarranty(item)" class="text-sm text-blue-700">Covered under warranty</span>
-                                <span v-else>{{ formatCurrency(item.unit_price ?? item.price) }}</span>
-                            </td>
-                            <td class="py-3 text-center align-top text-gray-900">
-                                <span v-if="isCoveredWarranty(item)">—</span>
-                                <span v-else>{{ discountCell(item) }}</span>
-                            </td>
-                            <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(item)) }}</td>
-                        </tr>
+                                </td>
+                                <td class="py-3 text-center align-top text-gray-900">{{ group.primary.quantity ?? 1 }}</td>
+                                <td class="py-3 text-right align-top text-gray-900">
+                                    <span v-if="isCoveredWarranty(group.primary)" class="text-sm text-blue-700">Covered under warranty</span>
+                                    <span v-else>{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</span>
+                                </td>
+                                <td class="py-3 text-center align-top text-gray-900">
+                                    <span v-if="isCoveredWarranty(group.primary)">—</span>
+                                    <span v-else>{{ discountCell(group.primary) }}</span>
+                                </td>
+                                <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(group.primary)) }}</td>
+                            </tr>
+                            <tr
+                                v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
+                                :key="`bo-opt-${group.primary.id}-${oi}`"
+                                class="bg-sky-50/50"
+                            >
+                                <td class="py-2 pl-6 pr-4 text-sm italic text-gray-700">
+                                    <span class="text-sky-700">↳</span> {{ selectedOptionLabel(opt) }}
+                                </td>
+                                <td class="py-2 text-center text-sm text-gray-800">1</td>
+                                <td class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(opt.price) }}</td>
+                                <td class="py-2 text-center text-sm text-gray-500">—</td>
+                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(opt.price) }}</td>
+                            </tr>
+                            <tr
+                                v-for="(add, ai) in group.flatAddons"
+                                :key="`bo-ad-${add.id}-${ai}`"
+                                class="bg-blue-50/40"
+                            >
+                                <td class="py-2 pl-6 pr-4 text-sm italic text-gray-700">
+                                    ↳ {{ flatAddonDisplayName(group.primary.name, add) }}
+                                </td>
+                                <td class="py-2 text-center text-sm text-gray-800">{{ add.quantity ?? 1 }}</td>
+                                <td class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(add.unit_price ?? add.price) }}</td>
+                                <td class="py-2 text-center text-sm text-gray-800">
+                                    <span v-if="isCoveredWarranty(add)">—</span>
+                                    <span v-else>{{ discountCell(add) }}</span>
+                                </td>
+                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(add)) }}</td>
+                            </tr>
+                        </template>
                     </template>
                     <tr v-else>
                         <td colspan="5" class="py-8 text-center text-sm text-gray-500">No line items</td>
@@ -232,189 +337,247 @@ const customerFacingLineTotal = (item) => {
 
     <div
         v-else
-        class="invoice-document-for-print rounded-lg border border-gray-200 bg-white p-6 shadow-sm sm:p-8 text-gray-900 print:border-0 print:shadow-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+        id="invoice-print-document"
+        class="invoice-document-for-print bg-white text-gray-900 shadow-lg print:shadow-none"
     >
-
-        <!-- Header: logo + company + status -->
-        <div class="flex items-start justify-between gap-4">
-            <div class="flex min-w-0 items-start gap-4 sm:gap-6">
-                <div v-if="logoUrl" class="shrink-0">
-                    <img :src="logoUrl" alt="" class="h-20 w-auto max-w-[150px] object-contain">
+        <!-- Contract-style document header -->
+        <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2 print:break-inside-avoid">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-6">
+                    <div v-if="effectiveLogoUrl" class="flex-shrink-0">
+                        <img :src="effectiveLogoUrl" alt="" class="h-20 w-auto max-w-[150px] object-contain">
+                    </div>
+                    <div v-else class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded bg-gray-200 print:hidden">
+                        <span class="material-icons text-4xl text-gray-400">business</span>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">{{ accountDisplayName }}</h1>
+                        <p
+                            v-if="record.transaction?.subsidiary?.display_name"
+                            class="mt-1 text-sm font-semibold text-gray-700"
+                        >
+                            {{ record.transaction.subsidiary.display_name }}
+                        </p>
+                        <div
+                            v-if="transactionLocationPreview"
+                            class="mt-2 space-y-1 text-sm text-gray-600"
+                        >
+                            <p v-if="transactionLocationPreview.line1">
+                                {{ transactionLocationPreview.line1
+                                }}<span v-if="transactionLocationPreview.line2">, {{ transactionLocationPreview.line2 }}</span>
+                            </p>
+                            <p v-if="transactionLocationPreview.city">
+                                {{ transactionLocationPreview.city
+                                }}<span v-if="transactionLocationPreview.state">, {{ transactionLocationPreview.state }}</span>
+                                <template v-if="transactionLocationPreview.postal"> {{ transactionLocationPreview.postal }}</template>
+                            </p>
+                            <p v-if="transactionLocationPreview.phone" class="flex items-center gap-1">
+                                <span class="material-icons text-sm">phone</span>
+                                {{ transactionLocationPreview.phone }}
+                            </p>
+                            <p v-if="transactionLocationPreview.email" class="flex items-center gap-1">
+                                <span class="material-icons text-sm">email</span>
+                                {{ transactionLocationPreview.email }}
+                            </p>
+                        </div>
+                        <div
+                            v-else-if="companyAddressLines.length"
+                            class="mt-2 space-y-1 text-sm text-gray-600"
+                        >
+                            <p v-for="(addrLine, idx) in companyAddressLines" :key="idx" class="leading-snug">{{ addrLine }}</p>
+                            <p v-if="companyPhone" class="flex items-center gap-1">
+                                <span class="material-icons text-sm">phone</span>{{ companyPhone }}
+                            </p>
+                            <p v-if="companyEmail" class="flex items-center gap-1">
+                                <span class="material-icons text-sm">email</span>{{ companyEmail }}
+                            </p>
+                        </div>
+                    </div>
                 </div>
-                <div v-else class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
-                    <span class="material-icons text-3xl text-gray-400 dark:text-gray-500">business</span>
-                </div>
-                <div class="min-w-0 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                    <h1 class="text-xl font-bold text-gray-900 dark:text-white">{{ companyName }}</h1>
-                    <template v-if="companyAddressLines.length">
-                        <p v-for="(line, idx) in companyAddressLines" :key="idx" class="leading-snug">{{ line }}</p>
-                    </template>
-                    <p v-if="companyPhone" class="flex items-center gap-1.5 pt-0.5">
-                        <span class="material-icons text-base text-gray-400">phone</span>{{ companyPhone }}
-                    </p>
-                    <p v-if="companyEmail" class="flex items-center gap-1.5">
-                        <span class="material-icons text-base text-gray-400">email</span>{{ companyEmail }}
-                    </p>
+                <div class="text-right">
+                    <div class="text-sm font-medium uppercase tracking-wide text-gray-600">Invoice</div>
+                    <div class="font-mono text-3xl font-bold text-gray-900">
+                        {{ invoiceHeaderTitle }}
+                    </div>
+                    <div class="mt-1 text-sm text-gray-600">
+                        {{ formatDate(record.created_at) }}
+                    </div>
                 </div>
             </div>
-            <span :class="['inline-flex h-fit shrink-0 rounded-full px-3 py-1 text-sm font-semibold print:hidden', statusBadgeClass]">
+        </div>
+
+        <div class="flex flex-wrap gap-2 border-b border-gray-200 px-8 py-4">
+            <span :class="['inline-flex items-center rounded-full px-3 py-1 text-sm font-medium', statusBadgeClass]">
                 {{ statusLabel }}
             </span>
         </div>
 
-        <!-- Invoice title + date -->
-        <div class="mt-6 flex flex-col gap-1 border-y border-gray-100 py-4 print:border-0 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700">
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                {{ record.display_name || `Invoice #${record.sequence ?? record.id}` }}
+        <div class="grid grid-cols-1 gap-6 border-b border-gray-200 bg-gray-50 px-8 py-6 print:bg-white md:grid-cols-2">
+            <div>
+                <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Bill to
+                </h2>
+                <div class="rounded-lg border border-gray-200 bg-white p-4">
+                    <address class="not-italic space-y-1 text-sm text-gray-700">
+                        <span v-if="record.customer_name" class="block text-lg font-semibold text-gray-900">
+                            {{ record.customer_name }}
+                        </span>
+                        <span v-if="record.customer_email" class="block">{{ record.customer_email }}</span>
+                        <span v-if="record.customer_phone" class="block text-gray-600">{{ record.customer_phone }}</span>
+                        <template v-if="record.billing_address_line1">
+                            <span class="mt-2 block">{{ record.billing_address_line1 }}</span>
+                            <span v-if="record.billing_address_line2" class="block">{{ record.billing_address_line2 }}</span>
+                            <span class="block">{{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}</span>
+                            <span v-if="record.billing_country" class="block text-gray-600">{{ record.billing_country }}</span>
+                        </template>
+                    </address>
+                </div>
+            </div>
+            <div v-if="paymentTermLabel" class="md:text-right">
+                <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Payment terms
+                </h2>
+                <div class="rounded-lg border border-gray-200 bg-white p-4 md:inline-block md:min-w-[12rem] md:text-left">
+                    <p class="text-sm font-medium text-gray-900">
+                        {{ paymentTermLabel }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="record.notes" class="border-b border-gray-200 px-8 py-6">
+            <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Notes
+            </h3>
+            <p class="whitespace-pre-line text-sm leading-relaxed text-gray-700">
+                {{ record.notes }}
+            </p>
+        </div>
+
+        <div class="px-8 py-6 print:break-inside-avoid">
+            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                Line items
             </h2>
-            <time class="text-base text-gray-500 dark:text-gray-400">
-                Date: {{ formatDate(record.created_at) }}
-            </time>
-        </div>
-
-        <!-- Bill to -->
-<!-- Bill To + Payment Terms -->
-<div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2">
-
-<!-- Bill To -->
-<div class="max-w-xl">
-    <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Bill to
-    </h2>
-
-    <address class="not-italic text-sm text-gray-700 space-y-0.5 dark:text-gray-300">
-        <span v-if="record.customer_name" class="block font-semibold text-gray-900 dark:text-white">
-            {{ record.customer_name }}
-        </span>
-
-        <span v-if="record.customer_email" class="block">
-            {{ record.customer_email }}
-        </span>
-
-        <span v-if="record.customer_phone" class="block text-gray-500 dark:text-gray-400">
-            {{ record.customer_phone }}
-        </span>
-
-        <template v-if="record.billing_address_line1">
-            <span class="mt-1 block">{{ record.billing_address_line1 }}</span>
-            <span v-if="record.billing_address_line2" class="block">
-                {{ record.billing_address_line2 }}
-            </span>
-            <span class="block">
-                {{ [record.billing_city, record.billing_state, record.billing_postal].filter(Boolean).join(', ') }}
-            </span>
-            <span v-if="record.billing_country" class="block text-gray-500 dark:text-gray-400">
-                {{ record.billing_country }}
-            </span>
-        </template>
-    </address>
-</div>
-
-<!-- Payment Terms (right side) -->
-<div v-if="paymentTermLabel" class="sm:text-right">
-    <h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Payment terms
-    </h3>
-    <p class="text-sm font-medium text-gray-900 dark:text-white">
-        {{ paymentTermLabel }}
-    </p>
-</div>
-
-</div>
-
-<!-- Notes (full width below) -->
-<div v-if="record.notes" class="mt-8">
-<h3 class="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-    Notes
-</h3>
-<p class="whitespace-pre-line text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-    {{ record.notes }}
-</p>
-</div>
-
-        <!-- Line items -->
-        <div class="mt-8 overflow-x-auto rounded-lg border border-gray-100 print:border-0 dark:border-gray-700">
-            <table class="w-full text-left text-sm font-medium text-gray-900 dark:text-gray-100">
-                <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
-                    <tr>
-                        <th class="px-4 py-3 font-semibold sm:px-6">Item</th>
-                        <th class="px-4 py-3 font-semibold sm:px-6">Qty</th>
-                        <th class="px-4 py-3 font-semibold sm:px-6">Unit price</th>
-                        <th class="px-4 py-3 font-semibold sm:px-6">Discount</th>
-                        <th class="px-4 py-3 text-right font-semibold sm:px-6 whitespace-nowrap">Line total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-if="lineItems.length">
-                        <tr v-for="item in lineItems" :key="item.id"
-                            class="border-b border-gray-100 bg-white print:border-0 dark:border-gray-700 dark:bg-gray-800">
-                            <th scope="row" class="px-4 py-4 align-top font-medium sm:px-6">
-                                <div class="space-y-1">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="text-base text-gray-900 dark:text-white">{{ itemPrimaryLabel(item) }}</span>
-                                        <span v-if="itemableBadge(item)"
-                                              class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                            {{ itemableBadge(item) }}
-                                        </span>
-                                    </div>
-                                    <div v-if="variantLabel(item)" class="text-xs text-gray-600 dark:text-gray-400">
-                                        <span class="font-medium text-gray-700 dark:text-gray-300">Variant:</span>
-                                        {{ variantLabel(item) }}
-                                    </div>
-                                </div>
-                            </th>
-                            <td class="px-4 py-4 align-top sm:px-6">{{ item.quantity ?? 1 }}</td>
-                            <td class="px-4 py-4 align-top sm:px-6">
-                                <span v-if="isCoveredWarranty(item)" class="text-sm text-blue-700 dark:text-blue-300">Covered under warranty</span>
-                                <span v-else>{{ formatCurrency(item.unit_price ?? item.price) }}</span>
-                            </td>
-                            <td class="px-4 py-4 align-top sm:px-6">
-                                <span v-if="isCoveredWarranty(item)">—</span>
-                                <span v-else>{{ discountCell(item) }}</span>
-                            </td>
-                            <td class="px-4 py-4 text-right align-top sm:px-6">{{ formatCurrency(customerFacingLineTotal(item)) }}</td>
+            <div class="overflow-x-auto border border-gray-200 print:border-0">
+                <table class="w-full text-left text-sm text-gray-900">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-4 py-3 font-semibold sm:px-6">Item</th>
+                            <th class="px-4 py-3 font-semibold sm:px-6">Qty</th>
+                            <th class="px-4 py-3 font-semibold sm:px-6">Unit price</th>
+                            <th class="px-4 py-3 font-semibold sm:px-6">Discount</th>
+                            <th class="whitespace-nowrap px-4 py-3 text-right font-semibold sm:px-6">Line total</th>
                         </tr>
-                    </template>
-                    <tr v-else>
-                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-400 dark:text-gray-500">No line items</td>
-                    </tr>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <template v-if="lineItems.length">
+                            <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`inv-${group.primary.id}-${gIdx}`">
+                                <tr class="bg-white">
+                                    <th scope="row" class="px-4 py-4 align-top font-medium sm:px-6">
+                                        <div class="space-y-1">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="text-base text-gray-900">{{ itemPrimaryLabel(group.primary) }}</span>
+                                                <span
+                                                    v-if="itemableBadge(group.primary)"
+                                                    class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                                                >
+                                                    {{ itemableBadge(group.primary) }}
+                                                </span>
+                                            </div>
+                                            <div v-if="variantLabel(group.primary)" class="text-xs text-gray-600">
+                                                <span class="font-medium text-gray-700">Variant:</span>
+                                                {{ variantLabel(group.primary) }}
+                                            </div>
+                                            <div v-if="unitLabel(group.primary)" class="text-xs text-gray-600">
+                                                <span class="font-medium text-gray-700">Unit:</span>
+                                                {{ unitLabel(group.primary) }}
+                                            </div>
+                                        </div>
+                                    </th>
+                                    <td class="px-4 py-4 align-top sm:px-6">{{ group.primary.quantity ?? 1 }}</td>
+                                    <td class="px-4 py-4 align-top sm:px-6">
+                                        <span v-if="isCoveredWarranty(group.primary)" class="text-sm text-blue-700">Covered under warranty</span>
+                                        <span v-else>{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</span>
+                                    </td>
+                                    <td class="px-4 py-4 align-top sm:px-6">
+                                        <span v-if="isCoveredWarranty(group.primary)">—</span>
+                                        <span v-else>{{ discountCell(group.primary) }}</span>
+                                    </td>
+                                    <td class="px-4 py-4 text-right align-top font-medium sm:px-6">{{ formatCurrency(customerFacingLineTotal(group.primary)) }}</td>
+                                </tr>
+                                <tr
+                                    v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
+                                    :key="`inv-opt-${group.primary.id}-${oi}`"
+                                    class="bg-sky-50/40"
+                                >
+                                    <td class="px-4 py-2 pl-8 text-sm italic text-gray-700 sm:px-6">
+                                        <span class="text-sky-700">↳</span> {{ selectedOptionLabel(opt) }}
+                                    </td>
+                                    <td class="px-4 py-2 text-center text-sm text-gray-800 sm:px-6">1</td>
+                                    <td class="px-4 py-2 text-right text-sm text-gray-800 sm:px-6">{{ formatCurrency(opt.price) }}</td>
+                                    <td class="px-4 py-2 text-center text-sm text-gray-500 sm:px-6">—</td>
+                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 sm:px-6">{{ formatCurrency(opt.price) }}</td>
+                                </tr>
+                                <tr
+                                    v-for="(add, ai) in group.flatAddons"
+                                    :key="`inv-ad-${add.id}-${ai}`"
+                                    class="bg-blue-50/40"
+                                >
+                                    <td class="px-4 py-2 pl-8 text-sm italic text-gray-700 sm:px-6">
+                                        ↳ {{ flatAddonDisplayName(group.primary.name, add) }}
+                                    </td>
+                                    <td class="px-4 py-2 text-center text-sm sm:px-6">{{ add.quantity ?? 1 }}</td>
+                                    <td class="px-4 py-2 text-right text-sm sm:px-6">{{ formatCurrency(add.unit_price ?? add.price) }}</td>
+                                    <td class="px-4 py-2 text-center text-sm sm:px-6">
+                                        <span v-if="isCoveredWarranty(add)">—</span>
+                                        <span v-else>{{ discountCell(add) }}</span>
+                                    </td>
+                                    <td class="px-4 py-2 text-right text-sm font-medium sm:px-6">{{ formatCurrency(customerFacingLineTotal(add)) }}</td>
+                                </tr>
+                            </template>
+                        </template>
+                        <tr v-else>
+                            <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No line items</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- Summary -->
-        <div class="ms-auto mt-6 max-w-xs">
-            <h3 class="mb-3 font-semibold text-gray-900 dark:text-white">Summary</h3>
-            <ul class="space-y-2 text-sm">
-                <li class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
-                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.subtotal) }}</span>
-                </li>
-                <li v-if="record.discount_total && parseFloat(record.discount_total) !== 0" class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Discount</span>
-                    <span class="font-medium text-green-700 dark:text-green-400">-{{ formatCurrency(record.discount_total) }}</span>
-                </li>
-                <li class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Tax</span>
-                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.tax_total) }}</span>
-                </li>
-                <li v-if="record.fees_total && parseFloat(record.fees_total) !== 0" class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Fees</span>
-                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrency(record.fees_total) }}</span>
-                </li>
-                <li class="flex justify-between border-t border-gray-100 pt-3 text-base font-bold text-gray-900 print:border-0 dark:border-gray-700 dark:text-white">
-                    <span>Total</span>
-                    <span>{{ formatCurrency(record.total) }}</span>
-                </li>
-                <li v-if="record.amount_paid && parseFloat(record.amount_paid) !== 0" class="flex justify-between text-green-700 dark:text-green-400">
-                    <span>Amount paid</span>
-                    <span>-{{ formatCurrency(record.amount_paid) }}</span>
-                </li>
-                <li v-if="record.amount_due != null" class="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-800 print:border-0 dark:border-gray-700 dark:text-gray-200">
-                    <span>Amount due</span>
-                    <span>{{ formatCurrency(record.amount_due) }}</span>
-                </li>
-            </ul>
+        <div class="border-t border-gray-200 px-8 py-6">
+            <div class="ms-auto max-w-xs">
+                <h3 class="mb-3 font-semibold text-gray-900">Summary</h3>
+                <ul class="space-y-2 text-sm">
+                    <li class="flex justify-between">
+                        <span class="text-gray-500">Subtotal</span>
+                        <span class="font-medium text-gray-900">{{ formatCurrency(record.subtotal) }}</span>
+                    </li>
+                    <li v-if="record.discount_total && parseFloat(record.discount_total) !== 0" class="flex justify-between">
+                        <span class="text-gray-500">Discount</span>
+                        <span class="font-medium text-green-700">-{{ formatCurrency(record.discount_total) }}</span>
+                    </li>
+                    <li class="flex justify-between">
+                        <span class="text-gray-500">Tax</span>
+                        <span class="font-medium text-gray-900">{{ formatCurrency(record.tax_total) }}</span>
+                    </li>
+                    <li v-if="record.fees_total && parseFloat(record.fees_total) !== 0" class="flex justify-between">
+                        <span class="text-gray-500">Fees</span>
+                        <span class="font-medium text-gray-900">{{ formatCurrency(record.fees_total) }}</span>
+                    </li>
+                    <li class="flex justify-between border-t border-gray-900 pt-3 text-base font-bold text-gray-900">
+                        <span>Total</span>
+                        <span>{{ formatCurrency(record.total) }}</span>
+                    </li>
+                    <li v-if="record.amount_paid && parseFloat(record.amount_paid) !== 0" class="flex justify-between text-green-700">
+                        <span>Amount paid</span>
+                        <span>-{{ formatCurrency(record.amount_paid) }}</span>
+                    </li>
+                    <li v-if="record.amount_due != null" class="flex justify-between border-t border-gray-900 pt-2 text-base font-bold text-gray-900">
+                        <span>Amount due</span>
+                        <span>{{ formatCurrency(record.amount_due) }}</span>
+                    </li>
+                </ul>
+            </div>
         </div>
 
     </div>

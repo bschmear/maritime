@@ -940,8 +940,13 @@ const handleCancel = () => {
                             </div>
 
                             <div class="p-6 space-y-6">
-                                <!-- Customer & Location / Ticket Details -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Customer & Location / Ticket Details: show stacks until lg; edit uses md+ two columns -->
+                                <div
+                                    :class="[
+                                        'grid grid-cols-1 gap-6',
+                                        mode === 'show' ? 'lg:grid-cols-2' : 'md:grid-cols-2',
+                                    ]"
+                                >
 
                                     <!-- Left Column: Customer & Location -->
                                     <div class="space-y-4">
@@ -1205,8 +1210,99 @@ const handleCancel = () => {
                                         </button>
                                     </div>
 
-                                    <!-- Service Items Table -->
-                                    <div v-if="lineItems.length > 0" class="overflow-x-auto -mx-6 sm:mx-0">
+                                    <!-- Service items: mobile cards -->
+                                    <div
+                                        v-if="lineItems.length > 0"
+                                        class="md:hidden divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700"
+                                    >
+                                        <div
+                                            v-for="(item, index) in lineItems"
+                                            :key="`st-item-m-${index}`"
+                                            class="space-y-3 bg-white p-4 dark:bg-gray-800"
+                                        >
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="text-base font-semibold text-gray-900 dark:text-white">
+                                                        {{ item.display_name || item.description }}
+                                                    </div>
+                                                    <p
+                                                        v-if="item.description && item.description !== (item.display_name || '')"
+                                                        class="mt-1 text-sm text-gray-600 dark:text-gray-400"
+                                                    >
+                                                        {{ item.description }}
+                                                    </p>
+                                                </div>
+                                                <div class="shrink-0 text-right">
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Line total</div>
+                                                    <div class="text-base font-semibold tabular-nums text-gray-900 dark:text-white">
+                                                        {{ formatCurrency(calculateLineItemPrice(item)) }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                                                <div>
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Qty</div>
+                                                    <div class="text-gray-900 dark:text-white">{{ item.quantity }}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Est hrs</div>
+                                                    <div class="text-gray-900 dark:text-white">{{ item.estimated_hours ?? 0 }}</div>
+                                                </div>
+                                                <div class="col-span-2">
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Type</div>
+                                                    <span class="mt-0.5 inline-flex items-center rounded px-2 py-0.5 text-sm font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                                        {{ getBillingTypeLabel(item.billing_type) }}
+                                                    </span>
+                                                </div>
+                                                <div class="col-span-2">
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Warranty</div>
+                                                    <div class="mt-0.5">
+                                                        <span v-if="item.warranty" class="inline-flex flex-col gap-0.5 rounded bg-green-100 px-2 py-1 text-sm font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                                            <span class="inline-flex items-center">
+                                                                <span class="material-icons mr-1 text-sm">verified_user</span>
+                                                                Yes
+                                                            </span>
+                                                            <span v-if="item.warranty_type" class="text-[10px] font-normal opacity-90">
+                                                                {{ getWarrantyCoverageLabel(item.warranty_type) }}
+                                                            </span>
+                                                        </span>
+                                                        <span v-else class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                                            No
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Unit price</div>
+                                                    <div class="tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(item.unit_price) }}</div>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Unit cost</div>
+                                                    <div class="tabular-nums text-gray-900 dark:text-white">{{ formatCurrency(item.unit_cost) }}</div>
+                                                </div>
+                                            </div>
+                                            <div v-if="mode !== 'show'" class="flex justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                                                <button
+                                                    type="button"
+                                                    aria-label="Edit line"
+                                                    class="rounded-lg p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                                    @click="editServiceItemLine(index)"
+                                                >
+                                                    <span class="material-icons text-lg">edit</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Remove line"
+                                                    class="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                                    @click="removeServiceItemLine(index)"
+                                                >
+                                                    <span class="material-icons text-lg">delete</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Service items: desktop table -->
+                                    <div v-if="lineItems.length > 0" class="hidden md:block overflow-x-auto sm:mx-0">
                                         <div class="inline-block min-w-full align-middle">
                                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                                 <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -1240,62 +1336,62 @@ const handleCancel = () => {
                                                         </th>
                                                     </tr>
                                                 </thead>
-                                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                                <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
                                                     <tr
                                                         v-for="(item, index) in lineItems"
                                                         :key="index"
-                                                        class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                                        class="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                                     >
-                                                        <td class="px-4 py-3 text-md text-gray-900 dark:text-white font-medium">
+                                                        <td class="px-4 py-3 text-md font-medium text-gray-900 dark:text-white">
                                                             {{ item.display_name || item.description }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-medium">
+                                                        <td class="px-4 py-3 text-right text-md font-medium text-gray-900 dark:text-white">
                                                             {{ item.quantity }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-medium">
+                                                        <td class="px-4 py-3 text-right text-md font-medium text-gray-900 dark:text-white">
                                                             {{ item.estimated_hours ?? 0 }}
                                                         </td>
                                                         <td class="px-4 py-3 text-md text-gray-900 dark:text-white">
-                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                            <span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                                                 {{ getBillingTypeLabel(item.billing_type) }}
                                                             </span>
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-center text-gray-900 dark:text-white">
-                                                            <span v-if="item.warranty" class="inline-flex flex-col items-center gap-0.5 px-2 py-0.5 rounded text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                                                        <td class="px-4 py-3 text-center text-md text-gray-900 dark:text-white">
+                                                            <span v-if="item.warranty" class="inline-flex flex-col items-center gap-0.5 rounded bg-green-100 px-2 py-0.5 text-sm font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
                                                                 <span class="inline-flex items-center">
-                                                                    <span class="material-icons text-sm mr-1">verified_user</span>
+                                                                    <span class="material-icons mr-1 text-sm">verified_user</span>
                                                                     Yes
                                                                 </span>
                                                                 <span v-if="item.warranty_type" class="text-[10px] font-normal opacity-90">
                                                                     {{ getWarrantyCoverageLabel(item.warranty_type) }}
                                                                 </span>
                                                             </span>
-                                                            <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                                            <span v-else class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
                                                                 No
                                                             </span>
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white">
+                                                        <td class="px-4 py-3 text-right text-md text-gray-900 dark:text-white">
                                                             {{ formatCurrency(item.unit_price) }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white">
+                                                        <td class="px-4 py-3 text-right text-md text-gray-900 dark:text-white">
                                                             {{ formatCurrency(item.unit_cost) }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-md text-right text-gray-900 dark:text-white font-semibold">
+                                                        <td class="px-4 py-3 text-right text-md font-semibold text-gray-900 dark:text-white">
                                                             {{ formatCurrency(calculateLineItemPrice(item)) }}
                                                         </td>
-                                                        <td v-if="mode !== 'show'" class="px-4 py-3 text-md text-right">
+                                                        <td v-if="mode !== 'show'" class="px-4 py-3 text-right text-md">
                                                             <div class="flex items-center justify-end gap-2">
                                                                 <button
-                                                                    @click="editServiceItemLine(index)"
                                                                     type="button"
-                                                                    class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                                                                    class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                    @click="editServiceItemLine(index)"
                                                                 >
                                                                     <span class="material-icons text-lg">edit</span>
                                                                 </button>
                                                                 <button
-                                                                    @click="removeServiceItemLine(index)"
                                                                     type="button"
-                                                                    class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                                                                    class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                                                    @click="removeServiceItemLine(index)"
                                                                 >
                                                                     <span class="material-icons text-lg">delete</span>
                                                                 </button>

@@ -460,97 +460,105 @@ const confirmDelete = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
-                    <div class="flex items-center gap-3">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:gap-3">
+                        <h2 class="truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                             {{ estimateLabel }}
                         </h2>
                         <span
-                            class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-semibold"
+                            class="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold md:px-2.5 md:py-1 md:text-sm"
                             :class="[statusInfo.bgClass, statusTextClass]"
                         >
                             {{ statusInfo.name }}
                         </span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
                         <button
                             v-if="canSendBoatOptionsInvite"
                             type="button"
+                            :aria-label="sendBoatOptionsForm.processing ? 'Sending boat options email' : 'Email boat options to customer'"
+                            title="Email secure links so the customer can choose boat options"
                             @click="sendBoatOptionsInvite"
                             :disabled="sendBoatOptionsForm.processing"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 rounded-lg transition-colors"
-                            title="Email secure links so the customer can choose boat options"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-sky-600 p-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            {{ sendBoatOptionsForm.processing ? 'Sending…' : 'Email boat options' }}
+                            <span class="hidden md:inline">{{ sendBoatOptionsForm.processing ? 'Sending…' : 'Email boat options' }}</span>
                         </button>
 
                         <!-- Send for Approval -->
                         <button
                             v-if="canSendApproval"
+                            :aria-label="sendApprovalForm.processing ? 'Sending approval request' : (record.sent_at ? 'Resend estimate for approval' : 'Send estimate for approval')"
+                            :title="record.sent_at ? `Resend (last sent ${new Date(record.sent_at).toLocaleDateString()})` : 'Send estimate to customer for approval'"
                             @click="openApprovalDeliveryModal"
                             :disabled="sendApprovalForm.processing"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
-                            :title="record.sent_at ? `Resend (last sent ${new Date(record.sent_at).toLocaleDateString()})` : 'Send estimate to customer for approval'"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-emerald-600 p-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
+                            <span class="hidden md:inline">{{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}</span>
                         </button>
 
                         <!-- Create Revision (locked) -->
                         <button
                             v-if="isLocked && !hasRevision"
+                            :aria-label="revisionForm.processing ? 'Creating revision' : 'Create revision'"
                             @click="createRevision"
                             :disabled="revisionForm.processing"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-yellow-500 p-2 text-sm font-medium text-white transition-colors hover:bg-yellow-600 disabled:opacity-60 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <span class="material-icons text-base">content_copy</span>
-                            {{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}
+                            <span class="material-icons text-xl leading-none md:text-base">content_copy</span>
+                            <span class="hidden md:inline">{{ revisionForm.processing ? 'Creating…' : 'Create Revision' }}</span>
                         </button>
 
                         <!-- View Deal / Create Deal -->
                         <Link
                             v-if="hasDeal"
                             :href="route('transactions.show', record.transaction_id)"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            aria-label="View deal"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <span class="material-icons text-base">handshake</span>
-                            View Deal
+                            <span class="material-icons text-xl leading-none md:text-base">handshake</span>
+                            <span class="hidden md:inline">View Deal</span>
                         </Link>
                         <button
                             v-else-if="canCreateDeal"
                             type="button"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            aria-label="Create deal from estimate"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
                             @click="showCreateDealModal = true"
                         >
-                            <span class="material-icons text-base">add_business</span>
-                            Create Deal
+                            <span class="material-icons text-xl leading-none md:text-base">add_business</span>
+                            <span class="hidden md:inline">Create Deal</span>
                         </button>
 
                         <!-- Edit (unlocked and not approved) -->
                         <Link
                             v-if="!isLocked && !isApproved"
                             :href="route('estimates.edit', record.id)"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            aria-label="Edit estimate"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            Edit
+                            <span class="hidden md:inline">Edit</span>
                         </Link>
                         <button
                             v-if="!isApproved"
+                            type="button"
+                            aria-label="Delete estimate"
                             @click="handleDelete"
-                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-red-200 bg-white p-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-5 w-5 shrink-0 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            Delete
+                            <span class="hidden md:inline">Delete</span>
                         </button>
                     </div>
                 </div>
@@ -844,7 +852,7 @@ const confirmDelete = () => {
                         </div>
 
                         <!-- Mobile: asset cards -->
-                        <div v-if="assetLines.length > 0" class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                        <div v-if="assetLines.length > 0" class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700">
                             <div
                                 v-for="(item, index) in assetLines"
                                 :key="`asset-m-${item.id}-${index}`"
@@ -948,7 +956,7 @@ const confirmDelete = () => {
                         </div>
 
                         <!-- Desktop: assets table -->
-                        <div v-if="assetLines.length > 0" class="hidden md:block overflow-x-auto">
+                        <div v-if="assetLines.length > 0" class="hidden lg:block overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>
@@ -1149,7 +1157,7 @@ const confirmDelete = () => {
                         </div>
 
                         <!-- Mobile: parts cards -->
-                        <div v-if="inventoryLines.length > 0" class="block md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                        <div v-if="inventoryLines.length > 0" class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700">
                             <div
                                 v-for="(item, index) in inventoryLines"
                                 :key="`inv-m-${item.id}-${index}`"
@@ -1215,7 +1223,7 @@ const confirmDelete = () => {
                         </div>
 
                         <!-- Desktop: parts table -->
-                        <div v-if="inventoryLines.length > 0" class="hidden md:block overflow-x-auto">
+                        <div v-if="inventoryLines.length > 0" class="hidden lg:block overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50 dark:bg-gray-700/50">
                                     <tr>

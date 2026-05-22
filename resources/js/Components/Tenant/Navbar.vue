@@ -184,7 +184,7 @@ onMounted(() => {
             <div class="flex items-center justify-between">
                 <div class="flex items-center ">
                     <!-- Logo -->
-                    <Link :href="route('dashboard')" class="block mr-6">
+                    <Link :href="route('dashboard')" class="block mr-3 md:mr-6">
                         <ApplicationLogo class="mr-3 h-8 fill-current text-gray-800 dark:text-white" />
                     </Link>
 
