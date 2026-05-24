@@ -1,0 +1,319 @@
+[
+  {
+    "id": "cayman-one-luxury-tender",
+    "brand": "Ranieri International",
+    "name": "Cayman ONE Luxury Tender",
+    "type_display": "Luxury Rigid Inflatable Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Cayman ONE Luxury Tender is Ranieri International's premium standalone rigid inflatable boat platform, designed explicitly to function as an upscale megayacht tender, harbor transport, or high-end coastal day boat. Built with a solid fiberglass stepped hull and heavy-duty Hypalon/ORCA buoyancy tubes, it offers a dry ride and stable offshore tracking within a manageable footprint. The boat integrates standard upscale appointments like premium SeaDeck synthetic flooring, a complete center steering console with an integrated forward seat, and luxury UV-resistant cushions, ensuring a refined superyacht-tender experience without requiring extra configuration tiers.",
+    "features": [
+      "Premium Hypalon/ORCA multi-chambered buoyancy tubes",
+      "Fiberglass deep-V stepped hull geometry",
+      "Integrated SeaDeck synthetic non-skid cockpit flooring",
+      "Complete center steering console with front-facing seat",
+      "Premium UV and water-resistant closed-cell upholstery",
+      "Counter-moulded anchor locker and bow chain storage",
+      "Molded fiberglass bow nose piece with stainless steel cleats",
+      "Mechanical or hydraulic steering framework",
+      "Automatic electric bilge pumps with manual console override",
+      "Telescopic stainless steel stern swim ladder",
+      "Integrated yacht lifting hook points and transom towing eyes"
+    ],
+    "has_variants": false,
+    "construction": {
+      "material": "Fiberglass Hull / Hypalon Tubes"
+    },
+    "length_range_mm": null,
+    "specifications": {
+      "length_mm": 3650,
+      "width_mm": 1920,
+      "height_mm": null,
+      "weight_kg": 250,
+      "capacity_persons": 6,
+      "max_hp": 60,
+      "fuel_capacity_l": 25
+    },
+    "variants": []
+  },
+  {
+    "id": "cayman-sport",
+    "brand": "Ranieri International",
+    "name": "Cayman Sport Line",
+    "type_display": "Open Performance Day RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Cayman Sport Line represents Ranieri International's core family of open-deck rigid inflatable boats, engineered for high-performance day cruising, water sports, and versatile coastal exploration. Built on high-performance fiberglass deep-V hulls, these craft feature center-console helm stations, wide forward sunpads with extensions, and adaptive cockpit layouts. The collars are constructed from heavy-duty, multi-chambered Hypalon/ORCA fabrics to provide excellent structural stabilization and UV resistance at high speeds, offering an athletic, dry, and safe offshore tracking profile.",
+    "features": [
+      "Two-tone premium Arctic Grey / Black buoyancy tubes",
+      "High-performance fiberglass deep-V hull geometry",
+      "Ergonomic center steering console with front-facing seat",
+      "Luxury external cushions with anti-UV and water-resistant closed-cell floating foam",
+      "Expansive bow sunpad configuration with integrated cushions and extension",
+      "Molded fiberglass bow nose piece with integrated anchor roller and cleats",
+      "Under-seat integrated storage lockers with counter-moulded liners",
+      "Dual fiberglass stern swim platforms with a telescopic stainless steel ladder",
+      "Automatic electric bilge pumping system with manual override",
+      "Folding stern seat backrest convertible to an aft dining area"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 5950,
+      "max": 7800
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "cayman-19-sport",
+        "name": "Cayman 19 Sport",
+        "description": "The nimble entry point to the open Sport range, optimizing deck usability and offering a 5-compartment tube layout within a trailerable footprint.",
+        "specifications": {
+          "length_mm": 5950,
+          "width_mm": 2500,
+          "height_mm": null,
+          "weight_kg": 550,
+          "capacity_persons": 12,
+          "max_hp": 140,
+          "fuel_capacity_l": 105
+        }
+      },
+      {
+        "id": "cayman-21-sport",
+        "name": "Cayman 21.0 Sport",
+        "description": "A balanced day cruiser pairing a wide 2.55m beam with excellent offshore tracking, certified for up to 12 passengers.",
+        "specifications": {
+          "length_mm": 6450,
+          "width_mm": 2550,
+          "height_mm": null,
+          "weight_kg": 600,
+          "capacity_persons": 12,
+          "max_hp": 150,
+          "fuel_capacity_l": 165
+        }
+      },
+      {
+        "id": "cayman-23-sport",
+        "name": "Cayman 23.0 Sport",
+        "description": "An expanded day boat platform built to handle rougher sea states, increasing capacity to 15 passengers and up to 250 horsepower.",
+        "specifications": {
+          "length_mm": 7100,
+          "width_mm": 2850,
+          "height_mm": null,
+          "weight_kg": 700,
+          "capacity_persons": 15,
+          "max_hp": 250,
+          "fuel_capacity_l": 200
+        }
+      },
+      {
+        "id": "cayman-26-sport",
+        "name": "Cayman 26.0 Sport",
+        "description": "The flagship of the open Sport line, maximizing open cockpit real estate with standalone helm bolsters, an integrated wet bar sink frame, and massive multi-passenger load capabilities.",
+        "specifications": {
+          "length_mm": 7800,
+          "width_mm": 2800,
+          "height_mm": null,
+          "weight_kg": 1200,
+          "capacity_persons": 18,
+          "max_hp": 250,
+          "fuel_capacity_l": 210
+        }
+      }
+    ]
+  },
+  {
+    "id": "cayman-sport-touring",
+    "brand": "Ranieri International",
+    "name": "Cayman Sport Touring Line",
+    "type_display": "Enhanced Center Console Sport RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Cayman Sport Touring Line bridges the gap between open high-performance day-cruisers and cabin-capable vessels. Designed with Ranieri International’s signature stepped fiberglass hulls and heavy-duty multi-chambered tubes, this line features a wider center console footprint containing integrated storage or changing/head accommodations. Upgrading to specialized stand-up helm bolsters for the pilot and modular rear seating areas, the Sport Touring series optimizes long-range hospitality and offshore tracking for sport boat enthusiasts.",
+    "features": [
+      "Two-tone premium Arctic Grey / Smooth buoyancy tube inserts",
+      "High-performance fiberglass deep-V stepped hull architecture",
+      "Expanded center console footprint with integrated black plexiglass portholes",
+      "Ergonomic driving stand-up helm seat with built-in utility hatch",
+      "Luxury external cushions utilizing anti-UV and water-resistant closed-cell foam",
+      "Fiberglass stern swim platforms with a built-in telescopic ladder",
+      "Molded fiberglass bow nose piece with integrated storage configuration",
+      "Counter-moulded bow and stern anchor/mooring lockers",
+      "Full hydraulic steering distribution layout",
+      "Cross-linked polyethylene high-capacity integrated fuel tank"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Stepped Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 7100,
+      "max": 8600
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "cayman-23-sport-touring",
+        "name": "Cayman 23.0 Sport Touring",
+        "description": "Brings the modular touring layout, private stand-up locker frame, and deep tracking into a highly versatile 23-foot footprint.",
+        "specifications": {
+          "length_mm": 7100,
+          "width_mm": 2800,
+          "height_mm": null,
+          "weight_kg": 750,
+          "capacity_persons": 16,
+          "max_hp": 250,
+          "fuel_capacity_l": 205
+        }
+      },
+      {
+        "id": "cayman-26-sport-touring",
+        "name": "Cayman 26.0 Sport Touring",
+        "description": "Expands on deck volume and balance, introducing an upgraded starboard cockpit table as standard for premium on-water hosting.",
+        "specifications": {
+          "length_mm": 7800,
+          "width_mm": 2800,
+          "height_mm": null,
+          "weight_kg": 1250,
+          "capacity_persons": 18,
+          "max_hp": 300,
+          "fuel_capacity_l": 210
+        }
+      },
+      {
+        "id": "cayman-27-sport-touring",
+        "name": "Cayman 27.0 Sport Touring",
+        "description": "The ultimate flagship of the Sport Touring series, scaling up to an overall length of 8.60 meters with an expansive 3.20m beam, dual outboard routing capacities, and certification for up to 20 passengers.",
+        "specifications": {
+          "length_mm": 8600,
+          "width_mm": 3200,
+          "height_mm": null,
+          "weight_kg": 1800,
+          "capacity_persons": 20,
+          "max_hp": 500,
+          "fuel_capacity_l": 420
+        }
+      }
+    ]
+  },
+  {
+    "id": "cayman-executive",
+    "brand": "Ranieri International",
+    "name": "Cayman Executive Line",
+    "type_display": "Premium Cabin Luxury Maxi-RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Cayman Executive Line represents Ranieri International's flagship luxury maxi-RIB platform, combining heavy offshore performance with fully realized overnight cabin accommodations. Built on Generation II H.I.S. (Hull Innovative System) multi-stepped deep-V fiberglass hulls, these high-end cruising rigid inflatable vessels feature spacious bow and rear master sunpads, integrated center-console companionways, multi-outboard mounting configurations, and multi-chambered premium Hypalon tubes. They are explicitly optimized for long-range cruising, luxury yacht operations, and superior tracking in challenging sea states.",
+    "features": [
+      "Generation II H.I.S. multi-stepped deep-V fiberglass hull geometry",
+      "Two-tone premium Arctic Grey multi-chambered Hypalon/ORCA buoyancy tubes",
+      "Fully integrated lower deck cabin layout featuring dedicated sleeping berths",
+      "Enclosed independent head compartment with electric marine toilet and washbasin",
+      "Integrated exterior living and wet-bar station with stainless steel sink and faucet",
+      "Electric stern table kit convertible into an expansive aft sunpad lounge",
+      "Factory-installed SeaDeck synthetic non-skid cockpit and platform decking",
+      "Heavy-duty electric anchor winch with stainless steel bow roller",
+      "Aluminium engine bracket with twin or triple outboard mounting capacities",
+      "Premium anti-UV and water-resistant closed-cell luxury upholstery throughout",
+      "Dual telescopic retractable stainless steel swim ladders"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Multi-Stepped Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 8800,
+      "max": 11700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "cayman-28-executive",
+        "name": "Cayman 28.0 Executive",
+        "description": "The entry tier to the luxury cabin maxi-RIB series, pairing a twin-berth lower layout with highly agile handling in an 8.8-meter footprint.",
+        "specifications": {
+          "length_mm": 8800,
+          "width_mm": 3300,
+          "height_mm": null,
+          "weight_kg": 2000,
+          "capacity_persons": 20,
+          "max_hp": 600,
+          "fuel_capacity_l": 420
+        }
+      },
+      {
+        "id": "cayman-33-executive",
+        "name": "Cayman 33.0 Executive",
+        "description": "An expanded wide-beam cruising platform built for twin outboard rigging, optimizing open deck lounges alongside a highly refined cabin compartment.",
+        "specifications": {
+          "length_mm": 10150,
+          "width_mm": 3400,
+          "height_mm": null,
+          "weight_kg": 3000,
+          "capacity_persons": 22,
+          "max_hp": 700,
+          "fuel_capacity_l": 520
+        }
+      },
+      {
+        "id": "cayman-35-executive",
+        "name": "Cayman 35.0 Executive",
+        "description": "A high-performance luxury cruiser sporting a 3.80m beam, an advanced 4-berth split cabin architecture, and a multi-chambered 8-compartment tube design.",
+        "specifications": {
+          "length_mm": 10800,
+          "width_mm": 3800,
+          "height_mm": null,
+          "weight_kg": 3700,
+          "capacity_persons": 24,
+          "max_hp": 900,
+          "fuel_capacity_l": 610
+        }
+      },
+      {
+        "id": "cayman-38-executive",
+        "name": "Cayman 38.0 Executive",
+        "description": "The ultimate flagship of the Executive family, maximizing interior layout space with multi-room zones, massive under-deck fuel banks, and triple outboard capabilities.",
+        "specifications": {
+          "length_mm": 11700,
+          "width_mm": 3800,
+          "height_mm": null,
+          "weight_kg": 3900,
+          "capacity_persons": 24,
+          "max_hp": 1200,
+          "fuel_capacity_l": 750
+        }
+      }
+    ]
+  }
+  
+]
