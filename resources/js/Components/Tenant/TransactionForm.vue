@@ -6,6 +6,7 @@ import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
+import { lineEffectiveUnitPrice } from '@/Utils/lineItemsFromEstimate';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 
 const debounce = (fn, delay) => {
@@ -226,7 +227,7 @@ const normalizeItemBase = (item, isNew = false) => ({
     name: item.name ?? '',
     description: item.description ?? '',
     quantity: item.quantity ?? 1,
-    unit_price: Number(item.unit_price) || 0,
+    unit_price: lineEffectiveUnitPrice(item),
     discount: Number(item.discount) || 0,
     position: item.position ?? 0,
     taxable: normalizeTaxable(item.taxable ?? true),
@@ -798,14 +799,14 @@ const handleCancel = () => emit('cancel');
 </script>
 
 <template>
-    <div class="w-full flex flex-col space-y-4 md:space-y-6">
-        <form @submit.prevent="submit">
-            <div class="grid gap-4 lg:gap-6 lg:grid-cols-12">
+    <div class="w-full min-w-0 max-w-full flex flex-col space-y-4 md:space-y-6">
+        <form @submit.prevent="submit" class="min-w-0 max-w-full">
+            <div class="grid min-w-0 max-w-full gap-4 lg:gap-6 lg:grid-cols-12">
 
                 <!-- ─── MAIN COLUMN ─── -->
-                <div :class="[mode !== 'show' ? 'lg:col-span-9' : 'lg:col-span-12', 'space-y-6']">
+                <div :class="[mode !== 'show' ? 'lg:col-span-9' : 'lg:col-span-12', 'min-w-0 max-w-full space-y-6']">
 
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg min-w-0 max-w-full overflow-hidden">
 
                         <!-- Blue header — matches ServiceTicket style -->
                         <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 py-4">
@@ -823,7 +824,7 @@ const handleCancel = () => emit('cancel');
                             </div>
                         </div>
 
-                        <div class="p-6 space-y-6">
+                        <div class="p-6 min-w-0 max-w-full space-y-6">
 
                             <!-- Title + status -->
                             <div class="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -1139,7 +1140,7 @@ const handleCancel = () => emit('cancel');
         <p class="text-sm text-gray-500 dark:text-gray-400">No assets added yet</p>
         <p v-if="mode !== 'show'" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to get started</p>
     </div>
-    <div v-else class="overflow-x-auto -mx-6 sm:mx-0">
+    <div v-else class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-6 sm:mx-0">
         <div class="inline-block min-w-full align-middle">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -1427,7 +1428,7 @@ const handleCancel = () => emit('cancel');
         <p class="text-sm text-gray-500 dark:text-gray-400">No parts or accessories added yet</p>
         <p v-if="mode !== 'show'" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Part" to get started</p>
     </div>
-    <div v-else class="overflow-x-auto -mx-6 sm:mx-0">
+    <div v-else class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-6 sm:mx-0">
         <div class="inline-block min-w-full align-middle">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900/50">
@@ -1667,7 +1668,7 @@ const handleCancel = () => emit('cancel');
 
 
                 <!-- ─── SIDEBAR ─── -->
-                <div v-if="mode !== 'show'" class="lg:col-span-3 w-full">
+                <div v-if="mode !== 'show'" class="lg:col-span-3 w-full min-w-0 max-w-full">
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
 
                         <div class="flex justify-between items-center p-4 sm:px-5 font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">

@@ -326,6 +326,47 @@ const computedTaxFromDisplayedLines = computed(() => {
     return roundMoney(t);
 });
 
+const computedPreTaxFromDisplayedLines = computed(() => {
+    let s = 0;
+    for (const item of items.value) {
+        s += lineBaseTotal(item);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            s += selectedOptionUnitPrice(opt);
+        }
+        for (const addon of (item.addons || [])) {
+            s += addonPreTaxTotal(addon);
+        }
+    }
+    return roundMoney(s);
+});
+
+/** Stored rollup on `transactions` is missing for some deals; derive from resolved line rows. */
+const dealSummaryUsesDerivedTotals = computed(
+    () => items.value.length > 0 && !(Number(props.record.total) > 0),
+);
+
+const dealSummarySubtotal = computed(() =>
+    dealSummaryUsesDerivedTotals.value
+        ? computedPreTaxFromDisplayedLines.value
+        : Number(props.record.subtotal || 0),
+);
+
+const dealSummaryTax = computed(() =>
+    dealSummaryUsesDerivedTotals.value
+        ? computedTaxFromDisplayedLines.value
+        : Number(props.record.tax_total != null && props.record.tax_total !== '' ? props.record.tax_total : 0),
+);
+
+const dealSummaryTotal = computed(() =>
+    dealSummaryUsesDerivedTotals.value
+        ? roundMoney(
+            computedGrandTotal.value
+                - Number(props.record.discount_total || 0)
+                + Number(props.record.fees_total || 0),
+        )
+        : Number(props.record.total || 0),
+);
+
 // ─── Create contract modal ─────────────────────────────────────────────────
 const createContractModal = ref(false);
 
@@ -851,45 +892,6 @@ const confirmAddStep = () => {
                         </div>
 
 
-                        <!-- Line Items -->
-                        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                            <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
-                                Line Items
-                                <span
-                                    v-if="lineItemsFromEstimate"
-                                    class="ml-2 text-sm font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400"
-                                >
-                                    (from linked estimate)
-                                </span>
-                                <span
-                                    v-else-if="record.estimate_id"
-                                    class="ml-2 text-sm font-normal normal-case tracking-normal text-gray-500 dark:text-gray-400"
-                                >
-                                    (saved on this deal)
-                                </span>
-                            </h3>
-                            <p v-if="record.estimate_id" class="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">
-                                Boat options and line edits are managed on the deal.
-                                <Link :href="route('transactions.edit', record.id)" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">Edit transaction</Link>
-                                to change boat options, taxes, or add-ons.
-                            </p>
-
-                            <ResolvedLineItemsEstimateStyle
-                                v-if="items.length > 0"
-                                :items="items"
-                                variant="tenant"
-                                embedded
-                                :format-money="(v) => formatMoney(v)"
-                                :show-summary="false"
-                            />
-                            <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
-                                <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
-                                <p class="text-md text-gray-500 dark:text-gray-400">No line items on this deal</p>
-                            </div>
-                        </div>
-
-
-
                         <!-- Loss Tracking -->
                         <div v-if="record.loss_reason || record.loss_reason_category" class="border-red-200 dark:border-red-800 pt-6">
                             <h3 class="text-md font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide border-b border-red-200 dark:border-red-800 pb-2 mb-4">
@@ -954,11 +956,11 @@ const confirmAddStep = () => {
                     <div class="p-5 space-y-3 text-md">
                         <div class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
-                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.subtotal) }}</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(dealSummarySubtotal) }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Tax ({{ record.tax_rate != null ? record.tax_rate : '—' }}%)</span>
-                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(record.tax_total != null && record.tax_total !== '' ? record.tax_total : computedTaxFromDisplayedLines) }}</span>
+                            <span class="font-medium text-gray-900 dark:text-white">{{ formatMoney(dealSummaryTax) }}</span>
                         </div>
                         <div v-if="Number(record.discount_total) > 0" class="flex justify-between">
                             <span class="text-gray-500 dark:text-gray-400">Discount</span>
@@ -970,7 +972,7 @@ const confirmAddStep = () => {
                         </div>
                         <div class="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-600 pt-3">
                             <span class="text-gray-900 dark:text-white">Total</span>
-                            <span class="text-blue-600 dark:text-blue-400">{{ formatMoney(record.total) }}</span>
+                            <span class="text-blue-600 dark:text-blue-400">{{ formatMoney(dealSummaryTotal) }}</span>
                         </div>
                         <div class="pt-1 text-md text-gray-400 dark:text-gray-500 text-right">
                             {{ record.currency || 'USD' }} · {{ items.length }} line item{{ items.length !== 1 ? 's' : '' }}
@@ -1009,6 +1011,50 @@ const confirmAddStep = () => {
                 </div>
 
 
+            </div>
+        </div>
+
+        <!-- Line items: full width below main column + sidebar (sublist-style section) -->
+        <div class="mt-6 w-full">
+            <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <h2 class="text-md font-semibold text-gray-900 dark:text-white">
+                        Line Items
+                        <span
+                            v-if="lineItemsFromEstimate"
+                            class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400"
+                        >
+                            (from linked estimate)
+                        </span>
+                        <span
+                            v-else-if="record.estimate_id"
+                            class="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400"
+                        >
+                            (saved on this deal)
+                        </span>
+                    </h2>
+                    <p v-if="record.estimate_id" class="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+                        Boat options and line edits are managed on the deal.
+                        <Link :href="route('transactions.edit', record.id)" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">Edit transaction</Link>
+                        to change boat options, taxes, or add-ons.
+                    </p>
+                </div>
+                <div class="p-6">
+                    <ResolvedLineItemsEstimateStyle
+                        v-if="items.length > 0"
+                        :items="items"
+                        variant="tenant"
+                        embedded
+                        :format-money="(v) => formatMoney(v)"
+                        :show-summary="false"
+                        show-per-line-deal-tax
+                        :deal-tax-rate-percent="effectiveTaxRatePercent"
+                    />
+                    <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                        <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">receipt_long</span>
+                        <p class="text-md text-gray-500 dark:text-gray-400">No line items on this deal</p>
+                    </div>
+                </div>
             </div>
         </div>
     </TenantLayout>

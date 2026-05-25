@@ -19,7 +19,7 @@
 </style>
 
 <template>
-    <span class="flex ">
+    <span class="flex items-center">
         <svg
         class="nav-logo hidden md:inline ddddd"
         viewBox="0 0 135.46665 25.580368"

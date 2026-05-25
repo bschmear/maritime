@@ -42,12 +42,99 @@ export function resolveLineItemsForContract(record) {
     return { items: [], source: 'deal' };
 }
 
-/** Pre-tax line total (estimate lines include discount). */
+/**
+ * Boat options on a deal or estimate line: direct rows first, then rows keyed from the source estimate line.
+ */
+export function lineAssetSelectedOptions(row) {
+    const direct = row.selected_asset_options ?? row.selectedAssetOptions ?? [];
+    if (direct.length) {
+        return direct;
+    }
+    return row.selected_asset_options_from_source_line ?? row.selectedAssetOptionsFromSourceLine ?? [];
+}
+
+function roundMoneyAmount(n) {
+    return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+}
+
+/** Sum of boat-option premiums on a line (deal or estimate). */
+export function lineAssetOptionsPreTaxSum(item) {
+    return lineAssetSelectedOptions(item).reduce((s, o) => s + Number(o?.price ?? 0), 0);
+}
+
+/**
+ * Unit price for display and pre-tax math. Deal rows copied from an estimate often persist
+ * `line_total` while `unit_price` stays 0; the linked estimate line may hold the catalog price.
+ */
+export function lineEffectiveUnitPrice(item) {
+    const raw = Number(item.unit_price);
+    if (!Number.isNaN(raw) && raw > 0) {
+        return raw;
+    }
+    const eli = item.estimate_line_item ?? item.estimateLineItem;
+    if (eli != null) {
+        const eu = Number(eli.unit_price);
+        if (!Number.isNaN(eu) && eu > 0) {
+            return eu;
+        }
+    }
+    const qty = Number(item.quantity || 1);
+    const discount = Number(item.discount || 0);
+    const lt = item.line_total;
+    if (lt != null && lt !== '' && !Number.isNaN(Number(lt)) && qty > 0) {
+        const optsSum = lineAssetOptionsPreTaxSum(item);
+        const base = Math.max(0, Number(lt) - optsSum);
+        return Math.max(0, (base + discount) / qty);
+    }
+    return Number.isNaN(raw) ? 0 : raw;
+}
+
+/** Pre-tax line total (estimate lines include discount). Uses {@link lineEffectiveUnitPrice}. */
 export function lineItemPreTaxTotal(item) {
     const qty = Number(item.quantity || 1);
-    const price = Number(item.unit_price || 0);
+    const price = lineEffectiveUnitPrice(item);
     const discount = Number(item.discount || 0);
     return Math.max(0, qty * price - discount);
+}
+
+/** Tax on the main row base only (excludes add-on / boat-option rows), deal tax rate % */
+export function lineItemTaxOnBase(item, taxRatePercent) {
+    const r = Number(taxRatePercent) || 0;
+    const taxable = item.taxable !== false && item.taxable !== 0 && item.taxable !== '0';
+    if (!taxable || r <= 0) {
+        return 0;
+    }
+    return roundMoneyAmount(lineItemPreTaxTotal(item) * (r / 100));
+}
+
+export function lineItemCoreTotalWithTax(item, taxRatePercent) {
+    return roundMoneyAmount(lineItemPreTaxTotal(item) + lineItemTaxOnBase(item, taxRatePercent));
+}
+
+export function assetOptionRowPreTax(opt) {
+    return Number(opt?.price ?? 0);
+}
+
+export function assetOptionRowTax(opt, taxRatePercent) {
+    const r = Number(taxRatePercent) || 0;
+    const taxable = opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+    if (!taxable || r <= 0) {
+        return 0;
+    }
+    return roundMoneyAmount(assetOptionRowPreTax(opt) * (r / 100));
+}
+
+export function addonLinePreTax(addon) {
+    return Number(addon?.price || 0) * Number(addon?.quantity || 1);
+}
+
+export function addonLineTax(addon, taxRatePercent) {
+    const r = Number(taxRatePercent) || 0;
+    const taxable = addon.taxable !== false && addon.taxable !== 0 && addon.taxable !== '0';
+    if (!taxable || r <= 0) {
+        return 0;
+    }
+    return roundMoneyAmount(addonLinePreTax(addon) * (r / 100));
 }
 
 export function taxRateForResolvedLines(record, source, dealTaxRate) {
@@ -122,18 +209,6 @@ export function lineUnitDisplay(item) {
 /** Catalog asset id for links (snake or camel). */
 export function lineItemAssetCatalogId(item) {
     return item.itemable_id ?? item.itemable?.id ?? null;
-}
-
-/**
- * Boat options on a deal or estimate line: direct rows first, then rows keyed from the source estimate line.
- * Same behavior as `lineAssetSelectedOptions` in `Transaction/Show.vue`.
- */
-export function lineAssetSelectedOptions(row) {
-    const direct = row.selected_asset_options ?? row.selectedAssetOptions ?? [];
-    if (direct.length) {
-        return direct;
-    }
-    return row.selected_asset_options_from_source_line ?? row.selectedAssetOptionsFromSourceLine ?? [];
 }
 
 export function selectedOptionLabel(opt) {

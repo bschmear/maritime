@@ -2,11 +2,18 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import {
+    addonLinePreTax,
+    addonLineTax,
     assetLineCatalogTotal,
+    assetOptionRowPreTax,
+    assetOptionRowTax,
     lineAssetSelectedOptions,
+    lineEffectiveUnitPrice,
     lineItemAssetCatalogId,
+    lineItemCoreTotalWithTax,
     lineItemPreTaxTotal,
     lineItemRowKey,
+    lineItemTaxOnBase,
     lineTotalWithAddons,
     lineUnitDisplay,
     lineUnitId,
@@ -33,6 +40,10 @@ const props = defineProps({
     summaryTaxRatePercent: { type: Number, default: 0 },
     summaryGrandTotal: { type: [Number, String], default: 0 },
     emptyMessage: { type: String, default: 'No line items to show.' },
+    /** When true, show Pre-tax / Tax / Total columns aligned with TransactionForm (deal view). */
+    showPerLineDealTax: { type: Boolean, default: false },
+    /** Deal tax rate percent (e.g. 8.25). Used when showPerLineDealTax is true. */
+    dealTaxRatePercent: { type: Number, default: 0 },
 });
 
 const tenant = computed(() => props.variant === 'tenant');
@@ -163,6 +174,55 @@ const hasAnyLines = computed(
         inventoryLines.value.length > 0 ||
         otherLines.value.length > 0,
 );
+
+const dealTaxMode = computed(() => props.showPerLineDealTax);
+const dealTaxR = computed(() => Number(props.dealTaxRatePercent) || 0);
+
+const assetMainRowTotal = (item) =>
+    dealTaxMode.value ? lineItemCoreTotalWithTax(item, dealTaxR.value) : assetLineCatalogTotal(item);
+
+const inventoryMainRowTotal = (item) =>
+    dealTaxMode.value ? lineItemCoreTotalWithTax(item, dealTaxR.value) : lineItemPreTaxTotal(item);
+
+const assetDealRollup = computed(() => {
+    if (!dealTaxMode.value) {
+        return null;
+    }
+    const r = dealTaxR.value;
+    let pre = 0;
+    let tax = 0;
+    for (const item of assetLines.value) {
+        pre += lineItemPreTaxTotal(item);
+        tax += lineItemTaxOnBase(item, r);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            pre += assetOptionRowPreTax(opt);
+            tax += assetOptionRowTax(opt, r);
+        }
+        for (const addon of item.addons || []) {
+            pre += addonLinePreTax(addon);
+            tax += addonLineTax(addon, r);
+        }
+    }
+    return { pre, tax, total: pre + tax };
+});
+
+const inventoryDealRollup = computed(() => {
+    if (!dealTaxMode.value) {
+        return null;
+    }
+    const r = dealTaxR.value;
+    let pre = 0;
+    let tax = 0;
+    for (const item of inventoryLines.value) {
+        pre += lineItemPreTaxTotal(item);
+        tax += lineItemTaxOnBase(item, r);
+        for (const addon of item.addons || []) {
+            pre += addonLinePreTax(addon);
+            tax += addonLineTax(addon, r);
+        }
+    }
+    return { pre, tax, total: pre + tax };
+});
 </script>
 
 <template>
@@ -200,9 +260,9 @@ const hasAnyLines = computed(
                         </div>
                         <div class="text-right shrink-0">
                             <div :class="[textBody, 'font-semibold tabular-nums']">
-                                {{ formatMoney(assetLineCatalogTotal(item)) }}
+                                {{ formatMoney(assetMainRowTotal(item)) }}
                             </div>
-                            <div :class="textMuted">Line total</div>
+                            <div :class="textMuted">{{ dealTaxMode ? 'Line total (incl. tax on base)' : 'Line total' }}</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -226,7 +286,7 @@ const hasAnyLines = computed(
                         </div>
                         <div>
                             <div :class="labelMuted">Unit price</div>
-                            <div :class="[textBody, 'tabular-nums']">{{ formatMoney(item.unit_price) }}</div>
+                            <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</div>
                         </div>
                         <div>
                             <div :class="labelMuted">Discount</div>
@@ -241,6 +301,16 @@ const hasAnyLines = computed(
                             <div :class="labelMuted">Qty</div>
                             <div :class="textBody">{{ item.quantity }}</div>
                         </div>
+                        <template v-if="dealTaxMode">
+                            <div>
+                                <div :class="labelMuted">Pre-tax</div>
+                                <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineItemPreTaxTotal(item)) }}</div>
+                            </div>
+                            <div>
+                                <div :class="labelMuted">Tax</div>
+                                <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineItemTaxOnBase(item, dealTaxR)) }}</div>
+                            </div>
+                        </template>
                     </div>
                     <div
                         v-if="lineAssetSelectedOptions(item).length > 0"
@@ -278,7 +348,21 @@ const hasAnyLines = computed(
                     </div>
                 </div>
                 <div :class="subtotalBar">
-                    <div class="flex justify-between text-base">
+                    <template v-if="dealTaxMode && assetDealRollup">
+                        <div class="flex justify-between text-sm">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Pre-tax</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(assetDealRollup.pre) }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm mt-1">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Tax</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(assetDealRollup.tax) }}</span>
+                        </div>
+                        <div class="flex justify-between text-base mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Total</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(assetDealRollup.total) }}</span>
+                        </div>
+                    </template>
+                    <div v-else class="flex justify-between text-base">
                         <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Assets Subtotal</span>
                         <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(assetSubtotal) }}</span>
                     </div>
@@ -297,6 +381,8 @@ const hasAnyLines = computed(
                             <th :class="[thRight, 'w-28']">Unit Price</th>
                             <th :class="[thRight, 'w-24']">Discount</th>
                             <th :class="[thRight, 'w-20']">Qty</th>
+                            <th v-if="dealTaxMode" :class="[thRight, 'w-28']">Pre-tax</th>
+                            <th v-if="dealTaxMode" :class="[thRight, 'w-24']">Tax</th>
                             <th :class="[thRight, 'w-28']">Total</th>
                         </tr>
                     </thead>
@@ -329,13 +415,25 @@ const hasAnyLines = computed(
                                     <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>
                                 </td>
                                 <td :class="cx('px-4 py-3 text-gray-500', 'dark:text-gray-400')">{{ item.itemable?.year || '—' }}</td>
-                                <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(item.unit_price) }}</td>
+                                <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</td>
                                 <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                     {{ item.discount > 0 ? `-${formatMoney(item.discount)}` : '—' }}
                                 </td>
                                 <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ item.quantity }}</td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')"
+                                >
+                                    {{ formatMoney(lineItemPreTaxTotal(item)) }}
+                                </td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    :class="cx('px-4 py-3 text-right text-gray-600', 'dark:text-gray-400')"
+                                >
+                                    {{ formatMoney(lineItemTaxOnBase(item, dealTaxR)) }}
+                                </td>
                                 <td :class="cx('px-4 py-3 text-right font-semibold text-gray-900', 'dark:text-white')">
-                                    {{ formatMoney(assetLineCatalogTotal(item)) }}
+                                    {{ formatMoney(assetMainRowTotal(item)) }}
                                 </td>
                             </tr>
                             <tr
@@ -343,14 +441,35 @@ const hasAnyLines = computed(
                                 :key="`asset-opt-${lineItemRowKey(item) ?? optIdx}-${optIdx}`"
                                 class="bg-sky-50/70 dark:bg-sky-900/20"
                             >
-                                <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300" colspan="4">
+                                <td
+                                    class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300"
+                                    :colspan="dealTaxMode ? 7 : 4"
+                                >
                                     <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
                                 </td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                    {{ formatMoney(assetOptionRowPreTax(opt)) }}
+                                </td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400"
+                                >
+                                    {{ formatMoney(assetOptionRowTax(opt, dealTaxR)) }}
+                                </td>
                                 <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">
-                                    {{ formatMoney(opt.price) }}
+                                    {{
+                                        formatMoney(
+                                            dealTaxMode
+                                                ? assetOptionRowPreTax(opt) + assetOptionRowTax(opt, dealTaxR)
+                                                : Number(opt.price || 0),
+                                        )
+                                    }}
                                 </td>
                             </tr>
                             <tr
@@ -358,20 +477,55 @@ const hasAnyLines = computed(
                                 :key="`asset-addon-${lineItemRowKey(item) ?? index}-${addonIdx}`"
                                 class="bg-primary-50/40 dark:bg-primary-900/10"
                             >
-                                <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
+                                <td
+                                    class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic"
+                                    :colspan="dealTaxMode ? 7 : 4"
+                                >
                                     ↳ {{ addon.name }}
                                 </td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                    {{ formatMoney(addonLinePreTax(addon)) }}
+                                </td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400"
+                                >
+                                    {{ formatMoney(addonLineTax(addon, dealTaxR)) }}
+                                </td>
                                 <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ formatMoney(Number(addon.price) * Number(addon.quantity)) }}
+                                    {{
+                                        formatMoney(
+                                            dealTaxMode
+                                                ? addonLinePreTax(addon) + addonLineTax(addon, dealTaxR)
+                                                : Number(addon.price) * Number(addon.quantity),
+                                        )
+                                    }}
                                 </td>
                             </tr>
                         </template>
                     </tbody>
                     <tfoot :class="cx('bg-gray-50 border-t-2 border-gray-200', 'dark:bg-gray-700/50 dark:border-gray-600')">
-                        <tr>
+                        <tr v-if="dealTaxMode && assetDealRollup">
+                            <td colspan="7" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
+                                Assets subtotal (pre-tax)
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(assetDealRollup.pre) }}
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(assetDealRollup.tax) }}
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(assetDealRollup.total) }}
+                            </td>
+                        </tr>
+                        <tr v-else>
                             <td colspan="7" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
                                 Assets Subtotal
                             </td>
@@ -412,15 +566,15 @@ const hasAnyLines = computed(
                         </div>
                         <div class="text-right shrink-0">
                             <div :class="[textBody, 'font-semibold tabular-nums']">
-                                {{ formatMoney(lineItemPreTaxTotal(item)) }}
+                                {{ formatMoney(inventoryMainRowTotal(item)) }}
                             </div>
-                            <div :class="textMuted">Line total</div>
+                            <div :class="textMuted">{{ dealTaxMode ? 'Line total (incl. tax on base)' : 'Line total' }}</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div>
                             <div :class="labelMuted">Unit price</div>
-                            <div :class="[textBody, 'tabular-nums']">{{ formatMoney(item.unit_price) }}</div>
+                            <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</div>
                         </div>
                         <div>
                             <div :class="labelMuted">Discount</div>
@@ -435,6 +589,16 @@ const hasAnyLines = computed(
                             <div :class="labelMuted">Qty</div>
                             <div :class="textBody">{{ item.quantity }}</div>
                         </div>
+                        <template v-if="dealTaxMode">
+                            <div>
+                                <div :class="labelMuted">Pre-tax</div>
+                                <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineItemPreTaxTotal(item)) }}</div>
+                            </div>
+                            <div>
+                                <div :class="labelMuted">Tax</div>
+                                <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineItemTaxOnBase(item, dealTaxR)) }}</div>
+                            </div>
+                        </template>
                     </div>
                     <div
                         v-if="item.addons && item.addons.length > 0"
@@ -455,7 +619,21 @@ const hasAnyLines = computed(
                     </div>
                 </div>
                 <div :class="subtotalBar">
-                    <div class="flex justify-between text-base">
+                    <template v-if="dealTaxMode && inventoryDealRollup">
+                        <div class="flex justify-between text-sm">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Pre-tax</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(inventoryDealRollup.pre) }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm mt-1">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Tax</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(inventoryDealRollup.tax) }}</span>
+                        </div>
+                        <div class="flex justify-between text-base mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Total</span>
+                            <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(inventoryDealRollup.total) }}</span>
+                        </div>
+                    </template>
+                    <div v-else class="flex justify-between text-base">
                         <span :class="cx('font-semibold text-gray-700', 'dark:text-gray-300')">Parts &amp; Accessories Subtotal</span>
                         <span :class="cx('font-bold text-gray-900 tabular-nums', 'dark:text-white')">{{ formatMoney(inventorySubtotal) }}</span>
                     </div>
@@ -471,6 +649,8 @@ const hasAnyLines = computed(
                             <th :class="[thRight, 'w-24']">Unit Price</th>
                             <th :class="[thRight, 'w-24']">Discount</th>
                             <th :class="[thRight, 'w-20']">Qty</th>
+                            <th v-if="dealTaxMode" :class="[thRight, 'w-28']">Pre-tax</th>
+                            <th v-if="dealTaxMode" :class="[thRight, 'w-24']">Tax</th>
                             <th :class="[thRight, 'w-28']">Total</th>
                         </tr>
                     </thead>
@@ -479,13 +659,25 @@ const hasAnyLines = computed(
                             <tr :class="trHover">
                                 <td :class="cx('px-4 py-3 font-medium text-gray-900', 'dark:text-white')">{{ item.name }}</td>
                                 <td :class="cx('px-4 py-3 text-gray-500 font-mono text-sm', 'dark:text-gray-400')">{{ item.itemable?.sku || '—' }}</td>
-                                <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(item.unit_price) }}</td>
+                                <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</td>
                                 <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                     {{ item.discount > 0 ? `-${formatMoney(item.discount)}` : '—' }}
                                 </td>
                                 <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ item.quantity }}</td>
-                                <td :class="cx('px-4 py-3 text-right font-semibold text-gray-900', 'dark:text-white')">
+                                <td
+                                    v-if="dealTaxMode"
+                                    :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')"
+                                >
                                     {{ formatMoney(lineItemPreTaxTotal(item)) }}
+                                </td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    :class="cx('px-4 py-3 text-right text-gray-600', 'dark:text-gray-400')"
+                                >
+                                    {{ formatMoney(lineItemTaxOnBase(item, dealTaxR)) }}
+                                </td>
+                                <td :class="cx('px-4 py-3 text-right font-semibold text-gray-900', 'dark:text-white')">
+                                    {{ formatMoney(inventoryMainRowTotal(item)) }}
                                 </td>
                             </tr>
                             <tr
@@ -493,20 +685,55 @@ const hasAnyLines = computed(
                                 :key="`inv-addon-${lineItemRowKey(item) ?? index}-${addonIdx}`"
                                 class="bg-primary-50/40 dark:bg-primary-900/10"
                             >
-                                <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="2">
+                                <td
+                                    class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic"
+                                    :colspan="dealTaxMode ? 5 : 2"
+                                >
                                     ↳ {{ addon.name }}
                                 </td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatMoney(addon.price) }}</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                <td v-if="!dealTaxMode" class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-700 dark:text-gray-300"
+                                >
+                                    {{ formatMoney(addonLinePreTax(addon)) }}
+                                </td>
+                                <td
+                                    v-if="dealTaxMode"
+                                    class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400"
+                                >
+                                    {{ formatMoney(addonLineTax(addon, dealTaxR)) }}
+                                </td>
                                 <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ formatMoney(Number(addon.price) * Number(addon.quantity)) }}
+                                    {{
+                                        formatMoney(
+                                            dealTaxMode
+                                                ? addonLinePreTax(addon) + addonLineTax(addon, dealTaxR)
+                                                : Number(addon.price) * Number(addon.quantity),
+                                        )
+                                    }}
                                 </td>
                             </tr>
                         </template>
                     </tbody>
                     <tfoot :class="cx('bg-gray-50 border-t-2 border-gray-200', 'dark:bg-gray-700/50 dark:border-gray-600')">
-                        <tr>
+                        <tr v-if="dealTaxMode && inventoryDealRollup">
+                            <td colspan="5" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
+                                Parts &amp; accessories (pre-tax)
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(inventoryDealRollup.pre) }}
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(inventoryDealRollup.tax) }}
+                            </td>
+                            <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
+                                {{ formatMoney(inventoryDealRollup.total) }}
+                            </td>
+                        </tr>
+                        <tr v-else>
                             <td colspan="5" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
                                 Parts &amp; Accessories Subtotal
                             </td>
@@ -545,7 +772,7 @@ const hasAnyLines = computed(
                         <tr v-for="(item, index) in otherLines" :key="`other-${lineItemRowKey(item) ?? index}`" :class="trHover">
                             <td :class="cx('px-4 py-3 font-medium text-gray-900', 'dark:text-white')">{{ item.name }}</td>
                             <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ item.quantity }}</td>
-                            <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(item.unit_price) }}</td>
+                            <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</td>
                             <td :class="cx('px-4 py-3 text-right font-semibold text-gray-900', 'dark:text-white')">
                                 {{ formatMoney(lineItemPreTaxTotal(item)) }}
                             </td>
