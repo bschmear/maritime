@@ -4,8 +4,9 @@ import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
+import Modal from '@/Components/Modal.vue';
 import { useForm, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -20,6 +21,8 @@ const props = defineProps({
     /** Optional schema keys for RecordSelect labels (falls back to sensible defaults). */
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
+    /** When true, only post-sign fields (sold price, notes, boat title) are editable. */
+    postSignOnly: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['cancel']);
@@ -27,7 +30,12 @@ const emit = defineEmits(['cancel']);
 const isView = computed(() => props.mode === 'view');
 const isCreate = computed(() => props.mode === 'create');
 const isEdit = computed(() => props.mode === 'edit');
-const isMutable = computed(() => !isView.value);
+const isPostSignOnly = computed(() => props.postSignOnly && isEdit.value);
+const isMutable = computed(() => !isView.value && !isPostSignOnly.value);
+const postSignFieldKeys = new Set(['notes', 'asking_sold', 'minimum_sold', 'boat_title_signed_delivered']);
+const isPostSignField = (key) => isPostSignOnly.value && postSignFieldKeys.has(key);
+const fieldDisabled = (key) => !isMutable.value && !isPostSignField(key);
+const showFormActions = computed(() => isMutable.value || isPostSignOnly.value);
 
 const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
 
@@ -118,6 +126,73 @@ const buildDefaults = () => {
 
 const form = useForm(buildDefaults());
 
+const truthyFlag = (value) => value === true || value === 1 || value === '1';
+
+const selectedAssetUnitIsConsignment = ref(
+    !isCreate.value || !props.prefill?.asset_unit_id || truthyFlag(props.prefill?.is_consignment),
+);
+
+const showMarkConsignmentModal = ref(false);
+const markAsConsignmentOnSubmit = ref(false);
+
+watch(
+    () => form.asset_unit_id,
+    (id) => {
+        if (!isCreate.value || id == null || id === '') {
+            return;
+        }
+        if (Number(id) === Number(props.prefill?.asset_unit_id) && props.prefill?.is_consignment != null) {
+            selectedAssetUnitIsConsignment.value = truthyFlag(props.prefill.is_consignment);
+        }
+    },
+);
+
+const needsMarkConsignmentPrompt = computed(
+    () => isCreate.value && form.asset_unit_id && !selectedAssetUnitIsConsignment.value,
+);
+
+const selectedOwnerContactName = ref(
+    props.prefill?.owner_contact?.display_name ?? props.prefill?.ownerContact?.display_name ?? '',
+);
+
+const resolveOwnerContactName = (contactId) => {
+    if (!contactId) {
+        return '';
+    }
+    const options = props.enumOptions.owner_contact_id ?? [];
+    const match = options.find((o) => Number(o.id) === Number(contactId));
+    if (match?.name) {
+        return match.name;
+    }
+    const oc = props.prefill?.owner_contact ?? props.prefill?.ownerContact;
+    if (oc && Number(oc.id) === Number(contactId)) {
+        return oc.display_name ?? '';
+    }
+    return '';
+};
+
+const handleAssetUnitSelected = (record) => {
+    if (!record || typeof record !== 'object') {
+        return;
+    }
+    selectedAssetUnitIsConsignment.value = truthyFlag(record.is_consignment);
+};
+
+const markConsignmentOwnerName = computed(() => {
+    if (selectedOwnerContactName.value) {
+        return selectedOwnerContactName.value;
+    }
+    return resolveOwnerContactName(form.owner_contact_id) || 'the selected owner';
+});
+
+const canConfirmMarkConsignment = computed(() => !!form.owner_contact_id);
+
+const isNotMarkedConsignmentError = (errors) => {
+    const msg = errors?.asset_unit_id;
+    const text = Array.isArray(msg) ? msg[0] : msg;
+    return text && String(text).toLowerCase().includes('not marked as consignment');
+};
+
 const headerTitle = computed(() => {
     if (isCreate.value) {
         return 'New consignment agreement';
@@ -132,6 +207,9 @@ const headerTitle = computed(() => {
 const headerSubtitle = computed(() => {
     if (isCreate.value) {
         return 'Select the consignment unit and complete the agreement details.';
+    }
+    if (isPostSignOnly.value) {
+        return 'Update sold pricing, notes, or boat title status. The signed agreement terms are locked.';
     }
     if (isEdit.value) {
         return 'Update dealer prefill before sharing the public signing link.';
@@ -151,6 +229,21 @@ const moneyKeys = [
 ];
 
 const transformPayload = (data) => {
+    if (isPostSignOnly.value) {
+        const out = {
+            notes: data.notes,
+            asking_sold: data.asking_sold,
+            minimum_sold: data.minimum_sold,
+            boat_title_signed_delivered: !!data.boat_title_signed_delivered,
+        };
+        for (const k of ['asking_sold', 'minimum_sold']) {
+            if (out[k] === '') {
+                out[k] = null;
+            }
+        }
+        return out;
+    }
+
     const out = {
         asset_unit_id: data.asset_unit_id,
         agreement_date: data.agreement_date,
@@ -178,15 +271,51 @@ const transformPayload = (data) => {
     return out;
 };
 
-const submit = () => {
-    if (!isMutable.value) {
-        return;
+const buildCreatePayload = (data) => {
+    const payload = transformPayload(data);
+    if (markAsConsignmentOnSubmit.value) {
+        payload.mark_as_consignment = true;
     }
+    return payload;
+};
+
+const performSubmit = () => {
     if (isCreate.value) {
-        form.transform(transformPayload).post(route('consignmentagreements.store'));
+        form.transform(buildCreatePayload).post(route('consignmentagreements.store'), {
+            onSuccess: () => {
+                markAsConsignmentOnSubmit.value = false;
+            },
+            onError: (errors) => {
+                if (isNotMarkedConsignmentError(errors)) {
+                    showMarkConsignmentModal.value = true;
+                }
+            },
+        });
     } else if (props.record?.id != null) {
         form.transform(transformPayload).put(route('consignmentagreements.update', props.record.id));
     }
+};
+
+const submit = () => {
+    if (!showFormActions.value) {
+        return;
+    }
+    if (isCreate.value && needsMarkConsignmentPrompt.value && !markAsConsignmentOnSubmit.value) {
+        showMarkConsignmentModal.value = true;
+        return;
+    }
+    performSubmit();
+};
+
+const cancelMarkConsignment = () => {
+    showMarkConsignmentModal.value = false;
+};
+
+const confirmMarkConsignment = () => {
+    showMarkConsignmentModal.value = false;
+    markAsConsignmentOnSubmit.value = true;
+    selectedAssetUnitIsConsignment.value = true;
+    performSubmit();
 };
 
 const pseudoRecord = computed(() => {
@@ -273,6 +402,7 @@ const handleOwnerContactSelected = async (contact) => {
     if (!contact?.id || isView.value) {
         return;
     }
+    selectedOwnerContactName.value = contact.display_name ?? '';
     form.owner_contact_id = contact.id;
     form.owner_contact_address_id = null;
     addressPickerContactId.value = contact.id;
@@ -421,6 +551,7 @@ const ownerView = computed(() => {
                                 :record="pseudoRecord"
                                 field-key="asset_unit_id"
                                 :disabled="!isCreate"
+                                @record-selected="handleAssetUnitSelected"
                             />
                             <p v-if="form.errors.asset_unit_id" class="mt-1 text-sm text-red-600 dark:text-red-400">
                                 {{ form.errors.asset_unit_id }}
@@ -444,7 +575,7 @@ const ownerView = computed(() => {
                                     v-model="form.boat_title_signed_delivered"
                                     type="checkbox"
                                     class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                                    :disabled="!isMutable"
+                                    :disabled="fieldDisabled('boat_title_signed_delivered')"
                                 />
                                 <label for="ca-boat-title" class="text-sm text-gray-800 dark:text-gray-200">
                                     Boat title signed &amp; delivered
@@ -464,7 +595,7 @@ const ownerView = computed(() => {
                             </div>
 
                             <!-- Owner: contact + mailing (invoice-style) -->
-                            <template v-if="!isView">
+                            <template v-if="!isView && !isPostSignOnly">
                                 <div class="md:col-span-2 space-y-2">
                                     <label :class="labelClass" for="ca-owner-contact">{{ ownerContactField.label }} <span class="text-red-500">*</span></label>
                                     <RecordSelect
@@ -520,7 +651,7 @@ const ownerView = computed(() => {
                                     </p>
                                 </div>
                             </template>
-                            <div v-else class="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
+                            <div v-else-if="isView || isPostSignOnly" class="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
                                 <h4 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Owner / seller</h4>
                                 <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                                     <div class="sm:col-span-2">
@@ -546,7 +677,7 @@ const ownerView = computed(() => {
 
                             <div class="md:col-span-2">
                                 <label :class="labelClass" for="ca-notes">Notes</label>
-                                <textarea id="ca-notes" v-model="form.notes" rows="3" :class="textareaClass" :disabled="!isMutable" />
+                                <textarea id="ca-notes" v-model="form.notes" rows="3" :class="textareaClass" :disabled="fieldDisabled('notes')" />
                             </div>
                         </div>
                     </section>
@@ -574,7 +705,7 @@ const ownerView = computed(() => {
                                     </div>
                                     <div>
                                         <label :class="labelClass" for="ca-ask-sold">Sold</label>
-                                        <CurrencyInput id="ca-ask-sold" v-model="form.asking_sold" icon-position="none" :disabled="!isMutable" />
+                                        <CurrencyInput id="ca-ask-sold" v-model="form.asking_sold" icon-position="none" :disabled="fieldDisabled('asking_sold')" />
                                     </div>
                                 </div>
                             </div>
@@ -595,7 +726,7 @@ const ownerView = computed(() => {
                                     </div>
                                     <div>
                                         <label :class="labelClass" for="ca-min-sold">Sold</label>
-                                        <CurrencyInput id="ca-min-sold" v-model="form.minimum_sold" icon-position="none" :disabled="!isMutable" />
+                                        <CurrencyInput id="ca-min-sold" v-model="form.minimum_sold" icon-position="none" :disabled="fieldDisabled('minimum_sold')" />
                                     </div>
                                 </div>
                             </div>
@@ -668,7 +799,7 @@ const ownerView = computed(() => {
                     </p>
 
                     <!-- Actions -->
-                    <div v-if="isMutable" class="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
+                    <div v-if="showFormActions" class="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
                         <button
                             type="button"
                             class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -791,6 +922,50 @@ const ownerView = computed(() => {
                 </div>
             </Transition>
         </Teleport>
+
+        <Modal :show="showMarkConsignmentModal" max-width="md" @close="cancelMarkConsignment">
+            <div class="p-6">
+                <h3 class="text-center text-lg font-medium text-gray-900 dark:text-white">Not marked as consignment</h3>
+                <p class="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                    This unit is not marked as consignment. Continuing will update the asset unit and create the agreement.
+                </p>
+                <div
+                    v-if="canConfirmMarkConsignment"
+                    class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <p class="font-medium">The asset unit will be updated to:</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5">
+                        <li>Consignment = Yes</li>
+                        <li>Customer owned = Yes</li>
+                        <li>Customer = {{ markConsignmentOwnerName }} (agreement owner)</li>
+                    </ul>
+                </div>
+                <p
+                    v-else
+                    class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+                >
+                    Select an owner on this agreement before marking the unit as consignment.
+                </p>
+                <div class="mt-6 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                        :disabled="form.processing || !canConfirmMarkConsignment"
+                        @click="confirmMarkConsignment"
+                    >
+                        {{ form.processing ? 'Saving…' : 'Mark as consignment & continue' }}
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                        :disabled="form.processing"
+                        @click="cancelMarkConsignment"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </div>
 </template>
 

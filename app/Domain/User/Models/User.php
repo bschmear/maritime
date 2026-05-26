@@ -26,12 +26,14 @@ class User extends Model
         'mobile_phone',
         'current_role',
         'is_technician',
+        'delivery_in_progress',
     ];
 
     protected $with = ['role'];
 
     protected $casts = [
         'is_technician' => 'boolean',
+        'delivery_in_progress' => 'boolean',
     ];
 
     /**

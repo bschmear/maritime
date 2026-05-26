@@ -409,6 +409,7 @@ Route::middleware([
             Route::post('/{delivery}/send-signature-request', [DeliveryController::class, 'sendSignatureRequest'])->name('send-signature-request');
             Route::post('/{delivery}/mark-delivered', [DeliveryController::class, 'markAsDelivered'])->name('mark-delivered');
             Route::post('/{delivery}/en-route', [DeliveryController::class, 'markEnRoute'])->name('en-route');
+            Route::post('/{delivery}/notify-arrived', [DeliveryController::class, 'notifyArrived'])->name('notify-arrived');
             Route::post('/{delivery}/swap-fleet', [DeliveryController::class, 'swapFleet'])->name('swap-fleet');
             Route::post('/{delivery}/items/{item}/delivered', [DeliveryController::class, 'markItemDelivered'])->name('items.mark-delivered');
             Route::resource('/', DeliveryController::class)->parameters(['' => 'delivery']);

@@ -15,7 +15,7 @@
     "relationship": "assetVariant",
     "filterby": "asset_id",
     "record_filter_field": "asset_id",
-    "description": "Required when this asset defines one or more variants",
+    "description": "Only required when the selected asset has variants",
     "displayField": "display_name"
   },
 

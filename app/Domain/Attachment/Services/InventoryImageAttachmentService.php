@@ -40,8 +40,14 @@ final class InventoryImageAttachmentService
      *
      * @param  class-string<Model>  $attachableType
      */
-    public function linkTo(string $attachableType, int $attachableId, int $inventoryImageId, int $sortOrder = 0, bool $isPrimary = false): AttachmentLink
-    {
+    public function linkTo(
+        string $attachableType,
+        int $attachableId,
+        int $inventoryImageId,
+        int $sortOrder = 0,
+        bool $isPrimary = false,
+        bool $visibleToCustomer = false,
+    ): AttachmentLink {
         if (! in_array($attachableType, AttachmentLink::linkableMorphClasses(), true)) {
             throw new \InvalidArgumentException('Unsupported attachable type for attachment links.');
         }
@@ -55,6 +61,7 @@ final class InventoryImageAttachmentService
             [
                 'sort_order' => $sortOrder,
                 'is_primary' => $isPrimary,
+                'visible_to_customer' => $visibleToCustomer,
             ]
         );
     }
@@ -135,6 +142,22 @@ final class InventoryImageAttachmentService
             ->where('attachable_id', $attachableId)
             ->where('inventory_image_id', $inventoryImageId)
             ->update(['sort_order' => $sortOrder]);
+    }
+
+    /**
+     * @param  class-string<Model>  $attachableType
+     */
+    public function updateVisibleToCustomerForAttachable(
+        string $attachableType,
+        int $attachableId,
+        int $inventoryImageId,
+        bool $visibleToCustomer,
+    ): void {
+        AttachmentLink::query()
+            ->where('attachable_type', $attachableType)
+            ->where('attachable_id', $attachableId)
+            ->where('inventory_image_id', $inventoryImageId)
+            ->update(['visible_to_customer' => $visibleToCustomer]);
     }
 
     /**

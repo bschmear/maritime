@@ -10,6 +10,7 @@ use App\Enums\SMS;
 use App\Models\AccountSettings;
 use App\Models\User as WebUser;
 use App\Services\SMS\Data\SmsResult;
+use App\Services\TenantStaffResolver;
 
 class SmsService
 {
@@ -174,6 +175,94 @@ class SmsService
     }
 
     /**
+     * Send a short SMS that the assigned technician has arrived at the delivery.
+     *
+     * @param  string  $technicianDisplayName  From {@see Delivery::technician} (not necessarily the logged-in user).
+     */
+    public function sendDeliveryArrivedSms(
+        WebUser|TenantUser $authUser,
+        ?Customer $customer,
+        Delivery $delivery,
+        string $technicianDisplayName,
+    ): SmsResult {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $customer?->mobile ?? $customer?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $label = $delivery->display_name ?? 'Delivery';
+        $message = "{$technicianDisplayName} has arrived for your delivery {$label}.";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
+    /**
+     * Whether the UI may offer an SMS when notifying the customer the technician has arrived.
+     *
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function deliveryArrivedSmsCanBeOffered(?Customer $customer, WebUser|TenantUser|null $authUser): array
+    {
+        return $this->deliveryEnRouteSmsCanBeOffered($customer, $authUser);
+    }
+
+    /**
+     * Whether the UI may offer SMS when sending a delivery signature / review link.
+     *
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function deliverySignatureRequestSmsCanBeOffered(?Customer $customer, WebUser|TenantUser|null $authUser): array
+    {
+        return $this->deliveryEnRouteSmsCanBeOffered($customer, $authUser);
+    }
+
+    /**
+     * Send a short SMS with the public delivery review / signature link.
+     */
+    public function sendDeliverySignatureRequestSms(
+        WebUser|TenantUser $authUser,
+        ?Customer $customer,
+        Delivery $delivery,
+        string $reviewUrl,
+    ): SmsResult {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $customer?->mobile ?? $customer?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $label = $delivery->display_name ?? 'Delivery';
+        $message = "Your delivery {$label} is ready to review and sign: {$reviewUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
+    /**
      * Send a short SMS with the public estimate review link.
      */
     public function sendEstimateApprovalSms(WebUser|TenantUser $authUser, ?Customer $customer, Estimate $estimate, string $reviewUrl): SmsResult
@@ -321,6 +410,6 @@ class SmsService
             return $auth;
         }
 
-        return TenantUser::query()->where('email', $auth->email)->first();
+        return TenantStaffResolver::tenantStaffForWebUser($auth);
     }
 }

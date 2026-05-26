@@ -8,7 +8,7 @@ use App\Domain\AssetOption\Services\EstimateSelectedOptionSync;
 use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
-use App\Domain\ConsignmentPolicy\Models\ConsignmentPolicy;
+use App\Domain\ConsignmentAgreement\Support\ConsignmentAgreementPolicyResolver;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
@@ -25,6 +25,7 @@ use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
 use App\Domain\Opportunity\Services\ApplyFeatureRequestAssetOptionSelections;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\ServiceTicket\Support\ServiceTicketPortalImages;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Enums\Contract\ContractStatus;
@@ -155,12 +156,7 @@ class PublicController extends Controller
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
-        $recordArray['images'] = $ticket->images->map(fn ($img) => [
-            'id' => $img->id,
-            'display_name' => $img->display_name,
-            'url' => $img->url,
-            'is_primary' => (bool) ($img->pivot?->is_primary ?? $img->is_primary),
-        ])->values()->all();
+        $recordArray['images'] = ServiceTicketPortalImages::forCustomer($ticket->images);
 
         $enumOptions = [
             'billing_type' => \App\Enums\ServiceItem\BillingType::options(),
@@ -1371,10 +1367,7 @@ class PublicController extends Controller
         abort_unless($agreement->assetUnit?->is_consignment, 404);
 
         $account = AccountSettings::getCurrent();
-        $policies = ConsignmentPolicy::query()
-            ->active()
-            ->ordered()
-            ->get(['id', 'body', 'sort_order']);
+        $policies = ConsignmentAgreementPolicyResolver::forAgreement($agreement);
 
         $unit = $agreement->assetUnit;
         $logoUrl = $unit?->subsidiary?->logo_url ?? $account->logo_url;
@@ -1392,10 +1385,8 @@ class PublicController extends Controller
             'record' => $recordArray,
             'account' => $account,
             'logoUrl' => $logoUrl,
-            'consignmentPolicies' => $policies->map(fn ($p) => [
-                'id' => $p->id,
-                'body' => $p->body,
-            ])->values()->all(),
+            'consignmentPolicies' => $policies,
+            'policiesLocked' => ConsignmentAgreementPolicyResolver::policiesAreLocked($agreement),
         ]);
     }
 
@@ -1443,6 +1434,7 @@ class PublicController extends Controller
             'signature_method' => $signatureMethod,
             'signature_hash' => $signatureHash,
             'signature_file' => $signatureFile,
+            'policies_snapshot' => ConsignmentAgreementPolicyResolver::snapshotFromActive(),
         ]);
 
         $agreement->refresh();

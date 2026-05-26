@@ -953,11 +953,111 @@ const getSublistEnumOptions = () => {
     return enumOptions;
 };
 
+const getSublistRecordType = (domain) => {
+    if (sublistCreateFormData.value?.recordType) {
+        return sublistCreateFormData.value.recordType;
+    }
+
+    const irregular = {
+        ContactAddress: 'contactaddresses',
+        MaintenanceType: 'maintenance-types',
+    };
+
+    if (irregular[domain]) {
+        return irregular[domain];
+    }
+
+    return `${domain.charAt(0).toLowerCase()}${domain.slice(1)}s`;
+};
+
+const sublistAllowsCreateModal = () => sublistTableSchema.value?.allow_create_modal !== false;
+
+const ensureSublistTableSchema = async (sublist) => {
+    if (sublistTableSchema.value != null || !sublist?.domain) {
+        return;
+    }
+
+    try {
+        let schemaResponse;
+
+        if (sublist.routes?.index) {
+            const parentKey = { asset: props.parentRecord.id };
+            schemaResponse = await axios.get(route(sublist.routes.index, parentKey), {
+                params: { per_page: 1, page: 1 },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+            });
+        } else {
+            const routePlural = getDomainPlural(sublist.domain);
+            schemaResponse = await axios.get(route(`${routePlural}.index`), {
+                params: { per_page: 1, page: 1 },
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'application/json',
+                },
+            });
+        }
+
+        sublistTableSchema.value = schemaResponse.data.schema || null;
+        if (schemaResponse.data.fieldsSchema) {
+            sublistFieldsSchema.value = schemaResponse.data.fieldsSchema;
+        }
+    } catch (error) {
+        console.error('[Sublist] Error loading table schema:', error);
+    }
+};
+
+const buildSublistCreateQueryParams = () => {
+    const params = new URLSearchParams();
+    const initial = getSublistInitialData();
+
+    for (const [key, value] of Object.entries(initial)) {
+        if (key.endsWith('_id') && value != null && value !== '') {
+            params.set(key, String(value));
+        }
+    }
+
+    return params;
+};
+
+const navigateToSublistCreatePage = () => {
+    const tab = activeTab.value;
+    if (!tab?.domain) {
+        return;
+    }
+
+    const recordType = getSublistRecordType(tab.domain);
+    const routeParams = { ...sublistFormExtraRouteParams.value };
+    let url;
+
+    try {
+        if (tab.routes?.create) {
+            const parentKey = { asset: props.parentRecord.id };
+            url = route(tab.routes.create, parentKey);
+        } else {
+            url = route(`${recordType}.create`, routeParams);
+        }
+    } catch (error) {
+        console.error('[Sublist] Unable to resolve create route:', error);
+        return;
+    }
+
+    const query = buildSublistCreateQueryParams();
+    const qs = query.toString();
+    if (qs) {
+        url += `${url.includes('?') ? '&' : '?'}${qs}`;
+    }
+
+    window.location.href = url;
+};
 
 const handleTabChange = async (sublist) => {
     activeTab.value = sublist;
 
     // Reset filters and state for new tab
+    sublistTableSchema.value = null;
     activeFilters.value = [];
     defaultFiltersLoaded.value = false;
 
@@ -1041,11 +1141,20 @@ const openSublistCreateModal = async () => {
         await loadAttachRecords(1);
         return;
     }
-    
-    // For regular sublists, show the create modal
+
     if (!sublistCreateFormData.value && activeTab.value) {
         await loadSublistSchema(activeTab.value);
     }
+
+    if (activeTab.value) {
+        await ensureSublistTableSchema(activeTab.value);
+    }
+
+    if (!sublistAllowsCreateModal()) {
+        navigateToSublistCreatePage();
+        return;
+    }
+
     showSublistCreateModal.value = true;
 };
 
@@ -1162,6 +1271,16 @@ const openCreateNewFromAttachModal = async () => {
     if (!sublistCreateFormData.value && activeTab.value) {
         await loadSublistSchema(activeTab.value);
     }
+
+    if (activeTab.value) {
+        await ensureSublistTableSchema(activeTab.value);
+    }
+
+    if (!sublistAllowsCreateModal()) {
+        navigateToSublistCreatePage();
+        return;
+    }
+
     showSublistCreateModal.value = true;
 };
 

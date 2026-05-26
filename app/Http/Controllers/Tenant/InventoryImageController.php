@@ -50,6 +50,7 @@ class InventoryImageController extends RecordController
             $row['attachment_link_id'] = $link->id;
             $row['sort_order'] = (int) $link->sort_order;
             $row['is_primary'] = (bool) $link->is_primary;
+            $row['visible_to_customer'] = (bool) $link->visible_to_customer;
             $out[] = $row;
         }
 

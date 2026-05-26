@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
 import Toast from '@/Components/Toast.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 defineProps({
     title: {
@@ -17,6 +17,9 @@ const showNestedDropdown = ref(null);
 const hideTimeout = ref(null);
 const mobileMenuOpen = ref(false);
 const mobileExpandedItems = ref([]);
+
+const page = usePage();
+const deliveryEnRouteBanner = computed(() => page.props.delivery_en_route_banner ?? null);
 
 // Helper functions for navigation state
 const isCurrentRoute = (item) => {
@@ -356,6 +359,21 @@ const secondaryNavItems = ref([
                 </div>
             </div>
         </nav>
+
+        <div
+            v-if="deliveryEnRouteBanner"
+            class="border-b border-emerald-700/30 bg-emerald-600 px-4 py-2.5 text-center text-sm text-white shadow-sm dark:bg-emerald-800 dark:text-emerald-50"
+        >
+            <span class="font-medium">Delivery in progress</span>
+            <span class="mx-2 opacity-80" aria-hidden="true">·</span>
+            <Link
+                :href="deliveryEnRouteBanner.url"
+                class="inline-flex items-center gap-1 font-semibold underline decoration-white/70 underline-offset-2 hover:decoration-white"
+            >
+                <span class="material-icons text-base leading-none">local_shipping</span>
+                View delivery ({{ deliveryEnRouteBanner.title }})
+            </Link>
+        </div>
     </div>
 
         <!-- Mobile nav slideout (hamburger in Navbar toggles this) -->
@@ -525,8 +543,8 @@ const secondaryNavItems = ref([
         </Teleport>
 
         <!-- Page Header (Optional) -->
-        <header v-if="$slots.header" class="">
-            <div class="w-full px-4 pt-6 sm:px-6">
+        <header v-if="$slots.header" class="min-w-0 max-w-full overflow-x-hidden">
+            <div class="w-full min-w-0 max-w-full px-4 pt-6 sm:px-6">
                 <slot name="header" />
             </div>
         </header>

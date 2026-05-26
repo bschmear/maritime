@@ -13,6 +13,14 @@ use Throwable;
 
 class UpdateConsignmentAgreement
 {
+    /** @var list<string> */
+    private const POST_SIGN_FIELDS = [
+        'notes',
+        'asking_sold',
+        'minimum_sold',
+        'boat_title_signed_delivered',
+    ];
+
     /**
      * @return array{success: bool, record?: RecordModel|null, message?: string}
      */
@@ -20,11 +28,7 @@ class UpdateConsignmentAgreement
     {
         $record = RecordModel::query()->findOrFail($id);
         if ($record->signed_at !== null) {
-            return [
-                'success' => false,
-                'message' => 'Signed agreements cannot be edited.',
-                'record' => null,
-            ];
+            return $this->updatePostSign($record, $data);
         }
 
         $validated = Validator::make($data, [
@@ -97,6 +101,60 @@ class UpdateConsignmentAgreement
                 'error' => $e->getMessage(),
                 'id' => $id,
                 'data' => $data,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'record' => null,
+            ];
+        }
+    }
+
+    /**
+     * @return array{success: bool, record?: RecordModel|null, message?: string}
+     */
+    private function updatePostSign(RecordModel $record, array $data): array
+    {
+        $payload = array_intersect_key($data, array_flip(self::POST_SIGN_FIELDS));
+
+        $validated = Validator::make($payload, [
+            'notes' => 'nullable|string|max:20000',
+            'asking_sold' => 'nullable|numeric',
+            'minimum_sold' => 'nullable|numeric',
+            'boat_title_signed_delivered' => 'sometimes|boolean',
+        ])->validate();
+
+        foreach (['asking_sold', 'minimum_sold'] as $moneyKey) {
+            if (array_key_exists($moneyKey, $validated) && $validated[$moneyKey] === '') {
+                $validated[$moneyKey] = null;
+            }
+        }
+
+        try {
+            $record->update($validated);
+
+            return [
+                'success' => true,
+                'record' => $record,
+            ];
+        } catch (QueryException $e) {
+            Log::error('Database query error in UpdateConsignmentAgreement (post-sign)', [
+                'error' => $e->getMessage(),
+                'id' => $record->id,
+                'data' => $payload,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'record' => null,
+            ];
+        } catch (Throwable $e) {
+            Log::error('Unexpected error in UpdateConsignmentAgreement (post-sign)', [
+                'error' => $e->getMessage(),
+                'id' => $record->id,
+                'data' => $payload,
             ]);
 
             return [

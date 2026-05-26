@@ -19,9 +19,29 @@ const props = defineProps({
         type: Object,
         default: () => ({ modal: false, offered: false, hint: null }),
     },
+    deliveryArrivedSms: {
+        type: Object,
+        default: () => ({
+            show_sms_choice: false,
+            offered: false,
+            hint: null,
+            category_enabled: false,
+        }),
+    },
+    deliverySignatureSms: {
+        type: Object,
+        default: () => ({
+            category_enabled: false,
+            offered: false,
+            hint: null,
+        }),
+    },
+    logoUrl: { type: String, default: null },
 });
 
 const page = usePage();
+
+const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
 
 /** Delivery SMS category enabled in account settings (strict — avoids stale / loose truthy props). */
 const deliverySmsEnabledForEnRoute = computed(() => props.deliveryEnRouteSms?.modal === true);
@@ -160,7 +180,7 @@ const updateDeliveryStatus = async (event) => {
     statusUpdating.value = true;
     try {
         await axios.put(route('deliveries.update', props.record.id), { status: newStatus });
-        router.reload({ only: ['record', 'deliveryEnRouteSms'] });
+        router.reload({ only: ['record', 'deliveryEnRouteSms', 'deliveryArrivedSms'] });
     } catch (e) {
         console.error(e);
         alert(e?.response?.data?.message ?? 'Failed to update status.');
@@ -388,6 +408,57 @@ const confirmEnRouteModal = () => {
     submitEnRoute(wantsSms && !!props.deliveryEnRouteSms?.offered);
 };
 
+/* ─── Arrived at delivery (optional customer SMS) ─── */
+const showArrivedModal = ref(false);
+const arrivedDeliveryChoice = ref('no_sms');
+const arrivedLoading = ref(false);
+
+const deliveryDriverDisplayForArrived = computed(() => {
+    const t = props.record?.technician;
+    if (!t) return 'your delivery driver';
+    return t.display_name || [t.first_name, t.last_name].filter(Boolean).join(' ').trim() || 'your delivery driver';
+});
+
+const canShowArrivedAtDelivery = computed(
+    () => !isSigned.value
+        && props.record?.status === 'en_route'
+        && !props.record?.customer_arrived_notified_at,
+);
+
+const submitArrived = (notifySms) => {
+    arrivedLoading.value = true;
+    router.post(
+        route('deliveries.notify-arrived', props.record.id),
+        { notify_sms: notifySms },
+        {
+            preserveScroll: true,
+            onFinish: () => { arrivedLoading.value = false; },
+        },
+    );
+};
+
+const goArrived = () => {
+    if (!canShowArrivedAtDelivery.value) return;
+    arrivedDeliveryChoice.value = 'no_sms';
+    showArrivedModal.value = true;
+};
+
+const closeArrivedModal = () => {
+    showArrivedModal.value = false;
+};
+
+const confirmArrivedModal = () => {
+    const wantsSms = arrivedDeliveryChoice.value === 'sms';
+    if (wantsSms && !props.deliveryArrivedSms?.offered) return;
+    showArrivedModal.value = false;
+    submitArrived(wantsSms && !!props.deliveryArrivedSms?.offered);
+};
+
+const confirmArrivedWithoutSms = () => {
+    showArrivedModal.value = false;
+    submitArrived(false);
+};
+
 /* ─── Actions ─── */
 const markAsDelivered = () => { showMarkDeliveredModal.value = true; };
 
@@ -402,15 +473,9 @@ const markDeliveredWithoutSignature = async () => {
     }
 };
 
-const sendSignatureRequest = async () => {
-    try {
-        await axios.post(route('deliveries.send-signature-request', props.record.id));
-        showMarkDeliveredModal.value = false;
-        alert('Signature request sent to customer successfully!');
-    } catch (error) {
-        console.error(error);
-        alert('Failed to send signature request. Please try again.');
-    }
+const sendSignatureRequest = () => {
+    showMarkDeliveredModal.value = false;
+    showPreview.value = true;
 };
 
 const viewSignatureRequest = () => {
@@ -437,7 +502,7 @@ const toggleItemDelivered = async (item) => {
         await axios.post(route('deliveries.items.mark-delivered', { delivery: props.record.id, item: item.id }), {
             delivered,
         });
-        router.reload({ only: ['record', 'deliveryEnRouteSms'] });
+        router.reload({ only: ['record', 'deliveryEnRouteSms', 'deliveryArrivedSms'] });
     } catch (error) {
         console.error(error);
         alert('Failed to update item.');
@@ -692,20 +757,20 @@ const googleMapsDirectionsUrl = computed(() => {
 
     <TenantLayout>
         <template #header>
-            <div class="col-span-full">
+            <div class="col-span-full min-w-0 w-full max-w-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex items-center justify-between mt-4 gap-4 flex-wrap">
-                    <div class="flex items-center gap-3 flex-wrap">
-                        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex min-w-0 max-w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+                    <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                        <h2 class="min-w-0 text-xl font-semibold text-gray-800 dark:text-gray-200 sm:max-w-[min(100%,20rem)] truncate">
                             {{ record?.display_name }}
                         </h2>
-                        <div class="flex items-center gap-2">
+                        <div class="flex min-w-0 flex-wrap items-center gap-2">
                             <label for="delivery-status-select" class="sr-only">Delivery status</label>
                             <select
                                 id="delivery-status-select"
                                 :value="record.status"
                                 :disabled="isSigned || statusUpdating"
-                                class="input-style text-md py-2 min-w-[12rem] max-w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                                class="input-style w-full min-w-0 max-w-full py-2 text-md sm:w-auto sm:max-w-[14rem] disabled:cursor-not-allowed disabled:opacity-60"
                                 @change="updateDeliveryStatus"
                             >
                                 <option
@@ -723,11 +788,11 @@ const googleMapsDirectionsUrl = computed(() => {
                             >sync</span>
                             <span
                                 v-if="isSigned"
-                                class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                                class="shrink-0 text-sm text-gray-500 dark:text-gray-400"
                             >Locked (signed)</span>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex shrink-0 flex-wrap items-center gap-2">
                         <button
                             @click="openPreview"
                             class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -762,44 +827,44 @@ const googleMapsDirectionsUrl = computed(() => {
             </div>
         </template>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="grid min-w-0 max-w-full grid-cols-1 gap-6 lg:grid-cols-12">
             <!-- Main content -->
-            <div class="lg:col-span-8 space-y-6">
+            <div class="min-w-0 space-y-6 lg:col-span-8">
                 <!-- Summary card -->
-                <div class="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="min-w-0 overflow-hidden divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
 
 <!-- Header: Customer -->
-<div class="bg-white dark:bg-gray-800 px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
-  <div class="flex items-center gap-3">
+<div class="flex flex-col gap-3 bg-white px-4 py-5 dark:bg-gray-800 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-6">
+  <div class="flex min-w-0 items-center gap-3">
     <div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950 flex items-center justify-center text-md font-medium text-blue-600 dark:text-blue-400 shrink-0">
       {{ record.customer?.display_name?.slice(0,2).toUpperCase() ?? '??' }}
     </div>
-    <div>
-      <p class="m-0 text-md font-semibold text-gray-900 dark:text-white">
+    <div class="min-w-0">
+      <p class="m-0 truncate text-md font-semibold text-gray-900 dark:text-white">
         {{ record.customer?.display_name ?? record.customer?.contact?.display_name ?? '—' }}
       </p>
-      <p class="text-sm text-gray-500 dark:text-gray-400">
+      <p class="min-w-0 break-words text-sm text-gray-500 dark:text-gray-400">
         <span v-if="record.customer?.contact?.email">{{ record.customer.contact.email }}</span>
         <span v-if="record.customer?.contact?.email && record.customer?.contact?.phone"> · </span>
         <span v-if="record.customer?.contact?.phone">{{ record.customer.contact.phone }}</span>
       </p>
     </div>
   </div>
-  <span class="text-sm font-medium px-3 py-1 rounded-full bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400 tracking-wide">
+  <span class="shrink-0 self-start text-sm font-medium tracking-wide text-green-700 dark:text-green-400 rounded-full bg-green-50 px-3 py-1 dark:bg-green-950">
     {{ recordStatusLabel }}
   </span>
 </div>
 
-<!-- Middle: 3-column info -->
-<div class="bg-white dark:bg-gray-800 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200 dark:divide-gray-700">
+<!-- Middle: location / from / subsidiary -->
+<div class="grid grid-cols-1 divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800 md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-3">
 
-  <div class="px-6 py-5">
+  <div class="min-w-0 px-4 py-5 sm:px-6">
     <p class="text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Deliver to</p>
     <p class="text-md font-semibold text-gray-900 dark:text-white mb-1">
       {{ deliverToSummary?.type ?? 'Custom Address' }}
       <span v-if="deliverToSummary?.name" class="font-normal text-gray-500"> · {{ deliverToSummary.name }}</span>
     </p>
-    <div v-if="record.address_line_1" class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+    <div v-if="record.address_line_1" class="break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">
       <div>{{ record.address_line_1 }}</div>
       <div v-if="record.address_line_2">{{ record.address_line_2 }}</div>
       <div>
@@ -809,7 +874,7 @@ const googleMapsDirectionsUrl = computed(() => {
     <div v-else class="text-sm text-gray-400 italic">No address on file</div>
   </div>
 
-  <div class="px-6 py-5">
+  <div class="min-w-0 px-4 py-5 sm:px-6 md:border-l md:border-gray-200 dark:md:border-gray-700">
     <p class="text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Delivered from</p>
     <div v-if="locationRecord">
       <p class="text-md font-semibold mb-1">
@@ -818,7 +883,7 @@ const googleMapsDirectionsUrl = computed(() => {
         </Link>
         <span v-else class="text-gray-900 dark:text-white">{{ locationRecord.display_name ?? '—' }}</span>
       </p>
-      <div v-if="hasLocationAddress" class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+      <div v-if="hasLocationAddress" class="break-words text-sm leading-relaxed text-gray-500 dark:text-gray-400">
         <div v-if="locationRecord.address_line_1">{{ locationRecord.address_line_1 }}</div>
         <div v-if="locationRecord.address_line_2">{{ locationRecord.address_line_2 }}</div>
         <div>
@@ -831,7 +896,7 @@ const googleMapsDirectionsUrl = computed(() => {
     <div v-else class="text-md text-gray-400">—</div>
   </div>
 
-  <div class="px-6 py-5">
+  <div class="min-w-0 border-t border-gray-200 px-4 py-5 dark:border-gray-700 sm:px-6 md:col-span-2 md:border-l-0 xl:col-span-1 xl:border-t-0 xl:border-l xl:border-gray-200 dark:xl:border-gray-700">
     <p class="text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Subsidiary</p>
     <div v-if="record.subsidiary?.id">
       <Link :href="route('subsidiaries.show', record.subsidiary.id)" class="text-md font-semibold text-primary-600 hover:text-primary-500 dark:text-primary-400">
@@ -845,26 +910,26 @@ const googleMapsDirectionsUrl = computed(() => {
 </div>
 
 <!-- Bottom: Schedule tiles -->
-<div class="bg-white dark:bg-gray-800 px-6 py-5">
-  <p class="text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Schedule &amp; routing</p>
-  <div class="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-gray-200 dark:divide-gray-700 rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+<div class="min-w-0 bg-white px-4 py-5 dark:bg-gray-800 sm:px-6">
+  <p class="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Schedule &amp; routing</p>
+  <div class="grid grid-cols-1 divide-y divide-gray-200 overflow-hidden rounded-md border border-gray-200 dark:divide-gray-700 dark:border-gray-700 sm:grid-cols-2 xl:grid-cols-3 sm:divide-x">
 
-    <div class="px-4 py-3 bg-white dark:bg-gray-800">
+    <div class="min-w-0 px-4 py-3 bg-white dark:bg-gray-800">
       <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Need to leave by</p>
-      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.time_to_leave_by) }}</p>
+      <p class="break-words text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.time_to_leave_by) }}</p>
     </div>
 
-    <div class="px-4 py-3 bg-white dark:bg-gray-800">
+    <div class="min-w-0 px-4 py-3 bg-white dark:bg-gray-800">
       <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Scheduled arrive by</p>
-      <p class="text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.scheduled_at) }}</p>
+      <p class="break-words text-md font-semibold text-gray-900 dark:text-white">{{ formatDateTimeWithZoneId(record.scheduled_at) }}</p>
     </div>
 
     <div
       v-if="routingOutboundMin != null"
-      class="col-span-2 sm:col-span-3 border-t border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30"
+      class="col-span-1 border-t border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/30 sm:col-span-2 xl:col-span-3"
     >
       <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Driving estimates (Google)</p>
-      <dl class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <dl class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div>
           <dt class="text-sm text-gray-500 dark:text-gray-400">Drive to customer</dt>
           <dd class="text-md font-semibold text-gray-900 dark:text-white">~{{ routingOutboundMin }} min</dd>
@@ -904,20 +969,19 @@ const googleMapsDirectionsUrl = computed(() => {
       <p class="text-sm text-gray-400 dark:text-gray-500 mb-1">Delivered</p>
       <p class="text-md font-semibold text-green-600 dark:text-green-400">{{ formatDateTime(record.delivered_at) }}</p>
     </div>
-    <div></div>
   </div>
 
-  <div v-if="googleMapsDirectionsUrl" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+  <div v-if="googleMapsDirectionsUrl" class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
     <a
       :href="googleMapsDirectionsUrl"
       target="_blank"
       rel="noopener noreferrer"
-      class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-[#4285F4] hover:bg-[#3367d6] rounded-lg shadow-sm transition-colors"
+      class="inline-flex max-w-full flex-wrap items-center gap-2 rounded-lg bg-[#4285F4] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3367d6]"
     >
       <span class="material-icons text-xl" aria-hidden="true">map</span>
       Open delivery route in Google Maps
     </a>
-    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+    <p class="mt-2 break-words text-xs text-gray-500 dark:text-gray-400">
       Opens Google Maps directions from your <strong>depart</strong> location to the <strong>delivery</strong> address (outbound leg). Estimated return time is computed separately for scheduling.
     </p>
   </div>
@@ -926,10 +990,10 @@ const googleMapsDirectionsUrl = computed(() => {
 </div>
 
                 <!-- Assets -->
-                <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div class="min-w-0 overflow-hidden bg-white shadow sm:rounded-lg dark:bg-gray-800">
+                    <div class="flex flex-col gap-2 border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                         <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Assets to Deliver</h3>
-                        <div v-if="items.length" class="text-md text-gray-500">
+                        <div v-if="items.length" class="shrink-0 text-md text-gray-500">
                             {{ items.filter(i => i.delivered_at).length }} / {{ items.length }} delivered
                         </div>
                     </div>
@@ -938,7 +1002,7 @@ const googleMapsDirectionsUrl = computed(() => {
                         No assets tied to this delivery yet. Edit the delivery to link a source or add assets.
                     </div>
 
-                    <div v-else class="overflow-x-auto">
+                    <div v-else class="min-w-0 overflow-x-auto overscroll-x-contain -mx-4 sm:mx-0">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-900/40">
                                 <tr>
@@ -987,9 +1051,9 @@ const googleMapsDirectionsUrl = computed(() => {
                 </div>
 
                 <!-- Checklist (existing) -->
-                <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
-                    <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                        <div>
+                <div class="min-w-0 overflow-hidden bg-white shadow sm:rounded-lg dark:bg-gray-800">
+                    <div class="flex flex-col gap-4 border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
+                        <div class="min-w-0">
                             <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Delivery Checklist</h3>
                             <p class="text-md text-gray-500 dark:text-gray-400">
                                 Items to complete before and during delivery
@@ -1107,7 +1171,7 @@ const googleMapsDirectionsUrl = computed(() => {
             </div>
 
             <!-- Sidebar -->
-            <div class="lg:col-span-4 space-y-6">
+            <div class="min-w-0 space-y-6 lg:col-span-4">
                 <!-- Actions -->
                 <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions</h3>
@@ -1136,6 +1200,18 @@ const googleMapsDirectionsUrl = computed(() => {
                                 {{ enRouteLoading ? 'sync' : 'local_shipping' }}
                             </span>
                             Mark en route
+                        </button>
+                        <button
+                            v-if="canShowArrivedAtDelivery"
+                            type="button"
+                            @click="goArrived"
+                            :disabled="arrivedLoading || isSigned"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg"
+                        >
+                            <span class="material-icons text-lg" :class="{ 'animate-spin': arrivedLoading }">
+                                {{ arrivedLoading ? 'sync' : 'place' }}
+                            </span>
+                            Arrived at delivery
                         </button>
                         <button
                             @click="markAsDelivered"
@@ -1181,7 +1257,7 @@ const googleMapsDirectionsUrl = computed(() => {
                             </dd>
                         </div>
                         <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500">Technician</dt>
+                            <dt class="text-gray-500">Delivery Driver</dt>
                             <dd class="text-gray-900 dark:text-white text-right">{{ record.technician?.display_name ?? record.technician?.name ?? '—' }}</dd>
                         </div>
                         <div class="flex justify-between gap-4">
@@ -1277,7 +1353,7 @@ const googleMapsDirectionsUrl = computed(() => {
                         <span class="material-icons text-blue-600">send</span>
                         <div>
                             <div class="font-medium text-gray-900">Send Signature Request</div>
-                            <div class="text-md text-gray-600">Request customer signature via email</div>
+                            <div class="text-md text-gray-600">Open preview to send by email or SMS</div>
                         </div>
                     </button>
                     <button
@@ -1371,6 +1447,103 @@ const googleMapsDirectionsUrl = computed(() => {
                     >
                         <span v-if="enRouteLoading" class="material-icons animate-spin text-base">refresh</span>
                         {{ enRouteLoading ? 'Updating…' : 'Confirm' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Arrived at delivery: optional SMS to customer -->
+        <Modal :show="showArrivedModal" max-width="md" @close="closeArrivedModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Arrived at delivery</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Confirm you are on site. You can optionally send a text so the customer knows that
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ deliveryDriverDisplayForArrived }}</span>
+                    has arrived.
+                </p>
+                <p
+                    v-if="page.props.tenant_sandbox_mode && deliveryArrivedSms.show_sms_choice"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>Sandbox mode sends SMS to your staff user profile phone (matched by login email), not the customer.</span>
+                </p>
+
+                <fieldset v-if="deliveryArrivedSms.show_sms_choice" class="mt-4 space-y-3">
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600">
+                        <input v-model="arrivedDeliveryChoice" type="radio" name="arrived_notify" value="no_sms" class="mt-1 text-primary-600" />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Confirm arrival only</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">Do not send a text message.</span>
+                        </span>
+                    </label>
+                    <label
+                        class="flex items-start gap-3 rounded-lg border p-3"
+                        :class="
+                            deliveryArrivedSms.offered
+                                ? 'cursor-pointer border-gray-200 dark:border-gray-600'
+                                : 'cursor-not-allowed border-gray-100 opacity-60 dark:border-gray-700'
+                        "
+                    >
+                        <input
+                            v-model="arrivedDeliveryChoice"
+                            type="radio"
+                            name="arrived_notify"
+                            value="sms"
+                            class="mt-1 text-primary-600 disabled:cursor-not-allowed"
+                            :disabled="!deliveryArrivedSms.offered"
+                        />
+                        <span>
+                            <span class="font-medium text-gray-900 dark:text-white">Confirm and notify customer by SMS</span>
+                            <span class="mt-0.5 block text-sm text-gray-500 dark:text-gray-400">
+                                Send a short text that the delivery driver has arrived.
+                            </span>
+                            <span
+                                v-if="!deliveryArrivedSms.offered && deliveryArrivedSms.hint"
+                                class="mt-1 block text-xs text-amber-800 dark:text-amber-200"
+                            >
+                                {{ deliveryArrivedSms.hint }}
+                            </span>
+                        </span>
+                    </label>
+                </fieldset>
+                <p v-else class="mt-4 text-sm text-gray-600 dark:text-gray-400">
+                    <template v-if="deliveryArrivedSms.category_enabled && deliveryArrivedSms.hint">
+                        {{ deliveryArrivedSms.hint }}
+                    </template>
+                    <template v-else>
+                        Delivery SMS is turned off in account settings or SMS cannot be sent. You can still confirm arrival without texting the customer.
+                    </template>
+                </p>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        :disabled="arrivedLoading"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="closeArrivedModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        v-if="deliveryArrivedSms.show_sms_choice"
+                        type="button"
+                        :disabled="arrivedLoading || (arrivedDeliveryChoice === 'sms' && !deliveryArrivedSms.offered)"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                        @click="confirmArrivedModal"
+                    >
+                        <span v-if="arrivedLoading" class="material-icons animate-spin text-base">refresh</span>
+                        {{ arrivedLoading ? 'Saving…' : 'Confirm' }}
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        :disabled="arrivedLoading"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                        @click="confirmArrivedWithoutSms"
+                    >
+                        <span v-if="arrivedLoading" class="material-icons animate-spin text-base">refresh</span>
+                        {{ arrivedLoading ? 'Saving…' : 'Confirm arrival' }}
                     </button>
                 </div>
             </div>
@@ -1617,8 +1790,10 @@ const googleMapsDirectionsUrl = computed(() => {
                 <DeliveryPreview
                     :record="record"
                     :account="account"
+                    :logo-url="effectiveLogoUrl"
                     :enum-options="enumOptions"
                     :checklist-items="checklistItems"
+                    :delivery-signature-sms="deliverySignatureSms"
                     @close="closePreview"
                 />
             </div>

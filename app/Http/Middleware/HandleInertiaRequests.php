@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Delivery\Models\Delivery;
 use App\Models\AccountSettings;
+use App\Services\TenantStaffResolver;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
 use Illuminate\Http\Request;
@@ -127,6 +129,48 @@ class HandleInertiaRequests extends Middleware
             'workspace_nav' => fn () => $this->workspaceNavAccounts($request),
             'workspace_plan' => fn () => tenant() ? WorkspacePlanCache::get() : null,
             'tenant_sandbox_mode' => fn () => tenant() ? (bool) AccountSettings::getCurrent()->sandbox_mode : false,
+            'delivery_en_route_banner' => fn () => $this->deliveryEnRouteBanner($request),
+        ];
+    }
+
+    /**
+     * When the logged-in central user matches a tenant staff row marked in-progress,
+     * surface the active en-route delivery for a global "View delivery" strip.
+     *
+     * @return array{delivery_id: int, title: string, url: string}|null
+     */
+    protected function deliveryEnRouteBanner(Request $request): ?array
+    {
+        if (! tenant() || $this->rootView($request) !== 'tenant') {
+            return null;
+        }
+
+        $central = $request->user('web');
+        if (! $central) {
+            return null;
+        }
+
+        $tenantStaff = TenantStaffResolver::tenantStaffForWebUser($central);
+        if (! $tenantStaff || ! $tenantStaff->delivery_in_progress) {
+            return null;
+        }
+
+        $delivery = Delivery::query()
+            ->where('technician_id', $tenantStaff->id)
+            ->where('status', 'en_route')
+            ->orderByDesc('en_route_at')
+            ->first();
+
+        if (! $delivery) {
+            $tenantStaff->forceFill(['delivery_in_progress' => false])->saveQuietly();
+
+            return null;
+        }
+
+        return [
+            'delivery_id' => $delivery->id,
+            'title' => $delivery->display_name,
+            'url' => route('deliveries.show', $delivery->id),
         ];
     }
 

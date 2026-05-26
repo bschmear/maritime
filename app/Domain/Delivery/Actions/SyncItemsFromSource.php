@@ -5,6 +5,7 @@ namespace App\Domain\Delivery\Actions;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Delivery\Models\DeliveryItem;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionItem;
 use App\Domain\WorkOrder\Models\WorkOrder;
@@ -73,6 +74,8 @@ class SyncItemsFromSource
         $delivery->load('items');
         $delivery->syncStatusFromItems();
         $delivery->save();
+
+        SyncTechnicianDeliveryInProgress::recomputeForUserIds([$delivery->technician_id]);
 
         return $delivery;
     }

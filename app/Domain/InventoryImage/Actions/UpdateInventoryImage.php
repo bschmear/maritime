@@ -33,6 +33,7 @@ class UpdateInventoryImage
             'sort_order' => 'sometimes|integer',
             'role' => 'nullable|string',
             'is_primary' => 'sometimes|boolean',
+            'visible_to_customer' => 'sometimes|boolean',
             'attachable_type' => 'sometimes|string',
             'attachable_id' => 'sometimes|integer',
         ])->validate();
@@ -60,6 +61,15 @@ class UpdateInventoryImage
                 if (array_key_exists('sort_order', $validated)) {
                     $attach->updateSortOrderForAttachable((string) $attachableType, $attachableId, $id, (int) $validated['sort_order']);
                     unset($validated['sort_order']);
+                }
+                if (array_key_exists('visible_to_customer', $validated)) {
+                    $attach->updateVisibleToCustomerForAttachable(
+                        (string) $attachableType,
+                        $attachableId,
+                        $id,
+                        (bool) $validated['visible_to_customer'],
+                    );
+                    unset($validated['visible_to_customer']);
                 }
             }
 

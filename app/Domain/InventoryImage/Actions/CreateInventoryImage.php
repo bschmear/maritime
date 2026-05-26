@@ -36,6 +36,7 @@ class CreateInventoryImage
             'role' => 'nullable|string',
             'is_primary' => 'nullable|boolean',
             'also_attach_to_service_ticket' => 'sometimes|boolean',
+            'visible_to_customer' => 'sometimes|boolean',
         ])->validate();
 
         try {
@@ -98,6 +99,14 @@ class CreateInventoryImage
             if (AttachmentLink::usesLinksForMorphClass((string) $record->imageable_type)) {
                 $attach = app(InventoryImageAttachmentService::class);
                 $attach->ensureLinkForMorphOwner($record);
+                if (array_key_exists('visible_to_customer', $data)) {
+                    $attach->updateVisibleToCustomerForAttachable(
+                        (string) $record->imageable_type,
+                        (int) $record->imageable_id,
+                        (int) $record->id,
+                        filter_var($data['visible_to_customer'], FILTER_VALIDATE_BOOLEAN),
+                    );
+                }
                 $also = filter_var($data['also_attach_to_service_ticket'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 $attach->maybeAlsoLinkWorkOrderUploadToServiceTicket($record, $also);
                 $attach->normalizePrimaryLinksForAttachable((string) $record->imageable_type, (int) $record->imageable_id);

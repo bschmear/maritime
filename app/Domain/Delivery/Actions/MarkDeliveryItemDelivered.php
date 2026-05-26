@@ -3,6 +3,7 @@
 namespace App\Domain\Delivery\Actions;
 
 use App\Domain\Delivery\Models\DeliveryItem;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 
 class MarkDeliveryItemDelivered
 {
@@ -30,6 +31,7 @@ class MarkDeliveryItemDelivered
             $delivery->load('items');
             $delivery->syncStatusFromItems();
             $delivery->save();
+            SyncTechnicianDeliveryInProgress::recomputeForUserIds([$delivery->technician_id]);
         }
 
         return $item->fresh(['delivery', 'assetUnit', 'assetVariant', 'deliveredBy']);

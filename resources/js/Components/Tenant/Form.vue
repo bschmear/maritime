@@ -41,9 +41,15 @@ const props = defineProps({
     specsContextAssetType: { type: Number, default: null },
     /** Variant modal: send enable_has_variants so the API can turn on has_variants before the main asset is saved. */
     enableHasVariantsOnStore: { type: Boolean, default: false },
+    /** Field keys hidden from all form groups (e.g. asset_variant_id when asset has no variants). */
+    hiddenFields: { type: Array, default: () => [] },
+    /** Per-field required override: { fieldKey: boolean }. */
+    fieldRequiredWhen: { type: Object, default: () => ({}) },
+    /** When set, successful update navigates here instead of reloading the current page. */
+    redirectAfterUpdate: { type: String, default: null },
 });
 
-const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
+const emit = defineEmits(['submit', 'cancel', 'created', 'updated', 'record-selected']);
 
 const { convertUTCToTimezone, convertTimezoneToUTC, accountTimezone, accountTimezoneLabel } = useTimezone();
 
@@ -665,6 +671,7 @@ const applySourcedDefaults = (changedFieldKey, selectedRecord) => {
             form[fieldKey] = value;
         }
     }
+    emit('record-selected', { fieldKey: changedFieldKey, record: selectedRecord });
 };
 
 const getEnumOptions = (fieldKey) => {
@@ -727,6 +734,9 @@ const getFieldType = (fieldKey) => {
 const getFieldLabel = (fieldKey) => getFieldDefinition(fieldKey).label || fieldKey;
 const isFieldRequired = (field) => {
     if (!field || typeof field !== 'object') return false;
+    if (Object.prototype.hasOwnProperty.call(props.fieldRequiredWhen, field.key)) {
+        return !!props.fieldRequiredWhen[field.key];
+    }
     if (field.required === true) return true;
     return getFieldDefinition(field.key).required === true;
 };
@@ -770,6 +780,7 @@ const getConditionalFieldValue = (fieldPath) => {
 
 const isFieldVisible = (field) => {
     if (!field || typeof field !== 'object') return false;
+    if (props.hiddenFields.includes(field.key)) return false;
     const def = getFieldDefinition(field.key);
     if (def && def.update_only === true && isCreateMode.value) return false;
     if (field.update_only === true && isCreateMode.value) return false;
@@ -1186,7 +1197,11 @@ const handleSubmit = () => {
                 preserveScroll: true,
                     onSuccess: () => {
                     emit('submit');
-                    router.reload({ only: ['record', 'imageUrls'] });
+                    if (props.redirectAfterUpdate) {
+                        router.visit(props.redirectAfterUpdate);
+                    } else {
+                        router.reload({ only: ['record', 'imageUrls'] });
+                    }
                 },
                 }
             );

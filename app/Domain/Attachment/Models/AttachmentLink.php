@@ -22,11 +22,13 @@ class AttachmentLink extends Model
         'attachable_id',
         'sort_order',
         'is_primary',
+        'visible_to_customer',
     ];
 
     protected $casts = [
         'sort_order' => 'integer',
         'is_primary' => 'boolean',
+        'visible_to_customer' => 'boolean',
     ];
 
     public function attachable(): MorphTo

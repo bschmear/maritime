@@ -6,12 +6,19 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Delivery\Models\Delivery;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Location\Models\Location;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Domain\Vendor\Models\Vendor;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class AssetUnit extends Model
 {
@@ -134,8 +141,47 @@ class AssetUnit extends Model
         return $this->morphMany(InventoryImage::class, 'imageable');
     }
 
-    public function consignmentAgreements()
+    public function consignmentAgreements(): HasMany
     {
         return $this->hasMany(ConsignmentAgreement::class, 'asset_unit_id');
+    }
+
+    public function serviceTickets(): HasMany
+    {
+        return $this->hasMany(ServiceTicket::class, 'asset_unit_id');
+    }
+
+    public function workOrders(): HasMany
+    {
+        return $this->hasMany(WorkOrder::class, 'asset_unit_id');
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class, 'asset_unit_id');
+    }
+
+    /** Deal lines that reference this physical unit. */
+    public function transactionLineItems(): HasMany
+    {
+        return $this->hasMany(TransactionLineItem::class, 'asset_unit_id');
+    }
+
+    /**
+     * Transactions that include this unit on at least one line item (not a direct FK on transactions).
+     */
+    public function transactions(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Transaction::class,
+            TransactionLineItem::class,
+            'asset_unit_id',
+            'id',
+            'id',
+            'parent_id',
+        )->where(
+            (new TransactionLineItem)->getTable().'.parent_type',
+            Transaction::class,
+        );
     }
 }

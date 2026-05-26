@@ -11,6 +11,7 @@ use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\ServiceTicket\Support\ServiceTicketPortalImages;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\User\Models\User;
 use App\Enums\Estimate\EstimateStatus;
@@ -327,12 +328,7 @@ class CustomerPortalController extends Controller
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
-        $recordArray['images'] = $ticket->images->map(fn ($img) => [
-            'id' => $img->id,
-            'display_name' => $img->display_name,
-            'url' => $img->url,
-            'is_primary' => (bool) ($img->pivot?->is_primary ?? $img->is_primary),
-        ])->values()->all();
+        $recordArray['images'] = ServiceTicketPortalImages::forCustomer($ticket->images);
 
         return Inertia::render('Portal/ServiceTicketShow', [
             'record' => $recordArray,

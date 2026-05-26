@@ -643,7 +643,7 @@ const customerField = computed(() => ({ type: 'record', typeDomain: 'Customer', 
 const workOrderField = computed(() => ({ type: 'record', typeDomain: 'WorkOrder', label: 'Work Order' }));
 const transactionField = computed(() => ({ type: 'record', typeDomain: 'Transaction', label: 'Transaction' }));
 const deliveryLocationField = computed(() => ({ type: 'record', typeDomain: 'DeliveryLocation', label: 'Delivery Location' }));
-const technicianField = computed(() => ({ type: 'record', typeDomain: 'User', label: 'Technician' }));
+const technicianField = computed(() => ({ type: 'record', typeDomain: 'User', label: 'Delivery Driver' }));
 
 const deliverToTypeLabel = computed(() => {
     const map = { contact_address: 'Customer address', delivery_location: 'Common location', custom: 'Custom' };
@@ -1067,7 +1067,7 @@ const onScheduledAtCommittedChange = async () => {
                                     </div>
 
                                     <div>
-                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Technician</label>
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Delivery Driver</label>
                                         <RecordSelect
                                             id="technician_id"
                                             :field="technicianField"
@@ -1538,7 +1538,7 @@ const onScheduledAtCommittedChange = async () => {
                                 </select>
                             </div>
                             <div class="flex justify-between items-center">
-                                <span class="text-gray-500 dark:text-gray-400">Technician</span>
+                                <span class="text-gray-500 dark:text-gray-400">Delivery Driver</span>
                                 <span class="font-medium text-gray-900 dark:text-white">
                                     {{ selectedTechnicianLabel || 'Unassigned' }}
                                 </span>

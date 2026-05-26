@@ -25,6 +25,7 @@ class ConsignmentAgreement extends Model
         'owner_contact_id',
         'owner_contact_address_id',
         'notes',
+        'policies_snapshot',
         'asking_boat',
         'asking_motor',
         'asking_other',
@@ -46,6 +47,7 @@ class ConsignmentAgreement extends Model
     protected $casts = [
         'agreement_date' => 'date',
         'boat_title_signed_delivered' => 'boolean',
+        'policies_snapshot' => 'array',
         'sequence' => 'integer',
         'asking_boat' => 'decimal:2',
         'asking_motor' => 'decimal:2',

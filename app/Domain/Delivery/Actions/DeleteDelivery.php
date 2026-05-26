@@ -3,6 +3,7 @@
 namespace App\Domain\Delivery\Actions;
 
 use App\Domain\Delivery\Models\Delivery as RecordModel;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -13,7 +14,9 @@ class DeleteDelivery
     {
         try {
             $record = RecordModel::findOrFail($id);
+            $technicianId = $record->technician_id;
             $record->delete();
+            SyncTechnicianDeliveryInProgress::recomputeForUserIds([$technicianId]);
 
             return [
                 'success' => true,

@@ -13,6 +13,7 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     reviewUrl: { type: String, default: null },
+    postSignOnly: { type: Boolean, default: false },
 });
 
 const label = computed(() => {
@@ -50,6 +51,14 @@ const handleCancel = () => {
 
         <div class="mx-auto flex w-full max-w-5xl flex-col space-y-6">
             <div
+                v-if="postSignOnly"
+                class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+            >
+                This agreement is signed. You can update sold pricing, notes, and the boat title delivered checkbox only.
+                Other fields are locked.
+            </div>
+
+            <div
                 v-if="reviewUrl"
                 class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
             >
@@ -69,6 +78,7 @@ const handleCancel = () => {
                 :record="record"
                 :fields-schema="fieldsSchema"
                 :enum-options="enumOptions"
+                :post-sign-only="postSignOnly"
                 @cancel="handleCancel"
             />
         </div>

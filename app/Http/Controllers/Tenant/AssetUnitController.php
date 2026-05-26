@@ -8,6 +8,7 @@ use App\Domain\AssetUnit\Actions\DeleteAssetUnit as DeleteAction;
 use App\Domain\AssetUnit\Actions\UpdateAssetUnit as UpdateAction;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
 use App\Enums\RecordType;
+use App\Enums\Timezone;
 use App\Services\AssetOptionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -40,6 +41,51 @@ class AssetUnitController extends RecordController
                     'make' => fn ($q) => $q->select(['id', 'display_name']),
                 ]);
         };
+        $relationships['assetVariant'] = fn ($q) => $q->select(['id', 'display_name', 'name', 'asset_id']);
+        $relationships['customer'] = fn ($q) => $q->select(['id', 'contact_id'])
+            ->with(['contact' => fn ($cq) => $cq->select(['id', 'display_name', 'first_name', 'last_name'])]);
+        $relationships['documents'] = fn ($q) => $q->select([
+            'documents.id',
+            'documents.display_name',
+            'documents.file',
+            'documents.file_extension',
+            'documents.file_size',
+            'documents.created_at',
+        ]);
+    }
+
+    public function create()
+    {
+        $request = request();
+        $formSchema = $this->getFormSchema();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = $this->getEnumOptions();
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        $prefill = [];
+        $assetId = (int) $request->query('asset_id', 0);
+        if ($assetId > 0) {
+            $asset = Asset::query()
+                ->select(['id', 'display_name', 'has_variants'])
+                ->find($assetId);
+            if ($asset) {
+                $prefill = [
+                    'asset_id' => $asset->id,
+                    'asset' => $asset,
+                ];
+            }
+        }
+
+        return inertia('Tenant/AssetUnit/Create', [
+            'recordType' => $this->recordType,
+            'recordTitle' => $this->recordTitle,
+            'formSchema' => $formSchema,
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $enumOptions,
+            'account' => $account,
+            'timezones' => Timezone::options(),
+            'prefill' => $prefill,
+        ]);
     }
 
     /**
@@ -81,7 +127,20 @@ class AssetUnitController extends RecordController
         }
 
         if (! $record->is_consignment) {
-            return array_merge($base, $catalog, ['consignmentAgreementContext' => null]);
+            $record->loadMissing(['customer.contact']);
+            $ownerName = $record->customer?->contact?->display_name;
+
+            return array_merge($base, $catalog, [
+                'consignmentAgreementContext' => [
+                    'not_marked_consignment' => true,
+                    'needs_agreement' => true,
+                    'create_url' => URL::route('consignmentagreements.create', ['asset_unit_id' => $record->id]),
+                    'mark_consignment_preview' => [
+                        'owner_name' => $ownerName,
+                        'can_mark' => filled($ownerName) && $record->customer?->contact_id,
+                    ],
+                ],
+            ]);
         }
 
         $hasSigned = $record->consignmentAgreements()->signed()->exists();

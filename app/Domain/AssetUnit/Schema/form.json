@@ -67,5 +67,32 @@
       "cost": "Asset.default_cost",
       "asking_price": "Asset.default_price"
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Transactions",
+      "domain": "Transaction"
+    },
+    {
+      "label": "Service Tickets",
+      "domain": "ServiceTicket"
+    },
+    {
+      "label": "Work Orders",
+      "domain": "WorkOrder"
+    },
+    {
+      "label": "Consignment Agreements",
+      "domain": "ConsignmentAgreement"
+    },
+    {
+      "label": "Images",
+      "domain": "InventoryImage",
+      "modelRelationship": "images"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document"
+    }
+  ]
 }

@@ -18,7 +18,10 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     canMutate: { type: Boolean, default: true },
+    canEditPostSign: { type: Boolean, default: false },
     reviewUrl: { type: String, default: null },
+    consignmentPolicies: { type: Array, default: () => [] },
+    policiesLocked: { type: Boolean, default: false },
 });
 
 const label = computed(() => {
@@ -70,7 +73,7 @@ const confirmDelete = () => {
                     <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                         {{ label }}
                     </h2>
-                    <div v-if="canMutate" class="flex flex-wrap gap-2">
+                    <div v-if="canMutate || canEditPostSign" class="flex flex-wrap gap-2">
                         <Link
                             :href="editHref"
                             class="inline-flex items-center rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
@@ -78,6 +81,7 @@ const confirmDelete = () => {
                             Edit
                         </Link>
                         <button
+                            v-if="canMutate"
                             type="button"
                             class="inline-flex items-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                             @click="showDeleteModal = true"
@@ -136,6 +140,30 @@ const confirmDelete = () => {
                             </dd>
                         </div>
                     </dl>
+                </div>
+
+                <div
+                    v-if="consignmentPolicies.length"
+                    class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <div class="border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Consignment policies</h3>
+                        <p v-if="policiesLocked" class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            Locked as of customer signature
+                        </p>
+                        <p v-else class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            Current account policies (updates until signed)
+                        </p>
+                    </div>
+                    <ul class="list-disc space-y-3 px-4 py-4 pl-8 text-sm text-gray-700 dark:text-gray-300">
+                        <li
+                            v-for="(policy, index) in consignmentPolicies"
+                            :key="policy.id || index"
+                            class="whitespace-pre-line"
+                        >
+                            {{ policy.body }}
+                        </li>
+                    </ul>
                 </div>
             </aside>
         </div>

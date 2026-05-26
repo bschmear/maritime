@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Domain\Transaction\Models\Transaction;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 trait HasSchemaSupport
@@ -404,6 +407,16 @@ trait HasSchemaSupport
                     }
                     break;
                 case 'equals':
+                    // Transactions link to units on line items, not a transactions.asset_unit_id column.
+                    if ($field === 'asset_unit_id' && $value !== null && $value !== ''
+                        && strcasecmp((string) $this->domainName, 'Transaction') === 0) {
+                        $query->whereHas('items', function ($q) use ($value) {
+                            $q->where('asset_unit_id', $value)
+                                ->where('parent_type', Transaction::class);
+                        });
+                        break;
+                    }
+
                     // BoatMake: filter by selected inventory asset type (JSON array on boat_make).
                     // NULL asset_types = legacy / unrestricted (show for every type).
                     // Domain may be miscased as "Boatmake" when derived from Str::studly('boatmake').
@@ -610,5 +623,32 @@ trait HasSchemaSupport
         $dir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         return ['key' => $key, 'dir' => $dir];
+    }
+
+    /**
+     * JSON payload for Sublist / Table AJAX index requests (not Inertia visits).
+     */
+    protected function indexAjaxJsonResponse(
+        Request $request,
+        LengthAwarePaginator $paginator,
+        array $schema,
+        array $fieldsSchema,
+        array $extra = [],
+    ): ?JsonResponse {
+        if (! ($request->ajax() && ! $request->header('X-Inertia'))) {
+            return null;
+        }
+
+        return response()->json(array_merge([
+            'records' => $paginator->items(),
+            'schema' => $schema,
+            'fieldsSchema' => $fieldsSchema,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ], $extra));
     }
 }

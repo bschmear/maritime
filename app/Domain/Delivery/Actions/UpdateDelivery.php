@@ -7,6 +7,7 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\Delivery\Support\DeliveryFleetConflictGuard;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -87,6 +88,7 @@ class UpdateDelivery
                 $previousTransactionId = $record->transaction_id;
                 $previousWorkOrderId = $record->work_order_id;
                 $oldStatus = $record->status;
+                $previousTechnicianId = $record->technician_id;
 
                 if (isset($validated['status']) && $validated['status'] === 'en_route' && $oldStatus !== 'en_route') {
                     $validated['en_route_at'] = now();
@@ -126,13 +128,17 @@ class UpdateDelivery
                 $record->save();
 
                 $onlyQuickStatus = count($validated) === 1 && array_key_exists('status', $validated);
-                if (! $onlyQuickStatus) {
+                $onlyTechnicianChange = count($validated) === 1 && array_key_exists('technician_id', $validated);
+                if (! $onlyQuickStatus && ! $onlyTechnicianChange) {
                     $record = DeliveryFleetConflictGuard::assertResolved($record->fresh(), $swapWithDeliveryId);
                 }
 
+                $final = $record->fresh();
+                SyncTechnicianDeliveryInProgress::syncForDelivery($final, $previousTechnicianId);
+
                 return [
                     'success' => true,
-                    'record' => $record->fresh(),
+                    'record' => $final,
                 ];
             });
         } catch (DeliveryFleetConflictException $e) {

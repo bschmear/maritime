@@ -169,6 +169,10 @@ class TransactionController extends BaseController
         $perPage = (int) $request->get('per_page', 15);
         $records = $query->paginate($perPage);
 
+        if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {
+            return $json;
+        }
+
         return inertia('Tenant/Transaction/Index', [
             'records' => $records,
             'recordType' => 'transactions',

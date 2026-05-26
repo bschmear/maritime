@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Transaction\Models\Transaction;
@@ -139,6 +140,10 @@ class ServiceTicketController extends BaseController
         $perPage = (int) $request->get('per_page', 15);
         $records = $query->paginate($perPage)->withQueryString();
 
+        if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {
+            return $json;
+        }
+
         $stats = [
             'open' => ServiceTicket::whereIn('status', [
                 ServiceTicketStatus::Draft->id(),
@@ -178,7 +183,12 @@ class ServiceTicketController extends BaseController
             ? (int) $request->get('transaction_id')
             : null;
 
-        $transactionBootstrap = $this->transactionBootstrapForServiceTicketCreate($transactionId);
+        $assetUnitId = $request->filled('asset_unit_id')
+            ? (int) $request->get('asset_unit_id')
+            : null;
+
+        $transactionBootstrap = $this->transactionBootstrapForServiceTicketCreate($transactionId)
+            ?? $this->assetUnitBootstrapForServiceTicketCreate($assetUnitId);
 
         return inertia('Tenant/ServiceTicket/Create', [
             'formSchema' => $this->getFormSchema(),
@@ -247,31 +257,7 @@ class ServiceTicketController extends BaseController
                 continue;
             }
             $seenUnitIds[$unit->id] = true;
-            $asset = $unit->asset;
-            $make = $asset?->make;
-            $variant = $unit->assetVariant;
-            $assetUnits[] = [
-                'id' => $unit->id,
-                'display_name' => $unit->display_name ?: ($asset?->display_name ?? 'Unit #'.$unit->id),
-                'serial_number' => $unit->serial_number,
-                'hin' => $unit->hin,
-                'sku' => $unit->sku,
-                'asset_id' => $unit->asset_id,
-                'customer_id' => $unit->customer_id,
-                'asset_variant_id' => $unit->asset_variant_id,
-                'asset' => $asset ? [
-                    'id' => $asset->id,
-                    'display_name' => $asset->display_name,
-                    'year' => $asset->year,
-                    'has_variants' => (bool) $asset->has_variants,
-                    'make' => $make ? ['id' => $make->id, 'display_name' => $make->display_name] : null,
-                ] : null,
-                'asset_variant' => $variant ? [
-                    'id' => $variant->id,
-                    'name' => $variant->name,
-                    'display_name' => $variant->display_name,
-                ] : null,
-            ];
+            $assetUnits[] = $this->formatAssetUnitForServiceTicketBootstrap($unit);
         }
 
         return [
@@ -291,6 +277,107 @@ class ServiceTicketController extends BaseController
                 'display_name' => $tx->location->display_name,
             ] : null,
             'asset_units' => $assetUnits,
+        ];
+    }
+
+    /**
+     * Prefill data when opening the service-ticket wizard from an asset unit (?asset_unit_id=).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function assetUnitBootstrapForServiceTicketCreate(?int $assetUnitId): ?array
+    {
+        if (! $assetUnitId) {
+            return null;
+        }
+
+        $unit = AssetUnit::query()
+            ->select([
+                'id',
+                'serial_number',
+                'hin',
+                'sku',
+                'asset_id',
+                'customer_id',
+                'asset_variant_id',
+                'subsidiary_id',
+                'location_id',
+            ])
+            ->with([
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'location' => fn ($q) => $q->select(['id', 'display_name']),
+                ...$this->assetUnitRelationsForServiceTicketBootstrap(),
+            ])
+            ->find($assetUnitId);
+
+        if (! $unit) {
+            return null;
+        }
+
+        return [
+            'asset_unit' => [
+                'id' => $unit->id,
+                'display_name' => $unit->display_name,
+            ],
+            'customer_id' => $unit->customer_id,
+            'subsidiary_id' => $unit->subsidiary_id,
+            'location_id' => $unit->location_id,
+            'subsidiary' => $unit->subsidiary ? [
+                'id' => $unit->subsidiary->id,
+                'display_name' => $unit->subsidiary->display_name,
+            ] : null,
+            'location' => $unit->location ? [
+                'id' => $unit->location->id,
+                'display_name' => $unit->location->display_name,
+            ] : null,
+            'asset_units' => [$this->formatAssetUnitForServiceTicketBootstrap($unit)],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatAssetUnitForServiceTicketBootstrap(AssetUnit $unit): array
+    {
+        $asset = $unit->asset;
+        $make = $asset?->make;
+        $variant = $unit->assetVariant;
+
+        return [
+            'id' => $unit->id,
+            'display_name' => $unit->display_name ?: ($asset?->display_name ?? 'Unit #'.$unit->id),
+            'serial_number' => $unit->serial_number,
+            'hin' => $unit->hin,
+            'sku' => $unit->sku,
+            'asset_id' => $unit->asset_id,
+            'customer_id' => $unit->customer_id,
+            'asset_variant_id' => $unit->asset_variant_id,
+            'asset' => $asset ? [
+                'id' => $asset->id,
+                'display_name' => $asset->display_name,
+                'year' => $asset->year,
+                'has_variants' => (bool) $asset->has_variants,
+                'make' => $make ? ['id' => $make->id, 'display_name' => $make->display_name] : null,
+            ] : null,
+            'asset_variant' => $variant ? [
+                'id' => $variant->id,
+                'name' => $variant->name,
+                'display_name' => $variant->display_name,
+            ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, \Closure>
+     */
+    private function assetUnitRelationsForServiceTicketBootstrap(): array
+    {
+        return [
+            'asset' => function ($aq) {
+                $aq->select(['id', 'display_name', 'year', 'make_id', 'has_variants'])
+                    ->with(['make' => fn ($mq) => $mq->select(['id', 'display_name'])]);
+            },
+            'assetVariant' => fn ($vq) => $vq->select(['id', 'name', 'display_name']),
         ];
     }
 

@@ -112,10 +112,25 @@ class WorkOrderController extends RecordController
             $query->where('priority', $priorityParam);
         }
 
+        $filtersParam = $request->get('filters');
+        if ($filtersParam) {
+            try {
+                $filters = json_decode(urldecode((string) $filtersParam), true);
+                if (is_array($filters)) {
+                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
+                }
+            } catch (\Throwable) {
+            }
+        }
+
         $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
         $perPage = $request->get('per_page', 15);
         $records = $query->paginate($perPage);
-        // dd($records);
+
+        if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {
+            return $json;
+        }
+
         // Get other users (excluding current user)
         $users = \App\Domain\User\Models\User::select('id', 'display_name')
             ->where('id', '!=', $currentUser->id)

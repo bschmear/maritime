@@ -1,5 +1,6 @@
 <script setup>
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
+import PortalImageGallery from '@/Components/Portal/PortalImageGallery.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 import { VueSignaturePad } from 'vue-signature-pad';
@@ -119,6 +120,13 @@ const taxAmount = computed(() => {
 const grandTotal = computed(() => subtotal.value + taxAmount.value);
 
 const ticketImages = computed(() => props.record.images || []);
+
+const activeTab = ref('form');
+
+const portalTabs = computed(() => [
+    { key: 'form', label: 'Form', icon: 'description' },
+    { key: 'images', label: 'Images', icon: 'collections', count: ticketImages.value.length },
+]);
 
 const estimateVariance = computed(() => {
     const threshold = Number(props.account?.estimate_threshold_percent) || 20;
@@ -264,7 +272,34 @@ const signaturePadOptions = {
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <nav class="flex gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1 print:hidden" aria-label="Service ticket sections">
+                <button
+                    v-for="tab in portalTabs"
+                    :key="tab.key"
+                    type="button"
+                    class="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors sm:flex-none sm:justify-start"
+                    :class="activeTab === tab.key
+                        ? 'bg-white text-primary-700 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'"
+                    @click="activeTab = tab.key"
+                >
+                    <span class="material-icons text-base">{{ tab.icon }}</span>
+                    {{ tab.label }}
+                    <span
+                        v-if="tab.count != null"
+                        class="inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold"
+                        :class="activeTab === tab.key ? 'bg-primary-100 text-primary-800' : 'bg-gray-200 text-gray-600'"
+                    >
+                        {{ tab.count }}
+                    </span>
+                </button>
+            </nav>
+
+            <div v-show="activeTab === 'images'" class="print:hidden">
+                <PortalImageGallery :images="ticketImages" />
+            </div>
+
+            <div v-show="activeTab === 'form'" class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                 <div
                     v-if="isApproved"
                     class="flex items-center gap-3 border-b border-green-200 bg-green-600 px-5 py-4 text-white print:border-green-600 print:bg-white print:text-green-800"
@@ -332,33 +367,6 @@ const signaturePadOptions = {
                 <div class="border-b border-gray-100 px-5 py-5">
                     <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Repair description</h2>
                     <p class="whitespace-pre-line text-gray-900">{{ record.repair_description || '—' }}</p>
-                </div>
-
-                <div v-if="ticketImages.length" class="border-b border-gray-100 px-5 py-5">
-                    <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Photos</h2>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                        <a
-                            v-for="img in ticketImages"
-                            :key="img.id"
-                            :href="img.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
-                        >
-                            <img
-                                :src="img.url"
-                                :alt="img.display_name || 'Ticket photo'"
-                                class="h-full w-full object-cover transition group-hover:opacity-95"
-                                loading="lazy"
-                            />
-                            <span
-                                v-if="img.is_primary"
-                                class="absolute left-1 top-1 rounded bg-primary-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white"
-                            >
-                                Primary
-                            </span>
-                        </a>
-                    </div>
                 </div>
 
                 <!-- Line items -->
@@ -636,6 +644,22 @@ const signaturePadOptions = {
                     </Transition>
                 </div>
 
+                <div
+                    v-if="ticketImages.length"
+                    class="portal-st-print-images hidden border-t border-gray-100 px-5 py-5 print:block"
+                >
+                    <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Photos</h2>
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <img
+                            v-for="img in ticketImages"
+                            :key="`print-${img.id}`"
+                            :src="img.url"
+                            :alt="img.display_name || 'Ticket photo'"
+                            class="aspect-square w-full rounded border border-gray-200 object-cover"
+                        />
+                    </div>
+                </div>
+
                 <div v-if="record.location?.phone" class="bg-gray-900 px-5 py-3 text-center text-xs text-white print:hidden">
                     Questions? {{ formatPhoneNumber(record.location.phone) }}
                 </div>
@@ -655,6 +679,10 @@ const signaturePadOptions = {
 @media print {
     .print\:hidden {
         display: none !important;
+    }
+
+    .portal-st-print-images {
+        display: block !important;
     }
 }
 </style>

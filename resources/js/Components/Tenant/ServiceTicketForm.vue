@@ -1,8 +1,9 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
+import { buildRecordShowUrl } from '@/utils/resourceRoutes.js';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -390,6 +391,79 @@ const getEnumLabel = (fieldKey, value) => {
     return value;
 };
 
+const recordLinkClass =
+    'text-md font-medium text-primary-600 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300';
+
+const relatedRecordForField = (fieldKey) => {
+    const def = props.fieldsSchema[fieldKey];
+    if (!def || def.type !== 'record') {
+        return null;
+    }
+
+    const relName = def.relationship || fieldKey.replace(/_id$/, '');
+    const rel =
+        props.record?.[relName]
+        ?? props.record?.[relName.replace(/_([a-z])/g, (_, c) => c.toUpperCase())]
+        ?? null;
+
+    if (rel && typeof rel === 'object' && rel.id != null) {
+        return rel;
+    }
+
+    const rawId = props.record?.[fieldKey];
+    if (rawId != null && rawId !== '') {
+        return { id: rawId };
+    }
+
+    return null;
+};
+
+const relatedRecordLabel = (fieldKey) => {
+    const def = props.fieldsSchema[fieldKey];
+    const rel = relatedRecordForField(fieldKey);
+    if (!rel) {
+        return '—';
+    }
+
+    const displayField = def?.displayField || 'display_name';
+    if (rel[displayField]) {
+        return rel[displayField];
+    }
+    if (rel.display_name) {
+        return rel.display_name;
+    }
+    if (rel.contact?.display_name) {
+        return rel.contact.display_name;
+    }
+    if (rel.id != null) {
+        return `#${rel.id}`;
+    }
+
+    return '—';
+};
+
+const relatedRecordShowUrl = (fieldKey) => {
+    const def = props.fieldsSchema[fieldKey];
+    if (!def || def.type !== 'record' || !def.typeDomain) {
+        return null;
+    }
+
+    const rel = relatedRecordForField(fieldKey);
+    if (!rel?.id) {
+        return null;
+    }
+
+    const assetUnit = props.record?.asset_unit;
+
+    try {
+        return buildRecordShowUrl(def.typeDomain, rel.id, {
+            assetId: assetUnit?.asset_id ?? rel.asset_id,
+        });
+    } catch {
+        return null;
+    }
+};
+
 const isFieldRequired = (fieldKey) => {
     return props.fieldsSchema[fieldKey]?.required === true;
 };
@@ -715,25 +789,43 @@ const equipmentDisplayRows = computed(() => {
     if (!d) {
         return [];
     }
+
+    const unit = props.record?.asset_unit;
     const rows = [];
+
+    const pushRow = (key, label, value, typeDomain, recordId) => {
+        let href = null;
+        if (typeDomain && recordId != null && recordId !== '') {
+            try {
+                href = buildRecordShowUrl(typeDomain, recordId, {
+                    assetId: unit?.asset_id,
+                });
+            } catch {
+                href = null;
+            }
+        }
+        rows.push({ key, label, value, href });
+    };
+
     if (d.make) {
-        rows.push({ key: 'make', label: 'Make / brand', value: d.make });
+        rows.push({ key: 'make', label: 'Make / brand', value: d.make, href: null });
     }
     if (d.catalogAsset) {
-        rows.push({ key: 'catalog', label: 'Catalog asset', value: d.catalogAsset });
+        pushRow('catalog', 'Catalog asset', d.catalogAsset, 'Asset', unit?.asset_id);
     }
     if (d.modelYear) {
-        rows.push({ key: 'model', label: 'Model & year', value: d.modelYear });
+        rows.push({ key: 'model', label: 'Model & year', value: d.modelYear, href: null });
     }
     if (d.variant) {
-        rows.push({ key: 'variant', label: 'Variant', value: d.variant });
+        pushRow('variant', 'Variant', d.variant, 'AssetVariant', unit?.asset_variant_id);
     }
     if (d.unit) {
-        rows.push({ key: 'unit', label: 'Unit', value: d.unit });
+        pushRow('unit', 'Unit', d.unit, 'AssetUnit', unit?.id);
     }
     if (d.identifiers) {
-        rows.push({ key: 'ids', label: 'Identifiers', value: d.identifiers });
+        rows.push({ key: 'ids', label: 'Identifiers', value: d.identifiers, href: null });
     }
+
     return rows;
 });
 
@@ -1091,8 +1183,15 @@ const handleCancel = () => {
                                                 :record="record"
                                                 field-key="customer_id"
                                             />
+                                            <Link
+                                                v-else-if="relatedRecordShowUrl('customer_id')"
+                                                :href="relatedRecordShowUrl('customer_id')"
+                                                :class="recordLinkClass"
+                                            >
+                                                {{ relatedRecordLabel('customer_id') }}
+                                            </Link>
                                             <p v-else class="text-md text-gray-900 dark:text-white">
-                                                {{ record?.customer?.display_name || '—' }}
+                                                {{ relatedRecordLabel('customer_id') }}
                                             </p>
                                             <p v-if="form.errors.customer_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
                                         </div>
@@ -1113,8 +1212,15 @@ const handleCancel = () => {
                                                 :record="record"
                                                 field-key="subsidiary_id"
                                             />
+                                            <Link
+                                                v-else-if="relatedRecordShowUrl('subsidiary_id')"
+                                                :href="relatedRecordShowUrl('subsidiary_id')"
+                                                :class="recordLinkClass"
+                                            >
+                                                {{ relatedRecordLabel('subsidiary_id') }}
+                                            </Link>
                                             <p v-else class="text-md text-gray-900 dark:text-white">
-                                                {{ record?.subsidiary?.display_name || '—' }}
+                                                {{ relatedRecordLabel('subsidiary_id') }}
                                             </p>
                                             <p v-if="form.errors.subsidiary_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
                                         </div>
@@ -1137,8 +1243,15 @@ const handleCancel = () => {
                                                 filter-by="subsidiary_id"
                                                 :filter-value="form.subsidiary_id"
                                             />
+                                            <Link
+                                                v-else-if="relatedRecordShowUrl('location_id')"
+                                                :href="relatedRecordShowUrl('location_id')"
+                                                :class="recordLinkClass"
+                                            >
+                                                {{ relatedRecordLabel('location_id') }}
+                                            </Link>
                                             <p v-else class="text-md text-gray-900 dark:text-white">
-                                                {{ record?.location?.display_name || '—' }}
+                                                {{ relatedRecordLabel('location_id') }}
                                             </p>
                                             <p v-if="form.errors.location_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                         </div>
@@ -1187,7 +1300,14 @@ const handleCancel = () => {
                                                                     {{ row.label }}
                                                                 </dt>
                                                                 <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-100 break-words">
-                                                                    {{ row.value }}
+                                                                    <Link
+                                                                        v-if="row.href"
+                                                                        :href="row.href"
+                                                                        class="text-primary-600 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                                                                    >
+                                                                        {{ row.value }}
+                                                                    </Link>
+                                                                    <span v-else>{{ row.value }}</span>
                                                                 </dd>
                                                             </div>
                                                         </dl>
@@ -1214,11 +1334,25 @@ const handleCancel = () => {
                                                             {{ row.label }}
                                                         </dt>
                                                         <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-white break-words">
-                                                            {{ row.value }}
+                                                            <Link
+                                                                v-if="row.href"
+                                                                :href="row.href"
+                                                                class="text-primary-600 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                                                            >
+                                                                {{ row.value }}
+                                                            </Link>
+                                                            <span v-else>{{ row.value }}</span>
                                                         </dd>
                                                     </div>
                                                 </dl>
                                             </div>
+                                            <Link
+                                                v-else-if="relatedRecordShowUrl('asset_unit_id')"
+                                                :href="relatedRecordShowUrl('asset_unit_id')"
+                                                :class="recordLinkClass"
+                                            >
+                                                {{ relatedRecordLabel('asset_unit_id') }}
+                                            </Link>
                                             <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                             <p v-if="fieldsSchema.asset_unit_id?.help && mode !== 'show'" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                                 {{ fieldsSchema.asset_unit_id.help }}

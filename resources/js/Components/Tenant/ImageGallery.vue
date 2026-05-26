@@ -20,46 +20,104 @@
         <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
 
             <!-- Header Bar -->
-            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex items-center gap-2">
-                    <span class="material-icons text-gray-500 dark:text-gray-400">collections</span>
-                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Images</h3>
-                    <span
-                        v-if="images.length > 0"
-                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    >
-                        {{ images.length }}
-                    </span>
+            <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-5">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <span class="material-icons shrink-0 text-gray-500 dark:text-gray-400">collections</span>
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Images</h3>
+                            <p
+                                v-if="showCustomerVisibility"
+                                class="mt-0.5 text-xs text-gray-500 dark:text-gray-400"
+                            >
+                                Mark photos as customer-visible to show them in the portal; others stay internal.
+                            </p>
+                        </div>
+                        <span
+                            v-if="images.length > 0"
+                            class="inline-flex shrink-0 items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                        >
+                            {{ images.length }}
+                        </span>
+                    </div>
+
+                    <div class="flex w-full min-w-0 flex-col gap-3 sm:w-auto sm:items-end">
+                        <label
+                            v-if="showAlsoAttachToTicket"
+                            class="flex w-full cursor-pointer select-none items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-800/60 dark:text-gray-300 sm:w-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+                        >
+                            <input
+                                v-model="alsoAttachToServiceTicket"
+                                type="checkbox"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <span>Also add to service ticket</span>
+                        </label>
+
+                        <label
+                            v-if="showCustomerVisibility"
+                            class="flex w-full cursor-pointer select-none items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-800/60 dark:text-gray-300 sm:w-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+                        >
+                            <input
+                                v-model="visibleToCustomerOnUpload"
+                                type="checkbox"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            />
+                            <span>Visible to customer on upload</span>
+                        </label>
+
+                        <p
+                            v-if="images.length > 0"
+                            class="flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400 sm:justify-end sm:text-sm"
+                        >
+                            <span class="material-icons text-base">drag_indicator</span>
+                            Drag to reorder
+                        </p>
+
+                        <div
+                            class="grid w-full gap-2 sm:flex sm:w-auto sm:items-center sm:gap-3"
+                            :class="showCameraCapture ? 'grid-cols-2' : 'grid-cols-1'"
+                        >
+                            <button
+                                v-if="showCameraCapture"
+                                type="button"
+                                :disabled="uploading"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:w-auto sm:px-4 sm:py-2"
+                                @click="openCamera"
+                            >
+                                <span class="material-icons text-base">photo_camera</span>
+                                <span class="truncate">Take Picture</span>
+                            </button>
+                            <button
+                                type="button"
+                                :disabled="uploading"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-4 sm:py-2"
+                                @click="openFilePicker"
+                            >
+                                <span class="material-icons text-base">add_photo_alternate</span>
+                                <span class="truncate">Upload</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <label
-                        v-if="showAlsoAttachToTicket"
-                        class="hidden sm:inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none"
-                    >
-                        <input v-model="alsoAttachToServiceTicket" type="checkbox" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                        <span>Also add to service ticket</span>
-                    </label>
-                    <span v-if="images.length > 0" class="hidden sm:flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                        <span class="material-icons text-base">drag_indicator</span>
-                        Drag to reorder
-                    </span>
-                    <button
-                        type="button"
-                        @click="$refs.fileInput.click()"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md"
-                    >
-                        <span class="material-icons text-base">add_photo_alternate</span>
-                        <span>Upload</span>
-                    </button>
-                    <input
-                        ref="fileInput"
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        @change="handleFileSelect"
-                        class="hidden"
-                    />
-                </div>
+
+                <input
+                    ref="fileInput"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    class="hidden"
+                    @change="handleFileSelect"
+                />
+                <input
+                    v-if="showCameraCapture"
+                    ref="cameraInput"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    class="hidden"
+                    @change="handleCameraCapture"
+                />
             </div>
 
             <!-- Upload Progress -->
@@ -132,6 +190,18 @@
                             <span>Primary</span>
                         </div>
 
+                        <!-- Customer visibility badge -->
+                        <div
+                            v-if="showCustomerVisibility"
+                            class="absolute bottom-2.5 left-2.5 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide shadow-lg"
+                            :class="image.visible_to_customer
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-800/90 text-gray-100'"
+                        >
+                            <span class="material-icons text-xs">{{ image.visible_to_customer ? 'visibility' : 'lock' }}</span>
+                            <span>{{ image.visible_to_customer ? 'Customer' : 'Internal' }}</span>
+                        </div>
+
                         <!-- Drag Handle -->
                         <div class="drag-handle absolute top-2.5 right-2.5 flex items-center justify-center w-8 h-8 bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-full cursor-move shadow-lg hover:scale-110 transition-all duration-200 z-10 opacity-0 group-hover:opacity-100">
                             <span class="material-icons text-gray-700 dark:text-gray-300 text-base">drag_indicator</span>
@@ -140,6 +210,18 @@
                         <!-- Hover Overlay -->
                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                             <div class="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-center gap-2 pointer-events-auto">
+                                <button
+                                    v-if="showCustomerVisibility"
+                                    @click.stop="toggleCustomerVisibility(image)"
+                                    :disabled="togglingVisibilityId === image.id"
+                                    type="button"
+                                    :title="image.visible_to_customer ? 'Mark internal only' : 'Visible to customer'"
+                                    class="flex items-center justify-center w-9 h-9 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-full hover:bg-white hover:scale-110 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    :class="image.visible_to_customer ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-300'"
+                                >
+                                    <span v-if="togglingVisibilityId === image.id" class="material-icons animate-spin text-base">sync</span>
+                                    <span v-else class="material-icons text-base">{{ image.visible_to_customer ? 'visibility' : 'visibility_off' }}</span>
+                                </button>
                                 <button
                                     v-if="!image.is_primary"
                                     @click.stop="setPrimary(image)"
@@ -181,15 +263,28 @@
                     <span class="material-icons text-4xl text-gray-400 dark:text-gray-500">image</span>
                 </div>
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">No images yet</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Upload your first image or drag and drop files here</p>
-                <button
-                    type="button"
-                    @click="$refs.fileInput.click()"
-                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
-                >
-                    <span class="material-icons text-base">add_photo_alternate</span>
-                    Browse Files
-                </button>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">{{ emptyStateHint }}</p>
+                <div class="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                        v-if="showCameraCapture"
+                        type="button"
+                        :disabled="uploading"
+                        @click="openCamera"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-icons text-base">photo_camera</span>
+                        Take Picture
+                    </button>
+                    <button
+                        type="button"
+                        :disabled="uploading"
+                        @click="openFilePicker"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <span class="material-icons text-base">add_photo_alternate</span>
+                        Browse Files
+                    </button>
+                </div>
                 <p class="text-sm text-gray-400 dark:text-gray-500 mt-3">
                     Images are automatically resized to max 2000px
                 </p>
@@ -262,6 +357,25 @@
                                     ></textarea>
                                 </div>
 
+                                <div
+                                    v-if="showCustomerVisibility"
+                                    class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800"
+                                >
+                                    <label class="flex cursor-pointer items-start gap-3">
+                                        <input
+                                            v-model="editForm.visible_to_customer"
+                                            type="checkbox"
+                                            class="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        <span>
+                                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Visible to customer</span>
+                                            <span class="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                                                When enabled, this photo appears in the customer portal and approval link.
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+
                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
                                     <div class="flex items-start gap-3">
                                         <input
@@ -330,18 +444,45 @@ const uploading = ref(false);
 const uploadProgress = ref(0);
 const uploadError = ref('');
 const fileInput = ref(null);
+const cameraInput = ref(null);
 const imageGrid = ref(null);
 let sortableInstance = null;
 let dragLeaveTimer = null;
 
 const showEditModal = ref(false);
 const editingImage = ref(null);
-const editForm = ref({ display_name: '', description: '', is_primary: false });
+const editForm = ref({ display_name: '', description: '', is_primary: false, visible_to_customer: false });
 const isUpdatingImage = ref(false);
 const settingPrimaryImageId = ref(null);
 const deletingImageId = ref(null);
+const togglingVisibilityId = ref(null);
 const isReordering = ref(false);
 const alsoAttachToServiceTicket = ref(false);
+const visibleToCustomerOnUpload = ref(false);
+const showCameraCapture = ref(false);
+
+let cameraCaptureMediaQuery = null;
+
+/** Native camera capture (`capture` attribute) works on phones/tablets, not desktop file pickers. */
+const detectCameraCaptureDevice = () => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    if (window.matchMedia('(pointer: coarse) and (hover: none)').matches) {
+        return true;
+    }
+    if (/Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent)) {
+        return true;
+    }
+    if (navigator.maxTouchPoints > 0 && window.matchMedia('(max-width: 1024px)').matches) {
+        return true;
+    }
+    return false;
+};
+
+const syncCameraCaptureVisibility = () => {
+    showCameraCapture.value = detectCameraCaptureDevice();
+};
 
 const attachableFqcn = computed(() => `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`);
 
@@ -356,9 +497,17 @@ const showAlsoAttachToTicket = computed(
         Number(props.serviceTicketId) > 0,
 );
 
+const showCustomerVisibility = computed(() => props.parentType === 'ServiceTicket');
+
 const sortedImages = computed(() => {
     return [...images.value].sort((a, b) => a.sort_order - b.sort_order);
 });
+
+const emptyStateHint = computed(() =>
+    showCameraCapture.value
+        ? 'Take a photo, upload files, or drag and drop here'
+        : 'Upload files or drag and drop here',
+);
 
 const linkContextParams = () => ({
     attachable_type: attachableFqcn.value,
@@ -408,8 +557,29 @@ const fetchImages = async () => {
     }
 };
 
+const openFilePicker = () => {
+    fileInput.value?.click();
+};
+
+const openCamera = () => {
+    cameraInput.value?.click();
+};
+
 const handleFileSelect = (event) => {
     uploadFiles(Array.from(event.target.files));
+    if (fileInput.value) {
+        fileInput.value.value = '';
+    }
+};
+
+const handleCameraCapture = (event) => {
+    const files = Array.from(event.target.files || []).filter((f) => f.type.startsWith('image/'));
+    if (files.length) {
+        uploadFiles(files);
+    }
+    if (cameraInput.value) {
+        cameraInput.value.value = '';
+    }
 };
 
 const handleDrop = (event) => {
@@ -438,6 +608,9 @@ const uploadFiles = async (files) => {
             formData.append('sort_order', images.value.length + completedFiles);
             if (props.parentType === 'WorkOrder' && alsoAttachToServiceTicket.value) {
                 formData.append('also_attach_to_service_ticket', '1');
+            }
+            if (showCustomerVisibility.value && visibleToCustomerOnUpload.value) {
+                formData.append('visible_to_customer', '1');
             }
 
             await axios.post(route('inventoryimages.store'), formData, {
@@ -498,16 +671,42 @@ const deleteImage = async (image) => {
     }
 };
 
+const toggleCustomerVisibility = async (image) => {
+    if (!showCustomerVisibility.value || togglingVisibilityId.value) {
+        return;
+    }
+    togglingVisibilityId.value = image.id;
+    try {
+        const body = {
+            visible_to_customer: !image.visible_to_customer,
+            ...linkContextParams(),
+        };
+        await axios.patch(route('inventoryimages.update', image.id), body, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+        });
+        await fetchImages();
+    } catch (error) {
+        console.error('Error updating image visibility:', error);
+    } finally {
+        togglingVisibilityId.value = null;
+    }
+};
+
 const openEditModal = (image) => {
     editingImage.value = image;
-    editForm.value = { display_name: image.display_name || '', description: image.description || '', is_primary: image.is_primary || false };
+    editForm.value = {
+        display_name: image.display_name || '',
+        description: image.description || '',
+        is_primary: image.is_primary || false,
+        visible_to_customer: Boolean(image.visible_to_customer),
+    };
     showEditModal.value = true;
 };
 
 const closeEditModal = () => {
     showEditModal.value = false;
     editingImage.value = null;
-    editForm.value = { display_name: '', description: '', is_primary: false };
+    editForm.value = { display_name: '', description: '', is_primary: false, visible_to_customer: false };
 };
 
 const updateImage = async () => {
@@ -566,10 +765,26 @@ const initializeSortable = () => {
     });
 };
 
-onMounted(async () => { await fetchImages(); });
+onMounted(async () => {
+    syncCameraCaptureVisibility();
+    cameraCaptureMediaQuery = window.matchMedia('(pointer: coarse), (hover: none), (max-width: 1024px)');
+    if (cameraCaptureMediaQuery.addEventListener) {
+        cameraCaptureMediaQuery.addEventListener('change', syncCameraCaptureVisibility);
+    } else if (cameraCaptureMediaQuery.addListener) {
+        cameraCaptureMediaQuery.addListener(syncCameraCaptureVisibility);
+    }
+    await fetchImages();
+});
 watch(() => [props.parentId, props.parentType], () => { fetchImages(); });
 watch(() => images.value.length, () => { setTimeout(() => { initializeSortable(); }, 100); });
 onUnmounted(() => {
+    if (cameraCaptureMediaQuery) {
+        if (cameraCaptureMediaQuery.removeEventListener) {
+            cameraCaptureMediaQuery.removeEventListener('change', syncCameraCaptureVisibility);
+        } else if (cameraCaptureMediaQuery.removeListener) {
+            cameraCaptureMediaQuery.removeListener(syncCameraCaptureVisibility);
+        }
+    }
     if (sortableInstance) sortableInstance.destroy();
     clearTimeout(dragLeaveTimer);
 });

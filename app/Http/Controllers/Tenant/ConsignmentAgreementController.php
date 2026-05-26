@@ -9,6 +9,8 @@ use App\Domain\ConsignmentAgreement\Actions\CreateConsignmentAgreement;
 use App\Domain\ConsignmentAgreement\Actions\DeleteConsignmentAgreement;
 use App\Domain\ConsignmentAgreement\Actions\UpdateConsignmentAgreement;
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
+use App\Domain\ConsignmentAgreement\Support\ConsignmentAgreementPolicyResolver;
+use App\Domain\ConsignmentAgreement\Support\SyncAssetUnitForConsignmentMarking;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Enums\Timezone;
@@ -153,6 +155,17 @@ class ConsignmentAgreementController extends BaseController
             ->select(array_map(static fn (string $c) => $tableName.'.'.$c, $actualColumns))
             ->with(['assetUnit' => fn ($q) => $q->select(['id', 'asset_id', 'serial_number', 'hin', 'sku'])->with(['asset:id,display_name'])]);
 
+        $filtersParam = $request->get('filters');
+        if ($filtersParam) {
+            try {
+                $filters = json_decode(urldecode((string) $filtersParam), true);
+                if (is_array($filters)) {
+                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
+                }
+            } catch (\Throwable) {
+            }
+        }
+
         $search = trim((string) $request->get('search', ''));
         if ($search !== '') {
             $like = '%'.strtolower($search).'%';
@@ -186,6 +199,10 @@ class ConsignmentAgreementController extends BaseController
         $perPage = (int) $request->get('per_page', 15);
         $records = $query->paginate($perPage > 0 ? $perPage : 15)->withQueryString();
 
+        if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {
+            return $json;
+        }
+
         return inertia('Tenant/ConsignmentAgreement/Index', [
             'records' => $records,
             'recordType' => 'consignmentagreements',
@@ -206,7 +223,6 @@ class ConsignmentAgreementController extends BaseController
         if ($auId > 0) {
             $unit = AssetUnit::query()
                 ->whereKey($auId)
-                ->where('is_consignment', true)
                 ->with(['asset:id,display_name', 'assetVariant:id,display_name', 'customer.contact'])
                 ->first();
             if ($unit) {
@@ -222,6 +238,8 @@ class ConsignmentAgreementController extends BaseController
                 $addrId = $addrModel?->id;
                 $prefill = [
                     'asset_unit_id' => $unit->id,
+                    'is_consignment' => $unit->is_consignment,
+                    'asset_unit' => $unit,
                     'agreement_date' => now()->toDateString(),
                     'boat_description' => $unit->asset?->display_name,
                     'motor_description' => $unit->assetVariant?->display_name,
@@ -247,8 +265,7 @@ class ConsignmentAgreementController extends BaseController
                 'asset_unit_id' => 'required|integer|exists:asset_units,id',
             ]);
 
-            $unit = AssetUnit::query()->findOrFail((int) $request->input('asset_unit_id'));
-            abort_unless($unit->is_consignment, 422, 'This unit is not marked as consignment.');
+            $unit = $this->resolveConsignmentUnit((int) $request->input('asset_unit_id'), $request);
 
             $existing = ConsignmentAgreement::query()
                 ->where('asset_unit_id', $unit->id)
@@ -290,6 +307,9 @@ class ConsignmentAgreementController extends BaseController
         return inertia('Tenant/ConsignmentAgreement/Show', array_merge($this->createEditSharedProps(), [
             'record' => $record,
             'canMutate' => $record->signed_at === null,
+            'canEditPostSign' => $record->signed_at !== null,
+            'consignmentPolicies' => ConsignmentAgreementPolicyResolver::forAgreement($record),
+            'policiesLocked' => ConsignmentAgreementPolicyResolver::policiesAreLocked($record),
             'reviewUrl' => $record->uuid
                 ? route('consignment-agreements.review', ['uuid' => $record->uuid])
                 : null,
@@ -303,10 +323,11 @@ class ConsignmentAgreementController extends BaseController
             ->with($this->detailRelationships())
             ->firstOrFail();
 
-        abort_if($record->signed_at !== null, 403);
+        $postSignOnly = $record->signed_at !== null;
 
         return inertia('Tenant/ConsignmentAgreement/Edit', array_merge($this->createEditSharedProps(), [
             'record' => $record,
+            'postSignOnly' => $postSignOnly,
             'reviewUrl' => $record->uuid ? route('consignment-agreements.review', ['uuid' => $record->uuid]) : null,
         ]));
     }
@@ -315,9 +336,11 @@ class ConsignmentAgreementController extends BaseController
     {
         try {
             $record = ConsignmentAgreement::query()->whereKey($consignmentagreement->getKey())->firstOrFail();
-            abort_if($record->signed_at !== null, 403);
 
-            $result = ($this->updateConsignmentAgreement)($record->id, $request->all());
+            $payload = $request->all();
+            $payload['boat_title_signed_delivered'] = $request->boolean('boat_title_signed_delivered');
+
+            $result = ($this->updateConsignmentAgreement)($record->id, $payload);
 
             if (($result['success'] ?? false) && isset($result['record'])) {
                 return redirect()
@@ -343,9 +366,13 @@ class ConsignmentAgreementController extends BaseController
         return back()->with('error', $result['message'] ?? 'Delete failed.');
     }
 
-    public function storeNested(AssetUnit $assetunit): RedirectResponse
+    public function storeNested(Request $request, AssetUnit $assetunit): RedirectResponse
     {
-        abort_unless($assetunit->is_consignment, 422, 'This unit is not marked as consignment.');
+        try {
+            $assetunit = $this->resolveConsignmentUnit((int) $assetunit->getKey(), $request);
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        }
 
         $existing = $assetunit->consignmentAgreements()->unsigned()->latest('id')->first();
         if ($existing) {
@@ -390,7 +417,7 @@ class ConsignmentAgreementController extends BaseController
     public function updateNested(Request $request, AssetUnit $assetunit): RedirectResponse
     {
         try {
-            abort_unless($assetunit->is_consignment, 422, 'This unit is not marked as consignment.');
+            $assetunit = $this->resolveConsignmentUnit((int) $assetunit->getKey(), $request);
 
             $agreement = $assetunit->consignmentAgreements()->unsigned()->latest('id')->firstOrFail();
 
@@ -418,5 +445,26 @@ class ConsignmentAgreementController extends BaseController
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
+    }
+
+    private function resolveConsignmentUnit(int $assetUnitId, Request $request): AssetUnit
+    {
+        $unit = AssetUnit::query()->findOrFail($assetUnitId);
+
+        if ($unit->is_consignment) {
+            return $unit;
+        }
+
+        if ($request->boolean('mark_as_consignment')) {
+            $ownerContactId = $request->filled('owner_contact_id')
+                ? (int) $request->input('owner_contact_id')
+                : null;
+
+            return SyncAssetUnitForConsignmentMarking::apply($unit, $ownerContactId)['unit'];
+        }
+
+        throw ValidationException::withMessages([
+            'asset_unit_id' => ['This unit is not marked as consignment.'],
+        ]);
     }
 }

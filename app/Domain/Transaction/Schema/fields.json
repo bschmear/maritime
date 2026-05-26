@@ -18,6 +18,14 @@
             "typeDomain": "Opportunity",
             "relationship": "opportunity"
         },
+        "asset_unit_id": {
+            "label": "Asset Unit",
+            "type": "record",
+            "typeDomain": "AssetUnit",
+            "relationship": "assetUnit",
+            "hidden": true,
+            "description": "Used for sublist filtering via transaction line items"
+        },
         "customer_id": {
             "label": "Customer",
             "type": "record",

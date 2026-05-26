@@ -8,6 +8,7 @@ const props = defineProps({
     account: { type: Object, required: true },
     logoUrl: { type: String, default: null },
     consignmentPolicies: { type: Array, default: () => [] },
+    policiesLocked: { type: Boolean, default: false },
 });
 
 const unit = computed(() => props.record.asset_unit ?? props.record.assetUnit ?? null);
@@ -336,7 +337,8 @@ const pricingRows = computed(() => [
 
                 <!-- Policies -->
                 <div v-if="consignmentPolicies.length" class="px-8 print:px-0 py-6 border-t border-gray-200">
-                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Consignment policies</h2>
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Consignment policies</h2>
+                    <p v-if="policiesLocked" class="mb-3 text-xs text-gray-500">Policies as agreed at signing</p>
                     <ul class="list-disc space-y-3 pl-5 text-sm text-gray-700">
                         <li v-for="p in consignmentPolicies" :key="p.id" class="whitespace-pre-line">{{ p.body }}</li>
                     </ul>

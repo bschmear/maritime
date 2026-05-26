@@ -20,7 +20,7 @@ trait HasLinkedInventoryImages
     {
         return $this->belongsToMany(InventoryImage::class, 'attachment_links', 'attachable_id', 'inventory_image_id')
             ->where('attachment_links.attachable_type', static::class)
-            ->withPivot(['id', 'sort_order', 'is_primary'])
+            ->withPivot(['id', 'sort_order', 'is_primary', 'visible_to_customer'])
             ->orderBy('attachment_links.sort_order')
             ->orderBy('attachment_links.id');
     }

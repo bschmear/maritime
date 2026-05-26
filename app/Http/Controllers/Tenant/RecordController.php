@@ -1261,10 +1261,17 @@ class RecordController extends BaseController
                 ], 422);
             }
 
-            // For Inertia requests, return back with errors
+            // For Inertia requests, return back with field errors when available
+            $errors = $result['errors'] ?? [];
+            if (! is_array($errors) || $errors === []) {
+                $errors = ['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle];
+            } elseif (! isset($errors['general']) && ! empty($result['message'])) {
+                $errors['general'] = $result['message'];
+            }
+
             return back()
                 ->withInput()
-                ->withErrors(['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle]);
+                ->withErrors($errors);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Handle validation errors

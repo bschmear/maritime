@@ -31,12 +31,14 @@ const props = defineProps({
         type: Number,
         default: null,
     },
-    /** When present (from ?transaction_id=), prefill customer + deal asset units and link back to the deal. */
+    /** When present (from ?transaction_id= or ?asset_unit_id=), prefill the create wizard. */
     transactionBootstrap: {
         type: Object,
         default: null,
     },
 });
+
+const createBootstrap = computed(() => props.transactionBootstrap);
 
 const breadcrumbItems = computed(() => {
     const items = [
@@ -88,8 +90,10 @@ const assetIsLoading = ref(false);
 // Final data to pass to the form
 const initialFormData = ref(null);
 
-/** While applying transactionBootstrap on first paint (avoids a blank step 1 flash). */
-const transactionInitLoading = ref(Boolean(props.transactionBootstrap?.customer_id));
+/** While applying createBootstrap on first paint (avoids a blank step 1 flash). */
+const wizardInitLoading = ref(Boolean(
+    createBootstrap.value?.customer_id || (createBootstrap.value?.asset_units?.length > 0),
+));
 
 /** Asset rows from the deal; reused when returning to step 2 from the form. */
 const prefetchedTransactionAssetUnits = ref([]);
@@ -351,7 +355,7 @@ const proceedToTicketForm = () => {
         data.transaction_id = props.transactionId;
     }
 
-    const boot = props.transactionBootstrap;
+    const boot = createBootstrap.value;
     if (boot?.subsidiary_id != null && boot.subsidiary_id !== '') {
         data.subsidiary_id = Number(boot.subsidiary_id);
     }
@@ -397,51 +401,58 @@ const handleCancelled = () => {
     router.visit(route('servicetickets.index'));
 };
 
-const applyTransactionBootstrap = async () => {
-    const boot = props.transactionBootstrap;
-    if (!boot?.customer_id) {
+const applyCreateBootstrap = async () => {
+    const boot = createBootstrap.value;
+    if (!boot) {
         return;
     }
 
-    transactionInitLoading.value = true;
+    const units = Array.isArray(boot.asset_units) ? boot.asset_units : [];
+    prefetchedTransactionAssetUnits.value = units;
+
+    if (!boot.customer_id && units.length === 0) {
+        return;
+    }
+
+    wizardInitLoading.value = true;
     try {
-        if (Array.isArray(boot.asset_units) && boot.asset_units.length) {
-            prefetchedTransactionAssetUnits.value = boot.asset_units;
-        } else {
-            prefetchedTransactionAssetUnits.value = [];
+        if (boot.customer_id) {
+            skipCustomerIdAdvance.value = true;
+            customerId.value = boot.customer_id;
+            await fetchCustomerDetails(boot.customer_id);
+            await nextTick();
+            skipCustomerIdAdvance.value = false;
+
+            if (!selectedCustomer.value?.id) {
+                currentStep.value = 1;
+                return;
+            }
         }
 
-        skipCustomerIdAdvance.value = true;
-        customerId.value = boot.customer_id;
-        await fetchCustomerDetails(boot.customer_id);
-        await nextTick();
-        skipCustomerIdAdvance.value = false;
-
-        if (!selectedCustomer.value?.id) {
-            currentStep.value = 1;
-            return;
-        }
-
-        const units = prefetchedTransactionAssetUnits.value;
         assetRecords.value = units;
 
         if (units.length > 0) {
             const first = units[0];
             selectedAssetUnit.value = first;
             await fetchAssetDetails(first.id);
-            proceedToTicketForm();
-        } else {
+
+            if (selectedCustomer.value?.id) {
+                proceedToTicketForm();
+            } else {
+                currentStep.value = 2;
+            }
+        } else if (selectedCustomer.value?.id) {
             currentStep.value = 2;
             await fetchAssets();
         }
     } finally {
-        transactionInitLoading.value = false;
+        wizardInitLoading.value = false;
     }
 };
 
 onMounted(() => {
-    if (props.transactionBootstrap?.customer_id) {
-        applyTransactionBootstrap();
+    if (createBootstrap.value?.customer_id || createBootstrap.value?.asset_units?.length) {
+        applyCreateBootstrap();
     }
 });
 
@@ -457,17 +468,27 @@ onMounted(() => {
             </div>
         </template>
 
-        <div v-if="transactionBootstrap?.transaction?.id" class="max-w-4xl mx-auto mb-4">
+        <div v-if="createBootstrap?.transaction?.id" class="max-w-4xl mx-auto mb-4">
             <Link
-                :href="route('transactions.show', transactionBootstrap.transaction.id)"
+                :href="route('transactions.show', createBootstrap.transaction.id)"
                 class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
             >
                 <span class="material-icons text-base">arrow_back</span>
-                Back to {{ transactionBootstrap.transaction.display_name }}
+                Back to {{ createBootstrap.transaction.display_name }}
             </Link>
         </div>
 
-        <div v-if="transactionInitLoading" class="max-w-4xl mx-auto">
+        <div v-else-if="createBootstrap?.asset_unit?.id" class="max-w-4xl mx-auto mb-4">
+            <Link
+                :href="route('assetunits.show', createBootstrap.asset_unit.id)"
+                class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-primary-600 dark:hover:text-primary-400"
+            >
+                <span class="material-icons text-base">arrow_back</span>
+                Back to {{ createBootstrap.asset_unit.display_name }}
+            </Link>
+        </div>
+
+        <div v-if="wizardInitLoading" class="max-w-4xl mx-auto">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-10 flex flex-col items-center justify-center gap-4">
                 <div class="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-blue-600" />
                 <p class="text-sm text-gray-600 dark:text-gray-400 text-center">

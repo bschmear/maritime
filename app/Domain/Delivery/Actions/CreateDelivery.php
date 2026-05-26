@@ -7,6 +7,7 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\Delivery\Support\DeliveryFleetConflictGuard;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -124,9 +125,12 @@ class CreateDelivery
 
                 $record = DeliveryFleetConflictGuard::assertResolved($record->fresh(), $swapWithDeliveryId);
 
+                $final = $record->fresh();
+                SyncTechnicianDeliveryInProgress::recomputeForUserIds([$final?->technician_id]);
+
                 return [
                     'success' => true,
-                    'record' => $record->fresh(),
+                    'record' => $final,
                 ];
             });
         } catch (DeliveryFleetConflictException $e) {

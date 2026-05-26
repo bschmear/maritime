@@ -14,6 +14,7 @@ use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
+use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
 use App\Domain\Fleet\Models\Fleet;
 use App\Domain\Location\Models\Location;
@@ -23,12 +24,14 @@ use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\SMS;
+use App\Mail\DeliverySignatureRequest;
 use App\Models\AccountSettings;
 use App\Services\SMS\SmsService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -246,6 +249,15 @@ class DeliveryController extends RecordController
             ? $smsService->deliveryEnRouteSmsCanBeOffered($record->customer, $request->user())
             : ['offered' => false, 'hint' => null];
 
+        $arrivedEligible = $record->status === 'en_route' && $record->customer_arrived_notified_at === null;
+        $arrivedSmsOffer = ($wantsDeliverySms && $arrivedEligible)
+            ? $smsService->deliveryArrivedSmsCanBeOffered($record->customer, $request->user())
+            : ['offered' => false, 'hint' => null];
+
+        $signatureSmsOffer = $wantsDeliverySms && ! $record->signed_at
+            ? $smsService->deliverySignatureRequestSmsCanBeOffered($record->customer, $request->user())
+            : ['offered' => false, 'hint' => null];
+
         return Inertia::render('Tenant/Delivery/Show', [
             'record' => $record,
             'recordType' => 'deliveries',
@@ -262,17 +274,111 @@ class DeliveryController extends RecordController
                 'offered' => $deliverySmsOffer['offered'],
                 'hint' => $deliverySmsOffer['hint'],
             ],
+            'deliveryArrivedSms' => [
+                'show_sms_choice' => $wantsDeliverySms && $arrivedEligible && $arrivedSmsOffer['offered'],
+                'offered' => $arrivedSmsOffer['offered'],
+                'hint' => $arrivedSmsOffer['hint'],
+                'category_enabled' => $wantsDeliverySms,
+            ],
+            'deliverySignatureSms' => [
+                'category_enabled' => $wantsDeliverySms,
+                'offered' => $signatureSmsOffer['offered'],
+                'hint' => $signatureSmsOffer['hint'],
+            ],
+            'logoUrl' => $account->logo_url,
         ]);
     }
 
-    public function sendSignatureRequest(Request $request, RecordModel $delivery)
+    public function sendSignatureRequest(Request $request, $delivery, SmsService $smsService)
     {
-        $signatureUrl = url("/deliveries/{$delivery->uuid}/review");
-
-        return response()->json([
-            'message' => 'Signature request sent successfully',
-            'signature_url' => $signatureUrl,
+        $validated = $request->validate([
+            'delivery' => 'required|string|in:email,email_sms',
         ]);
+
+        $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
+        $model = RecordModel::with([
+            'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+        ])->findOrFail($id);
+
+        if ($model->signed_at) {
+            return back()->with('error', 'This delivery has already been signed.');
+        }
+
+        $account = AccountSettings::getCurrent();
+        $sandbox = $account->smsSandboxMode();
+        $customerEmail = $model->customer?->email;
+        $authEmail = $request->user()?->email;
+
+        if ($sandbox) {
+            if (! $authEmail) {
+                return back()->withErrors(['error' => 'Sandbox mode sends the email to you, but your account has no email address on file.']);
+            }
+            $recipientEmail = $authEmail;
+        } else {
+            if (! $customerEmail) {
+                return back()->withErrors(['error' => 'This delivery has no customer email address.']);
+            }
+            $recipientEmail = $customerEmail;
+        }
+
+        if ($validated['delivery'] === 'email_sms') {
+            $offer = $smsService->deliverySignatureRequestSmsCanBeOffered($model->customer, $request->user());
+            if (! $offer['offered']) {
+                return back()->withErrors([
+                    'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                ]);
+            }
+        }
+
+        $tenant = tenant();
+        $domain = $tenant?->domains->first()?->domain;
+
+        if (! $domain) {
+            return back()->withErrors(['error' => 'Unable to resolve tenant domain.']);
+        }
+
+        $reviewUrl = "https://{$domain}/deliveries/{$model->uuid}/review";
+
+        try {
+            Mail::to($recipientEmail)->send(new DeliverySignatureRequest($model, $account, $reviewUrl));
+        } catch (\Exception $e) {
+            \Log::error('Failed to send delivery signature request email', [
+                'delivery_id' => $model->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
+        }
+
+        $emailTarget = $sandbox
+            ? "{$recipientEmail} (sandbox — you)"
+            : $recipientEmail;
+
+        $smsNote = '';
+        if ($validated['delivery'] === 'email_sms') {
+            if ($request->user() === null) {
+                return back()->withErrors(['error' => 'You must be signed in to send SMS.']);
+            }
+            $smsResult = $smsService->sendDeliverySignatureRequestSms($request->user(), $model->customer, $model, $reviewUrl);
+            if (! $smsResult->success && ($smsResult->status ?? '') === 'not_implemented') {
+                $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
+            } elseif (! $smsResult->success) {
+                return back()
+                    ->with('success', "Signature request sent to {$emailTarget}.")
+                    ->with('error', 'Email was sent, but SMS failed: '.($smsResult->error ?? 'Unknown error'));
+            } else {
+                $smsNote = ' A text message was also sent.';
+            }
+        }
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Signature request sent successfully',
+                'signature_url' => $reviewUrl,
+            ]);
+        }
+
+        return back()->with('success', "Signature request sent to {$emailTarget}.{$smsNote}");
     }
 
     /*
@@ -516,6 +622,8 @@ class DeliveryController extends RecordController
             $delivery->delivered_at = $delivery->delivered_at ?: now();
         }
         $delivery->save();
+
+        SyncTechnicianDeliveryInProgress::recomputeForUserIds([$delivery->technician_id]);
 
         return response()->json(['message' => 'Delivery marked as completed']);
     }
@@ -790,6 +898,8 @@ class DeliveryController extends RecordController
             return back()->with('error', 'This delivery cannot be marked en route from its current status.');
         }
 
+        $previousTechnicianId = $model->technician_id;
+
         $result = (new UpdateAction)($id, ['status' => 'en_route']);
 
         if (! ($result['success'] ?? true)) {
@@ -799,6 +909,8 @@ class DeliveryController extends RecordController
         $fresh = RecordModel::with([
             'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
         ])->findOrFail($id);
+
+        SyncTechnicianDeliveryInProgress::syncForDelivery($fresh, $previousTechnicianId);
 
         $successMessage = 'Marked en route. Estimated arrival time updated.';
         $smsError = null;
@@ -847,6 +959,70 @@ class DeliveryController extends RecordController
         }
 
         return $redirect;
+    }
+
+    /**
+     * Confirm arrival at the delivery site; optionally SMS the customer using the assigned technician's name.
+     */
+    public function notifyArrived(Request $request, $delivery, SmsService $smsService)
+    {
+        $request->validate([
+            'notify_sms' => 'required|boolean',
+        ]);
+
+        $notifySms = $request->boolean('notify_sms');
+
+        $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
+        $model = RecordModel::with([
+            'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+            'technician',
+        ])->findOrFail($id);
+
+        if ($model->status !== 'en_route') {
+            return back()->with('error', 'Arrival can only be confirmed while the delivery is en route.');
+        }
+
+        if ($model->customer_arrived_notified_at !== null) {
+            return back()->with('error', 'Arrival was already confirmed for this delivery.');
+        }
+
+        $successMessage = $notifySms
+            ? 'The customer was notified by text that the delivery driver has arrived.'
+            : 'Arrival confirmed. No text was sent to the customer.';
+
+        $smsError = null;
+
+        if ($notifySms) {
+            if (! $smsService->tenantWantsSms(SMS::Delivery)) {
+                $smsError = 'SMS notifications for deliveries are turned off in account settings.';
+            } else {
+                $offer = $smsService->deliveryArrivedSmsCanBeOffered($model->customer, $request->user());
+                if (! $offer['offered']) {
+                    $smsError = $offer['hint'] ?? 'SMS could not be sent.';
+                } elseif ($request->user() === null) {
+                    $smsError = 'You must be signed in to send SMS.';
+                } else {
+                    $tech = $model->technician;
+                    $technicianName = $tech !== null
+                        ? (string) $tech->display_name_or_full_name
+                        : 'Your technician';
+                    $smsResult = $smsService->sendDeliveryArrivedSms($request->user(), $model->customer, $model, $technicianName);
+                    if (! $smsResult->success && ($smsResult->status ?? '') === 'not_implemented') {
+                        $smsError = 'SMS is not wired yet (Twilio transport).';
+                    } elseif (! $smsResult->success) {
+                        $smsError = 'SMS failed: '.($smsResult->error ?? 'Unknown error');
+                    }
+                }
+            }
+        }
+
+        if ($smsError !== null) {
+            return back()->with('error', $smsError);
+        }
+
+        $model->forceFill(['customer_arrived_notified_at' => now()])->saveQuietly();
+
+        return redirect()->route('deliveries.show', $id)->with('success', $successMessage);
     }
 
     public function sourceItems(Request $request)
