@@ -3,7 +3,6 @@ export const reportRouteGroups = [
         label: 'Financial',
         options: [
             { label: 'Profit & Loss', route: 'reports.pnl' },
-            { label: 'Balance Sheet', route: 'reports.balance-sheet' },
             { label: 'Cash Flow', route: 'reports.cash-flow' },
             { label: 'Sales Tax Liability', route: 'reports.sales-tax-liability' },
             { label: 'Sales Tax Payable', route: 'reports.sales-tax-payable' },

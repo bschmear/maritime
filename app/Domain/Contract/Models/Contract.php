@@ -81,8 +81,13 @@ class Contract extends Model
             return null;
         }
 
+        $cdnUrl = config('filesystems.disks.s3.cdn_url');
+        if ($cdnUrl) {
+            return rtrim($cdnUrl, '/').'/'.$this->signature_file;
+        }
+
         try {
-            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addHours(2));
+            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addDays(1));
         } catch (\Exception $e) {
             return Storage::disk('s3')->url($this->signature_file);
         }

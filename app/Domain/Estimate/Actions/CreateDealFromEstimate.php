@@ -92,7 +92,7 @@ class CreateDealFromEstimate
                     'opportunity_id' => $locked->opportunity_id,
                     'subsidiary_id' => $subsidiaryId,
                     'location_id' => $locationId,
-                    'status' => 'active',
+                    'status' => 'processing',
                     'customer_name' => $locked->customer_name,
                     'customer_email' => $locked->customer_email,
                     'customer_phone' => $locked->customer_phone,

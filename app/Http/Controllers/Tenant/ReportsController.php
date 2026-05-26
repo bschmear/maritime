@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Asset\Models\Asset;
+use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Domain\Location\Models\Location;
+use App\Domain\Reports\Support\CollectSalesTaxReportRows;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
@@ -24,99 +28,165 @@ class ReportsController extends Controller
         $subsidiaryId = $request->integer('subsidiary_id') ?: null;
         $locationId = $request->integer('location_id') ?: null;
 
-        $boatSalesQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
-        $this->applySubsidiaryLocationFilters($boatSalesQ, $subsidiaryId, $locationId, 'transactions');
-        $boatSales = (float) ($boatSalesQ
-            ->where('invoice_items.billable_to', '!=', 'internal')
+        $dealershipWarranty = WarrantyCoverageType::Dealership->value;
+        $manufacturerWarranty = WarrantyCoverageType::Manufacturer->value;
+
+        // Customer-billable revenue only (excludes dealership-internal and manufacturer-billable lines).
+        $boatSales = (float) ($this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where('invoice_items.itemable_type', Asset::class)
+            ->where('invoice_items.billable_to', 'customer')
             ->sum('invoice_items.subtotal') ?? 0);
 
-        $partsSalesQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
-        $this->applySubsidiaryLocationFilters($partsSalesQ, $subsidiaryId, $locationId, 'transactions');
-        $partsSales = (float) ($partsSalesQ
-            ->where('invoice_items.billable_to', '!=', 'internal')
+        $partsSales = (float) ($this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where('invoice_items.itemable_type', InventoryItem::class)
+            ->where('invoice_items.billable_to', 'customer')
             ->sum('invoice_items.subtotal') ?? 0);
 
-        $serviceRevenueQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where('invoice_items.billable_to', '!=', 'internal')
-            ->where(function ($q) {
-                $q->whereNull('invoice_items.itemable_type')
-                    ->orWhereNotIn('invoice_items.itemable_type', [
-                        \App\Domain\Asset\Models\Asset::class,
-                        \App\Domain\InventoryItem\Models\InventoryItem::class,
-                    ]);
-            });
-        $this->applySubsidiaryLocationFilters($serviceRevenueQ, $subsidiaryId, $locationId, 'transactions');
-        $serviceRevenue = (float) ($serviceRevenueQ->sum('invoice_items.subtotal') ?? 0);
+        $serviceMorphClause = function ($q): void {
+            $q->whereNull('invoice_items.itemable_type')
+                ->orWhereNotIn('invoice_items.itemable_type', [Asset::class, InventoryItem::class]);
+        };
 
-        $boatCostQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+        $serviceRevenueBase = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where('invoice_items.billable_to', 'customer')
+            ->where($serviceMorphClause);
+
+        $serviceRevenue = (float) ($serviceRevenueBase->clone()->sum('invoice_items.subtotal') ?? 0);
+
+        $serviceFromWorkOrders = (float) ($serviceRevenueBase->clone()
+            ->whereNotNull('invoices.work_order_id')
+            ->sum('invoice_items.subtotal') ?? 0);
+
+        $specCogsByTli = DB::table('transaction_line_item_selected_options')
+            ->selectRaw('transaction_line_item_id, SUM(COALESCE(cost, 0)) as spec_cogs_sum')
+            ->groupBy('transaction_line_item_id');
+
+        $boatCostExpr = trim(<<<'SQL'
+            SUM(
+                (invoice_items.quantity * (
+                    CASE
+                        WHEN COALESCE(invoice_items.cost, 0) > 0 THEN invoice_items.cost
+                        ELSE COALESCE(asset_units.cost, asset_variants.default_cost, assets.default_cost, 0)
+                    END
+                ))
+                + (
+                    CASE
+                        WHEN COALESCE(invoice_items.cost, 0) > 0 THEN 0
+                        ELSE COALESCE(tli_spec_cogs.spec_cogs_sum, 0)
+                    END
+                )
+            )
+            SQL);
+
+        $boatCost = (float) ($this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
             ->leftJoin('assets', function ($join) {
                 $join->on('assets.id', '=', 'invoice_items.itemable_id')
-                    ->where('invoice_items.itemable_type', '=', \App\Domain\Asset\Models\Asset::class);
+                    ->where('invoice_items.itemable_type', '=', Asset::class);
             })
             ->leftJoin('asset_variants', 'asset_variants.id', '=', 'invoice_items.asset_variant_id')
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where('invoice_items.itemable_type', \App\Domain\Asset\Models\Asset::class);
-        $this->applySubsidiaryLocationFilters($boatCostQ, $subsidiaryId, $locationId, 'transactions');
-        $boatCost = (float) ($boatCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, asset_variants.default_cost, assets.default_cost, 0)')) ?? 0);
+            ->leftJoin('asset_units', 'asset_units.id', '=', 'invoice_items.asset_unit_id')
+            ->leftJoinSub($specCogsByTli, 'tli_spec_cogs', function ($join) {
+                $join->on('tli_spec_cogs.transaction_line_item_id', '=', 'invoice_items.transaction_line_item_id');
+            })
+            ->where('invoice_items.itemable_type', Asset::class)
+            ->selectRaw($boatCostExpr.' as pnl_sum')
+            ->value('pnl_sum') ?? 0);
 
-        $partsCostQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+        $partsCost = (float) ($this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
             ->leftJoin('inventory_items', function ($join) {
                 $join->on('inventory_items.id', '=', 'invoice_items.itemable_id')
-                    ->where('invoice_items.itemable_type', '=', \App\Domain\InventoryItem\Models\InventoryItem::class);
+                    ->where('invoice_items.itemable_type', '=', InventoryItem::class);
             })
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where('invoice_items.itemable_type', \App\Domain\InventoryItem\Models\InventoryItem::class);
-        $this->applySubsidiaryLocationFilters($partsCostQ, $subsidiaryId, $locationId, 'transactions');
-        $partsCost = (float) ($partsCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, inventory_items.default_cost, 0)')) ?? 0);
+            ->where('invoice_items.itemable_type', InventoryItem::class)
+            ->selectRaw('SUM(invoice_items.quantity * COALESCE(invoice_items.cost, inventory_items.default_cost, 0)) as pnl_sum')
+            ->value('pnl_sum') ?? 0);
 
-        $serviceCostQ = DB::table('invoice_items')
-            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
-            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
-            ->whereNotIn('invoices.status', ['draft', 'void'])
-            ->whereBetween('invoices.created_at', [$from, $to])
-            ->where(function ($q) {
-                $q->whereNull('invoice_items.itemable_type')
-                    ->orWhereNotIn('invoice_items.itemable_type', [
-                        \App\Domain\Asset\Models\Asset::class,
-                        \App\Domain\InventoryItem\Models\InventoryItem::class,
-                    ]);
+        $serviceCostBase = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where($serviceMorphClause);
+
+        $serviceCost = (float) ($serviceCostBase->clone()
+            ->selectRaw('SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as pnl_sum')
+            ->value('pnl_sum') ?? 0);
+
+        $serviceCostWorkOrders = (float) ($serviceCostBase->clone()
+            ->whereNotNull('invoices.work_order_id')
+            ->selectRaw('SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as pnl_sum')
+            ->value('pnl_sum') ?? 0);
+
+        $warrantyDealershipCost = (float) ($this->pnlWarrantyInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where(function ($q) use ($dealershipWarranty) {
+                $q->where(function ($q2) use ($dealershipWarranty) {
+                    $q2->where('invoice_items.is_warranty', 1)
+                        ->where('invoice_items.warranty_type', $dealershipWarranty);
+                })->orWhere(function ($q2) {
+                    $q2->where('invoice_items.is_warranty', 1)
+                        ->whereNull('invoice_items.warranty_type')
+                        ->where('invoice_items.billable_to', 'internal');
+                });
+            })
+            ->selectRaw('SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as pnl_sum')
+            ->value('pnl_sum') ?? 0);
+
+        $warrantyManufacturerCost = (float) ($this->pnlWarrantyInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where(function ($q) use ($manufacturerWarranty) {
+                $q->where(function ($q2) use ($manufacturerWarranty) {
+                    $q2->where('invoice_items.is_warranty', 1)
+                        ->where('invoice_items.warranty_type', $manufacturerWarranty);
+                })->orWhere('invoice_items.billable_to', 'manufacturer');
+            })
+            ->selectRaw('SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as pnl_sum')
+            ->value('pnl_sum') ?? 0);
+
+        $pendingDealershipBase = $this->pnlPendingWarrantyWorkOrderServiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where(function ($q) use ($dealershipWarranty) {
+                $q->where(function ($q2) use ($dealershipWarranty) {
+                    $q2->where('wosi.warranty', true)
+                        ->where('wosi.warranty_type', $dealershipWarranty);
+                })->orWhere(function ($q2) {
+                    $q2->where('wosi.warranty', true)
+                        ->whereNull('wosi.warranty_type')
+                        ->where('wosi.billable_to', 'internal');
+                });
             });
-        $this->applySubsidiaryLocationFilters($serviceCostQ, $subsidiaryId, $locationId, 'transactions');
-        $serviceCost = (float) ($serviceCostQ->sum(DB::raw('invoice_items.quantity * COALESCE(invoice_items.cost, 0)')) ?? 0);
+        $pendingManufacturerBase = $this->pnlPendingWarrantyWorkOrderServiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->where(function ($q) use ($manufacturerWarranty) {
+                $q->where(function ($q2) use ($manufacturerWarranty) {
+                    $q2->where('wosi.warranty', true)
+                        ->where('wosi.warranty_type', $manufacturerWarranty);
+                })->orWhere('wosi.billable_to', 'manufacturer');
+            });
+
+        $warrantyDealershipPendingCost = (float) ($pendingDealershipBase->clone()
+            ->selectRaw(
+                'SUM(COALESCE(wosi.total_cost, wosi.quantity * COALESCE(wosi.unit_cost, 0), 0)) as pnl_sum'
+            )
+            ->value('pnl_sum') ?? 0);
+        $warrantyManufacturerPendingCost = (float) ($pendingManufacturerBase->clone()
+            ->selectRaw(
+                'SUM(COALESCE(wosi.total_cost, wosi.quantity * COALESCE(wosi.unit_cost, 0), 0)) as pnl_sum'
+            )
+            ->value('pnl_sum') ?? 0);
 
         $income = [
             'boat_sales' => $boatSales,
             'service_revenue' => $serviceRevenue,
+            'service_from_work_orders' => $serviceFromWorkOrders,
             'parts_accessories' => $partsSales,
         ];
-        $totalIncome = array_sum($income);
+        // service_from_work_orders is a subset of service_revenue (do not add twice).
+        $totalIncome = $boatSales + $serviceRevenue + $partsSales;
 
         $cogs = [
             'boat_cost' => $boatCost,
             'service_cost' => $serviceCost,
+            'service_cost_work_orders' => $serviceCostWorkOrders,
             'parts_cost' => $partsCost,
         ];
-        $totalCogs = array_sum($cogs);
+        $totalCogs = array_sum([
+            'boat_cost' => $boatCost,
+            'service_cost' => $serviceCost,
+            'parts_cost' => $partsCost,
+        ]);
         $grossProfit = $totalIncome - $totalCogs;
 
         // Placeholder until expense accounts are mapped.
@@ -164,6 +234,20 @@ class ReportsController extends Controller
                 'gross_profit' => $grossProfit,
                 'total_expenses' => $totalExpenses,
                 'net_profit' => $netProfit,
+                'warranty' => [
+                    'dealership' => [
+                        'cost' => $warrantyDealershipCost,
+                        'pending_invoice' => [
+                            'cost' => $warrantyDealershipPendingCost,
+                        ],
+                    ],
+                    'manufacturer' => [
+                        'cost' => $warrantyManufacturerCost,
+                        'pending_invoice' => [
+                            'cost' => $warrantyManufacturerPendingCost,
+                        ],
+                    ],
+                ],
             ],
         ]);
     }
@@ -175,17 +259,221 @@ class ReportsController extends Controller
 
     public function cashFlow(Request $request)
     {
-        return Inertia::render('Tenant/Reports/CashFlow');
+        $defaultFrom = now()->subDays(29)->toDateString();
+        $defaultTo = now()->toDateString();
+        [$from, $to, $dateFrom, $dateTo] = $this->resolveDateRange($request, $defaultFrom, $defaultTo);
+        $subsidiaryId = $request->integer('subsidiary_id') ?: null;
+        $locationId = $request->integer('location_id') ?: null;
+
+        $paymentRows = $this->paymentsWithInvoicesBase($from, $to, $subsidiaryId, $locationId)
+            ->whereIn('payments.status', ['completed', 'partially_refunded'])
+            ->whereNull('payments.deleted_at')
+            ->whereNull('invoices.deleted_at')
+            ->get([
+                'payments.net_amount',
+                'payments.payment_method_code',
+                'payments.paid_at',
+                'payments.created_at',
+            ]);
+
+        $refundRows = $this->refundsWithInvoicesBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('payments.deleted_at')
+            ->whereNull('invoices.deleted_at')
+            ->get([
+                'payment_refunds.amount',
+                'payment_refunds.created_at',
+                'payment_refunds.updated_at',
+            ]);
+
+        $cashIn = (float) $paymentRows->sum(fn ($r) => (float) ($r->net_amount ?? 0));
+        $cashOutRefunds = (float) $refundRows->sum(fn ($r) => (float) ($r->amount ?? 0));
+        $netCash = $cashIn - $cashOutRefunds;
+
+        $byMethod = $paymentRows
+            ->groupBy('payment_method_code')
+            ->map(fn (Collection $rows, string $code) => [
+                'code' => $code,
+                'label' => $this->paymentMethodLabel($code),
+                'amount' => (float) $rows->sum(fn ($r) => (float) ($r->net_amount ?? 0)),
+            ])
+            ->values()
+            ->sortByDesc('amount')
+            ->values()
+            ->all();
+
+        $methodPie = [
+            'labels' => array_map(fn ($r) => $r['label'], $byMethod),
+            'series' => array_map(fn ($r) => $r['amount'], $byMethod),
+        ];
+
+        $dailyIn = [];
+        foreach ($paymentRows as $r) {
+            $d = Carbon::parse($r->paid_at ?? $r->created_at)->toDateString();
+            $dailyIn[$d] = ($dailyIn[$d] ?? 0) + (float) ($r->net_amount ?? 0);
+        }
+        $dailyOut = [];
+        foreach ($refundRows as $r) {
+            $d = Carbon::parse($r->updated_at ?? $r->created_at)->toDateString();
+            $dailyOut[$d] = ($dailyOut[$d] ?? 0) + (float) ($r->amount ?? 0);
+        }
+
+        $chartCategories = [];
+        $chartIn = [];
+        $chartOut = [];
+        $cursor = $from->copy()->startOfDay();
+        $endDay = $to->copy()->startOfDay();
+        while ($cursor->lte($endDay)) {
+            $key = $cursor->toDateString();
+            $chartCategories[] = $cursor->format('M j');
+            $chartIn[] = round($dailyIn[$key] ?? 0.0, 2);
+            $chartOut[] = round($dailyOut[$key] ?? 0.0, 2);
+            $cursor->addDay();
+        }
+
+        $openArRow = $this->openInvoicesReceivableBase($subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at')
+            ->whereNotIn('invoices.status', ['draft', 'void', 'paid'])
+            ->where('invoices.amount_due', '>', 0)
+            ->selectRaw('COUNT(*) as invoice_count, SUM(invoices.amount_due) as amount_due_sum')
+            ->first();
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'label' => trim((string) ($s->display_name ?? $s->name ?? ('Subsidiary #'.$s->id))),
+            ])
+            ->values()
+            ->all();
+
+        $locations = Location::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($l) => [
+                'id' => (int) $l->id,
+                'label' => trim((string) ($l->display_name ?? $l->name ?? ('Location #'.$l->id))),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Tenant/Reports/CashFlow', [
+            'recordTitle' => 'Cash Flow',
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'subsidiary_id' => $subsidiaryId,
+                'location_id' => $locationId,
+            ],
+            'dateRange' => sprintf('%s - %s', $from->toDateString(), $to->toDateString()),
+            'options' => [
+                'subsidiaries' => $subsidiaries,
+                'locations' => $locations,
+            ],
+            'report' => [
+                'cash_in' => $cashIn,
+                'cash_out_refunds' => $cashOutRefunds,
+                'net_cash' => $netCash,
+                'payment_count' => $paymentRows->count(),
+                'refund_count' => $refundRows->count(),
+                'by_method' => $byMethod,
+                'method_pie' => $methodPie,
+                'chart' => [
+                    'categories' => $chartCategories,
+                    'series' => [
+                        ['name' => 'Cash in (payments)', 'data' => $chartIn],
+                        ['name' => 'Cash out (refunds)', 'data' => $chartOut],
+                    ],
+                ],
+                'open_ar' => [
+                    'amount_due' => (float) ($openArRow?->amount_due_sum ?? 0),
+                    'invoice_count' => (int) ($openArRow?->invoice_count ?? 0),
+                ],
+            ],
+        ]);
     }
 
     public function salesTaxLiability(Request $request)
     {
-        return Inertia::render('Tenant/Reports/SalesTaxLiability');
+        return Inertia::render('Tenant/Reports/SalesTaxLiability', $this->buildSalesTaxReportPayload($request, 'liability'));
     }
 
     public function salesTaxPayable(Request $request)
     {
-        return Inertia::render('Tenant/Reports/SalesTaxPayable');
+        return Inertia::render('Tenant/Reports/SalesTaxPayable', $this->buildSalesTaxReportPayload($request, 'payable'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildSalesTaxReportPayload(Request $request, string $reportKind): array
+    {
+        $defaultFrom = now()->subDays(29)->toDateString();
+        $defaultTo = now()->toDateString();
+        [$from, $to, $dateFrom, $dateTo] = $this->resolveDateRange($request, $defaultFrom, $defaultTo);
+        $subsidiaryId = $request->integer('subsidiary_id') ?: null;
+        $locationId = $request->integer('location_id') ?: null;
+
+        $view = strtolower(trim((string) $request->query('view', 'summary')));
+        if (! in_array($view, ['summary', 'detail'], true)) {
+            $view = 'summary';
+        }
+
+        $basis = strtolower(trim((string) $request->query('basis', 'accrual')));
+        if (! in_array($basis, ['accrual', 'cash'], true)) {
+            $basis = 'accrual';
+        }
+
+        $basisConst = $basis === 'cash' ? CollectSalesTaxReportRows::BASIS_CASH : CollectSalesTaxReportRows::BASIS_ACCRUAL;
+        $data = CollectSalesTaxReportRows::collect($from, $to, $subsidiaryId, $locationId, $basisConst);
+        $groupsLiability = CollectSalesTaxReportRows::groupForLiability($data['rows']);
+        $groupsPayable = CollectSalesTaxReportRows::groupForPayable($data['rows']);
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($s) => [
+                'id' => (int) $s->id,
+                'label' => trim((string) ($s->display_name ?? $s->name ?? ('Subsidiary #'.$s->id))),
+            ])
+            ->values()
+            ->all();
+
+        $locations = Location::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($l) => [
+                'id' => (int) $l->id,
+                'label' => trim((string) ($l->display_name ?? $l->name ?? ('Location #'.$l->id))),
+            ])
+            ->values()
+            ->all();
+
+        $title = $reportKind === 'liability' ? 'Sales Tax Liability' : 'Sales Tax Payable';
+
+        return [
+            'recordTitle' => $title,
+            'filters' => [
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'subsidiary_id' => $subsidiaryId,
+                'location_id' => $locationId,
+                'view' => $view,
+                'basis' => $basis,
+            ],
+            'dateRange' => sprintf('%s - %s', $from->toDateString(), $to->toDateString()),
+            'options' => [
+                'subsidiaries' => $subsidiaries,
+                'locations' => $locations,
+            ],
+            'viewMode' => $view,
+            'basis' => $basis,
+            'report' => [
+                'summary' => $data['summary'],
+                'groups' => $reportKind === 'liability' ? $groupsLiability : $groupsPayable,
+                'rows' => $data['rows'],
+            ],
+        ];
     }
 
     public function salesByCustomer(Request $request)
@@ -521,5 +809,158 @@ class ReportsController extends Controller
         if ($locationId !== null) {
             $query->where($tableAlias.'.location_id', $locationId);
         }
+    }
+
+    /**
+     * Invoice line query scoped by date and status for P&L. Joins transactions when present
+     * (deal invoices) so subsidiary/location filters apply; work-order-only invoices use columns on invoices.
+     */
+    private function pnlInvoiceItemsBase(Carbon $from, Carbon $to, ?int $subsidiaryId, ?int $locationId): QueryBuilder
+    {
+        $query = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween('invoices.created_at', [$from, $to]);
+
+        $this->applyPnlSubsidiaryLocationFilters($query, $subsidiaryId, $locationId);
+
+        return $query;
+    }
+
+    /**
+     * Warranty lines on the P&L are attributed to the period when work was completed
+     * (work_orders.completed_at when the invoice is tied to a work order), falling back
+     * to the invoice created_at when there is no work order or no completion timestamp yet.
+     */
+    private function pnlWarrantyInvoiceItemsBase(Carbon $from, Carbon $to, ?int $subsidiaryId, ?int $locationId): QueryBuilder
+    {
+        $query = DB::table('invoice_items')
+            ->join('invoices', 'invoices.id', '=', 'invoice_items.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->leftJoin('work_orders', 'work_orders.id', '=', 'invoices.work_order_id')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween(
+                DB::raw('COALESCE(work_orders.completed_at, invoices.created_at)'),
+                [$from, $to]
+            );
+
+        $this->applyPnlSubsidiaryLocationFilters($query, $subsidiaryId, $locationId);
+
+        return $query;
+    }
+
+    /**
+     * Warranty-style work order service lines for completed work orders in the period that do not yet
+     * have a non-draft, non-void invoice linked to the work order. Used alongside {@see pnlWarrantyInvoiceItemsBase}.
+     */
+    private function pnlPendingWarrantyWorkOrderServiceItemsBase(
+        Carbon $from,
+        Carbon $to,
+        ?int $subsidiaryId,
+        ?int $locationId
+    ): QueryBuilder {
+        $query = DB::table('work_order_service_items as wosi')
+            ->join('work_orders as wo', 'wo.id', '=', 'wosi.work_order_id')
+            ->whereNull('wo.deleted_at')
+            ->where('wo.draft', false)
+            ->whereNotNull('wo.completed_at')
+            ->whereBetween('wo.completed_at', [$from, $to])
+            ->where('wosi.billable', true)
+            ->where('wosi.inactive', false)
+            ->whereNotExists(function ($sub): void {
+                $sub->select(DB::raw('1'))
+                    ->from('invoices as inv')
+                    ->whereColumn('inv.work_order_id', 'wo.id')
+                    ->whereNotIn('inv.status', ['draft', 'void'])
+                    ->whereNull('inv.deleted_at');
+            });
+
+        if ($subsidiaryId !== null) {
+            $query->where('wo.subsidiary_id', $subsidiaryId);
+        }
+        if ($locationId !== null) {
+            $query->where('wo.location_id', $locationId);
+        }
+
+        return $query;
+    }
+
+    private function applyPnlSubsidiaryLocationFilters(QueryBuilder $query, ?int $subsidiaryId, ?int $locationId): void
+    {
+        if ($subsidiaryId !== null) {
+            $query->where(function ($q) use ($subsidiaryId) {
+                $q->where('transactions.subsidiary_id', $subsidiaryId)
+                    ->orWhere(function ($q2) use ($subsidiaryId) {
+                        $q2->whereNull('transactions.id')
+                            ->where('invoices.subsidiary_id', $subsidiaryId);
+                    });
+            });
+        }
+        if ($locationId !== null) {
+            $query->where(function ($q) use ($locationId) {
+                $q->where('transactions.location_id', $locationId)
+                    ->orWhere(function ($q2) use ($locationId) {
+                        $q2->whereNull('transactions.id')
+                            ->where('invoices.location_id', $locationId);
+                    });
+            });
+        }
+    }
+
+    private function paymentsWithInvoicesBase(Carbon $from, Carbon $to, ?int $subsidiaryId, ?int $locationId): QueryBuilder
+    {
+        $query = DB::table('payments')
+            ->join('invoices', 'invoices.id', '=', 'payments.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNull('payments.deleted_at')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->whereBetween(DB::raw('COALESCE(payments.paid_at, payments.created_at)'), [$from, $to]);
+        $this->applyPnlSubsidiaryLocationFilters($query, $subsidiaryId, $locationId);
+
+        return $query;
+    }
+
+    private function refundsWithInvoicesBase(Carbon $from, Carbon $to, ?int $subsidiaryId, ?int $locationId): QueryBuilder
+    {
+        $query = DB::table('payment_refunds')
+            ->join('payments', 'payments.id', '=', 'payment_refunds.payment_id')
+            ->join('invoices', 'invoices.id', '=', 'payments.invoice_id')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id')
+            ->whereNull('payments.deleted_at')
+            ->whereNotIn('invoices.status', ['draft', 'void'])
+            ->where('payment_refunds.status', 'completed')
+            ->whereBetween(DB::raw('COALESCE(payment_refunds.updated_at, payment_refunds.created_at)'), [$from, $to]);
+        $this->applyPnlSubsidiaryLocationFilters($query, $subsidiaryId, $locationId);
+
+        return $query;
+    }
+
+    /**
+     * Open receivables snapshot (not a period cash flow). Uses subsidiary/location scope only.
+     */
+    private function openInvoicesReceivableBase(?int $subsidiaryId, ?int $locationId): QueryBuilder
+    {
+        $query = DB::table('invoices')
+            ->leftJoin('transactions', 'transactions.id', '=', 'invoices.transaction_id');
+        $this->applyPnlSubsidiaryLocationFilters($query, $subsidiaryId, $locationId);
+
+        return $query;
+    }
+
+    private function paymentMethodLabel(string $code): string
+    {
+        $code = trim($code);
+
+        return match ($code) {
+            '' => 'Other',
+            'credit_card' => 'Credit / debit card',
+            'ach' => 'ACH / bank transfer',
+            'check' => 'Check',
+            'cash' => 'Cash',
+            'wire' => 'Wire transfer',
+            'financing' => 'Financing',
+            default => ucfirst(str_replace('_', ' ', $code)),
+        };
     }
 }

@@ -3,7 +3,9 @@
 namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Invoice\Support\FlattenTransactionItemsForInvoice;
 use App\Domain\Invoice\Support\InvoicePaymentFields;
+use App\Domain\Invoice\Support\ReplaceInvoiceLineItems;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
@@ -17,6 +19,7 @@ class UpdateInvoice
 {
     public function __invoke(int $id, array $data): array
     {
+        $items = is_array($data['items'] ?? null) ? $data['items'] : null;
         unset($data['items']);
         unset($data['tax_rate'], $data['subtotal'], $data['tax_total'], $data['total']);
 
@@ -74,28 +77,42 @@ class UpdateInvoice
                 ?? $record->currency
                 ?? 'USD';
 
-            $subtotal = 0.0;
-            $discountTotal = 0.0;
-            $taxTotal = 0.0;
-
-            foreach ($record->items as $item) {
-                $qty = (float) $item->quantity;
-                $price = (float) $item->unit_price;
-                $discount = (float) $item->discount;
-                $itemSub = ($qty * $price) - $discount;
-                $subtotal += $itemSub;
-                $discountTotal += $discount;
-
-                if ($item->taxable && $item->tax_rate) {
-                    $taxTotal += round($itemSub * ((float) $item->tax_rate / 100), 2);
-                }
+            if ($items !== null) {
+                ReplaceInvoiceLineItems::apply($record, $items);
+                $record->load('items');
             }
 
             $feesTotal = array_key_exists('fees_total', $validated)
                 ? (float) $validated['fees_total']
                 : (float) $record->fees_total;
 
-            $total = round($subtotal + $taxTotal + $feesTotal, 2);
+            if ($items !== null) {
+                $totals = FlattenTransactionItemsForInvoice::rollupTotals($items, $feesTotal);
+                $subtotal = $totals['subtotal'];
+                $discountTotal = $totals['discount_total'];
+                $taxTotal = $totals['tax_total'];
+                $total = $totals['total'];
+            } else {
+                $subtotal = 0.0;
+                $discountTotal = 0.0;
+                $taxTotal = 0.0;
+
+                foreach ($record->items as $item) {
+                    $qty = (float) $item->quantity;
+                    $price = (float) $item->unit_price;
+                    $discount = (float) $item->discount;
+                    $itemSub = ($qty * $price) - $discount;
+                    $subtotal += $itemSub;
+                    $discountTotal += $discount;
+
+                    if ($item->taxable && $item->tax_rate) {
+                        $taxTotal += round($itemSub * ((float) $item->tax_rate / 100), 2);
+                    }
+                }
+
+                $total = round($subtotal + $taxTotal + $feesTotal, 2);
+            }
+
             $amountPaid = (float) $record->amount_paid;
             $amountDue = round(max(0, $total - $amountPaid), 2);
 
@@ -110,7 +127,7 @@ class UpdateInvoice
 
             return [
                 'success' => true,
-                'record' => $record->fresh(),
+                'record' => $record->fresh(['items']),
             ];
         } catch (ValidationException $e) {
             throw $e;

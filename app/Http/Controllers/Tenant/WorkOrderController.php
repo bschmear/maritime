@@ -9,6 +9,8 @@ use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
 use App\Domain\WorkOrder\Actions\LinkInventoryImagesToWorkOrderAfterCreate;
 use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
+use App\Domain\WorkOrder\Support\MapWorkOrderStatusToServiceTicketStatus;
+use App\Domain\WorkOrder\Support\SyncWorkOrderStatusToServiceTicket;
 use App\Enums\RecordType;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
@@ -163,7 +165,7 @@ class WorkOrderController extends RecordController
             'open' => (clone $baseQuery)->whereIn('status', [2, 3, 4, 5])->count(), // Open, Scheduled, In Progress, Waiting
             'in_progress' => (clone $baseQuery)->where('status', 4)->count(), // In Progress status
             'overdue' => (clone $baseQuery)->where('due_at', '<', now())->whereNotIn('status', [7, 8])->count(), // Not Completed or Closed
-            'completed_week' => (clone $baseQuery)->where('status', 7)->where('updated_at', '>=', now()->startOfWeek())->count(), // Completed this week
+            'completed_week' => (clone $baseQuery)->whereIn('status', [7, 8])->whereNotNull('completed_at')->whereBetween('completed_at', [now()->startOfWeek(), now()->endOfWeek()])->count(), // Completed or closed this week (by date completed)
         ];
 
         $pluralTitle = \Illuminate\Support\Str::plural($this->recordTitle);
@@ -486,6 +488,7 @@ class WorkOrderController extends RecordController
                 $serviceTicket = [
                     'id' => $ticket->id,
                     'service_ticket_number' => $ticket->service_ticket_number,
+                    'status' => (int) $ticket->status,
                     'estimated_total' => (float) ($ticket->estimated_total ?? 0),
                     'estimated_subtotal' => (float) ($ticket->estimated_subtotal ?? 0),
                     'estimated_tax' => (float) ($ticket->estimated_tax ?? 0),
@@ -506,6 +509,7 @@ class WorkOrderController extends RecordController
             'timezones' => Timezone::options(),
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
             'serviceTicket' => $serviceTicket,
+            'serviceTicketStatusMap' => MapWorkOrderStatusToServiceTicketStatus::all(),
             'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
         ]);
     }
@@ -605,6 +609,10 @@ class WorkOrderController extends RecordController
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
+        $syncServiceTicketStatus = filter_var($data['sync_service_ticket_status'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['sync_service_ticket_status']);
+        $statusToSync = isset($data['status']) ? (int) $data['status'] : null;
+
         // Validate threshold if linked to a service ticket
         $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
         $serviceTicketId = $data['service_ticket_id'] ?? $workOrder->service_ticket_id ?? null;
@@ -622,6 +630,10 @@ class WorkOrderController extends RecordController
         $calculator = app(\App\Services\WorkOrderCalculator::class);
         $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
         if ($workOrder) {
+            if ($syncServiceTicketStatus && $statusToSync !== null && (int) $workOrder->status === $statusToSync) {
+                (new SyncWorkOrderStatusToServiceTicket)($workOrder, $statusToSync);
+            }
+
             // Update service items if provided
             if (! empty($serviceItems)) {
                 $this->updateServiceItems($id, $serviceItems);

@@ -10,8 +10,16 @@ use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAssetVariant;
+use App\Enums\Inventory\BoatType;
+use App\Enums\Inventory\HullMaterial;
+use App\Enums\Inventory\HullType;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Imports inventory catalog assets into tenant {@see Asset} records for a {@see BoatMake} with a matching `brand_key`.
+ *
+ * @see docs/CATALOG_IMPORT.md
+ */
 class CatalogImportService
 {
     /**
@@ -165,8 +173,17 @@ class CatalogImportService
      */
     private function mapInventoryAssetToTenantPayload(InventoryCatalogAsset $src, int $tenantMakeId): array
     {
+        $enumLayer = $this->inventoryCatalogAttributeLayer($src);
+        $enums = $this->enumColumnsFromCatalogKeys($enumLayer);
+
+        $length = $this->effectiveUIntFromColumnOrSpecifications($src, 'length_mm', 'length_mm');
+        $width = $this->effectiveUIntFromColumnOrSpecifications($src, 'width_mm', 'width_mm');
+        $persons = $this->effectiveUIntFromColumnOrSpecifications($src, 'capacity_persons', 'capacity_persons');
+        $maxHp = $this->effectiveUIntFromColumnOrSpecifications($src, 'max_hp', 'max_hp');
+        $fuelL = $this->effectiveUIntFromColumnOrSpecifications($src, 'fuel_capacity_l', 'fuel_capacity_l');
+
         return [
-            'type' => $src->type,
+            'type' => $this->normalizedTenantAssetType($src->type),
             'display_name' => $src->display_name,
             'slug' => $src->slug,
             'catalog_asset_key' => $src->slug,
@@ -174,12 +191,15 @@ class CatalogImportService
             'make_id' => $tenantMakeId,
             'model' => $src->model,
             'year' => $src->year,
-            'length' => $src->length_mm,
-            'beam' => $src->width_mm,
-            'width' => $src->width_mm,
-            'persons' => $src->capacity_persons,
-            'maximum_power' => $src->max_hp,
-            'fuel_tank' => $src->fuel_capacity_l !== null ? (string) $src->fuel_capacity_l : null,
+            'length' => $length,
+            'beam' => $width,
+            'width' => $width,
+            'boat_type' => $enums['boat_type'],
+            'hull_type' => $enums['hull_type'],
+            'hull_material' => $enums['hull_material'],
+            'persons' => $persons,
+            'maximum_power' => $maxHp,
+            'fuel_tank' => $fuelL !== null ? (string) $fuelL : null,
             'engine_shaft' => $src->engine_shaft,
             'water_tank' => $src->water_tank,
             'category' => $src->category,
@@ -189,6 +209,101 @@ class CatalogImportService
             'default_cost' => $src->default_cost,
             'default_price' => $src->default_price,
             'has_variants' => $src->has_variants,
+        ];
+    }
+
+    /**
+     * Same merge order as {@see mergedInventoryCatalogAttributes}: catalog_data first, then attributes (overrides).
+     *
+     * @return array<string, mixed>
+     */
+    private function inventoryCatalogAttributeLayer(InventoryCatalogAsset $src): array
+    {
+        $fromCatalog = is_array($src->catalog_data) ? $src->catalog_data : [];
+        $fromAttrs = is_array($src->attributes) ? $src->attributes : [];
+
+        return array_merge($fromCatalog, $fromAttrs);
+    }
+
+    /**
+     * Tenant {@see Asset} `type` must be a valid {@see \App\Enums\Inventory\AssetType} value (1–4); invalid or missing values default to 1 (boat).
+     */
+    private function normalizedTenantAssetType(mixed $type): int
+    {
+        $t = is_numeric($type) ? (int) $type : 0;
+
+        return in_array($t, [1, 2, 3, 4], true) ? $t : 1;
+    }
+
+    /**
+     * Prefer inventory table column; fall back to nested `specifications` in catalog_data/attributes merge.
+     */
+    private function effectiveUIntFromColumnOrSpecifications(InventoryCatalogAsset $src, string $columnKey, string $specKey): ?int
+    {
+        $direct = $src->getAttribute($columnKey);
+        if ($direct !== null && $direct !== '') {
+            return $this->nonNegativeInt($direct);
+        }
+
+        $spec = $this->inventoryNestedSpecifications($src);
+        if (! array_key_exists($specKey, $spec)) {
+            return null;
+        }
+
+        return $this->nonNegativeInt($spec[$specKey]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function inventoryNestedSpecifications(InventoryCatalogAsset $src): array
+    {
+        $layer = $this->inventoryCatalogAttributeLayer($src);
+        $nested = $layer['specifications'] ?? null;
+
+        return is_array($nested) ? $nested : [];
+    }
+
+    private function nonNegativeInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_int($value)) {
+            return $value >= 0 ? $value : null;
+        }
+        if (is_float($value)) {
+            return $value >= 0.0 ? (int) round($value) : null;
+        }
+        if (is_string($value) && is_numeric(trim($value))) {
+            $n = (int) trim($value);
+
+            return $n >= 0 ? $n : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Map catalog/attributes string keys to tenant asset enum column integers (1-based ordinal per enum).
+     *
+     * @param  array<string, mixed>  $layer  Merged catalog_data + attributes (catalog first).
+     * @return array{boat_type: int|null, hull_type: int|null, hull_material: int|null}
+     */
+    private function enumColumnsFromCatalogKeys(array $layer): array
+    {
+        $boatSlug = isset($layer['boat_type_key']) ? trim((string) $layer['boat_type_key']) : '';
+        $hullSlug = isset($layer['hull_type_key']) ? trim((string) $layer['hull_type_key']) : '';
+        $materialSlug = isset($layer['hull_material_key']) ? trim((string) $layer['hull_material_key']) : '';
+
+        $boat = $boatSlug !== '' ? BoatType::tryFrom($boatSlug) : null;
+        $hull = $hullSlug !== '' ? HullType::tryFrom($hullSlug) : null;
+        $material = $materialSlug !== '' ? HullMaterial::tryFrom($materialSlug) : null;
+
+        return [
+            'boat_type' => $boat !== null ? $boat->id() : null,
+            'hull_type' => $hull !== null ? $hull->id() : null,
+            'hull_material' => $material !== null ? $material->id() : null,
         ];
     }
 
@@ -208,6 +323,8 @@ class CatalogImportService
             $merged['specifications'] = $spec;
         }
 
+        unset($merged['boat_type_key'], $merged['hull_type_key'], $merged['hull_material_key']);
+
         return $merged;
     }
 
@@ -218,9 +335,9 @@ class CatalogImportService
     {
         $out = [];
         foreach (['length_mm', 'width_mm', 'height_mm', 'weight_kg', 'capacity_persons', 'max_hp', 'fuel_capacity_l'] as $key) {
-            $v = $src->getAttribute($key);
-            if ($v !== null) {
-                $out[$key] = (int) $v;
+            $n = $this->effectiveUIntFromColumnOrSpecifications($src, $key, $key);
+            if ($n !== null) {
+                $out[$key] = $n;
             }
         }
 

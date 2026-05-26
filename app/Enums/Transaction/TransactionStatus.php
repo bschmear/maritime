@@ -4,27 +4,30 @@ namespace App\Enums\Transaction;
 
 enum TransactionStatus: string
 {
-    case Active = 'active';
-    case Won = 'won';
-    case Lost = 'lost';
+    case Pending = 'pending';
+    case Processing = 'processing';
+    case Completed = 'completed';
+    case Failed = 'failed';
     case Cancelled = 'cancelled';
 
     public function id(): int
     {
         return match ($this) {
-            self::Active => 1,
-            self::Won => 2,
-            self::Lost => 3,
-            self::Cancelled => 4,
+            self::Pending => 1,
+            self::Processing => 2,
+            self::Completed => 3,
+            self::Failed => 4,
+            self::Cancelled => 5,
         };
     }
 
     public function label(): string
     {
         return match ($this) {
-            self::Active => 'Active',
-            self::Won => 'Won',
-            self::Lost => 'Lost',
+            self::Pending => 'Pending',
+            self::Processing => 'Processing',
+            self::Completed => 'Completed',
+            self::Failed => 'Failed',
             self::Cancelled => 'Cancelled',
         };
     }
@@ -32,20 +35,22 @@ enum TransactionStatus: string
     public function color(): string
     {
         return match ($this) {
-            self::Active => 'blue',
-            self::Won => 'green',
-            self::Lost => 'red',
-            self::Cancelled => 'gray',
+            self::Pending => 'gray',
+            self::Processing => 'blue',
+            self::Completed => 'green',
+            self::Failed => 'red',
+            self::Cancelled => 'slate',
         };
     }
 
     public function bgClass(): string
     {
         return match ($this) {
-            self::Active => 'bg-blue-100 dark:text-white dark:bg-blue-900',
-            self::Won => 'bg-green-100 dark:text-white dark:bg-green-900',
-            self::Lost => 'bg-red-100 dark:text-white dark:bg-red-900',
-            self::Cancelled => 'bg-gray-200 dark:text-white dark:bg-gray-800',
+            self::Pending => 'bg-gray-200 dark:text-white dark:bg-gray-800',
+            self::Processing => 'bg-blue-100 dark:text-white dark:bg-blue-900',
+            self::Completed => 'bg-green-100 dark:text-white dark:bg-green-900',
+            self::Failed => 'bg-red-100 dark:text-white dark:bg-red-900',
+            self::Cancelled => 'bg-slate-200 dark:text-white dark:bg-slate-800',
         };
     }
 

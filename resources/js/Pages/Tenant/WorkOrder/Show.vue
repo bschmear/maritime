@@ -1,10 +1,11 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import Modal from '@/Components/Modal.vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: {
@@ -39,11 +40,28 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    serviceTicketStatusMap: {
+        type: Object,
+        default: () => ({}),
+    },
     estimateThreshold: {
         type: Number,
         default: 20,
     },
 });
+
+const selectedStatus = ref(props.record.status);
+const statusChanged = ref(false);
+const updatingStatus = ref(false);
+const showServiceTicketSyncModal = ref(false);
+
+watch(
+    () => props.record.status,
+    (value) => {
+        selectedStatus.value = value;
+        statusChanged.value = false;
+    },
+);
 
 const pluralTitle = computed(() => {
     return props.recordType.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, l => l.toUpperCase());
@@ -77,6 +95,39 @@ const isSublistVisible = (sub) => {
 };
 
 const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
+
+const statusOptions = computed(() => {
+    const fieldDef = props.fieldsSchema.status;
+    if (fieldDef?.enum) {
+        return props.enumOptions[fieldDef.enum] || [];
+    }
+    return [];
+});
+
+const serviceTicketStatusOptions = computed(() => {
+    return props.enumOptions['App\\Enums\\ServiceTicket\\Status'] || [];
+});
+
+const mappedServiceTicketStatusId = computed(() => {
+    return props.serviceTicketStatusMap[selectedStatus.value] ?? null;
+});
+
+const mappedServiceTicketStatusLabel = computed(() => {
+    const id = mappedServiceTicketStatusId.value;
+    if (id === null) {
+        return '';
+    }
+    const option = serviceTicketStatusOptions.value.find((opt) => opt.id === id);
+    return option?.name ?? '';
+});
+
+const shouldPromptServiceTicketSync = computed(() => {
+    if (!props.serviceTicket || mappedServiceTicketStatusId.value === null) {
+        return false;
+    }
+
+    return mappedServiceTicketStatusId.value !== props.serviceTicket.status;
+});
 
 // Helper functions
 const getEnumLabel = (fieldKey, value) => {
@@ -119,6 +170,40 @@ const formatDateTime = (value) => {
         console.warn('Date formatting error:', error, value);
         return '—';
     }
+};
+
+const confirmUpdateStatus = async (syncServiceTicketStatus) => {
+    showServiceTicketSyncModal.value = false;
+    updatingStatus.value = true;
+
+    try {
+        await router.patch(route('workorders.update', props.record.id), {
+            status: selectedStatus.value,
+            sync_service_ticket_status: syncServiceTicketStatus,
+        }, {
+            preserveState: true,
+            preserveScroll: true,
+        });
+        statusChanged.value = false;
+    } catch (error) {
+        console.error('Failed to update status:', error);
+    } finally {
+        updatingStatus.value = false;
+    }
+};
+
+const updateStatus = () => {
+    if (selectedStatus.value === props.record.status) {
+        statusChanged.value = false;
+        return;
+    }
+
+    if (shouldPromptServiceTicketSync.value) {
+        showServiceTicketSyncModal.value = true;
+        return;
+    }
+
+    confirmUpdateStatus(false);
 };
 
 const deleteWorkOrder = () => {
@@ -231,9 +316,28 @@ const deleteWorkOrder = () => {
                                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Status
                                     </label>
-                                    <p class="text-md text-gray-900 dark:text-white">
-                                        {{ getEnumLabel('status', record.status) }}
-                                    </p>
+                                    <div class="flex items-center gap-2">
+                                        <select
+                                            v-model="selectedStatus"
+                                            class="flex-1 text-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            @change="statusChanged = true"
+                                        >
+                                            <option v-for="status in statusOptions" :key="status.id" :value="status.id">
+                                                {{ status.name }}
+                                            </option>
+                                        </select>
+                                        <button
+                                            v-if="statusChanged"
+                                            type="button"
+                                            class="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap disabled:opacity-60"
+                                            :disabled="updatingStatus"
+                                            @click="updateStatus"
+                                        >
+                                            <span v-if="updatingStatus" class="material-icons text-md animate-spin">refresh</span>
+                                            <span v-else class="material-icons text-md">save</span>
+                                            Update
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -245,6 +349,15 @@ const deleteWorkOrder = () => {
                                     </label>
                                     <p class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record.created_at) }}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                        Date completed
+                                    </label>
+                                    <p class="text-md text-gray-900 dark:text-white">
+                                        {{ formatDateTime(record.completed_at) }}
                                     </p>
                                 </div>
 
@@ -276,5 +389,45 @@ const deleteWorkOrder = () => {
                 />
             </div>
         </div>
+
+        <Modal :show="showServiceTicketSyncModal" max-width="md" @close="showServiceTicketSyncModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Update linked service ticket?
+                </h3>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                    This work order is linked to service ticket
+                    <span class="font-medium text-gray-900 dark:text-white">#{{ serviceTicket?.service_ticket_number }}</span>.
+                    Do you also want to update the service ticket status to
+                    <span class="font-medium text-gray-900 dark:text-white">{{ mappedServiceTicketStatusLabel }}</span>?
+                </p>
+                <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        :disabled="updatingStatus"
+                        @click="showServiceTicketSyncModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                        :disabled="updatingStatus"
+                        @click="confirmUpdateStatus(false)"
+                    >
+                        Work order only
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-60"
+                        :disabled="updatingStatus"
+                        @click="confirmUpdateStatus(true)"
+                    >
+                        Update both
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </TenantLayout>
 </template>

@@ -126,7 +126,6 @@ const secondaryNavItems = ref([
                 name: 'Financial',
                 children: [
                     { name: 'Profit & Loss', href: 'reports.pnl' },
-                    { name: 'Balance Sheet', href: 'reports.balance-sheet' },
                     { name: 'Cash Flow', href: 'reports.cash-flow' },
                     { name: 'Sales Tax Liability', href: 'reports.sales-tax-liability' },
                     { name: 'Sales Tax Payable', href: 'reports.sales-tax-payable' }

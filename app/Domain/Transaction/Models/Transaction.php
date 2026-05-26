@@ -4,7 +4,9 @@ namespace App\Domain\Transaction\Models;
 
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Location\Models\Location;
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
@@ -113,6 +115,16 @@ class Transaction extends Model
     public function contract(): HasOne
     {
         return $this->hasOne(Contract::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class);
     }
 
     public function surveyResponses(): MorphMany

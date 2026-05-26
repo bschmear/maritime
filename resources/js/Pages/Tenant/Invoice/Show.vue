@@ -115,8 +115,17 @@ const flatAddonDisplayName = (primaryName, row) => {
 const invoiceLineBoatOptions = (item) => {
     if (item.itemable_type !== ASSET_TYPE) return [];
     const tli = item.transaction_line_item ?? item.transactionLineItem;
-    if (tli) return lineAssetSelectedOptions(tli);
-    return lineAssetSelectedOptions(item);
+    const options = tli ? lineAssetSelectedOptions(tli) : lineAssetSelectedOptions(item);
+    const group = groupedInvoiceLineItems.value.find((g) => g.primary.id === item.id);
+    if (!group?.flatAddons?.length) {
+        return options;
+    }
+
+    const persistedChildNames = new Set(
+        group.flatAddons.map((row) => flatAddonDisplayName(group.primary.name, row)),
+    );
+
+    return options.filter((opt) => !persistedChildNames.has(selectedOptionLabel(opt)));
 };
 
 const assetLines     = computed(() => lineItems.value.filter(li => li.itemable_type === ASSET_TYPE));

@@ -127,9 +127,10 @@
   },
 
   "completed_at": {
-    "label": "Completed At",
+    "label": "Date completed",
     "type": "datetime",
-    "disabled": true
+    "nullable": true,
+    "help": "When the work finished; used for P&L warranty timing on linked invoices. Auto-filled when status is Completed or Closed, and cleared if the work order is reopened."
   },
 
   "estimated_hours": {

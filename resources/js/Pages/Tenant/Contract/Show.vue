@@ -90,6 +90,20 @@ const statusTextClass = computed(() => STATUS_TEXT[statusInfo.value?.color] ?? '
 const paymentTextClass = computed(() => STATUS_TEXT[paymentInfo.value?.color] ?? 'text-gray-700 dark:text-gray-300');
 
 const isSigned = computed(() => props.record?.status === 'signed' || !!props.record?.signed_at);
+
+const signatureMethodOptions = computed(
+    () => props.enumOptions?.['App\\Enums\\ServiceTicket\\SignatureMethod'] ?? [],
+);
+
+const signatureMethodLabel = (method) => {
+    const opt = signatureMethodOptions.value.find((o) => o.id == method);
+    return opt?.name ?? method ?? '—';
+};
+
+const hasSignatureVisual = computed(
+    () => !!props.record?.signature_url
+        || (Number(props.record?.signature_method) === 5 && !!props.record?.customer_signature),
+);
 const isDraft = computed(() => props.record?.status === 'draft');
 const isSent = computed(() => props.record?.status === 'pending_approval');
 
@@ -582,32 +596,55 @@ onMounted(() => {
                         <!-- Signature Details -->
                         <div v-if="isSigned" class="border-gray-200 dark:border-gray-700 pt-6">
                             <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
-                                Signature Details
+                                Authorization &amp; Signature
                             </h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div v-if="record.signed_name">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</p>
-                                    <p class="text-md text-gray-900 dark:text-white">{{ record.signed_name }}</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-3">
+                                    <div v-if="record.signed_name">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed By</p>
+                                        <p class="text-md text-gray-900 dark:text-white">{{ record.signed_name }}</p>
+                                    </div>
+                                    <div v-if="record.signed_email">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</p>
+                                        <p class="text-md text-gray-900 dark:text-white">{{ record.signed_email }}</p>
+                                    </div>
+                                    <div v-if="record.signature_method">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Method</p>
+                                        <p class="text-md text-gray-900 dark:text-white">{{ signatureMethodLabel(record.signature_method) }}</p>
+                                    </div>
+                                    <div v-if="record.signed_at">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</p>
+                                        <p class="text-md text-gray-900 dark:text-white">{{ formatDateTime(record.signed_at) }}</p>
+                                    </div>
+                                    <div v-if="record.signed_ip">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</p>
+                                        <p class="text-md font-mono text-gray-900 dark:text-white">{{ record.signed_ip }}</p>
+                                    </div>
+                                    <div v-if="record.signature_hash">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Hash</p>
+                                        <p class="text-sm font-mono text-gray-500 dark:text-gray-400 break-all">{{ record.signature_hash }}</p>
+                                    </div>
+                                    <div v-if="record.docusign_envelope_id">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">DocuSign Envelope</p>
+                                        <p class="text-sm font-mono text-gray-500 dark:text-gray-400">{{ record.docusign_envelope_id }}</p>
+                                    </div>
                                 </div>
-                                <div v-if="record.signed_email">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Email</p>
-                                    <p class="text-md text-gray-900 dark:text-white">{{ record.signed_email }}</p>
-                                </div>
-                                <div v-if="record.signed_at">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signed At</p>
-                                    <p class="text-md text-gray-900 dark:text-white">{{ formatDateTime(record.signed_at) }}</p>
-                                </div>
-                                <div v-if="record.signed_ip">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">IP Address</p>
-                                    <p class="text-md font-mono text-gray-900 dark:text-white">{{ record.signed_ip }}</p>
-                                </div>
-                                <div v-if="record.signature_hash">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature Hash</p>
-                                    <p class="text-sm font-mono text-gray-500 dark:text-gray-400 break-all">{{ record.signature_hash }}</p>
-                                </div>
-                                <div v-if="record.docusign_envelope_id">
-                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">DocuSign Envelope</p>
-                                    <p class="text-sm font-mono text-gray-500 dark:text-gray-400">{{ record.docusign_envelope_id }}</p>
+
+                                <div v-if="hasSignatureVisual" class="space-y-3">
+                                    <div v-if="record.signature_url">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature</p>
+                                        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                            <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
+                                        </div>
+                                    </div>
+                                    <div v-else-if="Number(record.signature_method) === 5 && record.customer_signature">
+                                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature</p>
+                                        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                            <p class="text-2xl text-gray-900 dark:text-white" style="font-family: 'Dancing Script', cursive;">
+                                                {{ record.customer_signature }}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

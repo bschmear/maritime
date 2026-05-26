@@ -5,9 +5,11 @@ namespace App\Domain\Transaction\Actions;
 use App\Domain\AssetOption\Services\PersistAssetOptionSelectionsForLineItem;
 use App\Domain\Transaction\Models\Transaction as RecordModel;
 use App\Domain\Transaction\Models\TransactionItem;
+use App\Domain\Transaction\Support\AssertTransactionCanComplete;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Domain\Transaction\Support\FillTransactionCustomerSnapshot;
 use App\Domain\Transaction\Support\RecalculateTransactionTotals;
+use App\Enums\Transaction\TransactionStatus;
 use App\Support\TransactionEnumMapper;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -89,6 +91,26 @@ class UpdateTransaction
 
         if (array_key_exists('status', $payload)) {
             $payload['status'] = TransactionEnumMapper::statusToValue($payload['status']);
+        }
+
+        if (($payload['status'] ?? null) === TransactionStatus::Completed->value) {
+            AssertTransactionCanComplete::validate(
+                RecordModel::with(['invoices', 'contract', 'serviceTickets', 'deliveries'])->findOrFail($id)
+            );
+            $prev = RecordModel::query()->whereKey($id)->first(['won_at', 'closed_at']);
+            if ($prev && $prev->won_at === null && ! array_key_exists('won_at', $payload)) {
+                $payload['won_at'] = now();
+            }
+            if (! array_key_exists('closed_at', $payload)) {
+                $payload['closed_at'] = now();
+            }
+        }
+
+        if (($payload['status'] ?? null) === TransactionStatus::Failed->value) {
+            $lostAt = RecordModel::query()->whereKey($id)->value('lost_at');
+            if ($lostAt === null && ! array_key_exists('lost_at', $payload)) {
+                $payload['lost_at'] = now();
+            }
         }
 
         $syncItems = array_key_exists('items', $data) && is_array($data['items']);

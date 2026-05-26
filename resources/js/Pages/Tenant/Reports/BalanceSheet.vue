@@ -1,8 +1,7 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import ReportSwitcher from '@/Components/Tenant/Reports/ReportSwitcher.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -28,9 +27,12 @@ const breadcrumbItems = computed(() => {
         <template #header>
             <div class="col-span-full flex items-center justify-between">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex items-center space-x-4">
-                    <ReportSwitcher current-route-name="reports.balance-sheet" />
-                </div>
+                <Link
+                    :href="route('reports.pnl')"
+                    class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                >
+                    Profit & Loss
+                </Link>
             </div>
         </template>
 

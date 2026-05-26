@@ -27,22 +27,125 @@ const page = usePage();
 const flash = computed(() => page.props.flash || {});
 
 const statusEnumKey = 'App\\Enums\\Transaction\\TransactionStatus';
+const invoiceStatusEnumKey = 'App\\Enums\\Invoice\\Status';
+
+const createInvoiceHref = computed(
+    () => route('invoices.create') + `?transaction_id=${props.record.id}&contact_id=${props.record.customer?.contact_id || ''}`,
+);
+
+const transactionInvoices = computed(() => props.record.invoices ?? []);
+const transactionDeliveries = computed(() => props.record.deliveries ?? []);
+
+const resolvedTransactionStatus = computed(() => {
+    const raw = props.record.status;
+    const opts = props.enumOptions[statusEnumKey] || [];
+    const opt = opts.find((o) => o.value === raw || o.id === raw || String(o.id) === String(raw));
+    const value = opt?.value ?? (typeof raw === 'string' ? raw : null);
+    return { raw, value, opt };
+});
+
+/** Matches App\Enums\Transaction\TransactionStatus::id() */
+const TRANSACTION_STATUS_ID = { pending: 1, processing: 2, completed: 3, failed: 4, cancelled: 5 };
+
+const isCompleted = computed(() => {
+    const { value, raw } = resolvedTransactionStatus.value;
+    if (value === 'completed' || value === 'won' || raw === 'won' || raw === 'completed') {
+        return true;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n === TRANSACTION_STATUS_ID.completed;
+});
+
+const isFailed = computed(() => {
+    if (isCompleted.value) {
+        return false;
+    }
+    const { value, raw } = resolvedTransactionStatus.value;
+    if (value === 'failed' || value === 'lost' || raw === 'lost' || raw === 'failed') {
+        return true;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n === TRANSACTION_STATUS_ID.failed;
+});
+
+const isCancelled = computed(() => {
+    const { value, raw } = resolvedTransactionStatus.value;
+    if (value === 'cancelled' || raw === 'cancelled') {
+        return true;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n === TRANSACTION_STATUS_ID.cancelled;
+});
+
+const canMarkDealComplete = computed(() => {
+    if (isCompleted.value || isFailed.value || isCancelled.value) return false;
+    if (props.record.needs_contract && props.record.contract?.status !== 'signed') return false;
+    if (props.record.needs_delivery) {
+        if (!transactionDeliveries.value.some((d) => d.status === 'delivered')) return false;
+    }
+    if (!transactionInvoices.value.some((inv) => inv.status && !['draft', 'void'].includes(inv.status))) return false;
+    const tickets = props.record.service_tickets ?? [];
+    if (tickets.length && !tickets.every((t) => [4, 5].includes(Number(t.status)))) return false;
+    return true;
+});
+
+function markDealComplete() {
+    if (!canMarkDealComplete.value) return;
+    const fromPage = page.props?.csrf_token;
+    const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const token = fromPage ?? meta;
+    router.patch(
+        route('transactions.update', props.record.id),
+        { status: 'completed' },
+        {
+            preserveScroll: true,
+            headers: token ? { 'X-CSRF-TOKEN': String(token) } : {},
+            onError: (errors) => {
+                const msg = errors?.status;
+                const text = Array.isArray(msg) ? msg[0] : msg ?? Object.values(errors)[0];
+                const s = Array.isArray(text) ? text[0] : text;
+                if (s) window.alert(s);
+            },
+        },
+    );
+}
+
+const invoiceStatusMeta = (status) => {
+    const opts = props.enumOptions[invoiceStatusEnumKey] || [];
+    const opt = opts.find((o) => o.value === status || o.id === status);
+    if (opt) {
+        return { label: opt.name, bgClass: opt.bgClass || 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+    }
+    return { label: status || '—', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+};
 
 const statusMeta = computed(() => {
     const raw = props.record.status;
     const opts = props.enumOptions[statusEnumKey] || [];
-    const opt = opts.find((o) => o.value === raw || o.id === raw);
+    const opt = opts.find((o) => o.value === raw || o.id === raw || String(o.id) === String(raw));
     if (opt) {
         return { label: opt.name, bgClass: opt.bgClass || 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
     }
     const map = {
-        open:      { label: 'Active',    bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
-        active:    { label: 'Active',    bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
-        won:       { label: 'Won',       bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
-        lost:      { label: 'Lost',      bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
-        cancelled: { label: 'Cancelled', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' },
+        open:        { label: 'Pending',     bgClass: 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+        pending:     { label: 'Pending',     bgClass: 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+        active:      { label: 'Processing',  bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
+        processing:  { label: 'Processing',  bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
+        won:         { label: 'Completed',   bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
+        completed:   { label: 'Completed',   bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
+        lost:        { label: 'Failed',      bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
+        failed:      { label: 'Failed',      bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
+        cancelled:   { label: 'Cancelled',   bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' },
+        1:           { label: 'Pending',     bgClass: 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+        2:           { label: 'Processing',  bgClass: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200' },
+        3:           { label: 'Completed',   bgClass: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' },
+        4:           { label: 'Failed',      bgClass: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' },
+        5:           { label: 'Cancelled',   bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' },
     };
-    return map[raw] || { label: raw || '—', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+    const key = Object.prototype.hasOwnProperty.call(map, raw)
+        ? raw
+        : (Number.isFinite(Number(raw)) ? Number(raw) : raw);
+    return map[key] || { label: raw ?? '—', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
 });
 
 const breadcrumbItems = computed(() => [
@@ -114,20 +217,6 @@ function formatDate(iso) {
     } catch { return iso; }
 }
 
-const isWon = computed(() => {
-    const raw = props.record.status;
-    const opts = props.enumOptions[statusEnumKey] || [];
-    const opt = opts.find((o) => o.value === raw || o.id === raw);
-    return opt?.value === 'won' || raw === 'won';
-});
-
-const isLost = computed(() => {
-    const raw = props.record.status;
-    const opts = props.enumOptions[statusEnumKey] || [];
-    const opt = opts.find((o) => o.value === raw || o.id === raw);
-    return opt?.value === 'lost' || raw === 'lost';
-});
-
 const deleteTransaction = () => {
     if (confirm('Delete this transaction? This cannot be undone.')) {
         router.delete(route('transactions.destroy', props.record.id));
@@ -171,6 +260,21 @@ const relatedRecords = computed(() => {
             href: route('contracts.show', contractId),
             meta: props.record.contract?.status_label || null,
             amount: props.record.contract?.total_amount ?? null,
+        });
+    }
+
+    for (const invoice of transactionInvoices.value) {
+        const status = invoiceStatusMeta(invoice.status);
+        links.push({
+            key: `invoice-${invoice.id}`,
+            icon: 'receipt_long',
+            label: 'Invoice',
+            name: invoice.display_name || `INV-${invoice.sequence || invoice.id}`,
+            href: route('invoices.show', invoice.id),
+            meta: status.label,
+            metaClass: status.bgClass,
+            amount: invoice.total ?? null,
+            currency: invoice.currency || props.record.currency || 'USD',
         });
     }
 
@@ -242,32 +346,49 @@ const stepperSteps = computed(() => {
         key:   'invoice',
         label: 'Invoice',
         icon:  'receipt_long',
-        state: 'todo',
-        href:  route('invoices.create') + `?transaction_id=${props.record.id}&contact_id=${props.record.customer?.contact_id || ''}`,
+        state: (() => {
+            const invoices = transactionInvoices.value;
+            if (invoices.length === 0) return 'todo';
+            const hasIssued = invoices.some((inv) => inv.status && !['draft', 'void'].includes(inv.status));
+            if (!hasIssued) {
+                return invoices.some((inv) => inv.status === 'draft') ? 'pending' : 'todo';
+            }
+            const allSettled = invoices.every((inv) => ['paid', 'void'].includes(inv.status));
+            if (allSettled) return 'complete';
+            if (invoices.some((inv) => ['sent', 'viewed', 'partial'].includes(inv.status))) return 'current';
+            return 'pending';
+        })(),
+        href:  transactionInvoices.value.length > 0
+            ? route('invoices.show', transactionInvoices.value[0].id)
+            : createInvoiceHref.value,
         createLabel: 'Create Invoice',
+        count: transactionInvoices.value.length || undefined,
     });
 
     // ── Service Ticket ────────────────────────────────────────────────────
     const tickets = props.record.service_tickets ?? [];
     const hasTickets = tickets.length > 0;
-    const ticketDone    = hasTickets && tickets.every(t => [4, 5].includes(t.status));
-    const ticketActive  = hasTickets && tickets.some(t => [2, 3].includes(t.status));
+    const ticketDone = hasTickets && tickets.every((t) => [4, 5].includes(Number(t.status)));
+    const ticketActive = hasTickets && tickets.some((t) => [2, 3].includes(Number(t.status)));
     steps.push({
         key:   'service_ticket',
         label: 'Service',
         icon:  'build',
-        state: ticketDone ? 'complete' : ticketActive ? 'current' : hasTickets ? 'pending' : 'todo',
+        state: !hasTickets ? 'optional' : ticketDone ? 'complete' : ticketActive ? 'current' : 'pending',
         href:  hasTickets ? route('servicetickets.show', tickets[0].id) : null,
         count: tickets.length,
     });
 
     // ── Delivery ──────────────────────────────────────────────────────────
     if (props.record.needs_delivery) {
+        const dels = props.record.deliveries ?? [];
+        const delivered = dels.some((d) => d.status === 'delivered');
+        const inFlight = dels.some((d) => d.status && !['delivered', 'cancelled'].includes(d.status));
         steps.push({
             key:   'delivery',
             label: 'Delivery',
             icon:  'local_shipping',
-            state: 'todo',
+            state: delivered ? 'complete' : inFlight ? 'pending' : dels.length ? 'current' : 'todo',
             href:  null,
         });
     } else {
@@ -280,19 +401,24 @@ const stepperSteps = computed(() => {
         });
     }
 
-    // ── Completed (derived) ───────────────────────────────────────────────
-    // Deal must be won AND all required downstream steps must be satisfied.
-    const dealWon    = props.record.status === 'won' || props.record.status === 2;
+    // ── Completed (deal pipeline status) ──────────────────────────────────
+    const issuedInvoice = transactionInvoices.value.some((inv) => inv.status && !['draft', 'void'].includes(inv.status));
+    const ticketsOk = !hasTickets || ticketDone;
+    const deliveryOk = !props.record.needs_delivery || (props.record.deliveries ?? []).some((d) => d.status === 'delivered');
     const contractOk = !props.record.needs_contract || contractStatus === 'signed';
-    // Delivery verification requires a direct delivery record (not yet linked).
-    const deliveryOk = !props.record.needs_delivery;
+    const gatesReady = contractOk && deliveryOk && issuedInvoice && ticketsOk;
+
     steps.push({
         key:   'completed',
         label: 'Completed',
         icon:  'check_circle',
-        state: dealWon && contractOk && deliveryOk ? 'complete' : 'todo',
+        state: isCompleted.value ? 'complete' : gatesReady ? 'current' : 'todo',
         href:  null,
     });
+
+    if (isCompleted.value) {
+        return steps.map((s) => ({ ...s, state: 'complete' }));
+    }
 
     return steps;
 });
@@ -459,6 +585,16 @@ const confirmAddStep = () => {
                                 <span class="hidden md:inline">Edit</span>
                             </button>
                         </Link>
+                        <button
+                            v-if="canMarkDealComplete"
+                            type="button"
+                            aria-label="Mark deal completed"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-green-600 p-2 text-md font-medium text-white hover:bg-green-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="markDealComplete"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">task_alt</span>
+                            <span class="hidden md:inline">Mark completed</span>
+                        </button>
                         <button
                             type="button"
                             aria-label="Delete deal"
@@ -687,18 +823,18 @@ const confirmAddStep = () => {
 
                     <div class="p-6 space-y-6">
 
-                        <!-- Won / Lost banners -->
-                        <div v-if="isWon" class="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
+                        <!-- Completed / Failed banners -->
+                        <div v-if="isCompleted" class="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
                             <span class="material-icons text-green-600 dark:text-green-400">emoji_events</span>
                             <div>
-                                <p class="text-md font-semibold text-green-800 dark:text-green-200">Deal Won</p>
+                                <p class="text-md font-semibold text-green-800 dark:text-green-200">Deal completed</p>
                                 <p v-if="record.won_at" class="text-md text-green-600 dark:text-green-400">{{ formatDateTime(record.won_at) }}</p>
                             </div>
                         </div>
-                        <div v-if="isLost" class="flex items-center gap-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
+                        <div v-if="isFailed" class="flex items-center gap-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
                             <span class="material-icons text-red-600 dark:text-red-400">sentiment_dissatisfied</span>
                             <div>
-                                <p class="text-md font-semibold text-red-800 dark:text-red-200">Deal Lost</p>
+                                <p class="text-md font-semibold text-red-800 dark:text-red-200">Deal failed</p>
                                 <p v-if="record.lost_at" class="text-md text-red-600 dark:text-red-400">{{ formatDateTime(record.lost_at) }}</p>
                                 <p v-if="record.loss_reason_category" class="text-md text-red-600 dark:text-red-400 mt-0.5">
                                     Category: {{ record.loss_reason_category }}
@@ -980,6 +1116,55 @@ const confirmAddStep = () => {
                     </div>
                 </div>
 
+                <!-- Invoices -->
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+                    <div class="flex items-center justify-between px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <span class="text-md font-semibold text-gray-900 dark:text-white">Invoices</span>
+                        <Link
+                            :href="createInvoiceHref"
+                            class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                            <span class="material-icons text-base">add</span>
+                            Create
+                        </Link>
+                    </div>
+                    <div v-if="transactionInvoices.length === 0" class="p-5 text-sm text-gray-500 dark:text-gray-400">
+                        No invoices linked to this deal yet.
+                    </div>
+                    <div v-else class="p-4 space-y-2">
+                        <Link
+                            v-for="invoice in transactionInvoices"
+                            :key="invoice.id"
+                            :href="route('invoices.show', invoice.id)"
+                            class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group"
+                        >
+                            <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/30 transition-colors">
+                                <span class="material-icons text-emerald-600 dark:text-emerald-400 text-xl">receipt_long</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-md font-medium text-gray-900 dark:text-white truncate">
+                                    {{ invoice.display_name || `INV-${invoice.sequence || invoice.id}` }}
+                                </p>
+                                <span
+                                    class="inline-flex mt-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                                    :class="invoiceStatusMeta(invoice.status).bgClass"
+                                >
+                                    {{ invoiceStatusMeta(invoice.status).label }}
+                                </span>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <p class="text-md font-semibold text-gray-900 dark:text-white">
+                                    {{ formatMoney(invoice.total, invoice.currency) }}
+                                </p>
+                                <p v-if="Number(invoice.amount_due) > 0" class="text-xs text-amber-600 dark:text-amber-400">
+                                    {{ formatMoney(invoice.amount_due, invoice.currency) }} due
+                                </p>
+                                <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
+                            </div>
+                        </Link>
+                    </div>
+                </div>
+
                 <!-- Related Records -->
                 <div v-if="relatedRecords.length > 0" class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
                     <div class="px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
@@ -1000,10 +1185,17 @@ const confirmAddStep = () => {
                             <div class="flex-1 min-w-0">
                                 <p class="text-md font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ rel.label }}</p>
                                 <p class="text-md font-medium text-gray-900 dark:text-white truncate">{{ rel.name }}</p>
-                                <p v-if="rel.meta" class="text-md text-gray-500 dark:text-gray-400">{{ rel.meta }}</p>
+                                <p v-if="rel.meta">
+                                    <span
+                                        class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                                        :class="rel.metaClass || 'text-gray-500 dark:text-gray-400'"
+                                    >
+                                        {{ rel.meta }}
+                                    </span>
+                                </p>
                             </div>
                             <div class="flex-shrink-0 text-right">
-                                <p v-if="rel.amount != null" class="text-md font-semibold text-gray-900 dark:text-white">{{ formatMoney(rel.amount) }}</p>
+                                <p v-if="rel.amount != null" class="text-md font-semibold text-gray-900 dark:text-white">{{ formatMoney(rel.amount, rel.currency) }}</p>
                                 <span v-if="rel.href" class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
                             </div>
                         </component>

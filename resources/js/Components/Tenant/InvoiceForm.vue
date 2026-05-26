@@ -515,7 +515,7 @@ const submit = () => {
         next.allowed_methods = Array.isArray(next.allowed_methods)
             ? next.allowed_methods.filter((c) => typeof c === 'string' && c !== '')
             : [];
-        if (props.mode === 'create') {
+        if (props.mode === 'create' || form.transaction_id) {
             next.items = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? [];
         }
         return next;

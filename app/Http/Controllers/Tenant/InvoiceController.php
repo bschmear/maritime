@@ -11,6 +11,7 @@ use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Invoice\Support\RepairInvoiceLineItemsFromTransaction;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
@@ -233,6 +234,11 @@ class InvoiceController extends RecordController
 
     public function show(Request $request, $id)
     {
+        $invoice = RecordModel::query()->find($id);
+        if ($invoice) {
+            RepairInvoiceLineItemsFromTransaction::repairIfNeeded($invoice);
+        }
+
         return parent::show($request, $id);
     }
 

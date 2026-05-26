@@ -657,6 +657,26 @@ if (props.serviceTicket && props.mode === 'create') {
 
 const form = useForm(formData);
 
+/** Prefill date completed when moving to Completed/Closed in edit mode (user can change before save). */
+watch(
+    () => form.status,
+    (newStatus) => {
+        if (props.mode !== 'edit') return;
+        const ns = Number(newStatus);
+        if (![7, 8].includes(ns)) return;
+        if (form.completed_at && String(form.completed_at).trim() !== '') return;
+        const tz = accountTimezone.value;
+        const now = new Date();
+        const localNow = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+        const y = localNow.getFullYear();
+        const m = String(localNow.getMonth() + 1).padStart(2, '0');
+        const d = String(localNow.getDate()).padStart(2, '0');
+        const h = String(localNow.getHours()).padStart(2, '0');
+        const min = String(localNow.getMinutes()).padStart(2, '0');
+        form.completed_at = `${y}-${m}-${d}T${h}:${min}`;
+    },
+);
+
 const stTicketImages = ref([]);
 const stTicketImagesLoading = ref(false);
 const selectedStImageIds = ref([]);
@@ -1206,6 +1226,29 @@ const handleCancel = () => {
                                     />
                                     <p v-else class="text-md text-gray-900 dark:text-white">
                                         {{ formatDateTime(record?.due_at) }}
+                                    </p>
+                                </div>
+
+                                <!-- Date completed (work finished; P&L warranty timing for WO invoices) -->
+                                <div>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        {{ fieldsSchema.completed_at?.label || 'Date completed' }}
+                                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">
+                                            ({{ accountTimezoneLabel }})
+                                        </span>
+                                    </label>
+                                    <input
+                                        v-if="mode !== 'show'"
+                                        v-model="form.completed_at"
+                                        type="datetime-local"
+                                        :readonly="isFieldReadonly('completed_at') || isFieldDisabled('completed_at')"
+                                        class="input-style"
+                                    />
+                                    <p v-else class="text-md text-gray-900 dark:text-white">
+                                        {{ formatDateTime(record?.completed_at) }}
+                                    </p>
+                                    <p v-if="mode !== 'show' && fieldsSchema.completed_at?.help" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ fieldsSchema.completed_at.help }}
                                     </p>
                                 </div>
                             </div>

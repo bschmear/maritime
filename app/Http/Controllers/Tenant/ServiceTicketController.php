@@ -6,6 +6,7 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\ServiceTicket\Support\SyncServiceTicketCompletionToWorkOrders;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
@@ -606,7 +607,20 @@ class ServiceTicketController extends BaseController
                 ->with('error', 'This service ticket cannot be updated because it has already been approved and/or signed by the customer.');
         }
 
-        $ticket = $this->service->update($ticket, $request->all());
+        $data = $request->all();
+        $syncWorkOrderStatus = filter_var($data['sync_work_order_status'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['sync_work_order_status']);
+        $statusToSet = isset($data['status']) ? (int) $data['status'] : null;
+
+        $ticket = $this->service->update($ticket, $data);
+
+        if (
+            $syncWorkOrderStatus
+            && $statusToSet === ServiceTicketStatus::Completed->id()
+            && (int) $ticket->status === $statusToSet
+        ) {
+            (new SyncServiceTicketCompletionToWorkOrders)($ticket);
+        }
 
         return redirect()->route('servicetickets.show', $ticket->id);
     }

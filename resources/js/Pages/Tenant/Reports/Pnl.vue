@@ -120,6 +120,9 @@ function applyFilters() {
 
             <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Income</h3>
+                <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                    Customer-billable subtotals only. Warranty lines billed internal or to the manufacturer are shown under Warranty below.
+                </p>
                 <dl class="space-y-2">
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Boat Sales</dt>
@@ -128,6 +131,10 @@ function applyFilters() {
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Service Revenue</dt>
                         <dd class="tabular-nums">{{ formatCurrency(report.income?.service_revenue) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between pl-4 text-sm text-gray-600 dark:text-gray-400">
+                        <dt>— from service tickets (work orders)</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.income?.service_from_work_orders) }}</dd>
                     </div>
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Parts & Accessories</dt>
@@ -143,7 +150,42 @@ function applyFilters() {
             </div>
 
             <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Warranty (cost)</h3>
+                <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                    Warranty customer price is treated as zero; this section is <strong class="font-medium text-gray-700 dark:text-gray-300">extended cost only</strong> (quantity × line cost). <strong class="font-medium text-gray-700 dark:text-gray-300">Invoiced</strong> uses finalized invoice lines (not draft or void) flagged as warranty or billed to the manufacturer. When the invoice is linked to a work order, lines fall in the date range using the work order’s date completed; otherwise the invoice’s created date is used.
+                </p>
+                <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                    <strong class="font-medium text-gray-700 dark:text-gray-300">Pending invoice</strong> is the same warranty classification on completed work orders in the range that do not yet have a finalized invoice on that work order; cost uses each service line’s cost on the work order.
+                </p>
+                <h4 class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Invoiced</h4>
+                <dl class="space-y-2">
+                    <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
+                        <dt>Dealership warranty — cost</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.warranty?.dealership?.cost) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
+                        <dt>Manufacturer warranty — cost</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.warranty?.manufacturer?.cost) }}</dd>
+                    </div>
+                </dl>
+                <h4 class="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Pending invoice</h4>
+                <dl class="space-y-2">
+                    <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
+                        <dt>Dealership warranty — cost</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.warranty?.dealership?.pending_invoice?.cost) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
+                        <dt>Manufacturer warranty — cost</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.warranty?.manufacturer?.pending_invoice?.cost) }}</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cost of Goods Sold</h3>
+                <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
+                    All non-draft invoice lines in each category, including internal and warranty work (labor/parts cost).
+                </p>
                 <dl class="space-y-2">
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Boat Cost</dt>
@@ -152,6 +194,10 @@ function applyFilters() {
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Service Cost</dt>
                         <dd class="tabular-nums">{{ formatCurrency(report.cogs?.service_cost) }}</dd>
+                    </div>
+                    <div class="flex items-center justify-between pl-4 text-sm text-gray-600 dark:text-gray-400">
+                        <dt>— from service tickets (work orders)</dt>
+                        <dd class="tabular-nums">{{ formatCurrency(report.cogs?.service_cost_work_orders) }}</dd>
                     </div>
                     <div class="flex items-center justify-between text-md text-gray-700 dark:text-gray-300">
                         <dt>Parts Cost</dt>

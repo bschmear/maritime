@@ -1,11 +1,12 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
+import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
 import ServiceTicketPreview from '@/Components/Tenant/ServiceTicketPreview.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: {
@@ -89,6 +90,15 @@ const selectedStatus = ref(props.record.status);
 const statusChanged = ref(false);
 const updatingStatus = ref(false);
 const approving = ref(false);
+const showWorkOrderCompleteModal = ref(false);
+
+watch(
+    () => props.record.status,
+    (value) => {
+        selectedStatus.value = value;
+        statusChanged.value = false;
+    },
+);
 
 // Preview state
 const showPreview = ref(false);
@@ -126,16 +136,36 @@ const statusOptions = computed(() => {
     return props.enumOptions['App\\Enums\\ServiceTicket\\Status'] || [];
 });
 
-const updateStatus = async () => {
-    if (selectedStatus.value === props.record.status) {
-        statusChanged.value = false;
-        return;
-    }
+const TERMINAL_WORK_ORDER_STATUSES = new Set([7, 8, 9]);
 
+const completedStatusId = computed(() => {
+    const option = statusOptions.value.find((status) => status.value === 'completed');
+    return option?.id ?? 4;
+});
+
+const openWorkOrders = computed(() => {
+    return props.workOrders.filter((workOrder) => !TERMINAL_WORK_ORDER_STATUSES.has(Number(workOrder.status)));
+});
+
+const shouldPromptWorkOrderComplete = computed(() => {
+    return Number(selectedStatus.value) === completedStatusId.value && openWorkOrders.value.length > 0;
+});
+
+const openWorkOrderNumbersLabel = computed(() => {
+    return openWorkOrders.value
+        .map((workOrder) => `#${workOrder.work_order_number}`)
+        .join(', ');
+});
+
+const confirmUpdateStatus = async (syncWorkOrderStatus, extraPayload = {}) => {
+    showWorkOrderCompleteModal.value = false;
     updatingStatus.value = true;
+
     try {
         await router.patch(route('servicetickets.update', props.record.id), {
-            status: selectedStatus.value
+            status: selectedStatus.value,
+            sync_work_order_status: syncWorkOrderStatus,
+            ...extraPayload,
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -146,6 +176,20 @@ const updateStatus = async () => {
     } finally {
         updatingStatus.value = false;
     }
+};
+
+const updateStatus = () => {
+    if (selectedStatus.value === props.record.status) {
+        statusChanged.value = false;
+        return;
+    }
+
+    if (shouldPromptWorkOrderComplete.value) {
+        showWorkOrderCompleteModal.value = true;
+        return;
+    }
+
+    confirmUpdateStatus(false);
 };
 
 const approveTicket = async () => {
@@ -397,5 +441,51 @@ const linkedTransaction = computed(() => {
                 />
             </div>
         </Teleport>
+
+        <Modal :show="showWorkOrderCompleteModal" max-width="md" @close="showWorkOrderCompleteModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Mark linked work order complete?
+                </h3>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                    <template v-if="openWorkOrders.length === 1">
+                        There is an open work order
+                        <span class="font-medium text-gray-900 dark:text-white">{{ openWorkOrderNumbersLabel }}</span>
+                        attached to this service ticket. Would you like to mark it as complete?
+                    </template>
+                    <template v-else>
+                        There are
+                        <span class="font-medium text-gray-900 dark:text-white">{{ openWorkOrders.length }} open work orders</span>
+                        attached ({{ openWorkOrderNumbersLabel }}). Would you like to mark them as complete?
+                    </template>
+                </p>
+                <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        :disabled="updatingStatus"
+                        @click="showWorkOrderCompleteModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                        :disabled="updatingStatus"
+                        @click="confirmUpdateStatus(false)"
+                    >
+                        Service ticket only
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-60"
+                        :disabled="updatingStatus"
+                        @click="confirmUpdateStatus(true)"
+                    >
+                        Update both
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </TenantLayout>
 </template>

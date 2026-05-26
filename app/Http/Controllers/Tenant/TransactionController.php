@@ -8,6 +8,7 @@ use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Actions\DeleteTransaction;
 use App\Domain\Transaction\Actions\UpdateTransaction;
 use App\Domain\Transaction\Models\Transaction;
+use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Timezone;
 use App\Enums\Transaction\TransactionStatus;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
@@ -199,7 +200,7 @@ class TransactionController extends BaseController
                 'id' => $user->id,
                 'display_name' => $user->display_name ?? $user->name ?? '',
             ],
-            'status' => TransactionStatus::Active->id(),
+            'status' => TransactionStatus::Processing->id(),
         ];
 
         $estimateId = $request->query('estimate_id');
@@ -322,6 +323,7 @@ class TransactionController extends BaseController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
+        $enumOptions['App\\Enums\\Invoice\\Status'] = InvoiceStatus::options();
         $account = AccountSettings::getCurrent();
 
         $record = Transaction::query()
@@ -376,6 +378,12 @@ class TransactionController extends BaseController
                 // Full row so Contract::$appends display_name (getDisplayNameAttribute) serializes correctly.
                 'contract',
                 'serviceTickets' => fn ($q) => $q->select(['id', 'transaction_id', 'service_ticket_number', 'status'])->orderByDesc('id')->limit(20),
+                'invoices' => fn ($q) => $q
+                    ->select(['id', 'transaction_id', 'sequence', 'status', 'total', 'amount_due', 'currency', 'due_at', 'created_at'])
+                    ->orderByDesc('id'),
+                'deliveries' => fn ($q) => $q
+                    ->select(['id', 'transaction_id', 'status'])
+                    ->orderByDesc('id'),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
             ])

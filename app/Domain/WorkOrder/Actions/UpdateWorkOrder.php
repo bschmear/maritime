@@ -27,16 +27,41 @@ class UpdateWorkOrder
             $serviceItems = $validated['service_items'] ?? null;
             unset($validated['service_items']);
 
-            // Ensure cost fields have default values
-            $validated['labor_cost'] = $validated['labor_cost'] ?? 0;
-            $validated['parts_cost'] = $validated['parts_cost'] ?? 0;
-            $validated['total_cost'] = $validated['total_cost'] ?? 0;
+            // Apply cost defaults only when those fields are included in the update payload
+            foreach (['labor_cost', 'parts_cost', 'total_cost'] as $costField) {
+                if (array_key_exists($costField, $validated) && $validated[$costField] === null) {
+                    $validated[$costField] = 0;
+                }
+            }
 
             $record = RecordModel::findOrFail($id);
 
             $newStatus = (int) ($validated['status'] ?? $record->status);
+            $oldStatus = (int) $record->status;
+            $completedId = WorkOrderStatus::Completed->id();
+            $closedId = WorkOrderStatus::Closed->id();
+
             if ($newStatus === WorkOrderStatus::Closed->id()) {
                 app(AssertWorkOrderManufacturerWarrantyClaimsAllowClose::class)($record, $serviceItems);
+            }
+
+            if (in_array($newStatus, [$completedId, $closedId], true)) {
+                if ($record->completed_at === null) {
+                    if (! array_key_exists('completed_at', $validated)) {
+                        $validated['completed_at'] = now();
+                    } else {
+                        $raw = $validated['completed_at'];
+                        if ($raw === null || $raw === '') {
+                            $validated['completed_at'] = now();
+                        }
+                    }
+                } elseif (array_key_exists('completed_at', $validated)
+                    && ($validated['completed_at'] === null || $validated['completed_at'] === '')) {
+                    unset($validated['completed_at']);
+                }
+            } elseif (in_array($oldStatus, [$completedId, $closedId], true)
+                && ! in_array($newStatus, [$completedId, $closedId], true)) {
+                $validated['completed_at'] = null;
             }
 
             $record->update($validated);

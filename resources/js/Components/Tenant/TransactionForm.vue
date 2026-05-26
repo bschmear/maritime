@@ -1,5 +1,5 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
@@ -33,6 +33,16 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['cancel']);
+
+const page = usePage();
+
+/** Prefer token from latest Inertia payload so it stays aligned with the session on long-lived SPA pages. */
+const csrfHeader = () => {
+    const fromPage = page.props?.csrf_token;
+    const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const token = fromPage ?? meta;
+    return token ? { 'X-CSRF-TOKEN': String(token) } : {};
+};
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
@@ -694,7 +704,7 @@ const removeAddon = (item, addonIdx) => {
 const currentStatusMeta = computed(() => statusMetaFor(form.status));
 const isLostOrCancelled = computed(() => {
     const opt = statusOptions.value.find((o) => o.id === form.status);
-    return opt && (opt.value === 'lost' || opt.value === 'cancelled');
+    return opt && (opt.value === 'failed' || opt.value === 'cancelled');
 });
 
 const getRecordOptions = (fieldKey) => props.enumOptions[fieldKey] || [];
@@ -788,6 +798,7 @@ const submit = () => {
 
     if (props.mode === 'edit') {
         form.put(route('transactions.update', props.record.id), {
+            headers: { ...csrfHeader() },
             onSuccess: () => { window.location.href = route('transactions.show', props.record.id); },
         });
     } else {

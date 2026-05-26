@@ -19,6 +19,11 @@ const props = defineProps({
         type: Number,
         default: 112,
     },
+    /** When true, tooltips format values as USD currency (useful on reports). */
+    currencyTooltip: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const chartEl = ref(null);
@@ -27,6 +32,11 @@ let chart = null;
 const hasData = computed(() => props.series.some((value) => Number(value) > 0));
 
 const isDark = () => document.documentElement.classList.contains('dark');
+
+const formatCurrency = (value) => {
+    const n = Number(value) || 0;
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+};
 
 const chartOptions = computed(() => ({
     chart: {
@@ -48,7 +58,7 @@ const chartOptions = computed(() => ({
         enabled: true,
         theme: isDark() ? 'dark' : 'light',
         y: {
-            formatter: (value) => `${value}`,
+            formatter: (value) => (props.currencyTooltip ? formatCurrency(value) : `${value}`),
         },
     },
     plotOptions: {
@@ -96,7 +106,7 @@ const handleThemeChange = () => {
 };
 
 watch(
-    () => [props.series, props.labels, props.colors, props.height],
+    () => [props.series, props.labels, props.colors, props.height, props.currencyTooltip],
     () => {
         if (!hasData.value) {
             destroyChart();

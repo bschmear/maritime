@@ -13,17 +13,18 @@ use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Contract\ContractStatus;
 use App\Enums\Payments\Terms;
+use App\Enums\ServiceTicket\SignatureMethod;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ContractReviewRequest;
 use App\Models\AccountSettings;
 use App\Services\SMS\SmsService;
 use App\Support\ContractEnumMapper;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -385,6 +386,7 @@ class ContractController extends BaseController
         $recordArray['created_at'] = $record->created_at?->toISOString();
         $recordArray['updated_at'] = $record->updated_at?->toISOString();
         $recordArray['signed_at'] = $record->signed_at?->toISOString();
+        $recordArray['signature_url'] = $record->signature_url;
 
         $smsService = app(SmsService::class);
 
@@ -406,7 +408,9 @@ class ContractController extends BaseController
             'record' => $recordArray,
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $this->getContractEnumOptions(),
+            'enumOptions' => array_merge($this->getContractEnumOptions(), [
+                'App\\Enums\\ServiceTicket\\SignatureMethod' => SignatureMethod::options(),
+            ]),
             'account' => $settings,
             'timezones' => Timezone::options(),
             'contractReviewSms' => $smsService->contractReviewSmsCanBeOffered($record->customer, $request->user()),

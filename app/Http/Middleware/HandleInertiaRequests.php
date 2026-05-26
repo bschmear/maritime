@@ -76,6 +76,7 @@ class HandleInertiaRequests extends Middleware
         if ($this->isHelpPortalHost($request)) {
             return [
                 ...parent::share($request),
+                'csrf_token' => fn () => csrf_token(),
                 'app' => [
                     'name' => config('app.name'),
                 ],
@@ -105,6 +106,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            'csrf_token' => fn () => csrf_token(),
             'app' => [
                 'name' => config('app.name'),
             ],

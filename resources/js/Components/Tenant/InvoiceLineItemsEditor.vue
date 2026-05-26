@@ -112,12 +112,39 @@ const normalizeItemBase = (item, isNew = false) => ({
 
 const lines = ref([]);
 
+const INVOICE_CHILD_SEP = ' — ';
+
 const applyItemRows = (src, { preserveIds = false } = {}) => {
     lines.value = [];
     const isNew = !preserveIds;
-    (src || []).forEach((item) => {
+    const rows = src || [];
+    const skipped = new Set();
+
+    for (let i = 0; i < rows.length; i++) {
+        if (skipped.has(i)) {
+            continue;
+        }
+
+        const item = rows[i];
         const base = normalizeItemBase(item, isNew);
+
         if (item.itemable_type === 'App\\Domain\\Asset\\Models\\Asset') {
+            const persistedFlatRows = [];
+            for (let j = i + 1; j < rows.length; j++) {
+                const child = rows[j];
+                if (child.itemable_type) {
+                    break;
+                }
+                if (String(child.name ?? '').startsWith(String(item.name ?? '') + INVOICE_CHILD_SEP)) {
+                    persistedFlatRows.push(child);
+                    skipped.add(j);
+                }
+            }
+
+            if (persistedFlatRows.length > 0) {
+                base.selected_asset_options = [];
+            }
+
             lines.value.push({
                 kind: 'asset',
                 ...base,
@@ -128,6 +155,15 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
                 make: item.itemable?.make?.display_name || item.make || '',
                 has_variants: Boolean(item.itemable?.has_variants),
                 asset_description: (item.itemable?.description || '').trim() || '',
+                persisted_flat_rows: persistedFlatRows.map((row) => ({
+                    id: row.id ?? null,
+                    name: row.name ?? '',
+                    description: row.description ?? '',
+                    quantity: Number(row.quantity) || 1,
+                    unit_price: Number(row.unit_price) || 0,
+                    discount: Number(row.discount) || 0,
+                    taxable: normalizeTaxable(row.taxable ?? true),
+                })),
             });
         } else if (item.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
             lines.value.push({
@@ -148,7 +184,7 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
                 sku: '',
             });
         }
-    });
+    }
 };
 
 onMounted(() => {
@@ -517,6 +553,36 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                 position: pos++,
                 taxable: !!a.taxable,
                 tax_rate: a.taxable ? rate : 0,
+            });
+        });
+        (line.selected_asset_options || []).forEach((opt) => {
+            out.push({
+                transaction_line_item_id: null,
+                itemable_type: null,
+                itemable_id: null,
+                name: `${line.name} — ${selectedOptionLabel(opt)}`,
+                description: null,
+                quantity: 1,
+                unit_price: Number(opt.price) || 0,
+                discount: 0,
+                position: pos++,
+                taxable: optionRowTaxable(opt),
+                tax_rate: optionRowTaxable(opt) ? rate : 0,
+            });
+        });
+        (line.persisted_flat_rows || []).forEach((row) => {
+            out.push({
+                transaction_line_item_id: null,
+                itemable_type: null,
+                itemable_id: null,
+                name: row.name,
+                description: row.description || null,
+                quantity: Number(row.quantity) || 1,
+                unit_price: Number(row.unit_price) || 0,
+                discount: Number(row.discount) || 0,
+                position: pos++,
+                taxable: !!row.taxable,
+                tax_rate: row.taxable ? rate : 0,
             });
         });
     });
