@@ -2,7 +2,8 @@
     "columns": [
         {
             "key": "display_name",
-            "label": "Name"
+            "label": "Name",
+            "isKey": true
         },
         {
             "key": "description",

@@ -5,8 +5,8 @@ namespace App\Mail;
 use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\User;
+use App\Support\WorkspaceAccountUserRoles;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -17,7 +17,9 @@ class AccountInvitation extends Mailable
     use Queueable, SerializesModels;
 
     public Invitation $invitation;
+
     public Account $account;
+
     public User $inviter;
 
     /**
@@ -52,7 +54,7 @@ class AccountInvitation extends Mailable
                 'account' => $this->account,
                 'inviter' => $this->inviter,
                 'invitationUrl' => $this->invitation->getInvitationUrl(),
-                'role' => ucfirst($this->invitation->role),
+                'role' => WorkspaceAccountUserRoles::labelForSlug($this->invitation->role),
             ],
         );
     }

@@ -10,6 +10,9 @@ use App\Domain\User\Actions\DeleteUser as DeleteAction;
 use App\Domain\User\Actions\UpdateUser as UpdateAction;
 use App\Domain\User\Models\User as RecordModel;
 use App\Http\Controllers\Concerns\HasImageSupport;
+use App\Models\Account;
+use App\Models\Invitation;
+use App\Models\User as CentralUser;
 use App\Services\TenantStaffResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +55,69 @@ class UserController extends RecordController
         $staff->loadMissing('role');
 
         return $staff->role && $staff->role->slug === 'admin';
+    }
+
+    /**
+     * Central account team seats + whether this tenant staff email can log in to the workspace.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function workspaceTeamProps(?string $tenantStaffEmail): ?array
+    {
+        $account = request()->get('tenant_account');
+        if (! $account instanceof Account) {
+            return null;
+        }
+
+        $account->loadMissing(['subscription.plan', 'users', 'owner']);
+        $currentPlan = $account->currentPlan();
+        $seatUsage = $account->seatUsageForDisplay();
+
+        $centralBase = rtrim((string) config('app.url'), '/');
+        $accountShowUrl = $centralBase.'/accounts/'.$account->id;
+
+        $webUser = auth()->user();
+        $viewerIsAccountOwner = $webUser && (int) $account->owner_id === (int) $webUser->id;
+
+        $extraSeatMonthly = (float) (config('app.extra_seats.monthly_price') ?: 15.0);
+
+        $staffInvite = null;
+        if ($tenantStaffEmail !== null && trim($tenantStaffEmail) !== '') {
+            $emailKey = strtolower(trim($tenantStaffEmail));
+            $centralForEmail = CentralUser::query()->whereRaw('LOWER(email) = ?', [$emailKey])->first();
+            $onAccount = $centralForEmail
+                ? $account->users()->where('users.id', $centralForEmail->id)->exists()
+                : false;
+
+            $pendingInvitation = Invitation::query()
+                ->where('account_id', $account->id)
+                ->whereRaw('LOWER(email) = ?', [$emailKey])
+                ->whereNull('accepted_at')
+                ->whereNull('declined_at')
+                ->exists();
+
+            $staffInvite = [
+                'email' => $emailKey,
+                'has_central_user' => (bool) $centralForEmail,
+                'on_account' => $onAccount,
+                'pending_invitation' => $pendingInvitation,
+            ];
+        }
+
+        return [
+            'seat_usage' => $seatUsage,
+            'billing_plan' => $currentPlan ? [
+                'name' => $currentPlan->name,
+                'seat_limit' => $currentPlan->seat_limit,
+                'seat_extra' => $currentPlan->seat_extra,
+            ] : null,
+            'has_active_subscription' => $account->hasActiveSubscription(),
+            'extra_seat_monthly_price' => $extraSeatMonthly,
+            'account_id' => $account->id,
+            'account_show_url' => $accountShowUrl,
+            'viewer_is_account_owner' => $viewerIsAccountOwner,
+            'staff_invite' => $staffInvite,
+        ];
     }
 
     /**
@@ -154,6 +220,7 @@ class UserController extends RecordController
     {
         return [
             'canManageUsers' => $this->tenantStaffIsAdministrator(),
+            'workspaceTeam' => $this->workspaceTeamProps($record->email),
         ];
     }
 
@@ -170,6 +237,7 @@ class UserController extends RecordController
             'enumOptions' => $this->getEnumOptions(),
             'roles' => Role::query()->orderBy('display_name')->get(['id', 'display_name', 'slug']),
             'canAssignRole' => true,
+            'workspaceTeam' => $this->workspaceTeamProps(null),
         ]);
     }
 
@@ -224,7 +292,11 @@ class UserController extends RecordController
 
         return redirect()
             ->route('users.show', $result['record']->id)
-            ->with('success', 'User created.');
+            ->with('success', 'User created.')
+            ->with(
+                'info',
+                'Add this person’s email under your Maritime account → Team members so they can sign in to this workspace.'
+            );
     }
 
     public function edit($id): InertiaResponse
@@ -247,6 +319,7 @@ class UserController extends RecordController
             'roles' => Role::query()->orderBy('display_name')->get(['id', 'display_name', 'slug']),
             'canAssignRole' => true,
             'avatarPreviewUrl' => $avatarUrls['avatar'] ?? null,
+            'workspaceTeam' => $this->workspaceTeamProps($record->email),
         ]);
     }
 

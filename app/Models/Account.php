@@ -68,7 +68,7 @@ class Account extends Model
 
     public function members()
     {
-        return $this->users()->wherePivot('role', 'member');
+        return $this->users()->wherePivotIn('role', ['manager', 'employee', 'guest']);
     }
 
     /**
@@ -146,10 +146,10 @@ class Account extends Model
     {
         $plan = $this->currentPlan();
         if (! $plan) {
-            return $this->users->count();
+            return $this->users()->count();
         }
 
-        return max(0, $this->users->count() - $plan->seat_limit);
+        return max(0, $this->users()->count() - $plan->seat_limit);
     }
 
     /**
@@ -202,6 +202,27 @@ class Account extends Model
             'extra_seats' => $extraSeats,
             'extra_cost' => $extraCost,
             'total' => ($plan->monthly_price ?? 0) + $extraCost,
+        ];
+    }
+
+    /**
+     * Seat counts for workspace billing UI (central account members vs plan included seats).
+     *
+     * @return array{current_users: int, seat_limit: int, available_seats: int, over_limit: int, additional_cost: float}
+     */
+    public function seatUsageForDisplay(): array
+    {
+        $this->loadMissing('users');
+        $currentPlan = $this->currentPlan();
+        $currentUsers = $this->users->count();
+        $seatLimit = $currentPlan?->seat_limit ?? 1;
+
+        return [
+            'current_users' => $currentUsers,
+            'seat_limit' => $seatLimit,
+            'available_seats' => $this->withinSeatLimit() ? max(0, $seatLimit - $currentUsers) : 0,
+            'over_limit' => $this->seatsOverLimit(),
+            'additional_cost' => (float) $this->additionalSeatCost(),
         ];
     }
 

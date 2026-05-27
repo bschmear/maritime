@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Account;
 use App\Models\User;
+use App\Support\WorkspaceAccountUserRoles;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -14,7 +15,9 @@ class UserJoinedAccount extends Notification implements ShouldQueue
     use Queueable;
 
     public User $newUser;
+
     public Account $account;
+
     public string $role;
 
     /**
@@ -42,14 +45,16 @@ class UserJoinedAccount extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $roleLabel = WorkspaceAccountUserRoles::labelForSlug($this->role);
+
         return (new MailMessage)
             ->subject("{$this->newUser->name} joined {$this->account->name}")
             ->greeting("Hello {$notifiable->name}!")
-            ->line("{$this->newUser->name} ({$this->newUser->email}) has accepted your invitation and joined {$this->account->name} as a {$this->role}.")
-            ->line("They now have access to your account and can help manage your marine sales operations.")
+            ->line("{$this->newUser->name} ({$this->newUser->email}) has accepted your invitation and joined {$this->account->name}. Their workspace role is {$roleLabel}.")
+            ->line('They now have access to your account and can help manage your marine sales operations.')
             ->action('Manage Account', route('accounts.show', $this->account->id))
             ->line('If you need to adjust billing or permissions, you can do so in the account management section.')
-            ->salutation('Best regards, Maritime CRM Team');
+            ->salutation('Best regards, '.config('app.name').' Team');
     }
 
     /**

@@ -217,10 +217,23 @@ Create:
 
 php artisan permissions:sync
 
+All tenants (Stancl):
+
+php artisan permissions:sync --all-tenants
+
+Specific tenants only:
+
+php artisan permissions:sync --all-tenants --tenants=762332 --tenants=123456
+
+Permission rows only (do not change role assignments):
+
+php artisan permissions:sync --catalog-only
+
 Purpose:
 
 regenerate missing permissions
 keep enum and DB synchronized
+apply default role permission sets (admin: all; manager: all except user create/delete; employee: view+edit; guest: view) unless --catalog-only
 
 This becomes critical long term.
 

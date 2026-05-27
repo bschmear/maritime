@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     account: {
@@ -41,18 +41,21 @@ const props = defineProps({
         type: Object,
         required: true,
     },
+    tenant_workspace_roles: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const showAddUserModal = ref(false);
 const showSwitchPlanModal = ref(false);
 const newUserEmail = ref('');
-const newUserRole = ref('member');
+const newUserRole = ref('');
 const selectedPlanId = ref('');
 const billingCycle = ref('monthly');
 const isSwitchingPlan = ref(false);
 const isInvitingUser = ref(false);
 const removingUserId = ref(null);
-const updatingUserId = ref(null);
 const resendingInvitation = ref(null);
 const deletingInvitation = ref(null);
 
@@ -71,6 +74,31 @@ const breadcrumbItems = computed(() => {
         { label: 'Account: ' + props.account.name },
     ];
 });
+
+const defaultInviteRoleSlug = computed(() => {
+    const rows = props.tenant_workspace_roles;
+    if (!rows?.length) {
+        return '';
+    }
+    const employee = rows.find((r) => r.slug === 'employee');
+    return employee ? employee.slug : rows[0].slug;
+});
+
+watch(showAddUserModal, (open) => {
+    if (open) {
+        newUserRole.value = defaultInviteRoleSlug.value;
+    }
+});
+
+watch(
+    () => props.tenant_workspace_roles,
+    () => {
+        if (!props.tenant_workspace_roles?.some((r) => r.slug === newUserRole.value)) {
+            newUserRole.value = defaultInviteRoleSlug.value;
+        }
+    },
+    { deep: true },
+);
 
 // Show confirmation modal
 const showConfirmModal = (title, message, onConfirm) => {
@@ -108,7 +136,7 @@ const handleConfirm = () => {
 
 // User management
 const inviteUser = () => {
-    if (isInvitingUser.value) return;
+    if (isInvitingUser.value || !props.tenant_workspace_roles.length) return;
     isInvitingUser.value = true;
 
     router.post(route('accounts.users.invite', props.account.id), {
@@ -119,7 +147,7 @@ const inviteUser = () => {
         onSuccess: () => {
             showAddUserModal.value = false;
             newUserEmail.value = '';
-            newUserRole.value = 'member';
+            newUserRole.value = defaultInviteRoleSlug.value;
             isInvitingUser.value = false;
         },
         onError: (errors) => {
@@ -160,30 +188,6 @@ const removeUser = (user) => {
             });
         }
     );
-};
-
-const updateUserRole = (user, newRole) => {
-    if (updatingUserId.value) return;
-    updatingUserId.value = user.id;
-
-    router.patch(route('accounts.users.update-role', {
-        account: props.account.id,
-        user: user.id
-    }), {
-        role: newRole,
-    }, {
-        preserveScroll: true,
-        onSuccess: () => {
-            updatingUserId.value = null;
-        },
-        onError: (errors) => {
-            console.error('Error updating user role:', errors);
-            updatingUserId.value = null;
-        },
-        onFinish: () => {
-            updatingUserId.value = null;
-        }
-    });
 };
 
 // Invitation management
@@ -564,7 +568,6 @@ const cancelAccount = () => {
                                 <tr>
                                     <th scope="col" class="px-6 py-3">User</th>
                                     <th scope="col" class="px-6 py-3">Email</th>
-                                    <th scope="col" class="px-6 py-3">Role</th>
                                     <th scope="col" class="px-6 py-3">Joined</th>
                                     <th scope="col" class="px-6 py-3" v-if="account.is_owner">Actions</th>
                                 </tr>
@@ -592,26 +595,6 @@ const cancelAccount = () => {
                                     </th>
                                     <td class="px-6 py-4">
                                         {{ user.email }}
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div v-if="account.is_owner && !user.is_owner" class="relative">
-                                            <select
-                                                :value="user.role"
-                                                @change="updateUserRole(user, $event.target.value)"
-                                                :disabled="updatingUserId === user.id"
-                                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                <option value="member">Member</option>
-                                                <option value="admin">Admin</option>
-                                            </select>
-                                            <div v-if="updatingUserId === user.id" class="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                                <svg class="animate-spin h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
-                                            </div>
-                                        </div>
-                                        <span v-else class="capitalize">{{ user.role }}</span>
                                     </td>
                                     <td class="px-6 py-4">
                                         {{ new Date(user.created_at).toLocaleDateString() }}
@@ -673,7 +656,7 @@ const cancelAccount = () => {
                                         {{ invitation.email }}
                                     </p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Invited as {{ invitation.role }} •
+                                        Will join as {{ invitation.role_display_name }} •
                                         Invited by {{ invitation.invited_by?.name || 'Unknown' }} •
                                         {{ new Date(invitation.created_at).toLocaleDateString() }}
                                     </p>
@@ -745,20 +728,32 @@ const cancelAccount = () => {
                                     >
                                 </div>
                                 <div>
-                                    <label for="role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Role</label>
+                                    <label for="role" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Workspace role</label>
+                                    <p v-if="!tenant_workspace_roles.length" class="mb-2 text-sm text-amber-700 dark:text-amber-300">
+                                        Workspace roles could not be loaded. Check that this account is linked to a workspace, then refresh the page.
+                                    </p>
                                     <select
+                                        v-else
                                         v-model="newUserRole"
                                         id="role"
                                         class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white"
                                     >
-                                        <option value="member">Member</option>
-                                        <option value="admin">Admin</option>
+                                        <option
+                                            v-for="opt in tenant_workspace_roles"
+                                            :key="opt.slug"
+                                            :value="opt.slug"
+                                        >
+                                            {{ opt.display_name }}
+                                        </option>
                                     </select>
+                                    <p v-if="tenant_workspace_roles.length" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        This is the role they will have in the workspace when they accept. To change a member’s role later, an administrator can edit the user in the workspace.
+                                    </p>
                                 </div>
                                 <div class="flex gap-3">
                                     <button
                                         type="submit"
-                                        :disabled="isInvitingUser"
+                                        :disabled="isInvitingUser || !tenant_workspace_roles.length"
                                         class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                                     >
                                         <svg v-if="isInvitingUser" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -21,9 +21,6 @@
             "fields": [
                 {
                     "key": "description"
-                },
-                {
-                    "key": "permissions"
                 }
             ]
         }

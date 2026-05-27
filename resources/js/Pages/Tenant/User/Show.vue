@@ -3,7 +3,8 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
-import { Head, router } from '@inertiajs/vue3';
+import WorkspaceTeamUserScopeBanner from '@/Components/Tenant/WorkspaceTeamUserScopeBanner.vue';
+import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 
@@ -52,9 +53,15 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    workspaceTeam: {
+        type: Object,
+        default: null,
+    },
 });
 
-const showDeleteModal = ref(false);
+const page = usePage();
+
+const flash = computed(() => page.props.flash || {});
 const isDeleting = ref(false);
 
 const sublists = computed(() => props.formSchema?.sublists || []);
@@ -154,7 +161,22 @@ const breadcrumbItems = computed(() => {
             </div>
         </template>
 
-        <div class="w-full">
+        <div class="w-full space-y-4">
+            <div
+                v-if="flash.success"
+                class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900 dark:border-green-800 dark:bg-green-900/25 dark:text-green-100"
+            >
+                {{ flash.success }}
+            </div>
+            <div
+                v-if="flash.info"
+                class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/25 dark:text-blue-100"
+            >
+                {{ flash.info }}
+            </div>
+
+            <WorkspaceTeamUserScopeBanner :workspace-team="workspaceTeam" />
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Personal Information Card -->
                 <div class="lg:col-span-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
@@ -268,13 +290,17 @@ const breadcrumbItems = computed(() => {
                                 </dd>
                             </div>
 
-                            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <button type="button" class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-900/20 dark:text-primary-400 dark:border-primary-800 dark:hover:bg-primary-900/30">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+                                <Link
+                                    v-if="record.role"
+                                    :href="route('roles.show', record.role.id)"
+                                    class="inline-flex w-full items-center justify-center rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-400 dark:hover:bg-primary-900/30"
+                                >
+                                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                                     </svg>
                                     View Permissions
-                                </button>
+                                </Link>
                             </div>
                         </div>
                         <div v-else class="text-center py-4">

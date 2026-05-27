@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Role\Models\Role;
+use App\Services\PermissionGenerator;
 use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
@@ -17,33 +18,21 @@ class RoleSeeder extends Seeder
                 'display_name' => 'Administrator',
                 'slug' => 'admin',
                 'description' => 'Full system access with all permissions',
-                'permissions' => [
-
-                ],
             ],
             [
                 'display_name' => 'Manager',
                 'slug' => 'manager',
                 'description' => 'Can manage team members and most data',
-                'permissions' => [
-
-                ],
             ],
             [
                 'display_name' => 'Employee',
                 'slug' => 'employee',
                 'description' => 'Standard user with basic access',
-                'permissions' => [
-
-                ],
             ],
             [
                 'display_name' => 'Guest',
                 'slug' => 'guest',
                 'description' => 'Limited read-only access',
-                'permissions' => [
-
-                ],
             ],
         ];
 
@@ -53,5 +42,9 @@ class RoleSeeder extends Seeder
                 $role
             );
         }
+
+        $generator = app(PermissionGenerator::class);
+        $generator->sync();
+        $generator->assignDefaultRolePermissions();
     }
 }

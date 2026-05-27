@@ -15,11 +15,5 @@
         "type": "textarea",
         "validation": "nullable|string|max:1000",
         "help": "Optional description of what this role can do"
-    },
-    "permissions": {
-        "label": "Permissions",
-        "type": "json",
-        "validation": "nullable|array",
-        "help": "JSON array of permissions for this role"
     }
 }

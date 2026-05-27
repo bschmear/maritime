@@ -15,6 +15,8 @@ class User extends Model
 {
     use HasDocuments;
 
+    protected $connection = 'tenant';
+
     protected $fillable = [
         'display_name',
         'first_name',
@@ -29,7 +31,7 @@ class User extends Model
         'delivery_in_progress',
     ];
 
-    protected $with = ['role'];
+    protected $with = ['role.permissions'];
 
     protected $casts = [
         'is_technician' => 'boolean',
@@ -42,6 +44,15 @@ class User extends Model
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'current_role');
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        if (! $this->role) {
+            return false;
+        }
+
+        return $this->role->hasPermission($permission);
     }
 
     /**

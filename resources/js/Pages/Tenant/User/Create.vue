@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import UserForm from '@/Components/Tenant/UserForm.vue';
+import WorkspaceTeamUserScopeBanner from '@/Components/Tenant/WorkspaceTeamUserScopeBanner.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -25,6 +26,10 @@ const props = defineProps({
     canAssignRole: {
         type: Boolean,
         default: false,
+    },
+    workspaceTeam: {
+        type: Object,
+        default: null,
     },
 });
 
@@ -51,6 +56,7 @@ const handleCancel = () => {
         </template>
 
         <div class="flex w-full flex-col space-y-6">
+            <WorkspaceTeamUserScopeBanner is-create-page :workspace-team="workspaceTeam" />
             <UserForm
                 :record="null"
                 :form-schema="formSchema"

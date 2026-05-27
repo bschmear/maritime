@@ -12,6 +12,13 @@ class Invitation extends Model
     use HasFactory;
 
     /**
+     * Invitations live on the central database, not tenant schemas.
+     *
+     * @var string|null
+     */
+    protected $connection = 'pgsql';
+
+    /**
      * The primary key for the model.
      */
     protected $primaryKey = 'id';

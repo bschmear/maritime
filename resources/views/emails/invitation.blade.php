@@ -100,7 +100,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">Maritime CRM</div>
+            <div class="logo">{{ config('app.name') }}</div>
             <h1 class="title">You're Invited!</h1>
             <p class="subtitle">{{ $inviter->name }} has invited you to join {{ $account->name }}</p>
         </div>
@@ -108,7 +108,7 @@
         <div class="content">
             <p>Hello,</p>
 
-            <p>You've been invited to join <strong>{{ $account->name }}</strong> on Maritime CRM. As a <strong>{{ $role }}</strong>, you'll have access to manage and track marine sales opportunities.</p>
+            <p>You've been invited to join <strong>{{ $account->name }}</strong> on {{ config('app.name') }}. As a <strong>{{ $role }}</strong>, you'll have access to manage and track marine sales opportunities.</p>
 
             <div class="invitation-details">
                 <h3 style="margin: 0 0 16px 0; font-size: 18px; color: #1f2937;">Invitation Details</h3>
@@ -147,7 +147,7 @@
 
         <div class="footer">
             <p>This invitation was sent to {{ $invitation->email }}. If you didn't expect this invitation, you can safely ignore this email.</p>
-            <p>&copy; {{ date('Y') }} Maritime CRM. All rights reserved.</p>
+            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
         </div>
     </div>
 </body>

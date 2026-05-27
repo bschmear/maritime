@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Role\Models\Role;
 use App\Mail\AccountInvitation;
 use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\Tenant;
 use App\Models\User;
+use App\Support\WorkspaceAccountUserRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -48,13 +51,12 @@ class AccountController extends Controller
         }
 
         // Calculate seat usage
-        $seatUsage = [
-            'current_users' => $account->users->count(),
-            'seat_limit' => $currentPlan?->seat_limit ?? 1,
-            'available_seats' => $account->withinSeatLimit() ? ($currentPlan?->seat_limit ?? 1) - $account->users->count() : 0,
-            'over_limit' => $account->seatsOverLimit(),
-            'additional_cost' => $account->additionalSeatCost(),
-        ];
+        $seatUsage = $account->seatUsageForDisplay();
+
+        $tenantRoleRows = $this->tenantRolesForAccountWorkspace($account);
+        $roleDisplayBySlug = collect($tenantRoleRows)->mapWithKeys(fn (array $row) => [
+            $row['slug'] => $row['display_name'],
+        ])->all();
 
         // Get all available plans
         $plans = Plan::active()->orderBy('monthly_price')->get();
@@ -75,16 +77,17 @@ class AccountController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'role' => $user->pivot->role,
                     'is_owner' => $account->owner_id === $user->id,
                     'created_at' => $user->pivot->created_at,
                 ];
             }),
-            'pending_invitations' => $account->pendingInvitations->map(function ($invitation) {
+            'pending_invitations' => $account->pendingInvitations->map(function ($invitation) use ($roleDisplayBySlug) {
+                $slug = (string) $invitation->role;
+
                 return [
                     'id' => $invitation->id,
                     'email' => $invitation->email,
-                    'role' => $invitation->role,
+                    'role_display_name' => $roleDisplayBySlug[$slug] ?? WorkspaceAccountUserRoles::labelForSlug($slug),
                     'invited_by' => $invitation->inviter ? [
                         'name' => $invitation->inviter->name,
                         'email' => $invitation->inviter->email,
@@ -98,7 +101,64 @@ class AccountController extends Controller
             'plans' => $plans,
             'additional_seat_cost' => 15.00, // $15 per additional user
             'current_user' => $user,
+            'tenant_workspace_roles' => $tenantRoleRows,
         ]);
+    }
+
+    /**
+     * Roles from the workspace (tenant) DB, used when inviting so the new member’s tenant role matches the workspace.
+     *
+     * @return list<array{slug: string, display_name: string, description: string|null}>
+     */
+    protected function tenantRolesForAccountWorkspace(Account $account): array
+    {
+        if (! $account->tenant_id) {
+            return [];
+        }
+
+        $tenant = Tenant::find($account->tenant_id);
+        if (! $tenant) {
+            return [];
+        }
+
+        tenancy()->initialize($tenant);
+        try {
+            return Role::query()
+                ->orderBy('display_name')
+                ->get(['slug', 'display_name', 'description'])
+                ->map(fn (Role $role) => [
+                    'slug' => $role->slug,
+                    'display_name' => $role->display_name,
+                    'description' => $role->description,
+                ])
+                ->values()
+                ->all();
+        } finally {
+            tenancy()->end();
+        }
+    }
+
+    protected function tenantRoleSlugExistsOnWorkspace(Account $account, string $slug): bool
+    {
+        if ($slug === '') {
+            return false;
+        }
+
+        if (! $account->tenant_id) {
+            return false;
+        }
+
+        $tenant = Tenant::find($account->tenant_id);
+        if (! $tenant) {
+            return false;
+        }
+
+        tenancy()->initialize($tenant);
+        try {
+            return Role::query()->where('slug', $slug)->exists();
+        } finally {
+            tenancy()->end();
+        }
     }
 
     /**
@@ -112,8 +172,12 @@ class AccountController extends Controller
 
         $request->validate([
             'email' => 'required|email|max:255',
-            'role' => 'required|in:admin,member',
+            'role' => 'required|string|max:64',
         ]);
+
+        if (! $this->tenantRoleSlugExistsOnWorkspace($account, $request->role)) {
+            return redirect()->back()->withErrors(['role' => 'Choose a valid workspace role from your workspace’s role list.']);
+        }
 
         $email = strtolower(trim($request->email));
 
@@ -302,22 +366,7 @@ class AccountController extends Controller
      */
     public function updateUserRole(Request $request, Account $account, User $user)
     {
-        if (! $this->userIsOwner($account)) {
-            abort(403, 'Only account owners can manage user roles.');
-        }
-
-        // Cannot change owner role
-        if ($account->owner_id === $user->id) {
-            return redirect()->back()->withErrors(['user' => 'Cannot change account owner role.']);
-        }
-
-        $request->validate([
-            'role' => 'required|in:admin,member',
-        ]);
-
-        $account->users()->updateExistingPivot($user->id, ['role' => $request->role]);
-
-        return redirect()->back()->with('success', 'User role updated successfully.');
+        abort(403, 'Workspace member roles can only be changed from the workspace by an administrator (Users → Edit).');
     }
 
     /**

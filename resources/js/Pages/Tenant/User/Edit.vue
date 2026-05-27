@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import UserForm from '@/Components/Tenant/UserForm.vue';
+import WorkspaceTeamUserScopeBanner from '@/Components/Tenant/WorkspaceTeamUserScopeBanner.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -34,6 +35,10 @@ const props = defineProps({
         type: String,
         default: null,
     },
+    workspaceTeam: {
+        type: Object,
+        default: null,
+    },
 });
 
 const breadcrumbItems = computed(() => [
@@ -61,6 +66,7 @@ const handleCancel = () => {
         </template>
 
         <div class="flex w-full flex-col space-y-6">
+            <WorkspaceTeamUserScopeBanner :workspace-team="workspaceTeam" />
             <UserForm
                 :record="record"
                 :form-schema="formSchema"
