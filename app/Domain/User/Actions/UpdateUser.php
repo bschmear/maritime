@@ -6,6 +6,7 @@ use App\Domain\User\Models\User as RecordModel;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Throwable;
 
 class UpdateUser
@@ -13,7 +14,6 @@ class UpdateUser
     public function __invoke(int $id, array $data): array
     {
         $validated = Validator::make($data, [
-            'display_name' => 'nullable|string|max:255',
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$id,
@@ -25,10 +25,7 @@ class UpdateUser
             'current_role' => 'nullable|exists:roles,id',
         ])->validate();
 
-        $displayName = trim((string) ($validated['display_name'] ?? ''));
-        if ($displayName === '') {
-            $displayName = trim($validated['first_name'].' '.$validated['last_name']);
-        }
+        $displayName = Str::limit(trim(trim($validated['first_name']).' '.trim($validated['last_name'])), 255, '');
 
         try {
             $record = RecordModel::findOrFail($id);
