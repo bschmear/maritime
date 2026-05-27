@@ -432,7 +432,7 @@ class ServiceTicketController extends BaseController
         };
 
         $relationships['workOrders'] = function ($query) {
-            $query->select(['id', 'service_ticket_id', 'display_name', 'work_order_number', 'status']);
+            $query->select(['id', 'service_ticket_id', 'work_order_number', 'status']);
         };
 
         $relationships['transaction'] = function ($query) {

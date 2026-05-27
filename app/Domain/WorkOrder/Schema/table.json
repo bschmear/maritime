@@ -6,11 +6,6 @@
       "sortable": true
     },
     {
-      "key": "display_name",
-      "label": "Title",
-      "sortable": true
-    },
-    {
       "key": "status",
       "label": "Status",
       "sortable": true

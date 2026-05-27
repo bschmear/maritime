@@ -91,7 +91,7 @@ class VendorPortalController extends Controller
                     'payment_terms',
                     'primary_contact_id',
                 ])->with(['assigned_user']),
-                'workOrder:id,display_name,work_order_number',
+                'workOrder:id,work_order_number',
                 'lineItems' => fn ($q) => $q->orderBy('id')->with([
                     'workOrderServiceItem' => fn ($q2) => $q2->select(['id', 'display_name', 'description', 'work_order_id']),
                 ]),

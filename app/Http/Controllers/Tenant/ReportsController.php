@@ -9,6 +9,7 @@ use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Domain\Location\Models\Location;
 use App\Domain\Reports\Support\CollectSalesTaxReportRows;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -213,6 +214,9 @@ class ReportsController extends Controller
             ->values()
             ->all();
 
+        $view = strtolower(trim((string) $request->query('view', '')));
+        $tableView = $view === 'table';
+
         return Inertia::render('Tenant/Reports/Pnl', [
             'recordTitle' => 'Profit & Loss',
             'filters' => [
@@ -220,6 +224,7 @@ class ReportsController extends Controller
                 'date_to' => $dateTo,
                 'subsidiary_id' => $subsidiaryId,
                 'location_id' => $locationId,
+                'view' => $tableView ? 'table' : 'summary',
             ],
             'dateRange' => sprintf('%s - %s', $from->toDateString(), $to->toDateString()),
             'options' => [
@@ -249,6 +254,16 @@ class ReportsController extends Controller
                     ],
                 ],
             ],
+            'itemization' => $tableView
+                ? $this->pnlBuildItemization(
+                    $from,
+                    $to,
+                    $subsidiaryId,
+                    $locationId,
+                    $dealershipWarranty,
+                    $manufacturerWarranty
+                )
+                : null,
         ]);
     }
 
@@ -809,6 +824,273 @@ class ReportsController extends Controller
         if ($locationId !== null) {
             $query->where($tableAlias.'.location_id', $locationId);
         }
+    }
+
+    /**
+     * @return array{
+     *     invoices: list<array<string, mixed>>,
+     *     warranty_invoiced_invoices: list<array<string, mixed>>,
+     *     warranty_pending_work_orders: list<array<string, mixed>>,
+     * }
+     */
+    private function pnlBuildItemization(
+        Carbon $from,
+        Carbon $to,
+        ?int $subsidiaryId,
+        ?int $locationId,
+        string $dealershipWarranty,
+        string $manufacturerWarranty,
+    ): array {
+        $specCogsByTli = DB::table('transaction_line_item_selected_options')
+            ->selectRaw('transaction_line_item_id, SUM(COALESCE(cost, 0)) as spec_cogs_sum')
+            ->groupBy('transaction_line_item_id');
+
+        $boatLineCostExpr = trim(preg_replace('/\s+/', ' ', <<<'SQL'
+            (invoice_items.quantity * (
+                CASE
+                    WHEN COALESCE(invoice_items.cost, 0) > 0 THEN invoice_items.cost
+                    ELSE COALESCE(asset_units.cost, asset_variants.default_cost, assets.default_cost, 0)
+                END
+            ))
+            + (
+                CASE
+                    WHEN COALESCE(invoice_items.cost, 0) > 0 THEN 0
+                    ELSE COALESCE(tli_spec_cogs.spec_cogs_sum, 0)
+                END
+            )
+            SQL));
+
+        $revenueById = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at')
+            ->where('invoice_items.billable_to', 'customer')
+            ->where(function ($w) {
+                $w->where('invoice_items.itemable_type', Asset::class)
+                    ->orWhere('invoice_items.itemable_type', InventoryItem::class)
+                    ->orWhere(function ($inner) {
+                        $inner->whereNull('invoice_items.itemable_type')
+                            ->orWhereNotIn('invoice_items.itemable_type', [Asset::class, InventoryItem::class]);
+                    });
+            })
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM(invoice_items.subtotal) as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $boatCogsById = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at')
+            ->leftJoin('assets', function ($join) {
+                $join->on('assets.id', '=', 'invoice_items.itemable_id')
+                    ->where('invoice_items.itemable_type', '=', Asset::class);
+            })
+            ->leftJoin('asset_variants', 'asset_variants.id', '=', 'invoice_items.asset_variant_id')
+            ->leftJoin('asset_units', 'asset_units.id', '=', 'invoice_items.asset_unit_id')
+            ->leftJoinSub($specCogsByTli, 'tli_spec_cogs', function ($join) {
+                $join->on('tli_spec_cogs.transaction_line_item_id', '=', 'invoice_items.transaction_line_item_id');
+            })
+            ->where('invoice_items.itemable_type', Asset::class)
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM('.$boatLineCostExpr.') as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $partsCogsById = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at')
+            ->leftJoin('inventory_items', function ($join) {
+                $join->on('inventory_items.id', '=', 'invoice_items.itemable_id')
+                    ->where('invoice_items.itemable_type', '=', InventoryItem::class);
+            })
+            ->where('invoice_items.itemable_type', InventoryItem::class)
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM(invoice_items.quantity * COALESCE(invoice_items.cost, inventory_items.default_cost, 0)) as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $serviceMorph = function ($q): void {
+            $q->where(function ($inner) {
+                $inner->whereNull('invoice_items.itemable_type')
+                    ->orWhereNotIn('invoice_items.itemable_type', [Asset::class, InventoryItem::class]);
+            });
+        };
+
+        $serviceCogsById = $this->pnlInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at')
+            ->where($serviceMorph)
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $allInvoiceIds = $revenueById->keys()
+            ->merge($boatCogsById->keys())
+            ->merge($partsCogsById->keys())
+            ->merge($serviceCogsById->keys())
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+        if ($allInvoiceIds->count() > 500) {
+            $allInvoiceIds = $allInvoiceIds->take(500);
+        }
+
+        $invoicesTable = [];
+        if ($allInvoiceIds->isNotEmpty()) {
+            $invoiceModels = Invoice::query()
+                ->whereIn('id', $allInvoiceIds->all())
+                ->whereNull('deleted_at')
+                ->orderByDesc('created_at')
+                ->get(['id', 'sequence', 'created_at', 'status', 'total', 'work_order_id']);
+
+            foreach ($invoiceModels as $inv) {
+                $iid = (int) $inv->id;
+                $boat = (float) ($boatCogsById[$iid] ?? $boatCogsById[(string) $iid] ?? 0);
+                $parts = (float) ($partsCogsById[$iid] ?? $partsCogsById[(string) $iid] ?? 0);
+                $serv = (float) ($serviceCogsById[$iid] ?? $serviceCogsById[(string) $iid] ?? 0);
+                $rev = (float) ($revenueById[$iid] ?? $revenueById[(string) $iid] ?? 0);
+                $cogsTotal = $boat + $parts + $serv;
+
+                $invoicesTable[] = [
+                    'id' => $iid,
+                    'label' => trim((string) ($inv->display_name ?? '')) !== ''
+                        ? (string) $inv->display_name
+                        : ('INV-'.(string) ($inv->sequence ?? $iid)),
+                    'created_at' => $inv->created_at?->toIso8601String(),
+                    'status' => (string) ($inv->status ?? ''),
+                    'invoice_total' => round((float) ($inv->total ?? 0), 2),
+                    'customer_revenue' => round($rev, 2),
+                    'extended_cogs' => round($cogsTotal, 2),
+                    'work_order_id' => $inv->work_order_id !== null ? (int) $inv->work_order_id : null,
+                ];
+            }
+        }
+
+        $warrantyBase = $this->pnlWarrantyInvoiceItemsBase($from, $to, $subsidiaryId, $locationId)
+            ->whereNull('invoices.deleted_at');
+
+        $dealershipWarrantyById = $warrantyBase->clone()
+            ->where(function ($q) use ($dealershipWarranty) {
+                $q->where(function ($q2) use ($dealershipWarranty) {
+                    $q2->where('invoice_items.is_warranty', true)
+                        ->where('invoice_items.warranty_type', $dealershipWarranty);
+                })->orWhere(function ($q2) {
+                    $q2->where('invoice_items.is_warranty', true)
+                        ->whereNull('invoice_items.warranty_type')
+                        ->where('invoice_items.billable_to', 'internal');
+                });
+            })
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $manufacturerWarrantyById = $warrantyBase->clone()
+            ->where(function ($q) use ($manufacturerWarranty) {
+                $q->where(function ($q2) use ($manufacturerWarranty) {
+                    $q2->where('invoice_items.is_warranty', true)
+                        ->where('invoice_items.warranty_type', $manufacturerWarranty);
+                })->orWhere('invoice_items.billable_to', 'manufacturer');
+            })
+            ->groupBy('invoices.id')
+            ->selectRaw('invoices.id as invoice_id, SUM(invoice_items.quantity * COALESCE(invoice_items.cost, 0)) as amount')
+            ->pluck('amount', 'invoice_id');
+
+        $warrantyInvoiceIds = $dealershipWarrantyById->keys()
+            ->merge($manufacturerWarrantyById->keys())
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+        if ($warrantyInvoiceIds->count() > 500) {
+            $warrantyInvoiceIds = $warrantyInvoiceIds->take(500);
+        }
+
+        $warrantyInvoicedTable = [];
+        if ($warrantyInvoiceIds->isNotEmpty()) {
+            $warrantyInvoiceModels = Invoice::query()
+                ->whereIn('id', $warrantyInvoiceIds->all())
+                ->whereNull('deleted_at')
+                ->orderByDesc('created_at')
+                ->get(['id', 'sequence', 'created_at', 'status', 'total', 'work_order_id']);
+
+            foreach ($warrantyInvoiceModels as $inv) {
+                $iid = (int) $inv->id;
+                $dCost = (float) ($dealershipWarrantyById[$iid] ?? $dealershipWarrantyById[(string) $iid] ?? 0);
+                $mCost = (float) ($manufacturerWarrantyById[$iid] ?? $manufacturerWarrantyById[(string) $iid] ?? 0);
+                $warrantyInvoicedTable[] = [
+                    'id' => $iid,
+                    'label' => trim((string) ($inv->display_name ?? '')) !== ''
+                        ? (string) $inv->display_name
+                        : ('INV-'.(string) ($inv->sequence ?? $iid)),
+                    'created_at' => $inv->created_at?->toIso8601String(),
+                    'status' => (string) ($inv->status ?? ''),
+                    'invoice_total' => round((float) ($inv->total ?? 0), 2),
+                    'dealership_warranty_cost' => round($dCost, 2),
+                    'manufacturer_warranty_cost' => round($mCost, 2),
+                    'work_order_id' => $inv->work_order_id !== null ? (int) $inv->work_order_id : null,
+                ];
+            }
+        }
+
+        $pendingBase = $this->pnlPendingWarrantyWorkOrderServiceItemsBase($from, $to, $subsidiaryId, $locationId);
+
+        $dealershipPendingByWo = $pendingBase->clone()
+            ->where(function ($q) use ($dealershipWarranty) {
+                $q->where(function ($q2) use ($dealershipWarranty) {
+                    $q2->where('wosi.warranty', true)
+                        ->where('wosi.warranty_type', $dealershipWarranty);
+                })->orWhere(function ($q2) {
+                    $q2->where('wosi.warranty', true)
+                        ->whereNull('wosi.warranty_type')
+                        ->where('wosi.billable_to', 'internal');
+                });
+            })
+            ->groupBy('wo.id')
+            ->selectRaw('wo.id as work_order_id, SUM(COALESCE(wosi.total_cost, wosi.quantity * COALESCE(wosi.unit_cost, 0), 0)) as amount')
+            ->pluck('amount', 'work_order_id');
+
+        $manufacturerPendingByWo = $pendingBase->clone()
+            ->where(function ($q) use ($manufacturerWarranty) {
+                $q->where(function ($q2) use ($manufacturerWarranty) {
+                    $q2->where('wosi.warranty', true)
+                        ->where('wosi.warranty_type', $manufacturerWarranty);
+                })->orWhere('wosi.billable_to', 'manufacturer');
+            })
+            ->groupBy('wo.id')
+            ->selectRaw('wo.id as work_order_id, SUM(COALESCE(wosi.total_cost, wosi.quantity * COALESCE(wosi.unit_cost, 0), 0)) as amount')
+            ->pluck('amount', 'work_order_id');
+
+        $woIds = $dealershipPendingByWo->keys()
+            ->merge($manufacturerPendingByWo->keys())
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+        if ($woIds->count() > 500) {
+            $woIds = $woIds->take(500);
+        }
+
+        $warrantyPendingTable = [];
+        if ($woIds->isNotEmpty()) {
+            $workOrders = WorkOrder::query()
+                ->whereIn('id', $woIds->all())
+                ->whereNull('deleted_at')
+                ->orderByDesc('completed_at')
+                ->get(['id', 'work_order_number', 'completed_at', 'status']);
+
+            foreach ($workOrders as $wo) {
+                $wid = (int) $wo->id;
+                $d = (float) ($dealershipPendingByWo[$wid] ?? $dealershipPendingByWo[(string) $wid] ?? 0);
+                $m = (float) ($manufacturerPendingByWo[$wid] ?? $manufacturerPendingByWo[(string) $wid] ?? 0);
+                $warrantyPendingTable[] = [
+                    'id' => $wid,
+                    'label' => trim((string) ($wo->display_name ?? '')),
+                    'completed_at' => $wo->completed_at?->toIso8601String(),
+                    'status' => (int) ($wo->status ?? 0),
+                    'dealership_pending_cost' => round($d, 2),
+                    'manufacturer_pending_cost' => round($m, 2),
+                ];
+            }
+        }
+
+        return [
+            'invoices' => $invoicesTable,
+            'warranty_invoiced_invoices' => $warrantyInvoicedTable,
+            'warranty_pending_work_orders' => $warrantyPendingTable,
+        ];
     }
 
     /**

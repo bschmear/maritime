@@ -14,8 +14,14 @@ use Illuminate\Support\Facades\Log;
 
 class StripeController extends Controller
 {
-    public function connect(StripeService $stripeService): RedirectResponse
+    public function connect(StripeService $stripeService, Request $request): RedirectResponse
     {
+        if ($request->query('from') === 'onboarding') {
+            session(['stripe_connect_from_onboarding' => true]);
+        } else {
+            session()->forget('stripe_connect_from_onboarding');
+        }
+
         $settings = AccountSettings::getCurrent();
 
         $config = PaymentConfiguration::forStripe($settings);
@@ -33,7 +39,15 @@ class StripeController extends Controller
             $stripeService->ensureRequestedCapabilities($config->stripe_account_id);
         }
 
-        $url = $stripeService->createOnboardingLink($config->stripe_account_id);
+        $fromOnboarding = (bool) session('stripe_connect_from_onboarding');
+        $returnUrl = $fromOnboarding
+            ? route('stripe.return', ['from' => 'onboarding'])
+            : route('stripe.return');
+        $refreshUrl = $fromOnboarding
+            ? route('stripe.refresh', ['from' => 'onboarding'])
+            : route('stripe.refresh');
+
+        $url = $stripeService->createOnboardingLink($config->stripe_account_id, $returnUrl, $refreshUrl);
 
         return redirect()->away($url);
     }
@@ -74,6 +88,19 @@ class StripeController extends Controller
         $config = PaymentConfiguration::forStripe($settings);
         $stripeService->syncAccount($config);
 
+        $fromOnboarding = $request->query('from') === 'onboarding';
+        if ($fromOnboarding) {
+            session()->forget('stripe_connect_from_onboarding');
+        } else {
+            $fromOnboarding = (bool) session()->pull('stripe_connect_from_onboarding', false);
+        }
+
+        if ($fromOnboarding) {
+            return redirect()
+                ->route('dashboard', ['onboarding' => 'stripe-return'])
+                ->with('success', 'Stripe account updated.');
+        }
+
         return redirect()
             ->route('account.payments')
             ->with('success', 'Stripe account updated.');
@@ -83,7 +110,7 @@ class StripeController extends Controller
      * Stripe calls this when the onboarding link expires or the user navigates away.
      * Issue a fresh AccountLink so they can continue (same pattern as {@see connect()}).
      */
-    public function refresh(StripeService $stripeService): RedirectResponse
+    public function refresh(Request $request, StripeService $stripeService): RedirectResponse
     {
         $settings = AccountSettings::getCurrent();
 
@@ -96,7 +123,16 @@ class StripeController extends Controller
         }
 
         $stripeService->ensureRequestedCapabilities($config->stripe_account_id);
-        $url = $stripeService->createOnboardingLink($config->stripe_account_id);
+
+        $fromOnboarding = $request->query('from') === 'onboarding' || (bool) session('stripe_connect_from_onboarding');
+        $returnUrl = $fromOnboarding
+            ? route('stripe.return', ['from' => 'onboarding'])
+            : route('stripe.return');
+        $refreshUrl = $fromOnboarding
+            ? route('stripe.refresh', ['from' => 'onboarding'])
+            : route('stripe.refresh');
+
+        $url = $stripeService->createOnboardingLink($config->stripe_account_id, $returnUrl, $refreshUrl);
 
         return redirect()->away($url);
     }

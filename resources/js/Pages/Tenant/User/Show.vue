@@ -1,6 +1,5 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import Form from '@/Components/Tenant/Form.vue';
 import Modal from '@/Components/Modal.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
@@ -49,32 +48,19 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    canManageUsers: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
-const formRef = ref(null);
 
 const sublists = computed(() => props.formSchema?.sublists || []);
 
-const handleEdit = () => {
-    isEditMode.value = true;
-};
-
-const handleCancel = () => {
-    isEditMode.value = false;
-};
-
-const handleSubmit = () => {
-    isEditMode.value = false;
-    router.reload({ only: ['record'] });
-};
-
-const handleUpdated = (updatedRecord) => {
-    isEditMode.value = false;
-    location.reload();
-    // router.reload({ only: ['record', 'imageUrls'] });
+const goToEditUser = () => {
+    router.visit(route('users.edit', props.record.id));
 };
 
 const handleDelete = () => {
@@ -99,19 +85,6 @@ const confirmDelete = () => {
 
 const cancelDelete = () => {
     showDeleteModal.value = false;
-};
-
-const handleSave = () => {
-    if (formRef.value) {
-        formRef.value.submitForm();
-    }
-};
-
-const handleCancelEdit = () => {
-    isEditMode.value = false;
-    if (formRef.value) {
-        formRef.value.cancelForm();
-    }
 };
 
 const breadcrumbItems = computed(() => {
@@ -153,10 +126,11 @@ const breadcrumbItems = computed(() => {
                         </div>
                     </div>
 
-                    <!-- Action Buttons -->
-                    <div v-if="!isEditMode" class="flex items-center space-x-3">
+                    <div v-if="canManageUsers || record.email !== 'admin@example.com'" class="flex items-center space-x-3">
                         <button
-                            @click="handleEdit"
+                            v-if="canManageUsers"
+                            type="button"
+                            @click="goToEditUser"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
                         >
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,6 +140,7 @@ const breadcrumbItems = computed(() => {
                         </button>
                         <button
                             v-if="record.email !== 'admin@example.com'"
+                            type="button"
                             @click="handleDelete"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300"
                         >
@@ -175,57 +150,12 @@ const breadcrumbItems = computed(() => {
                             Delete User
                         </button>
                     </div>
-
-                    <!-- Edit Mode Buttons -->
-                    <div v-else class="flex items-center space-x-3">
-                        <button
-                            @click="handleSave"
-                            :disabled="formRef?.isProcessing"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <svg v-if="formRef?.isProcessing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            {{ formRef?.isProcessing ? 'Saving...' : 'Save Changes' }}
-                        </button>
-                        <button
-                            @click="handleCancelEdit"
-                            :disabled="formRef?.isProcessing"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 hover:text-blue-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:bg-transparent dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Cancel
-                        </button>
-                    </div>
                 </div>
             </div>
         </template>
 
         <div class="w-full">
-            <!-- Edit Mode - Form -->
-            <div v-if="isEditMode" class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
-                <Form
-                    ref="formRef"
-                    :schema="formSchema"
-                    :fields-schema="fieldsSchema"
-                    :record="record"
-                    :record-type="recordType"
-                    :enum-options="enumOptions"
-                    :prevent-redirect="true"
-                    mode="edit"
-                    :form-id="`form-${recordType}-${record.id}`"
-                    :image-urls="imageUrls"
-                    @submit="handleSubmit"
-                    @cancel="handleCancel"
-                    @updated="handleUpdated"
-                />
-            </div>
-
-            <!-- View Mode - Profile Cards -->
-            <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Personal Information Card -->
                 <div class="lg:col-span-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
                     <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
@@ -339,7 +269,7 @@ const breadcrumbItems = computed(() => {
                             </div>
 
                             <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <button class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-900/20 dark:text-primary-400 dark:border-primary-800 dark:hover:bg-primary-900/30">
+                                <button type="button" class="w-full inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-primary-900/20 dark:text-primary-400 dark:border-primary-800 dark:hover:bg-primary-900/30">
                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                                     </svg>
@@ -375,13 +305,13 @@ const breadcrumbItems = computed(() => {
                 </div>
             </div>
 
-            <div v-if="!isEditMode && sublists.length > 0 && domainName" class="mt-6">
+            <div v-if="sublists.length > 0 && domainName" class="mt-6">
                 <Sublist :parent-record="record" :parent-domain="domainName" :sublists="sublists" />
             </div>
         </div>
 
         <!-- Delete Confirmation Modal -->
-        <Modal :show="showDeleteModal" @close="cancelDelete" max-width="md">
+        <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
             <div class="p-6 text-center">
                 <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900">
                     <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -396,10 +326,10 @@ const breadcrumbItems = computed(() => {
                 </p>
                 <div class="mt-6 flex items-center justify-center space-x-3">
                     <button
-                        @click="confirmDelete"
                         :disabled="isDeleting"
                         type="button"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="confirmDelete"
                     >
                         <svg v-if="isDeleting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -408,10 +338,10 @@ const breadcrumbItems = computed(() => {
                         {{ isDeleting ? 'Deleting...' : 'Delete User' }}
                     </button>
                     <button
-                        @click="cancelDelete"
                         :disabled="isDeleting"
                         type="button"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="cancelDelete"
                     >
                         Cancel
                     </button>

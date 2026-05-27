@@ -5,10 +5,11 @@ namespace App\Domain\WorkOrder\Models;
 use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Database\Eloquent\Model;
-// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class WorkOrder extends Model
 {
@@ -22,6 +23,11 @@ class WorkOrder extends Model
      * Keep this permissive since you plan for dynamic/custom fields
      */
     protected $guarded = ['id'];
+
+    /**
+     * Human-readable label (WO-1001). There is no display_name column; work_order_number is assigned on create.
+     */
+    protected $appends = ['display_name'];
 
     /**
      * Casts
@@ -49,6 +55,21 @@ class WorkOrder extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (WorkOrder $workOrder) {
+            if (empty($workOrder->uuid)) {
+                $workOrder->uuid = (string) Str::uuid();
+            }
+            if ($workOrder->work_order_number === null || $workOrder->work_order_number === '') {
+                $maxNumber = static::withTrashed()->max('work_order_number');
+                $workOrder->work_order_number = $maxNumber !== null
+                    ? ((int) $maxNumber) + 1
+                    : 1000;
+            }
+        });
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -189,5 +210,10 @@ class WorkOrder extends Model
         $this->total_cost = $labor + $parts;
 
         $this->saveQuietly();
+    }
+
+    public function getDisplayNameAttribute(): string
+    {
+        return 'WO-'.($this->work_order_number ?: $this->id ?: '???');
     }
 }

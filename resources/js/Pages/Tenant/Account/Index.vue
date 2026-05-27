@@ -1,6 +1,6 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
@@ -23,6 +23,10 @@ const props = defineProps({
     paymentTermOptions: {
         type: Array,
         default: () => [],
+    },
+    show_account_intro_modal: {
+        type: Boolean,
+        default: false,
     },
 });
 
@@ -65,6 +69,28 @@ const form = useForm({
 const logoPreview = ref(props.account?.logo_url || null);
 const fileInput = ref(null);
 const characterCount = ref(form.service_ticket_ack_text.length);
+
+const showAccountIntro = ref(!!props.show_account_intro_modal);
+
+watch(
+    () => props.show_account_intro_modal,
+    (v) => {
+        showAccountIntro.value = !!v;
+    }
+);
+
+function dismissAccountIntro() {
+    router.post(
+        route('account.overview.dismiss'),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                showAccountIntro.value = false;
+            },
+        }
+    );
+}
 
 // Computed property for selected notification user
 const selectedNotificationUser = computed(() => {
@@ -157,6 +183,35 @@ watch(
     <Head title="Account Management" />
 
     <TenantLayout>
+        <!-- One-time intro after onboarding -->
+        <div
+            v-if="showAccountIntro"
+            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="account-intro-title"
+        >
+            <div class="max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                <h2 id="account-intro-title" class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Account hub
+                </h2>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                    This is where you configure general workspace settings, manage users and roles, subsidiaries, locations,
+                    payments (including Stripe), consignment policies, and text notifications. Use the cards below to jump into
+                    each area.
+                </p>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="dismissAccountIntro"
+                    >
+                        Got it
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <template #header>
             <div class="flex items-center justify-between">
                 <div>

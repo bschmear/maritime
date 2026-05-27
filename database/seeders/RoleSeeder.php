@@ -30,8 +30,8 @@ class RoleSeeder extends Seeder
                 ],
             ],
             [
-                'display_name' => 'User',
-                'slug' => 'user',
+                'display_name' => 'Employee',
+                'slug' => 'employee',
                 'description' => 'Standard user with basic access',
                 'permissions' => [
 

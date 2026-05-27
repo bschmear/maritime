@@ -45,6 +45,7 @@ use App\Http\Controllers\Tenant\LeadController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\MaintenanceTypeController;
 use App\Http\Controllers\Tenant\NotificationController;
+use App\Http\Controllers\Tenant\OnboardingController;
 use App\Http\Controllers\Tenant\OperationsController;
 use App\Http\Controllers\Tenant\OpportunityController;
 use App\Http\Controllers\Tenant\PaymentConfigurationController;
@@ -190,6 +191,13 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access', 'workspace.subscription'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+        Route::prefix('onboarding')->name('onboarding.')->group(function () {
+            Route::post('/subsidiary', [OnboardingController::class, 'storeSubsidiary'])->name('subsidiary');
+            Route::post('/location', [OnboardingController::class, 'storeLocation'])->name('location');
+            Route::post('/brands', [OnboardingController::class, 'storeBrands'])->name('brands');
+            Route::post('/finalize', [OnboardingController::class, 'finalize'])->name('finalize');
+        });
 
         Route::get('/payments/success', function () {
             return redirect()->route('account.payments')->with('success', 'Payment completed.');
@@ -608,6 +616,7 @@ Route::middleware([
 
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
+            Route::post('/overview/dismiss', [AccountController::class, 'dismissOverview'])->name('overview.dismiss');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
             Route::get('/consignment', [AccountConsignmentController::class, 'index'])->name('consignment.index');
             Route::patch('/consignment/settings', [AccountConsignmentController::class, 'updateSettings'])->name('consignment.settings');

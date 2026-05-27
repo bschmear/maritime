@@ -36,7 +36,6 @@ return new class extends Migration
             $table->timestamp('due_at')->nullable();
 
             // Core details
-            $table->string('display_name')->nullable();
             $table->text('description')->nullable();
             $table->text('internal_notes')->nullable();
             $table->text('customer_notes')->nullable();

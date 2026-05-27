@@ -7,6 +7,10 @@
             "label": "Personal Information",
             "fields": [
                 {
+                    "key": "display_name",
+                    "required": false
+                },
+                {
                     "key": "first_name",
                     "required": true
                 },
@@ -44,6 +48,15 @@
                 },
                 {
                     "key": "is_technician",
+                    "required": false
+                }
+            ]
+        },
+        "access": {
+            "label": "Access",
+            "fields": [
+                {
+                    "key": "current_role",
                     "required": false
                 }
             ]

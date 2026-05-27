@@ -316,21 +316,18 @@ const isOverdue = (dueDate) => {
                         <!-- Header -->
                         <div class="flex items-start justify-between mb-3">
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="text-xs font-mono text-gray-500 dark:text-gray-400">
-                                        WO-{{ workOrder.work_order_number }}
-                                    </span>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                        {{ workOrder.display_name }}
+                                    </h3>
                                     <span
                                         v-if="isOverdue(workOrder.due_at)"
-                                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs font-medium"
+                                        class="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs font-medium"
                                     >
                                         <span class="material-icons text-xs">warning</span>
                                         Overdue
                                     </span>
                                 </div>
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                    {{ workOrder.display_name }}
-                                </h3>
                             </div>
                             <span class="material-icons text-gray-400 group-hover:translate-x-1 transition-transform">
                                 chevron_right
@@ -423,8 +420,7 @@ const isOverdue = (dueDate) => {
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">WO #</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Work order</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Customer</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Priority</th>
@@ -436,9 +432,6 @@ const isOverdue = (dueDate) => {
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             <tr v-for="workOrder in records.data" :key="workOrder.id" class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white">
-                                    {{ workOrder.work_order_number }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs truncate">
                                     {{ workOrder.display_name }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

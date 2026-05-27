@@ -14,8 +14,10 @@ use App\Domain\WorkOrder\Support\SyncWorkOrderStatusToServiceTicket;
 use App\Enums\RecordType;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class WorkOrderController extends RecordController
 {
@@ -84,19 +86,85 @@ class WorkOrderController extends RecordController
 
         $query = $this->recordModel->select($actualColumns)->with($relationships);
 
-        // Apply search
+        $completedDrilldown = $request->filled('completed_from') && $request->filled('completed_to');
+        if ($completedDrilldown) {
+            $from = Carbon::parse($request->string('completed_from'))->startOfDay();
+            $to = Carbon::parse($request->string('completed_to'))->endOfDay();
+            $query->whereBetween('completed_at', [$from, $to])->whereNotNull('completed_at');
+            if ($request->filled('subsidiary_id')) {
+                $query->where('subsidiary_id', $request->integer('subsidiary_id'));
+            }
+            if ($request->filled('location_id')) {
+                $query->where('location_id', $request->integer('location_id'));
+            }
+            if ($request->boolean('warranty_pending_only')) {
+                $query->where('has_warranty', true)
+                    ->whereNotExists(function ($sub): void {
+                        $sub->select(DB::raw('1'))
+                            ->from('invoices')
+                            ->whereColumn('invoices.work_order_id', 'work_orders.id')
+                            ->whereNotIn('invoices.status', ['draft', 'void'])
+                            ->whereNull('invoices.deleted_at');
+                    });
+
+                $pendingType = strtolower(trim($request->string('warranty_pending_type')->toString()));
+                $dealership = WarrantyCoverageType::Dealership->value;
+                $manufacturer = WarrantyCoverageType::Manufacturer->value;
+                if ($pendingType === 'dealership') {
+                    $query->whereExists(function ($sub) use ($dealership): void {
+                        $sub->select(DB::raw('1'))
+                            ->from('work_order_service_items as wosi')
+                            ->whereColumn('wosi.work_order_id', 'work_orders.id')
+                            ->where('wosi.billable', true)
+                            ->where('wosi.inactive', false)
+                            ->where(function ($q) use ($dealership): void {
+                                $q->where(function ($w) use ($dealership): void {
+                                    $w->where('wosi.warranty', true)
+                                        ->where('wosi.warranty_type', $dealership);
+                                })->orWhere(function ($w): void {
+                                    $w->where('wosi.warranty', true)
+                                        ->whereNull('wosi.warranty_type')
+                                        ->where('wosi.billable_to', 'internal');
+                                });
+                            });
+                    });
+                } elseif ($pendingType === 'manufacturer') {
+                    $query->whereExists(function ($sub) use ($manufacturer): void {
+                        $sub->select(DB::raw('1'))
+                            ->from('work_order_service_items as wosi')
+                            ->whereColumn('wosi.work_order_id', 'work_orders.id')
+                            ->where('wosi.billable', true)
+                            ->where('wosi.inactive', false)
+                            ->where(function ($q) use ($manufacturer): void {
+                                $q->where(function ($w) use ($manufacturer): void {
+                                    $w->where('wosi.warranty', true)
+                                        ->where('wosi.warranty_type', $manufacturer);
+                                })->orWhere('wosi.billable_to', 'manufacturer');
+                            });
+                    });
+                }
+            }
+        }
+
+        // Apply search (WO #, id, description — display_name is computed, not a column)
         $searchQuery = $request->get('search');
         if ($searchQuery && ! empty(trim($searchQuery))) {
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], trim($searchQuery));
+            $term = '%'.strtolower($escaped).'%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(CAST(work_orders.work_order_number AS TEXT)) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(CAST(work_orders.id AS TEXT)) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(COALESCE(work_orders.description, \'\')) LIKE ?', [$term]);
+            });
         }
 
         // Apply user filtering - DEFAULT to current user if no filter is set
         $userParam = $request->get('user');
 
         // If no user parameter is provided, default to current user
-        if ($userParam === null) {
+        if ($userParam === null && ! $completedDrilldown) {
             $query->where('assigned_user_id', $currentUser->id);
-        } elseif ($userParam !== 'all') {
+        } elseif ($userParam !== null && $userParam !== 'all') {
             // If a specific user is selected, filter by that user
             $query->where('assigned_user_id', $userParam);
         }

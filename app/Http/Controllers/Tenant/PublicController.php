@@ -259,7 +259,7 @@ class PublicController extends Controller
             ->where('uuid', $uuid)
             ->with([
                 'vendor' => fn ($q) => $q->select(['id', 'display_name']),
-                'workOrder' => fn ($q) => $q->select(['id', 'display_name', 'work_order_number']),
+                'workOrder' => fn ($q) => $q->select(['id', 'work_order_number']),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
                 'lineItems' => fn ($q) => $q->orderBy('id')->with([

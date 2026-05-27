@@ -22,6 +22,7 @@ class UpdateWorkOrder
 
         try {
             $validated = $data; // For now, just pass through all data
+            unset($validated['display_name']);
 
             // Extract service_items before updating
             $serviceItems = $validated['service_items'] ?? null;

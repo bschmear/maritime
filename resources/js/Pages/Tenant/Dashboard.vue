@@ -5,6 +5,7 @@ import RevenueSnapshotWidget from '@/Components/Tenant/Dashboard/RevenueSnapshot
 import RiskPanelWidget from '@/Components/Tenant/Dashboard/RiskPanelWidget.vue';
 import OperationsWidget from '@/Components/Tenant/Dashboard/OperationsWidget.vue';
 import ActivityFeedWidget from '@/Components/Tenant/Dashboard/ActivityFeedWidget.vue';
+import OnboardingWizard from '@/Components/Tenant/Onboarding/OnboardingWizard.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -16,6 +17,10 @@ const props = defineProps({
     dashboard: {
         type: Object,
         required: true,
+    },
+    onboarding: {
+        type: Object,
+        default: () => ({ complete: true }),
     },
 });
 
@@ -51,6 +56,8 @@ function formatCurrency(value) {
 
 <template>
     <Head title="Dashboard" />
+
+    <OnboardingWizard v-if="!onboarding.complete" :onboarding="onboarding" />
 
     <TenantLayout>
         <template #header>

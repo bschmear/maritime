@@ -999,8 +999,8 @@ const handleCancel = () => {
                                 <p class="text-blue-100 text-md mt-1">{{ mode === 'edit' ? 'Update Work Order' : 'Service Request Form' }}</p>
                             </div>
                             <div class="text-right">
-                                <div class="text-white text-md font-medium">WO #</div>
-                                <div class="text-white text-xl font-mono">{{ form.work_order_number || record?.work_order_number || 'Auto-generated' }}</div>
+                                <div class="text-white text-md font-medium">Work order</div>
+                                <div class="text-white text-xl font-mono">{{ record?.display_name || (form.work_order_number ? `WO-${form.work_order_number}` : 'Auto-generated') }}</div>
                             </div>
                         </div>
                     </div>
@@ -1261,25 +1261,6 @@ const handleCancel = () => {
                             </h3>
 
                             <div class="space-y-4">
-                                <!-- Display Name / Title -->
-                                <div>
-                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {{ fieldsSchema.display_name?.label || 'Summary' }} {{ isFieldRequired('display_name') ? '*' : '' }}
-                                    </label>
-                                    <input
-                                        v-if="mode !== 'show'"
-                                        v-model="form.display_name"
-                                        type="text"
-                                        :placeholder="fieldsSchema.display_name?.placeholder || ''"
-                                        :readonly="isFieldReadonly('display_name')"
-                                        class="input-style"
-                                        :required="isFieldRequired('display_name')"
-                                    />
-                                    <p v-else class="text-md text-gray-900 dark:text-white">
-                                        {{ record?.display_name || '—' }}
-                                    </p>
-                                </div>
-
                                 <!-- Description -->
                                 <div v-if="mode !== 'show' || record?.description">
                                     <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">

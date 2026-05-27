@@ -77,7 +77,7 @@ class WarrantyClaimController extends BaseController
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
         $relationships['vendor'] = fn ($q) => $q->select(['id', 'display_name']);
-        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'work_order_number']);
+        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'work_order_number']);
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['lineItems'] = fn ($q) => $q->orderBy('id')->with([
@@ -168,7 +168,7 @@ class WarrantyClaimController extends BaseController
 
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
         $relationships['vendor'] = fn ($q) => $q->select(['id', 'display_name']);
-        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'display_name', 'work_order_number']);
+        $relationships['workOrder'] = fn ($q) => $q->select(['id', 'work_order_number']);
         $relationships['subsidiary'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['location'] = fn ($q) => $q->select(['id', 'display_name']);
 
@@ -270,13 +270,18 @@ class WarrantyClaimController extends BaseController
 
         $search = trim((string) $request->get('search', ''));
         if ($search !== '') {
-            $like = '%'.strtolower($search).'%';
-            $query->whereRaw('LOWER('.$table.'.display_name) LIKE ?', [$like]);
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $search);
+            $like = '%'.strtolower($escaped).'%';
+            $query->where(function ($q) use ($like, $table) {
+                $q->whereRaw('LOWER(CAST('.$table.'.work_order_number AS TEXT)) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(CAST('.$table.'.id AS TEXT)) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(COALESCE('.$table.'.description, \'\')) LIKE ?', [$like]);
+            });
         }
 
         $sort = (string) $request->get('sort', 'due_at');
         $dir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $sortable = ['id', 'work_order_number', 'display_name', 'status', 'due_at', 'has_warranty', 'warranty_closed', 'created_at', 'updated_at'];
+        $sortable = ['id', 'work_order_number', 'status', 'due_at', 'has_warranty', 'warranty_closed', 'created_at', 'updated_at'];
         if (in_array($sort, $sortable, true)) {
             $query->orderBy($table.'.'.$sort, $dir);
         } else {

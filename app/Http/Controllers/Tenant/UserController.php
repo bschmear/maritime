@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\PublicStorage;
+use App\Domain\Document\Models\Document;
+use App\Domain\Role\Models\Role;
 use App\Domain\User\Actions\CreateUser as CreateAction;
 use App\Domain\User\Actions\DeleteUser as DeleteAction;
 use App\Domain\User\Actions\UpdateUser as UpdateAction;
 use App\Domain\User\Models\User as RecordModel;
 use App\Http\Controllers\Concerns\HasImageSupport;
+use App\Services\TenantStaffResolver;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Inertia\Response as InertiaResponse;
 
 class UserController extends RecordController
 {
@@ -34,15 +40,34 @@ class UserController extends RecordController
     }
 
     /**
+     * True when the signed-in central user maps to a tenant staff row with the Administrator role.
+     */
+    protected function tenantStaffIsAdministrator(): bool
+    {
+        $central = auth()->user();
+        $staff = TenantStaffResolver::tenantStaffForWebUser($central);
+        if (! $staff) {
+            return false;
+        }
+        $staff->loadMissing('role');
+
+        return $staff->role && $staff->role->slug === 'admin';
+    }
+
+    /**
      * Display a listing of users with relationships loaded.
      */
     public function index(Request $request)
     {
         $columns = $this->getSchemaColumns();
-        $schema = $this->getTableSchema();
+        $schema = $this->getTableSchema() ?? [];
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
+
+        if (! $this->tenantStaffIsAdministrator()) {
+            $schema = array_merge($schema, ['hide_create_button' => true]);
+        }
 
         if (! in_array('id', $columns)) {
             $columns[] = 'id';
@@ -110,6 +135,7 @@ class UserController extends RecordController
             'recordType' => $this->recordType,
             'pluralTitle' => $pluralTitle,
             'recordTitle' => Str::singular($this->recordTitle),
+            'canManageUsers' => $this->tenantStaffIsAdministrator(),
         ]);
     }
 
@@ -119,5 +145,174 @@ class UserController extends RecordController
     public function show(Request $request, $id)
     {
         return parent::show($request, $id);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Model  $record
+     */
+    protected function showPageExtraProps($record): array
+    {
+        return [
+            'canManageUsers' => $this->tenantStaffIsAdministrator(),
+        ];
+    }
+
+    public function create(): InertiaResponse
+    {
+        if (! $this->tenantStaffIsAdministrator()) {
+            abort(403, 'Only administrators can create users.');
+        }
+
+        return inertia('Tenant/User/Create', [
+            'recordType' => $this->recordType,
+            'formSchema' => $this->getFormSchema(),
+            'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
+            'enumOptions' => $this->getEnumOptions(),
+            'roles' => Role::query()->orderBy('display_name')->get(['id', 'display_name', 'slug']),
+            'canAssignRole' => true,
+        ]);
+    }
+
+    public function store(Request $request, PublicStorage $publicStorage): RedirectResponse
+    {
+        if (! $this->tenantStaffIsAdministrator()) {
+            abort(403, 'Only administrators can create users.');
+        }
+
+        $data = $request->all();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
+                if ($request->hasFile($fieldKey)) {
+                    $file = $request->file($fieldKey);
+                    $meta = $fieldDef['meta'] ?? [];
+                    $directory = $meta['directory'] ?? ($this->domainName.'/'.$fieldKey);
+                    $isPrivate = $meta['private'] ?? false;
+                    $resizeWidth = $meta['max_width'] ?? null;
+                    $crop = $meta['crop'] ?? false;
+
+                    $result = $publicStorage->store(
+                        file: $file,
+                        directory: $directory,
+                        resizeWidth: $resizeWidth,
+                        existingFile: null,
+                        crop: $crop,
+                        deleteOld: false,
+                        isPrivate: $isPrivate
+                    );
+
+                    $document = Document::create([
+                        'display_name' => $result['display_name'],
+                        'file' => $result['key'],
+                        'file_extension' => $result['file_extension'],
+                        'file_size' => $result['file_size'],
+                        'created_by_id' => auth()->id(),
+                        'updated_by_id' => auth()->id(),
+                    ]);
+
+                    $data[$fieldKey] = $document->id;
+                }
+            }
+        }
+
+        $result = ($this->createAction)($data);
+
+        if (! ($result['success'] ?? false)) {
+            return back()->withErrors(['email' => $result['message'] ?? 'Could not create user.'])->withInput();
+        }
+
+        return redirect()
+            ->route('users.show', $result['record']->id)
+            ->with('success', 'User created.');
+    }
+
+    public function edit($id): InertiaResponse
+    {
+        if (! $this->tenantStaffIsAdministrator()) {
+            abort(403, 'Only administrators can edit users.');
+        }
+
+        $userId = $id instanceof RecordModel ? $id->id : $id;
+        $record = RecordModel::with(['role'])->findOrFail($userId);
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $avatarUrls = $this->getImageUrls($record, $fieldsSchema);
+
+        return inertia('Tenant/User/Edit', [
+            'record' => $record,
+            'recordType' => $this->recordType,
+            'formSchema' => $this->getFormSchema(),
+            'fieldsSchema' => $fieldsSchema,
+            'enumOptions' => $this->getEnumOptions(),
+            'roles' => Role::query()->orderBy('display_name')->get(['id', 'display_name', 'slug']),
+            'canAssignRole' => true,
+            'avatarPreviewUrl' => $avatarUrls['avatar'] ?? null,
+        ]);
+    }
+
+    public function update(Request $request, $id, PublicStorage $publicStorage): RedirectResponse
+    {
+        if (! $this->tenantStaffIsAdministrator()) {
+            abort(403, 'Only administrators can edit users.');
+        }
+
+        $userId = $id instanceof RecordModel ? $id->id : $id;
+
+        $data = $request->all();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (isset($fieldDef['type']) && $fieldDef['type'] === 'image') {
+                if ($request->hasFile($fieldKey)) {
+                    $file = $request->file($fieldKey);
+                    $meta = $fieldDef['meta'] ?? [];
+                    $directory = $meta['directory'] ?? ($this->domainName.'/'.$fieldKey);
+                    $isPrivate = $meta['private'] ?? false;
+                    $resizeWidth = $meta['max_width'] ?? null;
+                    $crop = $meta['crop'] ?? false;
+
+                    $existing = RecordModel::find($userId)?->{$fieldKey};
+
+                    $result = $publicStorage->store(
+                        file: $file,
+                        directory: $directory,
+                        resizeWidth: $resizeWidth,
+                        existingFile: null,
+                        crop: $crop,
+                        deleteOld: false,
+                        isPrivate: $isPrivate
+                    );
+
+                    $document = Document::create([
+                        'display_name' => $result['display_name'],
+                        'file' => $result['key'],
+                        'file_extension' => $result['file_extension'],
+                        'file_size' => $result['file_size'],
+                        'created_by_id' => auth()->id(),
+                        'updated_by_id' => auth()->id(),
+                    ]);
+
+                    $data[$fieldKey] = $document->id;
+
+                    if ($existing) {
+                        $old = Document::find($existing);
+                        if ($old) {
+                            $publicStorage->delete($old->file);
+                            $old->delete();
+                        }
+                    }
+                }
+            }
+        }
+
+        $result = ($this->updateAction)($userId, $data);
+
+        if (! ($result['success'] ?? false)) {
+            return back()->withErrors(['email' => $result['message'] ?? 'Could not update user.'])->withInput();
+        }
+
+        return redirect()
+            ->route('users.show', $userId)
+            ->with('success', 'User updated.');
     }
 }

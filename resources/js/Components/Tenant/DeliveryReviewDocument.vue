@@ -280,8 +280,8 @@ const customerAddressLine1 = computed(
             </div>
         </div>
 
-        <!-- Already signed (public only) -->
-        <div v-if="isSigned && !isPreview" class="px-8 py-6 border-t-2 border-gray-900 bg-green-50">
+        <!-- Already signed (public + staff preview) -->
+        <div v-if="isSigned" class="px-8 py-6 border-t-2 border-gray-900 bg-green-50 print:bg-white">
             <div class="text-center">
                 <div class="flex items-center justify-center mb-4">
                     <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -295,8 +295,9 @@ const customerAddressLine1 = computed(
                 </p>
                 <div v-if="record.signature_url" class="text-center">
                     <p class="text-sm text-gray-600 mb-2">Signature:</p>
-                    <img :src="record.signature_url" alt="Signature" class="max-w-xs mx-auto border border-gray-300 rounded" />
+                    <img :src="record.signature_url" alt="Signature" class="max-w-xs mx-auto border border-gray-300 rounded print:max-h-40" />
                 </div>
+                <p v-else class="text-sm text-gray-600">Signature image is not available for display.</p>
             </div>
         </div>
 

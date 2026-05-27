@@ -23,6 +23,7 @@ class CreateWorkOrder
             // service_items are persisted by WorkOrderController::store via createServiceItems()
             // (recalculateLineItem / recalculateWorkOrder). Do not insert them here or they duplicate.
             unset($validated['service_items']);
+            unset($validated['display_name']);
 
             // Generate UUID if not provided
             if (empty($validated['uuid'])) {

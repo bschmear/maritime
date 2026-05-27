@@ -206,10 +206,7 @@ function formatTime(dateStr) {
       `border-${getStatusColor(wo.status)}-500`
     ]"
   >
-    <div class="text-xs font-mono text-gray-500 dark:text-gray-400 mb-1">
-      WO-{{ wo.work_order_number }}
-    </div>
-    <div class="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-1">
+    <div class="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-1 font-mono">
       {{ wo.display_name }}
     </div>
     <div class="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 mb-1">

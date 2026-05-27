@@ -89,6 +89,7 @@ class AccountController extends Controller
             'timezones' => Timezone::options(),
             'users' => $users,
             'paymentTermOptions' => Terms::options(),
+            'show_account_intro_modal' => $account->onboarding_complete && ! $account->account_overviewed,
         ]);
     }
 
@@ -145,5 +146,17 @@ class AccountController extends Controller
         $account->save();
 
         return back()->with('success', 'Account settings updated successfully.');
+    }
+
+    /**
+     * Dismiss the one-time “Account overview” modal after onboarding.
+     */
+    public function dismissOverview(): \Illuminate\Http\RedirectResponse
+    {
+        $account = AccountSettings::getCurrent();
+        $account->account_overviewed = true;
+        $account->save();
+
+        return back();
     }
 }

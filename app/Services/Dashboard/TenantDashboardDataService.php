@@ -140,7 +140,7 @@ class TenantDashboardDataService
             ->where('due_at', '<', $now)
             ->orderBy('due_at')
             ->limit($cap)
-            ->get(['id', 'display_name', 'due_at', 'customer_id']);
+            ->get(['id', 'work_order_number', 'due_at', 'customer_id']);
 
         $pipelineValue = (float) Opportunity::query()
             ->whereNull('won_at')

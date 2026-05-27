@@ -229,6 +229,8 @@ class DeliveryController extends RecordController
         $record = RecordModel::with($this->deliveryDetailRelationships())
             ->findOrFail($deliveryId);
 
+        $record->setAppends(array_merge($record->getAppends(), ['signature_url']));
+
         $checklistItems = $record->checklistItems()
             ->with(['completedBy', 'category'])
             ->orderBy('category_id')
@@ -1130,6 +1132,8 @@ class DeliveryController extends RecordController
 
         $record = RecordModel::with($this->deliveryDetailRelationships())
             ->findOrFail($deliveryId);
+
+        $record->setAppends(array_merge($record->getAppends(), ['signature_url']));
 
         $checklistItems = $record->checklistItems()
             ->with(['category'])

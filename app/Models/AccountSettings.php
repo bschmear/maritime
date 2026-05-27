@@ -39,6 +39,10 @@ class AccountSettings extends Model
         'consignment_terms',
         'sms_enabled',
         'sandbox_mode',
+        /** When true, the tenant setup wizard is finished and should not show on the dashboard. */
+        'onboarding_complete',
+        /** When true, the post-onboarding “Account” overview modal has been dismissed. */
+        'account_overviewed',
     ];
 
     protected $casts = [
@@ -52,6 +56,8 @@ class AccountSettings extends Model
         'consignment_fee_percent' => 'decimal:2',
         'sms_enabled' => 'boolean',
         'sandbox_mode' => 'boolean',
+        'onboarding_complete' => 'boolean',
+        'account_overviewed' => 'boolean',
     ];
 
     protected $appends = ['logo_url'];
@@ -80,6 +86,8 @@ class AccountSettings extends Model
                 'start_time' => '08:00:00',
                 'allow_overlap' => false,
                 'consignment_fee_percent' => 20,
+                'onboarding_complete' => false,
+                'account_overviewed' => false,
             ]);
         }
 

@@ -11,10 +11,6 @@
           "required": false
         },
         {
-          "key": "display_name",
-          "required": true
-        },
-        {
           "key": "description",
           "required": false
         }

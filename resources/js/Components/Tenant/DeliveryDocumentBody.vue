@@ -15,6 +15,9 @@ const props = defineProps({
 const isCustomer = computed(() => props.variant === 'customer');
 const isInternal = computed(() => props.variant === 'internal');
 
+const isSigned = computed(() => !!props.record?.signed_at);
+const signedImageUrl = computed(() => props.record?.signature_url ?? null);
+
 const items = computed(() => Array.isArray(props.record?.items) ? props.record.items : []);
 
 const itemName = (item) => {
@@ -278,22 +281,59 @@ function technicianLabel(u) {
         </div>
 
         <!-- Signature block -->
-        <div class="px-6 py-4 border-t-2 border-gray-900">
+        <div class="px-6 py-4 border-t-2 border-gray-900 print:break-inside-avoid">
             <template v-if="isCustomer">
-                <div class="grid grid-cols-2 gap-6">
-                    <div>
-                        <div class="h-14 border-b-2 border-gray-900"></div>
-                        <div class="mt-1 text-[11px] text-gray-600">Customer Signature</div>
+                <template v-if="isSigned && signedImageUrl">
+                    <div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-center text-xs text-green-900 print:border-green-800 print:bg-white">
+                        <span class="font-semibold">Delivery confirmed</span>
+                        <span class="block mt-0.5 text-green-800 print:text-gray-800">
+                            Signed by {{ record.recipient_name || 'Recipient' }} on {{ formatDateTime(record.signed_at) }}
+                        </span>
                     </div>
-                    <div>
-                        <div class="h-14 border-b-2 border-gray-900"></div>
-                        <div class="mt-1 text-[11px] text-gray-600">Date</div>
+                    <div class="mt-4 text-center">
+                        <div class="text-[11px] font-semibold uppercase tracking-wide text-gray-600 mb-1">Customer signature</div>
+                        <img
+                            :src="signedImageUrl"
+                            alt="Customer signature"
+                            class="mx-auto max-h-28 max-w-xs border border-gray-300 bg-white object-contain print:max-h-32"
+                        />
                     </div>
-                </div>
-                <div class="mt-4">
-                    <div class="border-b border-gray-900"></div>
-                    <div class="mt-1 text-[11px] text-gray-600">Print Name</div>
-                </div>
+                    <div class="mt-4 grid grid-cols-2 gap-6 text-xs text-gray-700">
+                        <div>
+                            <div class="font-semibold text-gray-600">Print name</div>
+                            <div class="mt-1 border-b border-gray-400 pb-1 min-h-[1.25rem]">{{ record.recipient_name || '—' }}</div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-gray-600">Date signed</div>
+                            <div class="mt-1 border-b border-gray-400 pb-1 min-h-[1.25rem]">{{ formatDate(record.signed_at) }}</div>
+                        </div>
+                    </div>
+                </template>
+                <template v-else-if="isSigned">
+                    <div class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-center text-xs text-green-900 print:border-green-800 print:bg-white">
+                        <span class="font-semibold">Delivery confirmed</span>
+                        <span class="block mt-0.5 text-green-800 print:text-gray-800">
+                            Signed by {{ record.recipient_name || 'Recipient' }} on {{ formatDateTime(record.signed_at) }}.
+                        </span>
+                        <span class="block mt-1 text-gray-600">Signature image is not available for display.</span>
+                    </div>
+                </template>
+                <template v-else>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <div class="h-14 border-b-2 border-gray-900"></div>
+                            <div class="mt-1 text-[11px] text-gray-600">Customer Signature</div>
+                        </div>
+                        <div>
+                            <div class="h-14 border-b-2 border-gray-900"></div>
+                            <div class="mt-1 text-[11px] text-gray-600">Date</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="border-b border-gray-900"></div>
+                        <div class="mt-1 text-[11px] text-gray-600">Print Name</div>
+                    </div>
+                </template>
             </template>
             <template v-else>
                 <div class="grid grid-cols-2 gap-6">
@@ -315,6 +355,21 @@ function technicianLabel(u) {
                         <div class="h-12 border-b border-gray-900"></div>
                         <div class="mt-1 text-[11px] text-gray-600">Date</div>
                     </div>
+                </div>
+                <div v-if="isSigned && signedImageUrl" class="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-3 print:break-inside-avoid">
+                    <div class="text-[10px] font-semibold uppercase tracking-wide text-gray-600 mb-2">Customer signature on file</div>
+                    <p class="text-xs text-gray-700 mb-2">
+                        Signed by {{ record.recipient_name || 'Recipient' }} on {{ formatDateTime(record.signed_at) }}
+                    </p>
+                    <img
+                        :src="signedImageUrl"
+                        alt="Customer signature"
+                        class="max-h-24 max-w-xs border border-gray-300 bg-white object-contain print:max-h-28"
+                    />
+                </div>
+                <div v-else-if="isSigned" class="mt-6 rounded border border-gray-200 bg-gray-50 px-3 py-3 text-xs text-gray-700 print:break-inside-avoid">
+                    <span class="font-semibold">Customer signed</span>
+                    {{ formatDateTime(record.signed_at) }} — signature file not available for display.
                 </div>
             </template>
         </div>

@@ -54,12 +54,12 @@ class StripeService
         ]);
     }
 
-    public function createOnboardingLink(string $accountId): string
+    public function createOnboardingLink(string $accountId, ?string $returnUrl = null, ?string $refreshUrl = null): string
     {
         $link = AccountLink::create([
             'account' => $accountId,
-            'refresh_url' => route('stripe.refresh'),
-            'return_url' => route('stripe.return'),
+            'refresh_url' => $refreshUrl ?? route('stripe.refresh'),
+            'return_url' => $returnUrl ?? route('stripe.return'),
             'type' => 'account_onboarding',
         ]);
 

@@ -16,13 +16,6 @@
     "help": "Auto-generated starting at 1000"
   },
 
-  "display_name": {
-    "label": "Title",
-    "type": "text",
-    "required": true,
-    "placeholder": "Brief description of the work"
-  },
-
   "description": {
     "label": "Description",
     "type": "textarea",

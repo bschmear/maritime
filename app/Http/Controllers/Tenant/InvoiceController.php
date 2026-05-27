@@ -15,6 +15,7 @@ use App\Domain\Invoice\Support\RepairInvoiceLineItemsFromTransaction;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Http\Controllers\Concerns\AppliesPnlInvoiceDrillDownFilters;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
 use Illuminate\Http\RedirectResponse;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends RecordController
 {
+    use AppliesPnlInvoiceDrillDownFilters;
+
     protected $recordType = 'Invoice';
 
     protected $table = null;
@@ -58,6 +61,8 @@ class InvoiceController extends RecordController
         if ($activeFilters !== []) {
             $query = $this->applyFilters($query, $activeFilters, $fieldsSchema);
         }
+
+        $this->applyPnlDrillDownFilters($request, $query);
 
         $table = (new RecordModel)->getTable();
         $sortKey = $request->get('sort');

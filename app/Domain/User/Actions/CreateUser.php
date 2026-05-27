@@ -13,18 +13,36 @@ class CreateUser
     public function __invoke(array $data): array
     {
         $validated = Validator::make($data, [
+            'display_name' => 'nullable|string|max:255',
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
+            'mobile_phone' => 'nullable|string|max:20',
+            'office_phone' => 'nullable|string|max:20',
             'bio' => 'nullable|string|max:1000',
-            'avatar' => 'nullable|integer',
+            'avatar' => 'nullable|integer|exists:documents,id',
             'is_technician' => 'sometimes|boolean',
+            'current_role' => 'nullable|exists:roles,id',
         ])->validate();
 
+        $displayName = trim((string) ($validated['display_name'] ?? ''));
+        if ($displayName === '') {
+            $displayName = trim($validated['first_name'].' '.$validated['last_name']);
+        }
+
         try {
-            $validated['display_name'] = trim($validated['first_name'].' '.$validated['last_name']);
-            $fieldsToSave = array_merge($data, $validated);
-            $record = RecordModel::create($fieldsToSave);
+            $record = RecordModel::create([
+                'display_name' => $displayName,
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'email' => $validated['email'],
+                'mobile_phone' => $validated['mobile_phone'] ?? null,
+                'office_phone' => $validated['office_phone'] ?? null,
+                'bio' => $validated['bio'] ?? null,
+                'avatar' => $validated['avatar'] ?? null,
+                'is_technician' => (bool) ($validated['is_technician'] ?? false),
+                'current_role' => $validated['current_role'] ?? null,
+            ]);
 
             return [
                 'success' => true,
