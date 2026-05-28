@@ -35,6 +35,21 @@ class PageController extends Controller
         ]);
     }
 
+    public function features()
+    {
+        return Inertia::render('Features');
+    }
+
+    public function featuresBoatShows()
+    {
+        return Inertia::render('Features/BoatShows');
+    }
+
+    public function featuresServiceDepartment()
+    {
+        return Inertia::render('Features/ServiceDepartment');
+    }
+
     // public function pricing()
     // {
     //     $user = auth()->user();

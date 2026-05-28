@@ -70,6 +70,12 @@ const currentYear = new Date().getFullYear();
                                 About Us
                             </a>
                         </li>
+                        <li v-if="route().has('features')">
+                            <Link
+                                :href="route('features')"
+                                class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors"
+                            >Features</Link>
+                        </li>
                         <li>
                             <a href="/pricing" class="text-md text-white-400 dark:text-white-400 hover:text-primary-400 dark:hover:text-primary-300 transition-colors">
                                 Pricing

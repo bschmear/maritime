@@ -78,6 +78,9 @@ Route::post('/contact', [PageController::class, 'contactStore'])
     ->middleware('throttle:10,1')
     ->name('contact.store');
 Route::get('/about', [PageController::class, 'about'])->name('about');
+Route::get('/features', [PageController::class, 'features'])->name('features');
+Route::get('/features/boat-shows', [PageController::class, 'featuresBoatShows'])->name('features.boat-shows');
+Route::get('/features/service-department', [PageController::class, 'featuresServiceDepartment'])->name('features.service-department');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy');
 
