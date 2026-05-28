@@ -3,7 +3,7 @@
 import { ref, computed, watch } from 'vue';
 import { useForm, router, Link } from '@inertiajs/vue3';
 import axios from 'axios';
-import { useTimezone } from '@/Composables/useTimezone';
+import { useTimezone } from '@/composables/useTimezone';
 import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
