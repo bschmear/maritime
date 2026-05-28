@@ -18,7 +18,7 @@ const rest = computed(() => props.faqs.filter((f) => !f.featured));
     <Head title="FAQs" />
 
     <AppLayout>
-        <div class="min-h-screen bg-white">
+        <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 
             <!-- Hero -->
             <section class="relative overflow-hidden bg-gray-950 px-6 pb-12 pt-24 sm:px-12 lg:px-24">
@@ -49,7 +49,10 @@ const rest = computed(() => props.faqs.filter((f) => !f.featured));
                 <!-- Wave divider -->
                 <div class="absolute bottom-0 left-0 right-0 leading-none">
                     <svg viewBox="0 0 1440 64" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" class="h-16 w-full">
-                        <path d="M0,32 C180,64 360,0 540,32 C720,64 900,0 1080,32 C1260,64 1350,16 1440,32 L1440,64 L0,64 Z" fill="white"/>
+                        <path
+                            class="fill-gray-50 dark:fill-gray-900"
+                            d="M0,32 C180,64 360,0 540,32 C720,64 900,0 1080,32 C1260,64 1350,16 1440,32 L1440,64 L0,64 Z"
+                        />
                     </svg>
                 </div>
             </section>
@@ -62,24 +65,24 @@ const rest = computed(() => props.faqs.filter((f) => !f.featured));
                         <!-- Left rail: jump links -->
                         <div class="lg:col-span-1">
                             <div class="lg:sticky lg:top-24">
-                                <p class="mb-2 text-sm font-semibold uppercase tracking-widest text-primary-600">Top questions</p>
-                                <h2 class="mb-6 text-2xl font-bold tracking-tight text-gray-950">The essentials</h2>
+                                <p class="mb-2 text-sm font-semibold uppercase tracking-widest text-primary-600 dark:text-primary-400">Top questions</p>
+                                <h2 class="mb-6 text-2xl font-bold tracking-tight text-gray-950 dark:text-white">The essentials</h2>
                                 <nav v-if="featured.length > 0" class="space-y-1">
                                     <a
                                         v-for="faq in featured"
                                         :key="faq.id"
                                         :href="'#faq-' + faq.id"
-                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/60 dark:hover:text-white"
                                     >
                                         <span
-                                            class="material-icons text-xl leading-none text-primary-200 transition-colors group-hover:text-primary-400"
+                                            class="material-icons text-xl leading-none text-primary-300 transition-colors group-hover:text-primary-500 dark:text-primary-600 dark:group-hover:text-primary-400"
                                         >chevron_right</span>
                                         <span class="text-lg font-medium leading-snug">{{ faq.question }}</span>
                                     </a>
                                 </nav>
 
                                 <!-- CTA card -->
-                                <div class="mt-10 rounded-2xl bg-gray-950 p-6">
+                                <div class="mt-10 rounded-2xl border border-gray-800 bg-gray-950 p-6 dark:border-gray-700 dark:bg-gray-900">
                                     <span class="material-icons mb-3 text-2xl leading-none text-primary-400">support_agent</span>
                                     <p class="font-semibold text-white">Still have questions?</p>
                                     <p class="mt-1 text-lg text-gray-400">Our team is happy to walk you through anything.</p>

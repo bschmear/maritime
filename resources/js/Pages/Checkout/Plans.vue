@@ -55,18 +55,16 @@ const proceedToCart = () => {
         <Head title="Choose Your Plan" />
 
         <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-            <!-- Hero (aligned with blog) -->
-            <section class="relative border-b border-gray-200 dark:border-gray-800 bg-secondary-50 dark:bg-gray-900 py-16 sm:py-20">
+            <!-- Hero -->
+            <section class="relative border-b border-gray-200 bg-primary-50 py-16 dark:border-gray-800 dark:bg-gray-900 sm:py-20">
                 <div class="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-secondary-200/50 bg-secondary-100 px-4 py-2 text-sm font-medium text-secondary-700 backdrop-blur-sm dark:border-secondary-700/50 dark:bg-secondary-900/50 dark:text-secondary-300">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-200/50 bg-primary-100 px-4 py-2 text-sm font-medium text-primary-700 backdrop-blur-sm dark:border-primary-700/50 dark:bg-primary-900/50 dark:text-primary-300">
+                        <span class="material-icons text-base leading-none">payments</span>
                         <span>Pricing</span>
                     </div>
                     <h1 class="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
                         Choose your
-                        <span class="text-secondary-600 dark:text-secondary-400">plan</span>
+                        <span class="text-primary-600 dark:text-primary-400">plan</span>
                     </h1>
                     <p class="mx-auto max-w-2xl text-xl text-gray-600 dark:text-gray-300">
                         Select the perfect plan for your needs. All plans include a 14-day free trial.

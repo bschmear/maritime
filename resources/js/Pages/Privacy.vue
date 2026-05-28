@@ -77,25 +77,17 @@ const sections = [
     <AppLayout>
 
         <!-- Hero -->
-        <section class="relative bg-gradient-to-br from-primary-100 via-secondary-50 to-primary-50 dark:from-navy-900 dark:via-primary-950 dark:to-navy-800 overflow-hidden">
-            <div class="absolute inset-0 opacity-20 dark:opacity-10">
-                <div class="absolute top-10 right-20 w-72 h-72 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-full blur-3xl"></div>
-                <div class="absolute bottom-0 left-10 w-64 h-64 bg-gradient-to-tr from-secondary-500 to-primary-300 rounded-full blur-3xl"></div>
-            </div>
-            <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-                <div class="inline-flex items-center gap-2 px-4 py-2 bg-primary-200/60 dark:bg-primary-800/40 backdrop-blur-sm rounded-full text-primary-800 dark:text-primary-200 text-sm font-medium mb-6 border border-primary-300 dark:border-primary-700">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
+        <section class="relative border-b border-gray-200 bg-primary-50 py-20 dark:border-gray-800 dark:bg-gray-900 px-4 sm:px-6 lg:px-8">
+            <div class="relative mx-auto max-w-4xl text-center">
+                <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-200/50 bg-primary-100 px-4 py-2 text-sm font-medium text-primary-700 backdrop-blur-sm dark:border-primary-700/50 dark:bg-primary-900/50 dark:text-primary-300">
+                    <span class="material-icons text-base leading-none">policy</span>
                     <span>Legal</span>
                 </div>
-                <h1 class="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
-                    Privacy 
-                    <span class="bg-gradient-to-r from-primary-600 to-secondary-500 dark:from-primary-400 dark:to-secondary-400 bg-clip-text text-transparent">
-                        Policy
-                    </span>
+                <h1 class="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+                    Privacy
+                    <span class="text-primary-600 dark:text-primary-400">Policy</span>
                 </h1>
-                <p class="text-lg text-gray-600 dark:text-gray-400">
+                <p class="text-lg text-gray-600 dark:text-gray-300">
                     Last updated {{ lastUpdated }}
                 </p>
             </div>

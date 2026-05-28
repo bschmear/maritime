@@ -114,7 +114,7 @@ function submit() {
             </div>
         </Teleport>
 
-        <div class="min-h-screen bg-white">
+        <div class="min-h-screen bg-gray-50 dark:bg-gray-950">
             <div
                 v-if="flashError"
                 class="border-b border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-800 sm:px-6 lg:px-8 dark:border-red-800 dark:bg-red-900/25 dark:text-red-200"
@@ -124,7 +124,7 @@ function submit() {
             </div>
 
 <!-- Hero -->
-<section class="relative border-b border-gray-200 dark:border-gray-800 bg-primary-50 dark:bg-gray-900 py-20">
+<section class="relative border-b border-gray-200 bg-primary-50 py-20 dark:border-gray-800 dark:bg-gray-950">
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center">
 
@@ -167,62 +167,62 @@ function submit() {
 
                         <!-- Left: what to expect -->
                         <div class="lg:col-span-2">
-                            <h2 class="mb-2 text-xl font-bold tracking-tight text-gray-950">
+                            <h2 class="mb-2 text-xl font-bold tracking-tight text-gray-950 dark:text-white">
                                 What to expect
                             </h2>
-                            <p class="mb-10 text-md leading-relaxed text-gray-500">
+                            <p class="mb-10 text-md leading-relaxed text-gray-500 dark:text-gray-400">
                                 A focused 30-minute walkthrough of Helmful, tailored to how your dealership operates.
                             </p>
 
                             <div class="space-y-8">
                                 <div class="flex items-start gap-4">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
-                                        <span class="material-icons text-xl leading-none text-primary-600">search</span>
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/40">
+                                        <span class="material-icons text-xl leading-none text-primary-600 dark:text-primary-400">search</span>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">We learn about your operation</p>
-                                        <p class="mt-1 text-md leading-relaxed text-gray-500">We take the time to understand your team, your tools, and where things are breaking down.</p>
+                                        <p class="font-semibold text-gray-900 dark:text-white">We learn about your operation</p>
+                                        <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">We take the time to understand your team, your tools, and where things are breaking down.</p>
                                     </div>
                                 </div>
                                 <div class="flex items-start gap-4">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
-                                        <span class="material-icons text-xl leading-none text-primary-600">play_circle</span>
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/40">
+                                        <span class="material-icons text-xl leading-none text-primary-600 dark:text-primary-400">play_circle</span>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">A live walkthrough of Helmful</p>
-                                        <p class="mt-1 text-md leading-relaxed text-gray-500">We'll show you the features most relevant to your dealership — not a generic product tour.</p>
+                                        <p class="font-semibold text-gray-900 dark:text-white">A live walkthrough of Helmful</p>
+                                        <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">We'll show you the features most relevant to your dealership — not a generic product tour.</p>
                                     </div>
                                 </div>
                                 <div class="flex items-start gap-4">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50">
-                                        <span class="material-icons text-xl leading-none text-primary-600">question_answer</span>
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-900/40">
+                                        <span class="material-icons text-xl leading-none text-primary-600 dark:text-primary-400">question_answer</span>
                                     </div>
                                     <div>
-                                        <p class="font-semibold text-gray-900">Your questions answered</p>
-                                        <p class="mt-1 text-md leading-relaxed text-gray-500">Pricing, migration, integrations — ask anything. We're straightforward about what Helmful can and can't do.</p>
+                                        <p class="font-semibold text-gray-900 dark:text-white">Your questions answered</p>
+                                        <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Pricing, migration, integrations — ask anything. We're straightforward about what Helmful can and can't do.</p>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Email contact -->
-                            <div class="mt-12 border-t border-gray-100 pt-10">
-                                <p class="mb-4 text-md font-semibold text-gray-500 uppercase tracking-widest text-xs">Prefer email?</p>
+                            <div class="mt-12 border-t border-gray-100 pt-10 dark:border-gray-800">
+                                <p class="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Prefer email?</p>
                                 <a
                                     :href="`mailto:${legalEmail}`"
-                                    class="inline-flex items-center gap-2 text-md font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+                                    class="inline-flex items-center gap-2 text-md font-semibold text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                                 >
                                     <span class="material-icons text-xl leading-none">mail_outline</span>
                                     {{ legalEmail }}
                                 </a>
-                                <p class="mt-2 text-md text-gray-400">We typically respond within one business day.</p>
+                                <p class="mt-2 text-md text-gray-400 dark:text-gray-500">We typically respond within one business day.</p>
                             </div>
                         </div>
 
                         <!-- Right: form -->
                         <div class="lg:col-span-3">
-                            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 sm:p-10">
-                                <h2 class="mb-1 text-xl font-bold tracking-tight text-gray-950">Request a demo</h2>
-                                <p class="mb-8 text-md text-gray-500">Fill in your details and we'll be in touch shortly.</p>
+                            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 sm:p-10 dark:border-gray-700 dark:bg-gray-900/60">
+                                <h2 class="mb-1 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Request a demo</h2>
+                                <p class="mb-8 text-md text-gray-500 dark:text-gray-400">Fill in your details and we'll be in touch shortly.</p>
 
                                 <form @submit.prevent="submit" class="relative space-y-5">
                                     <!-- Honeypot: hidden from users; must stay empty -->
@@ -241,7 +241,7 @@ function submit() {
                                     <!-- Name row -->
                                     <div class="grid gap-4 sm:grid-cols-2">
                                         <div>
-                                            <label for="first_name" class="mb-1.5 block text-md font-medium text-gray-700">
+                                            <label for="first_name" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                                 First name
                                             </label>
                                             <input
@@ -250,13 +250,13 @@ function submit() {
                                                 type="text"
                                                 autocomplete="given-name"
                                                 placeholder="Jane"
-                                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                                                 :class="{ 'border-red-400': form.errors.first_name }"
                                             />
                                             <p v-if="form.errors.first_name" class="mt-1.5 text-sm text-red-500">{{ form.errors.first_name }}</p>
                                         </div>
                                         <div>
-                                            <label for="last_name" class="mb-1.5 block text-md font-medium text-gray-700">
+                                            <label for="last_name" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                                 Last name
                                             </label>
                                             <input
@@ -265,7 +265,7 @@ function submit() {
                                                 type="text"
                                                 autocomplete="family-name"
                                                 placeholder="Smith"
-                                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                                                 :class="{ 'border-red-400': form.errors.last_name }"
                                             />
                                             <p v-if="form.errors.last_name" class="mt-1.5 text-sm text-red-500">{{ form.errors.last_name }}</p>
@@ -274,7 +274,7 @@ function submit() {
 
                                     <!-- Email -->
                                     <div>
-                                        <label for="email" class="mb-1.5 block text-md font-medium text-gray-700">
+                                        <label for="email" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                             Work email
                                         </label>
                                         <input
@@ -283,7 +283,7 @@ function submit() {
                                             type="email"
                                             autocomplete="email"
                                             placeholder="jane@marinadealership.com"
-                                            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                                             :class="{ 'border-red-400': form.errors.email }"
                                         />
                                         <p v-if="form.errors.email" class="mt-1.5 text-sm text-red-500">{{ form.errors.email }}</p>
@@ -291,7 +291,7 @@ function submit() {
 
                                     <!-- Dealership name -->
                                     <div>
-                                        <label for="dealership_name" class="mb-1.5 block text-md font-medium text-gray-700">
+                                        <label for="dealership_name" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                             Dealership name
                                         </label>
                                         <input
@@ -299,7 +299,7 @@ function submit() {
                                             v-model="form.dealership_name"
                                             type="text"
                                             placeholder="Marina Bay Boats"
-                                            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                                             :class="{ 'border-red-400': form.errors.dealership_name }"
                                         />
                                         <p v-if="form.errors.dealership_name" class="mt-1.5 text-sm text-red-500">{{ form.errors.dealership_name }}</p>
@@ -307,15 +307,15 @@ function submit() {
 
                                     <!-- Number of locations -->
                                     <div>
-                                        <label for="locations" class="mb-1.5 block text-md font-medium text-gray-700">
+                                        <label for="locations" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                             Number of locations
                                         </label>
                                         <div class="relative">
                                             <select
                                                 id="locations"
                                                 v-model="form.locations"
-                                                class="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                                                :class="{ 'border-red-400': form.errors.locations, 'text-gray-400': !form.locations }"
+                                                class="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                                :class="{ 'border-red-400': form.errors.locations, 'text-gray-400 dark:text-gray-500': !form.locations }"
                                             >
                                                 <option value="" disabled>Select...</option>
                                                 <option
@@ -324,23 +324,23 @@ function submit() {
                                                     :value="opt.value"
                                                 >{{ opt.label }}</option>
                                             </select>
-                                            <span class="material-icons pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xl leading-none text-gray-400">expand_more</span>
+                                            <span class="material-icons pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xl leading-none text-gray-400 dark:text-gray-500">expand_more</span>
                                         </div>
                                         <p v-if="form.errors.locations" class="mt-1.5 text-sm text-red-500">{{ form.errors.locations }}</p>
                                     </div>
 
                                     <!-- Message -->
                                     <div>
-                                        <label for="message" class="mb-1.5 block text-md font-medium text-gray-700">
+                                        <label for="message" class="mb-1.5 block text-md font-medium text-gray-700 dark:text-gray-300">
                                             Anything you'd like us to know?
-                                            <span class="font-normal text-gray-400">(optional)</span>
+                                            <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
                                         </label>
                                         <textarea
                                             id="message"
                                             v-model="form.message"
                                             rows="4"
                                             placeholder="Tell us about your current setup, biggest pain points, or what you're hoping Helmful can solve..."
-                                            class="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                            class="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-md text-gray-900 placeholder-gray-400 transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                                         ></textarea>
                                     </div>
 
@@ -358,7 +358,7 @@ function submit() {
                                             <span v-else class="material-icons text-base leading-none">rocket_launch</span>
                                             {{ form.processing ? 'Sending…' : 'Request a demo' }}
                                         </button>
-                                        <p class="mt-4 text-center text-sm text-gray-400">
+                                        <p class="mt-4 text-center text-sm text-gray-400 dark:text-gray-500">
                                             No commitment required. We'll reach out within one business day.
                                         </p>
                                     </div>

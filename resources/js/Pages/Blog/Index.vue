@@ -38,21 +38,18 @@ const clearFilters = () => {
 
     <AppLayout>
         <!-- Hero Section -->
-        <section class="relative border-b border-gray-200 dark:border-gray-800 bg-secondary-50 dark:bg-gray-900 py-20">
-            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section class="relative border-b border-gray-200 bg-primary-50 py-20 dark:border-gray-800 dark:bg-gray-900 px-4 sm:px-6 lg:px-8">
+            <div class="relative mx-auto max-w-7xl">
                 <div class="text-center">
-                    <!-- Badge -->
-                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-secondary-100 dark:bg-secondary-900/50 rounded-full text-secondary-700 dark:text-secondary-300 text-sm font-medium mb-6 backdrop-blur-sm border border-secondary-200/50 dark:border-secondary-700/50">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
+                    <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary-200/50 bg-primary-100 px-4 py-2 text-sm font-medium text-primary-700 backdrop-blur-sm dark:border-primary-700/50 dark:bg-primary-900/50 dark:text-primary-300">
+                        <span class="material-icons text-base leading-none">auto_stories</span>
                         <span>Insights & Resources</span>
                     </div>
 
-                    <h1 class="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
-                        Our <span class="text-secondary-600 dark:text-secondary-400">Blog</span>
+                    <h1 class="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
+                        Our <span class="text-primary-600 dark:text-primary-400">Blog</span>
                     </h1>
-                    <p class="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                    <p class="mx-auto max-w-2xl text-xl text-gray-600 dark:text-gray-300">
                         Insights, tips, and stories about social media management and AI
                     </p>
                 </div>
