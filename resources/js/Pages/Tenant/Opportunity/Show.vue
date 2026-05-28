@@ -2,7 +2,7 @@
 import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue';
 

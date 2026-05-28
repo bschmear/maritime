@@ -3,7 +3,7 @@ import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineVariantCell from '@/Components/Tenant/AssetLineVariantCell.vue';
 import AssetLineVariantSelect from '@/Components/Tenant/AssetLineVariantSelect.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import axios from 'axios';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';

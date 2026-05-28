@@ -12,7 +12,7 @@ import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import MeasurementImperialInput from '@/Components/Tenant/FormComponents/MeasurementImperialInput.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
-import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/utils/measurementMm.js';
+import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/Utils/measurementMm.js';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
 import Form from '@/Components/Tenant/Form.vue';
 const props = defineProps({

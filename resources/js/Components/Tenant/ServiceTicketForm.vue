@@ -3,7 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
-import { buildRecordShowUrl } from '@/utils/resourceRoutes.js';
+import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({

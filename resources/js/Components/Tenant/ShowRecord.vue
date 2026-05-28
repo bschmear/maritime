@@ -7,7 +7,7 @@ import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { ref, computed, getCurrentInstance } from 'vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 // Get access to global properties for formatting (optional)
 const instance = getCurrentInstance();

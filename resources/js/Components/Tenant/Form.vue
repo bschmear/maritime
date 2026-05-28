@@ -14,8 +14,8 @@ import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import MeasurementImperialInput from '@/Components/Tenant/FormComponents/MeasurementImperialInput.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
-import { formatLengthMmImperial } from '@/utils/measurementMm.js';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     schema: { type: Object, default: null },

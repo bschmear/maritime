@@ -7,7 +7,7 @@ import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import axios from 'axios';
 import { computed, ref, watch } from 'vue';
-import { buildRecordShowUrl, buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildRecordShowUrl, buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     schema: { type: Object, default: null },

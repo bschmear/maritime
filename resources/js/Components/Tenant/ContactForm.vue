@@ -2,7 +2,7 @@
 import { useForm, Link } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     record: { type: Object, default: null },

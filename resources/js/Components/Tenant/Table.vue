@@ -6,8 +6,8 @@ import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
-import { formatLengthMmImperial } from '@/utils/measurementMm.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 
 const emit = defineEmits(['selection-change']);
 

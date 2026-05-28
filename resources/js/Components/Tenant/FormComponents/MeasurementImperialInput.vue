@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { mmToImperialParts, imperialFeetInchesToMm } from '@/utils/measurementMm.js';
+import { mmToImperialParts, imperialFeetInchesToMm } from '@/Utils/measurementMm.js';
 
 const props = defineProps({
     modelValue: { type: [Number, String, null], default: null },

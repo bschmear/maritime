@@ -4,7 +4,7 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     record: { type: Object, default: null },

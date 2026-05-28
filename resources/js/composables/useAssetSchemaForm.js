@@ -2,7 +2,7 @@ import { ref, computed, watch } from 'vue';
 import { useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { useTimezone } from '@/composables/useTimezone';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 /**
  * Form state + submit pipeline mirrored from Form.vue, scoped for AssetForm (no Form component).

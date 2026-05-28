@@ -8,7 +8,7 @@ import AssetSpecSheetSendModal from '@/Components/Tenant/AssetSpecSheetSendModal
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
-import { buildResourceRouteParams } from '@/utils/resourceRoutes.js';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     record: {
