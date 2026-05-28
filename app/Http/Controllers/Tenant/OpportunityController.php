@@ -25,9 +25,10 @@ use App\Enums\Timezone;
 use App\Mail\OpportunityFeatureRequestInvite;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
+use App\Services\Mail\TenantMailService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -544,15 +545,26 @@ class OpportunityController extends RecordController
         );
 
         $account = AccountSettings::getCurrent();
-
-        Mail::to($record->customer->email)->send(new OpportunityFeatureRequestInvite(
+        $mailable = new OpportunityFeatureRequestInvite(
             $record,
             $account,
             $url,
             $ctx['asset_label'],
             $includeAddons,
             $customerNote,
-        ));
+        );
+
+        $customerEmail = $record->customer->email;
+        $tenantMail = app(TenantMailService::class);
+        $actor = Auth::user();
+
+        if (! $tenantMail->canSend($customerEmail, $mailable, $actor)) {
+            throw ValidationException::withMessages([
+                'email' => [$tenantMail->validationErrorMessage($mailable)],
+            ]);
+        }
+
+        $tenantMail->send($customerEmail, $mailable, $actor);
     }
 
     public function edit($id)

@@ -14,6 +14,10 @@ final class InvoicePayOnline
 
     public static function canPayOnline(Invoice $invoice): bool
     {
+        if ($invoice->isQuickbooksManaged()) {
+            return false;
+        }
+
         if (in_array($invoice->status, ['void', 'paid', 'draft'], true)) {
             return false;
         }

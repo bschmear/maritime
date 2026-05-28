@@ -21,6 +21,7 @@ const props = defineProps({
 });
 
 const page = usePage();
+const appName = computed(() => page.props.app.name);
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
 const flashError = computed(() => page.props.flash?.error ?? null);
 
@@ -130,7 +131,7 @@ function disconnectQuickbooks() {
                 <div class="mt-3 space-y-3 text-md leading-relaxed text-gray-600 dark:text-gray-300">
                     <p>
                         <strong class="text-gray-900 dark:text-gray-100">QuickBooks Online</strong> (Intuit) holds your accounting company, customers, and invoices.
-                        Connecting here lets Maritime use OAuth to talk to that company on your behalf (starting with payment configuration; more sync features can build on this connection).
+                        Connecting here lets {{ appName }} use OAuth to talk to that company on your behalf (starting with payment configuration; more sync features can build on this connection).
                     </p>
                     <p>
                         You can only have <strong class="text-gray-900 dark:text-gray-100">one</strong> active invoice payment processor per workspace. If Stripe Connect is already linked, disconnect it on the Stripe page before connecting QuickBooks.
@@ -154,8 +155,8 @@ function disconnectQuickbooks() {
                 </h3>
                 <ol class="mt-3 list-decimal space-y-2 pl-5 text-md leading-relaxed text-gray-600 dark:text-gray-300">
                     <li>Click <strong class="text-gray-900 dark:text-gray-100">Connect with QuickBooks</strong> — you are sent to Intuit to approve access.</li>
-                    <li>After approval, Intuit redirects back through Maritime’s central callback; you land here with the connection saved.</li>
-                    <li>Access tokens expire regularly; Maritime can refresh them using the encrypted refresh token until Intuit’s refresh window ends.</li>
+                    <li>After approval, Intuit redirects back through {{ appName }}’s central callback; you land here with the connection saved.</li>
+                    <li>Access tokens expire regularly; {{ appName }} can refresh them using the encrypted refresh token until Intuit’s refresh window ends.</li>
                     <li>Use <strong class="text-gray-900 dark:text-gray-100">Disconnect</strong> to revoke and clear local tokens when switching to Stripe or another company.</li>
                 </ol>
             </section>

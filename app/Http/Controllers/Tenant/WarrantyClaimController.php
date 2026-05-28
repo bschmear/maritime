@@ -677,7 +677,7 @@ class WarrantyClaimController extends BaseController
         $ids = array_values(array_unique(array_map(static fn ($v) => (int) $v, $request->input('contact_ids', []))));
         $contacts = $this->warrantyClaimVendorRecipientsOrFail($claim, $ids);
 
-        $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
+        $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts, $request->user());
 
         return back()->with('success', 'Warranty claim sent to '.$contacts->count().' contact(s).');
     }
@@ -732,7 +732,7 @@ class WarrantyClaimController extends BaseController
         $claim->refresh();
 
         if ($contacts->isNotEmpty()) {
-            $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts);
+            $this->notifications->sendWarrantyClaimToVendorContacts($claim, AccountSettings::getCurrent(), $contacts, $request->user());
         }
 
         $message = $contacts->isNotEmpty()

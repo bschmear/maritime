@@ -4,11 +4,13 @@ namespace App\Domain\Contact\Actions;
 
 use App\Domain\Contact\Models\Contact as RecordModel;
 use App\Domain\Contact\Models\ContactAddress;
+use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Entity\ContactMethod;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -151,7 +153,7 @@ class CreateContact
         }
 
         try {
-            return DB::transaction(function () use ($validated) {
+            $result = DB::transaction(function () use ($validated) {
 
                 if (empty($validated['display_name'])) {
                     $validated['display_name'] = trim(
@@ -209,6 +211,12 @@ class CreateContact
                 ];
             });
 
+            if (($result['success'] ?? false) && $result['record'] !== null) {
+                $this->maybeQueueQuickBooksContactPush($result['record']);
+            }
+
+            return $result;
+
         } catch (QueryException $e) {
             Log::error('Database query error in CreateContact', [
                 'error' => $e->getMessage(),
@@ -233,5 +241,18 @@ class CreateContact
                 'record' => null,
             ];
         }
+    }
+
+    private function maybeQueueQuickBooksContactPush(RecordModel $contact): void
+    {
+        if ($contact->quickbooks_customer_id) {
+            return;
+        }
+
+        if (! QuickBooksSettings::forCurrentTenant()->isSyncContactsEnabled()) {
+            return;
+        }
+
+        PushContactToQuickBooks::dispatch($contact->id);
     }
 }

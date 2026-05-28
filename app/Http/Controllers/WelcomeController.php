@@ -70,6 +70,7 @@ class WelcomeController extends Controller
                         'id' => $plan->id,
                         'name' => $plan->name,
                         'description' => $plan->description,
+                        'coming_soon' => (bool) ($plan->coming_soon ?? false),
                         'price' => [
                             'monthly' => $plan->monthly_price ?? 0,
                             'annual' => $plan->yearly_price ?? 0,

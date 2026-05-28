@@ -2,9 +2,11 @@
 
 namespace App\Services\SMS;
 
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
 use App\Domain\User\Models\User as TenantUser;
 use App\Enums\SMS;
 use App\Models\AccountSettings;
@@ -91,6 +93,87 @@ class SmsService
         }
 
         return ['offered' => true, 'hint' => null];
+    }
+
+    /**
+     * Whether the UI may offer “email + SMS” when sending an invoice to the customer.
+     *
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function invoiceViewSmsCanBeOffered(?Contact $contact, WebUser|TenantUser|null $authUser): array
+    {
+        if (! $this->tenantWantsSms(SMS::Invoice)) {
+            return ['offered' => false, 'hint' => null];
+        }
+
+        if ($authUser === null) {
+            return ['offered' => false, 'hint' => 'Sign in to send SMS.'];
+        }
+
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            if ($tenantStaff === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'No staff user in this tenant matches your login email; create or link your staff profile to send sandbox SMS.',
+                ];
+            }
+
+            $to = $this->normalizePhoneForSms($tenantStaff->mobile_phone ?? $tenantStaff->office_phone ?? null);
+            if ($to === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'Sandbox mode sends texts to you: add a mobile or office phone on your staff user profile.',
+                ];
+            }
+
+            return ['offered' => true, 'hint' => null];
+        }
+
+        if ($contact === null) {
+            return ['offered' => false, 'hint' => 'This invoice has no contact to text.'];
+        }
+
+        $raw = $contact->mobile ?? $contact->phone ?? null;
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return [
+                'offered' => false,
+                'hint' => 'Add a mobile or phone number on the contact record to send SMS.',
+            ];
+        }
+
+        return ['offered' => true, 'hint' => null];
+    }
+
+    /**
+     * Send a short SMS with the public invoice view link.
+     */
+    public function sendInvoiceViewSms(WebUser|TenantUser $authUser, ?Contact $contact, Invoice $invoice, string $viewUrl): SmsResult
+    {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $contact?->mobile ?? $contact?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $label = $invoice->display_name ?? 'Invoice';
+        $message = "Your invoice {$label} is ready to view: {$viewUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
     }
 
     /**

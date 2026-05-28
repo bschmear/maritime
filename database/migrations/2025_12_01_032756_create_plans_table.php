@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->json('included')->nullable();
             $table->boolean('active')->default(true);
+            $table->boolean('coming_soon')->default(true);
             $table->boolean('popular')->default(false);
             $table->timestamps();
         });

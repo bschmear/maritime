@@ -3,7 +3,7 @@
  * Deal-style line items (assets + parts) for invoices. Mirrors TransactionForm behaviour:
  * separate add/edit modals, add-ons, taxable + tax rate from parent form.
  */
-import { computed, onMounted, ref, watchEffect } from 'vue';
+import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
@@ -76,6 +76,80 @@ const hydrateInvoiceLineAssetOptions = (item) => {
     return [];
 };
 
+/** Suffix after "Primary line — " on flattened invoice child rows. */
+const flatRowSuffix = (primaryName, rowName) => {
+    const prefix = String(primaryName ?? '') + INVOICE_CHILD_SEP;
+    const n = String(rowName ?? '');
+    return n.startsWith(prefix) ? n.slice(prefix.length) : n;
+};
+
+/**
+ * Invoice items persist boat options and add-ons as separate rows. Map them back onto the
+ * parent asset line so the editor matches invoice show / deal line UX.
+ */
+const rehydratePersistedFlatRows = (primaryName, flatRows, transactionLineItem) => {
+    const addons = [];
+    const options = [];
+    const tli = transactionLineItem;
+    const txOptions = tli ? lineAssetSelectedOptions(tli) : [];
+    const txAddons = tli?.addons ?? tli?.Addons ?? [];
+
+    for (const row of flatRows) {
+        const suffix = flatRowSuffix(primaryName, row.name);
+        const matchedOpt = txOptions.find((opt) => selectedOptionLabel(opt) === suffix);
+        if (matchedOpt) {
+            options.push({
+                option_id: Number(matchedOpt.option_id),
+                option_value_id: Number(matchedOpt.option_value_id),
+                option_name: matchedOpt.option_name ?? '',
+                value_label: matchedOpt.value_label ?? '',
+                price: Number(row.unit_price) || Number(matchedOpt.price) || 0,
+                taxable: normalizeTaxable(row.taxable ?? matchedOpt.taxable ?? true),
+            });
+            continue;
+        }
+
+        const matchedAddon = txAddons.find((a) => String(a.name ?? '').trim() === suffix);
+        if (matchedAddon) {
+            addons.push({
+                id: row.id ?? null,
+                addon_id: matchedAddon.addon_id ?? null,
+                name: suffix,
+                price: Number(row.unit_price) || Number(matchedAddon.price) || 0,
+                quantity: Number(row.quantity) || Number(matchedAddon.quantity) || 1,
+                notes: row.description ?? matchedAddon.notes ?? '',
+                taxable: normalizeTaxable(row.taxable ?? matchedAddon.taxable ?? true),
+            });
+            continue;
+        }
+
+        if (suffix.includes(':')) {
+            const colonIdx = suffix.indexOf(':');
+            options.push({
+                option_id: 0,
+                option_value_id: 0,
+                option_name: suffix.slice(0, colonIdx).trim(),
+                value_label: suffix.slice(colonIdx + 1).trim(),
+                price: Number(row.unit_price) || 0,
+                taxable: normalizeTaxable(row.taxable ?? true),
+            });
+            continue;
+        }
+
+        addons.push({
+            id: row.id ?? null,
+            addon_id: null,
+            name: suffix || row.name || 'Add-on',
+            price: Number(row.unit_price) || 0,
+            quantity: Number(row.quantity) || 1,
+            notes: row.description ?? '',
+            taxable: normalizeTaxable(row.taxable ?? true),
+        });
+    }
+
+    return { addons, options };
+};
+
 const normalizeItemBase = (item, isNew = false) => ({
     name: item.name ?? '',
     description: item.description ?? '',
@@ -142,7 +216,13 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
             }
 
             if (persistedFlatRows.length > 0) {
-                base.selected_asset_options = [];
+                const rehydrated = rehydratePersistedFlatRows(
+                    item.name,
+                    persistedFlatRows,
+                    item.transaction_line_item ?? item.transactionLineItem,
+                );
+                base.addons = rehydrated.addons;
+                base.selected_asset_options = rehydrated.options;
             }
 
             lines.value.push({
@@ -155,15 +235,7 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
                 make: item.itemable?.make?.display_name || item.make || '',
                 has_variants: Boolean(item.itemable?.has_variants),
                 asset_description: (item.itemable?.description || '').trim() || '',
-                persisted_flat_rows: persistedFlatRows.map((row) => ({
-                    id: row.id ?? null,
-                    name: row.name ?? '',
-                    description: row.description ?? '',
-                    quantity: Number(row.quantity) || 1,
-                    unit_price: Number(row.unit_price) || 0,
-                    discount: Number(row.discount) || 0,
-                    taxable: normalizeTaxable(row.taxable ?? true),
-                })),
+                persisted_flat_rows: [],
             });
         } else if (item.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem') {
             lines.value.push({
@@ -188,8 +260,18 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
 };
 
 onMounted(() => {
-    applyItemRows(props.initialItems, { preserveIds: props.readonly });
+    applyItemRows(props.initialItems, { preserveIds: true });
 });
+
+watch(
+    () => props.initialItems,
+    (items) => {
+        if (Array.isArray(items) && items.length > 0) {
+            applyItemRows(items, { preserveIds: true });
+        }
+    },
+    { deep: true },
+);
 
 const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const lineBaseTotal = (item) =>

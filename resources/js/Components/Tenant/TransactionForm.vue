@@ -1,10 +1,12 @@
 <script setup>
-import { useForm, usePage } from '@inertiajs/vue3';
+import { useForm, usePage, router, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
+import Modal from '@/Components/Modal.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { lineEffectiveUnitPrice } from '@/Utils/lineItemsFromEstimate';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
@@ -28,6 +30,10 @@ const props = defineProps({
         type: String,
         default: 'create',
         validator: (v) => ['create', 'edit', 'show'].includes(v),
+    },
+    taxSync: {
+        type: Object,
+        default: () => ({ has_sent_invoice: false, line_items_locked: false, invoices: [] }),
     },
     initialData: { type: Object, default: () => ({}) },
 });
@@ -133,25 +139,76 @@ const applyAddressToForm = (src) => {
     form.billing_longitude = src.billing_longitude ?? src.longitude ?? null;
 };
 
-const showAddressConfirm = ref(false);
-const pendingCustomerAddress = ref(null);
+const showAddressPicker = ref(false);
+const customerAddresses = ref([]);
+const isFetchingAddresses = ref(false);
+const addressPickerContactId = ref(null);
+const postingContactAddress = ref(false);
 
-const handleCustomerSelected = (customer) => {
-    const street = customer.address_line_1 || customer.billing_address_line1 || '';
-    if (!street) return;
-    pendingCustomerAddress.value = customer;
-    showAddressConfirm.value = true;
+const fetchCustomerAddressesForPicker = async (customerId) => {
+    isFetchingAddresses.value = true;
+    customerAddresses.value = [];
+    addressPickerContactId.value = null;
+    try {
+        const { data } = await axios.get(route('deliveries.customer-details', customerId));
+        addressPickerContactId.value = data.contact_id ?? null;
+        customerAddresses.value = Array.isArray(data.addresses) ? data.addresses : [];
+    } catch {
+        customerAddresses.value = [];
+    } finally {
+        isFetchingAddresses.value = false;
+    }
 };
 
-const confirmUseBillingAddress = () => {
-    applyAddressToForm(pendingCustomerAddress.value);
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
+const handleCustomerSelected = async (customer) => {
+    if (!customer?.id || props.mode === 'show') return;
+    showAddressPicker.value = true;
+    await fetchCustomerAddressesForPicker(customer.id);
 };
 
-const dismissAddressConfirm = () => {
-    showAddressConfirm.value = false;
-    pendingCustomerAddress.value = null;
+/** Re-open the customer address modal from the billing section. */
+const openBillingCustomerAddressPicker = async () => {
+    if (!form.customer_id || props.mode === 'show') return;
+    showAddressPicker.value = true;
+    await fetchCustomerAddressesForPicker(form.customer_id);
+};
+
+const selectContactAddress = (addr) => {
+    applyAddressToForm(addr);
+    dismissAddressPicker();
+};
+
+const dismissAddressPicker = () => {
+    showAddressPicker.value = false;
+    customerAddresses.value = [];
+    addressPickerContactId.value = null;
+};
+
+const onTransactionContactAddressSaved = (payload) => {
+    if (!addressPickerContactId.value) return;
+    postingContactAddress.value = true;
+    router.post(route('contacts.addresses.store', addressPickerContactId.value), payload, {
+        preserveScroll: true,
+        onFinish: () => {
+            postingContactAddress.value = false;
+        },
+        onSuccess: async () => {
+            applyAddressToForm({
+                address_line_1: payload.address_line_1,
+                address_line_2: payload.address_line_2 ?? null,
+                city: payload.city,
+                state: payload.state,
+                postal_code: payload.postal_code,
+                country: payload.country,
+                latitude: payload.latitude ?? null,
+                longitude: payload.longitude ?? null,
+            });
+            if (form.customer_id) {
+                await fetchCustomerAddressesForPicker(form.customer_id);
+            }
+            dismissAddressPicker();
+        },
+    });
 };
 
 /** Human-readable jurisdiction label from current billing fields (state required for lookup). */
@@ -727,11 +784,76 @@ const formatDateTime = (value) => {
     } catch { return '—'; }
 };
 
+// ─── Linked invoice tax sync (edit) ───────────────────────────────────────────
+
+const INVOICE_TAX_LOCKED_STATUSES = ['sent', 'viewed', 'partial', 'paid'];
+
+const isDraftInvoiceStatus = (status) =>
+    status && !INVOICE_TAX_LOCKED_STATUSES.includes(status) && status !== 'void';
+
+const taxRateBaseline = ref(null);
+
+watch(
+    () => props.record?.tax_rate,
+    (rate) => {
+        taxRateBaseline.value = rate === '' || rate == null ? 0 : Number(rate);
+    },
+    { immediate: true },
+);
+
+const transactionTaxRateLocked = computed(
+    () => props.mode === 'edit' && !!props.taxSync?.has_sent_invoice,
+);
+
+const hasDraftInvoicesToSync = computed(() =>
+    (props.taxSync?.invoices ?? []).some((inv) => isDraftInvoiceStatus(inv.status)),
+);
+
+const blockingInvoices = computed(() =>
+    (props.taxSync?.invoices ?? []).filter((inv) => inv.status && inv.status !== 'void'),
+);
+
+const dealLineItemsLocked = computed(
+    () =>
+        props.mode === 'edit'
+        && (props.taxSync?.line_items_locked || blockingInvoices.value.length > 0),
+);
+
+const lineItemsEditable = computed(() => props.mode !== 'show' && !dealLineItemsLocked.value);
+
+const hasPaidBlockingInvoice = computed(() =>
+    blockingInvoices.value.some(
+        (inv) => inv.status === 'paid' || Number(inv.amount_paid) > 0,
+    ),
+);
+
+const hasTaxRateChanged = () =>
+    Math.abs((Number(form.tax_rate) || 0) - (Number(taxRateBaseline.value) || 0)) > 0.0001;
+
+const showTaxSyncModal = ref(false);
+
 // ─── Submit ───────────────────────────────────────────────────────────────────
 
 const numOrNull = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
 
 const submit = () => {
+    if (props.mode === 'edit' && transactionTaxRateLocked.value && hasTaxRateChanged()) {
+        window.alert('Tax rate cannot be changed after an invoice has been sent to the customer.');
+        return;
+    }
+    if (props.mode === 'edit' && hasTaxRateChanged() && hasDraftInvoicesToSync.value) {
+        showTaxSyncModal.value = true;
+        return;
+    }
+    performSubmit(false);
+};
+
+const confirmTaxSync = (updateLinkedInvoices) => {
+    showTaxSyncModal.value = false;
+    performSubmit(updateLinkedInvoices);
+};
+
+const performSubmit = (updateLinkedInvoices) => {
     form.transform((data) => ({
         ...data,
         discount_total: numOrNull(data.discount_total),
@@ -739,7 +861,7 @@ const submit = () => {
         tax_rate: data.tax_rate === '' || data.tax_rate == null ? null : Number(data.tax_rate),
         billing_latitude: data.billing_latitude === '' || data.billing_latitude == null ? null : Number(data.billing_latitude),
         billing_longitude: data.billing_longitude === '' || data.billing_longitude == null ? null : Number(data.billing_longitude),
-        items: (() => {
+        ...(dealLineItemsLocked.value ? {} : { items: (() => {
             const mapAddons = (addons) => (addons || []).map((a) => ({
                 addon_id: a.addon_id || null,
                 name: a.name || null,
@@ -793,7 +915,8 @@ const submit = () => {
                 });
             });
             return all;
-        })(),
+        })() }),
+        ...(props.mode === 'edit' ? { update_linked_invoice_tax: !!updateLinkedInvoices } : {}),
     }));
 
     if (props.mode === 'edit') {
@@ -1035,13 +1158,24 @@ const handleCancel = () => emit('cancel');
 
                             <!-- ─── Billing address (EstimateForm pattern) ───────────── -->
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                                <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
                                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">
                                         Billing Address
                                     </h3>
-                                    <span v-if="isFetchingTaxRate" class="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
-                                        Fetching tax rate…
-                                    </span>
+                                    <div class="flex items-center gap-3">
+                                        <button
+                                            v-if="mode !== 'show' && form.customer_id"
+                                            type="button"
+                                            class="inline-flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                            @click="openBillingCustomerAddressPicker"
+                                        >
+                                            <span class="material-icons text-[16px]">person_pin_circle</span>
+                                            Choose from customer
+                                        </button>
+                                        <span v-if="isFetchingTaxRate" class="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                                            Fetching tax rate…
+                                        </span>
+                                    </div>
                                 </div>
                                 <AddressAutocomplete
                                     v-if="mode !== 'show'"
@@ -1087,7 +1221,14 @@ const handleCancel = () => emit('cancel');
                                             max="100"
                                             class="input-style"
                                             placeholder="0.000"
+                                            :disabled="transactionTaxRateLocked"
                                         />
+                                        <p
+                                            v-if="mode !== 'show' && transactionTaxRateLocked"
+                                            class="mt-1 text-xs text-amber-700 dark:text-amber-300"
+                                        >
+                                            Tax rate is locked because an invoice on this deal has been sent to the customer.
+                                        </p>
                                         <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.tax_rate != null ? record.tax_rate : '—' }}%</p>
                                     </div>
                                     <div>
@@ -1135,11 +1276,39 @@ const handleCancel = () => emit('cancel');
                                 </p>
                             </div>
 
+                            <div
+                                v-if="dealLineItemsLocked"
+                                class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                                role="status"
+                            >
+                                <p class="font-semibold">Line items are locked</p>
+                                <p v-if="hasPaidBlockingInvoice" class="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                                    This deal has a paid invoice. Line items cannot be changed until that invoice is voided or resolved.
+                                </p>
+                                <p v-else class="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                                    An invoice exists for this deal. Delete or void the invoice (if it has not been paid), then you can edit assets and parts here.
+                                </p>
+                                <ul v-if="blockingInvoices.length" class="mt-2 space-y-1">
+                                    <li v-for="inv in blockingInvoices" :key="`blk-inv-${inv.id}`">
+                                        <Link
+                                            :href="route('invoices.show', inv.id)"
+                                            class="font-medium text-primary-700 underline hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                                        >
+                                            Invoice #{{ inv.sequence ?? inv.id }}
+                                        </Link>
+                                        <span class="text-amber-800/80 dark:text-amber-200/80"> · {{ inv.status }}</span>
+                                        <span v-if="Number(inv.amount_paid) > 0" class="text-amber-800/80 dark:text-amber-200/80">
+                                            · {{ formatMoney(inv.amount_paid) }} paid
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+
 <!-- ─── Assets ────────────────────────────────────────── -->
 <div class="border-gray-200 dark:border-gray-700 pt-6">
     <div class="flex items-center justify-between border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Assets</h3>
-        <button v-if="mode !== 'show'" type="button" @click="openAddAssetModal"
+        <button v-if="lineItemsEditable" type="button" @click="openAddAssetModal"
             class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
             <span class="material-icons text-base">add_circle</span>
             Add Asset
@@ -1149,7 +1318,7 @@ const handleCancel = () => emit('cancel');
     <div v-if="assetItems.length === 0" class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 mt-2">
         <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">inventory_2</span>
         <p class="text-sm text-gray-500 dark:text-gray-400">No assets added yet</p>
-        <p v-if="mode !== 'show'" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to get started</p>
+        <p v-if="lineItemsEditable" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Asset" to get started</p>
     </div>
     <div v-else class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-6 sm:mx-0">
         <div class="inline-block min-w-full align-middle">
@@ -1165,7 +1334,7 @@ const handleCancel = () => emit('cancel');
                         <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
                         <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
                         <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
-                        <th v-if="mode !== 'show'" class="px-4 py-3 w-20"></th>
+                        <th v-if="lineItemsEditable" class="px-4 py-3 w-20"></th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1189,7 +1358,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(asset.unit_price) }}</td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(asset.discount) }}</td>
                             <td class="px-4 py-3 text-center align-middle">
-                                <input v-if="mode !== 'show'" v-model="asset.taxable" type="checkbox"
+                                <input v-if="lineItemsEditable" v-model="asset.taxable" type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                                     title="Tax applies to this asset at deal tax rate" />
                                 <span v-else class="text-xs text-gray-500 dark:text-gray-400">{{ asset.taxable ? 'Yes' : 'No' }}</span>
@@ -1199,7 +1368,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineCoreTotalWithTax(asset)) }}</td>
                             <td class="px-4 py-3">
                                 <button
-                                    v-if="mode !== 'show'"
+                                    v-if="lineItemsEditable"
                                     type="button"
                                     class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                                     @click="openAddonModal(asset)"
@@ -1209,7 +1378,7 @@ const handleCancel = () => emit('cancel');
                                 </button>
                                 <span v-else class="text-sm text-gray-400">{{ (asset.addons || []).length }} add-on(s)</span>
                             </td>
-                            <td v-if="mode !== 'show'" class="px-4 py-3">
+                            <td v-if="lineItemsEditable" class="px-4 py-3">
                                 <div class="flex items-center justify-end gap-2">
                                     <button type="button" @click="openEditAssetModal(index)" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                                         <span class="material-icons text-base">edit</span>
@@ -1221,7 +1390,7 @@ const handleCancel = () => emit('cancel');
                             </td>
                         </tr>
                         <tr
-                            v-if="mode !== 'show' && (assetOptionChoices[index] || []).length > 0"
+                            v-if="lineItemsEditable && (assetOptionChoices[index] || []).length > 0"
                             class="bg-slate-50/90 dark:bg-slate-900/30"
                         >
                             <td colspan="10" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
@@ -1323,7 +1492,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
                             <td class="px-4 py-2 text-center">
                                 <input
-                                    v-if="mode !== 'show'"
+                                    v-if="lineItemsEditable"
                                     v-model="opt.taxable"
                                     type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
@@ -1335,7 +1504,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAssetOptionRow(opt)) }}</td>
                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOptionRow(opt)) }}</td>
                             <td></td>
-                            <td v-if="mode !== 'show'" class="px-4 py-2 text-right">
+                            <td v-if="lineItemsEditable" class="px-4 py-2 text-right">
                                 <button
                                     type="button"
                                     title="Remove this boat option from the deal line"
@@ -1358,7 +1527,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>
                             <td class="px-4 py-2 text-right">
                                 <input
-                                    v-if="mode !== 'show' && isTransactionAddonEditing('asset', index, addonIdx)"
+                                    v-if="lineItemsEditable && isTransactionAddonEditing('asset', index, addonIdx)"
                                     v-model.number="addon.price"
                                     type="number"
                                     min="0"
@@ -1371,7 +1540,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
                             <td class="px-4 py-2 text-center">
                                 <input
-                                    v-if="mode !== 'show' && isTransactionAddonEditing('asset', index, addonIdx)"
+                                    v-if="lineItemsEditable && isTransactionAddonEditing('asset', index, addonIdx)"
                                     v-model="addon.taxable"
                                     type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
@@ -1383,7 +1552,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAddon(addon)) }}</td>
                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
                             <td></td>
-                            <td v-if="mode !== 'show'" class="px-4 py-2 text-right">
+                            <td v-if="lineItemsEditable" class="px-4 py-2 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <button
                                         type="button"
@@ -1415,7 +1584,7 @@ const handleCancel = () => emit('cancel');
                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetTax) }}</td>
                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedAssetSubtotal + computedAssetTax) }}</td>
                         <td></td>
-                        <td v-if="mode !== 'show'"></td>
+                        <td v-if="lineItemsEditable"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -1427,7 +1596,7 @@ const handleCancel = () => emit('cancel');
 <div class="border-gray-200 dark:border-gray-700 pt-6">
     <div class="flex items-center justify-between border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Parts &amp; Accessories</h3>
-        <button v-if="mode !== 'show'" type="button" @click="openAddInventoryModal"
+        <button v-if="lineItemsEditable" type="button" @click="openAddInventoryModal"
             class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors">
             <span class="material-icons text-base">add_circle</span>
             Add Part
@@ -1437,7 +1606,7 @@ const handleCancel = () => emit('cancel');
     <div v-if="inventoryItems.length === 0" class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 mt-2">
         <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">handyman</span>
         <p class="text-sm text-gray-500 dark:text-gray-400">No parts or accessories added yet</p>
-        <p v-if="mode !== 'show'" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Part" to get started</p>
+        <p v-if="lineItemsEditable" class="text-sm text-gray-400 dark:text-gray-500 mt-1">Click "Add Part" to get started</p>
     </div>
     <div v-else class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain -mx-6 sm:mx-0">
         <div class="inline-block min-w-full align-middle">
@@ -1453,7 +1622,7 @@ const handleCancel = () => emit('cancel');
                         <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
                         <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
                         <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
-                        <th v-if="mode !== 'show'" class="px-4 py-3 w-20"></th>
+                        <th v-if="lineItemsEditable" class="px-4 py-3 w-20"></th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1469,7 +1638,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(inv.unit_price) }}</td>
                             <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(inv.discount) }}</td>
                             <td class="px-4 py-3 text-center align-middle">
-                                <input v-if="mode !== 'show'" v-model="inv.taxable" type="checkbox"
+                                <input v-if="lineItemsEditable" v-model="inv.taxable" type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                                     title="Tax applies to this item at deal tax rate" />
                                 <span v-else class="text-xs text-gray-500 dark:text-gray-400">{{ inv.taxable ? 'Yes' : 'No' }}</span>
@@ -1479,7 +1648,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineCoreTotalWithTax(inv)) }}</td>
                             <td class="px-4 py-3">
                                 <button
-                                    v-if="mode !== 'show'"
+                                    v-if="lineItemsEditable"
                                     type="button"
                                     class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                                     @click="openAddonModal(inv)"
@@ -1489,7 +1658,7 @@ const handleCancel = () => emit('cancel');
                                 </button>
                                 <span v-else class="text-sm text-gray-400">{{ (inv.addons || []).length }} add-on(s)</span>
                             </td>
-                            <td v-if="mode !== 'show'" class="px-4 py-3">
+                            <td v-if="lineItemsEditable" class="px-4 py-3">
                                 <div class="flex items-center justify-end gap-2">
                                     <button type="button" @click="openEditInventoryModal(index)" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                                         <span class="material-icons text-base">edit</span>
@@ -1512,7 +1681,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-400">{{ addon.quantity }}</td>
                             <td class="px-4 py-2 text-right">
                                 <input
-                                    v-if="mode !== 'show' && isTransactionAddonEditing('inventory', index, addonIdx)"
+                                    v-if="lineItemsEditable && isTransactionAddonEditing('inventory', index, addonIdx)"
                                     v-model.number="addon.price"
                                     type="number"
                                     min="0"
@@ -1525,7 +1694,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
                             <td class="px-4 py-2 text-center">
                                 <input
-                                    v-if="mode !== 'show' && isTransactionAddonEditing('inventory', index, addonIdx)"
+                                    v-if="lineItemsEditable && isTransactionAddonEditing('inventory', index, addonIdx)"
                                     v-model="addon.taxable"
                                     type="checkbox"
                                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
@@ -1537,7 +1706,7 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(taxOnAddon(addon)) }}</td>
                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</td>
                             <td></td>
-                            <td v-if="mode !== 'show'" class="px-4 py-2 text-right">
+                            <td v-if="lineItemsEditable" class="px-4 py-2 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <button
                                         type="button"
@@ -1569,7 +1738,7 @@ const handleCancel = () => emit('cancel');
                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedInventoryTax) }}</td>
                         <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ formatMoney(computedInventorySubtotal + computedInventoryTax) }}</td>
                         <td></td>
-                        <td v-if="mode !== 'show'"></td>
+                        <td v-if="lineItemsEditable"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -1768,44 +1937,94 @@ const handleCancel = () => emit('cancel');
                 leave-to-class="opacity-0"
             >
                 <div
-                    v-if="showAddressConfirm && pendingCustomerAddress"
+                    v-if="showAddressPicker"
                     class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-                    @click.self="dismissAddressConfirm"
+                    @click.self="dismissAddressPicker"
                 >
-                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-                        <div class="flex items-start gap-3 px-6 pt-6 pb-4">
-                            <div class="flex-shrink-0 w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                                <span class="material-icons text-blue-600 dark:text-blue-400 text-lg">place</span>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div class="flex items-start justify-between gap-3 px-6 pt-6 pb-4">
+                            <div class="flex items-start gap-3">
+                                <div class="flex-shrink-0 w-9 h-9 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Billing address</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                        <template v-if="isFetchingAddresses">Loading addresses…</template>
+                                        <template v-else-if="customerAddresses.length > 0">Select one of this customer&apos;s saved addresses</template>
+                                        <template v-else-if="addressPickerContactId">This customer has no saved addresses yet. Add one to save it on the contact and use it here.</template>
+                                        <template v-else>This customer has no linked contact for saved addresses. Enter the billing address manually below.</template>
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="text-md font-semibold text-gray-900 dark:text-white">Use customer&apos;s address?</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Set this as the billing address for this deal</p>
-                            </div>
+                            <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-0.5" @click="dismissAddressPicker">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
-                        <div class="mx-6 mb-5 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 space-y-0.5">
-                            <p v-if="pendingCustomerAddress.address_line_1" class="font-medium">{{ pendingCustomerAddress.address_line_1 }}</p>
-                            <p v-if="pendingCustomerAddress.address_line_2" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.address_line_2 }}</p>
-                            <p>
-                                <span v-if="pendingCustomerAddress.city">{{ pendingCustomerAddress.city }}, </span>
-                                <span v-if="pendingCustomerAddress.state">{{ pendingCustomerAddress.state }} </span>
-                                <span v-if="pendingCustomerAddress.postal_code">{{ pendingCustomerAddress.postal_code }}</span>
-                            </p>
-                            <p v-if="pendingCustomerAddress.country" class="text-gray-500 dark:text-gray-400">{{ pendingCustomerAddress.country }}</p>
+
+                        <div v-if="isFetchingAddresses" class="flex justify-center py-12">
+                            <svg class="w-8 h-8 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
                         </div>
-                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+
+                        <div v-else-if="customerAddresses.length > 0" class="px-6 pb-2 space-y-2 max-h-80 overflow-y-auto">
+                            <button
+                                v-for="addr in customerAddresses"
+                                :key="addr.id"
+                                type="button"
+                                class="w-full text-left px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors group"
+                                @click="selectContactAddress(addr)"
+                            >
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="text-sm space-y-0.5">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ addr.address_line_1 }}</p>
+                                            <span
+                                                v-if="addr.is_primary"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                            >Primary</span>
+                                            <span
+                                                v-if="addr.label"
+                                                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300"
+                                            >{{ addr.label }}</span>
+                                        </div>
+                                        <p v-if="addr.address_line_2" class="text-gray-500 dark:text-gray-400">{{ addr.address_line_2 }}</p>
+                                        <p class="text-gray-600 dark:text-gray-300">
+                                            <span v-if="addr.city">{{ addr.city }}<span v-if="addr.state || addr.postal_code">, </span></span>
+                                            <span v-if="addr.state">{{ addr.state }} </span>
+                                            <span v-if="addr.postal_code">{{ addr.postal_code }}</span>
+                                        </p>
+                                        <p v-if="addr.country" class="text-gray-500 dark:text-gray-400">{{ addr.country }}</p>
+                                    </div>
+                                    <svg class="w-4 h-4 flex-shrink-0 text-gray-300 group-hover:text-primary-500 mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div v-else-if="addressPickerContactId" class="px-6 pb-2 space-y-4">
+                            <ContactAddressAutocomplete
+                                :disabled="postingContactAddress"
+                                button-label="Add address to contact"
+                                @saved="onTransactionContactAddressSaved"
+                            />
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 mt-2">
                             <button
                                 type="button"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                                @click="dismissAddressConfirm"
+                                @click="dismissAddressPicker"
                             >
-                                No, keep blank
-                            </button>
-                            <button
-                                type="button"
-                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-                                @click="confirmUseBillingAddress"
-                            >
-                                Yes, use this address
+                                Skip, fill manually
                             </button>
                         </div>
                     </div>
@@ -1896,5 +2115,38 @@ const handleCancel = () => emit('cancel');
                 </div>
             </Transition>
         </Teleport>
+
+        <Modal :show="showTaxSyncModal" max-width="md" @close="showTaxSyncModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Update invoice tax?</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    You changed the deal tax rate. Update tax on linked draft invoices to match?
+                    Invoices already sent to the customer will not be changed.
+                </p>
+                <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                        @click="showTaxSyncModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                        @click="confirmTaxSync(false)"
+                    >
+                        Save deal only
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                        @click="confirmTaxSync(true)"
+                    >
+                        Save &amp; update draft invoices
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </div>
 </template>

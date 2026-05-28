@@ -6,6 +6,7 @@ namespace App\Mail;
 
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Models\AccountSettings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -14,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Secure link for customers to submit asset options (and optional add-ons) on an opportunity line.
  */
-class OpportunityFeatureRequestInvite extends Mailable
+class OpportunityFeatureRequestInvite extends Mailable implements ShouldQueue
 {
     use SerializesModels;
 

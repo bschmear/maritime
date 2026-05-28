@@ -13,11 +13,13 @@ const form = useForm({
     stripe_monthly_id: '',
     stripe_yearly_id: '',
     seat_limit: 1,
+    seat_extra: '',
     description: '',
     included: [],
     popular: false,
     active: true,
     ticket_support_access: false,
+    coming_soon: true,
 });
 
 const newIncludedItem = ref('');
@@ -85,8 +87,28 @@ const submit = () => {
                                 <InputError class="mt-2" :message="form.errors.name" />
                             </div>
 
+                            <div>
+                                <div class="flex items-start">
+                                    <div class="flex h-6 items-center">
+                                        <input
+                                            v-model="form.coming_soon"
+                                            id="coming_soon"
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-600 dark:focus:ring-primary-400 bg-white dark:bg-gray-800"
+                                        />
+                                    </div>
+                                    <div class="ml-3">
+                                        <InputLabel for="coming_soon" value="Coming soon" class="text-gray-900 dark:text-white" />
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                                            When enabled, the public pricing page shows “Coming soon” instead of prices, and checkout is disabled for this plan.
+                                        </p>
+                                    </div>
+                                </div>
+                                <InputError class="mt-2" :message="form.errors.coming_soon" />
+                            </div>
+
                             <!-- Pricing Section -->
-                            <div class="space-y-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <div v-if="!form.coming_soon" class="space-y-6 border-t border-gray-200 dark:border-gray-700 pt-6">
                                 <h3 class="text-sm font-medium text-gray-900 dark:text-white">Pricing Options</h3>
 
                                 <!-- Monthly Price and Stripe ID Row -->
@@ -160,6 +182,12 @@ const submit = () => {
                                         <InputError class="mt-2" :message="form.errors.stripe_yearly_id" />
                                     </div>
                                 </div>
+                            </div>
+                            <div v-else class="space-y-2 border-t border-gray-200 dark:border-gray-700 pt-6">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">Pricing &amp; Stripe</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
+                                    Turn off “Coming soon” above to set monthly/yearly prices and Stripe price IDs.
+                                </p>
                             </div>
 
                             <!-- Seat Limit Field -->

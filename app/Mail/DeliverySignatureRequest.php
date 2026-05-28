@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Domain\Delivery\Models\Delivery;
 use App\Models\AccountSettings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -12,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Sent when staff requests customer signature on a delivery (review link).
  */
-class DeliverySignatureRequest extends Mailable
+class DeliverySignatureRequest extends Mailable implements ShouldQueue
 {
     use SerializesModels;
 

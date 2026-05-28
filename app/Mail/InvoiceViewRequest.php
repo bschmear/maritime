@@ -5,6 +5,7 @@ namespace App\Mail;
 use App\Domain\Invoice\Models\Invoice;
 use App\Enums\Payments\Terms;
 use App\Models\AccountSettings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -13,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Sent synchronously when staff emails a customer the public invoice link.
  */
-class InvoiceViewRequest extends Mailable
+class InvoiceViewRequest extends Mailable implements ShouldQueue
 {
     use SerializesModels;
 

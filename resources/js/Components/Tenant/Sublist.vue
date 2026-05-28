@@ -1,4 +1,6 @@
 <script setup>
+defineOptions({ inheritAttrs: false });
+
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
@@ -1544,7 +1546,7 @@ watch(
 </script>
 
 <template>
-    <div class="w-full">
+    <div class="w-full" v-bind="$attrs">
         <!-- Mobile Select Dropdown -->
         <div class="sm:hidden">
             <label for="tabs" class="sr-only">Select Sublist</label>

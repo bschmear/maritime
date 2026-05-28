@@ -38,6 +38,8 @@ class Invoice extends Model
 
         'subtotal',
         'tax_total',
+        'tax_rate',
+        'tax_jurisdiction',
         'discount_total',
         'fees_total',
         'total',
@@ -64,6 +66,9 @@ class Invoice extends Model
         'notes',
         'meta',
 
+        'quickbooks_invoice_id',
+        'quickbooks_invoice_url',
+
         'allowed_methods',
         'surcharge_percent',
         'allow_partial_payment',
@@ -77,6 +82,7 @@ class Invoice extends Model
     protected $casts = [
         'subtotal' => 'decimal:2',
         'tax_total' => 'decimal:2',
+        'tax_rate' => 'decimal:3',
         'discount_total' => 'decimal:2',
         'fees_total' => 'decimal:2',
         'total' => 'decimal:2',
@@ -128,6 +134,7 @@ class Invoice extends Model
                 'transactionLineItem' => fn ($q2) => $q2
                     ->select(['id', 'source_transaction_line_item_id'])
                     ->with([
+                        'addons',
                         'selectedAssetOptions',
                         'selectedAssetOptionsFromSourceLine',
                     ]),
@@ -255,6 +262,11 @@ class Invoice extends Model
     | Helpers
     |--------------------------------------------------------------------------
     */
+
+    public function isQuickbooksManaged(): bool
+    {
+        return $this->quickbooks_invoice_id !== null && $this->quickbooks_invoice_id !== '';
+    }
 
     public function markAsSent(): void
     {

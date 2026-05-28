@@ -26,12 +26,12 @@ use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\SMS;
 use App\Mail\DeliverySignatureRequest;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use App\Services\SMS\SmsService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -291,7 +291,7 @@ class DeliveryController extends RecordController
         ]);
     }
 
-    public function sendSignatureRequest(Request $request, $delivery, SmsService $smsService)
+    public function sendSignatureRequest(Request $request, $delivery, SmsService $smsService, TenantMailService $tenantMail)
     {
         $validated = $request->validate([
             'delivery' => 'required|string|in:email,email_sms',
@@ -307,20 +307,11 @@ class DeliveryController extends RecordController
         }
 
         $account = AccountSettings::getCurrent();
-        $sandbox = $account->smsSandboxMode();
         $customerEmail = $model->customer?->email;
-        $authEmail = $request->user()?->email;
+        $signatureProbe = new DeliverySignatureRequest($model, $account, 'https://placeholder.invalid');
 
-        if ($sandbox) {
-            if (! $authEmail) {
-                return back()->withErrors(['error' => 'Sandbox mode sends the email to you, but your account has no email address on file.']);
-            }
-            $recipientEmail = $authEmail;
-        } else {
-            if (! $customerEmail) {
-                return back()->withErrors(['error' => 'This delivery has no customer email address.']);
-            }
-            $recipientEmail = $customerEmail;
+        if (! $tenantMail->canSend($customerEmail, $signatureProbe, $request->user())) {
+            return back()->withErrors(['error' => $tenantMail->validationErrorMessage($signatureProbe)]);
         }
 
         if ($validated['delivery'] === 'email_sms') {
@@ -341,8 +332,10 @@ class DeliveryController extends RecordController
 
         $reviewUrl = "https://{$domain}/deliveries/{$model->uuid}/review";
 
+        $mailable = new DeliverySignatureRequest($model, $account, $reviewUrl);
+
         try {
-            Mail::to($recipientEmail)->send(new DeliverySignatureRequest($model, $account, $reviewUrl));
+            $tenantMail->send($customerEmail, $mailable, $request->user());
         } catch (\Exception $e) {
             \Log::error('Failed to send delivery signature request email', [
                 'delivery_id' => $model->id,
@@ -352,9 +345,7 @@ class DeliveryController extends RecordController
             return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
-        $emailTarget = $sandbox
-            ? "{$recipientEmail} (sandbox — you)"
-            : $recipientEmail;
+        $emailTarget = $tenantMail->displayRecipient($customerEmail, $mailable, $request->user());
 
         $smsNote = '';
         if ($validated['delivery'] === 'email_sms') {

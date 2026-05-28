@@ -264,6 +264,10 @@ class CustomerPortalController extends Controller
                 'amount_paid' => (float) $invoice->amount_paid,
                 'surcharge_percent' => (float) ($invoice->surcharge_percent ?? 0),
             ],
+            'quickbooks' => [
+                'managed' => $invoice->isQuickbooksManaged(),
+                'invoice_url' => $invoice->quickbooks_invoice_url,
+            ],
         ]);
     }
 

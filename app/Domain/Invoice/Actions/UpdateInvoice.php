@@ -4,11 +4,15 @@ namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Invoice\Support\FlattenTransactionItemsForInvoice;
+use App\Domain\Invoice\Support\InvoiceBillingAddressRules;
 use App\Domain\Invoice\Support\InvoicePaymentFields;
 use App\Domain\Invoice\Support\ReplaceInvoiceLineItems;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Support\SyncLinkedDealTaxRate;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
+use App\Services\Payments\QuickBooksAccountingService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -19,9 +23,15 @@ class UpdateInvoice
 {
     public function __invoke(int $id, array $data): array
     {
+        $updateQuickbooks = filter_var($data['update_quickbooks'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['update_quickbooks']);
+
+        $updateLinkedTransactionTax = filter_var($data['update_linked_transaction_tax'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['update_linked_transaction_tax']);
+
         $items = is_array($data['items'] ?? null) ? $data['items'] : null;
         unset($data['items']);
-        unset($data['tax_rate'], $data['subtotal'], $data['tax_total'], $data['total']);
+        unset($data['subtotal'], $data['tax_total'], $data['total']);
 
         if (array_key_exists('due_at', $data) && $data['due_at'] === '') {
             $data['due_at'] = null;
@@ -41,15 +51,12 @@ class UpdateInvoice
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_email' => ['nullable', 'email', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:50'],
-            'billing_address_line1' => ['nullable', 'string', 'max:255'],
-            'billing_address_line2' => ['nullable', 'string', 'max:255'],
-            'billing_city' => ['nullable', 'string', 'max:255'],
-            'billing_state' => ['nullable', 'string', 'max:255'],
-            'billing_postal' => ['nullable', 'string', 'max:50'],
-            'billing_country' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'fees_total' => ['nullable', 'numeric'],
-        ], InvoicePaymentFields::validationRules()))->validate();
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_jurisdiction' => ['nullable', 'string', 'max:255'],
+        ], InvoicePaymentFields::validationRules(), InvoiceBillingAddressRules::rules()), InvoiceBillingAddressRules::messages())
+            ->validate();
 
         $paymentNormalized = InvoicePaymentFields::normalizeForPersistence(
             [
@@ -67,6 +74,24 @@ class UpdateInvoice
 
         try {
             $record = RecordModel::with('items')->findOrFail($id);
+
+            if (SyncLinkedDealTaxRate::invoiceIsTaxLocked($record) && $items !== null) {
+                $oldItems = $record->items->keyBy('id');
+                foreach ($items as $item) {
+                    $itemId = $item['id'] ?? null;
+                    if (! $itemId || ! $oldItems->has($itemId)) {
+                        continue;
+                    }
+                    $old = $oldItems->get($itemId);
+                    $newRate = (float) ($item['tax_rate'] ?? 0);
+                    $oldRate = (float) ($old->tax_rate ?? 0);
+                    if (abs($newRate - $oldRate) > 0.0001) {
+                        throw ValidationException::withMessages([
+                            'tax_rate' => 'Tax cannot be changed after this invoice has been sent to the customer.',
+                        ]);
+                    }
+                }
+            }
 
             $validated['payment_term'] = self::normalizePaymentTerm($validated['payment_term'] ?? null);
 
@@ -125,9 +150,31 @@ class UpdateInvoice
 
             $record->update(array_merge($validated, $paymentNormalized));
 
+            $record = $record->fresh(['items', 'contact']);
+
+            $qboWarning = null;
+            if ($updateQuickbooks && $record->quickbooks_invoice_id) {
+                $qboResult = app(QuickBooksAccountingService::class)->updateInvoice($record);
+                if (! ($qboResult['success'] ?? false)) {
+                    $qboWarning = $qboResult['message'] ?? 'QuickBooks update failed.';
+                }
+            }
+
+            if ($qboWarning) {
+                session()->flash('invoice_qbo_warning', $qboWarning);
+            }
+
+            if ($updateLinkedTransactionTax && $record->transaction_id) {
+                $rate = SyncLinkedDealTaxRate::resolveRateFromInvoiceItems($record);
+                $transaction = Transaction::query()->find($record->transaction_id);
+                if ($transaction !== null) {
+                    SyncLinkedDealTaxRate::applyRateToTransaction($transaction, $rate);
+                }
+            }
+
             return [
                 'success' => true,
-                'record' => $record->fresh(['items']),
+                'record' => $record,
             ];
         } catch (ValidationException $e) {
             throw $e;

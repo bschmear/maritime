@@ -22,6 +22,13 @@ const props = defineProps({
             surcharge_percent: 0,
         }),
     },
+    quickbooks: {
+        type: Object,
+        default: () => ({
+            managed: false,
+            invoice_url: null,
+        }),
+    },
 });
 
 const title = computed(() =>
@@ -66,6 +73,7 @@ const title = computed(() =>
                 :enum-options="enumOptions"
                 :can-pay-online="canPayOnline"
                 :payment-constraints="paymentConstraints"
+                :quickbooks="quickbooks"
                 :show-portal-promotion="false"
             />
         </div>

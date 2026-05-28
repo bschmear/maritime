@@ -1,5 +1,9 @@
 <script setup>
+import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+
+const page = usePage();
+const appName = computed(() => page.props.app.name);
 
 const props = defineProps({
     /** Payload from UserController (null if no tenant account on request). */
@@ -47,7 +51,7 @@ const needsLoginHelp = computed(() => {
         >
             <p class="font-medium">Before they can log in</p>
             <p class="mt-1">
-                Creating a user here adds them to your tenant directory only. Use the same email under your Maritime account
+                Creating a user here adds them to your tenant directory only. Use the same email under your {{ appName }} account
                 <strong>Team members</strong>
                 (invite) so they receive access to this workspace.
             </p>
@@ -61,7 +65,7 @@ const needsLoginHelp = computed(() => {
                 <div class="min-w-0 flex-1 text-sm text-blue-900 dark:text-blue-100">
                     <p class="font-semibold">Workspace team seats</p>
                     <p class="mt-1 text-blue-800 dark:text-blue-200">
-                        Your Maritime account is using
+                        Your {{ appName }} account is using
                         <strong>{{ su.current_users }}</strong>
                         of
                         <strong>{{ su.seat_limit }}</strong>
@@ -101,10 +105,10 @@ const needsLoginHelp = computed(() => {
                         </p>
                     </template>
                     <template v-else>
-                        <p class="font-semibold">Not on your Maritime workspace yet</p>
+                        <p class="font-semibold">Not on your {{ appName }} workspace yet</p>
                         <p class="mt-1">
                             This person is saved in your tenant directory, but <strong>{{ staff.email }}</strong> is not yet a team member
-                            on your Maritime account — so they cannot log in to this site until invited.
+                            on your {{ appName }} account — so they cannot log in to this site until invited.
                         </p>
                     </template>
 
@@ -123,7 +127,7 @@ const needsLoginHelp = computed(() => {
                         <span class="text-xs text-amber-800 dark:text-amber-200">Use “Invite team member” with this email.</span>
                     </div>
                     <p v-else class="mt-3 text-xs text-amber-900/90 dark:text-amber-200/90">
-                        Only the Maritime account owner can send invitations. Ask the owner to add
+                        Only the {{ appName }} account owner can send invitations. Ask the owner to add
                         <strong>{{ staff.email }}</strong>
                         under Account → Team members.
                     </p>
@@ -136,7 +140,7 @@ const needsLoginHelp = computed(() => {
             class="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 dark:border-green-800 dark:bg-green-900/20 dark:text-green-100"
         >
             <p class="font-medium">Workspace access</p>
-            <p class="mt-1">This email is on your Maritime account, so they can sign in to this workspace (subject to their password and invitation state).</p>
+            <p class="mt-1">This email is on your {{ appName }} account, so they can sign in to this workspace (subject to their password and invitation state).</p>
         </div>
     </div>
 </template>

@@ -21,10 +21,11 @@ use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Mail\CustomerAssetSpecSheetShareMail;
 use App\Services\AssetOptionResolver;
+use App\Services\Mail\TenantMailService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -156,7 +157,7 @@ class AssetController extends RecordController
         ]);
     }
 
-    public function sendSpecSheetsToCustomer(Request $request, RecordModel $asset): JsonResponse
+    public function sendSpecSheetsToCustomer(Request $request, RecordModel $asset, TenantMailService $tenantMail): JsonResponse
     {
         $validated = $request->validate([
             'customer_profile_id' => ['required', 'integer', 'exists:customer_profiles,id'],
@@ -260,13 +261,17 @@ class AssetController extends RecordController
         }
 
         $toEmail = $customer->email;
-        if ($links !== [] && is_string($toEmail) && trim($toEmail) !== '') {
-            Mail::to($toEmail)->send(new CustomerAssetSpecSheetShareMail(
+        if ($links !== []) {
+            $mailable = new CustomerAssetSpecSheetShareMail(
                 $customer,
                 $account,
                 $links,
                 (string) ($asset->display_name ?? 'Asset'),
-            ));
+            );
+
+            if ($tenantMail->canSend($toEmail, $mailable, Auth::user())) {
+                $tenantMail->send($toEmail, $mailable, Auth::user());
+            }
         }
 
         $contactId = $customer->contact_id;

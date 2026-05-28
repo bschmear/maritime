@@ -35,18 +35,21 @@ class PlansController extends Controller
             'stripe_monthly_id' => 'nullable|string|max:255',
             'stripe_yearly_id' => 'nullable|string|max:255',
             'seat_limit' => 'required|integer|min:1',
-            'seat_extra' => 'nullable|integer|min:1',
+            'seat_extra' => 'nullable|numeric|min:0|max:999999.99',
             'description' => 'nullable|string',
             'included' => 'nullable|array',
             'popular' => 'boolean',
             'active' => 'boolean',
             'ticket_support_access' => 'boolean',
+            'coming_soon' => 'boolean',
         ]);
 
         // Ensure included is stored as JSON array
         if (! isset($validated['included'])) {
             $validated['included'] = [];
         }
+
+        $validated['coming_soon'] = $request->boolean('coming_soon');
 
         Plan::create($validated);
 
@@ -85,12 +88,15 @@ class PlansController extends Controller
             'popular' => 'boolean',
             'active' => 'boolean',
             'ticket_support_access' => 'boolean',
+            'coming_soon' => 'boolean',
         ]);
 
         // Ensure included is stored as JSON array
         if (! isset($validated['included'])) {
             $validated['included'] = [];
         }
+
+        $validated['coming_soon'] = $request->boolean('coming_soon');
 
         $plan->update($validated);
 

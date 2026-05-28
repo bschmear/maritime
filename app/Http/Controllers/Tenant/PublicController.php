@@ -1545,6 +1545,10 @@ class PublicController extends Controller
                 'amount_paid' => (float) $invoice->amount_paid,
                 'surcharge_percent' => (float) ($invoice->surcharge_percent ?? 0),
             ],
+            'quickbooks' => [
+                'managed' => $invoice->isQuickbooksManaged(),
+                'invoice_url' => $invoice->quickbooks_invoice_url,
+            ],
         ]);
     }
 
@@ -1552,6 +1556,10 @@ class PublicController extends Controller
     {
         $invoice = Invoice::query()->where('uuid', $uuid)->firstOrFail();
         $invoice->refresh();
+
+        if ($invoice->isQuickbooksManaged()) {
+            return back()->with('error', 'This invoice is managed in QuickBooks. Pay through QuickBooks Online.');
+        }
 
         if (! InvoicePayOnline::canPayOnline($invoice)) {
             return back()->with('error', 'This invoice cannot be paid online.');

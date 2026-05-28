@@ -2,8 +2,10 @@
 /** Portal specification sheet — visual shell aligned with `Tenant/Public/ServiceTicketReview.vue`. */
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import AssignedUserContactCard from '@/Components/Portal/AssignedUserContactCard.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+
+const page = usePage();
 
 const props = defineProps({
     shareUuid: String,
@@ -19,13 +21,17 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     dealerHeader: { type: Object, default: () => ({}) },
     sentAt: { type: String, default: null },
-    appName: { type: String, default: 'Maritime' },
+    appName: { type: String, default: null },
     termsUrl: { type: String, default: '/terms' },
     assignedUser: { type: Object, default: null },
     assetOptions: { type: Array, default: () => [] },
     savedSelections: { type: Array, default: () => [] },
     specSheetOptionsSaveUrl: { type: String, default: '' },
 });
+
+const resolvedAppName = computed(
+    () => props.appName ?? page.props.app?.name ?? import.meta.env.VITE_APP_NAME ?? 'Laravel',
+);
 
 const selections = ref([]);
 
@@ -298,7 +304,7 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
 
                 <!-- Footer -->
                 <div class="px-6 sm:px-8 py-4 bg-gray-900 text-white text-center text-xs print:bg-gray-900">
-                    <p>Powered by <a :href="termsUrl" target="_blank" rel="noopener noreferrer" class="underline">{{ appName }}</a></p>
+                    <p>Powered by <a :href="termsUrl" target="_blank" rel="noopener noreferrer" class="underline">{{ resolvedAppName }}</a></p>
                     <p v-if="dh.phone" class="mt-1">
                         Questions? Call us at {{ formatPhoneNumber(dh.phone) }}
                     </p>

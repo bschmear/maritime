@@ -21,10 +21,10 @@ use App\Enums\Timezone;
 use App\Mail\EstimateApprovalRequest;
 use App\Mail\EstimateBoatOptionsInvite;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use App\Services\SMS\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\MessageBag;
 
@@ -385,7 +385,7 @@ class EstimateController extends RecordController
         return back()->withErrors($bag)->withInput();
     }
 
-    public function sendApprovalRequest(Request $request, $id, SmsService $smsService)
+    public function sendApprovalRequest(Request $request, $id, SmsService $smsService, TenantMailService $tenantMail)
     {
         $validated = $request->validate([
             'delivery' => 'required|string|in:email,email_sms',
@@ -400,20 +400,11 @@ class EstimateController extends RecordController
         $wasPendingApproval = (int) $estimate->status === EstimateStatus::PendingApproval->id();
 
         $account = AccountSettings::getCurrent();
-        $sandbox = $account->smsSandboxMode();
         $customerEmail = $estimate->customer?->email;
-        $authEmail = $request->user()?->email;
+        $approvalProbe = new EstimateApprovalRequest($estimate, $account, 'https://placeholder.invalid');
 
-        if ($sandbox) {
-            if (! $authEmail) {
-                return back()->withErrors(['error' => 'Sandbox mode sends the approval email to you, but your account has no email address on file.']);
-            }
-            $approvalRecipientEmail = $authEmail;
-        } else {
-            if (! $customerEmail) {
-                return back()->withErrors(['error' => 'This estimate has no customer email address.']);
-            }
-            $approvalRecipientEmail = $customerEmail;
+        if (! $tenantMail->canSend($customerEmail, $approvalProbe, $request->user())) {
+            return back()->withErrors(['error' => $tenantMail->validationErrorMessage($approvalProbe)]);
         }
 
         if ($validated['delivery'] === 'email_sms') {
@@ -433,9 +424,10 @@ class EstimateController extends RecordController
         }
 
         $reviewUrl = "https://{$domain}/estimates/{$estimate->uuid}/review";
+        $mailable = new EstimateApprovalRequest($estimate, $account, $reviewUrl);
 
         try {
-            Mail::to($approvalRecipientEmail)->send(new EstimateApprovalRequest($estimate, $account, $reviewUrl));
+            $tenantMail->send($customerEmail, $mailable, $request->user());
         } catch (\Exception $e) {
             \Log::error('Failed to send estimate approval request email', [
                 'estimate_id' => $estimate->id,
@@ -445,9 +437,7 @@ class EstimateController extends RecordController
             return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
-        $emailTarget = $sandbox
-            ? "{$approvalRecipientEmail} (sandbox — you)"
-            : $approvalRecipientEmail;
+        $emailTarget = $tenantMail->displayRecipient($customerEmail, $mailable, $request->user());
 
         $smsNote = '';
         if ($validated['delivery'] === 'email_sms') {
@@ -480,14 +470,11 @@ class EstimateController extends RecordController
     /**
      * Email signed links so the customer can choose boat options for lines set to "customer" mode.
      */
-    public function sendBoatOptionsInvite(Request $request, $id)
+    public function sendBoatOptionsInvite(Request $request, $id, TenantMailService $tenantMail)
     {
         $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems', 'user'])->findOrFail($id);
 
         $customerEmail = $estimate->customer?->email;
-        if (! $customerEmail) {
-            return back()->withErrors(['error' => 'This estimate has no customer email address.']);
-        }
 
         $lines = [];
         foreach ($estimate->primaryVersion?->lineItems ?? [] as $li) {
@@ -517,9 +504,14 @@ class EstimateController extends RecordController
         }
 
         $account = AccountSettings::getCurrent();
+        $mailable = new EstimateBoatOptionsInvite($estimate, $account, $lines);
+
+        if (! $tenantMail->canSend($customerEmail, $mailable, $request->user())) {
+            return back()->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);
+        }
 
         try {
-            Mail::to($customerEmail)->send(new EstimateBoatOptionsInvite($estimate, $account, $lines));
+            $tenantMail->send($customerEmail, $mailable, $request->user());
         } catch (\Exception $e) {
             \Log::error('Failed to send boat options invite email', [
                 'estimate_id' => $estimate->id,
@@ -529,7 +521,7 @@ class EstimateController extends RecordController
             return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
-        return back()->with('success', 'Boat options link(s) sent to '.$customerEmail.'.');
+        return back()->with('success', 'Boat options link(s) sent to '.$tenantMail->displayRecipient($customerEmail, $mailable, $request->user()).'.');
     }
 
     public function createRevision(Request $request, $id)

@@ -1,12 +1,23 @@
 <script setup>
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
+import Modal from '@/Components/Modal.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import InvoiceLineItemsEditor from '@/Components/Tenant/InvoiceLineItemsEditor.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue';
+
+const inertiaApp = getCurrentInstance();
+
+function showToast(type, message) {
+    if (!message) return;
+    const root = inertiaApp?.appContext?.app?._instance?.proxy;
+    if (typeof root?.createToast === 'function') {
+        root.createToast(type, String(message));
+    }
+}
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -24,9 +35,24 @@ const props = defineProps({
     transaction: { type: Object, default: null },
     workOrder: { type: Object, default: null },
     enabledPaymentMethods: { type: Array, default: () => [] },
+    quickbooks: {
+        type: Object,
+        default: () => ({ connected: false, invoice_id: null }),
+    },
+    taxSync: {
+        type: Object,
+        default: () => ({
+            invoice_tax_locked: false,
+            transaction_id: null,
+            transaction_tax_rate: null,
+        }),
+    },
 });
 
 const emit = defineEmits(['saved', 'cancelled', 'cancel']);
+
+const page = usePage();
+watch(() => page.props.flash?.warning, (msg) => { if (msg) showToast('warning', msg); }, { immediate: true });
 
 const isView = computed(() => props.mode === 'show');
 
@@ -181,9 +207,15 @@ const form = useForm({
     billing_country:     props.record?.billing_country       ?? props.initialData?.billing_country       ?? '',
     notes:               props.record?.notes                 ?? props.initialData?.notes                 ?? '',
     tax_rate:
-        props.initialData?.tax_rate != null
-            ? Number(props.initialData.tax_rate)
-            : inferTaxRateFromItems(props.record?.items ?? []),
+        props.record?.tax_rate != null
+            ? Number(props.record.tax_rate)
+            : props.initialData?.tax_rate != null
+                ? Number(props.initialData.tax_rate)
+                : inferTaxRateFromItems(props.record?.items ?? []),
+    tax_jurisdiction:
+        props.record?.tax_jurisdiction
+        ?? props.initialData?.tax_jurisdiction
+        ?? '',
     subtotal:            props.record?.subtotal              ?? props.initialData?.subtotal              ?? '0',
     tax_total:           props.record?.tax_total             ?? props.initialData?.tax_total             ?? '0',
     total:               props.record?.total                 ?? props.initialData?.total                 ?? '0',
@@ -211,6 +243,94 @@ const sourceType = ref(
 const lineItemsReadonly = computed(
     () => isView.value || props.mode === 'edit' || !!form.transaction_id || !!form.work_order_id,
 );
+
+const billingAddressRequired = computed(() => !isView.value && (props.mode === 'create' || props.mode === 'edit'));
+
+const formErrorMessages = computed(() => {
+    const errs = form.errors ?? {};
+    const messages = [];
+    for (const value of Object.values(errs)) {
+        if (!value) continue;
+        const text = Array.isArray(value) ? value[0] : String(value);
+        if (text && !messages.includes(text)) {
+            messages.push(text);
+        }
+    }
+    return messages;
+});
+
+const hasFormErrors = computed(() => formErrorMessages.value.length > 0);
+
+function formatSubmitErrorSummary(errors) {
+    const messages = [];
+    for (const value of Object.values(errors ?? {})) {
+        if (!value) continue;
+        const text = Array.isArray(value) ? value[0] : String(value);
+        if (text && !messages.includes(text)) {
+            messages.push(text);
+        }
+    }
+    if (messages.length === 0) {
+        return 'Please fix the highlighted fields before saving.';
+    }
+    if (messages.length === 1) {
+        return messages[0];
+    }
+    const preview = messages.slice(0, 4).join(' · ');
+    return messages.length > 4
+        ? `Please fix the following: ${preview} (and ${messages.length - 4} more)`
+        : `Please fix the following: ${preview}`;
+}
+
+function scrollToFirstFormError() {
+    nextTick(() => {
+        const el =
+            document.querySelector('[data-invoice-validation-error]')
+            ?? document.getElementById('invoice-contact-field');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+}
+
+function validateClientBeforeSubmit() {
+    const missing = [];
+    if (!form.contact_id) {
+        missing.push('Contact');
+    }
+    if (billingAddressRequired.value) {
+        if (!String(form.billing_address_line1 ?? '').trim()) {
+            missing.push('Billing street');
+        }
+        if (!String(form.billing_city ?? '').trim()) {
+            missing.push('Billing city');
+        }
+        if (!String(form.billing_state ?? '').trim()) {
+            missing.push('Billing state');
+        }
+        if (!String(form.billing_postal ?? '').trim()) {
+            missing.push('Billing postal code');
+        }
+    }
+    const items = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? [];
+    if (!items.length) {
+        missing.push('At least one line item');
+    }
+    if (missing.length === 0) {
+        return true;
+    }
+    showToast('error', `Required before saving: ${missing.join(', ')}.`);
+    scrollToFirstFormError();
+    return false;
+}
+
+function handleSubmitErrors(errors) {
+    showToast('error', formatSubmitErrorSummary(errors));
+    scrollToFirstFormError();
+}
+
+const submitOptions = {
+    preserveScroll: true,
+    onError: (errors) => handleSubmitErrors(errors),
+};
 const lineItemsInitialItems = computed(() => {
     if (props.record?.items?.length) return props.record.items;
     return props.initialData?.items ?? [];
@@ -494,9 +614,149 @@ const inputClass = 'w-full input-style';
 const textareaClass = `${inputClass} resize-none`;
 const disabledClass = 'opacity-60 cursor-not-allowed';
 
+// ── QuickBooks sync prompt (edit + linked invoice) ─────────────────────────────
+const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100;
+
+const paymentTermStoredValue = (raw) => {
+    if (raw == null || raw === '') return '';
+    const opts = paymentTermOptions.value;
+    if (typeof raw === 'string' && !/^\d+$/.test(raw.trim())) {
+        const byVal = opts.find((o) => o.value === raw);
+        return byVal?.value ?? raw;
+    }
+    const opt = opts.find((o) => o.id == raw);
+    return opt?.value ?? String(raw);
+};
+
+const billingSnapshotKey = (src) =>
+    [
+        src.billing_address_line1,
+        src.billing_address_line2,
+        src.billing_city,
+        src.billing_state,
+        src.billing_postal,
+        src.billing_country,
+    ]
+        .map((s) => String(s ?? '').trim())
+        .join('|');
+
+const lineItemsSnapshotKey = (items) =>
+    JSON.stringify(
+        (items || []).map((i) => ({
+            name: String(i.name ?? i.description ?? ''),
+            quantity: Number(i.quantity ?? 1),
+            unit_price: roundMoney(i.unit_price ?? i.price),
+            discount: roundMoney(i.discount),
+            taxable: !!(i.taxable === true || i.taxable === 1 || i.taxable === '1'),
+            tax_rate: roundMoney(i.tax_rate),
+            total: roundMoney(i.total ?? i.line_total),
+        })),
+    );
+
+const buildQboSnapshotKey = (source, items) =>
+    JSON.stringify({
+        payment_term: paymentTermStoredValue(source.payment_term),
+        due_at: toDateInputValue(source.due_at),
+        billing: billingSnapshotKey(source),
+        items: lineItemsSnapshotKey(items),
+        subtotal: roundMoney(source.subtotal),
+        tax_total: roundMoney(source.tax_total),
+        total: roundMoney(source.total),
+    });
+
+const qboBaselineKey = ref(null);
+
+watch(
+    () => props.record,
+    (r) => {
+        if (r?.quickbooks_invoice_id && props.quickbooks?.connected) {
+            qboBaselineKey.value = buildQboSnapshotKey(r, r.items ?? []);
+        } else {
+            qboBaselineKey.value = null;
+        }
+    },
+    { immediate: true },
+);
+
+const isQboLinked = computed(
+    () =>
+        props.mode === 'edit' &&
+        !!props.record?.quickbooks_invoice_id &&
+        !!props.quickbooks?.connected,
+);
+
+const hasQboRelevantChanges = () => {
+    if (!qboBaselineKey.value || !isQboLinked.value) return false;
+    const built = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? props.record?.items ?? [];
+    return buildQboSnapshotKey(form, built) !== qboBaselineKey.value;
+};
+
+const showQboUpdateModal = ref(false);
+
+// ── Linked deal tax sync (edit) ───────────────────────────────────────────────
+const taxRateBaseline = ref(null);
+
+watch(
+    () => inferTaxRateFromItems(props.record?.items ?? []),
+    (rate) => {
+        taxRateBaseline.value = Number(rate) || 0;
+    },
+    { immediate: true },
+);
+
+const invoiceTaxLocked = computed(
+    () => props.mode === 'edit' && !!props.taxSync?.invoice_tax_locked,
+);
+
+const hasLinkedTransaction = computed(
+    () => props.mode === 'edit' && !!props.taxSync?.transaction_id,
+);
+
+const hasInvoiceTaxRateChanged = () =>
+    Math.abs((Number(form.tax_rate) || 0) - (Number(taxRateBaseline.value) || 0)) > 0.0001;
+
+const showTaxSyncModal = ref(false);
+const pendingQboUpdate = ref(false);
+
 // ── Submit ───────────────────────────────────────────────────────────────────
 const submit = () => {
     if (isView.value) return;
+    if (!validateClientBeforeSubmit()) {
+        return;
+    }
+    if (invoiceTaxLocked.value && hasInvoiceTaxRateChanged()) {
+        showToast('error', 'Tax rate cannot be changed after this invoice has been sent to the customer.');
+        return;
+    }
+    if (hasQboRelevantChanges()) {
+        showQboUpdateModal.value = true;
+        return;
+    }
+    if (hasLinkedTransaction.value && hasInvoiceTaxRateChanged()) {
+        showTaxSyncModal.value = true;
+        return;
+    }
+    performSubmit(false, false);
+};
+
+const confirmTaxSync = (updateLinkedTransaction) => {
+    showTaxSyncModal.value = false;
+    const qbo = pendingQboUpdate.value;
+    pendingQboUpdate.value = false;
+    performSubmit(qbo, updateLinkedTransaction);
+};
+
+const confirmQboUpdate = (updateQuickbooks) => {
+    showQboUpdateModal.value = false;
+    if (hasLinkedTransaction.value && hasInvoiceTaxRateChanged()) {
+        pendingQboUpdate.value = updateQuickbooks;
+        showTaxSyncModal.value = true;
+        return;
+    }
+    performSubmit(updateQuickbooks, false);
+};
+
+const performSubmit = (updateQuickbooks, updateLinkedTransaction) => {
     form.transform((data) => {
         const statusOpt = statusOptions.value.find((o) => o.id == data.status);
         const next = { ...data, status: statusOpt?.value ?? data.status };
@@ -515,17 +775,23 @@ const submit = () => {
         next.allowed_methods = Array.isArray(next.allowed_methods)
             ? next.allowed_methods.filter((c) => typeof c === 'string' && c !== '')
             : [];
-        if (props.mode === 'create' || form.transaction_id) {
+        if (props.mode === 'create' || form.transaction_id || props.mode === 'edit') {
             next.items = lineItemsRef.value?.buildItemsForSubmit(Number(form.tax_rate) || 0) ?? [];
+        }
+        if (props.mode === 'edit') {
+            next.update_quickbooks = !!updateQuickbooks;
+            next.update_linked_transaction_tax = !!updateLinkedTransaction;
         }
         return next;
     });
     if (props.mode === 'edit') {
         form.put(route('invoices.update', props.record.id), {
+            ...submitOptions,
             onSuccess: () => emit('saved'),
         });
     } else {
         form.post(route('invoices.store'), {
+            ...submitOptions,
             onSuccess: () => emit('saved'),
         });
     }
@@ -539,6 +805,23 @@ const handleCancel = () => {
 
 <template>
     <div class="w-full flex flex-col space-y-6">
+        <div
+            v-if="hasFormErrors"
+            data-invoice-validation-error
+            class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+            role="alert"
+        >
+            <p class="font-semibold">Could not save invoice</p>
+            <p class="mt-1 text-red-800/90 dark:text-red-200/90">
+                Fix the fields below, then try again.
+            </p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                <li v-for="(message, idx) in formErrorMessages" :key="`inv-err-${idx}`">
+                    {{ message }}
+                </li>
+            </ul>
+        </div>
+
         <!-- Banner: creating from transaction ─────────────────────────────── -->
         <div
             v-if="fromTransaction"
@@ -615,7 +898,10 @@ const handleCancel = () => {
                                     </h3>
 
                                     <!-- Contact -->
-                                    <div>
+                                    <div
+                                        id="invoice-contact-field"
+                                        :data-invoice-validation-error="form.errors.contact_id ? '' : null"
+                                    >
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                             Contact <span class="text-red-500">*</span>
                                         </label>
@@ -932,10 +1218,14 @@ const handleCancel = () => {
                             </div>
 
                             <!-- Billing Address -->
-                            <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+                            <div
+                                class="border-t border-gray-200 dark:border-gray-700 pt-5"
+                                :data-invoice-validation-error="form.errors.billing_address_line1 || form.errors.billing_city || form.errors.billing_state || form.errors.billing_postal ? '' : null"
+                            >
                                 <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
                                     <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                         Billing Address
+                                        <span v-if="billingAddressRequired" class="text-red-500 normal-case">*</span>
                                     </h3>
                                     <div class="flex items-center gap-3">
                                         <button
@@ -963,6 +1253,24 @@ const handleCancel = () => {
                                     :disabled="isView"
                                     @update="handleAddressUpdate"
                                 />
+                                <p
+                                    v-if="billingAddressRequired"
+                                    class="mt-2 text-xs text-gray-500 dark:text-gray-400"
+                                >
+                                    Street, city, state, and postal code are required.
+                                </p>
+                                <p v-if="form.errors.billing_address_line1" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.billing_address_line1 }}
+                                </p>
+                                <p v-if="form.errors.billing_city" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.billing_city }}
+                                </p>
+                                <p v-if="form.errors.billing_state" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.billing_state }}
+                                </p>
+                                <p v-if="form.errors.billing_postal" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.billing_postal }}
+                                </p>
                             </div>
 
                             <p
@@ -1131,9 +1439,10 @@ const handleCancel = () => {
                                 <span>Total</span>
                                 <span>{{ formatCurrency(form.total) }}</span>
                             </div>
-                            <div v-if="!lineItemsReadonly" class="pt-3 border-t border-gray-200 dark:border-gray-600">
+                            <div v-if="!isView" class="pt-3 border-t border-gray-200 dark:border-gray-600">
                                 <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Tax rate (%)</label>
                                 <input
+                                    v-if="!invoiceTaxLocked"
                                     v-model.number="form.tax_rate"
                                     type="number"
                                     step="0.001"
@@ -1141,6 +1450,15 @@ const handleCancel = () => {
                                     max="100"
                                     :class="inputClass"
                                 >
+                                <p v-else class="text-sm font-medium text-gray-900 dark:text-white tabular-nums">
+                                    {{ Number(form.tax_rate) || 0 }}%
+                                </p>
+                                <p
+                                    v-if="invoiceTaxLocked"
+                                    class="mt-1 text-xs text-amber-700 dark:text-amber-300"
+                                >
+                                    Tax rate is locked because this invoice has been sent to the customer.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -1321,5 +1639,70 @@ const handleCancel = () => {
                 </div>
             </Transition>
         </Teleport>
+
+        <Modal :show="showTaxSyncModal" max-width="md" @close="showTaxSyncModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Update deal tax?</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    You changed the invoice tax rate. Update the linked deal&apos;s tax rate and line tax to match?
+                </p>
+                <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                        @click="showTaxSyncModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                        @click="confirmTaxSync(false)"
+                    >
+                        Save invoice only
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                        @click="confirmTaxSync(true)"
+                    >
+                        Save &amp; update deal
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <Modal :show="showQboUpdateModal" max-width="md" @close="showQboUpdateModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Update QuickBooks?</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    This invoice is linked to QuickBooks. You changed payment terms, due date, billing address, or line item totals.
+                    Do you want to update the QuickBooks invoice as well?
+                </p>
+                <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                        @click="showQboUpdateModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                        @click="confirmQboUpdate(false)"
+                    >
+                        Save only
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                        @click="confirmQboUpdate(true)"
+                    >
+                        Save &amp; update QuickBooks
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </div>
 </template>

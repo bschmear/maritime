@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Domain\Invoice\Actions\ApplyManualInvoicePayment;
 use App\Domain\Invoice\Actions\BuildInvoicePrefillFromTransaction;
 use App\Domain\Invoice\Actions\BuildInvoicePrefillFromWorkOrder;
 use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
+use App\Domain\Invoice\Actions\RemoveInvoice;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Invoice\Support\RepairInvoiceLineItemsFromTransaction;
@@ -16,12 +18,16 @@ use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Http\Controllers\Concerns\AppliesPnlInvoiceDrillDownFilters;
+use App\Jobs\PullPaymentsFromQuickBooks;
+use App\Jobs\PushInvoiceToQuickBooks;
 use App\Mail\InvoiceViewRequest;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
+use App\Services\Payments\QuickBooksAccountingService;
+use App\Services\SMS\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail;
 
 class InvoiceController extends RecordController
 {
@@ -123,6 +129,10 @@ class InvoiceController extends RecordController
                 // `display_name` on Invoice is an accessor (INV-{sequence}); load columns it needs.
                 'invoice' => fn ($iq) => $iq->select(['id', 'sequence']),
             ]);
+
+        $relationships['contact'] = fn ($q) => $q
+            ->select(['id', 'display_name', 'email', 'phone', 'mobile', 'first_name', 'last_name'])
+            ->with(['primaryAddress']);
     }
 
     public function applyManualPayment(Request $request, $invoice): RedirectResponse
@@ -151,23 +161,60 @@ class InvoiceController extends RecordController
 
     protected function editPageExtraProps($record): array
     {
+        $qboConnected = app(QuickBooksAccountingService::class)->isConnected();
+        $record->loadMissing([
+            'transaction' => fn ($q) => $q->select(['id', 'tax_rate']),
+        ]);
+
         return [
             'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+            'quickbooks' => [
+                'connected' => $qboConnected,
+                'invoice_id' => $record->quickbooks_invoice_id,
+            ],
+            'taxSync' => [
+                'invoice_tax_locked' => \App\Domain\Transaction\Support\SyncLinkedDealTaxRate::invoiceIsTaxLocked($record),
+                'transaction_id' => $record->transaction_id,
+                'transaction_tax_rate' => $record->transaction?->tax_rate,
+            ],
         ];
     }
 
     protected function showPageExtraProps($record): array
     {
+        $settings = QuickBooksSettings::forCurrentTenant();
+        $qboConnected = app(QuickBooksAccountingService::class)->isConnected();
+        $record->loadMissing([
+            'contact' => fn ($q) => $q->select(['id', 'email', 'phone', 'mobile']),
+        ]);
+        $invoiceViewSms = app(SmsService::class)->invoiceViewSmsCanBeOffered(
+            $record->contact,
+            request()->user(),
+        );
+
         return [
             'enabledPaymentMethods' => $this->enabledPaymentMethodsForInertia(),
+            'quickbooks' => [
+                'connected' => $qboConnected,
+                'sync_payments' => $settings->isSyncPaymentsEnabled(),
+                'sync_invoices' => $settings->isSyncInvoicesEnabled(),
+            ],
+            'invoiceViewSms' => $invoiceViewSms,
         ];
     }
 
     protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
     {
-        return redirect()
+        $redirect = redirect()
             ->route('invoices.show', $id)
             ->with('success', 'Invoice updated successfully.');
+
+        $warning = session()->pull('invoice_qbo_warning');
+        if ($warning) {
+            return $redirect->with('warning', 'Saved locally, but QuickBooks: '.$warning);
+        }
+
+        return $redirect;
     }
 
     /**
@@ -399,16 +446,21 @@ class InvoiceController extends RecordController
     //     return redirect()->route('contracts.show', $contract);
     // }
 
-    public function sendToCustomer(Request $request, int $invoice)
+    public function sendToCustomer(Request $request, int $invoice, SmsService $smsService, TenantMailService $tenantMail)
     {
         $validated = $request->validate([
             'email' => ['nullable', 'email'],
+            'delivery' => ['required', 'string', 'in:email,email_sms'],
         ]);
 
         $settings = AccountSettings::getCurrent();
+        $qboSettings = QuickBooksSettings::forCurrentTenant();
+        $accounting = app(QuickBooksAccountingService::class);
+
         $record = RecordModel::query()
             ->with([
-                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name']),
+                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name', 'phone', 'mobile', 'quickbooks_customer_id']),
+                'items',
                 'transaction' => fn ($q) => $q->select(['id', 'subsidiary_id', 'location_id']),
                 'transaction.subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'transaction.location' => fn ($q) => $q->select([
@@ -425,17 +477,41 @@ class InvoiceController extends RecordController
             ->findOrFail($invoice);
 
         $to = $validated['email'] ?? $record->customer_email ?? $record->contact?->email;
-        if (! $to) {
-            return back()->with('error', 'No customer email found for this invoice.');
+        $invoiceProbe = new InvoiceViewRequest($record, $settings, route('invoices.view', $record->uuid));
+
+        if (! $tenantMail->canSend($to, $invoiceProbe, $request->user())) {
+            return back()->withErrors(['error' => $tenantMail->validationErrorMessage($invoiceProbe)]);
+        }
+
+        if ($validated['delivery'] === 'email_sms') {
+            $offer = $smsService->invoiceViewSmsCanBeOffered($record->contact, $request->user());
+            if (! $offer['offered']) {
+                return back()->withErrors([
+                    'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                ]);
+            }
+        }
+
+        if ($qboSettings->isSyncInvoicesEnabled() && $accounting->isConnected() && ! $record->quickbooks_invoice_id) {
+            try {
+                PushInvoiceToQuickBooks::runSync($record->id);
+                $record->refresh();
+            } catch (\Throwable $e) {
+                return back()->with(
+                    'error',
+                    'Could not sync invoice to QuickBooks: '.$e->getMessage(),
+                );
+            }
         }
 
         $viewUrl = route('invoices.view', $record->uuid);
+        $wasResend = $record->sent_at !== null;
         $record->markAsSent();
 
         $record = RecordModel::query()
             ->whereKey($record->id)
             ->with([
-                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name']),
+                'contact' => fn ($q) => $q->select(['id', 'email', 'display_name', 'phone', 'mobile']),
                 'transaction' => fn ($q) => $q->select(['id', 'subsidiary_id', 'location_id']),
                 'transaction.subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'transaction.location' => fn ($q) => $q->select([
@@ -451,27 +527,161 @@ class InvoiceController extends RecordController
             ])
             ->firstOrFail();
 
-        Mail::to($to)->send(new InvoiceViewRequest($record, $settings, $viewUrl));
+        $mailable = new InvoiceViewRequest($record, $settings, $viewUrl);
 
-        return back()->with('success', 'Invoice link sent to '.$to);
+        try {
+            $tenantMail->send($to, $mailable, $request->user());
+        } catch (\Exception $e) {
+            \Log::error('Failed to send invoice view email', [
+                'invoice_id' => $record->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
+        }
+
+        $emailTarget = $tenantMail->displayRecipient($to, $mailable, $request->user());
+        $smsNote = '';
+
+        if ($validated['delivery'] === 'email_sms') {
+            $result = $smsService->sendInvoiceViewSms($request->user(), $record->contact, $record, $viewUrl);
+            if (! $result->success && ($result->status ?? '') === 'not_implemented') {
+                $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
+            } elseif (! $result->success) {
+                return back()
+                    ->with('success', "Invoice link sent to {$emailTarget}.")
+                    ->with('error', 'Email was sent, but SMS failed: '.($result->error ?? 'Unknown error'));
+            } else {
+                $smsNote = ' A text message was also sent.';
+            }
+        }
+
+        return back()->with(
+            'success',
+            ($wasResend
+                ? "Invoice link resent to {$emailTarget}."
+                : "Invoice link sent to {$emailTarget}.").$smsNote,
+        );
     }
 
-    // public function destroy(int $invoice)
-    // {
-    // $settings = AccountSettings::getCurrent();
-    // Contract::query()
-    //     ->where('account_settings_id', $settings->id)
-    //     ->findOrFail($contract);
+    public function pushToQuickbooks(Request $request, int $invoice): RedirectResponse
+    {
+        $record = RecordModel::query()->findOrFail($invoice);
 
-    // $result = (new DeleteContract)($contract);
+        if ($record->quickbooks_invoice_id) {
+            return back()->with('error', 'This invoice is already linked to QuickBooks.');
+        }
 
-    // if (! $result['success']) {
-    //     return redirect()->route('contracts.index')
-    //         ->with('error', $result['message'] ?? 'Could not delete contract.');
-    // }
+        if ($record->paid_at !== null || $record->status === 'paid') {
+            return back()->with('error', 'Paid invoices cannot be synced to QuickBooks.');
+        }
 
-    // return redirect()->route('contracts.index')
-    //     ->with('success', $result['message'] ?? 'Contract deleted.');
-    // }
+        if ($record->sent_at !== null) {
+            return back()->with('error', 'Invoices already sent to the customer cannot be synced to QuickBooks.');
+        }
 
+        if (! app(QuickBooksAccountingService::class)->isConnected()) {
+            return back()->with('error', 'QuickBooks is not connected.');
+        }
+
+        try {
+            PushInvoiceToQuickBooks::runSync($record->id);
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not sync invoice to QuickBooks: '.$e->getMessage());
+        }
+
+        return back()->with('success', 'Invoice synced to QuickBooks.');
+    }
+
+    public function pullQuickbooksPayments(Request $request, int $invoice): RedirectResponse
+    {
+        $record = RecordModel::query()->findOrFail($invoice);
+
+        if (! $record->quickbooks_invoice_id) {
+            return back()->with('error', 'This invoice is not linked to QuickBooks.');
+        }
+
+        $settings = QuickBooksSettings::forCurrentTenant();
+        if (! $settings->isSyncPaymentsEnabled()) {
+            return back()->with('error', 'Payment sync is not enabled. Turn it on under Integrations → QuickBooks.');
+        }
+
+        if (! app(QuickBooksAccountingService::class)->isConnected()) {
+            return back()->with('error', 'QuickBooks is not connected.');
+        }
+
+        $userId = Auth::id();
+        $result = PullPaymentsFromQuickBooks::runSync($record->id, is_int($userId) ? $userId : null);
+
+        if (! empty($result['message']) && ($result['imported'] ?? 0) === 0 && ($result['skipped'] ?? 0) === 0) {
+            return back()->with('error', $result['message']);
+        }
+
+        $imported = (int) ($result['imported'] ?? 0);
+        $skipped = (int) ($result['skipped'] ?? 0);
+
+        if ($imported === 0) {
+            return back()->with('success', 'No new QuickBooks payments to import.'.($skipped > 0 ? " ({$skipped} already recorded.)" : ''));
+        }
+
+        return back()->with(
+            'success',
+            "Imported {$imported} payment(s) from QuickBooks.".($skipped > 0 ? " Skipped {$skipped} already recorded." : ''),
+        );
+    }
+
+    public function remove(Request $request, $invoice): RedirectResponse
+    {
+        $validated = $request->validate([
+            'disposition' => ['required', 'string', 'in:delete,void'],
+            'quickbooks' => ['sometimes', 'boolean'],
+            'quickbooks_operation' => ['sometimes', 'string', 'in:auto,void,delete'],
+        ]);
+
+        $id = $invoice instanceof RecordModel ? $invoice->getKey() : (int) $invoice;
+
+        $result = (new RemoveInvoice)(
+            $id,
+            $validated['disposition'],
+            $request->boolean('quickbooks'),
+            $validated['quickbooks_operation'] ?? 'auto',
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return back()->with('error', $result['message'] ?? 'Could not update this invoice.');
+        }
+
+        if (($result['disposition'] ?? '') === 'void') {
+            return redirect()
+                ->route('invoices.show', $id)
+                ->with('success', $result['message'] ?? 'Invoice voided.');
+        }
+
+        return redirect()
+            ->route('invoices.index')
+            ->with('success', $result['message'] ?? 'Invoice deleted successfully.');
+    }
+
+    public function destroy($invoice)
+    {
+        $id = $invoice instanceof RecordModel ? $invoice->getKey() : (int) $invoice;
+
+        $quickbooks = request()->boolean('delete_from_quickbooks')
+            || request()->boolean('quickbooks');
+
+        $result = (new RemoveInvoice)(
+            $id,
+            'delete',
+            $quickbooks,
+            request()->input('quickbooks_operation', 'auto'),
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return back()->with('error', $result['message'] ?? 'Failed to delete invoice.');
+        }
+
+        return redirect()
+            ->route('invoices.index')
+            ->with('success', $result['message'] ?? 'Invoice deleted successfully.');
+    }
 }

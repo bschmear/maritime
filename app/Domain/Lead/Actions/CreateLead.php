@@ -4,9 +4,11 @@ namespace App\Domain\Lead\Actions;
 
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
+use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Domain\Lead\Models\Lead as RecordModel;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
+use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -69,6 +71,13 @@ class CreateLead
 
                 return RecordModel::query()->create($profileData);
             });
+
+            if ($record->contact_id && QuickBooksSettings::forCurrentTenant()->isSyncContactsEnabled()) {
+                $contact = Contact::query()->find($record->contact_id);
+                if ($contact !== null && ! $contact->quickbooks_customer_id) {
+                    PushContactToQuickBooks::dispatch($contact->id);
+                }
+            }
 
             return [
                 'success' => true,

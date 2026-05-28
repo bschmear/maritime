@@ -55,6 +55,15 @@ class CheckoutController extends Controller
         ]);
 
         $plan = Plan::findOrFail($request->plan_id);
+        if ($plan->coming_soon) {
+            return redirect()
+                ->route('checkout.plans', array_filter([
+                    'billing' => $request->input('billing_cycle'),
+                    'existing_account_id' => $request->filled('existing_account_id') ? $request->integer('existing_account_id') : null,
+                ], fn ($v) => $v !== null && $v !== ''))
+                ->withErrors(['plan' => 'That plan is coming soon and is not available for checkout yet.']);
+        }
+
         $billingCycle = $request->billing_cycle;
         $user = Auth::user();
 
@@ -94,6 +103,11 @@ class CheckoutController extends Controller
         ]);
 
         $plan = Plan::findOrFail($request->plan_id);
+        if ($plan->coming_soon) {
+            return back()->withErrors([
+                'plan' => 'That plan is coming soon and is not available for checkout yet.',
+            ]);
+        }
         $user = Auth::user();
 
         try {
@@ -149,6 +163,14 @@ class CheckoutController extends Controller
         ]);
 
         $plan = Plan::findOrFail($request->plan_id);
+        if ($plan->coming_soon) {
+            return redirect()
+                ->route('checkout.plans', array_filter([
+                    'billing' => $request->input('billing_cycle'),
+                    'existing_account_id' => $request->filled('existing_account_id') ? $request->integer('existing_account_id') : null,
+                ], fn ($v) => $v !== null && $v !== ''))
+                ->withErrors(['plan' => 'That plan is coming soon and is not available for checkout yet.']);
+        }
         $billingCycle = $request->billing_cycle;
         $user = Auth::user();
 

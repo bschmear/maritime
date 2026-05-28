@@ -19,7 +19,6 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
-use Illuminate\Support\Facades\Mail;
 
 class ServiceTicketController extends BaseController
 {
@@ -731,16 +730,12 @@ class ServiceTicketController extends BaseController
     /**
      * Send service ticket approval request to customer via email
      */
-    public function sendApprovalRequest($id)
+    public function sendApprovalRequest($id, \App\Services\Mail\TenantMailService $tenantMail)
     {
         try {
             $serviceTicket = ServiceTicket::findOrFail($id);
 
             $customerEmail = $serviceTicket->customer->email ?? null;
-
-            if (! $customerEmail) {
-                return back()->with('error', 'Customer does not have an email address on file.');
-            }
 
             $account = AccountSettings::getCurrent();
 
@@ -758,9 +753,15 @@ class ServiceTicketController extends BaseController
                 'approval_url' => $approvalUrl,
             ];
 
-            Mail::to($customerEmail)->send(new ServiceTicketApprovalRequest($emailData));
+            $mailable = new ServiceTicketApprovalRequest($emailData);
 
-            return back()->with('success', 'Approval request sent successfully to '.$customerEmail);
+            if (! $tenantMail->canSend($customerEmail, $mailable, request()->user())) {
+                return back()->with('error', $tenantMail->validationErrorMessage($mailable));
+            }
+
+            $tenantMail->send($customerEmail, $mailable, request()->user());
+
+            return back()->with('success', 'Approval request sent successfully to '.$tenantMail->displayRecipient($customerEmail, $mailable, request()->user()));
 
         } catch (\Exception $e) {
             \Log::error('Failed to send approval request email: '.$e->getMessage());

@@ -6,6 +6,7 @@ namespace App\Mail;
 
 use App\Domain\Customer\Models\Customer;
 use App\Models\AccountSettings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -14,7 +15,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * @param  list<array{label: string, url: string}>  $links
  */
-class CustomerAssetSpecSheetShareMail extends Mailable
+class CustomerAssetSpecSheetShareMail extends Mailable implements ShouldQueue
 {
     use SerializesModels;
 

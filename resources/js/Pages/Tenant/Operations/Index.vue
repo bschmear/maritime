@@ -1,7 +1,10 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted } from 'vue';
+
+const page = usePage();
+const appName = computed(() => page.props.app.name);
 import ApexCharts from 'apexcharts';
 import { getColorClasses, getPrimaryColor, getSecondaryColor, getTertiaryColor } from '@/Utils/colorHelpers';
 
@@ -342,7 +345,7 @@ onMounted(() => {
     <div class="items-start justify-between sm:flex">
       <div class="mb-4 sm:mb-0">
         <h2 class="mb-1 text-2xl font-bold leading-none text-gray-900 dark:text-white">$401,857</h2>
-        <p class="text-gray-500 dark:text-gray-400">Total revenue for Maritime</p>
+        <p class="text-gray-500 dark:text-gray-400">Total revenue for {{ appName }}</p>
       </div>
       <div>
         <div date-rangepicker datepicker-autohide class="flex items-center">

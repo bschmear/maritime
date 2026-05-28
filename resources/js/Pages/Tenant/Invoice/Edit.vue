@@ -13,6 +13,18 @@ const props = defineProps({
     account: { type: Object, default: null },
     timezones: { type: Array, default: () => [] },
     enabledPaymentMethods: { type: Array, default: () => [] },
+    quickbooks: {
+        type: Object,
+        default: () => ({ connected: false, invoice_id: null }),
+    },
+    taxSync: {
+        type: Object,
+        default: () => ({
+            invoice_tax_locked: false,
+            transaction_id: null,
+            transaction_tax_rate: null,
+        }),
+    },
 });
 
 const breadcrumbItems = computed(() => [
@@ -49,6 +61,8 @@ const handleCancel = () => {
                 :account="account"
                 :timezones="timezones"
                 :enabled-payment-methods="enabledPaymentMethods"
+                :quickbooks="quickbooks"
+                :tax-sync="taxSync"
                 mode="edit"
                 @cancel="handleCancel"
             />

@@ -76,10 +76,21 @@ const deletePlan = (plan) => {
                                 class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                             >
                                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">
-                                    {{ plan.name }}
+                                    <span class="inline-flex items-center gap-2">
+                                        {{ plan.name }}
+                                        <span
+                                            v-if="plan.coming_soon"
+                                            class="inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-600 dark:text-gray-200"
+                                        >
+                                            Soon
+                                        </span>
+                                    </span>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 dark:text-white font-medium">
-                                    <span v-if="plan.monthly_price">
+                                    <span v-if="plan.coming_soon" class="text-gray-500 dark:text-gray-400 italic text-xs">
+                                        —
+                                    </span>
+                                    <span v-else-if="plan.monthly_price">
                                         ${{ parseFloat(plan.monthly_price).toFixed(2) }}/mo
                                     </span>
                                     <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">
@@ -87,7 +98,10 @@ const deletePlan = (plan) => {
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-900 dark:text-white font-medium">
-                                    <span v-if="plan.yearly_price">
+                                    <span v-if="plan.coming_soon" class="text-gray-500 dark:text-gray-400 italic text-xs">
+                                        —
+                                    </span>
+                                    <span v-else-if="plan.yearly_price">
                                         ${{ parseFloat(plan.yearly_price).toFixed(2) }}/yr
                                     </span>
                                     <span v-else class="text-gray-400 dark:text-gray-500 italic text-xs">

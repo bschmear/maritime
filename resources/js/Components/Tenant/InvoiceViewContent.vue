@@ -27,7 +27,21 @@ const props = defineProps({
             surcharge_percent: 0,
         }),
     },
+    quickbooks: {
+        type: Object,
+        default: () => ({
+            managed: false,
+            invoice_url: null,
+        }),
+    },
 });
+
+const isQuickbooksManaged = computed(
+    () => props.quickbooks?.managed === true || !!props.record?.quickbooks_invoice_id,
+);
+const quickbooksInvoiceUrl = computed(
+    () => props.quickbooks?.invoice_url || props.record?.quickbooks_invoice_url || null,
+);
 
 const accountDisplayName = computed(() =>
     props.account?.settings?.business_name ?? props.account?.business_name ?? 'Company Name',
@@ -409,11 +423,33 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
                 </div>
             </div>
 
+            <div
+                v-if="isQuickbooksManaged"
+                class="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-4 text-sm text-blue-900"
+                role="status"
+            >
+                <p class="font-semibold">Your invoice is managed in QuickBooks</p>
+                <p class="mt-1 text-blue-800">
+                    The details below are a snapshot for your records. View and pay this invoice in QuickBooks Online.
+                </p>
+                <a
+                    v-if="quickbooksInvoiceUrl"
+                    :href="quickbooksInvoiceUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                >
+                    <span class="material-icons text-[18px]">open_in_new</span>
+                    Open invoice in QuickBooks
+                </a>
+            </div>
+
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-900">
                 Payment
             </h2>
             <p class="mt-1 text-sm text-gray-600">
-                Balance &amp; pay online
+                <template v-if="isQuickbooksManaged">Balance summary</template>
+                <template v-else>Balance &amp; pay online</template>
             </p>
 
             <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -502,6 +538,21 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
                     </button>
                 </div>
             </template>
+
+            <p
+                v-else-if="due > 0 && isQuickbooksManaged"
+                class="mt-5 border-t border-gray-200 pt-4 text-sm text-gray-600"
+            >
+                Payments for this invoice are handled in QuickBooks Online.
+                <a
+                    v-if="quickbooksInvoiceUrl"
+                    :href="quickbooksInvoiceUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="font-medium text-blue-700 underline hover:text-blue-900"
+                >Open your invoice in QuickBooks</a>
+                to pay or review payment status.
+            </p>
 
             <p
                 v-else-if="due > 0"

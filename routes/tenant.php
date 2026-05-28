@@ -326,6 +326,9 @@ Route::middleware([
             Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
             Route::get('/prefill-from-transaction/{transaction}', [InvoiceController::class, 'prefillFromTransaction'])->name('prefill-from-transaction');
             Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
+            Route::post('/{invoice}/pull-quickbooks-payments', [InvoiceController::class, 'pullQuickbooksPayments'])->name('pull-quickbooks-payments');
+            Route::post('/{invoice}/push-to-quickbooks', [InvoiceController::class, 'pushToQuickbooks'])->name('push-to-quickbooks');
+            Route::post('/{invoice}/remove', [InvoiceController::class, 'remove'])->name('remove');
             Route::post('/{invoice}/apply-manual-payment', [InvoiceController::class, 'applyManualPayment'])->name('apply-manual-payment');
             Route::resource('/', InvoiceController::class)->parameters(['' => 'invoice']);
         });
@@ -717,6 +720,7 @@ Route::middleware([
 
             Route::prefix('quickbooks')->group(function () {
                 Route::get('/', [QuickbooksController::class, 'show'])->name('quickbooks');
+                Route::patch('/', [QuickbooksController::class, 'updateSettings'])->name('quickbooks.settings');
                 Route::delete('/', [QuickbooksController::class, 'destroy'])->name('quickbooks.destroy');
                 Route::get('/connect', [QuickbooksController::class, 'connect'])->name('quickbooks.connect');
                 Route::post('/import-customers', [QuickbooksController::class, 'importCustomers'])->name('quickbooks.import-customers');

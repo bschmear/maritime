@@ -29,6 +29,7 @@ class Plan extends Model
         'active',
         'popular',
         'ticket_support_access',
+        'coming_soon',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class Plan extends Model
         'active' => 'boolean',
         'popular' => 'boolean',
         'ticket_support_access' => 'boolean',
+        'coming_soon' => 'boolean',
         'monthly_price' => 'decimal:2',
         'yearly_price' => 'decimal:2',
         'seat_extra' => 'decimal:2',

@@ -444,11 +444,24 @@ class TransactionController extends BaseController
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
+                'invoices' => fn ($q) => $q
+                    ->select(['id', 'transaction_id', 'sequence', 'status', 'amount_paid'])
+                    ->orderByDesc('id'),
             ])
             ->findOrFail($id);
 
         return inertia('Tenant/Transaction/Edit', [
             'record' => $record,
+            'taxSync' => [
+                'has_sent_invoice' => \App\Domain\Transaction\Support\SyncLinkedDealTaxRate::transactionHasSentInvoice($record),
+                'line_items_locked' => \App\Domain\Transaction\Support\AssertTransactionLineItemsEditable::lineItemsAreLocked($record),
+                'invoices' => $record->invoices->map(fn ($inv) => [
+                    'id' => $inv->id,
+                    'sequence' => $inv->sequence,
+                    'status' => $inv->status,
+                    'amount_paid' => $inv->amount_paid,
+                ])->values()->all(),
+            ],
             'recordType' => 'Transaction',
             'recordTitle' => 'Transaction',
             'domainName' => 'Transaction',

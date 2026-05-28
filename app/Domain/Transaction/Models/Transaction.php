@@ -13,6 +13,7 @@ use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\User\Models\User;
+use App\Enums\Transaction\TransactionStatus;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -135,5 +136,20 @@ class Transaction extends Model
     public function getDisplayNameAttribute()
     {
         return 'DL-'.($this->sequence ?: $this->id ?: '???');
+    }
+
+    public function isCompleted(): bool
+    {
+        $status = $this->status;
+
+        if ($status === TransactionStatus::Completed->value || $status === 'won') {
+            return true;
+        }
+
+        if (is_numeric($status) && (int) $status === TransactionStatus::Completed->id()) {
+            return true;
+        }
+
+        return TransactionStatus::tryFrom((string) $status) === TransactionStatus::Completed;
     }
 }

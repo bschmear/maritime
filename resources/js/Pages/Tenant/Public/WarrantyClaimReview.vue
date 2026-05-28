@@ -1,6 +1,6 @@
 <script setup>
 import PublicBrandingFooter from '@/Components/Tenant/Public/PublicBrandingFooter.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { computed, onMounted } from 'vue';
 
 const props = defineProps({
@@ -10,7 +10,8 @@ const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
 });
 
-const appName = import.meta.env.VITE_APP_NAME || 'Maritime';
+const page = usePage();
+const appName = computed(() => page.props.app?.name ?? import.meta.env.VITE_APP_NAME ?? 'Laravel');
 const appUrl = (typeof window !== 'undefined' && window.location?.origin) ? window.location.origin : '';
 const termsUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/terms` : null;
 

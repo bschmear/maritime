@@ -1,7 +1,9 @@
 <script setup>
 /** Public specification sheet (UUID link, no portal login) — content aligned with `Portal/SpecSheetShow.vue`. */
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+
+const page = usePage();
 
 const props = defineProps({
     documentRef: { type: String, default: null },
@@ -16,9 +18,13 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     dealerHeader: { type: Object, default: () => ({}) },
     sentAt: { type: String, default: null },
-    appName: { type: String, default: 'Maritime' },
+    appName: { type: String, default: null },
     termsUrl: { type: String, default: '/terms' },
 });
+
+const resolvedAppName = computed(
+    () => props.appName ?? page.props.app?.name ?? import.meta.env.VITE_APP_NAME ?? 'Laravel',
+);
 
 const dh = computed(() => props.dealerHeader ?? {});
 
@@ -184,7 +190,7 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
                     </div>
 
                     <div class="bg-gray-900 px-6 py-4 text-center text-xs text-white print:bg-gray-900">
-                        <p>Powered by <a :href="termsUrl" target="_blank" rel="noopener noreferrer" class="underline">{{ appName }}</a></p>
+                        <p>Powered by <a :href="termsUrl" target="_blank" rel="noopener noreferrer" class="underline">{{ resolvedAppName }}</a></p>
                         <p v-if="dh.phone" class="mt-1">
                             Questions? Call us at {{ formatPhoneNumber(dh.phone) }}
                         </p>

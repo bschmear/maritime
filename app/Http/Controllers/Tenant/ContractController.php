@@ -18,6 +18,7 @@ use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ContractReviewRequest;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use App\Services\SMS\SmsService;
 use App\Support\ContractEnumMapper;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -26,7 +27,6 @@ use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class ContractController extends BaseController
 {
@@ -471,7 +471,7 @@ class ContractController extends BaseController
         return redirect()->route('contracts.show', $contract);
     }
 
-    public function sendToCustomer(Request $request, int $contract, SmsService $smsService)
+    public function sendToCustomer(Request $request, int $contract, SmsService $smsService, TenantMailService $tenantMail)
     {
         $validated = $request->validate([
             'delivery' => 'required|string|in:email,email_sms',
@@ -483,21 +483,12 @@ class ContractController extends BaseController
             ->with(['customer', 'transaction'])
             ->findOrFail($contract);
 
-        $sandbox = $settings->smsSandboxMode();
         $customerEmailLive = $record->customer?->email
             ?? $record->transaction?->customer_email;
-        $authEmail = $request->user()?->email;
+        $reviewProbe = new ContractReviewRequest($record, $settings, 'https://placeholder.invalid');
 
-        if ($sandbox) {
-            if (! $authEmail) {
-                return back()->withErrors(['error' => 'Sandbox mode sends email to you, but your account has no email address on file.']);
-            }
-            $recipientEmail = $authEmail;
-        } else {
-            if (! $customerEmailLive) {
-                return back()->withErrors(['error' => 'No customer email found for this contract.']);
-            }
-            $recipientEmail = $customerEmailLive;
+        if (! $tenantMail->canSend($customerEmailLive, $reviewProbe, $request->user())) {
+            return back()->withErrors(['error' => $tenantMail->validationErrorMessage($reviewProbe)]);
         }
 
         if ($validated['delivery'] === 'email_sms') {
@@ -518,8 +509,10 @@ class ContractController extends BaseController
 
         $reviewUrl = "https://{$domain}/contracts/{$record->uuid}/review";
 
+        $mailable = new ContractReviewRequest($record, $settings, $reviewUrl);
+
         try {
-            Mail::to($recipientEmail)->send(new ContractReviewRequest($record, $settings, $reviewUrl));
+            $tenantMail->send($customerEmailLive, $mailable, $request->user());
         } catch (\Exception $e) {
             Log::error('Failed to send contract review request email', [
                 'contract_id' => $record->id,
@@ -531,9 +524,7 @@ class ContractController extends BaseController
 
         $record->update(['status' => ContractStatus::PendingApproval->value]);
 
-        $emailTarget = $sandbox
-            ? "{$recipientEmail} (sandbox — you)"
-            : $recipientEmail;
+        $emailTarget = $tenantMail->displayRecipient($customerEmailLive, $mailable, $request->user());
 
         $smsNote = '';
         if ($validated['delivery'] === 'email_sms') {

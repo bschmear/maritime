@@ -1,9 +1,10 @@
 <?php
+
 namespace App\Domain\Transaction\Actions;
 
 use App\Domain\Transaction\Models\Transaction as RecordModel;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeleteTransaction
@@ -12,6 +13,14 @@ class DeleteTransaction
     {
         try {
             $record = RecordModel::findOrFail($id);
+
+            if ($record->isCompleted()) {
+                return [
+                    'success' => false,
+                    'message' => 'Completed deals cannot be deleted.',
+                ];
+            }
+
             $record->delete();
 
             return [
@@ -21,8 +30,9 @@ class DeleteTransaction
         } catch (QueryException $e) {
             Log::error('Database query error in DeleteTransaction', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -30,8 +40,9 @@ class DeleteTransaction
         } catch (Throwable $e) {
             Log::error('Unexpected error in DeleteTransaction', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

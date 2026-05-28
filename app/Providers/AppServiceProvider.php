@@ -39,12 +39,18 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(WarrantyClaim::class, WarrantyClaimPolicy::class);
 
         RedirectIfAuthenticated::redirectUsing(function (Request $request): string {
-            if ($request->user('vendor')) {
-                return route('vendor.portal.index');
-            }
+            $host = $request->getHost();
+            $parts = explode('.', $host);
+            $isTenantSubdomain = count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
 
-            if ($request->user('customer')) {
-                return route('portal.index');
+            if ($isTenantSubdomain) {
+                if ($request->user('vendor')) {
+                    return route('vendor.portal.index');
+                }
+
+                if ($request->user('customer')) {
+                    return route('portal.index');
+                }
             }
 
             foreach (['dashboard', 'home'] as $name) {

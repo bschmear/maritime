@@ -59,6 +59,7 @@ class BuildInvoicePrefillFromTransaction
             'contact_id' => $customer?->contact_id,
             'currency' => Currency::toStoredValue($transaction->currency ?? 'USD') ?? 'USD',
             'tax_rate' => (float) ($transaction->tax_rate ?? 0),
+            'tax_jurisdiction' => $transaction->tax_jurisdiction,
             'discount_total' => (float) ($transaction->discount_total ?? 0),
             'fees_total' => (float) ($transaction->fees_total ?? 0),
         ];
@@ -124,7 +125,9 @@ class BuildInvoicePrefillFromTransaction
         $initialData['billing_postal'] = $transaction->billing_postal;
         $initialData['billing_country'] = $transaction->billing_country;
 
-        $initialData['items'] = $transaction->items->map(function ($item) {
+        $dealTaxRate = (float) ($transaction->tax_rate ?? 0);
+
+        $initialData['items'] = $transaction->items->map(function ($item) use ($dealTaxRate) {
             $eli = $item->estimateLineItem;
             $variantId = $item->asset_variant_id ?? $eli?->asset_variant_id;
             $unitId = $item->asset_unit_id ?? $eli?->asset_unit_id;
@@ -145,7 +148,9 @@ class BuildInvoicePrefillFromTransaction
                 'unit_price' => (float) ($item->unit_price ?? 0),
                 'discount' => (float) ($item->discount ?? 0),
                 'taxable' => (bool) ($item->taxable ?? false),
-                'tax_rate' => (float) ($item->tax_rate ?? 0),
+                'tax_rate' => ($item->taxable ?? false)
+                    ? (((float) ($item->tax_rate ?? 0)) > 0 ? (float) $item->tax_rate : $dealTaxRate)
+                    : 0,
                 'position' => $item->position ?? 0,
                 'itemable' => $item->relationLoaded('itemable') && $item->itemable ? match (true) {
                     $item->itemable instanceof Asset => [

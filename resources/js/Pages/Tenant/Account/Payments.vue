@@ -15,6 +15,7 @@ const props = defineProps({
 });
 
 const page = usePage();
+const appName = computed(() => page.props.app.name);
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
 const flashError = computed(() => page.props.flash?.error ?? null);
 
@@ -168,7 +169,7 @@ function disconnectStripe() {
                 <div class="mt-3 space-y-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300 md:text-base">
                     <p>
                         <strong class="text-gray-900 dark:text-gray-100">Stripe</strong> processes card and bank payments when your customers pay invoices online.
-                        Maritime uses <strong class="text-gray-900 dark:text-gray-100">Stripe Connect (Express)</strong>: the connected account is yours—charges and payouts belong to your business, not the platform.
+                        {{ appName }} uses <strong class="text-gray-900 dark:text-gray-100">Stripe Connect (Express)</strong>: the connected account is yours—charges and payouts belong to your business, not the platform.
                     </p>
                     <p>
                         <strong class="text-gray-900 dark:text-gray-100">QuickBooks Online</strong> for customer and accounting sync is configured under
@@ -373,7 +374,7 @@ function disconnectStripe() {
                         </button>
                     </div>
                     <p class="mt-4 text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-                        Funds settle on your connected account. Maritime’s platform Stripe keys are only used to create the connection and process charges on your behalf.
+                        Funds settle on your connected account. {{ appName }}’s platform Stripe keys are only used to create the connection and process charges on your behalf.
                     </p>
                 </div>
 

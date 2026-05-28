@@ -6,21 +6,27 @@ use App\Domain\AssetOption\Services\PersistAssetOptionSelectionsForLineItem;
 use App\Domain\Transaction\Models\Transaction as RecordModel;
 use App\Domain\Transaction\Models\TransactionItem;
 use App\Domain\Transaction\Support\AssertTransactionCanComplete;
+use App\Domain\Transaction\Support\AssertTransactionLineItemsEditable;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Domain\Transaction\Support\FillTransactionCustomerSnapshot;
 use App\Domain\Transaction\Support\RecalculateTransactionTotals;
+use App\Domain\Transaction\Support\SyncLinkedDealTaxRate;
 use App\Enums\Transaction\TransactionStatus;
 use App\Support\TransactionEnumMapper;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class UpdateTransaction
 {
     public function __invoke(int $id, array $data): array
     {
+        $updateLinkedInvoiceTax = filter_var($data['update_linked_invoice_tax'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        unset($data['update_linked_invoice_tax']);
+
         $validator = Validator::make($data, [
             'customer_id' => ['sometimes', 'required', 'integer', 'exists:customer_profiles,id'],
             'user_id' => ['sometimes', 'required', 'integer', 'exists:users,id'],
@@ -118,9 +124,26 @@ class UpdateTransaction
 
         try {
             $record = null;
+            $previousTaxRate = null;
 
-            DB::transaction(function () use ($id, $payload, $syncItems, $itemsData, &$record) {
+            DB::transaction(function () use ($id, $payload, $syncItems, $itemsData, &$record, &$previousTaxRate) {
                 $record = RecordModel::findOrFail($id);
+                $previousTaxRate = (float) ($record->tax_rate ?? 0);
+
+                if ($syncItems) {
+                    AssertTransactionLineItemsEditable::validate($record);
+                }
+
+                if (array_key_exists('tax_rate', $payload)
+                    && SyncLinkedDealTaxRate::transactionHasSentInvoice($record)) {
+                    $incomingRate = (float) ($payload['tax_rate'] ?? 0);
+                    if (abs($incomingRate - $previousTaxRate) > 0.0001) {
+                        throw ValidationException::withMessages([
+                            'tax_rate' => 'Tax rate cannot be changed after an invoice has been sent to the customer.',
+                        ]);
+                    }
+                }
+
                 $record->update($payload);
 
                 if ($syncItems) {
@@ -130,9 +153,19 @@ class UpdateTransaction
                 }
             });
 
+            $record = $record->fresh();
+
+            if ($updateLinkedInvoiceTax && $record !== null) {
+                $newRate = (float) ($record->tax_rate ?? 0);
+                if (abs($newRate - (float) $previousTaxRate) > 0.0001) {
+                    SyncLinkedDealTaxRate::applyRateToDraftInvoices($record, $newRate);
+                    $record = $record->fresh();
+                }
+            }
+
             return [
                 'success' => true,
-                'record' => $record->fresh(),
+                'record' => $record,
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateTransaction', [

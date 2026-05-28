@@ -20,12 +20,15 @@ use App\Mail\WarrantyClaimSentToVendor;
 use App\Models\Account;
 use App\Models\AccountSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class NotificationService
 {
+    public function __construct(
+        private readonly \App\Services\Mail\TenantMailService $tenantMail,
+    ) {}
     // ─────────────────────────────────────────────────────────────────────────
     // Service Ticket
     // ─────────────────────────────────────────────────────────────────────────
@@ -65,17 +68,19 @@ class NotificationService
         }
     }
 
-    public function sendServiceTicketCustomerConfirmation(ServiceTicket $ticket, AccountSettings $account): void
+    public function sendServiceTicketCustomerConfirmation(ServiceTicket $ticket, AccountSettings $account, ?Authenticatable $actor = null): void
     {
         $ticket->load(['customer']);
 
         $customerEmail = $ticket->customer->email ?? null;
-        if (! $customerEmail) {
+        $mailable = new ServiceTicketApproved($ticket, $account);
+
+        if (! $this->tenantMail->canSend($customerEmail, $mailable, $actor)) {
             return;
         }
 
         try {
-            Mail::to($customerEmail)->send(new ServiceTicketApproved($ticket, $account));
+            $this->tenantMail->send($customerEmail, $mailable, $actor);
         } catch (\Exception $e) {
             Log::error("Failed to send approval confirmation for ticket {$ticket->service_ticket_number}: ".$e->getMessage());
         }
@@ -88,7 +93,7 @@ class NotificationService
     /**
      * @param  iterable<int, Contact>  $contacts
      */
-    public function sendWarrantyClaimToVendorContacts(WarrantyClaim $claim, AccountSettings $account, iterable $contacts): void
+    public function sendWarrantyClaimToVendorContacts(WarrantyClaim $claim, AccountSettings $account, iterable $contacts, ?Authenticatable $actor = null): void
     {
         $tenant = tenant();
         $domain = $tenant?->domains->first()?->domain;
@@ -96,6 +101,7 @@ class NotificationService
         $reviewUrl = $domain ? 'https://'.$domain.$reviewPath : url($reviewPath);
         $vendorPortalLoginUrl = $domain ? 'https://'.$domain.'/vendor/portal/login' : url('/vendor/portal/login');
 
+        $vendorRecipients = [];
         foreach ($contacts as $contact) {
             if (! $contact instanceof Contact) {
                 continue;
@@ -104,12 +110,52 @@ class NotificationService
             if ($email === null || trim((string) $email) === '') {
                 continue;
             }
+            $vendorRecipients[] = ['email' => $email, 'contact' => $contact];
+        }
+
+        if ($vendorRecipients === []) {
+            return;
+        }
+
+        $sandboxProbe = new WarrantyClaimSentToVendor(
+            $claim,
+            $account,
+            $vendorRecipients[0]['contact'],
+            $reviewUrl,
+            $vendorPortalLoginUrl,
+        );
+
+        if ($this->tenantMail->shouldRedirectToSandboxActor($sandboxProbe, $actor)) {
             try {
-                Mail::to($email)->send(new WarrantyClaimSentToVendor($claim, $account, $contact, $reviewUrl, $vendorPortalLoginUrl));
+                $this->tenantMail->send(
+                    $vendorRecipients[0]['email'],
+                    $sandboxProbe,
+                    $actor,
+                );
+            } catch (\Exception $e) {
+                Log::error('Failed to send warranty claim to vendor contact (sandbox)', [
+                    'claim_id' => $claim->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            return;
+        }
+
+        foreach ($vendorRecipients as $recipient) {
+            try {
+                $mailable = new WarrantyClaimSentToVendor(
+                    $claim,
+                    $account,
+                    $recipient['contact'],
+                    $reviewUrl,
+                    $vendorPortalLoginUrl,
+                );
+                $this->tenantMail->send($recipient['email'], $mailable, $actor);
             } catch (\Exception $e) {
                 Log::error('Failed to send warranty claim to vendor contact', [
                     'claim_id' => $claim->id,
-                    'contact_id' => $contact->id,
+                    'contact_id' => $recipient['contact']->id,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -202,9 +248,8 @@ class NotificationService
                 'route_params' => $estimate->id,
             ]);
 
-            Mail::to($salesperson->email)->send(
-                new EstimateApprovalNotification($estimate, $account, $salesperson, $action)
-            );
+            $mailable = new EstimateApprovalNotification($estimate, $account, $salesperson, $action);
+            $this->tenantMail->send($salesperson->email, $mailable);
 
         } catch (\Exception $e) {
             Log::error('Failed to notify estimate action', [
@@ -287,9 +332,8 @@ class NotificationService
                 'route_params' => $contract->id,
             ]);
 
-            Mail::to($notifyUser->email)->send(
-                new ContractSignedNotification($contract, $account, $notifyUser)
-            );
+            $mailable = new ContractSignedNotification($contract, $account, $notifyUser);
+            $this->tenantMail->send($notifyUser->email, $mailable);
 
         } catch (\Exception $e) {
             Log::error('Failed to notify contract signed', [
@@ -337,9 +381,8 @@ class NotificationService
 
             $email = $notifyUser->email ?? null;
             if ($email !== null && trim((string) $email) !== '') {
-                Mail::to($email)->send(
-                    new OpportunityFeatureRequestSubmittedMail($opportunity, $submission, $account, $notifyUser)
-                );
+                $mailable = new OpportunityFeatureRequestSubmittedMail($opportunity, $submission, $account, $notifyUser);
+                $this->tenantMail->send($email, $mailable);
             }
         } catch (\Exception $e) {
             Log::error('Failed to notify opportunity feature request submission', [
@@ -449,9 +492,8 @@ class NotificationService
     private function sendServiceTicketApprovalEmail(ServiceTicket $ticket, AccountSettings $account, User $notifyUser, ?string $pdfPath): void
     {
         try {
-            Mail::to($notifyUser->email)->send(
-                new \App\Mail\ServiceTicketApprovalNotification($ticket, $account, $notifyUser, $pdfPath)
-            );
+            $mailable = new \App\Mail\ServiceTicketApprovalNotification($ticket, $account, $notifyUser, $pdfPath);
+            $this->tenantMail->send($notifyUser->email, $mailable);
         } catch (\Exception $e) {
             Log::error('Failed to send service ticket approval notification email', [
                 'ticket_id' => $ticket->id,

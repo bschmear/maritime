@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import QuickBooksImport from '@/Components/Tenant/QuickBooksImport.vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
@@ -29,6 +29,14 @@ const props = defineProps({
     quickbooks: {
         type: Object,
         default: () => ({}),
+    },
+    syncSettings: {
+        type: Object,
+        default: () => ({
+            sync_contacts: false,
+            sync_invoices: false,
+            sync_payments: false,
+        }),
     },
 });
 
@@ -92,6 +100,18 @@ function formatDate(value) {
 const qbConnectedAt = computed(() => formatDate(props.quickbooks?.connected_at));
 const qbTokenExpiresAt = computed(() => formatDate(props.quickbooks?.token_expires_at));
 const qbRefreshExpiresAt = computed(() => formatDate(props.quickbooks?.refresh_token_expires_at));
+
+const syncForm = useForm({
+    sync_contacts: props.syncSettings?.sync_contacts ?? false,
+    sync_invoices: props.syncSettings?.sync_invoices ?? false,
+    sync_payments: props.syncSettings?.sync_payments ?? false,
+});
+
+function saveSyncSettings() {
+    syncForm.patch(route('quickbooks.settings'), {
+        preserveScroll: true,
+    });
+}
 </script>
 
 <template>
@@ -209,6 +229,66 @@ const qbRefreshExpiresAt = computed(() => formatDate(props.quickbooks?.refresh_t
                         Connect with QuickBooks
                     </a>
                 </template>
+            </div>
+
+            <div
+                v-if="hasQuickbooksToken"
+                class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Sync options</h3>
+                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    Choose what to sync automatically with QuickBooks Online.
+                </p>
+                <form class="mt-4 space-y-3" @submit.prevent="saveSyncSettings">
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input
+                            v-model="syncForm.sync_contacts"
+                            type="checkbox"
+                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync contacts</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                Push new contacts to QuickBooks when created.
+                            </span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input
+                            v-model="syncForm.sync_invoices"
+                            type="checkbox"
+                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync invoices</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                Push to QuickBooks before sending the invoice to the customer.
+                            </span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input
+                            v-model="syncForm.sync_payments"
+                            type="checkbox"
+                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync payment records</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                Allow pulling payments recorded in QuickBooks onto synced invoices.
+                            </span>
+                        </span>
+                    </label>
+                    <div class="pt-2">
+                        <button
+                            type="submit"
+                            class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            :disabled="syncForm.processing"
+                        >
+                            {{ syncForm.processing ? 'Saving…' : 'Save sync options' }}
+                        </button>
+                    </div>
+                </form>
             </div>
 
             <QuickBooksImport

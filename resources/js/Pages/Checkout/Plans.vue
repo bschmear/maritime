@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -13,16 +13,30 @@ const props = defineProps({
     },
 });
 
-const billingCycle = ref(props.billingCycle === 'yearly' || props.billingCycle === 'annual' ? 'yearly' : 'monthly');
-const selectedPlan = ref(props.selectedPlanId || null);
+const page = usePage();
 
-const selectPlan = (planId) => {
-    selectedPlan.value = planId;
+const planCheckoutError = computed(() => page.props.errors?.plan);
+
+const initialPlanId = props.selectedPlanId || null;
+const initialPlan = initialPlanId ? props.plans.find((p) => p.id === initialPlanId) : null;
+const selectedPlan = ref(initialPlan && !initialPlan.coming_soon ? initialPlanId : null);
+
+const selectPlan = (plan) => {
+    if (plan.coming_soon) {
+        return;
+    }
+    selectedPlan.value = plan.id;
 };
 
 const proceedToCart = () => {
     if (!selectedPlan.value) {
         alert('Please select a plan');
+        return;
+    }
+
+    const chosen = props.plans.find((p) => p.id === selectedPlan.value);
+    if (chosen?.coming_soon) {
+        alert('This plan is not available for checkout yet.');
         return;
     }
 
@@ -61,6 +75,12 @@ const proceedToCart = () => {
             </section>
 
             <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+                <div
+                    v-if="planCheckoutError"
+                    class="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    {{ planCheckoutError }}
+                </div>
                 <!-- Billing Toggle -->
                 <div class="mb-12 flex justify-center">
                     <div class="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
@@ -98,21 +118,31 @@ const proceedToCart = () => {
                         v-for="plan in plans"
                         :key="plan.id"
                         role="button"
-                        tabindex="0"
-                        @click="selectPlan(plan.id)"
-                        @keydown.enter.prevent="selectPlan(plan.id)"
-                        @keydown.space.prevent="selectPlan(plan.id)"
+                        :tabindex="plan.coming_soon ? -1 : 0"
+                        @click="selectPlan(plan)"
+                        @keydown.enter.prevent="!plan.coming_soon && selectPlan(plan)"
+                        @keydown.space.prevent="!plan.coming_soon && selectPlan(plan)"
                         :class="[
-                            'relative cursor-pointer overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg transition-all duration-300 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none',
-                            selectedPlan === plan.id
+                            'relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg transition-all duration-300 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none',
+                            plan.coming_soon
+                                ? 'cursor-not-allowed opacity-80'
+                                : 'cursor-pointer hover:-translate-y-1 hover:shadow-xl dark:hover:border-gray-600',
+                            !plan.coming_soon && selectedPlan === plan.id
                                 ? 'ring-2 ring-secondary-500 ring-offset-2 ring-offset-gray-50 dark:ring-secondary-400 dark:ring-offset-gray-900 md:scale-[1.02]'
-                                : 'hover:-translate-y-1 hover:shadow-xl dark:hover:border-gray-600',
+                                : '',
                             plan.popular ? 'md:scale-[1.03]' : '',
                         ]"
                     >
+                        <div
+                            v-if="plan.coming_soon"
+                            class="absolute right-0 top-0 rounded-bl-xl bg-gray-600 px-4 py-1.5 text-xs font-bold text-white dark:bg-gray-500"
+                        >
+                            COMING SOON
+                        </div>
+
                         <!-- Popular Badge -->
                         <div
-                            v-if="plan.popular"
+                            v-else-if="plan.popular"
                             class="absolute right-0 top-0 rounded-bl-xl bg-secondary-600 px-4 py-1.5 text-xs font-bold text-white dark:bg-secondary-500"
                         >
                             MOST POPULAR
@@ -120,7 +150,7 @@ const proceedToCart = () => {
 
                         <!-- Selected Badge -->
                         <div
-                            v-if="selectedPlan === plan.id"
+                            v-if="!plan.coming_soon && selectedPlan === plan.id"
                             class="absolute left-4 top-4 rounded-full bg-secondary-600 p-2 text-white shadow-md dark:bg-secondary-500"
                         >
                             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -137,17 +167,27 @@ const proceedToCart = () => {
 
                             <!-- Price -->
                             <div class="mb-8">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-5xl font-bold text-gray-900 dark:text-white">
-                                        ${{ billingCycle === 'monthly' ? plan.monthly_price : plan.yearly_price }}
-                                    </span>
-                                    <span class="text-gray-600 dark:text-gray-400">
-                                        {{ billingCycle === 'monthly' ? '/month' : '/year' }}
-                                    </span>
-                                </div>
-                                <p v-if="billingCycle === 'yearly' && plan.yearly_price > 0" class="text-sm text-green-600 dark:text-green-400 mt-2">
-                                    Save ${{ (plan.monthly_price * 12) - plan.yearly_price }}/year
-                                </p>
+                                <template v-if="plan.coming_soon">
+                                    <p class="text-3xl font-bold tracking-tight text-gray-700 dark:text-gray-200">
+                                        Coming soon
+                                    </p>
+                                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                        This plan is not available for purchase yet. Check back later.
+                                    </p>
+                                </template>
+                                <template v-else>
+                                    <div class="flex items-baseline gap-2">
+                                        <span class="text-5xl font-bold text-gray-900 dark:text-white">
+                                            ${{ billingCycle === 'monthly' ? plan.monthly_price : plan.yearly_price }}
+                                        </span>
+                                        <span class="text-gray-600 dark:text-gray-400">
+                                            {{ billingCycle === 'monthly' ? '/month' : '/year' }}
+                                        </span>
+                                    </div>
+                                    <p v-if="billingCycle === 'yearly' && plan.yearly_price > 0" class="text-sm text-green-600 dark:text-green-400 mt-2">
+                                        Save ${{ (plan.monthly_price * 12) - plan.yearly_price }}/year
+                                    </p>
+                                </template>
                             </div>
 
                             <!-- Features List -->

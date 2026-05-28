@@ -30,6 +30,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    taxSync: {
+        type: Object,
+        default: () => ({ has_sent_invoice: false, invoices: [] }),
+    },
 });
 
 const breadcrumbItems = computed(() => [
@@ -60,6 +64,7 @@ const handleCancel = () => {
             :enum-options="enumOptions"
             :account="account"
             :timezones="timezones"
+            :tax-sync="taxSync"
             mode="edit"
             @cancel="handleCancel"
         />

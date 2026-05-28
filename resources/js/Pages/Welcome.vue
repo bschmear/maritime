@@ -519,23 +519,34 @@ onUnmounted(() => {
                             </div>
 
                             <div class="mb-8">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-5xl font-bold text-gray-900 dark:text-white">
-                                        ${{ billingCycle === 'monthly' ? plan.price.monthly : plan.price.annual }}
-                                    </span>
-                                    <span class="text-gray-600 dark:text-gray-400">
-                                        {{ billingCycle === 'monthly' ? '/month' : '/year' }}
-                                    </span>
-                                </div>
-                                <p
-                                    v-if="billingCycle === 'annual' && plan.price.annual > 0"
-                                    class="mt-2 text-sm text-secondary-600 dark:text-secondary-400"
-                                >
-                                    Save ${{ plan.price.monthly * 12 - plan.price.annual }}/year
-                                </p>
+                                <template v-if="plan.coming_soon">
+                                    <p class="text-4xl font-bold tracking-tight text-gray-700 dark:text-gray-200">
+                                        Coming soon
+                                    </p>
+                                    <p class="mt-2 text-base text-gray-500 dark:text-gray-400">
+                                        This plan is not available for purchase yet.
+                                    </p>
+                                </template>
+                                <template v-else>
+                                    <div class="flex items-baseline gap-2">
+                                        <span class="text-5xl font-bold text-gray-900 dark:text-white">
+                                            ${{ billingCycle === 'monthly' ? plan.price.monthly : plan.price.annual }}
+                                        </span>
+                                        <span class="text-gray-600 dark:text-gray-400">
+                                            {{ billingCycle === 'monthly' ? '/month' : '/year' }}
+                                        </span>
+                                    </div>
+                                    <p
+                                        v-if="billingCycle === 'annual' && plan.price.annual > 0"
+                                        class="mt-2 text-sm text-secondary-600 dark:text-secondary-400"
+                                    >
+                                        Save ${{ plan.price.monthly * 12 - plan.price.annual }}/year
+                                    </p>
+                                </template>
                             </div>
 
                             <Link
+                                v-if="!plan.coming_soon"
                                 :href="route('checkout.plans', { plan: plan.id, billing: billingCycle })"
                                 class="mb-8 block w-full rounded-xl px-6 py-3.5 text-center text-base font-semibold transition"
                                 :class="
@@ -546,6 +557,12 @@ onUnmounted(() => {
                             >
                                 {{ plan.cta }}
                             </Link>
+                            <div
+                                v-else
+                                class="mb-8 block w-full cursor-default rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-3.5 text-center text-base font-semibold text-gray-500 dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-400"
+                            >
+                                Coming soon
+                            </div>
 
                             <div class="space-y-4">
                                 <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

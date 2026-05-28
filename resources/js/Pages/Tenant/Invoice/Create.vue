@@ -2,8 +2,29 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import InvoiceForm from '@/Components/Tenant/InvoiceForm.vue';
-import { Head, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { computed, getCurrentInstance, watch } from 'vue';
+
+const page = usePage();
+const inertiaApp = getCurrentInstance();
+
+function showToast(type, message) {
+    if (!message) return;
+    const root = inertiaApp?.appContext?.app?._instance?.proxy;
+    if (typeof root?.createToast === 'function') {
+        root.createToast(type, String(message));
+    }
+}
+
+watch(
+    () => page.props.flash?.error,
+    (msg) => {
+        if (msg) {
+            showToast('error', Array.isArray(msg) ? msg[0] : String(msg));
+        }
+    },
+    { immediate: true },
+);
 
 const props = defineProps({
     formSchema: { type: Object, required: true },

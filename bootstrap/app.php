@@ -91,12 +91,20 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $middleware->redirectUsersTo(function (Request $request) {
-            if ($request->user('vendor')) {
-                return '/vendor/portal';
-            }
+            // Customer/vendor guards use tenant `contacts`; session keys can persist on the central
+            // host after visiting a workspace portal — never resolve those users here or we hit pgsql.
+            $host = $request->getHost();
+            $parts = explode('.', $host);
+            $isTenantSubdomain = count($parts) >= 2 && preg_match('/^\d{6}$/', $parts[0]);
 
-            if ($request->user('customer')) {
-                return '/portal';
+            if ($isTenantSubdomain) {
+                if ($request->user('vendor')) {
+                    return '/vendor/portal';
+                }
+
+                if ($request->user('customer')) {
+                    return '/portal';
+                }
             }
 
             if ($request->isPwa() && ($user = $request->user('web'))) {

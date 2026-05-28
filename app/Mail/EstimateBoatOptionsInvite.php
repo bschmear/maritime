@@ -7,6 +7,7 @@ namespace App\Mail;
 use App\Domain\Estimate\Models\Estimate;
 use App\Mail\Concerns\RepliesToEstimateSalesperson;
 use App\Models\AccountSettings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -15,7 +16,7 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Secure links for customers to choose boat options on one or more estimate lines.
  */
-class EstimateBoatOptionsInvite extends Mailable
+class EstimateBoatOptionsInvite extends Mailable implements ShouldQueue
 {
     use RepliesToEstimateSalesperson;
     use SerializesModels;

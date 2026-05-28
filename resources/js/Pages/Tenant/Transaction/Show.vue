@@ -56,6 +56,30 @@ const isCompleted = computed(() => {
     return Number.isFinite(n) && n === TRANSACTION_STATUS_ID.completed;
 });
 
+/** Completed deals cannot be deleted or have new contracts/invoices added from this page. */
+const canModifyDealStructure = computed(() => !isCompleted.value);
+
+const contractBlocksInvoice = computed(() => {
+    if (!props.record.needs_contract) return false;
+    const contract = props.record.contract;
+    if (!contract?.id) return true;
+    return contract.status !== 'signed';
+});
+
+const createInvoiceBlockMessage = computed(() => {
+    if (!props.record.needs_contract) return null;
+    const contract = props.record.contract;
+    if (!contract?.id) {
+        return 'Needs Contract is selected. Create and sign a contract before creating an invoice, or turn off Needs Contract on the deal.';
+    }
+    if (contract.status !== 'signed') {
+        return 'Needs Contract is selected. The contract must be signed before you can create an invoice, or turn off Needs Contract on the deal.';
+    }
+    return null;
+});
+
+const canCreateInvoice = computed(() => canModifyDealStructure.value && !contractBlocksInvoice.value);
+
 const isFailed = computed(() => {
     if (isCompleted.value) {
         return false;
@@ -218,7 +242,10 @@ function formatDate(iso) {
 }
 
 const deleteTransaction = () => {
-    if (confirm('Delete this transaction? This cannot be undone.')) {
+    if (!canModifyDealStructure.value) {
+        return;
+    }
+    if (confirm('Delete this deal? It will be removed from your list.')) {
         router.delete(route('transactions.destroy', props.record.id));
     }
 };
@@ -360,7 +387,7 @@ const stepperSteps = computed(() => {
         })(),
         href:  transactionInvoices.value.length > 0
             ? route('invoices.show', transactionInvoices.value[0].id)
-            : createInvoiceHref.value,
+            : (canCreateInvoice.value ? createInvoiceHref.value : null),
         createLabel: 'Create Invoice',
         count: transactionInvoices.value.length || undefined,
     });
@@ -507,6 +534,9 @@ const contractForm = useForm({
 });
 
 const openCreateContractModal = () => {
+    if (!canModifyDealStructure.value) {
+        return;
+    }
     contractForm.total_amount = computedGrandTotal.value;
     createContractModal.value = true;
 };
@@ -524,6 +554,9 @@ const submitContract = () => {
 const confirmModal = ref({ show: false, type: null });
 
 const openOptionalModal = (type) => {
+    if (!canModifyDealStructure.value) {
+        return;
+    }
     confirmModal.value = { show: true, type };
 };
 
@@ -596,6 +629,7 @@ const confirmAddStep = () => {
                             <span class="hidden md:inline">Mark completed</span>
                         </button>
                         <button
+                            v-if="canModifyDealStructure"
                             type="button"
                             aria-label="Delete deal"
                             class="inline-flex items-center justify-center gap-0 rounded-lg bg-red-600 p-2 text-md font-medium text-white hover:bg-red-700 md:gap-1.5 md:px-4 md:py-2"
@@ -633,7 +667,7 @@ const confirmAddStep = () => {
                 <component
                     :is="step.href ? 'a' : step.state === 'optional' ? 'button' : 'div'"
                     :href="step.href || undefined"
-                    @click="step.state === 'optional' ? openOptionalModal(step.key) : undefined"
+                    @click="step.state === 'optional' && canModifyDealStructure ? openOptionalModal(step.key) : undefined"
                     class="flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all"
                     :class="{
                         'bg-green-500 border-green-500 text-white': step.state === 'complete',
@@ -907,12 +941,18 @@ const confirmAddStep = () => {
                                             <span class="material-icons text-md">gavel</span>
                                             View Contract
                                         </a>
-                                        <button v-else type="button"
+                                        <button
+                                            v-else-if="canModifyDealStructure"
+                                            type="button"
                                             @click="openCreateContractModal"
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                                        >
                                             <span class="material-icons text-md">add</span>
                                             Create Contract
                                         </button>
+                                        <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                            Contract cannot be added after the deal is completed.
+                                        </p>
                                     </template>
                                 </div>
 
@@ -932,11 +972,20 @@ const confirmAddStep = () => {
                                 <!-- Invoice -->
                                 <div>
                                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice</p>
-                                    <a :href="route('invoices.create') + `?transaction_id=${record.id}&contact_id=${record.customer?.contact_id || ''}`"
-                                        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                                    <Link
+                                        v-if="canCreateInvoice"
+                                        :href="createInvoiceHref"
+                                        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                                    >
                                         <span class="material-icons text-md">add</span>
                                         Create Invoice
-                                    </a>
+                                    </Link>
+                                    <p v-else-if="createInvoiceBlockMessage" class="text-sm text-amber-700 dark:text-amber-300">
+                                        {{ createInvoiceBlockMessage }}
+                                    </p>
+                                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                        Invoices cannot be added after the deal is completed.
+                                    </p>
                                 </div>
 
                                 <!-- Service Tickets -->
@@ -1121,6 +1170,7 @@ const confirmAddStep = () => {
                     <div class="flex items-center justify-between px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                         <span class="text-md font-semibold text-gray-900 dark:text-white">Invoices</span>
                         <Link
+                            v-if="canCreateInvoice"
                             :href="createInvoiceHref"
                             class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                         >

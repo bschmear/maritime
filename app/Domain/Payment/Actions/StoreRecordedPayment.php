@@ -23,7 +23,8 @@ class StoreRecordedPayment
      *     reference_number?: ?string,
      *     memo?: ?string,
      *     paid_at?: ?string,
-     *     apply_to_invoice?: bool|int|string|null
+     *     apply_to_invoice?: bool|int|string|null,
+     *     processor_transaction_id?: ?string
      * }  $validated
      */
     public function __invoke(array $validated, ?int $recordedByUserId): Payment
@@ -72,6 +73,7 @@ class StoreRecordedPayment
             'net_amount' => $principal,
             'currency' => $currency,
             'processor' => $processor->value,
+            'processor_transaction_id' => $validated['processor_transaction_id'] ?? null,
             'reference_number' => $validated['reference_number'] ?? null,
             'memo' => $validated['memo'] ?? null,
             'recorded_by_user_id' => $recordedByUserId,
@@ -158,6 +160,7 @@ class StoreRecordedPayment
                 'net_amount' => $principal,
                 'currency' => $currency,
                 'processor' => $processor,
+                'processor_transaction_id' => $validated['processor_transaction_id'] ?? null,
                 'reference_number' => $validated['reference_number'] ?? null,
                 'memo' => $validated['memo'] ?? null,
                 'recorded_by_user_id' => $recordedByUserId,

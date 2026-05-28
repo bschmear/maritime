@@ -3,14 +3,18 @@
 namespace App\Domain\Invoice\Actions;
 
 use App\Domain\Invoice\Models\Invoice as RecordModel;
+use App\Domain\Invoice\Support\AssertTransactionAllowsInvoiceCreation;
+use App\Domain\Invoice\Support\InvoiceBillingAddressRules;
 use App\Domain\Invoice\Support\InvoicePaymentFields;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
+use App\Domain\Transaction\Models\Transaction;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Currency as PaymentsCurrency;
 use App\Enums\Payments\Terms;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class CreateInvoice
@@ -35,15 +39,12 @@ class CreateInvoice
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_email' => ['nullable', 'email', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:50'],
-            'billing_address_line1' => ['nullable', 'string', 'max:255'],
-            'billing_address_line2' => ['nullable', 'string', 'max:255'],
-            'billing_city' => ['nullable', 'string', 'max:255'],
-            'billing_state' => ['nullable', 'string', 'max:255'],
-            'billing_postal' => ['nullable', 'string', 'max:50'],
-            'billing_country' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string'],
             'fees_total' => ['nullable', 'numeric'],
-        ], InvoicePaymentFields::validationRules()))->validate();
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_jurisdiction' => ['nullable', 'string', 'max:255'],
+        ], InvoicePaymentFields::validationRules(), InvoiceBillingAddressRules::rules()), InvoiceBillingAddressRules::messages())
+            ->validate();
 
         $paymentNormalized = InvoicePaymentFields::normalizeForPersistence(
             [
@@ -65,6 +66,29 @@ class CreateInvoice
 
         $validated['currency'] = PaymentsCurrency::toStoredValue($validated['currency'] ?? null) ?? 'USD';
 
+        AssertTransactionAllowsInvoiceCreation::validate(
+            isset($validated['transaction_id']) ? (int) $validated['transaction_id'] : null,
+        );
+
+        $transaction = null;
+        if (! empty($validated['transaction_id'])) {
+            $transaction = Transaction::query()
+                ->select(['id', 'tax_rate', 'tax_jurisdiction'])
+                ->find((int) $validated['transaction_id']);
+        }
+
+        $invoiceTaxRate = (float) ($validated['tax_rate'] ?? 0);
+        if ($invoiceTaxRate <= 0 && $transaction !== null) {
+            $invoiceTaxRate = (float) ($transaction->tax_rate ?? 0);
+            if ($invoiceTaxRate > 0) {
+                $validated['tax_rate'] = $invoiceTaxRate;
+            }
+        }
+
+        if (empty($validated['tax_jurisdiction']) && $transaction?->tax_jurisdiction) {
+            $validated['tax_jurisdiction'] = $transaction->tax_jurisdiction;
+        }
+
         try {
             // Calculate invoice-level totals from line items.
             $subtotal = 0.0;
@@ -80,8 +104,13 @@ class CreateInvoice
                 $subtotal += $itemSub;
                 $discountTotal += $discount;
 
-                if (! empty($item['taxable']) && ! empty($item['tax_rate'])) {
-                    $taxTotal += round($itemSub * ((float) $item['tax_rate'] / 100), 2);
+                $lineRate = (float) ($item['tax_rate'] ?? 0);
+                if (! empty($item['taxable']) && $lineRate <= 0 && $invoiceTaxRate > 0) {
+                    $lineRate = $invoiceTaxRate;
+                }
+
+                if (! empty($item['taxable']) && $lineRate > 0) {
+                    $taxTotal += round($itemSub * ($lineRate / 100), 2);
                 }
             }
 
@@ -103,6 +132,12 @@ class CreateInvoice
 
             // Create line items — InvoiceItem::booted() auto-calculates subtotal/tax_amount/total.
             foreach ($items as $position => $item) {
+                $lineRate = (float) ($item['tax_rate'] ?? 0);
+                $taxable = (bool) ($item['taxable'] ?? false);
+                if ($taxable && $lineRate <= 0 && $invoiceTaxRate > 0) {
+                    $lineRate = $invoiceTaxRate;
+                }
+
                 InvoiceItem::create([
                     'invoice_id' => $record->id,
                     'transaction_line_item_id' => $item['transaction_line_item_id'] ?? $item['transaction_item_id'] ?? null,
@@ -119,8 +154,8 @@ class CreateInvoice
                     'is_warranty' => (bool) ($item['is_warranty'] ?? false),
                     'warranty_type' => $item['warranty_type'] ?? null,
                     'billable_to' => $item['billable_to'] ?? 'customer',
-                    'taxable' => (bool) ($item['taxable'] ?? false),
-                    'tax_rate' => (float) ($item['tax_rate'] ?? 0),
+                    'taxable' => $taxable,
+                    'tax_rate' => $taxable ? $lineRate : 0,
                     'position' => $item['position'] ?? $position,
                 ]);
             }
@@ -129,6 +164,8 @@ class CreateInvoice
                 'success' => true,
                 'record' => $record,
             ];
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (QueryException $e) {
             Log::error('Database query error in CreateInvoice', [
                 'error' => $e->getMessage(),

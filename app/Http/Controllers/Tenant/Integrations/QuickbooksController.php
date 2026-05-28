@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant\Integrations;
 
 use App\Domain\Integration\Models\Integration;
+use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Integration\IntegrationType;
 use App\Http\Controllers\Controller;
 use App\Jobs\PullContactsFromQuickBooks;
@@ -63,6 +64,7 @@ class QuickbooksController extends Controller
             ->first();
 
         $meta = $currentIntegration?->metadata ?? [];
+        $syncSettings = QuickBooksSettings::from($currentIntegration);
 
         $breadcrumbs = [
             'current' => $integrationMeta['name'],
@@ -103,7 +105,33 @@ class QuickbooksController extends Controller
                 'token_expires_at' => $currentIntegration?->token_expires_at?->toIso8601String(),
                 'refresh_token_expires_at' => $meta['qbo_refresh_token_expires_at'] ?? null,
             ],
+            'syncSettings' => [
+                'sync_contacts' => $syncSettings->syncContacts,
+                'sync_invoices' => $syncSettings->syncInvoices,
+                'sync_payments' => $syncSettings->syncPayments,
+            ],
         ]);
+    }
+
+    public function updateSettings(Request $request): RedirectResponse
+    {
+        $integration = Integration::query()
+            ->where('integration_type', IntegrationType::QuickBooks)
+            ->first();
+
+        if (! $integration?->access_token) {
+            return redirect()->route('quickbooks')->withErrors('Connect QuickBooks Online before changing sync options.');
+        }
+
+        $validated = $request->validate([
+            'sync_contacts' => ['required', 'boolean'],
+            'sync_invoices' => ['required', 'boolean'],
+            'sync_payments' => ['required', 'boolean'],
+        ]);
+
+        QuickBooksSettings::from($integration)->mergeIntoIntegrationSettings($integration, $validated);
+
+        return redirect()->route('quickbooks')->with('success', 'QuickBooks sync options saved.');
     }
 
     public function connect(Request $request): RedirectResponse

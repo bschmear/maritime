@@ -9,9 +9,9 @@ use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Enums\WarrantyClaim\Status;
 use App\Mail\WarrantyClaimVendorApprovedCreator;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class VendorApproveWarrantyClaim
@@ -63,7 +63,7 @@ class VendorApproveWarrantyClaim
         $account = AccountSettings::getCurrent();
 
         try {
-            Mail::to($user->email)->send(new WarrantyClaimVendorApprovedCreator($claim, $account, $user));
+            app(TenantMailService::class)->send($user->email, new WarrantyClaimVendorApprovedCreator($claim, $account, $user));
         } catch (Throwable $e) {
             Log::error('Failed to email warranty claim creator after vendor approval', [
                 'claim_id' => $claim->id,
