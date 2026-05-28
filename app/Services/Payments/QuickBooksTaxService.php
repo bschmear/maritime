@@ -14,6 +14,9 @@ use RuntimeException;
 
 class QuickBooksTaxService
 {
+    /** Internal flag on QBO line payloads — stripped before POST. */
+    public const LINE_TAXABLE_FLAG = '_maritime_taxable';
+
     private const AST_TAXABLE = 'TAX';
 
     private const AST_NON_TAXABLE = 'NON';
@@ -30,7 +33,7 @@ class QuickBooksTaxService
      */
     public function enrichInvoicePayload(Integration $integration, Invoice $invoice, array $payload, array $lines): array
     {
-        $invoice->loadMissing(['items', 'transaction:id,tax_rate,tax_jurisdiction']);
+        $invoice->loadMissing(['items', 'transaction:id,tax_rate']);
 
         $taxTotal = round((float) $invoice->tax_total, 2);
         $invoiceHasTax = $taxTotal >= 0.01;
@@ -42,7 +45,7 @@ class QuickBooksTaxService
             $payload = $this->applyManualTax($integration, $invoice, $payload, $lines, $taxTotal, $invoiceHasTax, $context);
         }
 
-        $payload['Line'] = $lines;
+        $payload['Line'] = $this->stripInternalLineKeys($lines);
 
         return $payload;
     }
@@ -53,12 +56,71 @@ class QuickBooksTaxService
         if ($realmId === '') {
             return false;
         }
-
+    
         return Cache::remember(
             $this->astCacheKey($integration->id, $realmId),
             now()->addDay(),
-            fn () => $this->fetchPartnerTaxEnabled($integration),
+            fn () => $this->fetchIsAutomatedSalesTax($integration),
         );
+    }
+
+    protected function fetchIsAutomatedSalesTax(Integration $integration): bool
+    {
+        $this->oauth->refreshAccessTokenIfExpiredForIntegration($integration);
+        if ($integration->exists) {
+            $integration->refresh();
+        }
+
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            return false;
+        }
+
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get(
+                "{$this->oauth->accountingApiBaseUrl()}/v3/company/{$realmId}/preferences",
+                ['minorversion' => 70],
+            );
+
+        if ($response->failed()) {
+            Log::warning('QuickBooks preferences fetch failed', [
+                'integration_id' => $integration->id,
+                'status'         => $response->status(),
+            ]);
+
+            return false;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            return false;
+        }
+
+        // US companies always require TAX/NON on line items — treat as AST regardless of PartnerTaxEnabled.
+        if ($this->preferencesCountryIsUs($json)) {
+            return true;
+        }
+
+        return (bool) ($json['Preferences']['TaxPrefs']['PartnerTaxEnabled'] ?? false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $preferencesJson
+     */
+    protected function preferencesCountryIsUs(array $preferencesJson): bool
+    {
+        $nameValues = $preferencesJson['Preferences']['OtherPrefs']['NameValue'] ?? [];
+        foreach ((array) $nameValues as $nv) {
+            if (! is_array($nv)) {
+                continue;
+            }
+            if (($nv['Name'] ?? '') === 'CountryCode' && strtoupper((string) ($nv['Value'] ?? '')) === 'US') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function forgetCachedTaxData(Integration $integration): void
@@ -85,25 +147,22 @@ class QuickBooksTaxService
         float $taxTotal,
         array $context,
     ): array {
-        $items = $invoice->items;
+        $items = $this->orderedInvoiceItems($invoice);
         $effectiveRate = (float) ($context['effective_rate'] ?? 0);
         $anyTaxable = false;
+        $itemIndex = 0;
 
-        if ($items->isNotEmpty()) {
-            foreach ($lines as $index => $line) {
-                $item = $items[$index] ?? null;
-                $taxable = $this->lineIsTaxable($item, $effectiveRate, $invoiceHasTax);
-                $anyTaxable = $anyTaxable || $taxable;
-                $lines[$index] = $this->withLineTaxCode($line, $taxable ? self::AST_TAXABLE : self::AST_NON_TAXABLE);
+        foreach ($lines as $index => $line) {
+            if (($line['DetailType'] ?? '') !== 'SalesItemLineDetail') {
+                continue;
             }
-        } else {
-            $anyTaxable = $invoiceHasTax;
-            foreach ($lines as $index => $line) {
-                $lines[$index] = $this->withLineTaxCode(
-                    $line,
-                    $invoiceHasTax ? self::AST_TAXABLE : self::AST_NON_TAXABLE,
-                );
-            }
+
+            $item = $items[$itemIndex] ?? null;
+            $itemIndex++;
+
+            $taxable = $this->lineIsTaxable($line, $item, $effectiveRate, $invoiceHasTax);
+            $anyTaxable = $anyTaxable || $taxable;
+            $lines[$index] = $this->withLineTaxCode($line, $taxable ? self::AST_TAXABLE : self::AST_NON_TAXABLE);
         }
 
         if ($anyTaxable) {
@@ -114,6 +173,7 @@ class QuickBooksTaxService
                 $txnTaxDetail['TotalTax'] = $taxTotal;
             }
             $payload['TxnTaxDetail'] = $txnTaxDetail;
+            $payload['ApplyTaxAfterDiscount'] = false;
         }
 
         return $payload;
@@ -133,9 +193,15 @@ class QuickBooksTaxService
         array $context,
     ): array {
         $taxCodes = $this->cachedTaxCodes($integration);
+        $taxRates = $this->cachedTaxRates($integration);
+
+        // US QBO companies with no TaxCodes are on AST — use TAX/NON line refs.
+        if ($taxCodes === [] && $taxRates !== []) {
+            return $this->applyAutomatedSalesTax($invoice, $payload, $lines, $invoiceHasTax, $taxTotal, $context);
+        }
+
         $exemptCodeId = $this->resolveExemptTaxCodeId($taxCodes);
         $effectiveRate = (float) ($context['effective_rate'] ?? 0);
-        $jurisdiction = (string) ($context['jurisdiction'] ?? '');
 
         if (! $invoiceHasTax) {
             if ($exemptCodeId !== null) {
@@ -148,92 +214,90 @@ class QuickBooksTaxService
         }
 
         $taxableSubtotal = $this->taxableSubtotal($invoice, $effectiveRate);
-        $taxPercent = (float) ($context['effective_rate'] ?? 0);
+        $taxPercent = $effectiveRate;
         if ($taxPercent <= 0 && $taxableSubtotal > 0) {
             $taxPercent = round(($taxTotal / $taxableSubtotal) * 100, 4);
         }
 
-        $taxRates = $this->cachedTaxRates($integration);
-        $taxRate = $this->findTaxRateForInvoice($taxRates, $taxPercent, $jurisdiction, $taxCodes);
+        $taxRate = $taxPercent > 0 ? $this->findBestTaxRate($taxRates, $taxPercent) : null;
+
         $taxCode = $taxRate !== null
             ? $this->findTaxCodeForRate($taxCodes, (string) $taxRate['Id'])
             : null;
 
-        if ($taxCode === null) {
-            $taxCode = $this->findTaxCodeByJurisdiction($taxCodes, $jurisdiction);
+        if ($taxCode === null && $taxPercent > 0) {
+            $taxCode = $this->findTaxCodeByPercent($taxCodes, $taxRates, $taxPercent);
         }
 
-        if ($taxCode === null) {
-            $taxCode = $this->findTaxCodeByName($taxCodes, $this->jurisdictionTaxCodeNames($jurisdiction));
+        $taxCode ??= $this->resolveDefaultTaxableTaxCode($taxCodes);
+
+        if ($taxRate === null && $taxCode !== null) {
+            $taxRate = $this->resolveTaxRateFromTaxCode($taxCode, $taxRates);
         }
 
-        if ($taxCode === null) {
-            Log::warning('QuickBooks manual tax: no matching TaxCode/TaxRate; invoice pushed without tax detail', [
+        $taxCodeId = $taxCode !== null ? (string) $taxCode['Id'] : null;
+
+        if ($taxCodeId === null) {
+            Log::warning('QuickBooks manual tax: no matching TaxCode; invoice pushed without tax detail', [
                 'integration_id' => $integration->id,
-                'invoice_id' => $invoice->id,
-                'tax_total' => $taxTotal,
-                'tax_percent' => $taxPercent,
-                'jurisdiction' => $jurisdiction,
+                'invoice_id'     => $invoice->id,
+                'tax_total'      => $taxTotal,
+                'tax_percent'    => $taxPercent,
             ]);
 
             return $payload;
         }
 
-        $taxCodeId = (string) $taxCode['Id'];
         $taxRateId = $taxRate !== null ? (string) $taxRate['Id'] : null;
         $rateValue = $taxRate !== null ? (float) ($taxRate['RateValue'] ?? $taxPercent) : $taxPercent;
 
-        $items = $invoice->items;
-        if ($items->isNotEmpty()) {
-            foreach ($lines as $index => $line) {
-                $item = $items[$index] ?? null;
-                $codeId = $this->lineIsTaxable($item, $effectiveRate, true)
-                    ? $taxCodeId
-                    : ($exemptCodeId ?? $taxCodeId);
-                $lines[$index] = $this->withLineTaxCode($line, $codeId);
+        $items = $this->orderedInvoiceItems($invoice);
+        $itemIndex = 0;
+        foreach ($lines as $index => $line) {
+            if (($line['DetailType'] ?? '') !== 'SalesItemLineDetail') {
+                continue;
             }
-        } else {
-            foreach ($lines as $index => $line) {
-                $lines[$index] = $this->withLineTaxCode($line, $taxCodeId);
-            }
+
+            $item = $items[$itemIndex] ?? null;
+            $itemIndex++;
+
+            $codeId = $this->lineIsTaxable($line, $item, $effectiveRate, true)
+                ? $taxCodeId
+                : ($exemptCodeId ?? $taxCodeId);
+            $lines[$index] = $this->withLineTaxCode($line, $codeId);
         }
 
         $txnTaxDetail = [
             'TxnTaxCodeRef' => ['value' => $taxCodeId],
-            'TotalTax' => $taxTotal,
+            'TotalTax'      => $taxTotal,
         ];
 
         if ($taxRateId !== null && $taxableSubtotal > 0) {
             $txnTaxDetail['TaxLine'] = [[
-                'Amount' => $taxTotal,
+                'Amount'     => $taxTotal,
                 'DetailType' => 'TaxLineDetail',
                 'TaxLineDetail' => [
-                    'TaxRateRef' => ['value' => $taxRateId],
-                    'PercentBased' => true,
-                    'TaxPercent' => $rateValue,
+                    'TaxRateRef'       => ['value' => $taxRateId],
+                    'PercentBased'     => true,
+                    'TaxPercent'       => $rateValue,
                     'NetAmountTaxable' => $taxableSubtotal,
                 ],
             ]];
         }
 
         $payload['GlobalTaxCalculation'] = 'TaxExcluded';
+        $payload['ApplyTaxAfterDiscount'] = false;
         $payload['TxnTaxDetail'] = $txnTaxDetail;
 
         return $payload;
     }
 
     /**
-     * @return array{jurisdiction: string, effective_rate: float}
+     * @return array{effective_rate: float}
      */
     protected function resolveTaxContext(Invoice $invoice, float $taxTotal): array
     {
         $transaction = $invoice->transaction;
-        $jurisdiction = trim((string) (
-            $invoice->tax_jurisdiction
-            ?? $transaction?->tax_jurisdiction
-            ?? $invoice->billing_state
-            ?? ''
-        ));
 
         $explicitRate = $this->maxStoredTaxRate($invoice);
         if ($explicitRate <= 0 && $transaction !== null) {
@@ -241,15 +305,18 @@ class QuickBooksTaxService
         }
 
         $taxableSubtotal = $this->taxableSubtotal($invoice, $explicitRate);
+
+        // Fallback: if taxableSubtotal is 0, use invoice subtotal directly
+        if ($taxableSubtotal <= 0) {
+            $taxableSubtotal = round((float) $invoice->subtotal, 2);
+        }
+
         $inferredRate = $taxableSubtotal > 0 && $taxTotal >= 0.01
             ? round(($taxTotal / $taxableSubtotal) * 100, 4)
             : 0.0;
 
-        $effectiveRate = $explicitRate > 0 ? $explicitRate : $inferredRate;
-
         return [
-            'jurisdiction' => $jurisdiction,
-            'effective_rate' => $effectiveRate,
+            'effective_rate' => $explicitRate > 0 ? $explicitRate : $inferredRate,
         ];
     }
 
@@ -263,30 +330,95 @@ class QuickBooksTaxService
         return $max;
     }
 
-    protected function lineIsTaxable(?InvoiceItem $item, float $effectiveTaxRate, bool $invoiceHasTax): bool
+    /**
+     * @param  array<string, mixed>  $line
+     */
+    protected function lineIsTaxable(array $line, ?InvoiceItem $item, float $effectiveTaxRate, bool $invoiceHasTax): bool
     {
-        if ($item === null) {
-            return $invoiceHasTax;
+        if ($item !== null && $this->itemIsExplicitlyTaxable($item)) {
+            return true;
         }
 
-        if (! (bool) ($item->taxable ?? false)) {
+        if (array_key_exists(self::LINE_TAXABLE_FLAG, $line) && (bool) $line[self::LINE_TAXABLE_FLAG]) {
+            return true;
+        }
+
+        if ($item !== null && $this->itemIsExplicitlyNonTaxable($item)) {
             return false;
         }
 
-        if ((float) ($item->tax_amount ?? 0) >= 0.01) {
-            return true;
+        if ($item !== null) {
+            if ((float) ($item->tax_amount ?? 0) >= 0.01) {
+                return true;
+            }
+
+            if ((float) ($item->tax_rate ?? 0) > 0.0001) {
+                return true;
+            }
         }
 
-        if ((float) ($item->tax_rate ?? 0) > 0.0001) {
-            return true;
+        if ($item === null) {
+            return $invoiceHasTax;
         }
 
         return $effectiveTaxRate > 0.0001 || $invoiceHasTax;
     }
 
+    protected function itemIsExplicitlyTaxable(InvoiceItem $item): bool
+    {
+        $attrs = $item->getAttributes();
+    
+        if (! array_key_exists('taxable', $attrs)) {
+            return false;
+        }
+    
+        if ($attrs['taxable'] === null) {
+            return false;
+        }
+    
+        return filter_var($attrs['taxable'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    protected function itemIsExplicitlyNonTaxable(InvoiceItem $item): bool
+    {
+        $attrs = $item->getAttributes();
+    
+        if (! array_key_exists('taxable', $attrs)) {
+            return false;
+        }
+    
+        // null means unset — not explicitly non-taxable
+        if ($attrs['taxable'] === null) {
+            return false;
+        }
+    
+        return ! filter_var($attrs['taxable'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    protected function orderedInvoiceItems(Invoice $invoice): \Illuminate\Support\Collection
+    {
+        return $invoice->items
+            ->sortBy('position')
+            ->sortBy('id')
+            ->values();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array<string, mixed>>
+     */
+    protected function stripInternalLineKeys(array $lines): array
+    {
+        return array_map(function (array $line) {
+            unset($line[self::LINE_TAXABLE_FLAG]);
+
+            return $line;
+        }, $lines);
+    }
+
     protected function taxableSubtotal(Invoice $invoice, float $effectiveTaxRate): float
     {
-        $items = $invoice->items;
+        $items = $this->orderedInvoiceItems($invoice);
         if ($items->isEmpty()) {
             $subtotal = round((float) $invoice->subtotal, 2);
 
@@ -295,7 +427,7 @@ class QuickBooksTaxService
 
         $sum = 0.0;
         foreach ($items as $item) {
-            if (! $this->lineIsTaxable($item, $effectiveTaxRate, true)) {
+            if (! $this->lineIsTaxable([], $item, $effectiveTaxRate, true)) {
                 continue;
             }
             $qty = max(0.01, (float) ($item->quantity ?? 1));
@@ -321,42 +453,6 @@ class QuickBooksTaxService
         $line['SalesItemLineDetail']['TaxCodeRef'] = ['value' => $taxCodeValue];
 
         return $line;
-    }
-
-    protected function fetchPartnerTaxEnabled(Integration $integration): bool
-    {
-        $this->oauth->refreshAccessTokenIfExpiredForIntegration($integration);
-        if ($integration->exists) {
-            $integration->refresh();
-        }
-
-        $realmId = (string) $integration->external_id;
-        if ($realmId === '') {
-            return false;
-        }
-
-        $response = Http::withToken($integration->access_token)
-            ->acceptJson()
-            ->get(
-                "{$this->oauth->accountingApiBaseUrl()}/v3/company/{$realmId}/preferences",
-                ['minorversion' => 70],
-            );
-
-        if ($response->failed()) {
-            Log::warning('QuickBooks preferences fetch failed', [
-                'integration_id' => $integration->id,
-                'status' => $response->status(),
-            ]);
-
-            return false;
-        }
-
-        $json = $response->json();
-        if (! is_array($json)) {
-            return false;
-        }
-
-        return (bool) ($json['Preferences']['TaxPrefs']['PartnerTaxEnabled'] ?? false);
     }
 
     /**
@@ -419,138 +515,8 @@ class QuickBooksTaxService
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rates
-     * @param  list<array<string, mixed>>  $codes
-     * @return array<string, mixed>|null
-     */
-    protected function findTaxRateForInvoice(
-        array $rates,
-        float $targetPercent,
-        string $jurisdiction,
-        array $codes,
-    ): ?array {
-        $byJurisdiction = $this->findTaxRateByJurisdiction($rates, $codes, $jurisdiction);
-        if ($byJurisdiction !== null) {
-            return $byJurisdiction;
-        }
-
-        return $this->findBestTaxRate($rates, $targetPercent);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $rates
-     * @param  list<array<string, mixed>>  $codes
-     * @return array<string, mixed>|null
-     */
-    protected function findTaxRateByJurisdiction(array $rates, array $codes, string $jurisdiction): ?array
-    {
-        if ($jurisdiction === '') {
-            return null;
-        }
-
-        $code = $this->findTaxCodeByJurisdiction($codes, $jurisdiction);
-        if ($code === null) {
-            return $this->findTaxRateByName($rates, $this->jurisdictionTaxCodeNames($jurisdiction));
-        }
-
-        $details = $code['SalesTaxRateList']['TaxRateDetail'] ?? [];
-        if ($details === []) {
-            return null;
-        }
-        if (! array_is_list($details)) {
-            $details = [$details];
-        }
-
-        $rateId = null;
-        foreach ($details as $detail) {
-            if (! is_array($detail)) {
-                continue;
-            }
-            $ref = $detail['TaxRateRef']['value'] ?? $detail['TaxRateRef'] ?? null;
-            if ($ref !== null && $ref !== '') {
-                $rateId = (string) $ref;
-                break;
-            }
-        }
-
-        if ($rateId === null) {
-            return null;
-        }
-
-        foreach ($rates as $rate) {
-            if (is_array($rate) && isset($rate['Id']) && (string) $rate['Id'] === $rateId) {
-                return $rate;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $rates
-     * @param  list<string>  $names
-     * @return array<string, mixed>|null
-     */
-    protected function findTaxRateByName(array $rates, array $names): ?array
-    {
-        foreach ($rates as $rate) {
-            if (! is_array($rate) || empty($rate['Name'])) {
-                continue;
-            }
-            $normalized = strtolower(trim((string) $rate['Name']));
-            foreach ($names as $name) {
-                $needle = strtolower(trim($name));
-                if ($needle === '' || $needle === 'tax' || $needle === 'sales tax' || $needle === 'state tax') {
-                    continue;
-                }
-                if ($normalized === $needle || str_contains($normalized, $needle)) {
-                    return $rate;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $codes
-     * @return array<string, mixed>|null
-     */
-    protected function findTaxCodeByJurisdiction(array $codes, string $jurisdiction): ?array
-    {
-        return $this->findTaxCodeByName($codes, $this->jurisdictionTaxCodeNames($jurisdiction));
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function jurisdictionTaxCodeNames(string $jurisdiction): array
-    {
-        $jurisdiction = trim($jurisdiction);
-        $names = ['tax', 'sales tax', 'state tax'];
-        if ($jurisdiction === '') {
-            return $names;
-        }
-
-        $names[] = $jurisdiction;
-
-        if (str_contains($jurisdiction, ',')) {
-            foreach (explode(',', $jurisdiction) as $part) {
-                $part = trim($part);
-                if ($part !== '') {
-                    $names[] = $part;
-                }
-            }
-        }
-
-        if (preg_match('/\b([A-Za-z]{2})\b/', $jurisdiction, $matches) === 1) {
-            $names[] = strtoupper($matches[1]);
-        }
-
-        return array_values(array_unique($names));
-    }
-
-    /**
+     * Find the TaxRate whose RateValue is closest to $targetPercent.
+     *
      * @param  list<array<string, mixed>>  $rates
      * @return array<string, mixed>|null
      */
@@ -578,6 +544,50 @@ class QuickBooksTaxService
     }
 
     /**
+     * Find the TaxCode whose linked TaxRate is closest to $targetPercent.
+     * Only returns a match within a 0.25% tolerance.
+     *
+     * @param  list<array<string, mixed>>  $codes
+     * @param  list<array<string, mixed>>  $rates
+     * @return array<string, mixed>|null
+     */
+    protected function findTaxCodeByPercent(array $codes, array $rates, float $targetPercent): ?array
+    {
+        if ($targetPercent <= 0) {
+            return null;
+        }
+
+        $bestCode = null;
+        $bestDiff = PHP_FLOAT_MAX;
+
+        foreach ($codes as $code) {
+            if (! is_array($code) || empty($code['Id']) || $this->isExemptTaxCodeName((string) ($code['Name'] ?? ''))) {
+                continue;
+            }
+
+            $linkedRate = $this->resolveTaxRateFromTaxCode($code, $rates);
+            if ($linkedRate === null) {
+                continue;
+            }
+
+            $value = (float) ($linkedRate['RateValue'] ?? -1);
+            if ($value < 0) {
+                continue;
+            }
+
+            $diff = abs($value - $targetPercent);
+            if ($diff < $bestDiff) {
+                $bestDiff = $diff;
+                $bestCode = $code;
+            }
+        }
+
+        return $bestDiff <= 0.25 ? $bestCode : null;
+    }
+
+    /**
+     * Find the TaxCode that references the given TaxRate ID in its SalesTaxRateList.
+     *
      * @param  list<array<string, mixed>>  $codes
      * @return array<string, mixed>|null
      */
@@ -611,22 +621,61 @@ class QuickBooksTaxService
     }
 
     /**
-     * @param  list<array<string, mixed>>  $codes
-     * @param  list<string>  $names
+     * Resolve the first TaxRate referenced within a TaxCode's SalesTaxRateList.
+     *
+     * @param  array<string, mixed>  $code
+     * @param  list<array<string, mixed>>  $rates
      * @return array<string, mixed>|null
      */
-    protected function findTaxCodeByName(array $codes, array $names): ?array
+    protected function resolveTaxRateFromTaxCode(array $code, array $rates): ?array
     {
-        foreach ($codes as $code) {
-            if (! is_array($code) || empty($code['Name'])) {
+        $details = $code['SalesTaxRateList']['TaxRateDetail'] ?? [];
+        if ($details === []) {
+            return null;
+        }
+        if (! array_is_list($details)) {
+            $details = [$details];
+        }
+
+        foreach ($details as $detail) {
+            if (! is_array($detail)) {
                 continue;
             }
-            $normalized = strtolower(trim((string) $code['Name']));
-            foreach ($names as $name) {
-                if ($normalized === strtolower($name)) {
-                    return $code;
+            $rateId = $detail['TaxRateRef']['value'] ?? $detail['TaxRateRef'] ?? null;
+            if ($rateId === null || $rateId === '') {
+                continue;
+            }
+            foreach ($rates as $rate) {
+                if (is_array($rate) && isset($rate['Id']) && (string) $rate['Id'] === (string) $rateId) {
+                    return $rate;
                 }
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Return the first active TaxCode that has rate details and is not an exempt code.
+     *
+     * @param  list<array<string, mixed>>  $codes
+     * @return array<string, mixed>|null
+     */
+    protected function resolveDefaultTaxableTaxCode(array $codes): ?array
+    {
+        foreach ($codes as $code) {
+            if (! is_array($code) || empty($code['Id'])) {
+                continue;
+            }
+            if ($this->isExemptTaxCodeName((string) ($code['Name'] ?? ''))) {
+                continue;
+            }
+            $details = $code['SalesTaxRateList']['TaxRateDetail'] ?? [];
+            if ($details === []) {
+                continue;
+            }
+
+            return $code;
         }
 
         return null;
@@ -641,16 +690,21 @@ class QuickBooksTaxService
             if (! is_array($code) || empty($code['Id'])) {
                 continue;
             }
-            $name = strtolower(trim((string) ($code['Name'] ?? '')));
-            if (in_array($name, ['non', 'non-taxable', 'non taxable', 'exempt', 'out of scope', 'not applicable'], true)) {
-                return (string) $code['Id'];
-            }
-            if (str_starts_with($name, 'non') || str_contains($name, 'exempt')) {
+            if ($this->isExemptTaxCodeName((string) ($code['Name'] ?? ''))) {
                 return (string) $code['Id'];
             }
         }
 
         return null;
+    }
+
+    protected function isExemptTaxCodeName(string $name): bool
+    {
+        $name = strtolower(trim($name));
+
+        return in_array($name, ['non', 'non-taxable', 'non taxable', 'exempt', 'out of scope', 'not applicable'], true)
+            || str_starts_with($name, 'non')
+            || str_contains($name, 'exempt');
     }
 
     protected function astCacheKey(int $integrationId, string $realmId): string

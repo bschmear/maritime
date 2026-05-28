@@ -34,6 +34,7 @@ const props = defineProps({
             connected: false,
             sync_payments: false,
             sync_invoices: false,
+            staff_invoice_url: null,
         }),
     },
     invoiceViewSms: {
@@ -116,6 +117,17 @@ const invoiceTaxRateLabel = computed(() => {
     if (r == null || r === 0) return '—';
     return `${r}%`;
 });
+
+const resolvedTaxJurisdiction = computed(() =>
+    props.record.tax_jurisdiction
+    ?? props.record.transaction?.tax_jurisdiction
+    ?? null,
+);
+const resolvedTaxJurisdictionCode = computed(() =>
+    props.record.tax_jurisdiction_code
+    ?? props.record.transaction?.tax_jurisdiction_code
+    ?? null,
+);
 
 const isLineTaxable = (item) => {
     const t = item?.taxable;
@@ -317,8 +329,39 @@ const billingAddressDisplay = computed(() => {
 });
 const transactionShowHref = computed(() => props.record.transaction_id ? route('transactions.show', props.record.transaction_id) : null);
 const contractShowHref    = computed(() => props.record.contract_id    ? route('contracts.show',    props.record.contract_id)    : null);
-const subsidiaryShowHref  = computed(() => props.record.subsidiary_id  ? route('subsidiaries.show', props.record.subsidiary_id)  : null);
-const locationShowHref    = computed(() => props.record.location_id    ? route('locations.show',   props.record.location_id)    : null);
+
+const resolvedSubsidiary = computed(() =>
+    props.record.subsidiary ?? props.record.transaction?.subsidiary ?? null,
+);
+const resolvedLocation = computed(() =>
+    props.record.location ?? props.record.transaction?.location ?? null,
+);
+const resolvedSubsidiaryId = computed(() =>
+    props.record.subsidiary_id
+    ?? props.record.transaction?.subsidiary_id
+    ?? resolvedSubsidiary.value?.id
+    ?? null,
+);
+const resolvedLocationId = computed(() =>
+    props.record.location_id
+    ?? props.record.transaction?.location_id
+    ?? resolvedLocation.value?.id
+    ?? null,
+);
+const subsidiaryDisplayName = computed(() =>
+    resolvedSubsidiary.value?.display_name
+    ?? (resolvedSubsidiaryId.value ? `Subsidiary #${resolvedSubsidiaryId.value}` : null),
+);
+const locationDisplayName = computed(() =>
+    resolvedLocation.value?.display_name
+    ?? (resolvedLocationId.value ? `Location #${resolvedLocationId.value}` : null),
+);
+const subsidiaryShowHref  = computed(() =>
+    resolvedSubsidiaryId.value ? route('subsidiaries.show', resolvedSubsidiaryId.value) : null,
+);
+const locationShowHref    = computed(() =>
+    resolvedLocationId.value ? route('locations.show', resolvedLocationId.value) : null,
+);
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 const formatCurrency = (value) =>
@@ -507,6 +550,10 @@ const closeActionsModal = () => {
 
 const isQuickbooksSynced = computed(() => !!props.record?.quickbooks_invoice_id);
 
+const quickbooksStaffInvoiceUrl = computed(
+    () => props.quickbooks?.staff_invoice_url || null,
+);
+
 const showDeleteModal = ref(false);
 const removalDisposition = ref('delete');
 const syncQuickbooksRemoval = ref(false);
@@ -516,7 +563,7 @@ const deletingInvoice = ref(false);
 const openDeleteModal = () => {
     closeActionsModal();
     removalDisposition.value = 'delete';
-    syncQuickbooksRemoval.value = false;
+    syncQuickbooksRemoval.value = isQuickbooksSynced.value;
     quickbooksRemovalOperation.value = 'auto';
     showDeleteModal.value = true;
 };
@@ -798,6 +845,40 @@ const runHeaderAction = (fn) => {
                                     <div>
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Rate</div>
                                         <div class="text-md text-gray-900 dark:text-white">{{ invoiceTaxRateLabel }}</div>
+                                    </div>
+
+                                    <div v-if="resolvedTaxJurisdiction">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Tax Jurisdiction</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ resolvedTaxJurisdiction }}</div>
+                                    </div>
+
+                                    <div v-if="resolvedTaxJurisdictionCode">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Jurisdiction Code</div>
+                                        <div class="text-md text-gray-900 dark:text-white">{{ resolvedTaxJurisdictionCode }}</div>
+                                    </div>
+
+                                    <div v-if="resolvedSubsidiaryId">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Subsidiary</div>
+                                        <Link
+                                            v-if="subsidiaryShowHref"
+                                            :href="subsidiaryShowHref"
+                                            class="text-md font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ subsidiaryDisplayName }}
+                                        </Link>
+                                        <div v-else class="text-md text-gray-900 dark:text-white">{{ subsidiaryDisplayName }}</div>
+                                    </div>
+
+                                    <div v-if="resolvedLocationId">
+                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Location</div>
+                                        <Link
+                                            v-if="locationShowHref"
+                                            :href="locationShowHref"
+                                            class="text-md font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ locationDisplayName }}
+                                        </Link>
+                                        <div v-else class="text-md text-gray-900 dark:text-white">{{ locationDisplayName }}</div>
                                     </div>
                                 </div>
                             </section>
@@ -1175,31 +1256,33 @@ const runHeaderAction = (fn) => {
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Contract</span>
                                 <Link :href="contractShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
                             </li>
-                            <li v-if="subsidiaryShowHref" class="flex items-start gap-3 px-5 py-3">
+                            <li v-if="resolvedSubsidiaryId" class="flex items-start gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">corporate_fare</span>
                                 <div class="min-w-0 flex-1">
                                     <span class="text-gray-500 dark:text-gray-400">Subsidiary</span>
-                                    <p
-                                        v-if="record.subsidiary?.display_name"
-                                        class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate"
-                                    >
-                                        {{ record.subsidiary.display_name }}
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate">
+                                        {{ subsidiaryDisplayName }}
                                     </p>
                                 </div>
-                                <Link :href="subsidiaryShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0">View</Link>
+                                <Link
+                                    v-if="subsidiaryShowHref"
+                                    :href="subsidiaryShowHref"
+                                    class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0"
+                                >View</Link>
                             </li>
-                            <li v-if="locationShowHref" class="flex items-start gap-3 px-5 py-3">
+                            <li v-if="resolvedLocationId" class="flex items-start gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0 mt-0.5">place</span>
                                 <div class="min-w-0 flex-1">
                                     <span class="text-gray-500 dark:text-gray-400">Location</span>
-                                    <p
-                                        v-if="record.location?.display_name"
-                                        class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate"
-                                    >
-                                        {{ record.location.display_name }}
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white mt-0.5 truncate">
+                                        {{ locationDisplayName }}
                                     </p>
                                 </div>
-                                <Link :href="locationShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0">View</Link>
+                                <Link
+                                    v-if="locationShowHref"
+                                    :href="locationShowHref"
+                                    class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0"
+                                >View</Link>
                             </li>
                             <li class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">calendar_today</span>
@@ -1457,8 +1540,8 @@ const runHeaderAction = (fn) => {
                             {{ pushingToQuickbooks ? 'Syncing…' : 'Sync with QuickBooks' }}
                         </button>
                         <a
-                            v-if="record.quickbooks_invoice_url"
-                            :href="record.quickbooks_invoice_url"
+                            v-if="quickbooksStaffInvoiceUrl"
+                            :href="quickbooksStaffInvoiceUrl"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"

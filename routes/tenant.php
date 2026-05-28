@@ -271,6 +271,7 @@ Route::middleware([
         Route::prefix('estimates')->name('estimates.')->group(function () {
             // Static routes must come before the resource wildcard {estimate}
             Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
+            Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::post('/{estimate}/create-deal', [EstimateController::class, 'createDeal'])->name('create-deal');
             Route::resource('/', EstimateController::class)->parameters(['' => 'estimate']);
             Route::post('/{estimate}/send-approval', [EstimateController::class, 'sendApprovalRequest'])->name('send-approval');
@@ -318,12 +319,15 @@ Route::middleware([
         });
 
         Route::prefix('transactions')->name('transactions.')->group(function () {
+            Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
+            Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::resource('/', TransactionController::class)->parameters(['' => 'transaction']);
         });
 
         Route::prefix('invoices')->name('invoices.')->group(function () {
             // Static routes must come before the resource wildcard {invoice}
             Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
+            Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/prefill-from-transaction/{transaction}', [InvoiceController::class, 'prefillFromTransaction'])->name('prefill-from-transaction');
             Route::post('/{invoice}/send-to-customer', [InvoiceController::class, 'sendToCustomer'])->name('send-to-customer');
             Route::post('/{invoice}/pull-quickbooks-payments', [InvoiceController::class, 'pullQuickbooksPayments'])->name('pull-quickbooks-payments');

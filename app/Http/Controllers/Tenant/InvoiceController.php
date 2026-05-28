@@ -183,7 +183,8 @@ class InvoiceController extends RecordController
     protected function showPageExtraProps($record): array
     {
         $settings = QuickBooksSettings::forCurrentTenant();
-        $qboConnected = app(QuickBooksAccountingService::class)->isConnected();
+        $accounting = app(QuickBooksAccountingService::class);
+        $qboConnected = $accounting->isConnected();
         $record->loadMissing([
             'contact' => fn ($q) => $q->select(['id', 'email', 'phone', 'mobile']),
         ]);
@@ -198,6 +199,9 @@ class InvoiceController extends RecordController
                 'connected' => $qboConnected,
                 'sync_payments' => $settings->isSyncPaymentsEnabled(),
                 'sync_invoices' => $settings->isSyncInvoicesEnabled(),
+                'staff_invoice_url' => $record->quickbooks_invoice_id
+                    ? $accounting->invoiceUrl((string) $record->quickbooks_invoice_id)
+                    : null,
             ],
             'invoiceViewSms' => $invoiceViewSms,
         ];

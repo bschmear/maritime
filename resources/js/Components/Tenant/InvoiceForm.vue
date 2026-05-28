@@ -216,6 +216,10 @@ const form = useForm({
         props.record?.tax_jurisdiction
         ?? props.initialData?.tax_jurisdiction
         ?? '',
+    tax_jurisdiction_code:
+        props.record?.tax_jurisdiction_code
+        ?? props.initialData?.tax_jurisdiction_code
+        ?? '',
     subtotal:            props.record?.subtotal              ?? props.initialData?.subtotal              ?? '0',
     tax_total:           props.record?.tax_total             ?? props.initialData?.tax_total             ?? '0',
     total:               props.record?.total                 ?? props.initialData?.total                 ?? '0',
@@ -455,7 +459,34 @@ watch(
 );
 
 // ── Address helpers ──────────────────────────────────────────────────────────
-const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress('invoices.address-tax-rate');
+const {
+    fetchTaxRate,
+    fetchTaxRateByLocation,
+    isFetching: isFetchingTaxRate,
+    buildTaxJurisdictionFromAddress,
+    normalizeTaxJurisdictionCode,
+    applyTaxLookupToForm,
+} = useTaxRateByAddress('invoices.address-tax-rate', 'invoices.location-tax-rate');
+
+const buildTaxJurisdictionFromBilling = () => buildTaxJurisdictionFromAddress({
+    city: form.billing_city,
+    state: form.billing_state,
+    postal_code: form.billing_postal,
+    country: form.billing_country,
+});
+
+const syncTaxJurisdictionFromBilling = () => {
+    const label = buildTaxJurisdictionFromBilling();
+    if (label) {
+        form.tax_jurisdiction = label;
+    }
+    const code = normalizeTaxJurisdictionCode(form.billing_state);
+    if (code) {
+        form.tax_jurisdiction_code = code;
+    }
+};
+
+const locationOptions = computed(() => props.enumOptions?.location_id ?? []);
 
 const showAddressPicker = ref(false);
 const contactAddresses = ref([]);
@@ -564,21 +595,43 @@ const handleAddressUpdate = (data) => {
     form.billing_state         = data.stateCode   || data.state   || '';
     form.billing_postal        = data.postalCode  ?? '';
     form.billing_country       = data.countryCode || data.country || '';
+    if (data.stateCode || data.state) {
+        syncTaxJurisdictionFromBilling();
+    }
 };
 
-watch(() => form.billing_state, async (newState) => {
-    if (!newState) return;
-    const rate = await fetchTaxRate({
-        state:       newState,
-        city:        form.billing_city          || undefined,
-        postal_code: form.billing_postal        || undefined,
-        line1:       form.billing_address_line1 || undefined,
-        country:     form.billing_country       || undefined,
-    });
-    if (rate != null && !Number.isNaN(Number(rate))) {
-        form.tax_rate = Number(rate);
+const findTaxRateFromBillingAddress = async () => {
+    const state = (form.billing_state || '').trim();
+    if (!state) {
+        showToast('error', 'Add a billing state before looking up tax rate.');
+        return;
     }
-});
+    syncTaxJurisdictionFromBilling();
+
+    const lookup = await fetchTaxRate({
+        state,
+        city: form.billing_city || undefined,
+        postal_code: form.billing_postal || undefined,
+        line1: form.billing_address_line1 || undefined,
+        country: form.billing_country || undefined,
+    });
+    applyTaxLookupToForm(form, lookup, {
+        state,
+        city: form.billing_city,
+        postal_code: form.billing_postal,
+        country: form.billing_country,
+    });
+};
+
+const findTaxRateFromLocation = async () => {
+    if (!form.location_id) {
+        showToast('error', 'Select a location before looking up tax rate.');
+        return;
+    }
+
+    const lookup = await fetchTaxRateByLocation(form.location_id);
+    applyTaxLookupToForm(form, lookup);
+};
 
 // ── Formatting ───────────────────────────────────────────────────────────────
 const formatCurrency = (value) =>
@@ -1439,26 +1492,75 @@ const handleCancel = () => {
                                 <span>Total</span>
                                 <span>{{ formatCurrency(form.total) }}</span>
                             </div>
-                            <div v-if="!isView" class="pt-3 border-t border-gray-200 dark:border-gray-600">
-                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Tax rate (%)</label>
-                                <input
-                                    v-if="!invoiceTaxLocked"
-                                    v-model.number="form.tax_rate"
-                                    type="number"
-                                    step="0.001"
-                                    min="0"
-                                    max="100"
-                                    :class="inputClass"
-                                >
-                                <p v-else class="text-sm font-medium text-gray-900 dark:text-white tabular-nums">
-                                    {{ Number(form.tax_rate) || 0 }}%
-                                </p>
-                                <p
-                                    v-if="invoiceTaxLocked"
-                                    class="mt-1 text-xs text-amber-700 dark:text-amber-300"
-                                >
-                                    Tax rate is locked because this invoice has been sent to the customer.
-                                </p>
+                            <div v-if="!isView" class="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Tax rate (%)</label>
+                                    <input
+                                        v-if="!invoiceTaxLocked"
+                                        v-model.number="form.tax_rate"
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        max="100"
+                                        :class="inputClass"
+                                    >
+                                    <p v-else class="text-sm font-medium text-gray-900 dark:text-white tabular-nums">
+                                        {{ Number(form.tax_rate) || 0 }}%
+                                    </p>
+                                    <p
+                                        v-if="invoiceTaxLocked"
+                                        class="mt-1 text-xs text-amber-700 dark:text-amber-300"
+                                    >
+                                        Tax rate is locked because this invoice has been sent to the customer.
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Tax jurisdiction</label>
+                                    <input
+                                        v-if="!invoiceTaxLocked"
+                                        v-model="form.tax_jurisdiction"
+                                        type="text"
+                                        :class="inputClass"
+                                        placeholder="e.g. Fort Lauderdale, FL, 33316"
+                                    >
+                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                        {{ form.tax_jurisdiction || '—' }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Jurisdiction code</label>
+                                    <input
+                                        v-if="!invoiceTaxLocked"
+                                        v-model="form.tax_jurisdiction_code"
+                                        type="text"
+                                        :class="inputClass"
+                                        placeholder="e.g. FL"
+                                        maxlength="32"
+                                    >
+                                    <p v-else class="text-sm text-gray-900 dark:text-white">
+                                        {{ form.tax_jurisdiction_code || '—' }}
+                                    </p>
+                                </div>
+                                <div v-if="!invoiceTaxLocked" class="flex flex-col gap-2">
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                                        :disabled="!form.billing_state?.trim() || isFetchingTaxRate"
+                                        @click="findTaxRateFromBillingAddress"
+                                    >
+                                        <span class="material-icons text-[16px]">travel_explore</span>
+                                        From billing address
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                                        :disabled="!form.location_id || isFetchingTaxRate"
+                                        @click="findTaxRateFromLocation"
+                                    >
+                                        <span class="material-icons text-[16px]">store</span>
+                                        From location
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1679,24 +1781,26 @@ const handleCancel = () => {
                     This invoice is linked to QuickBooks. You changed payment terms, due date, billing address, or line item totals.
                     Do you want to update the QuickBooks invoice as well?
                 </p>
-                <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <div class="mt-6 flex flex-col gap-3">
+                    <div class="flex gap-3">
+                        <button
+                            type="button"
+                            class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                            @click="showQboUpdateModal = false"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
+                            @click="confirmQboUpdate(false)"
+                        >
+                            Save only
+                        </button>
+                    </div>
                     <button
                         type="button"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                        @click="showQboUpdateModal = false"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600"
-                        @click="confirmQboUpdate(false)"
-                    >
-                        Save only
-                    </button>
-                    <button
-                        type="button"
-                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                        class="w-full px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
                         @click="confirmQboUpdate(true)"
                     >
                         Save &amp; update QuickBooks

@@ -39,6 +39,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
+use App\Services\Payments\QuickBooksAccountingService;
 use App\Services\Payments\StripeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -1487,7 +1488,12 @@ class PublicController extends Controller
         return $key;
     }
 
-    public function viewInvoice(Request $request, string $uuid, FulfillPublicInvoiceCheckoutSession $fulfillCheckout)
+    public function viewInvoice(
+        Request $request,
+        string $uuid,
+        FulfillPublicInvoiceCheckoutSession $fulfillCheckout,
+        QuickBooksAccountingService $quickbooks,
+    )
     {
         $invoice = Invoice::query()
             ->where('uuid', $uuid)
@@ -1547,7 +1553,9 @@ class PublicController extends Controller
             ],
             'quickbooks' => [
                 'managed' => $invoice->isQuickbooksManaged(),
-                'invoice_url' => $invoice->quickbooks_invoice_url,
+                'invoice_url' => $invoice->isQuickbooksManaged()
+                    ? $quickbooks->customerInvoiceUrlForInvoice($invoice)
+                    : null,
             ],
         ]);
     }

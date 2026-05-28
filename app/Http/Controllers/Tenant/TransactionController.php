@@ -238,6 +238,7 @@ class TransactionController extends BaseController
                 $initialData['billing_longitude'] = $estimate->billing_longitude;
                 $initialData['tax_rate'] = $estimate->tax_rate;
                 $initialData['tax_jurisdiction'] = $estimate->tax_jurisdiction;
+                $initialData['tax_jurisdiction_code'] = $estimate->tax_jurisdiction_code;
 
                 $initialData['user_id'] = $estimate->user_id;
                 if ($estimate->user) {

@@ -108,6 +108,7 @@ class CreateDealFromEstimate
                     'subtotal' => $subtotal,
                     'tax_rate' => $locked->tax_rate,
                     'tax_jurisdiction' => $locked->tax_jurisdiction,
+                    'tax_jurisdiction_code' => $locked->tax_jurisdiction_code,
                     'tax_total' => $taxTotal,
                     'discount_total' => null,
                     'fees_total' => null,

@@ -31,6 +31,8 @@ class CreateEstimate
             'location_id' => 'nullable|integer|exists:locations,id',
             'user_id' => 'required|integer|exists:users,id',
             'tax_rate' => 'nullable|numeric',
+            'tax_jurisdiction' => 'nullable|string|max:255',
+            'tax_jurisdiction_code' => 'nullable|string|max:32',
             'issue_date' => 'nullable|date',
             'expiration_date' => 'nullable|date',
         ])->validate();

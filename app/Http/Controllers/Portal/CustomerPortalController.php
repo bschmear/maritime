@@ -23,6 +23,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
+use App\Services\Payments\QuickBooksAccountingService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -227,7 +228,7 @@ class CustomerPortalController extends Controller
         ]);
     }
 
-    public function invoiceShow(Request $request, Invoice $invoice): Response
+    public function invoiceShow(Request $request, Invoice $invoice, QuickBooksAccountingService $quickbooks): Response
     {
         $contact = $this->portalContext()['contact'];
 
@@ -266,7 +267,9 @@ class CustomerPortalController extends Controller
             ],
             'quickbooks' => [
                 'managed' => $invoice->isQuickbooksManaged(),
-                'invoice_url' => $invoice->quickbooks_invoice_url,
+                'invoice_url' => $invoice->isQuickbooksManaged()
+                    ? $quickbooks->customerInvoiceUrlForInvoice($invoice)
+                    : null,
             ],
         ]);
     }

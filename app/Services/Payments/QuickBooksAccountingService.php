@@ -82,7 +82,7 @@ class QuickBooksAccountingService
             return $this->updateInvoice($invoice);
         }
 
-        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction']);
+        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
 
         $contact = $invoice->contact;
         if ($contact === null) {
@@ -108,6 +108,7 @@ class QuickBooksAccountingService
                 (string) $contact->quickbooks_customer_id,
                 $itemId,
             );
+            $this->logInvoiceSyncPayload('create', $invoice, $integration, $payload);
             $response = $this->postEntity($integration, 'invoice', $payload);
             $qboInvoice = $response['Invoice'] ?? null;
 
@@ -116,7 +117,7 @@ class QuickBooksAccountingService
             }
 
             $qboId = (string) $qboInvoice['Id'];
-            $url = $this->invoiceUrl($qboId);
+            $url = $this->resolveCustomerInvoiceUrl($integration, $qboId, $invoice->quickbooks_invoice_url);
 
             $invoice->update([
                 'quickbooks_invoice_id' => $qboId,
@@ -172,6 +173,124 @@ class QuickBooksAccountingService
     }
 
     /**
+     * Customer-facing QuickBooks Online invoice URL (pay / view in QBO).
+     */
+    public function customerInvoiceUrlForInvoice(Invoice $invoice): ?string
+    {
+        $qboId = (string) ($invoice->quickbooks_invoice_id ?? '');
+        if ($qboId === '') {
+            return null;
+        }
+
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return $invoice->quickbooks_invoice_url;
+        }
+
+        $url = $this->resolveCustomerInvoiceUrl(
+            $integration,
+            $qboId,
+            $invoice->quickbooks_invoice_url,
+        );
+
+        if ($url !== null && $url !== $invoice->quickbooks_invoice_url) {
+            $invoice->update(['quickbooks_invoice_url' => $url]);
+        }
+
+        return $url;
+    }
+
+    /**
+     * Fetch the QBO online invoice link; fall back to a stored URL only when it is already customer-facing.
+     */
+    public function resolveCustomerInvoiceUrl(
+        Integration $integration,
+        string $qboInvoiceId,
+        ?string $storedUrl = null,
+    ): ?string {
+        $this->oauth->refreshAccessTokenIfExpiredForIntegration($integration);
+        if ($integration->exists) {
+            $integration->refresh();
+        }
+
+        $publicUrl = $this->fetchPublicInvoiceLink($integration, $qboInvoiceId);
+        if ($publicUrl !== null) {
+            return $publicUrl;
+        }
+
+        if ($storedUrl !== null && $storedUrl !== '' && ! $this->isStaffInvoiceUrl($storedUrl)) {
+            return $storedUrl;
+        }
+
+        return null;
+    }
+
+    protected function fetchPublicInvoiceLink(Integration $integration, string $qboInvoiceId): ?string
+    {
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            return null;
+        }
+
+        // InvoiceLink is only returned when include=invoiceLink is set (requires minorversion ≥ 36).
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get(
+                "{$this->oauth->accountingApiBaseUrl()}/v3/company/{$realmId}/invoice/{$qboInvoiceId}",
+                [
+                    'minorversion' => 70,
+                    'include'      => 'invoiceLink',
+                ],
+            );
+
+        if ($response->failed()) {
+            $json = $response->json();
+            Log::warning('QuickBooks: failed to fetch public invoice link', [
+                'integration_id' => $integration->id,
+                'qbo_invoice_id' => $qboInvoiceId,
+                'status'         => $response->status(),
+                'fault'          => is_array($json) ? $this->faultMessage($json['Fault'] ?? []) : null,
+            ]);
+
+            return null;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            return null;
+        }
+
+        if (! empty($json['Fault'])) {
+            Log::warning('QuickBooks: invoice link request returned fault', [
+                'integration_id' => $integration->id,
+                'qbo_invoice_id' => $qboInvoiceId,
+                'fault'          => $this->faultMessage($json['Fault']),
+            ]);
+
+            return null;
+        }
+
+        $link = $json['Invoice']['InvoiceLink'] ?? null;
+
+        if (! is_string($link) || $link === '') {
+            Log::info('QuickBooks: invoice has no InvoiceLink (online payments or BillEmail may be missing)', [
+                'integration_id' => $integration->id,
+                'qbo_invoice_id' => $qboInvoiceId,
+            ]);
+
+            return null;
+        }
+
+        return $link;
+    }
+
+    protected function isStaffInvoiceUrl(string $url): bool
+    {
+        return str_contains($url, 'qbo.intuit.com/app/invoice')
+            || str_contains($url, 'sandbox.qbo.intuit.com/app/invoice');
+    }
+
+    /**
      * @return array{success: bool, invoice_id?: string, invoice_url?: string, message?: string}
      */
     public function updateInvoice(Invoice $invoice): array
@@ -186,7 +305,7 @@ class QuickBooksAccountingService
             return $this->pushInvoice($invoice);
         }
 
-        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction']);
+        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
 
         $contact = $invoice->contact;
         if ($contact === null) {
@@ -220,12 +339,22 @@ class QuickBooksAccountingService
             $payload['Id'] = $remote['Id'];
             $payload['SyncToken'] = $remote['SyncToken'];
 
+            $this->logInvoiceSyncPayload('update', $invoice, $integration, $payload);
             $this->postEntity($integration, 'invoice', $payload);
+
+            $customerUrl = $this->resolveCustomerInvoiceUrl(
+                $integration,
+                $qboId,
+                $invoice->quickbooks_invoice_url,
+            );
+            if ($customerUrl !== null && $customerUrl !== $invoice->quickbooks_invoice_url) {
+                $invoice->update(['quickbooks_invoice_url' => $customerUrl]);
+            }
 
             return [
                 'success' => true,
                 'invoice_id' => $qboId,
-                'invoice_url' => $invoice->quickbooks_invoice_url ?: $this->invoiceUrl($qboId),
+                'invoice_url' => $customerUrl ?? $invoice->quickbooks_invoice_url,
                 'message' => 'Updated in QuickBooks.',
             ];
         } catch (\Throwable $e) {
@@ -621,16 +750,24 @@ class QuickBooksAccountingService
             $amount = round((float) $invoice->total, 2);
             $lines[] = $this->salesLine($amount, 'Invoice', $itemId, 1);
         } else {
-            foreach ($items as $item) {
+            foreach ($items->sortBy('position')->sortBy('id') as $item) {
                 $qty = max(0.01, (float) ($item->quantity ?? 1));
                 $unitPrice = (float) ($item->unit_price ?? 0);
                 $discount = (float) ($item->discount ?? 0);
-                $amount = round(max(0, ($qty * $unitPrice) - $discount), 2);
+                $amount = round(max(0, ($item->subtotal ?? null) !== null
+                    ? (float) $item->subtotal
+                    : max(0, ($qty * $unitPrice) - $discount)), 2);
                 $description = trim((string) ($item->name ?? 'Line item'));
                 if ($item->description) {
                     $description .= ' — '.$item->description;
                 }
-                $lines[] = $this->salesLine($amount, $description, $itemId, $qty);
+                $lines[] = $this->salesLine(
+                    $amount,
+                    $description,
+                    $itemId,
+                    $qty,
+                    $this->resolveLineTaxableFlag($item),
+                );
             }
         }
 
@@ -649,11 +786,16 @@ class QuickBooksAccountingService
             $payload['DueDate'] = $invoice->due_at->format('Y-m-d');
         }
 
-        if ($invoice->customer_email) {
-            $payload['BillEmail'] = ['Address' => $invoice->customer_email];
+        $invoice->loadMissing('contact');
+
+        $billEmail = $this->resolveInvoiceBillEmail($invoice);
+        if ($billEmail !== null) {
+            $payload['BillEmail'] = ['Address' => $billEmail];
         }
 
-        $invoice->loadMissing('contact');
+        // Required for QBO to generate InvoiceLink (customer pay / view URL).
+        $payload['AllowOnlineCreditCardPayment'] = true;
+        $payload['AllowOnlineACHPayment'] = true;
         $billAddr = $this->resolveBillAddr($invoice->contact, $invoice);
         if ($billAddr !== null) {
             $payload['BillAddr'] = $billAddr;
@@ -670,9 +812,17 @@ class QuickBooksAccountingService
     /**
      * @return array<string, mixed>
      */
-    protected function salesLine(float $amount, string $description, string $itemId, float $qty): array
-    {
-        return [
+    /**
+     * @return array<string, mixed>
+     */
+    protected function salesLine(
+        float $amount,
+        string $description,
+        string $itemId,
+        float $qty,
+        ?bool $taxable = null,
+    ): array {
+        $line = [
             'Amount' => $amount,
             'DetailType' => 'SalesItemLineDetail',
             'Description' => mb_substr($description, 0, 4000),
@@ -682,6 +832,100 @@ class QuickBooksAccountingService
                 'UnitPrice' => $qty > 0 ? round($amount / $qty, 2) : $amount,
             ],
         ];
+
+        if ($taxable !== null) {
+            $line[QuickBooksTaxService::LINE_TAXABLE_FLAG] = $taxable;
+        }
+
+        return $line;
+    }
+
+    protected function resolveInvoiceBillEmail(Invoice $invoice): ?string
+    {
+        $candidates = [
+            $invoice->customer_email,
+            $invoice->contact?->email,
+        ];
+
+        foreach ($candidates as $email) {
+            $email = is_string($email) ? trim($email) : '';
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $email;
+            }
+        }
+
+        return null;
+    }
+
+    protected function resolveLineTaxableFlag(\App\Domain\InvoiceItem\Models\InvoiceItem $item): ?bool
+    {
+        if (! array_key_exists('taxable', $item->getAttributes())) {
+            return null;
+        }
+
+        return filter_var($item->getAttributes()['taxable'], FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected function logInvoiceSyncPayload(
+        string $operation,
+        Invoice $invoice,
+        Integration $integration,
+        array $payload,
+    ): void {
+        $lineTax = [];
+        foreach ($payload['Line'] ?? [] as $index => $line) {
+            if (! is_array($line) || ($line['DetailType'] ?? '') !== 'SalesItemLineDetail') {
+                continue;
+            }
+            $detail = $line['SalesItemLineDetail'] ?? [];
+            $lineTax[] = [
+                'line_index' => $index,
+                'amount' => $line['Amount'] ?? null,
+                'description' => mb_substr((string) ($line['Description'] ?? ''), 0, 120),
+                'tax_code_ref' => is_array($detail) ? ($detail['TaxCodeRef']['value'] ?? null) : null,
+            ];
+        }
+
+        $maritimeItems = $invoice->items
+            ->sortBy('position')
+            ->sortBy('id')
+            ->values()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'taxable' => $item->getAttributes()['taxable'] ?? null,
+                'tax_rate' => $item->tax_rate,
+                'tax_amount' => $item->tax_amount,
+            ])
+            ->all();
+
+        Log::info('QuickBooks invoice sync payload (debug)', [
+            'operation' => $operation,
+            'invoice_id' => $invoice->id,
+            'invoice_sequence' => $invoice->sequence,
+            'qbo_invoice_id' => $payload['Id'] ?? null,
+            'integration_id' => $integration->id,
+            'realm_id' => $integration->external_id,
+            'automated_sales_tax' => $this->tax->usesAutomatedSalesTax($integration),
+            'maritime_tax' => [
+                'tax_total' => $invoice->tax_total,
+                'tax_rate' => $invoice->tax_rate,
+                'tax_jurisdiction' => $invoice->tax_jurisdiction,
+                'tax_jurisdiction_code' => $invoice->tax_jurisdiction_code,
+                'transaction_tax_rate' => $invoice->transaction?->tax_rate,
+                'transaction_tax_jurisdiction' => $invoice->transaction?->tax_jurisdiction,
+                'transaction_tax_jurisdiction_code' => $invoice->transaction?->tax_jurisdiction_code,
+            ],
+            'maritime_line_items' => $maritimeItems,
+            'qbo_line_tax_codes' => $lineTax,
+            'txn_tax_detail' => $payload['TxnTaxDetail'] ?? null,
+            'global_tax_calculation' => $payload['GlobalTaxCalculation'] ?? null,
+            'apply_tax_after_discount' => $payload['ApplyTaxAfterDiscount'] ?? null,
+            'payload_json' => json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        ]);
     }
 
     /**

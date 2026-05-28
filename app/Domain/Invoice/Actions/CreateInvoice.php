@@ -43,6 +43,7 @@ class CreateInvoice
             'fees_total' => ['nullable', 'numeric'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'tax_jurisdiction' => ['nullable', 'string', 'max:255'],
+            'tax_jurisdiction_code' => ['nullable', 'string', 'max:32'],
         ], InvoicePaymentFields::validationRules(), InvoiceBillingAddressRules::rules()), InvoiceBillingAddressRules::messages())
             ->validate();
 
@@ -73,8 +74,23 @@ class CreateInvoice
         $transaction = null;
         if (! empty($validated['transaction_id'])) {
             $transaction = Transaction::query()
-                ->select(['id', 'tax_rate', 'tax_jurisdiction'])
+                ->select(['id', 'tax_rate', 'tax_jurisdiction', 'tax_jurisdiction_code', 'subsidiary_id', 'location_id'])
                 ->find((int) $validated['transaction_id']);
+        }
+
+        if ($transaction !== null) {
+            if (empty($validated['subsidiary_id']) && $transaction->subsidiary_id) {
+                $validated['subsidiary_id'] = $transaction->subsidiary_id;
+            }
+            if (empty($validated['location_id']) && $transaction->location_id) {
+                $validated['location_id'] = $transaction->location_id;
+            }
+            if (empty($validated['tax_jurisdiction']) && $transaction->tax_jurisdiction) {
+                $validated['tax_jurisdiction'] = $transaction->tax_jurisdiction;
+            }
+            if (empty($validated['tax_jurisdiction_code']) && $transaction->tax_jurisdiction_code) {
+                $validated['tax_jurisdiction_code'] = $transaction->tax_jurisdiction_code;
+            }
         }
 
         $invoiceTaxRate = (float) ($validated['tax_rate'] ?? 0);
@@ -83,10 +99,6 @@ class CreateInvoice
             if ($invoiceTaxRate > 0) {
                 $validated['tax_rate'] = $invoiceTaxRate;
             }
-        }
-
-        if (empty($validated['tax_jurisdiction']) && $transaction?->tax_jurisdiction) {
-            $validated['tax_jurisdiction'] = $transaction->tax_jurisdiction;
         }
 
         try {

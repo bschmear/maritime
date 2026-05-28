@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Concerns;
 
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 trait HasSchemaSupport
 {
@@ -131,15 +133,7 @@ trait HasSchemaSupport
                                 ];
                             })->toArray();
                         } else {
-                            $records = $modelClass::select('id', 'display_name')->get();
-
-                            $options = $records->map(function ($record) {
-                                return [
-                                    'id' => $record->id,
-                                    'name' => $record->display_name,
-                                    'value' => $record->id,
-                                ];
-                            })->toArray();
+                            $options = static::loadRecordSelectOptions($modelClass);
                         }
 
                         $enumOptions[$fieldKey] = $options;
@@ -152,6 +146,70 @@ trait HasSchemaSupport
         }
 
         return $enumOptions;
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     * @return list<array{id: mixed, name: string, value: mixed}>
+     */
+    public static function loadRecordSelectOptions(string $modelClass, int $limit = 500): array
+    {
+        $model = new $modelClass;
+        $columns = static::recordOptionSelectColumns($model);
+        $orderColumn = $columns[1] ?? 'id';
+
+        $records = $modelClass::query()
+            ->select($columns)
+            ->orderByDesc($orderColumn)
+            ->limit($limit)
+            ->get();
+
+        return $records->map(fn (Model $record) => [
+            'id' => $record->id,
+            'name' => static::recordOptionDisplayName($record),
+            'value' => $record->id,
+        ])->all();
+    }
+
+    /**
+     * Columns to select for record dropdowns (display_name may be an accessor, not a DB column).
+     *
+     * @return list<string>
+     */
+    protected static function recordOptionSelectColumns(Model $model): array
+    {
+        $table = $model->getTable();
+        $connection = $model->getConnectionName();
+
+        $columns = ['id'];
+        if (Schema::connection($connection)->hasColumn($table, 'display_name')) {
+            $columns[] = 'display_name';
+        } elseif (Schema::connection($connection)->hasColumn($table, 'sequence')) {
+            $columns[] = 'sequence';
+        } elseif (Schema::connection($connection)->hasColumn($table, 'name')) {
+            $columns[] = 'name';
+        }
+
+        return $columns;
+    }
+
+    protected static function recordOptionDisplayName(Model $record): string
+    {
+        if (method_exists($record, 'getDisplayNameAttribute')) {
+            $name = $record->display_name;
+            if (is_string($name) && $name !== '') {
+                return $name;
+            }
+        }
+
+        foreach (['display_name', 'name', 'sequence'] as $attribute) {
+            $value = $record->getAttribute($attribute);
+            if ($value !== null && $value !== '') {
+                return (string) $value;
+            }
+        }
+
+        return '#'.$record->getKey();
     }
 
     /**

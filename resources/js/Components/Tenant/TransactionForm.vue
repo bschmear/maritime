@@ -107,6 +107,7 @@ const form = useForm({
     billing_longitude: merged.billing_longitude ?? null,
     tax_rate: merged.tax_rate ?? 0,
     tax_jurisdiction: merged.tax_jurisdiction ?? '',
+    tax_jurisdiction_code: merged.tax_jurisdiction_code ?? '',
     discount_total: merged.discount_total ?? '',
     fees_total: merged.fees_total ?? '',
     needs_contract: normalizeTaxable(merged.needs_contract ?? true),
@@ -126,7 +127,32 @@ const recordForSelect = computed(() =>
 
 // ─── Billing address (same pattern as EstimateForm) ───────────────────────────
 
-const { fetchTaxRate, isFetching: isFetchingTaxRate } = useTaxRateByAddress();
+const {
+    fetchTaxRate,
+    fetchTaxRateByLocation,
+    isFetching: isFetchingTaxRate,
+    buildTaxJurisdictionFromAddress,
+    normalizeTaxJurisdictionCode,
+    applyTaxLookupToForm,
+} = useTaxRateByAddress('transactions.address-tax-rate', 'transactions.location-tax-rate');
+
+const buildTaxJurisdictionFromBilling = () => buildTaxJurisdictionFromAddress({
+    city: form.billing_city,
+    state: form.billing_state,
+    postal_code: form.billing_postal,
+    country: form.billing_country,
+});
+
+const syncTaxJurisdictionFromBilling = () => {
+    const label = buildTaxJurisdictionFromBilling();
+    if (label) {
+        form.tax_jurisdiction = label;
+    }
+    const code = normalizeTaxJurisdictionCode(form.billing_state);
+    if (code) {
+        form.tax_jurisdiction_code = code;
+    }
+};
 
 const applyAddressToForm = (src) => {
     form.billing_address_line1 = src.billing_address_line1 || src.address_line_1 || '';
@@ -211,20 +237,6 @@ const onTransactionContactAddressSaved = (payload) => {
     });
 };
 
-/** Human-readable jurisdiction label from current billing fields (state required for lookup). */
-const buildTaxJurisdictionFromBilling = () => {
-    const city = (form.billing_city || '').trim();
-    const st = (form.billing_state || '').trim();
-    const pc = (form.billing_postal || '').trim();
-    const country = (form.billing_country || '').trim();
-    if (city && st) {
-        return [city, st, pc].filter(Boolean).join(', ') + (country && country !== 'US' ? ` (${country})` : '');
-    }
-    if (st && pc) return `${st} ${pc}`;
-    if (st) return country && country !== 'US' ? `${st} (${country})` : st;
-    return '';
-};
-
 const handleAddressUpdate = (data) => {
     form.billing_address_line1 = data.street ?? '';
     form.billing_address_line2 = data.unit ?? '';
@@ -235,7 +247,7 @@ const handleAddressUpdate = (data) => {
     form.billing_latitude = data.latitude ?? null;
     form.billing_longitude = data.longitude ?? null;
     if (data.stateCode || data.state) {
-        form.tax_jurisdiction = buildTaxJurisdictionFromBilling();
+        syncTaxJurisdictionFromBilling();
     }
 };
 
@@ -245,12 +257,9 @@ const findTaxRateFromBillingAddress = async () => {
         window.alert('Add a billing state (or complete the billing address) before looking up tax rate.');
         return;
     }
-    const jurisdiction = buildTaxJurisdictionFromBilling();
-    if (jurisdiction) {
-        form.tax_jurisdiction = jurisdiction;
-    }
+    syncTaxJurisdictionFromBilling();
 
-    const rate = await fetchTaxRate({
+    const lookup = await fetchTaxRate({
         state,
         city: form.billing_city || undefined,
         postal_code: form.billing_postal || undefined,
@@ -259,15 +268,23 @@ const findTaxRateFromBillingAddress = async () => {
         latitude: form.billing_latitude ?? undefined,
         longitude: form.billing_longitude ?? undefined,
     });
-    if (rate !== null) {
-        form.tax_rate = rate;
-    }
+    applyTaxLookupToForm(form, lookup, {
+        state,
+        city: form.billing_city,
+        postal_code: form.billing_postal,
+        country: form.billing_country,
+    });
 };
 
-watch(() => form.billing_state, async (newState) => {
-    if (!newState) return;
-    await findTaxRateFromBillingAddress();
-});
+const findTaxRateFromLocation = async () => {
+    if (!form.location_id) {
+        window.alert('Select a location on this deal before looking up tax rate.');
+        return;
+    }
+
+    const lookup = await fetchTaxRateByLocation(form.location_id);
+    applyTaxLookupToForm(form, lookup);
+};
 
 watch(() => form.subsidiary_id, (newVal, oldVal) => {
     if (oldVal === undefined) return;
@@ -1209,7 +1226,7 @@ const handleCancel = () => emit('cancel');
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                     Tax
                                 </h3>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div class="space-y-4 max-w-md">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax rate (%)</label>
                                         <input
@@ -1238,25 +1255,46 @@ const handleCancel = () => emit('cancel');
                                             v-model="form.tax_jurisdiction"
                                             type="text"
                                             class="input-style"
-                                            placeholder="e.g. state or locality code"
+                                            placeholder="e.g. Fort Lauderdale, FL, 33316"
                                         />
                                         <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.tax_jurisdiction || '—' }}</p>
                                     </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Jurisdiction code</label>
+                                        <input
+                                            v-if="mode !== 'show'"
+                                            v-model="form.tax_jurisdiction_code"
+                                            type="text"
+                                            class="input-style"
+                                            placeholder="e.g. FL"
+                                            maxlength="32"
+                                        />
+                                        <p v-else class="text-sm text-gray-900 dark:text-white">{{ record?.tax_jurisdiction_code || '—' }}</p>
+                                    </div>
                                 </div>
-                                <div v-if="mode !== 'show'" class="mt-4">
+                                <div v-if="mode !== 'show'" class="mt-4 flex flex-wrap gap-2">
                                     <button
                                         type="button"
                                         class="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                                        :disabled="!form.billing_state?.trim() || isFetchingTaxRate"
+                                        :disabled="!form.billing_state?.trim() || isFetchingTaxRate || transactionTaxRateLocked"
                                         @click="findTaxRateFromBillingAddress"
                                     >
-                                        <span v-if="isFetchingTaxRate" class="inline-block size-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent dark:border-gray-500" aria-hidden="true" />
-                                        {{ isFetchingTaxRate ? 'Looking up…' : 'Find tax rate from billing address' }}
+                                        <span class="material-icons text-base">travel_explore</span>
+                                        From billing address
                                     </button>
-                                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                        Fills tax jurisdiction from the billing address above and sets the rate when a match is found.
-                                    </p>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        :disabled="!form.location_id || isFetchingTaxRate || transactionTaxRateLocked"
+                                        @click="findTaxRateFromLocation"
+                                    >
+                                        <span class="material-icons text-base">store</span>
+                                        From location
+                                    </button>
                                 </div>
+                                <p v-if="mode !== 'show'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Sets tax jurisdiction and looks up the sales tax rate from Stripe Tax.
+                                </p>
                             </div>
 
                             <!-- ─── Notes ────────────────────────────────────────────── -->

@@ -475,28 +475,44 @@ class GeneralController extends BaseController
             $location = \App\Domain\Location\Models\Location::find($locationId);
 
             if (! $location) {
-                return response()->json(['tax_rate' => null]);
+                return response()->json([
+                    'tax_rate' => null,
+                    'jurisdiction_code' => null,
+                    'jurisdiction_label' => null,
+                ]);
             }
 
-            $rate = $service->getTaxRate($location);
+            $lookup = $service->lookupByLocation($location);
 
-            return response()->json(['tax_rate' => $rate ? $rate * 100 : null]);
+            return response()->json([
+                'tax_rate' => $lookup['tax_rate'],
+                'jurisdiction_code' => $lookup['jurisdiction_code'],
+                'jurisdiction_label' => $lookup['jurisdiction_label'],
+            ]);
         }
 
         // ── Address-based lookup (estimates / any record with a billing address) ─
         $state = trim($request->get('state', ''));
         if (! $state) {
-            return response()->json(['tax_rate' => null]);
+            return response()->json([
+                'tax_rate' => null,
+                'jurisdiction_code' => null,
+                'jurisdiction_label' => null,
+            ]);
         }
 
-        $rate = $service->getTaxRateByAddress(
-            state: $state,
-            city: $request->get('city') ?: null,
-            postalCode: $request->get('postal_code') ?: null,
-            country: $request->get('country') ?: 'US',
-            line1: $request->get('line1') ?: '',
-        );
+        $lookup = $service->lookupByAddress([
+            'state' => $state,
+            'city' => $request->get('city') ?: '',
+            'postal_code' => $request->get('postal_code') ?: '',
+            'country' => $request->get('country') ?: 'US',
+            'line1' => $request->get('line1') ?: '',
+        ]);
 
-        return response()->json(['tax_rate' => $rate]);
+        return response()->json([
+            'tax_rate' => $lookup['tax_rate'],
+            'jurisdiction_code' => $lookup['jurisdiction_code'],
+            'jurisdiction_label' => $lookup['jurisdiction_label'],
+        ]);
     }
 }

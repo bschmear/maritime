@@ -55,6 +55,7 @@ class UpdateInvoice
             'fees_total' => ['nullable', 'numeric'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'tax_jurisdiction' => ['nullable', 'string', 'max:255'],
+            'tax_jurisdiction_code' => ['nullable', 'string', 'max:32'],
         ], InvoicePaymentFields::validationRules(), InvoiceBillingAddressRules::rules()), InvoiceBillingAddressRules::messages())
             ->validate();
 

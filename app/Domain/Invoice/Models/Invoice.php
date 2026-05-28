@@ -40,6 +40,7 @@ class Invoice extends Model
         'tax_total',
         'tax_rate',
         'tax_jurisdiction',
+        'tax_jurisdiction_code',
         'discount_total',
         'fees_total',
         'total',

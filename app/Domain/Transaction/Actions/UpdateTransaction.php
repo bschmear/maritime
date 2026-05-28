@@ -50,6 +50,7 @@ class UpdateTransaction
             'subtotal' => ['nullable', 'numeric'],
             'tax_rate' => ['nullable', 'numeric'],
             'tax_jurisdiction' => ['nullable', 'string', 'max:255'],
+            'tax_jurisdiction_code' => ['nullable', 'string', 'max:32'],
             'tax_total' => ['nullable', 'numeric'],
             'discount_total' => ['nullable', 'numeric'],
             'fees_total' => ['nullable', 'numeric'],

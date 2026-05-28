@@ -60,6 +60,7 @@ class BuildInvoicePrefillFromTransaction
             'currency' => Currency::toStoredValue($transaction->currency ?? 'USD') ?? 'USD',
             'tax_rate' => (float) ($transaction->tax_rate ?? 0),
             'tax_jurisdiction' => $transaction->tax_jurisdiction,
+            'tax_jurisdiction_code' => $transaction->tax_jurisdiction_code,
             'discount_total' => (float) ($transaction->discount_total ?? 0),
             'fees_total' => (float) ($transaction->fees_total ?? 0),
         ];

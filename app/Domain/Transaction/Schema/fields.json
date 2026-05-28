@@ -86,6 +86,7 @@
         "billing_longitude": { "label": "Billing longitude", "type": "number" },
         "tax_rate": { "label": "Tax rate (%)", "type": "number" },
         "tax_jurisdiction": { "label": "Tax jurisdiction", "type": "text" },
+        "tax_jurisdiction_code": { "label": "Jurisdiction code", "type": "text" },
         "discount_total": { "label": "Discount total", "type": "currency" },
         "fees_total": { "label": "Fees total", "type": "currency" },
         "title": {
