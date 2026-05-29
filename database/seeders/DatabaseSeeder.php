@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -19,12 +18,12 @@ class DatabaseSeeder extends Seeder
             $this->call(TenantDatabaseSeeder::class);
         } else {
             // Central database seeding
-            // User::factory(10)->create();
-
-            User::factory()->create([
-                'name' => 'Test User',
-                'email' => 'test@example.com',
+            $this->call([
+                FaqSeeder::class,
+                HelpDocumentationSeeder::class,
+                BlogTaxonomySeeder::class,
             ]);
+
         }
     }
 }
