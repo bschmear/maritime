@@ -2,7 +2,9 @@
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
+import TurnstileWidget from '@/Components/TurnstileWidget.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps({
     canResetPassword: {
@@ -15,13 +17,20 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    turnstileSiteKey: {
+        type: String,
+        default: null,
+    },
 });
+
+const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
 
 const form = useForm({
     email: props.invitation?.email || '',
     password: '',
     remember: false,
     invitation_token: props.invitation?.token || null,
+    turnstile_token: '',
 });
 
 const submit = () => {
@@ -157,12 +166,19 @@ const submit = () => {
                             </Link>
                         </div>
 
+                        <TurnstileWidget
+                            v-if="turnstileEnabled"
+                            v-model="form.turnstile_token"
+                            :site-key="turnstileSiteKey"
+                        />
+                        <InputError class="mt-2" :message="form.errors.turnstile_token" />
+
                         <!-- Submit Button -->
                         <div class="pt-2">
                             <button
                                 type="submit"
                                 class="w-full justify-center px-6 py-3 bg-primary-500 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                :disabled="form.processing"
+                                :disabled="form.processing || (turnstileEnabled && !form.turnstile_token)"
                             >
                                 Sign In
                             </button>

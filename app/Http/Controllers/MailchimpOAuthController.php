@@ -122,10 +122,11 @@ class MailchimpOAuthController extends Controller
                 Integration::query()->updateOrCreate(
                     [
                         'integration_type' => (string) IntegrationType::MailChimp->value,
-                        'external_id' => $externalId,
+                        ...Integration::attributesForExternalId($externalId),
                     ],
                     [
                         'user_id' => (int) $row->tenant_user_profile_id,
+                        'external_id' => $externalId,
                         'name' => IntegrationType::MailChimp->label(),
                         'access_token' => $data['access_token'],
                         'refresh_token' => $data['refresh_token'] ?? '',

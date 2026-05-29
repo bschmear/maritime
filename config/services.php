@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\MailchimpOAuthRedirect;
+
 return [
 
     /*
@@ -68,6 +70,15 @@ return [
         'scopes' => env('QUICKBOOKS_SCOPES', 'com.intuit.quickbooks.accounting'),
     ],
 
+    /*
+     * Cloudflare Turnstile (contact form and other public forms).
+     * When secret_key is empty, captcha is skipped (local dev).
+     */
+    'turnstile' => [
+        'site_key' => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+    ],
+
     'mailchimp' => [
         'client_id' => env('MAILCHIMP_CLIENT_ID'),
         'client_secret' => env('MAILCHIMP_CLIENT_SECRET'),
@@ -76,7 +87,7 @@ return [
          * Prefer MAILCHIMP_REDIRECT_URI=https://your-central-host/integrations/mailchimp/oauth/callback
          * so it matches Mailchimp even when APP_URL uses http by mistake.
          */
-        'redirect_uri' => \App\Support\MailchimpOAuthRedirect::canonical(),
+        'redirect_uri' => MailchimpOAuthRedirect::canonical(),
         'api_key' => env('MAILCHIMP_API_KEY'),
         'server_prefix' => env('MAILCHIMP_SERVER_PREFIX'),
     ],

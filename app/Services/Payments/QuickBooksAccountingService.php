@@ -8,6 +8,7 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Domain\Invoice\Models\Invoice;
+use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Enums\Integration\IntegrationType;
 use App\Enums\Payments\Terms;
 use Illuminate\Support\Facades\Http;
@@ -108,7 +109,6 @@ class QuickBooksAccountingService
                 (string) $contact->quickbooks_customer_id,
                 $itemId,
             );
-            $this->logInvoiceSyncPayload('create', $invoice, $integration, $payload);
             $response = $this->postEntity($integration, 'invoice', $payload);
             $qboInvoice = $response['Invoice'] ?? null;
 
@@ -239,18 +239,18 @@ class QuickBooksAccountingService
                 "{$this->oauth->accountingApiBaseUrl()}/v3/company/{$realmId}/invoice/{$qboInvoiceId}",
                 [
                     'minorversion' => 70,
-                    'include'      => 'invoiceLink',
+                    'include' => 'invoiceLink',
                 ],
             );
 
         if ($response->failed()) {
             $json = $response->json();
-            Log::warning('QuickBooks: failed to fetch public invoice link', [
+            Log::warning('QuickBooks: failed to fetch public invoice link', QuickBooksHttpSupport::withIntuitTid($response, [
                 'integration_id' => $integration->id,
                 'qbo_invoice_id' => $qboInvoiceId,
-                'status'         => $response->status(),
-                'fault'          => is_array($json) ? $this->faultMessage($json['Fault'] ?? []) : null,
-            ]);
+                'status' => $response->status(),
+                'fault' => is_array($json) ? $this->faultMessage($json['Fault'] ?? []) : null,
+            ]));
 
             return null;
         }
@@ -261,11 +261,11 @@ class QuickBooksAccountingService
         }
 
         if (! empty($json['Fault'])) {
-            Log::warning('QuickBooks: invoice link request returned fault', [
+            Log::warning('QuickBooks: invoice link request returned fault', QuickBooksHttpSupport::withIntuitTid($response, [
                 'integration_id' => $integration->id,
                 'qbo_invoice_id' => $qboInvoiceId,
-                'fault'          => $this->faultMessage($json['Fault']),
-            ]);
+                'fault' => $this->faultMessage($json['Fault']),
+            ]));
 
             return null;
         }
@@ -339,7 +339,6 @@ class QuickBooksAccountingService
             $payload['Id'] = $remote['Id'];
             $payload['SyncToken'] = $remote['SyncToken'];
 
-            $this->logInvoiceSyncPayload('update', $invoice, $integration, $payload);
             $this->postEntity($integration, 'invoice', $payload);
 
             $customerUrl = $this->resolveCustomerInvoiceUrl(
@@ -456,11 +455,11 @@ class QuickBooksAccountingService
             );
 
         if ($response->failed()) {
-            Log::error('QuickBooks invoice GET failed', [
+            Log::error('QuickBooks invoice GET failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'invoice_id' => $qboInvoiceId,
                 'status' => $response->status(),
                 'body' => $response->body(),
-            ]);
+            ]));
 
             return null;
         }
@@ -568,12 +567,12 @@ class QuickBooksAccountingService
             ->post($url, $payload);
 
         if ($response->failed()) {
-            Log::error('QuickBooks entity POST failed', [
+            Log::error('QuickBooks entity POST failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'entity' => $entity,
                 'operation' => $operation,
                 'status' => $response->status(),
                 'body' => $response->body(),
-            ]);
+            ]));
 
             $message = $this->extractErrorMessage($response->json()) ?: 'QuickBooks request failed (HTTP '.$response->status().').';
             throw new RuntimeException($message);
@@ -585,6 +584,12 @@ class QuickBooksAccountingService
         }
 
         if (! empty($json['Fault'])) {
+            Log::error('QuickBooks entity POST returned fault', QuickBooksHttpSupport::withIntuitTid($response, [
+                'entity' => $entity,
+                'operation' => $operation,
+                'fault' => $this->faultMessage($json['Fault']),
+            ]));
+
             throw new RuntimeException($this->faultMessage($json['Fault']) ?: 'QuickBooks returned a fault.');
         }
 
@@ -857,75 +862,13 @@ class QuickBooksAccountingService
         return null;
     }
 
-    protected function resolveLineTaxableFlag(\App\Domain\InvoiceItem\Models\InvoiceItem $item): ?bool
+    protected function resolveLineTaxableFlag(InvoiceItem $item): ?bool
     {
         if (! array_key_exists('taxable', $item->getAttributes())) {
             return null;
         }
 
         return filter_var($item->getAttributes()['taxable'], FILTER_VALIDATE_BOOLEAN);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    protected function logInvoiceSyncPayload(
-        string $operation,
-        Invoice $invoice,
-        Integration $integration,
-        array $payload,
-    ): void {
-        $lineTax = [];
-        foreach ($payload['Line'] ?? [] as $index => $line) {
-            if (! is_array($line) || ($line['DetailType'] ?? '') !== 'SalesItemLineDetail') {
-                continue;
-            }
-            $detail = $line['SalesItemLineDetail'] ?? [];
-            $lineTax[] = [
-                'line_index' => $index,
-                'amount' => $line['Amount'] ?? null,
-                'description' => mb_substr((string) ($line['Description'] ?? ''), 0, 120),
-                'tax_code_ref' => is_array($detail) ? ($detail['TaxCodeRef']['value'] ?? null) : null,
-            ];
-        }
-
-        $maritimeItems = $invoice->items
-            ->sortBy('position')
-            ->sortBy('id')
-            ->values()
-            ->map(fn ($item) => [
-                'id' => $item->id,
-                'name' => $item->name,
-                'taxable' => $item->getAttributes()['taxable'] ?? null,
-                'tax_rate' => $item->tax_rate,
-                'tax_amount' => $item->tax_amount,
-            ])
-            ->all();
-
-        Log::info('QuickBooks invoice sync payload (debug)', [
-            'operation' => $operation,
-            'invoice_id' => $invoice->id,
-            'invoice_sequence' => $invoice->sequence,
-            'qbo_invoice_id' => $payload['Id'] ?? null,
-            'integration_id' => $integration->id,
-            'realm_id' => $integration->external_id,
-            'automated_sales_tax' => $this->tax->usesAutomatedSalesTax($integration),
-            'maritime_tax' => [
-                'tax_total' => $invoice->tax_total,
-                'tax_rate' => $invoice->tax_rate,
-                'tax_jurisdiction' => $invoice->tax_jurisdiction,
-                'tax_jurisdiction_code' => $invoice->tax_jurisdiction_code,
-                'transaction_tax_rate' => $invoice->transaction?->tax_rate,
-                'transaction_tax_jurisdiction' => $invoice->transaction?->tax_jurisdiction,
-                'transaction_tax_jurisdiction_code' => $invoice->transaction?->tax_jurisdiction_code,
-            ],
-            'maritime_line_items' => $maritimeItems,
-            'qbo_line_tax_codes' => $lineTax,
-            'txn_tax_detail' => $payload['TxnTaxDetail'] ?? null,
-            'global_tax_calculation' => $payload['GlobalTaxCalculation'] ?? null,
-            'apply_tax_after_discount' => $payload['ApplyTaxAfterDiscount'] ?? null,
-            'payload_json' => json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
-        ]);
     }
 
     /**

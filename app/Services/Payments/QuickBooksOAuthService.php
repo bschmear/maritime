@@ -162,10 +162,11 @@ class QuickBooksOAuthService
         return Integration::query()->updateOrCreate(
             [
                 'integration_type' => (string) IntegrationType::QuickBooks->value,
-                'external_id' => $realmId,
+                ...Integration::attributesForExternalId($realmId),
             ],
             [
                 'user_id' => $userProfileId,
+                'external_id' => $realmId,
                 'name' => IntegrationType::QuickBooks->label(),
                 'access_token' => $tokens['access_token'],
                 'refresh_token' => $tokens['refresh_token'] ?? '',
@@ -230,10 +231,10 @@ class QuickBooksOAuthService
                 ]);
 
             if ($response->failed()) {
-                Log::warning('QuickBooks companyinfo fetch failed', [
+                Log::warning('QuickBooks companyinfo fetch failed', QuickBooksHttpSupport::withIntuitTid($response, [
                     'status' => $response->status(),
                     'body' => $response->body(),
-                ]);
+                ]));
 
                 return null;
             }
@@ -264,10 +265,10 @@ class QuickBooksOAuthService
                 ->post(self::REVOKE_URL, ['token' => $token]);
 
             if ($response->failed()) {
-                Log::warning('QuickBooks revoke returned non-success', [
+                Log::warning('QuickBooks revoke returned non-success', QuickBooksHttpSupport::withIntuitTid($response, [
                     'status' => $response->status(),
                     'body' => $response->body(),
-                ]);
+                ]));
             }
         } catch (\Throwable $e) {
             Log::warning('QuickBooks revoke threw', ['error' => $e->getMessage()]);
@@ -311,10 +312,10 @@ class QuickBooksOAuthService
             ]);
 
         if ($response->failed()) {
-            Log::error('QuickBooks accounting query failed', [
+            Log::error('QuickBooks accounting query failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'status' => $response->status(),
                 'body' => $response->body(),
-            ]);
+            ]));
 
             throw new RuntimeException('QuickBooks query failed (HTTP '.$response->status().').');
         }
@@ -342,10 +343,10 @@ class QuickBooksOAuthService
             ]);
 
         if ($response->failed()) {
-            Log::error('QuickBooks accounting query failed', [
+            Log::error('QuickBooks accounting query failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'status' => $response->status(),
                 'body' => $response->body(),
-            ]);
+            ]));
 
             throw new RuntimeException('QuickBooks query failed (HTTP '.$response->status().').');
         }
@@ -393,21 +394,21 @@ class QuickBooksOAuthService
     private function guardTokenResponse(Response $response, string $grantType): void
     {
         if ($response->failed()) {
-            Log::error('QuickBooks token request failed', [
+            Log::error('QuickBooks token request failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'grant_type' => $grantType,
                 'status' => $response->status(),
                 'body' => $response->body(),
-            ]);
+            ]));
 
             throw new RuntimeException('QuickBooks token request failed.');
         }
 
         $data = $response->json();
         if (! is_array($data) || empty($data['access_token']) || empty($data['refresh_token'])) {
-            Log::error('QuickBooks token response missing fields', [
+            Log::error('QuickBooks token response missing fields', QuickBooksHttpSupport::withIntuitTid($response, [
                 'grant_type' => $grantType,
                 'body' => $response->body(),
-            ]);
+            ]));
 
             throw new RuntimeException('QuickBooks token response was incomplete.');
         }

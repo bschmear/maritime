@@ -4,6 +4,7 @@ namespace App\Domain\Payment\Models;
 
 use App\Models\AccountSettings;
 use App\Models\PaymentAccount;
+use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,6 +26,7 @@ class PaymentConfiguration extends Model
         'stripe_secret_key_enc' => 'encrypted',
         'qbo_access_token_enc' => 'encrypted',
         'qbo_refresh_token_enc' => 'encrypted',
+        'qbo_realm_id' => 'encrypted',
     ];
 
     public function accountSettings(): BelongsTo
@@ -101,7 +103,7 @@ class PaymentConfiguration extends Model
     /**
      * Default QuickBooks Online configuration for the current tenant account settings row.
      * Creates the row (and pivot rows) when missing. Does not contact Intuit; OAuth state lives
-     * on the row after a successful connect via {@see \App\Services\Payments\QuickBooksOAuthService}.
+     * on the row after a successful connect via {@see QuickBooksOAuthService}.
      */
     public static function forQuickbooks(?AccountSettings $settings = null): self
     {

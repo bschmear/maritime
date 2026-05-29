@@ -7,6 +7,7 @@ namespace App\Services\Payments;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -56,7 +57,7 @@ class QuickBooksTaxService
         if ($realmId === '') {
             return false;
         }
-    
+
         return Cache::remember(
             $this->astCacheKey($integration->id, $realmId),
             now()->addDay(),
@@ -84,10 +85,10 @@ class QuickBooksTaxService
             );
 
         if ($response->failed()) {
-            Log::warning('QuickBooks preferences fetch failed', [
+            Log::warning('QuickBooks preferences fetch failed', QuickBooksHttpSupport::withIntuitTid($response, [
                 'integration_id' => $integration->id,
-                'status'         => $response->status(),
-            ]);
+                'status' => $response->status(),
+            ]));
 
             return false;
         }
@@ -240,9 +241,9 @@ class QuickBooksTaxService
         if ($taxCodeId === null) {
             Log::warning('QuickBooks manual tax: no matching TaxCode; invoice pushed without tax detail', [
                 'integration_id' => $integration->id,
-                'invoice_id'     => $invoice->id,
-                'tax_total'      => $taxTotal,
-                'tax_percent'    => $taxPercent,
+                'invoice_id' => $invoice->id,
+                'tax_total' => $taxTotal,
+                'tax_percent' => $taxPercent,
             ]);
 
             return $payload;
@@ -269,17 +270,17 @@ class QuickBooksTaxService
 
         $txnTaxDetail = [
             'TxnTaxCodeRef' => ['value' => $taxCodeId],
-            'TotalTax'      => $taxTotal,
+            'TotalTax' => $taxTotal,
         ];
 
         if ($taxRateId !== null && $taxableSubtotal > 0) {
             $txnTaxDetail['TaxLine'] = [[
-                'Amount'     => $taxTotal,
+                'Amount' => $taxTotal,
                 'DetailType' => 'TaxLineDetail',
                 'TaxLineDetail' => [
-                    'TaxRateRef'       => ['value' => $taxRateId],
-                    'PercentBased'     => true,
-                    'TaxPercent'       => $rateValue,
+                    'TaxRateRef' => ['value' => $taxRateId],
+                    'PercentBased' => true,
+                    'TaxPercent' => $rateValue,
                     'NetAmountTaxable' => $taxableSubtotal,
                 ],
             ]];
@@ -367,35 +368,35 @@ class QuickBooksTaxService
     protected function itemIsExplicitlyTaxable(InvoiceItem $item): bool
     {
         $attrs = $item->getAttributes();
-    
+
         if (! array_key_exists('taxable', $attrs)) {
             return false;
         }
-    
+
         if ($attrs['taxable'] === null) {
             return false;
         }
-    
+
         return filter_var($attrs['taxable'], FILTER_VALIDATE_BOOLEAN);
     }
 
     protected function itemIsExplicitlyNonTaxable(InvoiceItem $item): bool
     {
         $attrs = $item->getAttributes();
-    
+
         if (! array_key_exists('taxable', $attrs)) {
             return false;
         }
-    
+
         // null means unset — not explicitly non-taxable
         if ($attrs['taxable'] === null) {
             return false;
         }
-    
+
         return ! filter_var($attrs['taxable'], FILTER_VALIDATE_BOOLEAN);
     }
 
-    protected function orderedInvoiceItems(Invoice $invoice): \Illuminate\Support\Collection
+    protected function orderedInvoiceItems(Invoice $invoice): Collection
     {
         return $invoice->items
             ->sortBy('position')

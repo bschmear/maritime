@@ -1,14 +1,21 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import TurnstileWidget from '@/Components/TurnstileWidget.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
-defineProps({
+const props = defineProps({
     legalEmail: {
         type: String,
         required: true,
     },
+    turnstileSiteKey: {
+        type: String,
+        default: null,
+    },
 });
+
+const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
 
 const page = usePage();
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
@@ -39,6 +46,7 @@ const form = useForm({
     message: '',
     /** Honeypot — leave empty (bots often fill hidden “website” fields). */
     _company_website: '',
+    turnstile_token: '',
 });
 
 const locationOptions = [
@@ -344,11 +352,20 @@ function submit() {
                                         ></textarea>
                                     </div>
 
+                                    <TurnstileWidget
+                                        v-if="turnstileEnabled"
+                                        v-model="form.turnstile_token"
+                                        :site-key="turnstileSiteKey"
+                                    />
+                                    <p v-if="form.errors.turnstile_token" class="text-sm text-red-500">
+                                        {{ form.errors.turnstile_token }}
+                                    </p>
+
                                     <!-- Submit -->
                                     <div class="pt-2">
                                         <button
                                             type="submit"
-                                            :disabled="form.processing"
+                                            :disabled="form.processing || (turnstileEnabled && !form.turnstile_token)"
                                             class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-8 py-4 text-md font-semibold text-white shadow-sm transition hover:bg-primary-700 disabled:opacity-60"
                                         >
                                             <span

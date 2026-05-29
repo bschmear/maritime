@@ -5,33 +5,33 @@ namespace App\Http\Controllers;
 use App\Mail\ContactDemoRequest;
 use App\Models\Faq;
 use App\Support\PublicPageCache;
+use App\Support\Turnstile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
-
 // use App\Models\User;
 
-use Illuminate\Support\Facades\Cache;
+use Inertia\Inertia;
 
 class PageController extends Controller
 {
-
     public function __construct(Request $request)
     {
         $this->route = Route::currentRouteName();
-       
+
     }
 
     public function about()
     {
         $user = auth()->user();
+
         return Inertia::render('About', [
-            
+
         ]);
     }
 
@@ -99,6 +99,7 @@ class PageController extends Controller
 
         return Inertia::render('Contact', [
             'legalEmail' => config('app.legal_email'),
+            'turnstileSiteKey' => Turnstile::siteKey(),
         ]);
     }
 
@@ -122,9 +123,10 @@ class PageController extends Controller
             'locations' => ['required', 'string', Rule::in(['1', '2-5', '6-10', '10+'])],
             'message' => ['nullable', 'string', 'max:5000'],
             '_company_website' => ['nullable', 'string', 'max:0'],
+            ...Turnstile::validationRules(),
         ]);
 
-        $mailFields = Arr::except($validated, ['_company_website']);
+        $mailFields = Arr::except($validated, ['_company_website', 'turnstile_token']);
 
         $locationsLabel = match ($mailFields['locations']) {
             '1' => '1 location',
@@ -139,11 +141,11 @@ class PageController extends Controller
         Mail::to($to)->send(new ContactDemoRequest($mailFields, $locationsLabel));
 
         return redirect()->route('contact')
-        ->with('success', 'Thanks! We received your request and will be in touch soon.');
+            ->with('success', 'Thanks! We received your request and will be in touch soon.');
     }
 
     /**
-     * Honeypot + minimum time since GET /contact (no captcha).
+     * Honeypot + minimum time since GET /contact. Turnstile when configured.
      */
     protected function contactSubmissionLooksAutomated(Request $request): bool
     {
@@ -189,17 +191,16 @@ class PageController extends Controller
             'legalEmail' => config('app.legal_email'),
         ]);
 
-
     }
 
     public function privacy()
     {
         $user = auth()->user();
+
         return Inertia::render('Privacy', [
             'legalEmail' => config('app.legal_email'),
         ]);
     }
-
 
     // public function googlecal()
     // {
@@ -218,6 +219,5 @@ class PageController extends Controller
     //     $user = auth()->user();
     //     return view('landingpages.integrations.mailchimp',compact(['user']));
     // }
-
 
 }
