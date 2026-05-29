@@ -29,6 +29,9 @@
         "setasign/fpdi": "^2.6",
         "spatie/pdf-to-image": "^1.2",
         "stancl/tenancy": "^3.9",
+        "symfony/http-client": "^8.0",
+        "symfony/mailgun-mailer": "^8.0",
+        "symfony/postmark-mailer": "^8.0",
         "tightenco/ziggy": "^2.0",
         "twilio/sdk": "*"
     },
