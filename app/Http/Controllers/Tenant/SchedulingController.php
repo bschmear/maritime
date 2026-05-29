@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Tenant;
 
-use App\Domain\Delivery\Models\Delivery;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\WorkOrder\Status as WorkOrderStatus;
@@ -37,11 +36,10 @@ class SchedulingController extends Controller
         $rangeStart = now()->startOfWeek()->subWeeks(self::RANGE_WEEKS_PAST)->startOfDay();
         $rangeEnd = now()->startOfWeek()->addWeeks(self::RANGE_WEEKS_FUTURE)->endOfDay();
 
-        $workOrderRows = collect();
-        $deliveryRows = collect();
+        $workOrders = [];
 
         if ($techIds !== []) {
-            $workOrderRows = WorkOrder::query()
+            $workOrders = WorkOrder::query()
                 ->whereIn('assigned_user_id', $techIds)
                 ->where(function ($q) {
                     $q->whereNotNull('scheduled_start_at')
@@ -54,20 +52,9 @@ class SchedulingController extends Controller
                 ->get()
                 ->map(fn (WorkOrder $wo) => $this->mapWorkOrderRow($wo))
                 ->filter()
-                ->values();
-
-            $deliveryRows = Delivery::query()
-                ->whereIn('technician_id', $techIds)
-                ->whereNotNull('scheduled_at')
-                ->whereBetween('scheduled_at', [$rangeStart, $rangeEnd])
-                ->with('customer')
-                ->get()
-                ->map(fn (Delivery $d) => $this->mapDeliveryRow($d))
-                ->filter()
-                ->values();
+                ->values()
+                ->all();
         }
-
-        $workOrders = $workOrderRows->concat($deliveryRows)->values()->all();
 
         $locationNames = $technicians
             ->pluck('location')
@@ -115,7 +102,7 @@ class SchedulingController extends Controller
     public function updateItem(Request $request)
     {
         $data = $request->validate([
-            'record_type' => 'required|in:work_order,delivery',
+            'record_type' => 'required|in:work_order',
             'record_id' => 'required|integer|min:1',
             'technician_id' => 'required|integer',
             'scheduled_at' => 'required|date',
@@ -131,35 +118,18 @@ class SchedulingController extends Controller
         $tz = config('app.timezone');
         $scheduledAt = Carbon::parse($data['scheduled_at'], $tz)->timezone($tz);
 
-        if ($data['record_type'] === 'work_order') {
-            $wo = WorkOrder::query()->findOrFail($data['record_id']);
+        $wo = WorkOrder::query()->findOrFail($data['record_id']);
 
-            if ($wo->scheduled_start_at && $wo->scheduled_end_at) {
-                $delta = $scheduledAt->getTimestamp() - $wo->scheduled_start_at->getTimestamp();
-                $wo->scheduled_end_at = $wo->scheduled_end_at->copy()->addSeconds($delta);
-            }
-
-            $wo->scheduled_start_at = $scheduledAt;
-            $wo->assigned_user_id = $data['technician_id'];
-            $wo->save();
-
-            $mapped = $this->mapWorkOrderRow($wo->fresh());
-        } else {
-            $delivery = Delivery::query()->findOrFail($data['record_id']);
-            $oldScheduled = $delivery->scheduled_at?->copy();
-
-            $delivery->scheduled_at = $scheduledAt;
-            $delivery->technician_id = $data['technician_id'];
-
-            if ($oldScheduled && $delivery->estimated_arrival_at) {
-                $delta = $scheduledAt->getTimestamp() - $oldScheduled->getTimestamp();
-                $delivery->estimated_arrival_at = $delivery->estimated_arrival_at->copy()->addSeconds($delta);
-            }
-
-            $delivery->save();
-
-            $mapped = $this->mapDeliveryRow($delivery->fresh(['customer']));
+        if ($wo->scheduled_start_at && $wo->scheduled_end_at) {
+            $delta = $scheduledAt->getTimestamp() - $wo->scheduled_start_at->getTimestamp();
+            $wo->scheduled_end_at = $wo->scheduled_end_at->copy()->addSeconds($delta);
         }
+
+        $wo->scheduled_start_at = $scheduledAt;
+        $wo->assigned_user_id = $data['technician_id'];
+        $wo->save();
+
+        $mapped = $this->mapWorkOrderRow($wo->fresh());
 
         if ($mapped === null) {
             return response()->json([
@@ -247,41 +217,6 @@ class SchedulingController extends Controller
             'technician_id' => (int) $wo->assigned_user_id,
             'start_date' => $start->format('Y-m-d'),
             'scheduled_at_local' => $this->formatScheduleLocal($start),
-            'status' => $status,
-            'planned_hours' => $plannedHours,
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function mapDeliveryRow(Delivery $d): ?array
-    {
-        if (! $d->technician_id || ! $d->scheduled_at) {
-            return null;
-        }
-
-        $plannedHours = 2.0;
-        if ($d->scheduled_at && $d->estimated_arrival_at) {
-            $mins = $d->scheduled_at->diffInMinutes($d->estimated_arrival_at);
-            if ($mins > 0) {
-                $plannedHours = max(0.25, round($mins / 60, 2));
-            }
-        }
-
-        $status = is_string($d->status) ? $d->status : (string) $d->status;
-        $customer = $d->customer?->display_name;
-        $title = trim($d->display_name.($customer ? ' · '.$customer : ''));
-
-        return [
-            'id' => 'dlv-'.$d->id,
-            'record_id' => $d->id,
-            'record_type' => 'delivery',
-            'title' => $title ?: $d->display_name,
-            'type' => 'delivery',
-            'technician_id' => (int) $d->technician_id,
-            'start_date' => $d->scheduled_at->format('Y-m-d'),
-            'scheduled_at_local' => $this->formatScheduleLocal($d->scheduled_at),
             'status' => $status,
             'planned_hours' => $plannedHours,
         ];

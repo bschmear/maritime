@@ -144,8 +144,15 @@ const secondaryNavItems = ref([
     {
         name: 'Operations',
         children: [
-            { name: 'Service Tickets', href: 'servicetickets.index' },
-            { name: 'Work Orders', href: 'workorders.index' },
+            {
+                name: 'Service Yard',
+                children: [
+                    { name: 'Overview', href: 'serviceyard.index' },
+                    { name: 'Service Tickets', href: 'servicetickets.index' },
+                    { name: 'Work Orders', href: 'workorders.index' },
+                    { name: 'Scheduler', href: 'serviceyard.scheduling' },
+                ],
+            },
             { name: 'Warranty claims', href: 'warrantyclaims.index' },
             {
                 name: 'Deliveries',

@@ -62,6 +62,7 @@ class DeliveryController extends RecordController
         $defaultStatuses = ['scheduled', 'en_route', 'rescheduled'];
 
         $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
+        $tz = $this->deliveryIndexTimezone();
 
         $deliveryIndexWith = [
             'customer',
@@ -73,32 +74,45 @@ class DeliveryController extends RecordController
         ];
 
         $calendarMonthParam = $request->input('calendar_month');
-        $monthStart = now()->copy()->startOfMonth();
+        $monthStart = now($tz)->copy()->startOfMonth();
         if (is_string($calendarMonthParam) && preg_match('/^\d{4}-\d{2}$/', $calendarMonthParam)) {
             try {
-                $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $calendarMonthParam, config('app.timezone'))->startOfMonth();
+                $monthStart = Carbon::createFromFormat('Y-m', $calendarMonthParam, $tz)->startOfMonth();
             } catch (\Throwable) {
-                $monthStart = now()->copy()->startOfMonth();
+                $monthStart = now($tz)->copy()->startOfMonth();
             }
         }
-        $monthEnd = $monthStart->copy()->endOfMonth();
+        [$monthRangeStartUtc, $monthRangeEndUtc] = $this->localCalendarMonthUtcRange($monthStart, $tz);
 
-        $scheduleDay = now()->copy()->startOfDay();
+        $scheduleDay = now($tz)->copy()->startOfDay();
         $scheduleDateParam = $request->input('schedule_date');
         if (is_string($scheduleDateParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $scheduleDateParam)) {
             try {
-                $scheduleDay = Carbon::createFromFormat('Y-m-d', $scheduleDateParam, config('app.timezone'))->startOfDay();
+                $scheduleDay = Carbon::createFromFormat('Y-m-d', $scheduleDateParam, $tz)->startOfDay();
             } catch (\Throwable) {
-                $scheduleDay = now()->copy()->startOfDay();
+                $scheduleDay = now($tz)->copy()->startOfDay();
             }
         }
+        $scheduleYmd = $scheduleDay->format('Y-m-d');
+        [$scheduleDayStartUtc, $scheduleDayEndUtc] = $this->localCalendarDayUtcRange($scheduleDay, $tz);
 
         $calendarMonthQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($calendarMonthQuery, $request);
         $calendarMonthDeliveries = $calendarMonthQuery
-            ->whereBetween('scheduled_at', [$monthStart->copy()->startOfDay(), $monthEnd->copy()->endOfDay()])
+            ->where('scheduled_at', '>=', $monthRangeStartUtc)
+            ->where('scheduled_at', '<', $monthRangeEndUtc)
             ->orderBy('scheduled_at')
-            ->get();
+            ->get()
+            ->filter(static function (RecordModel $d) use ($tz, $monthStart): bool {
+                if (! $d->scheduled_at) {
+                    return false;
+                }
+                $local = $d->scheduled_at->copy()->timezone($tz);
+
+                return $local->year === (int) $monthStart->year
+                    && $local->month === (int) $monthStart->month;
+            })
+            ->values();
 
         $query = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($query, $request);
@@ -117,9 +131,18 @@ class DeliveryController extends RecordController
         $todayQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($todayQuery, $request);
         $todayDeliveries = $todayQuery
-            ->whereDate('scheduled_at', $scheduleDay)
+            ->where('scheduled_at', '>=', $scheduleDayStartUtc)
+            ->where('scheduled_at', '<', $scheduleDayEndUtc)
             ->orderBy('scheduled_at')
-            ->get();
+            ->get()
+            ->filter(static function (RecordModel $d) use ($tz, $scheduleYmd): bool {
+                if (! $d->scheduled_at) {
+                    return false;
+                }
+
+                return $d->scheduled_at->copy()->timezone($tz)->format('Y-m-d') === $scheduleYmd;
+            })
+            ->values();
 
         $upcomingQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($upcomingQuery, $request);
@@ -176,6 +199,41 @@ class DeliveryController extends RecordController
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
             'enumOptions' => $this->getEnumOptions(),
         ]);
+    }
+
+    private function deliveryIndexTimezone(): string
+    {
+        $account = AccountSettings::getCurrent();
+
+        return ($account?->timezone) ?: (string) config('app.timezone');
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon} UTC instants [start inclusive, end exclusive)
+     */
+    private function localCalendarDayUtcRange(Carbon $localDay, string $tz): array
+    {
+        $dayStart = $localDay->copy()->timezone($tz)->startOfDay();
+        $dayEndExclusive = $dayStart->copy()->addDay();
+
+        return [
+            $dayStart->copy()->timezone('UTC'),
+            $dayEndExclusive->copy()->timezone('UTC'),
+        ];
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon} UTC instants covering the full local calendar month
+     */
+    private function localCalendarMonthUtcRange(Carbon $monthStart, string $tz): array
+    {
+        $start = $monthStart->copy()->timezone($tz)->startOfMonth()->startOfDay();
+        $endExclusive = $start->copy()->addMonth();
+
+        return [
+            $start->copy()->timezone('UTC'),
+            $endExclusive->copy()->timezone('UTC'),
+        ];
     }
 
     /**

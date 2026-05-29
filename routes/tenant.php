@@ -57,6 +57,7 @@ use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SchedulingController;
+use App\Http\Controllers\Tenant\ServiceYardController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
@@ -376,10 +377,15 @@ Route::middleware([
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
+        Route::prefix('serviceyard')->name('serviceyard.')->group(function () {
+            Route::get('/', [ServiceYardController::class, 'index'])->name('index');
+            Route::get('/scheduling', [SchedulingController::class, 'index'])->name('scheduling');
+        });
+
         Route::prefix('scheduling')->name('scheduling.')->group(function () {
             Route::post('update-item', [SchedulingController::class, 'updateItem'])->name('update-item');
             Route::post('defaults', [SchedulingController::class, 'updateDefaults'])->name('update-defaults');
-            Route::resource('/', SchedulingController::class)->parameters(['' => 'scheduling']);
+            Route::get('/', fn () => redirect()->route('serviceyard.scheduling', request()->query()))->name('index');
         });
 
         // ── Common Delivery Locations ─────────────────────────────────

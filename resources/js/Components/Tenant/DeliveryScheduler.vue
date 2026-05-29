@@ -2,7 +2,7 @@
     <div
         class="min-w-[700px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 font-sans text-gray-900 dark:border-gray-600 dark:bg-gray-900/40 dark:text-gray-100"
     >
-        <!-- Header: light = gray panel + dark text; dark = navy + light text -->
+        <!-- Header -->
         <div
             class="flex items-center justify-between border-b border-gray-200 bg-gray-100 px-5 py-4 text-gray-800 dark:border-white/5 dark:bg-[#1a1a2e] dark:text-white"
         >
@@ -24,6 +24,11 @@
                 >
                     →
                 </button>
+                <ScheduleDayPicker
+                    v-model="viewingDateYmd"
+                    :timezone="accountTimezone"
+                    aria-label="Jump to date"
+                />
             </div>
             <div
                 class="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-md text-gray-600 dark:text-white/70"
@@ -105,7 +110,7 @@
             </div>
         </div>
 
-        <!-- Grid: horizontal scroll on timeline only; name column stays fixed (sticky) -->
+        <!-- Grid -->
         <div class="overflow-x-auto overflow-y-visible">
             <!-- Time axis -->
             <div
@@ -125,14 +130,12 @@
                         class="pointer-events-none absolute inset-y-0 right-0 z-0 bg-gray-300/55 dark:bg-gray-950/40"
                         :style="{ width: grayOverlayRightPct + '%' }"
                     />
-                    <!-- Hour ticks for alignment with rows below -->
                     <div
                         v-for="m in gridLineMinutes"
                         :key="'haxis-line-' + m"
                         class="pointer-events-none absolute top-0 bottom-0 z-[1] w-px bg-gray-300 dark:bg-gray-600"
                         :style="{ left: minuteToViewPercent(m) + '%' }"
                     />
-                    <!-- One label per 1h cell, centered in that cell (not on the boundary lines) -->
                     <div
                         v-for="slot in hourLabelSlots"
                         :key="'hlabel-' + slot.h"
@@ -164,10 +167,11 @@
                 <div
                     class="flex w-full min-w-[1200px] h-20 min-h-[80px] items-stretch border-b border-gray-200 transition-colors dark:border-gray-600"
                     :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : ''"
-                    @dragover.prevent="onDragOver(tech.id)"
+                    @dragover.prevent="onDragOver(tech.id, $event)"
                     @dragleave="onDragLeave"
                     @drop="onDrop(tech.id)"
                 >
+                    <!-- Name column -->
                     <div
                         class="sticky left-0 z-20 flex w-48 min-w-48 shrink-0 flex-col justify-center gap-0.5 self-stretch border-r border-gray-200 bg-white px-3 py-2 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] dark:border-gray-600"
                         :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/30' : 'dark:bg-gray-800'"
@@ -187,12 +191,12 @@
                         </p>
                     </div>
 
+                    <!-- Timeline area -->
                     <div
-                        class="relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible"
-                        :class="
-                            dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/50' : 'bg-white dark:bg-gray-900/35'
-                        "
+                        class="timeline-row relative h-20 min-h-[80px] min-w-0 flex-1 overflow-visible"
+                        :class="dragOverTech === tech.id ? 'bg-primary-50 dark:bg-primary-950/50' : 'bg-white dark:bg-gray-900/35'"
                     >
+                        <!-- Gray shading overlays -->
                         <div
                             v-if="grayOverlayLeftPct > 0"
                             class="pointer-events-none absolute inset-y-0 left-0 z-0 bg-gray-200/70 dark:bg-gray-950/45"
@@ -203,6 +207,7 @@
                             class="pointer-events-none absolute inset-y-0 right-0 z-0 bg-gray-200/70 dark:bg-gray-950/45"
                             :style="{ width: grayOverlayRightPct + '%' }"
                         />
+                        <!-- Grid lines -->
                         <div
                             v-for="m in gridLineMinutes"
                             :key="'line-' + m + '-' + tech.id"
@@ -211,7 +216,7 @@
                         />
 
                         <template v-for="delivery in deliveriesForTech(tech.id)" :key="deliveryKey(tech.id, delivery)">
-                            <!-- Outbound travel (clipped when leg starts before the timeline window) -->
+                            <!-- Outbound travel bar -->
                             <div
                                 class="travel-line travel-line--to z-[2]"
                                 :style="travelToStyle(delivery)"
@@ -225,24 +230,64 @@
                                 <span class="material-icons travel-line-label__icon" aria-hidden="true">directions_car</span>
                                 <span class="travel-line-label__time">{{ travelOutboundMinsDisplayed(delivery) }} min</span>
                             </div>
-                            <!-- At-location / drop-off block -->
+
+                            <!-- At-location block with resize handles -->
                             <div
-                                class="absolute top-1/2 z-[2] flex h-14 min-w-0.5 -translate-y-1/2 cursor-grab flex-col justify-center overflow-hidden rounded-md bg-blue-500 px-2 text-white shadow-md shadow-blue-500/35 transition hover:brightness-110 active:scale-[0.99] active:cursor-grabbing"
+                                class="delivery-block absolute top-1/2 z-[3] flex h-14 min-w-0.5 -translate-y-1/2 flex-col justify-center overflow-visible rounded-md bg-blue-500 text-white shadow-md shadow-blue-500/35 select-none transition-[filter] hover:brightness-110"
+                                :class="[
+                                    resizeState?.delivery === delivery ? 'cursor-ew-resize brightness-110' : 'cursor-grab active:cursor-grabbing',
+                                    dragPayload === delivery ? 'opacity-40' : 'opacity-100'
+                                ]"
                                 :style="deliveryBlockStyle(delivery)"
                                 :title="`${delivery.display_name} — ${delivery.customer_name}\n${delivery.start_location} → ${delivery.end_location}\nScheduled: ${formatTime(delivery.scheduled_at)}`"
                                 draggable="true"
-                                @dragstart="onDragStart(delivery, tech.id)"
+                                @dragstart="onDragStart(delivery, tech.id, $event)"
                                 @dragend="onDragEnd"
-                                @click="selectedDelivery = delivery"
+                                @click.stop="selectedDelivery = delivery"
                             >
-                                <span class="truncate text-sm font-bold leading-tight text-white">
+                                <!-- Left resize grip -->
+                                <div
+                                    class="resize-handle resize-handle--left"
+                                    @mousedown.stop.prevent="startResize(delivery, 'left', $event)"
+                                >
+                                    <span class="resize-grip-bar" />
+                                    <span class="resize-grip-bar" />
+                                </div>
+
+                                <span class="truncate px-3 text-sm font-bold leading-tight text-white">
                                     {{ delivery.display_name }}
                                 </span>
-                                <span class="truncate text-[11px] text-white/90">
+                                <span class="truncate px-3 text-[11px] text-white/90">
                                     {{ delivery.customer_name }}
                                 </span>
+
+                                <!-- Right resize grip -->
+                                <div
+                                    class="resize-handle resize-handle--right"
+                                    @mousedown.stop.prevent="startResize(delivery, 'right', $event)"
+                                >
+                                    <span class="resize-grip-bar" />
+                                    <span class="resize-grip-bar" />
+                                </div>
                             </div>
-                            <!-- Return travel (clipped when leg runs past the timeline window) -->
+
+                            <!-- Resize preview bubble -->
+                            <div
+                                v-if="resizeState?.delivery === delivery"
+                                class="pointer-events-none absolute z-[20] whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-semibold text-white shadow-lg"
+                                :class="resizeState.blocked ? 'bg-red-600' : 'bg-gray-900 dark:bg-gray-700'"
+                                :style="resizeTooltipStyle(delivery)"
+                            >
+                                <template v-if="resizeState.blocked">Overlaps another delivery</template>
+                                <template v-else-if="resizeState.edge === 'left'">
+                                    Arrive {{ formatTime(delivery.scheduled_at) }}
+                                </template>
+                                <template v-else>
+                                    {{ delivery.delivery_duration_minutes || 15 }} min on site
+                                </template>
+                            </div>
+
+                            <!-- Return travel label -->
                             <div
                                 v-if="travelReturnMins(delivery) > 0"
                                 class="travel-line-label travel-line-label--above-back pointer-events-none"
@@ -251,15 +296,46 @@
                                 <span class="material-icons travel-line-label__icon" aria-hidden="true">directions_car</span>
                                 <span class="travel-line-label__time">{{ travelReturnMins(delivery) }} min</span>
                             </div>
+                            <!-- Return travel bar -->
                             <div
                                 class="travel-line travel-line--back z-[2]"
                                 :style="travelBackStyle(delivery)"
                                 :title="`Return from ${delivery.end_location}: ${travelReturnMins(delivery)} min`"
                             />
                         </template>
+
+                        <!-- Drag ghost: shown in the row being dragged over -->
+                        <div
+                            v-if="dragOverTech === tech.id && dragPayload && dragGhostStyle"
+                            class="pointer-events-none absolute top-1/2 z-[10] flex h-14 -translate-y-1/2 items-center justify-center overflow-visible rounded-md border-2 px-2 backdrop-blur-[2px]"
+                            :class="dragDropBlocked
+                                ? 'border-red-500 bg-red-400/30'
+                                : 'border-blue-400 bg-blue-400/25'"
+                            :style="dragGhostStyle"
+                        >
+                            <div
+                                v-if="dragTargetArrivalMidnightMin != null"
+                                class="absolute bottom-full left-1/2 z-[11] mb-1 -translate-x-1/2 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-semibold text-white shadow-lg"
+                                :class="dragDropBlocked ? 'bg-red-600' : 'bg-gray-900 dark:bg-gray-700'"
+                            >
+                                <template v-if="dragDropBlocked">Overlaps another delivery</template>
+                                <template v-else>Arrive {{ formatArrivalPreviewFromMidnightMinutes(dragTargetArrivalMidnightMin) }}</template>
+                            </div>
+                            <div class="flex flex-col items-start gap-0.5 w-full overflow-hidden">
+                                <span class="truncate text-sm font-bold text-blue-700 dark:text-blue-200">
+                                    {{ dragPayload.display_name }}
+                                </span>
+                                <span class="truncate text-[11px] text-blue-600/80 dark:text-blue-300/80">
+                                    {{ dragPayload.customer_name }}
+                                </span>
+                            </div>
+                            <!-- Dashed border animated shimmer -->
+                            <div class="ghost-shimmer" />
+                        </div>
                     </div>
                 </div>
             </template>
+
             <div
                 v-if="!technicians.length && !scheduleLoading"
                 class="flex min-h-[120px] w-full items-center justify-center border-b border-gray-200 bg-white px-6 py-10 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-900/30 dark:text-gray-300"
@@ -383,8 +459,9 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import ScheduleDayPicker from '@/Components/Tenant/ScheduleDayPicker.vue';
 import { useTimezone } from '@/composables/useTimezone';
 
 dayjs.extend(utc);
@@ -396,76 +473,139 @@ const props = defineProps({
 
 const { accountTimezone } = useTimezone();
 
-/** UTC / ISO from server → `datetime-local` string in account TZ (same as DeliveryForm). */
+// ---------------------------------------------------------------------------
+// Timezone helpers
+// ---------------------------------------------------------------------------
+
 function serverUtcToAccountDatetimeLocal(value) {
-    if (!value) {
-        return '';
-    }
+    if (!value) return '';
     const m = dayjs(value);
-    if (!m.isValid()) {
-        return '';
-    }
+    if (!m.isValid()) return '';
     return m.tz(accountTimezone.value).format('YYYY-MM-DDTHH:mm');
 }
 
-/** `datetime-local` wall clock in account TZ → UTC ISO for the API. */
 function accountDatetimeLocalToUtcIso(localStr) {
-    if (!localStr || !String(localStr).trim()) {
-        return null;
-    }
+    if (!localStr || !String(localStr).trim()) return null;
     const m = dayjs.tz(String(localStr).trim(), 'YYYY-MM-DDTHH:mm', accountTimezone.value);
-    if (!m.isValid()) {
-        return null;
-    }
+    if (!m.isValid()) return null;
     return m.utc().toISOString();
 }
 
-/** First hour on the axis (0 = midnight). `block_start_minutes` from the API is minutes from midnight on the board date. */
+// ---------------------------------------------------------------------------
+// Timeline window preferences
+// ---------------------------------------------------------------------------
+
 const dayStartHour = ref(6);
-/** Exclusive end hour (20 = axis ends at 8:00 PM tick; 24 = full calendar day). */
 const dayEndHour = ref(20);
 
 function formatHour(h) {
-    if (h === 0) {
-        return '12 AM';
-    }
-    if (h === 12) {
-        return '12 PM';
-    }
-    if (h === 24) {
-        return 'Midnight';
-    }
+    if (h === 0) return '12 AM';
+    if (h === 12) return '12 PM';
+    if (h === 24) return 'Midnight';
     return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
-/** Calendar day (Y-m-d) in account timezone — matches schedule-board `date` filter. */
+function nudgeStartHour(delta) {
+    const next = dayStartHour.value + delta;
+    if (next < 0 || next > dayEndHour.value - 1) return;
+    dayStartHour.value = next;
+}
+
+function nudgeEndHour(delta) {
+    const next = dayEndHour.value + delta;
+    if (next < dayStartHour.value + 1 || next > 24) return;
+    dayEndHour.value = next;
+}
+
+watch(dayStartHour, (v) => {
+    if (dayEndHour.value <= v) dayEndHour.value = Math.min(24, v + 1);
+});
+watch(dayEndHour, (v) => {
+    if (v <= dayStartHour.value) dayStartHour.value = Math.max(0, v - 1);
+});
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
 const viewingDateYmd = ref(dayjs().tz(accountTimezone.value).format('YYYY-MM-DD'));
 const selectedDelivery = ref(null);
 const detailScheduledLocal = ref('');
 const detailTimeSaving = ref(false);
 const detailTimeError = ref(null);
+const scheduleLoading = ref(false);
+const scheduleError = ref(null);
+const technicians = ref([]);
+const deliveries = ref({});
+
+// Drag-to-reassign state
 const dragPayload = ref(null);
 const dragSourceTech = ref(null);
 const dragOverTech = ref(null);
-const scheduleLoading = ref(false);
-const scheduleError = ref(null);
+const dragGhostStyle = ref(null);
+/** Minutes from midnight on viewingDateYmd (account TZ) for the drag ghost's arrival edge. */
+const dragTargetArrivalMidnightMin = ref(null);
+const dragDropBlocked = ref(false);
+
+// Resize state
+const resizeState = ref(null); // { delivery, edge, startX, startDurMin, startArrivalMin, rowEl }
+
+const RESIZE_SNAP_MIN = 15;
+
+function snapDurationMinutes(m) {
+    return Math.max(RESIZE_SNAP_MIN, Math.round(m / RESIZE_SNAP_MIN) * RESIZE_SNAP_MIN);
+}
+
+function snapArrivalMinutes(m) {
+    return Math.max(0, Math.round(m / RESIZE_SNAP_MIN) * RESIZE_SNAP_MIN);
+}
+
+function arrivalLocalDatetimeFromMidnightMinutes(minutesFromMidnight) {
+    return dayjs.tz(viewingDateYmd.value, 'YYYY-MM-DD', accountTimezone.value)
+        .startOf('day')
+        .add(minutesFromMidnight, 'minute')
+        .format('YYYY-MM-DDTHH:mm');
+}
+
+function setDeliveryArrivalMinutes(delivery, minutesFromMidnight) {
+    const snapped = snapArrivalMinutes(minutesFromMidnight);
+    delivery.block_start_minutes = snapped;
+    const localStr = arrivalLocalDatetimeFromMidnightMinutes(snapped);
+    const iso = accountDatetimeLocalToUtcIso(localStr);
+    if (iso) {
+        delivery.scheduled_at = iso;
+    }
+}
+
+function formatArrivalPreviewFromMidnightMinutes(minutesFromMidnight) {
+    const iso = accountDatetimeLocalToUtcIso(arrivalLocalDatetimeFromMidnightMinutes(minutesFromMidnight));
+    return iso ? formatTime(iso) : '—';
+}
+
+function scheduledAtIsoFromMidnightMinutes(minutesFromMidnight) {
+    return accountDatetimeLocalToUtcIso(arrivalLocalDatetimeFromMidnightMinutes(snapArrivalMinutes(minutesFromMidnight)));
+}
+
+async function patchDelivery(id, payload) {
+    await axios.put(route('deliveries.update', id), payload, {
+        headers: { Accept: 'application/json', 'X-Modal-Request': 'true' },
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Data helpers
+// ---------------------------------------------------------------------------
 
 function parseDate(str) {
-    if (!str) {
-        return new Date(NaN);
-    }
+    if (!str) return new Date(NaN);
     const s = String(str);
-    if (s.includes('T') || s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) {
-        return new Date(s);
-    }
+    if (s.includes('T') || s.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(s)) return new Date(s);
     return new Date(s.replace(' ', 'T'));
 }
 
 function minutesFromMidnight(dateStr) {
     const d = parseDate(dateStr);
-    if (isNaN(d.getTime())) {
-        return 0;
-    }
+    if (isNaN(d.getTime())) return 0;
     return d.getHours() * 60 + d.getMinutes();
 }
 
@@ -475,40 +615,65 @@ function travelMins(delivery) {
 
 function travelReturnMins(delivery) {
     const r = delivery.estimated_return_travel_duration_seconds;
-    if (r != null && Number(r) > 0) {
-        return Math.max(0, Math.round(Number(r) / 60));
-    }
-
+    if (r != null && Number(r) > 0) return Math.max(0, Math.round(Number(r) / 60));
     return travelMins(delivery);
 }
 
-/** Minutes from midnight on the board date (same basis as API `block_start_minutes`). */
 function blockStartMinutesMidnight(delivery) {
     const raw = delivery?.block_start_minutes;
-    if (raw != null && Number.isFinite(Number(raw))) {
-        return Number(raw);
-    }
+    if (raw != null && Number.isFinite(Number(raw))) return Number(raw);
     return minutesFromMidnight(delivery.scheduled_at);
 }
 
-/** Absolute-minute departure (outbound start), before subtracting view origin. */
-function outboundDepartureAbsoluteMinutes(delivery) {
-    const A = blockStartMinutesMidnight(delivery);
+function outboundDepartureAbsoluteMinutes(delivery, arrivalMidnightMin = null) {
+    const A = arrivalMidnightMin != null
+        ? snapArrivalMinutes(arrivalMidnightMin)
+        : blockStartMinutesMidnight(delivery);
     const T = travelMins(delivery);
     let D = A - T;
     const rawLeave = delivery?.leave_by_minutes;
     if (rawLeave != null && Number.isFinite(Number(rawLeave))) {
         const leaveAbs = Number(rawLeave);
-        if (Number.isFinite(leaveAbs) && leaveAbs < D) {
-            D = leaveAbs;
-        }
+        if (Number.isFinite(leaveAbs) && leaveAbs < D) D = leaveAbs;
     }
     return D;
 }
 
+/** Full technician occupancy on the day: outbound travel through return travel. */
+function deliveryOccupancyMidnightRange(delivery, arrivalMidnightMin = null, durationMin = null) {
+    const arrival = arrivalMidnightMin != null
+        ? snapArrivalMinutes(arrivalMidnightMin)
+        : blockStartMinutesMidnight(delivery);
+    const dur = durationMin ?? delivery.delivery_duration_minutes ?? 15;
+    const start = outboundDepartureAbsoluteMinutes(delivery, arrival);
+    const end = arrival + dur + travelReturnMins(delivery);
+    return { start, end };
+}
+
+function deliveryOverlapsOnTechnician(techId, movingDelivery, arrivalMidnightMin, durationMin = null) {
+    const { start, end } = deliveryOccupancyMidnightRange(movingDelivery, arrivalMidnightMin, durationMin);
+    const row = deliveries.value[String(techId)] || [];
+    return row.some((other) => {
+        if (other.id === movingDelivery.id) return false;
+        const o = deliveryOccupancyMidnightRange(other);
+        return start < o.end && o.start < end;
+    });
+}
+
+function technicianIdForDelivery(deliveryId) {
+    for (const [tid, list] of Object.entries(deliveries.value)) {
+        if (!Array.isArray(list)) continue;
+        if (list.some((d) => d.id === deliveryId)) return tid;
+    }
+    return null;
+}
+
+// ---------------------------------------------------------------------------
+// View bounds (auto-expands to fit all deliveries)
+// ---------------------------------------------------------------------------
+
 const VIEW_RANGE_PAD_MIN = 30;
 
-/** Expands the horizontal axis to include every delivery (travel + at-location + return); Start/End stays the preferred “office hours” window for gray shading only. */
 const scheduleViewBounds = computed(() => {
     const windowStartMin = dayStartHour.value * 60;
     const windowEndMin = dayEndHour.value * 60;
@@ -518,26 +683,19 @@ const scheduleViewBounds = computed(() => {
     let maxAbs = -Infinity;
     for (const d of flat) {
         const A = blockStartMinutesMidnight(d);
-        if (!Number.isFinite(A)) {
-            continue;
-        }
+        if (!Number.isFinite(A)) continue;
         const D = outboundDepartureAbsoluteMinutes(d);
-        if (!Number.isFinite(D)) {
-            continue;
-        }
+        if (!Number.isFinite(D)) continue;
         const dur = d.delivery_duration_minutes || 15;
         const R = travelReturnMins(d);
         const endAbs = A + dur + R;
-        if (!Number.isFinite(endAbs)) {
-            continue;
-        }
+        if (!Number.isFinite(endAbs)) continue;
         minAbs = Math.min(minAbs, D);
         maxAbs = Math.max(maxAbs, endAbs);
     }
 
     let viewStartMin = windowStartMin;
     let viewEndMin = windowEndMin;
-
     if (minAbs !== Infinity && maxAbs !== -Infinity) {
         viewStartMin = Math.min(windowStartMin, minAbs - VIEW_RANGE_PAD_MIN);
         viewEndMin = Math.max(windowEndMin, maxAbs + VIEW_RANGE_PAD_MIN);
@@ -545,36 +703,23 @@ const scheduleViewBounds = computed(() => {
 
     viewStartMin = Math.max(0, Math.floor(viewStartMin / 60) * 60);
     viewEndMin = Math.min(24 * 60, Math.max(viewStartMin + 60, Math.ceil(viewEndMin / 60) * 60));
-
     const spanMin = Math.max(1, viewEndMin - viewStartMin);
 
-    return {
-        viewStartMin,
-        viewEndMin,
-        windowStartMin,
-        windowEndMin,
-        spanMin,
-    };
+    return { viewStartMin, viewEndMin, windowStartMin, windowEndMin, spanMin };
 });
 
 const timelineSpanMinutes = computed(() => scheduleViewBounds.value.spanMin);
 
 const grayOverlayLeftPct = computed(() => {
     const { viewStartMin, windowStartMin, spanMin } = scheduleViewBounds.value;
-    if (spanMin <= 0) {
-        return 0;
-    }
-    const w = Math.max(0, windowStartMin - viewStartMin);
-    return (w / spanMin) * 100;
+    if (spanMin <= 0) return 0;
+    return (Math.max(0, windowStartMin - viewStartMin) / spanMin) * 100;
 });
 
 const grayOverlayRightPct = computed(() => {
     const { viewEndMin, windowEndMin, spanMin } = scheduleViewBounds.value;
-    if (spanMin <= 0) {
-        return 0;
-    }
-    const w = Math.max(0, viewEndMin - windowEndMin);
-    return (w / spanMin) * 100;
+    if (spanMin <= 0) return 0;
+    return (Math.max(0, viewEndMin - windowEndMin) / spanMin) * 100;
 });
 
 const gridLineMinutes = computed(() => {
@@ -583,16 +728,10 @@ const gridLineMinutes = computed(() => {
     const span = v1 - v0;
     const out = [];
     let tick = Math.ceil(v0 / 60) * 60;
-    for (; tick < v1; tick += 60) {
-        out.push(tick - v0);
-    }
+    for (; tick < v1; tick += 60) out.push(tick - v0);
     if (span > 0) {
-        if (out.length === 0 || out[0] > 0) {
-            out.unshift(0);
-        }
-        if (out[out.length - 1] < span) {
-            out.push(span);
-        }
+        if (out.length === 0 || out[0] > 0) out.unshift(0);
+        if (out[out.length - 1] < span) out.push(span);
     }
     return out;
 });
@@ -601,20 +740,15 @@ const hourLabelSlots = computed(() => {
     const v0 = scheduleViewBounds.value.viewStartMin;
     const v1 = scheduleViewBounds.value.viewEndMin;
     const span = v1 - v0;
-    if (span <= 0) {
-        return [];
-    }
+    if (span <= 0) return [];
     const out = [];
     const hStart = Math.ceil(v0 / 60);
     const hEndExclusive = Math.min(24, Math.ceil(v1 / 60));
-    for (let h = hStart; h < hEndExclusive; h += 1) {
+    for (let h = hStart; h < hEndExclusive; h++) {
         const blockStart = h * 60 - v0;
         const blockEnd = Math.min((h + 1) * 60 - v0, span);
-        if (blockStart >= span) {
-            break;
-        }
-        const visibleEnd = Math.min(blockEnd, span);
-        const center = (blockStart + visibleEnd) / 2;
+        if (blockStart >= span) break;
+        const center = (blockStart + Math.min(blockEnd, span)) / 2;
         out.push({ h, leftPct: (center / span) * 100, text: formatHour(h) });
     }
     return out;
@@ -629,36 +763,141 @@ const timelineHint = computed(() => {
     return `Preferred window: ${span}h (Start–End). The axis expands when deliveries fall outside; shaded bands are outside that window.`;
 });
 
-function nudgeStartHour(delta) {
-    const next = dayStartHour.value + delta;
-    if (next < 0 || next > dayEndHour.value - 1) {
-        return;
+// ---------------------------------------------------------------------------
+// Position helpers
+// ---------------------------------------------------------------------------
+
+function segmentInView(t0, t1) {
+    const span = timelineSpanMinutes.value;
+    if (span <= 0 || t1 <= t0 || !Number.isFinite(t0) || !Number.isFinite(t1)) {
+        return { left: '0%', width: '0%' };
     }
-    dayStartHour.value = next;
+    const a = Math.max(t0, 0);
+    const b = Math.min(t1, span);
+    if (b <= a) return { left: '0%', width: '0%' };
+    return {
+        left: `${(a / span) * 100}%`,
+        width: `${Math.max(((b - a) / span) * 100, 0.4)}%`,
+    };
 }
 
-function nudgeEndHour(delta) {
-    const next = dayEndHour.value + delta;
-    if (next < dayStartHour.value + 1 || next > 24) {
-        return;
-    }
-    dayEndHour.value = next;
+function minuteToViewPercent(minute) {
+    const v1 = timelineSpanMinutes.value;
+    if (v1 <= 0) return 0;
+    return (Math.min(minute, v1) / v1) * 100;
 }
 
-watch(dayStartHour, (v) => {
-    if (dayEndHour.value <= v) {
-        dayEndHour.value = Math.min(24, v + 1);
-    }
-});
+function blockStartMinutes(delivery) {
+    return blockStartMinutesMidnight(delivery) - scheduleViewBounds.value.viewStartMin;
+}
 
-watch(dayEndHour, (v) => {
-    if (v <= dayStartHour.value) {
-        dayStartHour.value = Math.max(0, v - 1);
-    }
-});
+function outboundDepartureViewMinutes(delivery) {
+    return outboundDepartureAbsoluteMinutes(delivery) - scheduleViewBounds.value.viewStartMin;
+}
 
-const technicians = ref([]);
-const deliveries = ref({});
+function travelOutboundMinsDisplayed(delivery) {
+    return Math.max(0, Math.round(blockStartMinutes(delivery) - outboundDepartureViewMinutes(delivery)));
+}
+
+// ---------------------------------------------------------------------------
+// Block / travel bar styles
+// ---------------------------------------------------------------------------
+
+function deliveryBlockStyle(delivery) {
+    const s = blockStartMinutes(delivery);
+    const durMin = delivery.delivery_duration_minutes || 15;
+    const cap = timelineSpanMinutes.value;
+    const t0 = Math.max(0, s);
+    const t1 = Math.min(s + durMin, cap);
+    if (t0 >= t1) return { left: '0%', width: '0%' };
+    return segmentInView(t0, t1);
+}
+
+function travelToStyle(delivery) {
+    const A = blockStartMinutes(delivery);
+    const D = outboundDepartureViewMinutes(delivery);
+    if (!(A > D)) return { left: '0%', width: '0%' };
+    const cap = timelineSpanMinutes.value;
+    if (D >= cap) return { left: '0%', width: '0%' };
+    const t0 = Math.max(0, D);
+    const t1 = Math.min(A, cap);
+    if (t0 >= t1) return { left: '0%', width: '0%' };
+    return segmentInView(t0, t1);
+}
+
+function travelBackStyle(delivery) {
+    const startMin = blockStartMinutes(delivery);
+    const durMin = delivery.delivery_duration_minutes || 15;
+    const E = startMin + durMin;
+    const T = travelReturnMins(delivery);
+    if (T <= 0) return { left: '0%', width: '0%' };
+    const cap = timelineSpanMinutes.value;
+    if (E >= cap) return { left: '0%', width: '0%' };
+    const t1 = Math.min(E + T, cap);
+    if (E >= t1) return { left: '0%', width: '0%' };
+    return segmentInView(E, t1);
+}
+
+function travelToLabelStyle(delivery) {
+    const s = travelToStyle(delivery);
+    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) return { display: 'none' };
+    return { position: 'absolute', left: s.left, width: s.width, top: 'calc(34% + 5px)', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 };
+}
+
+function travelBackLabelStyle(delivery) {
+    const s = travelBackStyle(delivery);
+    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) return { display: 'none' };
+    return { position: 'absolute', left: s.left, width: s.width, top: 'calc(66% - 28px)', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 };
+}
+
+function resizeTooltipStyle(delivery) {
+    const s = deliveryBlockStyle(delivery);
+    const leftPct = Number.parseFloat(String(s.left));
+    const widthPct = Number.parseFloat(String(s.width));
+    const edge = resizeState.value?.edge;
+    const anchorPct = edge === 'left'
+        ? leftPct + Math.min(2, widthPct * 0.15)
+        : leftPct + widthPct - Math.min(2, widthPct * 0.15);
+    return {
+        left: `${anchorPct}%`,
+        top: '50%',
+        transform: 'translate(-50%, calc(-50% - 2.75rem))',
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Fleet labels
+// ---------------------------------------------------------------------------
+
+const FLEET_NONE_ASSIGNED = 'None assigned';
+
+function fleetScheduleUnitLabel(delivery, role) {
+    const d = delivery ?? {};
+    const label = role === 'truck' ? d.fleet_truck_label : d.fleet_trailer_label;
+    if (label != null && String(label).trim() !== '') return String(label).trim();
+    const rawId = role === 'truck' ? d.fleet_truck_id : d.fleet_trailer_id;
+    const id = rawId != null && rawId !== '' ? Number(rawId) : NaN;
+    if (Number.isFinite(id) && id > 0) return `Unit #${id}`;
+    return FLEET_NONE_ASSIGNED;
+}
+
+// ---------------------------------------------------------------------------
+// Format helpers
+// ---------------------------------------------------------------------------
+
+function formatTime(str) {
+    const d = parseDate(str);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function initials(name) {
+    return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+// ---------------------------------------------------------------------------
+// Data loading
+// ---------------------------------------------------------------------------
 
 async function loadScheduleBoard() {
     scheduleLoading.value = true;
@@ -666,9 +905,7 @@ async function loadScheduleBoard() {
     try {
         const params = { date: viewingDateYmd.value };
         const lid = props.filterLocationId;
-        if (lid != null && lid !== '' && Number(lid) > 0) {
-            params.location_id = Number(lid);
-        }
+        if (lid != null && lid !== '' && Number(lid) > 0) params.location_id = Number(lid);
         const { data } = await axios.get(route('deliveries.schedule-board'), { params });
         technicians.value = data.technicians || [];
         deliveries.value = data.deliveriesByTechnician || {};
@@ -681,85 +918,67 @@ async function loadScheduleBoard() {
     }
 }
 
-watch(viewingDateYmd, () => {
-    loadScheduleBoard();
-});
+watch(viewingDateYmd, () => loadScheduleBoard());
+watch(() => props.filterLocationId, () => loadScheduleBoard());
+onMounted(() => loadScheduleBoard());
 
-watch(
-    () => props.filterLocationId,
-    () => {
-        loadScheduleBoard();
-    },
-);
-
-onMounted(() => {
-    loadScheduleBoard();
-});
+// ---------------------------------------------------------------------------
+// Detail panel
+// ---------------------------------------------------------------------------
 
 watch(selectedDelivery, (d) => {
     detailTimeError.value = null;
-    if (!d?.id) {
-        detailScheduledLocal.value = '';
-        return;
-    }
+    if (!d?.id) { detailScheduledLocal.value = ''; return; }
     detailScheduledLocal.value = serverUtcToAccountDatetimeLocal(d.scheduled_at);
 });
 
 const detailTimeDirty = computed(() => {
-    if (!selectedDelivery.value?.id) {
-        return false;
-    }
+    if (!selectedDelivery.value?.id) return false;
     const cur = serverUtcToAccountDatetimeLocal(selectedDelivery.value.scheduled_at);
     return (detailScheduledLocal.value || '') !== (cur || '');
 });
 
 function findDeliveryOnBoard(id) {
     for (const list of Object.values(deliveries.value)) {
-        if (!Array.isArray(list)) {
-            continue;
-        }
+        if (!Array.isArray(list)) continue;
         const found = list.find((x) => x.id === id);
-        if (found) {
-            return found;
-        }
+        if (found) return found;
     }
     return null;
 }
 
 async function saveDetailScheduledAt() {
     const d = selectedDelivery.value;
-    if (!d?.id || detailTimeSaving.value) {
-        return;
-    }
+    if (!d?.id || detailTimeSaving.value) return;
     detailTimeError.value = null;
     const iso = accountDatetimeLocalToUtcIso(detailScheduledLocal.value);
-    if (!iso) {
-        detailTimeError.value = 'Enter a valid date and time.';
-        return;
-    }
+    if (!iso) { detailTimeError.value = 'Enter a valid date and time.'; return; }
     detailTimeSaving.value = true;
     try {
-        await axios.put(route('deliveries.update', d.id), { scheduled_at: iso });
+        await patchDelivery(d.id, { scheduled_at: iso });
         await loadScheduleBoard();
         const fresh = findDeliveryOnBoard(d.id);
-        if (fresh) {
-            selectedDelivery.value = fresh;
-        } else {
-            selectedDelivery.value = null;
-        }
+        selectedDelivery.value = fresh ?? null;
     } catch (e) {
         const errs = e.response?.data?.errors;
         const flat = errs && typeof errs === 'object' ? Object.values(errs).flat() : [];
-        detailTimeError.value =
-            e.response?.data?.message || (flat.length ? flat.join(' ') : null) || 'Could not save scheduled time.';
+        detailTimeError.value = e.response?.data?.message || (flat.length ? flat.join(' ') : null) || 'Could not save scheduled time.';
     } finally {
         detailTimeSaving.value = false;
     }
 }
 
+// ---------------------------------------------------------------------------
+// Navigation
+// ---------------------------------------------------------------------------
+
 const formattedDate = computed(() =>
     dayjs.tz(viewingDateYmd.value, accountTimezone.value).format('dddd, MMMM D, YYYY'),
 );
+
+function changeDay(delta) {
+    viewingDateYmd.value = dayjs.tz(viewingDateYmd.value, accountTimezone.value).add(delta, 'day').format('YYYY-MM-DD');
+}
 
 function deliveriesForTech(techId) {
     return deliveries.value[String(techId)] || [];
@@ -769,218 +988,222 @@ function deliveryKey(techId, delivery) {
     return `${techId}::${delivery.id ?? delivery.display_name}`;
 }
 
-/** Minutes from expanded view origin (API uses minutes from midnight on the board date). */
-function blockStartMinutes(delivery) {
-    return blockStartMinutesMidnight(delivery) - scheduleViewBounds.value.viewStartMin;
-}
+// ---------------------------------------------------------------------------
+// Drag-to-reassign (with ghost + 15-min snap)
+// ---------------------------------------------------------------------------
 
-/** Map [t0, t1] in timeline-relative minutes into % of the full timeline width. */
-function segmentInView(t0, t1) {
-    const v0 = 0;
-    const v1 = timelineSpanMinutes.value;
-    const span = v1 - v0;
-    if (span <= 0 || t1 <= t0 || !Number.isFinite(t0) || !Number.isFinite(t1)) {
-        return { left: '0%', width: '0%' };
-    }
-    const a = Math.max(t0, v0);
-    const b = Math.min(t1, v1);
-    if (b <= a) {
-        return { left: '0%', width: '0%' };
-    }
-    return {
-        left: `${((a - v0) / span) * 100}%`,
-        width: `${Math.max(((b - a) / span) * 100, 0.4)}%`,
-    };
-}
-
-/** Minutes from `dayStartHour` (0) along the x-axis. */
-function minuteToViewPercent(minute) {
-    const v1 = timelineSpanMinutes.value;
-    if (v1 <= 0) {
-        return 0;
-    }
-    return (Math.min(minute, v1) / v1) * 100;
-}
-
-/** Left edge of outbound travel on the timeline (view minutes). */
-function outboundDepartureViewMinutes(delivery) {
-    return outboundDepartureAbsoluteMinutes(delivery) - scheduleViewBounds.value.viewStartMin;
-}
-
-/** Outbound bar duration in minutes (arrival at scheduled block minus departure). */
-function travelOutboundMinsDisplayed(delivery) {
-    const A = blockStartMinutes(delivery);
-    const D = outboundDepartureViewMinutes(delivery);
-    return Math.max(0, Math.round(A - D));
-}
-
-const FLEET_NONE_ASSIGNED = 'None assigned';
-
-/** Schedule-board payload uses snake_case from API. */
-function fleetScheduleUnitLabel(delivery, role) {
-    const d = delivery ?? {};
-    const label = role === 'truck' ? d.fleet_truck_label : d.fleet_trailer_label;
-    if (label != null && String(label).trim() !== '') {
-        return String(label).trim();
-    }
-    const rawId = role === 'truck' ? d.fleet_truck_id : d.fleet_trailer_id;
-    const id = rawId != null && rawId !== '' ? Number(rawId) : NaN;
-    if (Number.isFinite(id) && id > 0) {
-        return `Unit #${id}`;
-    }
-    return FLEET_NONE_ASSIGNED;
-}
-
-function formatTime(str) {
-    const d = parseDate(str);
-    if (isNaN(d.getTime())) {
-        return '—';
-    }
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-}
-
-function initials(name) {
-    return name
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-}
-
-function deliveryBlockStyle(delivery) {
-    const s = blockStartMinutes(delivery);
-    const durMin = delivery.delivery_duration_minutes || 15;
-    const cap = timelineSpanMinutes.value;
-    const t0 = Math.max(0, s);
-    const t1 = Math.min(s + durMin, cap);
-    if (t0 >= t1) {
-        return { left: '0%', width: '0%' };
-    }
-    return segmentInView(t0, t1);
-}
-
-function travelToStyle(delivery) {
-    const A = blockStartMinutes(delivery);
-    const D = outboundDepartureViewMinutes(delivery);
-    if (!(A > D)) {
-        return { left: '0%', width: '0%' };
-    }
-    const cap = timelineSpanMinutes.value;
-    if (D >= cap) {
-        return { left: '0%', width: '0%' };
-    }
-    const t0 = Math.max(0, D);
-    const t1 = Math.min(A, cap);
-    if (t0 >= t1) {
-        return { left: '0%', width: '0%' };
-    }
-    return segmentInView(t0, t1);
-}
-
-function travelBackStyle(delivery) {
-    const startMin = blockStartMinutes(delivery);
-    const durMin = delivery.delivery_duration_minutes || 15;
-    const E = startMin + durMin;
-    const T = travelReturnMins(delivery);
-    if (T <= 0) {
-        return { left: '0%', width: '0%' };
-    }
-    const cap = timelineSpanMinutes.value;
-    if (E >= cap) {
-        return { left: '0%', width: '0%' };
-    }
-    const t0 = E;
-    const t1 = Math.min(E + T, cap);
-    if (t0 >= t1) {
-        return { left: '0%', width: '0%' };
-    }
-    return segmentInView(t0, t1);
-}
-
-function travelToLabelStyle(delivery) {
-    const s = travelToStyle(delivery);
-    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) {
-        return { display: 'none' };
-    }
-    return {
-        position: 'absolute',
-        left: s.left,
-        width: s.width,
-        top: 'calc(34% + 5px)',
-        zIndex: 3,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        lineHeight: 1,
-    };
-}
-
-function travelBackLabelStyle(delivery) {
-    const s = travelBackStyle(delivery);
-    if (s.width === '0%' || Number.parseFloat(String(s.width)) === 0) {
-        return { display: 'none' };
-    }
-    return {
-        position: 'absolute',
-        left: s.left,
-        width: s.width,
-        top: 'calc(66% - 28px)',
-        zIndex: 3,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        lineHeight: 1,
-    };
-}
-
-function changeDay(delta) {
-    viewingDateYmd.value = dayjs.tz(viewingDateYmd.value, accountTimezone.value).add(delta, 'day').format('YYYY-MM-DD');
-}
-
-function onDragStart(delivery, techId) {
+function onDragStart(delivery, techId, event) {
     dragPayload.value = delivery;
     dragSourceTech.value = techId;
+    dragTargetArrivalMidnightMin.value = blockStartMinutesMidnight(delivery);
+
+    // Suppress the browser's built-in ghost image
+    const phantom = document.createElement('div');
+    phantom.style.cssText = 'position:fixed;top:-9999px;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(phantom);
+    event.dataTransfer.setDragImage(phantom, 0, 0);
+    requestAnimationFrame(() => document.body.removeChild(phantom));
+
+    // Seed ghost at block's current position
+    const blockStyle = deliveryBlockStyle(delivery);
+    dragGhostStyle.value = { left: blockStyle.left, width: blockStyle.width };
 }
 
 function onDragEnd() {
     dragPayload.value = null;
     dragSourceTech.value = null;
     dragOverTech.value = null;
+    dragGhostStyle.value = null;
+    dragTargetArrivalMidnightMin.value = null;
+    dragDropBlocked.value = false;
 }
 
-function onDragOver(techId) {
+function onDragOver(techId, event) {
     dragOverTech.value = techId;
+    if (!dragPayload.value) return;
+
+    // Find the timeline div within the row
+    const rowEl = event.currentTarget?.querySelector('.timeline-row');
+    if (!rowEl) return;
+
+    const rect = rowEl.getBoundingClientRect();
+    const spanMin = timelineSpanMinutes.value;
+    // Convert cursor x → minutes into view, snap to 15
+    const rawMin = ((event.clientX - rect.left) / rect.width) * spanMin;
+    const snappedMin = Math.round(rawMin / 15) * 15;
+
+    // Width stays the same as the delivery block
+    const blockStyle = deliveryBlockStyle(dragPayload.value);
+    const widthPct = Number.parseFloat(String(blockStyle.width)) || 4;
+    const blockWidthMin = (widthPct / 100) * spanMin;
+    const leftMin = Math.max(0, snappedMin - blockWidthMin / 2);
+    const leftPct = (leftMin / spanMin) * 100;
+
+    const arrivalMidnight = snapArrivalMinutes(scheduleViewBounds.value.viewStartMin + leftMin);
+    dragTargetArrivalMidnightMin.value = arrivalMidnight;
+    dragDropBlocked.value = deliveryOverlapsOnTechnician(techId, dragPayload.value, arrivalMidnight);
+
+    dragGhostStyle.value = {
+        left: `${leftPct}%`,
+        width: blockStyle.width,
+    };
 }
 
 function onDragLeave() {
     dragOverTech.value = null;
+    dragGhostStyle.value = null;
 }
 
 async function onDrop(targetTechId) {
     const delivery = dragPayload.value;
     const sourceTech = dragSourceTech.value;
-    if (!delivery || !sourceTech || sourceTech === targetTechId) {
+    if (!delivery?.id || !sourceTech) {
         onDragEnd();
         return;
     }
-    if (!delivery.id) {
+
+    const originalArrival = blockStartMinutesMidnight(delivery);
+    const newArrival = dragTargetArrivalMidnightMin.value ?? originalArrival;
+    const techChanged = String(sourceTech) !== String(targetTechId);
+    const timeChanged = snapArrivalMinutes(newArrival) !== snapArrivalMinutes(originalArrival);
+
+    if (!techChanged && !timeChanged) {
         onDragEnd();
         return;
     }
+
+    const snappedArrival = snapArrivalMinutes(newArrival);
+    if (deliveryOverlapsOnTechnician(targetTechId, delivery, snappedArrival)) {
+        scheduleError.value = 'This time overlaps another delivery on the same technician.';
+        onDragEnd();
+        return;
+    }
+
+    const payload = {};
+    if (techChanged) {
+        payload.technician_id = Number(targetTechId);
+    }
+    if (timeChanged) {
+        const iso = scheduledAtIsoFromMidnightMinutes(snappedArrival);
+        if (!iso) {
+            scheduleError.value = 'Could not save scheduled time.';
+            onDragEnd();
+            return;
+        }
+        payload.scheduled_at = iso;
+    }
+
     try {
-        await axios.put(route('deliveries.update', delivery.id), {
-            technician_id: Number(targetTechId),
-        });
+        await patchDelivery(delivery.id, payload);
         await loadScheduleBoard();
+        if (selectedDelivery.value?.id === delivery.id) {
+            const fresh = findDeliveryOnBoard(delivery.id);
+            if (fresh) selectedDelivery.value = fresh;
+        }
     } catch (e) {
-        scheduleError.value = e.response?.data?.message || 'Could not reassign technician.';
+        scheduleError.value = e.response?.data?.message
+            || (timeChanged && !techChanged ? 'Could not save arrival time.' : 'Could not update delivery.');
+        await loadScheduleBoard();
     }
     onDragEnd();
 }
+
+// ---------------------------------------------------------------------------
+// Resize arrival (left) / on-site duration (right), 15-min snap
+// ---------------------------------------------------------------------------
+
+function startResize(delivery, edge, event) {
+    const rowEl = event.currentTarget.closest('.timeline-row');
+    resizeState.value = {
+        delivery,
+        edge,
+        startX: event.clientX,
+        startDurMin: delivery.delivery_duration_minutes || 15,
+        startArrivalMin: blockStartMinutesMidnight(delivery),
+        techId: technicianIdForDelivery(delivery.id),
+        blocked: false,
+        rowEl,
+    };
+    window.addEventListener('mousemove', onResizeMove);
+    window.addEventListener('mouseup', onResizeUp);
+}
+
+function onResizeMove(event) {
+    const rs = resizeState.value;
+    if (!rs) return;
+
+    const rect = rs.rowEl.getBoundingClientRect();
+    const pxPerMin = rect.width / timelineSpanMinutes.value;
+    const deltaMin = (event.clientX - rs.startX) / pxPerMin;
+
+    const techId = rs.techId;
+    if (!techId) return;
+
+    if (rs.edge === 'left') {
+        const arrival = snapArrivalMinutes(rs.startArrivalMin + deltaMin);
+        setDeliveryArrivalMinutes(rs.delivery, arrival);
+        rs.blocked = deliveryOverlapsOnTechnician(techId, rs.delivery, arrival);
+        return;
+    }
+
+    const newDur = snapDurationMinutes(rs.startDurMin + deltaMin);
+    rs.delivery.delivery_duration_minutes = newDur;
+    rs.blocked = deliveryOverlapsOnTechnician(
+        techId,
+        rs.delivery,
+        blockStartMinutesMidnight(rs.delivery),
+        newDur,
+    );
+}
+
+async function onResizeUp() {
+    window.removeEventListener('mousemove', onResizeMove);
+    window.removeEventListener('mouseup', onResizeUp);
+
+    const rs = resizeState.value;
+    resizeState.value = null;
+    if (!rs?.delivery?.id) return;
+
+    if (rs.blocked) {
+        scheduleError.value = 'This time overlaps another delivery on the same technician.';
+        await loadScheduleBoard();
+        return;
+    }
+
+    const payload = rs.edge === 'left'
+        ? { scheduled_at: scheduledAtIsoFromMidnightMinutes(blockStartMinutesMidnight(rs.delivery)) }
+        : { delivery_duration_minutes: rs.delivery.delivery_duration_minutes };
+
+    if (rs.edge === 'left' && !payload.scheduled_at) {
+        scheduleError.value = 'Could not save scheduled time.';
+        await loadScheduleBoard();
+        return;
+    }
+
+    try {
+        await patchDelivery(rs.delivery.id, payload);
+        await loadScheduleBoard();
+        if (selectedDelivery.value?.id === rs.delivery.id) {
+            const fresh = findDeliveryOnBoard(rs.delivery.id);
+            if (fresh) selectedDelivery.value = fresh;
+        }
+    } catch (e) {
+        scheduleError.value = e.response?.data?.message
+            || (rs.edge === 'left' ? 'Could not save arrival time.' : 'Could not save duration.');
+        await loadScheduleBoard();
+    }
+}
+
+// Clean up resize listeners if component is destroyed mid-drag
+onUnmounted(() => {
+    window.removeEventListener('mousemove', onResizeMove);
+    window.removeEventListener('mouseup', onResizeUp);
+});
 </script>
 
 <style scoped>
+/* ── Travel bars ─────────────────────────────────────────────────────────── */
+
 .travel-line {
     position: absolute;
     top: 50%;
@@ -993,7 +1216,6 @@ async function onDrop(targetTechId) {
     box-sizing: border-box;
 }
 
-/* Slightly above / below block center so lines read as separate from the blue “at location” block */
 .travel-line--to {
     top: 34%;
     background: linear-gradient(90deg, #b45309, #d97706, #f59e0b);
@@ -1006,6 +1228,8 @@ async function onDrop(targetTechId) {
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
     opacity: 0.95;
 }
+
+/* ── Travel labels ───────────────────────────────────────────────────────── */
 
 .travel-line-label {
     font-size: 10px;
@@ -1033,7 +1257,6 @@ async function onDrop(targetTechId) {
     white-space: nowrap;
 }
 
-/* Time above, car just above the return bar (same DOM order as outbound: icon then text) */
 .travel-line-label--above-back {
     flex-direction: column-reverse;
 }
@@ -1041,5 +1264,81 @@ async function onDrop(targetTechId) {
 .travel-line-label--above-back .travel-line-label__time {
     margin-top: 0;
     margin-bottom: 1px;
+}
+
+/* ── Delivery block ──────────────────────────────────────────────────────── */
+
+.delivery-block {
+    /* Ensure resize handles sit outside the overflow:hidden context */
+    overflow: visible !important;
+}
+
+/* ── Resize handles ──────────────────────────────────────────────────────── */
+
+.resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: ew-resize;
+    z-index: 10;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.resize-handle--left {
+    left: 0;
+    border-radius: 6px 0 0 6px;
+}
+
+.resize-handle--right {
+    right: 0;
+    border-radius: 0 6px 6px 0;
+}
+
+.delivery-block:hover .resize-handle,
+.delivery-block:focus-within .resize-handle {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.resize-handle:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.resize-grip-bar {
+    display: block;
+    width: 2px;
+    height: 14px;
+    border-radius: 1px;
+    background: rgba(255, 255, 255, 0.75);
+    pointer-events: none;
+}
+
+/* ── Ghost element ───────────────────────────────────────────────────────── */
+
+.ghost-shimmer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 6px,
+        rgba(59, 130, 246, 0.12) 6px,
+        rgba(59, 130, 246, 0.12) 12px
+    );
+    animation: ghost-scroll 1s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes ghost-scroll {
+    from { background-position: 0 0; }
+    to   { background-position: 24px 0; }
 }
 </style>

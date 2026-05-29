@@ -30,23 +30,31 @@ const props = defineProps({
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: 'Scheduling' },
+    { label: 'Service Yard', href: route('serviceyard.index') },
+    { label: 'Scheduler' },
 ]);
 </script>
 
 <template>
-    <Head title="Scheduling" />
+    <Head title="Service Yard — Scheduler" />
 
     <TenantLayout>
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <h2 class="mt-4 text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                    Scheduling
-                </h2>
+                <div>
+                    <h2 class="mt-4 text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                        Scheduler
+                    </h2>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Work orders only. Schedule deliveries on the
+                        <a :href="route('deliveries.delivery-schedule')" class="text-primary-600 hover:underline dark:text-primary-400">delivery board</a>.
+                    </p>
+                </div>
             </div>
         </template>
         <SchedulerGrid
+            work-orders-only
             :technicians="technicians"
             :work-orders="workOrders"
             :locations="locations"
