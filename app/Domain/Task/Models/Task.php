@@ -2,6 +2,7 @@
 
 namespace App\Domain\Task\Models;
 
+use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,8 +37,8 @@ class Task extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'datetime',
-        'due_date' => 'datetime',
+        'start_date' => 'date',
+        'due_date' => 'date',
         'has_due_time' => 'boolean',
         'completed_at' => 'datetime',
         'reminder_at' => 'datetime',
@@ -50,7 +51,7 @@ class Task extends Model
      */
     public function assigned(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_id');
+        return $this->belongsTo(User::class, 'assigned_id');
     }
 
     /**
@@ -58,7 +59,7 @@ class Task extends Model
      */
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
@@ -66,7 +67,7 @@ class Task extends Model
      */
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'updated_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     /**

@@ -3,6 +3,12 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import Sortable from 'sortablejs';
 import axios from 'axios';
+import {
+    calendarDaysFromToday,
+    formatPastDueLabel,
+    isTaskPastDue,
+    PAST_DUE_BADGE_CLASS,
+} from '@/Utils/calendarDate.js';
 
 const props = defineProps({
     tasks: {
@@ -64,12 +70,22 @@ const handleCreateTask = (groupId) => {
     emit('create-task', groupId);
 };
 
+const formatDueMeta = (task) => {
+    if (!task?.due_date) {
+        return null;
+    }
+    if (isTaskPastDue(task)) {
+        return { text: formatPastDueLabel(task), color: 'red', pastDue: true };
+    }
+    return formatDate(task.due_date);
+};
+
 const formatDate = (date) => {
     if (!date) return null;
-    const d = new Date(date);
-    const now = new Date();
-    const diffTime = d - now;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = calendarDaysFromToday(date);
+    if (diffDays === null) {
+        return null;
+    }
 
     if (diffDays < 0) {
         return { text: `${Math.abs(diffDays)} days overdue`, color: 'red' };
@@ -269,15 +285,19 @@ onMounted(() => {
                             </div>
 
                             <!-- Due Date Badge -->
-                            <div v-if="task.due_date" class="ml-4 flex-shrink-0">
-                                <div :class="[
-                                    'flex items-center justify-center rounded-lg px-2 py-1 text-xs font-medium whitespace-nowrap',
-                                    getColorClasses(formatDate(task.due_date)?.color)
-                                ]">
+                            <div v-if="formatDueMeta(task)" class="ml-4 flex-shrink-0">
+                                <div
+                                    :class="[
+                                        'flex items-center justify-center rounded-lg px-2 py-1 text-xs font-medium whitespace-nowrap',
+                                        formatDueMeta(task).pastDue
+                                            ? PAST_DUE_BADGE_CLASS
+                                            : getColorClasses(formatDueMeta(task).color),
+                                    ]"
+                                >
                                     <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
                                     </svg>
-                                    {{ formatDate(task.due_date)?.text }}
+                                    {{ formatDueMeta(task).text }}
                                 </div>
                             </div>
                         </div>

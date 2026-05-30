@@ -15,9 +15,11 @@ use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Tasks\Priority as TaskPriority;
 use App\Enums\Tasks\Status as TaskStatus;
+use App\Models\AccountSettings;
 use App\Tenancy\CurrentTenantProfile;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -50,7 +52,9 @@ class TenantDashboardDataService
         $ticketStaleDays = max(1, (int) config('dashboard.service_ticket_stale_days', 7));
         $estimateExpiringDays = max(1, (int) config('dashboard.expiring_estimate_days', 14));
 
-        $now = now();
+        $tz = $this->accountTimezone();
+        $now = now()->timezone($tz);
+        $todayYmd = $now->toDateString();
         $todayStart = $now->copy()->startOfDay();
         $todayEnd = $now->copy()->endOfDay();
         $weekEnd = $now->copy()->endOfWeek();
@@ -67,8 +71,9 @@ class TenantDashboardDataService
             ])
             ->where('completed', false)
             ->whereNotNull('due_date')
-            ->where('due_date', '<=', $todayEnd)
+            ->whereDate('due_date', '<=', $todayYmd)
             ->orderBy('due_date')
+            ->orderBy('due_time')
             ->limit($cap)
             ->get([
                 'id',
@@ -185,15 +190,16 @@ class TenantDashboardDataService
 
         return [
             'actionCenter' => [
-                'tasks' => $tasks->map(function (Task $t) {
+                'tasks' => $tasks->map(function (Task $t) use ($now) {
                     $status = $this->resolveTaskStatus($t->status_id);
                     $priority = $this->resolveTaskPriority($t->priority_id);
 
                     return [
                         'id' => $t->id,
                         'label' => $t->display_name,
-                        'due_at' => $t->due_date?->toIso8601String(),
+                        'due_date' => $t->due_date?->format('Y-m-d'),
                         'due_time' => $this->formatTaskDueTime($t->has_due_time, $t->due_time),
+                        'is_overdue' => $this->taskIsOverdue($t, $now),
                         'status_id' => $t->status_id,
                         'status' => $status['label'],
                         'status_color' => $status['color'],
@@ -311,8 +317,8 @@ class TenantDashboardDataService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Notification>  $notifications
-     * @param  \Illuminate\Support\Collection<int, Payment>  $recentPayments
+     * @param  Collection<int, Notification>  $notifications
+     * @param  Collection<int, Payment>  $recentPayments
      * @return list<array{type: string, id: int, title: string, subtitle: ?string, at: ?string, href: ?string}>
      */
     private function mergeActivityFeed($notifications, $recentPayments, int $cap): array
@@ -417,6 +423,48 @@ class TenantDashboardDataService
             'id' => (int) $u->id,
             'display_name' => $display,
         ];
+    }
+
+    private function accountTimezone(): string
+    {
+        $account = AccountSettings::getCurrent();
+
+        return ($account?->timezone) ?: (string) config('app.timezone');
+    }
+
+    /**
+     * Past due in the account timezone. Date-only tasks are overdue after that calendar day;
+     * tasks with a due time are overdue once that time has passed on the due date.
+     */
+    private function taskIsOverdue(Task $task, Carbon $now): bool
+    {
+        if ($task->due_date === null) {
+            return false;
+        }
+
+        $dueYmd = $task->due_date->format('Y-m-d');
+        $todayYmd = $now->toDateString();
+
+        if ($dueYmd < $todayYmd) {
+            return true;
+        }
+
+        if ($dueYmd > $todayYmd) {
+            return false;
+        }
+
+        if (! $task->has_due_time || $task->due_time === null || $task->due_time === '') {
+            return false;
+        }
+
+        try {
+            $time = Carbon::parse($task->due_time)->format('H:i:s');
+            $dueAt = Carbon::parse("{$dueYmd} {$time}", $now->timezoneName);
+
+            return $dueAt->lt($now);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

@@ -27,12 +27,23 @@ const subsidiaryForm = useForm({
     display_name: '',
 });
 
+const defaultLocationTypeId = computed(
+    () =>
+        props.onboarding.location_types?.find((t) => t.value === 'dealership')?.id
+        ?? props.onboarding.location_types?.[0]?.id
+        ?? 1,
+);
+
 const locationForm = useForm({
     subsidiary_id: props.onboarding.subsidiaries?.[0]?.id ?? null,
     display_name: '',
+    location_type: defaultLocationTypeId.value,
     email: '',
     phone: '',
 });
+
+const addedLocations = computed(() => props.onboarding.locations ?? []);
+const hasLocations = computed(() => addedLocations.value.length > 0);
 
 watch(
     () => props.onboarding.subsidiaries,
@@ -111,10 +122,17 @@ function submitLocation() {
         preserveScroll: true,
         onSuccess: () => {
             locationForm.reset('display_name', 'email', 'phone');
-            step.value = 3;
+            locationForm.location_type = defaultLocationTypeId.value;
             reloadOnboarding();
         },
     });
+}
+
+function continueFromLocations() {
+    if (!hasLocations.value) {
+        return;
+    }
+    step.value = 3;
 }
 
 function submitBrands() {
@@ -168,7 +186,13 @@ function submitFinalize() {
     });
 }
 
-const canSubmitLocation = computed(() => locationForm.subsidiary_id && locationForm.display_name?.trim());
+const canSubmitLocation = computed(
+    () =>
+        locationForm.subsidiary_id
+        && locationForm.display_name?.trim()
+        && locationForm.location_type != null
+        && locationForm.location_type !== '',
+);
 </script>
 
 <template>
@@ -237,10 +261,35 @@ const canSubmitLocation = computed(() => locationForm.subsidiary_id && locationF
 
                 <!-- Step 2 -->
                 <div v-show="step === 2" class="space-y-4">
-                    <h3 class="text-md font-medium text-gray-900 dark:text-white">Add a location</h3>
+                    <h3 class="text-md font-medium text-gray-900 dark:text-white">Add locations</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        Locations are physical sites. Link each location to the subsidiary it belongs to.
+                        Add every physical site you operate. Each location is linked to a subsidiary and has a type
+                        (dealership, marina, service center, and so on).
                     </p>
+
+                    <div
+                        v-if="addedLocations.length"
+                        class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50"
+                    >
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Added locations ({{ addedLocations.length }})
+                        </p>
+                        <ul class="space-y-2">
+                            <li
+                                v-for="loc in addedLocations"
+                                :key="loc.id"
+                                class="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900"
+                            >
+                                <span class="font-medium text-gray-900 dark:text-white">{{ loc.display_name }}</span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span v-if="loc.location_type_label">{{ loc.location_type_label }}</span>
+                                    <span v-if="loc.location_type_label && loc.subsidiary_labels"> · </span>
+                                    <span v-if="loc.subsidiary_labels">{{ loc.subsidiary_labels }}</span>
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+
                     <div>
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Subsidiary</label>
                         <select v-model.number="locationForm.subsidiary_id" class="input-style w-full">
@@ -259,6 +308,17 @@ const canSubmitLocation = computed(() => locationForm.subsidiary_id && locationF
                             {{ locationForm.errors.display_name }}
                         </p>
                     </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Location type</label>
+                        <select v-model.number="locationForm.location_type" class="input-style w-full" required>
+                            <option v-for="t in onboarding.location_types" :key="t.id" :value="t.id">
+                                {{ t.name }}
+                            </option>
+                        </select>
+                        <p v-if="locationForm.errors.location_type" class="mt-1 text-sm text-red-600">
+                            {{ locationForm.errors.location_type }}
+                        </p>
+                    </div>
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
                             <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Email (optional)</label>
@@ -269,14 +329,27 @@ const canSubmitLocation = computed(() => locationForm.subsidiary_id && locationF
                             <input v-model="locationForm.phone" type="tel" class="input-style w-full">
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                        :disabled="locationForm.processing || !canSubmitLocation"
-                        @click="submitLocation"
-                    >
-                        Save and continue
-                    </button>
+                    <div class="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            :disabled="locationForm.processing || !canSubmitLocation"
+                            @click="submitLocation"
+                        >
+                            Add location
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                            :disabled="!hasLocations"
+                            @click="continueFromLocations"
+                        >
+                            Continue to brands
+                        </button>
+                    </div>
+                    <p v-if="!hasLocations" class="text-xs text-gray-500 dark:text-gray-400">
+                        Add at least one location before continuing.
+                    </p>
                 </div>
 
                 <!-- Step 3 -->

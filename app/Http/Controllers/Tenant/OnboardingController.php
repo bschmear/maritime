@@ -11,6 +11,7 @@ use App\Domain\Location\Actions\CreateLocation as CreateLocationAction;
 use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Actions\CreateSubsidiary as CreateSubsidiaryAction;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Enums\Locations\LocationType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
 use App\Support\ManufacturerCatalog;
@@ -48,9 +49,12 @@ class OnboardingController extends BaseController
     {
         $this->ensureOnboardingIncomplete();
 
+        $locationTypeIds = array_column(LocationType::options(), 'id');
+
         $validated = $request->validate([
             'subsidiary_id' => ['required', 'integer', 'exists:subsidiaries,id'],
             'display_name' => ['required', 'string', 'max:255'],
+            'location_type' => ['required', 'integer', Rule::in($locationTypeIds)],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
@@ -58,6 +62,7 @@ class OnboardingController extends BaseController
 
         $payload = [
             'display_name' => $validated['display_name'],
+            'location_type' => (int) $validated['location_type'],
             'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'notes' => $validated['notes'] ?? null,

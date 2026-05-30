@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Enums\Locations\LocationType;
 use App\Enums\Timezone;
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\AccountSettings;
 use App\Services\Dashboard\TenantDashboardDataService;
 use App\Support\ManufacturerCatalog;
@@ -29,7 +31,7 @@ class DashboardController extends Controller
         // Account model uses 'pgsql' connection (central/public schema) by default
         if (! $account) {
             $tenant = tenant();
-            $account = \App\Models\Account::where('tenant_id', $tenant->id)
+            $account = Account::where('tenant_id', $tenant->id)
                 ->with(['owner', 'users'])
                 ->first();
         }
@@ -51,6 +53,27 @@ class DashboardController extends Controller
                     'id' => (int) $s->id,
                     'label' => (string) $s->display_name,
                 ])
+                ->values()
+                ->all(),
+            'location_types' => LocationType::options(),
+            'locations' => Location::query()
+                ->whereHas('subsidiaries')
+                ->with(['subsidiaries:id,display_name'])
+                ->orderBy('display_name')
+                ->get(['id', 'display_name', 'location_type'])
+                ->map(function (Location $location) {
+                    $typeLabel = collect(LocationType::options())
+                        ->firstWhere('id', (int) $location->location_type)['name'] ?? null;
+
+                    return [
+                        'id' => (int) $location->id,
+                        'display_name' => (string) $location->display_name,
+                        'location_type_label' => $typeLabel,
+                        'subsidiary_labels' => $location->subsidiaries
+                            ->pluck('display_name')
+                            ->join(', '),
+                    ];
+                })
                 ->values()
                 ->all(),
             'manufacturers' => ManufacturerCatalog::entries(),

@@ -65,6 +65,21 @@ class PageController extends Controller
         return Inertia::render('Features/SmartSurveys');
     }
 
+    public function featuresStripePayments()
+    {
+        return Inertia::render('Features/StripePayments');
+    }
+
+    public function featuresMailchimp()
+    {
+        return Inertia::render('Features/Mailchimp');
+    }
+
+    public function featuresQuickbooks()
+    {
+        return Inertia::render('Features/Quickbooks');
+    }
+
     // public function pricing()
     // {
     //     $user = auth()->user();

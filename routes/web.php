@@ -84,6 +84,9 @@ Route::get('/features/service-department', [PageController::class, 'featuresServ
 Route::get('/features/performance-tracking', [PageController::class, 'featuresPerformanceTracking'])->name('features.performance-tracking');
 Route::get('/features/delivery-system', [PageController::class, 'featuresDeliverySystem'])->name('features.delivery-system');
 Route::get('/features/smart-surveys', [PageController::class, 'featuresSmartSurveys'])->name('features.smart-surveys');
+Route::get('/features/stripe-payments', [PageController::class, 'featuresStripePayments'])->name('features.stripe-payments');
+Route::get('/features/mailchimp', [PageController::class, 'featuresMailchimp'])->name('features.mailchimp');
+Route::get('/features/quickbooks', [PageController::class, 'featuresQuickbooks'])->name('features.quickbooks');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy');
 

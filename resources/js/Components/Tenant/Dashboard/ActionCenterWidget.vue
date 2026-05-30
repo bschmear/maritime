@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import DashboardWidgetShell from '@/Components/Tenant/Dashboard/DashboardWidgetShell.vue';
+import { formatCalendarDateShort, PAST_DUE_BADGE_CLASS } from '@/Utils/calendarDate.js';
 
 /**
  * Badge styles aligned with App\Enums\Tasks\Status::color() keys.
@@ -44,7 +45,12 @@ const isEmpty = computed(
     () => tasks.value.length === 0 && followUps.value.length === 0 && deliveriesToday.value.length === 0
 );
 
-function formatDue(iso) {
+function formatTaskDueDate(ymd) {
+    return formatCalendarDateShort(ymd) || '';
+}
+
+/** Deliveries use real instants (scheduled_at ISO). */
+function formatInstantDue(iso) {
     if (!iso) return '';
     try {
         const d = new Date(iso);
@@ -94,13 +100,19 @@ function priorityBadgeClass(color) {
                         </component>
                         <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">
                             <span class="font-medium text-gray-700 dark:text-gray-200">Due:</span>
-                            {{ formatDue(row.due_at) || '—' }}
+                            {{ formatTaskDueDate(row.due_date) || '—' }}
                             <template v-if="row.due_time">
                                 <span class="mx-1 text-gray-400">·</span>
                                 <span>{{ row.due_time }}</span>
                             </template>
                         </p>
                         <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <span v-if="row.is_overdue" :class="PAST_DUE_BADGE_CLASS">
+                                Past due<template v-if="row.due_time"> · {{ row.due_time }}</template>
+                            </span>
+                            <template v-if="row.is_overdue">
+                                <span class="text-xs text-gray-400">·</span>
+                            </template>
                             <span class="text-xs text-gray-500 dark:text-gray-400">Status</span>
                             <span :class="statusBadgeClass(row.status_color)">{{ row.status || '—' }}</span>
                             <span class="text-xs text-gray-400">·</span>
@@ -161,7 +173,7 @@ function priorityBadgeClass(color) {
                             {{ row.label }}
                         </component>
                         <p v-if="row.scheduled_at" class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ formatDue(row.scheduled_at) }}
+                            {{ formatInstantDue(row.scheduled_at) }}
                         </p>
                     </li>
                 </ul>

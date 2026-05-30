@@ -61,6 +61,27 @@ const features = [
         href: 'features.smart-surveys',
         category: 'Marketing',
     },
+    {
+        icon: 'payments',
+        title: 'Stripe Payments',
+        description: 'Connect Stripe Express and let customers pay open invoices online by card or bank debit.',
+        href: 'features.stripe-payments',
+        category: 'Integrations',
+    },
+    {
+        icon: 'campaign',
+        title: 'Mailchimp',
+        description: 'Sync contacts and leads with Mailchimp audiences — push, pull, lists, and segments.',
+        href: 'features.mailchimp',
+        category: 'Integrations',
+    },
+    {
+        icon: 'account_balance',
+        title: 'QuickBooks Online',
+        description: 'Connect QuickBooks to sync customers, push invoices, and pull payments into Helmful.',
+        href: 'features.quickbooks',
+        category: 'Integrations',
+    },
 ];
 </script>
 
@@ -248,6 +269,53 @@ const features = [
                             
                         </div>
 
+                    </div>
+
+                    <!-- Integrations -->
+                    <div class="mt-24">
+                        <div class="mb-12">
+                            <div class="inline-flex items-center gap-2 mb-4">
+                                <span class="material-icons text-primary-600 dark:text-primary-400">extension</span>
+                                <span class="text-sm font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Integrations</span>
+                            </div>
+                            <h2 class="text-4xl sm:text-5xl font-bold text-gray-950 dark:text-white mb-4">
+                                Connect the tools you already use
+                            </h2>
+                            <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl">
+                                Payments, email audiences, and accounting — wired into the same customers, invoices, and contacts your team works with every day.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-6 lg:grid-cols-3">
+                            <component
+                                v-for="(feature, idx) in [features[8], features[9], features[10]]"
+                                :key="feature.title"
+                                :is="feature.href && route().has(feature.href) ? Link : 'div'"
+                                :href="feature.href && route().has(feature.href) ? route(feature.href) : undefined"
+                                class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 dark:border-gray-800 dark:bg-gray-900"
+                                :class="feature.href && route().has(feature.href) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
+                                :style="{ animationDelay: `${500 + idx * 100}ms` }"
+                            >
+                                <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-primary-500/5"></div>
+
+                                <div class="relative z-10">
+                                    <div class="mb-6 inline-flex items-center justify-center h-14 w-14 rounded-xl bg-primary-100 dark:bg-primary-950">
+                                        <span class="material-icons text-2xl text-primary-600 dark:text-primary-400">{{ feature.icon }}</span>
+                                    </div>
+
+                                    <h3 class="text-xl font-bold text-gray-950 dark:text-white mb-3">{{ feature.title }}</h3>
+                                    <p class="text-gray-600 dark:text-gray-400 leading-relaxed mb-4 whitespace-normal">{{ feature.description }}</p>
+
+                                    <div
+                                        v-if="feature.href && route().has(feature.href)"
+                                        class="inline-flex items-center gap-2 text-primary-600 dark:text-primary-400 font-semibold text-sm group-hover:gap-3 transition-all"
+                                    >
+                                        Learn more
+                                        <span class="material-icons text-base">arrow_forward</span>
+                                    </div>
+                                </div>
+                            </component>
+                        </div>
                     </div>
 
                 </div>
