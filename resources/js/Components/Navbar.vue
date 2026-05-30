@@ -71,7 +71,7 @@ const workspaceExternalRel = computed(() => (pwaForLinks.value ? undefined : 'no
 /** Public + marketing routes (aligned with Footer / web.php). */
 const primaryNavLinks = [
     { label: 'About', routeName: 'about', match: ['about'] },
-    { label: 'Features', routeName: 'features', match: ['features', 'features.boat-shows', 'features.service-department'] },
+    { label: 'Features', routeName: 'features', match: ['features', 'features.boat-shows', 'features.service-department', 'features.performance-tracking', 'features.delivery-system', 'features.smart-surveys'] },
     { label: 'Pricing', routeName: 'checkout.plans', match: ['checkout.plans'] },
     { label: 'Blog', routeName: 'blog', match: ['blog', 'blogCategory', 'blogTag', 'blogPostShow'] },
     { label: 'FAQ', routeName: 'faq', match: ['faq'] },

@@ -50,6 +50,21 @@ class PageController extends Controller
         return Inertia::render('Features/ServiceDepartment');
     }
 
+    public function featuresPerformanceTracking()
+    {
+        return Inertia::render('Features/PerformanceTracking');
+    }
+
+    public function featuresDeliverySystem()
+    {
+        return Inertia::render('Features/DeliverySystem');
+    }
+
+    public function featuresSmartSurveys()
+    {
+        return Inertia::render('Features/SmartSurveys');
+    }
+
     // public function pricing()
     // {
     //     $user = auth()->user();

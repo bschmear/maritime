@@ -44,8 +44,22 @@ const features = [
         icon: 'bar_chart',
         title: 'Performance Tracking',
         description: 'See how your team and locations are performing across sales and operations.',
-        href: null,
+        href: 'features.performance-tracking',
         category: 'Analytics',
+    },
+    {
+        icon: 'local_shipping',
+        title: 'Delivery System',
+        description: 'Plan routes, schedule deliveries, alert customers, and capture signatures on delivery day.',
+        href: 'features.delivery-system',
+        category: 'Operations',
+    },
+    {
+        icon: 'poll',
+        title: 'Smart Surveys',
+        description: 'Build feedback and lead surveys with templates, conditional logic, and responses tied to leads and contacts.',
+        href: 'features.smart-surveys',
+        category: 'Marketing',
     },
 ];
 </script>
@@ -156,7 +170,7 @@ const features = [
                                 Specialized modules
                             </h2>
                             <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl">
-                                Deep features for specific workflows. From managing events and shows to tracking service performance.
+                                Deep features for specific workflows. From deliveries and boat shows to service performance.
                             </p>
                         </div>
 
@@ -204,7 +218,7 @@ const features = [
 
                             <!-- Other features -->
                             <component
-                                v-for="(feature, idx) in [features[4], features[5]]"
+                                v-for="(feature, idx) in [features[4], features[5], features[6], features[7]]"
                                 :key="feature.title"
                                 :is="feature.href && route().has(feature.href) ? Link : 'div'"
                                 :href="feature.href && route().has(feature.href) ? route(feature.href) : undefined"
@@ -231,7 +245,9 @@ const features = [
                                     </div>
                                 </div>
                             </component>
+                            
                         </div>
+
                     </div>
 
                 </div>

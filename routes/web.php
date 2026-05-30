@@ -81,6 +81,9 @@ Route::get('/about', [PageController::class, 'about'])->name('about');
 Route::get('/features', [PageController::class, 'features'])->name('features');
 Route::get('/features/boat-shows', [PageController::class, 'featuresBoatShows'])->name('features.boat-shows');
 Route::get('/features/service-department', [PageController::class, 'featuresServiceDepartment'])->name('features.service-department');
+Route::get('/features/performance-tracking', [PageController::class, 'featuresPerformanceTracking'])->name('features.performance-tracking');
+Route::get('/features/delivery-system', [PageController::class, 'featuresDeliverySystem'])->name('features.delivery-system');
+Route::get('/features/smart-surveys', [PageController::class, 'featuresSmartSurveys'])->name('features.smart-surveys');
 Route::get('/terms', [PageController::class, 'terms'])->name('terms');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy-policy');
 
