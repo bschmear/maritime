@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Location\Models\Location;
+use App\Enums\Entity\IntendedUse;
+use App\Enums\Entity\OwnershipType;
+use App\Enums\Entity\PurchaseTimeline;
+use App\Enums\Entity\Source;
+use App\Enums\Inventory\UnitCondition;
+use App\Enums\Inventory\UnitStatus;
+use App\Enums\Leads\Status;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Services\TaxRateService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -38,7 +46,7 @@ class GeneralController extends BaseController
             'maintenancetype' => 'MaintenanceType',
         ];
         $typeKey = $type !== null && $type !== '' ? strtolower((string) $type) : '';
-        $domainName = $typeToDomain[$typeKey] ?? \Illuminate\Support\Str::studly($type);
+        $domainName = $typeToDomain[$typeKey] ?? Str::studly($type);
 
         $recordModel = 'App\Domain\\'.$domainName.'\Models\\'.$domainName;
         $recordModel = new $recordModel;
@@ -47,7 +55,7 @@ class GeneralController extends BaseController
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
         // "customer" / "lead" are profile rows: labels come from the linked contact (and primary address), not profile tables.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead'];
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead', 'workorder'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -73,6 +81,9 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 // display_name is computed from `sequence` (e.g. "DL-1001", "CTR-10003")
                 $columns[] = 'sequence';
+            } elseif ($typeKey === 'workorder') {
+                // display_name accessor is WO-{work_order_number}; not a DB column
+                $columns[] = 'work_order_number';
             } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
                 // display_name accessor falls back to the real `name` column.
                 $columns[] = 'name';
@@ -224,6 +235,18 @@ class GeneralController extends BaseController
                         $q->orWhere($contactTable.'.id', '=', (int) $trim);
                     }
                 });
+            } elseif ($typeKey === 'workorder') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $trim = trim((string) $searchQuery);
+                $woTable = $recordModel->getTable();
+                $query->where(function ($q) use ($searchTerm, $trim, $woTable) {
+                    $q->whereRaw('LOWER(CAST('.$woTable.'.work_order_number AS TEXT)) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('CAST('.$woTable.'.id AS TEXT) LIKE ?', [$searchTerm]);
+                    if ($trim !== '' && ctype_digit($trim)) {
+                        $q->orWhere($woTable.'.id', '=', (int) $trim)
+                            ->orWhere($woTable.'.work_order_number', '=', (int) $trim);
+                    }
+                });
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 // display_name is virtual ("DL-…", "CTR-…"); search by sequence (and contract_number for contracts)
                 $searchTerm = trim($searchQuery);
@@ -347,6 +370,9 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('sequence', $dir);
+            } elseif ($typeKey === 'workorder') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('work_order_number', $dir);
             } elseif (in_array($typeKey, ['delivery_location', 'deliverylocation'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
@@ -422,18 +448,18 @@ class GeneralController extends BaseController
             // Fallback: manually load the enum options for InventoryUnit
             if ($domainName === 'InventoryUnit') {
                 $enumOptions = [
-                    'App\Enums\Inventory\UnitCondition' => \App\Enums\Inventory\UnitCondition::options(),
-                    'App\Enums\Inventory\UnitStatus' => \App\Enums\Inventory\UnitStatus::options(),
+                    'App\Enums\Inventory\UnitCondition' => UnitCondition::options(),
+                    'App\Enums\Inventory\UnitStatus' => UnitStatus::options(),
                 ];
             }
             // Fallback: manually load the enum options for Qualification
             elseif ($domainName === 'Qualification') {
                 $enumOptions = [
-                    'App\Enums\Leads\Status' => \App\Enums\Leads\Status::options(),
-                    'App\Enums\Entity\IntendedUse' => \App\Enums\Entity\IntendedUse::options(),
-                    'App\Enums\Entity\OwnershipType' => \App\Enums\Entity\OwnershipType::options(),
-                    'App\Enums\Entity\PurchaseTimeline' => \App\Enums\Entity\PurchaseTimeline::options(),
-                    'App\Enums\Entity\Source' => \App\Enums\Entity\Source::options(),
+                    'App\Enums\Leads\Status' => Status::options(),
+                    'App\Enums\Entity\IntendedUse' => IntendedUse::options(),
+                    'App\Enums\Entity\OwnershipType' => OwnershipType::options(),
+                    'App\Enums\Entity\PurchaseTimeline' => PurchaseTimeline::options(),
+                    'App\Enums\Entity\Source' => Source::options(),
                 ];
             }
         }
@@ -472,7 +498,7 @@ class GeneralController extends BaseController
         // ── Location-based lookup (service ticket / work order) ────────────────
         $locationId = $request->get('location_id');
         if ($locationId) {
-            $location = \App\Domain\Location\Models\Location::find($locationId);
+            $location = Location::find($locationId);
 
             if (! $location) {
                 return response()->json([

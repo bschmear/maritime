@@ -42,7 +42,7 @@ const primaryContact = computed(() => props.record.primaryContact ?? props.recor
 
 /** Contacts linked to this vendor (ManyToMany), sorted for picker labels. */
 const linkedVendorContacts = computed(() => {
-    const raw = props.record.linkedContacts;
+    const raw = props.record.linkedContacts ?? props.record.linked_contacts;
     if (!Array.isArray(raw)) {
         return [];
     }

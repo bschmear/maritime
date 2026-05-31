@@ -2,13 +2,21 @@
 
 namespace App\Domain\ServiceTicket\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
+use App\Domain\Customer\Models\Customer;
+use App\Domain\Document\Models\Document;
+use App\Domain\Location\Models\Location;
+use App\Domain\ServiceTicketRevision\Models\ServiceTicketRevision;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class ServiceTicket extends Model
 {
@@ -87,37 +95,37 @@ class ServiceTicket extends Model
 
     public function subsidiary(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+        return $this->belongsTo(Subsidiary::class);
     }
 
     public function transaction(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Transaction\Models\Transaction::class);
+        return $this->belongsTo(Transaction::class);
     }
 
     public function location(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+        return $this->belongsTo(Location::class);
     }
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
+        return $this->belongsTo(Customer::class);
     }
 
     public function assetUnit(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
+        return $this->belongsTo(AssetUnit::class);
     }
 
     public function asset_unit(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
+        return $this->belongsTo(AssetUnit::class);
     }
 
     public function paperSignatureDocument(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Document\Models\Document::class, 'paper_signature_document_id');
+        return $this->belongsTo(Document::class, 'paper_signature_document_id');
     }
 
     public function serviceItems(): HasMany
@@ -127,12 +135,12 @@ class ServiceTicket extends Model
 
     public function revisions(): HasMany
     {
-        return $this->hasMany(\App\Domain\ServiceTicketRevision\Models\ServiceTicketRevision::class);
+        return $this->hasMany(ServiceTicketRevision::class);
     }
 
     public function workOrders(): HasMany
     {
-        return $this->hasMany(\App\Domain\WorkOrder\Models\WorkOrder::class);
+        return $this->hasMany(WorkOrder::class);
     }
 
     /*
@@ -143,19 +151,7 @@ class ServiceTicket extends Model
 
     public function getSignatureUrlAttribute(): ?string
     {
-        if (! $this->signature_file) {
-            return null;
-        }
-
-        $cdnUrl = config('filesystems.disks.s3.cdn_url');
-        if ($cdnUrl) {
-            return rtrim($cdnUrl, '/').'/'.$this->signature_file;
-        }
-
-        return Storage::disk('s3')->temporaryUrl(
-            $this->signature_file,
-            now()->addDays(1)
-        );
+        return SignatureStorage::url($this->signature_file);
     }
 
     /*

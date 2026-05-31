@@ -51,6 +51,9 @@ Route::middleware([
         Route::get('/service-tickets', [CustomerPortalController::class, 'serviceTickets'])->name('servicetickets');
         Route::get('/service-tickets/{uuid}', [CustomerPortalController::class, 'serviceTicketShow'])->name('servicetickets.show');
         Route::get('/documents', [CustomerPortalController::class, 'documents'])->name('documents');
+        Route::get('/documents/{document}/download', [CustomerPortalController::class, 'downloadDocument'])->name('documents.download');
+        Route::post('/document-requests/{documentRequest}/fulfill', [CustomerPortalController::class, 'fulfillDocumentRequest'])
+            ->name('document-requests.fulfill');
         Route::get('/spec-sheets', [CustomerPortalController::class, 'specSheets'])->name('specSheets.index');
         Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');
         Route::post('/spec-sheets/{uuid}/options', [CustomerPortalController::class, 'storeSpecSheetOptionSelections'])->name('specSheet.options.save');
@@ -84,6 +87,8 @@ Route::middleware([
             Route::get('/', [VendorPortalController::class, 'index'])->name('index');
             Route::get('/warranty-claims', [VendorPortalController::class, 'warrantyClaims'])->name('warranty-claims.index');
             Route::get('/warranty-claims/{warranty_claim}', [VendorPortalController::class, 'warrantyClaimShow'])->name('warranty-claims.show');
+            Route::get('/warranty-claims/{warranty_claim}/documents/{document}/download', [VendorPortalController::class, 'downloadWarrantyClaimDocument'])
+                ->name('warranty-claims.documents.download');
             Route::post('/warranty-claims/{warranty_claim}/line-feedback', [VendorPortalController::class, 'saveWarrantyClaimLineFeedback'])->name('warranty-claims.line-feedback');
             Route::post('/warranty-claims/{warranty_claim}/approve', [VendorPortalController::class, 'approveWarrantyClaim'])->name('warranty-claims.approve');
             Route::post('/warranty-claims/{warranty_claim}/reject', [VendorPortalController::class, 'rejectWarrantyClaim'])->name('warranty-claims.reject');

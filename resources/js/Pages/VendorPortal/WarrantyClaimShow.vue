@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
+    portalDocuments: { type: Array, default: () => [] },
     canRespond: { type: Boolean, default: false },
     canEditLineFeedback: { type: Boolean, default: false },
     statuses: { type: Array, default: () => [] },
@@ -55,6 +56,17 @@ const serviceLineDisplayName = (row) =>
 const lineTotalSum = computed(() =>
     lineItems.value.reduce((sum, row) => sum + (Number(row.line_total_cost) || 0), 0),
 );
+
+const claimImages = computed(() => props.record.images || []);
+
+const claimDocuments = computed(() => props.portalDocuments || []);
+
+const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${sizes[i]}`;
+};
 
 const showReject = ref(false);
 
@@ -277,6 +289,55 @@ const vendorPaymentTermsLabel = computed(() => {
                 <div v-if="record.rejection_reason" class="rounded-lg border border-red-100 bg-red-50 p-4 text-sm">
                     <p class="text-xs font-semibold text-red-700 uppercase mb-2">Rejection reason</p>
                     <p class="text-red-900 whitespace-pre-wrap">{{ record.rejection_reason }}</p>
+                </div>
+
+                <div v-if="claimDocuments.length">
+                    <h2 class="text-sm font-semibold text-gray-900 mb-3">Documents</h2>
+                    <ul class="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                        <li
+                            v-for="doc in claimDocuments"
+                            :key="doc.id"
+                            class="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-gray-50"
+                        >
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-gray-900 truncate">{{ doc.display_name }}</p>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <span v-if="doc.file_extension">{{ doc.file_extension.toUpperCase() }}</span>
+                                    <span v-if="doc.file_extension && doc.file_size"> · </span>
+                                    <span v-if="doc.file_size">{{ formatFileSize(doc.file_size) }}</span>
+                                </p>
+                            </div>
+                            <a
+                                v-if="doc.download_url"
+                                :href="doc.download_url"
+                                class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 shrink-0"
+                            >
+                                <span class="material-icons text-base">download</span>
+                                Download
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div v-if="claimImages.length">
+                    <h2 class="text-sm font-semibold text-gray-900 mb-3">Photos</h2>
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                        <a
+                            v-for="img in claimImages"
+                            :key="img.id"
+                            :href="img.url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+                        >
+                            <img
+                                :src="img.url"
+                                :alt="img.display_name || 'Claim photo'"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
+                            />
+                        </a>
+                    </div>
                 </div>
 
                 <div>

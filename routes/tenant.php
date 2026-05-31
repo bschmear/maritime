@@ -14,8 +14,11 @@ use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
 use App\Http\Controllers\Tenant\BoatMakeController;
+use App\Http\Controllers\Tenant\BoatShowController;
 use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
+use App\Http\Controllers\Tenant\BoatShowEventController;
+use App\Http\Controllers\Tenant\BoatShowLayoutController;
 use App\Http\Controllers\Tenant\CommunicationController;
 use App\Http\Controllers\Tenant\ConsignmentAgreementController;
 use App\Http\Controllers\Tenant\ContactAddressController;
@@ -28,6 +31,7 @@ use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
 use App\Http\Controllers\Tenant\DeliveryLocationController;
 use App\Http\Controllers\Tenant\DocumentController;
+use App\Http\Controllers\Tenant\DocumentRequestController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
 use App\Http\Controllers\Tenant\FleetController;
@@ -57,10 +61,10 @@ use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SchedulingController;
-use App\Http\Controllers\Tenant\ServiceYardController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
+use App\Http\Controllers\Tenant\ServiceYardController;
 use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
@@ -229,6 +233,13 @@ Route::middleware([
             Route::post('{contact}/send-portal-link', [ContactController::class, 'sendPortalLink'])
                 ->middleware('throttle:15,1')
                 ->name('send-portal-link');
+            Route::post('{contact}/driver-license/{side}', [ContactController::class, 'uploadDriverLicense'])
+                ->where('side', 'front|back')
+                ->name('driver-license.upload');
+            Route::get('{contact}/document-requests', [DocumentRequestController::class, 'index'])
+                ->name('document-requests.index');
+            Route::post('{contact}/document-requests', [DocumentRequestController::class, 'store'])
+                ->name('document-requests.store');
             Route::resource('/', ContactController::class)->parameters(['' => 'contact']);
         });
 
@@ -487,18 +498,18 @@ Route::middleware([
             Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
             Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');
             Route::put('{event}/layout', [BoatShowEventAssetController::class, 'syncLayout'])->name('layout.sync');
-            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
+            Route::resource('/', BoatShowEventController::class)
                 ->parameters(['' => 'event']);
         });
 
         Route::prefix('boat-show-layouts')->name('boat-show-layouts.')->group(function () {
-            Route::post('/{layout}/sync', [\App\Http\Controllers\Tenant\BoatShowLayoutController::class, 'sync'])->name('sync');
-            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLayoutController::class)
+            Route::post('/{layout}/sync', [BoatShowLayoutController::class, 'sync'])->name('sync');
+            Route::resource('/', BoatShowLayoutController::class)
                 ->parameters(['' => 'layout']);
         });
 
         Route::prefix('boat-shows')->name('boat-shows.')->group(function () {
-            Route::resource('/', \App\Http\Controllers\Tenant\BoatShowController::class)
+            Route::resource('/', BoatShowController::class)
                 ->parameters(['' => 'boatShow']);
 
             // Boat Show Events (scoped under a show)
@@ -508,14 +519,14 @@ Route::middleware([
                 Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
                 Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');
                 Route::put('{event}/layout', [BoatShowEventAssetController::class, 'syncLayout'])->name('layout.sync');
-                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowEventController::class)
+                Route::resource('/', BoatShowEventController::class)
                     ->parameters(['' => 'event']);
             });
 
             // Boat Show Layouts (scoped under a show)
             Route::prefix('{boatShow}/layouts')->name('layouts.')->group(function () {
-                Route::post('/{layout}/sync', [\App\Http\Controllers\Tenant\BoatShowLayoutController::class, 'sync'])->name('sync');
-                Route::resource('/', \App\Http\Controllers\Tenant\BoatShowLayoutController::class)
+                Route::post('/{layout}/sync', [BoatShowLayoutController::class, 'sync'])->name('sync');
+                Route::resource('/', BoatShowLayoutController::class)
                     ->parameters(['' => 'layout']);
             });
         });
@@ -624,8 +635,12 @@ Route::middleware([
 
         Route::prefix('documentables')->name('documentables.')->group(function () {
             Route::post('/attach', [DocumentController::class, 'attach'])->name('attach');
+            Route::patch('/pivot', [DocumentController::class, 'updatePivot'])->name('pivot');
             Route::delete('/detach', [DocumentController::class, 'detach'])->name('detach');
         });
+
+        Route::post('document-requests/{documentRequest}/cancel', [DocumentRequestController::class, 'cancel'])
+            ->name('document-requests.cancel');
 
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');

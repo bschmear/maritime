@@ -26,12 +26,15 @@ class CustomerAuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if (!Auth::guard('customer')->attempt(
+        if (! Auth::guard('customer')->attempt(
             $request->only('email', 'password'),
             $request->boolean('remember')
         )) {
+            $message = __('These credentials do not match our records.');
+
             throw ValidationException::withMessages([
-                'email' => __('These credentials do not match our records.'),
+                'email' => $message,
+                'password' => $message,
             ]);
         }
 

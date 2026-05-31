@@ -7,6 +7,11 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Customer\Models\CustomerAssetSpecSheetOptionSelection;
 use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
+use App\Domain\Document\Models\Document;
+use App\Domain\Document\Support\PortalDocuments;
+use App\Domain\DocumentRequest\Actions\FulfillDocumentRequest;
+use App\Domain\DocumentRequest\Enums\DocumentRequestStatus;
+use App\Domain\DocumentRequest\Models\DocumentRequest;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Support\InvoicePayOnline;
@@ -24,10 +29,12 @@ use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
 use App\Services\Payments\QuickBooksAccountingService;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -69,7 +76,7 @@ class CustomerPortalController extends Controller
                     ->whereIn('status', InvoiceStatus::customerPortalValues())
                     ->count(),
                 'serviceTickets' => $this->serviceTicketsForCustomer($customerId)->count(),
-                'documents' => $customerProfile ? $customerProfile->documents()->count() : 0,
+                'documents' => PortalDocuments::countForCustomerProfile($customerProfile, $contact->id),
                 'specSheets' => $customerProfile
                     ? CustomerAssetSpecSheetShare::query()->where('customer_profile_id', $customerProfile->id)->count()
                     : 0,
@@ -349,18 +356,87 @@ class CustomerPortalController extends Controller
 
     public function documents(Request $request): Response
     {
-        ['customerProfile' => $customerProfile] = $this->portalContext();
+        ['contact' => $contact, 'customerProfile' => $customerProfile] = $this->portalContext();
 
-        $documents = $customerProfile
-            ? $customerProfile->documents()->latest()->paginate(15)
-            : new LengthAwarePaginator([], 0, 15, 1, [
-                'path' => $request->url(),
-                'pageName' => 'page',
+        $paginator = PortalDocuments::paginateForCustomerProfile($customerProfile, $request, $contact->id);
+
+        $pendingDocumentRequests = DocumentRequest::query()
+            ->where('contact_id', $contact->id)
+            ->where('status', DocumentRequestStatus::Pending)
+            ->orderByDesc('sent_at')
+            ->get()
+            ->map(fn (DocumentRequest $row) => [
+                'id' => $row->id,
+                'title' => $row->title,
+                'description' => $row->description,
+                'sent_at' => $row->sent_at?->toIso8601String(),
             ]);
 
+        $tab = $request->query('tab');
+        $activeTab = in_array($tab, ['documents', 'requests'], true) ? $tab : 'documents';
+
         return Inertia::render('Portal/Documents', [
-            'documents' => $documents,
+            'documents' => [
+                'data' => PortalDocuments::mapForPortal($paginator),
+                'links' => $paginator->linkCollection()->toArray(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+            'pendingDocumentRequests' => $pendingDocumentRequests,
+            'activeTab' => $activeTab,
         ]);
+    }
+
+    public function downloadDocument(int $document)
+    {
+        ['customerProfile' => $customerProfile] = $this->portalContext();
+
+        abort_if($customerProfile === null, 403);
+
+        $record = Document::query()->findOrFail($document);
+        $contact = Auth::guard('customer')->user();
+        abort_unless(
+            PortalDocuments::customerCanDownload($customerProfile, $record, $contact?->id),
+            403,
+        );
+
+        if (! $record->file || ! Storage::disk('s3')->exists($record->file)) {
+            abort(404);
+        }
+
+        return Storage::disk('s3')->download(
+            $record->file,
+            $record->display_name ?? 'document'
+        );
+    }
+
+    public function fulfillDocumentRequest(
+        Request $request,
+        DocumentRequest $documentRequest,
+        FulfillDocumentRequest $fulfillDocumentRequest,
+    ) {
+        /** @var Contact $contact */
+        $contact = Auth::guard('customer')->user();
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,csv,txt,xlsx', 'max:51200'],
+        ]);
+
+        $result = $fulfillDocumentRequest(
+            $documentRequest,
+            $contact,
+            $validated['file'],
+        );
+
+        if (! ($result['success'] ?? false)) {
+            return back()->with('error', $result['message'] ?? 'Upload failed.');
+        }
+
+        return redirect()
+            ->route('portal.documents', ['tab' => 'documents'])
+            ->with('success', 'Document uploaded successfully. Thank you!');
     }
 
     public function specSheets(Request $request): Response
@@ -401,7 +477,7 @@ class CustomerPortalController extends Controller
         return Inertia::render('Portal/SpecSheetShow', $this->specSheetInertiaProps($share, $customerProfile));
     }
 
-    public function storeSpecSheetOptionSelections(Request $request, string $uuid): \Illuminate\Http\RedirectResponse
+    public function storeSpecSheetOptionSelections(Request $request, string $uuid): RedirectResponse
     {
         ['customerProfile' => $customerProfile] = $this->portalContext();
 
@@ -654,7 +730,7 @@ class CustomerPortalController extends Controller
         ];
     }
 
-    private function estimatesForCustomer(?int $customerId): \Illuminate\Database\Eloquent\Builder
+    private function estimatesForCustomer(?int $customerId): Builder
     {
         return Estimate::query()
             ->when(
@@ -665,7 +741,7 @@ class CustomerPortalController extends Controller
             ->where('status', '!=', EstimateStatus::Draft->id());
     }
 
-    private function serviceTicketsForCustomer(?int $customerId): \Illuminate\Database\Eloquent\Builder
+    private function serviceTicketsForCustomer(?int $customerId): Builder
     {
         return ServiceTicket::query()
             ->when(

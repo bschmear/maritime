@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Portal;
 
 use App\Domain\Contact\Models\Contact;
+use App\Domain\Document\Models\Document;
+use App\Domain\Document\Support\PortalDocuments;
 use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Actions\VendorApproveWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\VendorRejectWarrantyClaim;
@@ -20,6 +22,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -95,6 +99,7 @@ class VendorPortalController extends Controller
                 'lineItems' => fn ($q) => $q->orderBy('id')->with([
                     'workOrderServiceItem' => fn ($q2) => $q2->select(['id', 'display_name', 'description', 'work_order_id']),
                 ]),
+                'images' => fn ($q) => $q,
                 'subsidiary:id,display_name',
                 'location:id,display_name',
             ])
@@ -111,10 +116,29 @@ class VendorPortalController extends Controller
 
         return Inertia::render('VendorPortal/WarrantyClaimShow', [
             'record' => $claim,
+            'portalDocuments' => PortalDocuments::mapForVendorWarrantyClaim($claim),
             'canRespond' => $status === Status::Submitted,
             'canEditLineFeedback' => $this->vendorMayEditLineFeedback($status),
             'statuses' => Status::options(),
         ]);
+    }
+
+    public function downloadWarrantyClaimDocument(
+        Request $request,
+        WarrantyClaim $warranty_claim,
+        Document $document,
+    ): StreamedResponse {
+        $this->assertClaimAccessible($warranty_claim);
+
+        if (! PortalDocuments::vendorCanDownloadFromWarrantyClaim($warranty_claim, $document)) {
+            abort(403, 'Access denied.');
+        }
+
+        if (! $document->file || ! Storage::disk('s3')->exists($document->file)) {
+            abort(404, 'File not found.');
+        }
+
+        return Storage::disk('s3')->download($document->file, $document->display_name);
     }
 
     public function saveWarrantyClaimLineFeedback(Request $request, WarrantyClaim $warranty_claim): RedirectResponse

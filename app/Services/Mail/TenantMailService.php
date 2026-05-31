@@ -3,8 +3,6 @@
 namespace App\Services\Mail;
 
 use App\Mail\AccountInvitation;
-use App\Mail\ContactPortalLink;
-use App\Mail\VendorPortalLink;
 use App\Models\AccountSettings;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,15 +14,13 @@ use Illuminate\Support\Facades\Mail;
  * Tenant outbound mail: sandbox routing and queue vs sync dispatch.
  *
  * When sandbox mode is on, customer/vendor operational mail is sent to the signed-in
- * user instead of external recipients. Invitations and portal login/register links are exempt.
+ * user instead of external recipients. Staff account invitations are exempt.
  */
 class TenantMailService
 {
     /** @var list<class-string<Mailable>> */
     private const SANDBOX_EXEMPT = [
         AccountInvitation::class,
-        ContactPortalLink::class,
-        VendorPortalLink::class,
     ];
 
     public function isSandboxActive(): bool

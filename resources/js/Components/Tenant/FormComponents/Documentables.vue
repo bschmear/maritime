@@ -39,11 +39,23 @@
                         <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">
                             {{ document.display_name }}
                         </h4>
-                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                             <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-medium">
                                 {{ document.file_extension?.toUpperCase() }}
                             </span>
                             <span>{{ formatFileSize(document.file_size) }}</span>
+                            <span
+                                v-if="showCustomerVisibility && isVisibleToCustomer(document)"
+                                class="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 font-medium"
+                            >
+                                Customer visible
+                            </span>
+                            <span
+                                v-if="showVendorVisibility && isVisibleToVendor(document)"
+                                class="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 font-medium"
+                            >
+                                Vendor visible
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -64,7 +76,35 @@
                     </span>
 
                     <!-- Actions -->
-                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="flex items-center gap-1">
+                        <button
+                            v-if="showCustomerVisibility"
+                            @click="toggleCustomerVisibility(document)"
+                            type="button"
+                            :disabled="togglingVisibilityId === document.id"
+                            :title="isVisibleToCustomer(document) ? 'Hide from customer' : 'Visible to customer'"
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all disabled:opacity-50"
+                            :class="isVisibleToCustomer(document)
+                                ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30'
+                                : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                        >
+                            <span v-if="togglingVisibilityId === document.id" class="material-icons text-lg animate-spin">progress_activity</span>
+                            <span v-else class="material-icons text-lg">{{ isVisibleToCustomer(document) ? 'visibility' : 'visibility_off' }}</span>
+                        </button>
+                        <button
+                            v-if="showVendorVisibility"
+                            @click="toggleVendorVisibility(document)"
+                            type="button"
+                            :disabled="togglingVendorVisibilityId === document.id"
+                            :title="isVisibleToVendor(document) ? 'Hide from vendor portal' : 'Visible to vendor'"
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-lg transition-all disabled:opacity-50"
+                            :class="isVisibleToVendor(document)
+                                ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                                : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                        >
+                            <span v-if="togglingVendorVisibilityId === document.id" class="material-icons text-lg animate-spin">progress_activity</span>
+                            <span v-else class="material-icons text-lg">{{ isVisibleToVendor(document) ? 'storefront' : 'store' }}</span>
+                        </button>
                         <button
                             @click="openEditModal(document)"
                             type="button"
@@ -329,6 +369,29 @@
                                     ></textarea>
                                 </div>
 
+                                <label
+                                    v-if="showCustomerVisibility"
+                                    class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                                >
+                                    <input
+                                        v-model="visibleToCustomerOnUpload"
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                    />
+                                    Visible to customer in portal
+                                </label>
+                                <label
+                                    v-if="showVendorVisibility"
+                                    class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                                >
+                                    <input
+                                        v-model="visibleToVendorOnUpload"
+                                        type="checkbox"
+                                        class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                    />
+                                    Visible to vendor in portal
+                                </label>
+
                                 <!-- Upload Button -->
                                 <div class="flex justify-end gap-3 pt-4">
                                     <button
@@ -429,7 +492,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
 
@@ -452,8 +515,35 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['update:modelValue']);
 
+const coercePivotBool = (value) => {
+    if (value === true || value === 1) {
+        return true;
+    }
+    if (value === false || value === 0 || value == null) {
+        return false;
+    }
+    if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        return lower === '1' || lower === 'true' || lower === 't' || lower === 'yes' || lower === 'on';
+    }
+
+    return Boolean(value);
+};
+
+const normalizeDocument = (doc) => ({
+    ...doc,
+    visible_to_customer: coercePivotBool(
+        doc?.visible_to_customer ?? doc?.pivot?.visible_to_customer,
+    ),
+    visible_to_vendor: coercePivotBool(
+        doc?.visible_to_vendor ?? doc?.pivot?.visible_to_vendor,
+    ),
+});
+
+const normalizeDocuments = (list) => (Array.isArray(list) ? list : []).map(normalizeDocument);
+
 // Reactive data
-const documents = ref([...props.modelValue]);
+const documents = ref(normalizeDocuments(props.modelValue));
 const showAttachModal = ref(false);
 const activeTab = ref('existing');
 const searchQuery = ref('');
@@ -466,6 +556,11 @@ const uploadForm = ref({
     description: ''
 });
 const uploading = ref(false);
+const visibleToCustomerOnUpload = ref(false);
+const visibleToVendorOnUpload = ref(false);
+
+const showCustomerVisibility = computed(() => ['Contact', 'Customer', 'Lead'].includes(props.parentType));
+const showVendorVisibility = computed(() => props.parentType === 'WarrantyClaim');
 
 // Edit modal state
 const showEditModal = ref(false);
@@ -478,10 +573,41 @@ const isUpdatingDocument = ref(false);
 
 // Detach loading state
 const detachingDocumentId = ref(null);
+const togglingVisibilityId = ref(null);
+const togglingVendorVisibilityId = ref(null);
 
-// Watch for prop changes
+const isVisibleToCustomer = (document) => coercePivotBool(document?.visible_to_customer);
+const isVisibleToVendor = (document) => coercePivotBool(document?.visible_to_vendor);
+
+const patchDocumentVisibility = (documentId, visible) => {
+    const index = documents.value.findIndex((doc) => doc.id === documentId);
+    if (index === -1) {
+        return;
+    }
+
+    documents.value[index] = {
+        ...documents.value[index],
+        visible_to_customer: visible,
+    };
+    emit('update:modelValue', [...documents.value]);
+};
+
+const patchDocumentVendorVisibility = (documentId, visible) => {
+    const index = documents.value.findIndex((doc) => doc.id === documentId);
+    if (index === -1) {
+        return;
+    }
+
+    documents.value[index] = {
+        ...documents.value[index],
+        visible_to_vendor: visible,
+    };
+    emit('update:modelValue', [...documents.value]);
+};
+
+// Watch for prop changes (e.g. tab reload from parent record)
 watch(() => props.modelValue, (newValue) => {
-    documents.value = [...newValue];
+    documents.value = normalizeDocuments(newValue);
 }, { deep: true });
 
 // Methods
@@ -514,6 +640,76 @@ const formatDate = (dateString) => {
     return date.toLocaleDateString();
 };
 
+const applyClusterDocuments = (payload) => {
+    if (! Array.isArray(payload?.documents)) {
+        return;
+    }
+
+    documents.value = normalizeDocuments(payload.documents);
+    emit('update:modelValue', [...documents.value]);
+};
+
+const documentableContext = () => ({
+    documentable_type: `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`,
+    documentable_id: props.parentId,
+});
+
+const toggleCustomerVisibility = async (document) => {
+    if (togglingVisibilityId.value) {
+        return;
+    }
+
+    const next = !isVisibleToCustomer(document);
+    togglingVisibilityId.value = document.id;
+    patchDocumentVisibility(document.id, next);
+
+    try {
+        const response = await axios.patch(route('documentables.pivot'), {
+            document_id: document.id,
+            ...documentableContext(),
+            visible_to_customer: next,
+        });
+        applyClusterDocuments(response.data);
+    } catch (error) {
+        patchDocumentVisibility(document.id, !next);
+        console.error('Error updating visibility:', error);
+        const message = error.response?.data?.message
+            ?? error.response?.data?.errors?.visible_to_customer?.[0]
+            ?? 'Failed to update visibility.';
+        alert(message);
+    } finally {
+        togglingVisibilityId.value = null;
+    }
+};
+
+const toggleVendorVisibility = async (document) => {
+    if (togglingVendorVisibilityId.value) {
+        return;
+    }
+
+    const next = !isVisibleToVendor(document);
+    togglingVendorVisibilityId.value = document.id;
+    patchDocumentVendorVisibility(document.id, next);
+
+    try {
+        const response = await axios.patch(route('documentables.pivot'), {
+            document_id: document.id,
+            ...documentableContext(),
+            visible_to_vendor: next,
+        });
+        applyClusterDocuments(response.data);
+    } catch (error) {
+        patchDocumentVendorVisibility(document.id, !next);
+        console.error('Error updating vendor visibility:', error);
+        const message = error.response?.data?.message
+            ?? error.response?.data?.errors?.visible_to_vendor?.[0]
+            ?? 'Failed to update vendor visibility.';
+        alert(message);
+    } finally {
+        togglingVendorVisibilityId.value = null;
+    }
+};
+
 const downloadDocument = (document) => {
     // Open download URL in new window/tab
     window.open(route('documents.download', document.id), '_blank');
@@ -529,7 +725,7 @@ const detachDocument = async (document) => {
     detachingDocumentId.value = document.id;
 
     try {
-        await axios.delete(route('documentables.detach'), {
+        const response = await axios.delete(route('documentables.detach'), {
             params: {
                 document_id: document.id,
                 documentable_type: `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`,
@@ -537,9 +733,12 @@ const detachDocument = async (document) => {
             }
         });
 
-        // Remove from local list
-        documents.value = documents.value.filter(doc => doc.id !== document.id);
-        emit('update:modelValue', documents.value);
+        if (Array.isArray(response.data?.documents)) {
+            applyClusterDocuments(response.data);
+        } else {
+            documents.value = documents.value.filter(doc => doc.id !== document.id);
+            emit('update:modelValue', documents.value);
+        }
     } catch (error) {
         console.error('Error detaching document:', error);
         alert('Failed to remove document. Please try again.');
@@ -558,6 +757,8 @@ const closeAttachModal = () => {
         display_name: '',
         description: ''
     };
+    visibleToCustomerOnUpload.value = false;
+    visibleToVendorOnUpload.value = false;
 };
 
 const debouncedSearch = debounce(async () => {
@@ -588,17 +789,19 @@ const attachDocument = async (document) => {
     attachingDocumentId.value = document.id;
 
     try {
-        await axios.post(route('documentables.attach'), {
+        const response = await axios.post(route('documentables.attach'), {
             document_id: document.id,
             documentable_type: `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`,
             documentable_id: props.parentId
         });
 
-        // Add to local list
-        documents.value.push(document);
-        emit('update:modelValue', documents.value);
+        if (Array.isArray(response.data?.documents)) {
+            applyClusterDocuments(response.data);
+        } else {
+            documents.value.push(document);
+            emit('update:modelValue', documents.value);
+        }
 
-        // Close modal and reset
         closeAttachModal();
     } catch (error) {
         console.error('Error attaching document:', error);
@@ -630,6 +833,12 @@ const uploadDocument = async () => {
         formData.append('description', uploadForm.value.description || '');
         formData.append('attach_to_type', `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`);
         formData.append('attach_to_id', props.parentId);
+        if (visibleToCustomerOnUpload.value) {
+            formData.append('visible_to_customer', '1');
+        }
+        if (visibleToVendorOnUpload.value) {
+            formData.append('visible_to_vendor', '1');
+        }
 
         const response = await axios.post(route('documents.upload-attach'), formData, {
             headers: {
@@ -637,9 +846,12 @@ const uploadDocument = async () => {
             }
         });
 
-        // Add to local list
-        documents.value.push(response.data.document);
-        emit('update:modelValue', documents.value);
+        if (Array.isArray(response.data?.documents)) {
+            applyClusterDocuments(response.data);
+        } else if (response.data.document) {
+            documents.value.push(normalizeDocument(response.data.document));
+            emit('update:modelValue', documents.value);
+        }
 
         closeAttachModal();
     } catch (error) {

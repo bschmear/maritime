@@ -188,6 +188,8 @@ trait HasSchemaSupport
             $columns[] = 'sequence';
         } elseif (Schema::connection($connection)->hasColumn($table, 'name')) {
             $columns[] = 'name';
+        } elseif (Schema::connection($connection)->hasColumn($table, 'work_order_number')) {
+            $columns[] = 'work_order_number';
         }
 
         return $columns;
@@ -200,6 +202,11 @@ trait HasSchemaSupport
             if (is_string($name) && $name !== '') {
                 return $name;
             }
+        }
+
+        $workOrderNumber = $record->getAttribute('work_order_number');
+        if ($workOrderNumber !== null && $workOrderNumber !== '') {
+            return 'WO-'.$workOrderNumber;
         }
 
         foreach (['display_name', 'name', 'sequence'] as $attribute) {

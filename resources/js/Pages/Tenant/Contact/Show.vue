@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
+import DriverLicenseUpload from '@/Components/Tenant/Contact/DriverLicenseUpload.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -80,6 +81,10 @@ const onSublistMutated = ({ domain }) => {
     }
 };
 
+const onDriverLicenseUpdated = () => {
+    router.reload({ only: ['record'], preserveScroll: true });
+};
+
 const fmt = {
     date: (val) => {
         if (!val) return null;
@@ -127,6 +132,22 @@ const recordStageDisplay = computed(() => {
     );
     if (hit?.name) return hit.name;
     return typeof raw === 'string' ? raw.replace(/_/g, ' ') : String(raw);
+});
+
+const driverLicenseFront = computed(() => {
+    const img = props.record.customer?.dl_front;
+    if (!img) {
+        return null;
+    }
+    return { id: img.id, url: img.url };
+});
+
+const driverLicenseBack = computed(() => {
+    const img = props.record.customer?.dl_back;
+    if (!img) {
+        return null;
+    }
+    return { id: img.id, url: img.url };
 });
 
 const customerRows = computed(() => {
@@ -424,6 +445,12 @@ const confirmDelete = () => {
                                 <p :class="row.value ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-sm text-gray-300 dark:text-gray-600'">{{ row.value || '—' }}</p>
                             </div>
                         </div>
+                        <DriverLicenseUpload
+                            :contact-id="record.id"
+                            :front="driverLicenseFront"
+                            :back="driverLicenseBack"
+                            @updated="onDriverLicenseUpdated"
+                        />
                     </div>
 
 

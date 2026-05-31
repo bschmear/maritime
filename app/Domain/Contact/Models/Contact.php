@@ -13,6 +13,7 @@ use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -25,6 +26,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Contact extends Authenticatable
 {
+    use HasDocuments;
     use Notifiable;
 
     /**

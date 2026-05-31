@@ -3,15 +3,21 @@
 namespace App\Domain\Estimate\Models;
 
 use App\Domain\AssetOption\Models\EstimateSelectedOption;
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
+use App\Domain\Location\Models\Location;
+use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\User\Models\User;
 use App\Enums\Estimate\EstimateStatus;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Estimate extends Model
@@ -55,37 +61,37 @@ class Estimate extends Model
 
     public function opportunity(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Opportunity\Models\Opportunity::class);
+        return $this->belongsTo(Opportunity::class);
     }
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
+        return $this->belongsTo(Customer::class);
     }
 
     public function contact(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Contact\Models\Contact::class);
+        return $this->belongsTo(Contact::class);
     }
 
     public function subsidiary(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+        return $this->belongsTo(Subsidiary::class);
     }
 
     public function location(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+        return $this->belongsTo(Location::class);
     }
 
     public function salesperson(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function primaryVersion(): BelongsTo
@@ -165,14 +171,6 @@ class Estimate extends Model
 
     public function getSignatureUrlAttribute(): ?string
     {
-        if (! $this->signature_file) {
-            return null;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addHours(2));
-        } catch (\Exception $e) {
-            return Storage::disk('s3')->url($this->signature_file);
-        }
+        return SignatureStorage::url($this->signature_file);
     }
 }

@@ -34,12 +34,30 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/login', [
+        $response = $this->post('/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
         $this->assertGuest();
+        $response->assertSessionHasErrors(['email', 'password']);
+    }
+
+    public function test_invalid_password_returns_validation_errors_for_inertia(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->post('/login', [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['email', 'password']);
     }
 
     public function test_users_can_logout(): void

@@ -3,7 +3,8 @@ import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TurnstileWidget from '@/Components/TurnstileWidget.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { firstValidationError, validationError } from '@/Utils/validationError';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -24,6 +25,7 @@ const props = defineProps({
 });
 
 const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
+const page = usePage();
 
 const form = useForm({
     email: props.invitation?.email || '',
@@ -33,9 +35,27 @@ const form = useForm({
     turnstile_token: '',
 });
 
+const emailError = computed(() =>
+    validationError(form.errors, 'email') || validationError(page.props.errors, 'email'),
+);
+const passwordError = computed(() =>
+    validationError(form.errors, 'password') || validationError(page.props.errors, 'password'),
+);
+const turnstileError = computed(() =>
+    validationError(form.errors, 'turnstile_token') || validationError(page.props.errors, 'turnstile_token'),
+);
+
+const loginAlertMessage = computed(() =>
+    firstValidationError(form.errors, ['email', 'password', 'turnstile_token'])
+    || firstValidationError(page.props.errors, ['email', 'password', 'turnstile_token']),
+);
+
+const inputErrorClass = 'border-red-500 focus:ring-red-500 dark:border-red-500 dark:focus:ring-red-500';
+
 const submit = () => {
     form.post(route('login'), {
-        onFinish: () => form.reset('password'),
+        preserveScroll: true,
+        onSuccess: () => form.reset('password'),
     });
 };
 </script>
@@ -105,6 +125,14 @@ const submit = () => {
                 <!-- Form Card -->
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 backdrop-blur-sm bg-white/95 dark:bg-gray-800/95">
                     <form class="space-y-6" @submit.prevent="submit">
+                        <div
+                            v-if="loginAlertMessage"
+                            role="alert"
+                            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+                        >
+                            {{ loginAlertMessage }}
+                        </div>
+
                         <!-- Email Field -->
                         <div>
                             <InputLabel
@@ -116,13 +144,20 @@ const submit = () => {
                                 id="email"
                                 v-model="form.email"
                                 type="email"
-                                class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
+                                :class="[
+                                    'mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:border-transparent transition-all',
+                                    emailError
+                                        ? inputErrorClass
+                                        : 'border-gray-300 dark:border-gray-700 focus:ring-secondary-500 dark:focus:ring-secondary-400',
+                                ]"
+                                :aria-invalid="emailError ? 'true' : 'false'"
+                                :aria-describedby="emailError ? 'login-email-error' : undefined"
                                 required
                                 autofocus
                                 autocomplete="username"
                                 placeholder="you@example.com"
                             />
-                            <InputError class="mt-2" :message="form.errors.email" />
+                            <InputError id="login-email-error" class="mt-2" :message="emailError" />
                         </div>
 
                         <!-- Password Field -->
@@ -136,12 +171,19 @@ const submit = () => {
                                 id="password"
                                 v-model="form.password"
                                 type="password"
-                                class="mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-secondary-500 dark:focus:ring-secondary-400 focus:border-transparent transition-all"
+                                :class="[
+                                    'mt-2 block w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:border-transparent transition-all',
+                                    passwordError
+                                        ? inputErrorClass
+                                        : 'border-gray-300 dark:border-gray-700 focus:ring-secondary-500 dark:focus:ring-secondary-400',
+                                ]"
+                                :aria-invalid="passwordError ? 'true' : 'false'"
+                                :aria-describedby="passwordError ? 'login-password-error' : undefined"
                                 required
                                 autocomplete="current-password"
                                 placeholder="••••••••"
                             />
-                            <InputError class="mt-2" :message="form.errors.password" />
+                            <InputError id="login-password-error" class="mt-2" :message="passwordError" />
                         </div>
 
                         <!-- Remember Me & Forgot Password -->
@@ -171,7 +213,7 @@ const submit = () => {
                             v-model="form.turnstile_token"
                             :site-key="turnstileSiteKey"
                         />
-                        <InputError class="mt-2" :message="form.errors.turnstile_token" />
+                        <InputError class="mt-2" :message="turnstileError" />
 
                         <!-- Submit Button -->
                         <div class="pt-2">

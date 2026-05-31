@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\Document\Models\Document;
+use App\Domain\DocumentRequest\Models\DocumentRequest;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\Opportunity\Models\Opportunity;
@@ -12,13 +14,16 @@ use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Domain\WarrantyClaim\Support\LogWarrantyClaimVendorEmailCommunication;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
+use App\Mail\ServiceTicketApprovalNotification;
 use App\Mail\ServiceTicketApproved;
 use App\Mail\WarrantyClaimSentToVendor;
 use App\Models\Account;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +32,8 @@ use Illuminate\Support\Facades\Storage;
 class NotificationService
 {
     public function __construct(
-        private readonly \App\Services\Mail\TenantMailService $tenantMail,
+        private readonly TenantMailService $tenantMail,
+        private readonly LogWarrantyClaimVendorEmailCommunication $logWarrantyClaimVendorEmailCommunication,
     ) {}
     // ─────────────────────────────────────────────────────────────────────────
     // Service Ticket
@@ -132,6 +138,18 @@ class NotificationService
                     $sandboxProbe,
                     $actor,
                 );
+                foreach ($vendorRecipients as $recipient) {
+                    ($this->logWarrantyClaimVendorEmailCommunication)(
+                        $claim,
+                        $recipient['contact'],
+                        $recipient['email'],
+                        $account,
+                        $reviewUrl,
+                        $vendorPortalLoginUrl,
+                        $actor,
+                        true,
+                    );
+                }
             } catch (\Exception $e) {
                 Log::error('Failed to send warranty claim to vendor contact (sandbox)', [
                     'claim_id' => $claim->id,
@@ -152,6 +170,15 @@ class NotificationService
                     $vendorPortalLoginUrl,
                 );
                 $this->tenantMail->send($recipient['email'], $mailable, $actor);
+                ($this->logWarrantyClaimVendorEmailCommunication)(
+                    $claim,
+                    $recipient['contact'],
+                    $recipient['email'],
+                    $account,
+                    $reviewUrl,
+                    $vendorPortalLoginUrl,
+                    $actor,
+                );
             } catch (\Exception $e) {
                 Log::error('Failed to send warranty claim to vendor contact', [
                     'claim_id' => $claim->id,
@@ -394,6 +421,43 @@ class NotificationService
         }
     }
 
+    public function notifyDocumentRequestFulfilled(DocumentRequest $documentRequest, Document $document): void
+    {
+        try {
+            $notifyUser = $documentRequest->requested_by_user_id
+                ? User::find($documentRequest->requested_by_user_id)
+                : null;
+
+            if (! $notifyUser) {
+                $notifyUser = $this->getAccountOwner();
+            }
+
+            if (! $notifyUser) {
+                Log::warning('No user found to notify for document request fulfillment', [
+                    'document_request_id' => $documentRequest->id,
+                ]);
+
+                return;
+            }
+
+            $contactName = $documentRequest->contact?->display_name ?? 'Customer';
+
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type' => 'document_request_fulfilled',
+                'title' => 'Document request fulfilled',
+                'message' => "{$contactName} uploaded \"{$documentRequest->title}\".",
+                'route' => 'contacts.show',
+                'route_params' => $documentRequest->contact_id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to notify document request fulfilled', [
+                'document_request_id' => $documentRequest->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // User Resolution
     // ─────────────────────────────────────────────────────────────────────────
@@ -464,7 +528,7 @@ class NotificationService
 
             Storage::disk('s3')->put($path, $pdf->output());
 
-            \App\Domain\Document\Models\Document::create([
+            Document::create([
                 'display_name' => "Service Ticket #{$ticket->service_ticket_number} - Signed",
                 'file' => $path,
                 'file_extension' => 'pdf',
@@ -492,7 +556,7 @@ class NotificationService
     private function sendServiceTicketApprovalEmail(ServiceTicket $ticket, AccountSettings $account, User $notifyUser, ?string $pdfPath): void
     {
         try {
-            $mailable = new \App\Mail\ServiceTicketApprovalNotification($ticket, $account, $notifyUser, $pdfPath);
+            $mailable = new ServiceTicketApprovalNotification($ticket, $account, $notifyUser, $pdfPath);
             $this->tenantMail->send($notifyUser->email, $mailable);
         } catch (\Exception $e) {
             Log::error('Failed to send service ticket approval notification email', [

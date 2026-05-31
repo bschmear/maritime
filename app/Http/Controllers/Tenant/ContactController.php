@@ -12,23 +12,27 @@ use App\Domain\Contact\Actions\UpdateContact;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Contact\Support\AamvaPdf417Parser;
+use App\Domain\Customer\Actions\UploadDriverLicenseImage;
 use App\Domain\Document\Models\Document;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ContactPortalLink;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
+use App\Support\ContactDocumentLinker;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ContactController extends Controller
 {
@@ -344,7 +348,7 @@ class ContactController extends Controller
             return back()
                 ->withInput()
                 ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
@@ -363,23 +367,11 @@ class ContactController extends Controller
         $formSchema = $this->getFormSchema() ?? [];
         $relationships = $this->buildEagerLoadConstraints($fieldsSchema, $formSchema);
 
-        if (! isset($relationships['customer'])) {
-            $relationships['customer'] = function ($query): void {
-                $query->select('*');
-            };
-        }
-        if (! isset($relationships['vendors'])) {
-            $relationships['vendors'] = function ($query): void {
-                $query->select(['vendors.id', 'vendors.display_name', 'vendors.primary_contact_id']);
-            };
-        }
-        if (! isset($relationships['leads'])) {
-            $relationships['leads'] = function ($query): void {
-                $query->select(['id', 'contact_id']);
-            };
-        }
+        $this->mergeContactShowRelationships($relationships);
 
         $record = Contact::query()->with($relationships)->findOrFail($contact);
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
 
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
@@ -446,6 +438,8 @@ class ContactController extends Controller
         }
 
         $record = Contact::query()->with($relationships)->findOrFail($contact);
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
 
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
@@ -558,7 +552,7 @@ class ContactController extends Controller
             return back()
                 ->withInput()
                 ->withErrors(['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
@@ -571,7 +565,7 @@ class ContactController extends Controller
         }
     }
 
-    public function indexAddresses(int $contact): \Illuminate\Http\JsonResponse
+    public function indexAddresses(int $contact): JsonResponse
     {
         $contactModel = Contact::query()->findOrFail($contact);
 
@@ -645,7 +639,11 @@ class ContactController extends Controller
         $registerUrl = $root.'/portal/register';
 
         $settings = AccountSettings::getCurrent();
-        Mail::to($email)->send(new ContactPortalLink($record, $settings, $loginUrl, $registerUrl, $hasCustomerProfile));
+        app(TenantMailService::class)->send(
+            $email,
+            new ContactPortalLink($record, $settings, $loginUrl, $registerUrl, $hasCustomerProfile),
+            Auth::user(),
+        );
 
         return back()->with('success', 'Portal links sent to '.$email.'.');
     }
@@ -667,6 +665,67 @@ class ContactController extends Controller
     /**
      * Parse an AAMVA PDF417 driver-license barcode into contact-friendly fields (JSON for the scanner UI).
      */
+    public function uploadDriverLicense(
+        Request $request,
+        Contact $contact,
+        string $side,
+        UploadDriverLicenseImage $uploadDriverLicenseImage,
+    ): JsonResponse {
+        $customer = $contact->customer;
+        if (! $customer) {
+            return response()->json([
+                'message' => 'This contact does not have a customer profile yet.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'file' => ['required', 'file', 'image', 'max:20480'],
+        ]);
+
+        $result = $uploadDriverLicenseImage($customer, $validated['file'], $side);
+        $image = $result['image'];
+
+        return response()->json([
+            'side' => $result['side'],
+            'image' => [
+                'id' => $image->id,
+                'url' => $image->url,
+                'display_name' => $image->display_name,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $relationships
+     */
+    protected function mergeContactShowRelationships(array &$relationships): void
+    {
+        if (! isset($relationships['customer'])) {
+            $relationships['customer'] = function ($query): void {
+                $query->with(['dlFront', 'dlBack']);
+            };
+        } else {
+            $existing = $relationships['customer'];
+            $relationships['customer'] = function ($query) use ($existing): void {
+                if (is_callable($existing)) {
+                    $existing($query);
+                }
+                $query->with(['dlFront', 'dlBack']);
+            };
+        }
+
+        if (! isset($relationships['vendors'])) {
+            $relationships['vendors'] = function ($query): void {
+                $query->select(['vendors.id', 'vendors.display_name', 'vendors.primary_contact_id']);
+            };
+        }
+        if (! isset($relationships['leads'])) {
+            $relationships['leads'] = function ($query): void {
+                $query->select(['id', 'contact_id']);
+            };
+        }
+    }
+
     public function parseLicenseBarcode(Request $request): JsonResponse
     {
         $validated = $request->validate([

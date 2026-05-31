@@ -33,6 +33,7 @@ use App\Enums\Deliveries\Status as DeliveryStatus;
 use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Payments\Terms;
+use App\Enums\ServiceItem\BillingType;
 use App\Enums\WarrantyClaim\LineItemCostType;
 use App\Enums\WarrantyClaim\Status as WarrantyClaimStatus;
 use App\Http\Controllers\Controller;
@@ -41,11 +42,13 @@ use App\Services\AssetOptionResolver;
 use App\Services\NotificationService;
 use App\Services\Payments\QuickBooksAccountingService;
 use App\Services\Payments\StripeService;
+use App\Support\SignatureStorage;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -160,7 +163,7 @@ class PublicController extends Controller
         $recordArray['images'] = ServiceTicketPortalImages::forCustomer($ticket->images);
 
         $enumOptions = [
-            'billing_type' => \App\Enums\ServiceItem\BillingType::options(),
+            'billing_type' => BillingType::options(),
         ];
 
         return Inertia::render('Tenant/Public/ServiceTicketReview', [
@@ -676,7 +679,7 @@ class PublicController extends Controller
         };
     }
 
-    public function featureRequestInviteSubmit(Request $request, FeatureRequestInvite $invite): \Illuminate\Http\RedirectResponse
+    public function featureRequestInviteSubmit(Request $request, FeatureRequestInvite $invite): RedirectResponse
     {
         return match ($invite->source) {
             'opportunity' => $this->submitOpportunityFeatureRequestFromInvite($request, $invite),
@@ -753,7 +756,7 @@ class PublicController extends Controller
                 'lineItem' => [
                     'position' => 0,
                     'name' => $asset->display_name ?? $asset->name ?? 'Asset',
-                    'completed_at' => \Carbon\Carbon::parse((string) $completedRaw)->toISOString(),
+                    'completed_at' => Carbon::parse((string) $completedRaw)->toISOString(),
                     'signer_name' => $lastSubmission?->signer_name,
                 ],
                 'assetSummary' => [
@@ -846,7 +849,7 @@ class PublicController extends Controller
         return $this->resolveFeatureRequestAddonWhitelistCatalogIds($pivot);
     }
 
-    public function submitFeatureRequestOpportunity(Request $request, string $uuid, int $assetOpportunity, int $includeAddonsFlag): \Illuminate\Http\RedirectResponse
+    public function submitFeatureRequestOpportunity(Request $request, string $uuid, int $assetOpportunity, int $includeAddonsFlag): RedirectResponse
     {
         $includeAddons = $includeAddonsFlag === 1;
 
@@ -887,7 +890,7 @@ class PublicController extends Controller
         return $this->completeOpportunityFeatureRequestSubmission($request, $opportunity, $pivot, $includeAddons, null, $validated);
     }
 
-    private function submitOpportunityFeatureRequestFromInvite(Request $request, FeatureRequestInvite $invite): \Illuminate\Http\RedirectResponse
+    private function submitOpportunityFeatureRequestFromInvite(Request $request, FeatureRequestInvite $invite): RedirectResponse
     {
         $rules = [
             'selections' => ['required', 'array'],
@@ -941,7 +944,7 @@ class PublicController extends Controller
         bool $includeAddons,
         ?FeatureRequestInvite $invite,
         array $validated
-    ): \Illuminate\Http\RedirectResponse {
+    ): RedirectResponse {
         if ($pivot->feature_request_completed_at ?? null) {
             return back()->withErrors(['error' => 'A response has already been submitted for this request.']);
         }
@@ -1275,9 +1278,7 @@ class PublicController extends Controller
         $recordArray['created_at'] = $contract->created_at?->toISOString();
         $recordArray['updated_at'] = $contract->updated_at?->toISOString();
         $recordArray['signed_at'] = $contract->signed_at?->toISOString();
-        $recordArray['signature_url'] = $contract->signature_file
-            ? Storage::disk('s3')->temporaryUrl($contract->signature_file, now()->addHours(2))
-            : null;
+        $recordArray['signature_url'] = $contract->signature_url;
 
         return Inertia::render('Tenant/Public/ContractReview', [
             'record' => $recordArray,
@@ -1378,9 +1379,7 @@ class PublicController extends Controller
         $recordArray['created_at'] = $agreement->created_at?->toISOString();
         $recordArray['updated_at'] = $agreement->updated_at?->toISOString();
         $recordArray['signed_at'] = $agreement->signed_at?->toISOString();
-        $recordArray['signature_url'] = $agreement->signature_file
-            ? Storage::disk('s3')->temporaryUrl($agreement->signature_file, now()->addHours(2))
-            : null;
+        $recordArray['signature_url'] = $agreement->signature_url;
 
         return Inertia::render('Tenant/Public/ConsignmentAgreementReview', [
             'record' => $recordArray,
@@ -1458,34 +1457,7 @@ class PublicController extends Controller
 
     private function storeSignatureImage(string $base64Data, string $uuid): ?string
     {
-        if (! preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {
-            return null;
-        }
-
-        $extension = $matches[1];
-        $decoded = base64_decode(substr($base64Data, strpos($base64Data, ',') + 1));
-        if (! $decoded) {
-            return null;
-        }
-
-        $filename = $uuid.'-signature.'.$extension;
-        $key = "private/signatures/{$filename}";
-
-        try {
-            $s3Client = Storage::disk('s3')->getClient();
-            $s3Client->putObject([
-                'Bucket' => Storage::disk('s3')->getConfig()['bucket'],
-                'Key' => $key,
-                'Body' => $decoded,
-                'ContentType' => "image/{$extension}",
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Failed to store signature image: '.$e->getMessage());
-
-            return null;
-        }
-
-        return $key;
+        return SignatureStorage::storeDrawnImage($base64Data, $uuid);
     }
 
     public function viewInvoice(
@@ -1493,8 +1465,7 @@ class PublicController extends Controller
         string $uuid,
         FulfillPublicInvoiceCheckoutSession $fulfillCheckout,
         QuickBooksAccountingService $quickbooks,
-    )
-    {
+    ) {
         $invoice = Invoice::query()
             ->where('uuid', $uuid)
             ->with(Invoice::documentEagerLoads())

@@ -2,10 +2,12 @@
 
 namespace App\Domain\Lead\Models;
 
+use App\Domain\Communication\Models\Communication;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Qualification\Models\Qualification;
+use App\Domain\Score\Models\Score;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
@@ -139,24 +141,71 @@ class Lead extends Model
         return $this->belongsTo(Customer::class, 'converted_customer_id');
     }
 
+    /**
+     * Customer profile for this lead: explicit conversion, customer.created_from_lead, or shared contact.
+     */
+    public function resolveLinkedCustomerProfile(): ?Customer
+    {
+        if ($this->converted_customer_id) {
+            if ($this->relationLoaded('converted_customer') && $this->converted_customer) {
+                return $this->converted_customer;
+            }
+
+            return $this->converted_customer()->first();
+        }
+
+        if ($this->id) {
+            $fromLead = Customer::query()
+                ->where('converted_from_lead_id', $this->id)
+                ->first();
+
+            if ($fromLead) {
+                return $fromLead;
+            }
+        }
+
+        if ($this->contact_id) {
+            return Customer::query()
+                ->where('contact_id', $this->contact_id)
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * Populate {@see converted_customer} for Inertia/forms when linked via contact or converted_from_lead_id.
+     */
+    public function hydrateLinkedCustomerProfile(): void
+    {
+        if ($this->relationLoaded('converted_customer') && $this->converted_customer) {
+            return;
+        }
+
+        $customer = $this->resolveLinkedCustomerProfile();
+        if ($customer) {
+            $this->setRelation('converted_customer', $customer);
+        }
+    }
+
     public function scores()
     {
-        return $this->morphMany(\App\Domain\Score\Models\Score::class, 'scorable');
+        return $this->morphMany(Score::class, 'scorable');
     }
 
     public function currentScores()
     {
-        return $this->morphMany(\App\Domain\Score\Models\Score::class, 'scorable')->where('is_current', true);
+        return $this->morphMany(Score::class, 'scorable')->where('is_current', true);
     }
 
     public function latestScore()
     {
-        return $this->belongsTo(\App\Domain\Score\Models\Score::class, 'latest_score_id');
+        return $this->belongsTo(Score::class, 'latest_score_id');
     }
 
     public function communications()
     {
-        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+        return $this->morphMany(Communication::class, 'communicable')
             ->orderByDesc('created_at');
     }
 

@@ -15,6 +15,8 @@ use App\Enums\Entity\ContactStage;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Models\AccountSettings;
+use App\Support\ContactDocumentLinker;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\RedirectResponse;
@@ -198,7 +200,7 @@ class LeadController extends BaseController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Create', [
             'recordType' => $this->recordType,
@@ -314,7 +316,7 @@ class LeadController extends BaseController
             return back()
                 ->withInput()
                 ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
@@ -375,11 +377,15 @@ class LeadController extends BaseController
 
         $record = Lead::with($relationships)->findOrFail($id);
 
+        $record->hydrateLinkedCustomerProfile();
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+
         $scores = $record->scores;
         $record->unsetRelation('scores');
 
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
@@ -471,12 +477,16 @@ class LeadController extends BaseController
 
         $record = Lead::with($relationships)->findOrFail($id);
 
+        $record->hydrateLinkedCustomerProfile();
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+
         $availableSpecs = $hasSpecsGroup && isset($record->type)
             ? AvailableAssetSpecsCache::get((int) $record->type)
             : [];
 
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Edit', [
             'record' => $record,
@@ -596,7 +606,7 @@ class LeadController extends BaseController
             return back()
                 ->withInput()
                 ->withErrors(['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,

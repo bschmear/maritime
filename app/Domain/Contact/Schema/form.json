@@ -140,6 +140,16 @@
       "domain": "Communication",
       "modelRelationship": "communications",
       "sublistKind": "morphCommunication"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document",
+      "modelRelationship": "documents"
+    },
+    {
+      "label": "Document requests",
+      "domain": "DocumentRequest",
+      "sublistKind": "documentRequests"
     }
   ]
 }

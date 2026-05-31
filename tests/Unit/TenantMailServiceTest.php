@@ -4,8 +4,11 @@ namespace Tests\Unit;
 
 use App\Mail\AccountInvitation;
 use App\Mail\ContactPortalLink;
+use App\Mail\DocumentRequestMail;
 use App\Mail\InvoiceViewRequest;
+use App\Mail\VendorPortalLink;
 use App\Services\Mail\TenantMailService;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Mail\Mailable;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -13,12 +16,14 @@ use Tests\TestCase;
 class TenantMailServiceTest extends TestCase
 {
     #[Test]
-    public function portal_and_invitation_mailables_are_sandbox_exempt(): void
+    public function only_account_invitation_is_sandbox_exempt(): void
     {
         $service = new TenantMailService;
 
         $this->assertTrue($service->isExemptMailableClass(AccountInvitation::class));
-        $this->assertTrue($service->isExemptMailableClass(ContactPortalLink::class));
+        $this->assertFalse($service->isExemptMailableClass(ContactPortalLink::class));
+        $this->assertFalse($service->isExemptMailableClass(VendorPortalLink::class));
+        $this->assertFalse($service->isExemptMailableClass(DocumentRequestMail::class));
         $this->assertFalse($service->isExemptMailableClass(InvoiceViewRequest::class));
     }
 
@@ -44,7 +49,7 @@ class TenantMailServiceTest extends TestCase
             $mock->shouldReceive('isSandboxActive')->andReturn(true);
         });
 
-        $actor = new class implements \Illuminate\Contracts\Auth\Authenticatable
+        $actor = new class implements Authenticatable
         {
             public string $email = 'staff@example.com';
 
@@ -97,7 +102,7 @@ class TenantMailServiceTest extends TestCase
             $mock->shouldReceive('isSandboxActive')->andReturn(true);
         });
 
-        $actor = new class implements \Illuminate\Contracts\Auth\Authenticatable
+        $actor = new class implements Authenticatable
         {
             public string $email = 'staff@example.com';
 

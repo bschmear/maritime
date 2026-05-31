@@ -1,10 +1,14 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { firstValidationError, validationError } from '@/Utils/validationError';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-defineProps({
+const props = defineProps({
     status: { type: String, default: null },
     error: { type: String, default: null },
 });
+
+const page = usePage();
 
 const form = useForm({
     email: '',
@@ -12,9 +16,25 @@ const form = useForm({
     remember: false,
 });
 
+const emailError = computed(() =>
+    validationError(form.errors, 'email') || validationError(page.props.errors, 'email'),
+);
+const passwordError = computed(() =>
+    validationError(form.errors, 'password') || validationError(page.props.errors, 'password'),
+);
+
+const loginAlertMessage = computed(() =>
+    props.error
+    || firstValidationError(form.errors, ['email', 'password'])
+    || firstValidationError(page.props.errors, ['email', 'password']),
+);
+
+const inputErrorClass = 'border-red-500 focus:ring-red-500';
+
 const submit = () => {
     form.post(route('vendor.portal.login'), {
-        onFinish: () => form.reset('password'),
+        preserveScroll: true,
+        onSuccess: () => form.reset('password'),
     });
 };
 </script>
@@ -43,15 +63,17 @@ const submit = () => {
             >
                 {{ status }}
             </div>
-            <div
-                v-if="error"
-                class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-sm font-medium text-red-700"
-            >
-                {{ error }}
-            </div>
 
             <div class="bg-white rounded-2xl shadow-xl p-8">
                 <form @submit.prevent="submit" class="space-y-5">
+                    <div
+                        v-if="loginAlertMessage"
+                        role="alert"
+                        class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800"
+                    >
+                        {{ loginAlertMessage }}
+                    </div>
+
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
                         <input
@@ -62,9 +84,13 @@ const submit = () => {
                             autofocus
                             autocomplete="username"
                             placeholder="you@example.com"
-                            class="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                            :class="[
+                                'block w-full px-4 py-3 bg-gray-50 border rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:border-transparent transition-all text-sm',
+                                emailError ? inputErrorClass : 'border-gray-300 focus:ring-primary-500',
+                            ]"
+                            :aria-invalid="emailError ? 'true' : 'false'"
                         />
-                        <p v-if="form.errors.email" class="mt-1.5 text-sm text-red-600">{{ form.errors.email }}</p>
+                        <p v-if="emailError" class="mt-1.5 text-sm text-red-600">{{ emailError }}</p>
                     </div>
 
                     <div>
@@ -76,9 +102,13 @@ const submit = () => {
                             required
                             autocomplete="current-password"
                             placeholder="••••••••"
-                            class="block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all text-sm"
+                            :class="[
+                                'block w-full px-4 py-3 bg-gray-50 border rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:border-transparent transition-all text-sm',
+                                passwordError ? inputErrorClass : 'border-gray-300 focus:ring-primary-500',
+                            ]"
+                            :aria-invalid="passwordError ? 'true' : 'false'"
                         />
-                        <p v-if="form.errors.password" class="mt-1.5 text-sm text-red-600">{{ form.errors.password }}</p>
+                        <p v-if="passwordError" class="mt-1.5 text-sm text-red-600">{{ passwordError }}</p>
                     </div>
 
                     <div class="flex items-center">

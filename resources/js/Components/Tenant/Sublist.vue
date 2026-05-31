@@ -6,6 +6,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
+import DocumentRequestPanel from '@/Components/Tenant/DocumentRequestPanel.vue';
 import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
 import { router } from '@inertiajs/vue3';
@@ -62,6 +63,26 @@ const sublistFormExtraRouteParams = computed(() => ({
     ...(sublistCreateFormData.value?.extraRouteParams || {}),
     ...(props.parentDomain === 'Asset' ? { asset: props.parentRecord.id } : {}),
 }));
+
+const documentRequestContactId = computed(() => {
+    if (props.parentDomain === 'Contact') {
+        return props.parentRecord.id;
+    }
+    return props.parentRecord.contact_id ?? props.parentRecord.contact?.id ?? 0;
+});
+
+const documentRequestHasCustomer = computed(() => {
+    if (props.parentDomain === 'Customer') {
+        return true;
+    }
+    if (props.parentDomain === 'Contact') {
+        return !!props.parentRecord.customer?.id;
+    }
+    if (props.parentDomain === 'Lead') {
+        return !!props.parentRecord.converted_customer?.id;
+    }
+    return !!props.parentRecord.contact_id;
+});
 
 // Sublist Edit Modal State
 const showSublistEditModal = ref(false);
@@ -286,6 +307,15 @@ const formatPhone = (value) => {
  * Look up both forms so multi-word relationships resolve regardless of serialization shape.
  */
 const camelToSnake = (str) => String(str).replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+/** Parent eager-loaded relation (camelCase in schema, often snake_case in Inertia props). */
+const getParentRelationship = (relationshipName) => {
+    if (!relationshipName || !props.parentRecord) {
+        return undefined;
+    }
+    return props.parentRecord[relationshipName]
+        ?? props.parentRecord[camelToSnake(relationshipName)];
+};
 
 const getRelatedRecord = (item, relationshipName) => {
     if (!item || !relationshipName) return null;
@@ -576,6 +606,10 @@ const fetchSublistData = async (sublist, page = 1) => {
         return;
     }
 
+    if (sublist.sublistKind === 'documentRequests') {
+        return;
+    }
+
     // Handle document relationships specially
     if (sublist.domain === 'Document') {
         isLoadingSublist.value = true;
@@ -597,7 +631,7 @@ const fetchSublistData = async (sublist, page = 1) => {
         isLoadingSublist.value = true;
         try {
             // Load data from the parent record's loaded relationship
-            const relationshipData = props.parentRecord[sublist.modelRelationship] || [];
+            const relationshipData = getParentRelationship(sublist.modelRelationship) || [];
             sublistData.value = Array.isArray(relationshipData) ? relationshipData : [];
             
             // Load the table schema from the API (same as regular sublists)
@@ -1531,15 +1565,18 @@ watch(
 );
 
 watch(
-    () => props.parentRecord.linkedContacts,
-    (contacts) => {
-        if (
-            activeTab.value?.relationshipType === 'ManyToMany'
-            && activeTab.value?.modelRelationship === 'linkedContacts'
-            && props.parentDomain === 'Vendor'
-        ) {
-            sublistData.value = Array.isArray(contacts) ? [...contacts] : [];
+    () => {
+        const rel = activeTab.value?.modelRelationship;
+        if (!rel || activeTab.value?.relationshipType !== 'ManyToMany') {
+            return null;
         }
+        return getParentRelationship(rel);
+    },
+    (relationshipData) => {
+        if (relationshipData == null) {
+            return;
+        }
+        sublistData.value = Array.isArray(relationshipData) ? [...relationshipData] : [];
     },
     { deep: true },
 );
@@ -1619,6 +1656,16 @@ watch(
                         :parent-id="parentRecord.id"
                         :parent-type="parentDomain"
                         @update:model-value="sublistData = $event"
+                    />
+                </div>
+
+                <!-- Document requests (Contact / Customer / Lead) -->
+                <div v-else-if="activeTab?.sublistKind === 'documentRequests'" class="p-4 sm:p-5">
+                    <DocumentRequestPanel
+                        :contact-id="documentRequestContactId"
+                        :has-customer="documentRequestHasCustomer"
+                        :parent-type="parentDomain"
+                        :parent-id="parentRecord.id"
                     />
                 </div>
 

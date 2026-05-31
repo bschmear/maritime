@@ -33,8 +33,11 @@ class VendorAuthController extends Controller
             $request->only('email', 'password'),
             $request->boolean('remember')
         )) {
+            $message = __('These credentials do not match our records.');
+
             throw ValidationException::withMessages([
-                'email' => __('These credentials do not match our records.'),
+                'email' => $message,
+                'password' => $message,
             ]);
         }
 

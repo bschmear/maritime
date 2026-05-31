@@ -169,17 +169,29 @@
                     </div>
 
                     <div
-                        v-for="image in sortedImages"
+                        v-for="(image, index) in sortedImages"
                         :key="image.id"
                         :data-id="image.id"
                         class="relative group bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden aspect-square shadow-sm hover:shadow-md transition-all duration-200"
                     >
-                        <img
-                            :src="getImageUrl(image)"
-                            :alt="image.display_name"
-                            class="w-full h-full object-cover"
-                            loading="lazy"
-                        />
+                        <button
+                            type="button"
+                            class="absolute inset-0 z-[1] flex h-full w-full cursor-zoom-in items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-800"
+                            :aria-label="`View ${image.display_name || 'image'} full screen`"
+                            @click="openLightbox(index)"
+                        >
+                            <img
+                                :src="getImageUrl(image)"
+                                :alt="image.display_name"
+                                class="pointer-events-none h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                                loading="lazy"
+                            />
+                            <span
+                                class="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/25 group-hover:opacity-100"
+                            >
+                                <span class="material-icons text-3xl text-white drop-shadow-md">zoom_in</span>
+                            </span>
+                        </button>
 
                         <!-- Primary Badge -->
                         <div
@@ -422,6 +434,76 @@
                 </div>
             </div>
         </Transition>
+
+        <!-- Full-screen image lightbox -->
+        <Teleport to="body">
+            <Transition name="fade">
+                <div
+                    v-if="lightboxImage"
+                    class="fixed inset-0 z-[200] flex flex-col bg-black/95"
+                    role="dialog"
+                    aria-modal="true"
+                    :aria-label="lightboxImage.display_name || 'Image viewer'"
+                    @click.self="closeLightbox"
+                >
+                    <div class="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white">
+                        <p class="min-w-0 truncate text-sm font-medium text-white/90">
+                            <span v-if="lightboxImage.display_name">{{ lightboxImage.display_name }}</span>
+                            <span v-else class="text-white/60">Image</span>
+                            <span
+                                v-if="sortedImages.length > 1"
+                                class="ml-2 text-white/50"
+                            >
+                                {{ lightboxIndex + 1 }} / {{ sortedImages.length }}
+                            </span>
+                        </p>
+                        <button
+                            type="button"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+                            aria-label="Close"
+                            @click="closeLightbox"
+                        >
+                            <span class="material-icons">close</span>
+                        </button>
+                    </div>
+
+                    <div class="relative flex min-h-0 flex-1 items-center justify-center px-14 pb-6 pt-2">
+                        <button
+                            v-if="sortedImages.length > 1"
+                            type="button"
+                            class="absolute left-3 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25"
+                            aria-label="Previous image"
+                            @click.stop="showPrevious"
+                        >
+                            <span class="material-icons text-3xl">chevron_left</span>
+                        </button>
+
+                        <img
+                            :src="getImageUrl(lightboxImage)"
+                            :alt="lightboxImage.display_name || 'Image'"
+                            class="max-h-full max-w-full object-contain"
+                        />
+
+                        <button
+                            v-if="sortedImages.length > 1"
+                            type="button"
+                            class="absolute right-3 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25"
+                            aria-label="Next image"
+                            @click.stop="showNext"
+                        >
+                            <span class="material-icons text-3xl">chevron_right</span>
+                        </button>
+                    </div>
+
+                    <p
+                        v-if="lightboxImage.description"
+                        class="shrink-0 px-6 pb-5 text-center text-sm text-white/70"
+                    >
+                        {{ lightboxImage.description }}
+                    </p>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>
 
@@ -501,6 +583,75 @@ const showCustomerVisibility = computed(() => props.parentType === 'ServiceTicke
 
 const sortedImages = computed(() => {
     return [...images.value].sort((a, b) => a.sort_order - b.sort_order);
+});
+
+const lightboxIndex = ref(null);
+
+const lightboxImage = computed(() => {
+    if (lightboxIndex.value === null) {
+        return null;
+    }
+    return sortedImages.value[lightboxIndex.value] ?? null;
+});
+
+const openLightbox = (index) => {
+    lightboxIndex.value = index;
+    document.body.style.overflow = 'hidden';
+};
+
+const closeLightbox = () => {
+    lightboxIndex.value = null;
+    document.body.style.overflow = '';
+};
+
+const showPrevious = () => {
+    if (lightboxIndex.value === null || sortedImages.value.length < 2) {
+        return;
+    }
+    lightboxIndex.value =
+        (lightboxIndex.value - 1 + sortedImages.value.length) % sortedImages.value.length;
+};
+
+const showNext = () => {
+    if (lightboxIndex.value === null || sortedImages.value.length < 2) {
+        return;
+    }
+    lightboxIndex.value = (lightboxIndex.value + 1) % sortedImages.value.length;
+};
+
+const onLightboxKeydown = (event) => {
+    if (lightboxIndex.value === null) {
+        return;
+    }
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeLightbox();
+    } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        showPrevious();
+    } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        showNext();
+    }
+};
+
+watch(lightboxIndex, (index) => {
+    if (index !== null) {
+        window.addEventListener('keydown', onLightboxKeydown);
+    } else {
+        window.removeEventListener('keydown', onLightboxKeydown);
+    }
+});
+
+watch(sortedImages, (list) => {
+    if (lightboxIndex.value === null) {
+        return;
+    }
+    if (list.length === 0) {
+        closeLightbox();
+    } else if (lightboxIndex.value >= list.length) {
+        lightboxIndex.value = list.length - 1;
+    }
 });
 
 const emptyStateHint = computed(() =>
@@ -778,6 +929,8 @@ onMounted(async () => {
 watch(() => [props.parentId, props.parentType], () => { fetchImages(); });
 watch(() => images.value.length, () => { setTimeout(() => { initializeSortable(); }, 100); });
 onUnmounted(() => {
+    window.removeEventListener('keydown', onLightboxKeydown);
+    document.body.style.overflow = '';
     if (cameraCaptureMediaQuery) {
         if (cameraCaptureMediaQuery.removeEventListener) {
             cameraCaptureMediaQuery.removeEventListener('change', syncCameraCaptureVisibility);

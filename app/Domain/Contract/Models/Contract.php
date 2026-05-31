@@ -7,11 +7,11 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Document\Models\Document;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Transaction\Models\Transaction;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Contract extends Model
@@ -77,19 +77,6 @@ class Contract extends Model
 
     public function getSignatureUrlAttribute(): ?string
     {
-        if (! $this->signature_file) {
-            return null;
-        }
-
-        $cdnUrl = config('filesystems.disks.s3.cdn_url');
-        if ($cdnUrl) {
-            return rtrim($cdnUrl, '/').'/'.$this->signature_file;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addDays(1));
-        } catch (\Exception $e) {
-            return Storage::disk('s3')->url($this->signature_file);
-        }
+        return SignatureStorage::url($this->signature_file);
     }
 }

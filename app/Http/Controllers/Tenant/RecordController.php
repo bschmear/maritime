@@ -5,15 +5,23 @@ namespace App\Http\Controllers\Tenant;
 use App\Actions\PublicStorage;
 use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Domain\Document\Models\Document;
+use App\Domain\Vendor\Models\Vendor;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Models\AccountSettings;
+use App\Support\ContactDocumentLinker;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class RecordController extends BaseController
 {
@@ -191,7 +199,7 @@ class RecordController extends BaseController
             return false;
         }
 
-        /** @var \Illuminate\Database\Eloquent\Model $relatedModel */
+        /** @var Model $relatedModel */
         $relatedModel = new $modelClass;
         if ($relatedModel->getTable() !== $joinTable) {
             return false;
@@ -453,6 +461,10 @@ class RecordController extends BaseController
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
                     };
+                } elseif ($fieldDef['typeDomain'] === 'WorkOrder') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'work_order_number']);
+                    };
                 } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'contact_id'])
@@ -613,7 +625,7 @@ class RecordController extends BaseController
      * Optional aggregate counts for table stat cards (see table.json "stats"). Override per domain.
      * Receives the same filtered query as the index list, before sort/pagination.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      */
     protected function indexTableStats(Request $request, $query, ?array $schema): array
     {
@@ -623,7 +635,7 @@ class RecordController extends BaseController
     /**
      * Props for the domain Index Inertia page. Override in child controllers (e.g. Asset) to add keys.
      *
-     * @param  \Illuminate\Contracts\Pagination\LengthAwarePaginator  $records
+     * @param  LengthAwarePaginator  $records
      */
     protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
@@ -647,7 +659,7 @@ class RecordController extends BaseController
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Create', [
             'recordType' => $this->recordType,
@@ -752,6 +764,10 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
+                            } elseif ($fieldDef['typeDomain'] === 'WorkOrder') {
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'work_order_number']);
+                                };
                             } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'contact_id'])
@@ -809,7 +825,7 @@ class RecordController extends BaseController
             return back()
                 ->withInput()
                 ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             // Handle validation errors
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
@@ -829,6 +845,11 @@ class RecordController extends BaseController
      * Merge extra eager loads before {@see show()} and {@see edit()} load the record. Override in domain controllers (e.g. invoices).
      */
     protected function appendShowRelationships(array &$relationships): void {}
+
+    protected function hydrateRecordAfterLoad(Model $record): void
+    {
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+    }
 
     public function show(Request $request, $id)
     {
@@ -865,6 +886,10 @@ class RecordController extends BaseController
                 } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'WorkOrder') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'work_order_number']);
                     };
                 } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
@@ -925,6 +950,8 @@ class RecordController extends BaseController
             ->with($relationships)
             ->findOrFail($id);
 
+        $this->hydrateRecordAfterLoad($record);
+
         $availableSpecs = $hasSpecsGroup && isset($record->type)
             ? AvailableAssetSpecsCache::get((int) $record->type)
             : [];
@@ -932,7 +959,7 @@ class RecordController extends BaseController
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         // If it's a non-Inertia AJAX request, return JSON with full record data
         if ($request->ajax() && ! $request->header('X-Inertia')) {
@@ -970,7 +997,7 @@ class RecordController extends BaseController
     /**
      * Extra Inertia/JSON props for the generic record show page (subclasses may override).
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $record
+     * @param  Model  $record
      */
     protected function showPageExtraProps($record): array
     {
@@ -1012,6 +1039,10 @@ class RecordController extends BaseController
                 } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'WorkOrder') {
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'work_order_number']);
                     };
                 } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                     $relationships[$relationshipName] = function ($query) {
@@ -1068,6 +1099,8 @@ class RecordController extends BaseController
         // Load the record with relationships
         $record = $this->recordModel->with($relationships)->findOrFail($id);
 
+        $this->hydrateRecordAfterLoad($record);
+
         $availableSpecs = $hasSpecsGroup && isset($record->type)
             ? AvailableAssetSpecsCache::get((int) $record->type)
             : [];
@@ -1075,7 +1108,7 @@ class RecordController extends BaseController
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Edit', array_merge([
             'record' => $record,
@@ -1093,7 +1126,7 @@ class RecordController extends BaseController
     /**
      * Extra Inertia props for the generic record edit page (subclasses may override).
      *
-     * @param  \Illuminate\Database\Eloquent\Model  $record
+     * @param  Model  $record
      */
     protected function editPageExtraProps($record): array
     {
@@ -1210,6 +1243,10 @@ class RecordController extends BaseController
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
                                 };
+                            } elseif ($fieldDef['typeDomain'] === 'WorkOrder') {
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'work_order_number']);
+                                };
                             } elseif (in_array($fieldDef['typeDomain'], ['Customer', 'Lead', 'LeadProfile'], true)) {
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'contact_id'])
@@ -1273,7 +1310,7 @@ class RecordController extends BaseController
                 ->withInput()
                 ->withErrors($errors);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             // Handle validation errors
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
@@ -1380,7 +1417,7 @@ class RecordController extends BaseController
 
             $relationshipInstance = $record->$relationship();
 
-            if (! ($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+            if (! ($relationshipInstance instanceof BelongsToMany)) {
                 return response()->json([
                     'success' => false,
                     'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship.",
@@ -1397,7 +1434,7 @@ class RecordController extends BaseController
 
             // Attach the record
             $pivot = [];
-            if ($record instanceof \App\Domain\Vendor\Models\Vendor && $relationship === 'linkedContacts') {
+            if ($record instanceof Vendor && $relationship === 'linkedContacts') {
                 $pivot = [
                     'is_primary' => false,
                     'portal_access' => false,
@@ -1442,7 +1479,7 @@ class RecordController extends BaseController
 
             $relationshipInstance = $record->$relationship();
 
-            if (! ($relationshipInstance instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany)) {
+            if (! ($relationshipInstance instanceof BelongsToMany)) {
                 return response()->json([
                     'success' => false,
                     'message' => "Relationship '{$relationship}' is not a Many-to-Many relationship.",

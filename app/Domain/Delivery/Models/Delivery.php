@@ -2,14 +2,23 @@
 
 namespace App\Domain\Delivery\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\Customer\Models\Customer;
+use App\Domain\DeliveryChecklistItem\Models\DeliveryChecklistItem;
+use App\Domain\DeliveryLocation\Models\DeliveryLocation;
 use App\Domain\Fleet\Models\Fleet;
+use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\User\Models\User;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class Delivery extends Model
 {
@@ -89,12 +98,12 @@ class Delivery extends Model
 
     public function subsidiary()
     {
-        return $this->belongsTo(\App\Domain\Subsidiary\Models\Subsidiary::class);
+        return $this->belongsTo(Subsidiary::class);
     }
 
     public function location()
     {
-        return $this->belongsTo(\App\Domain\Location\Models\Location::class);
+        return $this->belongsTo(Location::class);
     }
 
     public function fleetTruck(): BelongsTo
@@ -109,47 +118,47 @@ class Delivery extends Model
 
     public function customer()
     {
-        return $this->belongsTo(\App\Domain\Customer\Models\Customer::class);
+        return $this->belongsTo(Customer::class);
     }
 
     public function assetUnit()
     {
-        return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
+        return $this->belongsTo(AssetUnit::class);
     }
 
     public function asset_unit()
     {
-        return $this->belongsTo(\App\Domain\AssetUnit\Models\AssetUnit::class);
+        return $this->belongsTo(AssetUnit::class);
     }
 
     public function workOrder()
     {
-        return $this->belongsTo(\App\Domain\WorkOrder\Models\WorkOrder::class);
+        return $this->belongsTo(WorkOrder::class);
     }
 
     public function work_order()
     {
-        return $this->belongsTo(\App\Domain\WorkOrder\Models\WorkOrder::class);
+        return $this->belongsTo(WorkOrder::class);
     }
 
     public function transaction()
     {
-        return $this->belongsTo(\App\Domain\Transaction\Models\Transaction::class);
+        return $this->belongsTo(Transaction::class);
     }
 
     public function deliveryLocation()
     {
-        return $this->belongsTo(\App\Domain\DeliveryLocation\Models\DeliveryLocation::class);
+        return $this->belongsTo(DeliveryLocation::class);
     }
 
     public function delivery_location()
     {
-        return $this->belongsTo(\App\Domain\DeliveryLocation\Models\DeliveryLocation::class, 'delivery_location_id');
+        return $this->belongsTo(DeliveryLocation::class, 'delivery_location_id');
     }
 
     public function technician()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'technician_id');
+        return $this->belongsTo(User::class, 'technician_id');
     }
 
     public function items()
@@ -159,7 +168,7 @@ class Delivery extends Model
 
     public function checklistItems()
     {
-        return $this->hasMany(\App\Domain\DeliveryChecklistItem\Models\DeliveryChecklistItem::class);
+        return $this->hasMany(DeliveryChecklistItem::class);
     }
 
     /*
@@ -260,21 +269,9 @@ class Delivery extends Model
         return 'DLV-'.($this->sequence ?: $this->id ?: '???');
     }
 
-    /**
-     * Same approach as {@see \App\Domain\Contract\Models\Contract}: keys live under private/ on S3,
-     * so we must use a pre-signed URL — plain {@see \Illuminate\Contracts\Filesystem\Filesystem::url()} is not readable.
-     */
     public function getSignatureUrlAttribute(): ?string
     {
-        if (! $this->signature_file) {
-            return null;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($this->signature_file, now()->addHours(2));
-        } catch (\Exception $e) {
-            return Storage::disk('s3')->url($this->signature_file);
-        }
+        return SignatureStorage::url($this->signature_file);
     }
 
     public function getRouteKeyName(): string

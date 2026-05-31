@@ -3,8 +3,15 @@
 namespace App\Domain\Customer\Models;
 
 use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\Communication\Models\Communication;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
+use App\Domain\Document\Models\Document;
+use App\Domain\Estimate\Models\Estimate;
+use App\Domain\InventoryImage\Models\InventoryImage;
+use App\Domain\Invoice\Models\Invoice;
+use App\Domain\Lead\Models\Lead;
+use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\PortalAccess\Models\PortalAccess;
 use App\Domain\Score\Models\Score;
 use App\Domain\Subsidiary\Models\Subsidiary;
@@ -110,6 +117,16 @@ class Customer extends Model
         return $this->belongsTo(Contact::class);
     }
 
+    public function dlFront(): BelongsTo
+    {
+        return $this->belongsTo(InventoryImage::class, 'dl_front_id');
+    }
+
+    public function dlBack(): BelongsTo
+    {
+        return $this->belongsTo(InventoryImage::class, 'dl_back_id');
+    }
+
     public function subsidiary(): BelongsTo
     {
         return $this->belongsTo(Subsidiary::class);
@@ -169,12 +186,12 @@ class Customer extends Model
 
     public function leads()
     {
-        return $this->hasMany(\App\Domain\Lead\Models\Lead::class, 'converted_customer_id');
+        return $this->hasMany(Lead::class, 'converted_customer_id');
     }
 
     public function converted_from_lead()
     {
-        return $this->belongsTo(\App\Domain\Lead\Models\Lead::class, 'converted_from_lead_id');
+        return $this->belongsTo(Lead::class, 'converted_from_lead_id');
     }
 
     public function asset_units()
@@ -189,17 +206,17 @@ class Customer extends Model
 
     public function opportunities()
     {
-        return $this->hasMany(\App\Domain\Opportunity\Models\Opportunity::class);
+        return $this->hasMany(Opportunity::class);
     }
 
     public function estimates()
     {
-        return $this->hasMany(\App\Domain\Estimate\Models\Estimate::class);
+        return $this->hasMany(Estimate::class);
     }
 
     public function invoices()
     {
-        return $this->hasMany(\App\Domain\Invoice\Models\Invoice::class);
+        return $this->hasMany(Invoice::class);
     }
 
     public function assigned_user()
@@ -219,7 +236,7 @@ class Customer extends Model
 
     public function documents()
     {
-        return $this->morphToMany(\App\Domain\Document\Models\Document::class, 'documentable')
+        return $this->morphToMany(Document::class, 'documentable')
             ->withTimestamps();
     }
 
@@ -245,7 +262,7 @@ class Customer extends Model
 
     public function communications()
     {
-        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+        return $this->morphMany(Communication::class, 'communicable')
             ->orderByDesc('created_at');
     }
 

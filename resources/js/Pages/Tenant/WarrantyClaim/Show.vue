@@ -3,8 +3,10 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+
+const page = usePage();
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -120,6 +122,24 @@ const submitWarrantyOnly = () => {
 const submitWarrantyAndNotify = () => {
     postSubmitWarranty([...selectedSubmitContactIds.value]);
 };
+
+const isSandboxMode = computed(() => !!page.props.tenant_sandbox_mode);
+
+const warrantyNotifyEmailPreview = computed(() =>
+    isSandboxMode.value ? (page.props.auth?.user?.email ?? '') : '',
+);
+
+const submitWarrantyModalSubtitle = computed(() =>
+    isSandboxMode.value
+        ? 'Sandbox is on: the claim will be marked Submitted. If you notify contacts, email goes to you for testing—not to the manufacturer addresses below.'
+        : 'Emailing manufacturer contacts is optional—use it when they use the vendor portal; otherwise submit without notifying.',
+);
+
+const sendToVendorModalSubtitle = computed(() =>
+    isSandboxMode.value
+        ? 'Sandbox is on: email goes to you for testing, not to the manufacturer contacts selected below. Each message still includes the claim review link and vendor portal sign-in instructions.'
+        : 'Choose manufacturer contacts to email. They receive a link to preview this claim and sign in to the vendor portal to respond.',
+);
 
 const canSendToVendor = computed(
     () => rawStatus.value === 'submitted' && props.vendorContacts?.length > 0,
@@ -552,7 +572,21 @@ const serviceLineDisplayName = (line) =>
             <div class="p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Submit warranty claim</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    This marks the claim as <strong class="text-gray-700 dark:text-gray-300">Submitted</strong>. Emailing manufacturer contacts is optional—use it when they use the vendor portal; otherwise submit without notifying.
+                    <template v-if="!isSandboxMode">
+                        This marks the claim as <strong class="text-gray-700 dark:text-gray-300">Submitted</strong>.
+                    </template>
+                    {{ submitWarrantyModalSubtitle }}
+                </p>
+                <p
+                    v-if="isSandboxMode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>In sandbox mode, email is sent to the current signed-in user, not the contacts below.</span>
+                </p>
+                <p v-if="isSandboxMode && warrantyNotifyEmailPreview" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Email will be sent to you at
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ warrantyNotifyEmailPreview }}</span>
                 </p>
                 <template v-if="vendorContacts.length">
                     <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
@@ -638,7 +672,18 @@ const serviceLineDisplayName = (line) =>
             <div class="p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Send to vendor</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Choose manufacturer contacts to email. They receive a link to preview this claim and sign in to the vendor portal to respond.
+                    {{ sendToVendorModalSubtitle }}
+                </p>
+                <p
+                    v-if="isSandboxMode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>In sandbox mode, email is sent to the current signed-in user, not the contacts below.</span>
+                </p>
+                <p v-if="isSandboxMode && warrantyNotifyEmailPreview" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Email will be sent to you at
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ warrantyNotifyEmailPreview }}</span>
                 </p>
                 <div class="mt-4 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 p-3">
                     <label

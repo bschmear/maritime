@@ -378,6 +378,8 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                         <RecordSelect
                                             id="warranty-claim-vendor"
                                             v-model="form.vendor_id"
+                                            field-key="vendor_id"
+                                            :record="record"
                                             :field="fieldOr('vendor_id', { type: 'record', typeDomain: 'Vendor', label: 'Manufacturer (vendor)' })"
                                             :enum-options="enumOptions.vendor_id ?? []"
                                         />
@@ -391,6 +393,8 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                         <RecordSelect
                                             id="warranty-claim-work-order"
                                             v-model="form.work_order_id"
+                                            field-key="work_order_id"
+                                            :record="record"
                                             :field="fieldOr('work_order_id', { type: 'record', typeDomain: 'WorkOrder', label: 'Work order' })"
                                             :enum-options="enumOptions.work_order_id ?? []"
                                         />
@@ -419,6 +423,8 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                             <RecordSelect
                                                 id="warranty-claim-subsidiary"
                                                 v-model="form.subsidiary_id"
+                                                field-key="subsidiary_id"
+                                                :record="record"
                                                 :disabled="subsidiaryLocationLockedFromWorkOrder"
                                                 :field="fieldOr('subsidiary_id', { type: 'record', typeDomain: 'Subsidiary', label: 'Subsidiary' })"
                                                 :enum-options="enumOptions.subsidiary_id ?? []"
@@ -430,6 +436,8 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                             <RecordSelect
                                                 id="warranty-claim-location"
                                                 v-model="form.location_id"
+                                                field-key="location_id"
+                                                :record="record"
                                                 :disabled="subsidiaryLocationLockedFromWorkOrder"
                                                 :field="fieldOr('location_id', { type: 'record', typeDomain: 'Location', label: 'Location' })"
                                                 :enum-options="enumOptions.location_id ?? []"

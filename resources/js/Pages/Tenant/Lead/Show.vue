@@ -1,72 +1,53 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import Form from '@/Components/Tenant/Form.vue';
+import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import ScorePanel from '@/Components/Tenant/ScorePanel.vue';
 import Modal from '@/Components/Modal.vue';
-import { Head, router, Link } from '@inertiajs/vue3';
-import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
-import { ref, computed } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+
+const page = usePage();
 
 const props = defineProps({
-    record: {
-        type: Object,
-        required: true,
-    },
-    recordType: {
-        type: String,
-        default: 'leads',
-    },
-    recordTitle: {
-        type: String,
-        default: 'Lead',
-    },
-    domainName: {
-        type: String,
-        default: 'Lead',
-    },
-    formSchema: {
-        type: Object,
-        default: null,
-    },
-    fieldsSchema: {
-        type: Object,
-        default: () => ({}),
-    },
-    enumOptions: {
-        type: Object,
-        default: () => ({}),
-    },
-    imageUrls: {
-        type: Object,
-        default: () => ({}),
-    },
-    account: {
-        type: Object,
-        default: null,
-    },
-    timezones: {
-        type: Array,
-        default: () => [],
-    },
-    scores: {
-        type: Array,
-        default: () => [],
-    },
-    /** Canonical morph class for scores (from PHP {@see Lead::class}); avoids template escaping bugs. */
-    scoreScorableType: {
-        type: String,
-        default: 'Lead',
-    },
+    record: { type: Object, required: true },
+    recordType: { type: String, default: 'leads' },
+    recordTitle: { type: String, default: 'Lead' },
+    domainName: { type: String, default: 'Lead' },
+    formSchema: { type: Object, default: null },
+    fieldsSchema: { type: Object, default: () => ({}) },
+    enumOptions: { type: Object, default: () => ({}) },
+    imageUrls: { type: Object, default: () => ({}) },
+    account: { type: Object, default: null },
+    timezones: { type: Array, default: () => [] },
+    scores: { type: Array, default: () => [] },
+    scoreScorableType: { type: String, default: 'Lead' },
 });
 
-const isEditMode      = ref(false);
 const showDeleteModal = ref(false);
-const isDeleting      = ref(false);
-const formRef         = ref(null);
+const isDeleting = ref(false);
+const isConverting = ref(false);
 
-const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
-const sublists         = computed(() => props.formSchema?.sublists || []);
+const leadLabel = computed(() => {
+    const r = props.record;
+    return (
+        r.display_name?.trim()
+        || [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
+        || r.company
+        || `Lead #${r.id}`
+    );
+});
+
+const indexHref = computed(() => route(`${props.recordType}.index`));
+const editHref = computed(() => route(`${props.recordType}.edit`, props.record.id));
+
+const breadcrumbItems = computed(() => [
+    { label: 'Home', href: route('dashboard') },
+    { label: 'Leads', href: indexHref.value },
+    { label: leadLabel.value },
+]);
+
+const sublists = computed(() => props.formSchema?.sublists || []);
 
 const customerCreateHref = computed(() => {
     const cid = props.record?.contact_id ?? props.record?.contact?.id;
@@ -76,30 +57,97 @@ const customerCreateHref = computed(() => {
     return route('customers.create');
 });
 
-const breadcrumbItems = computed(() => [
-    { label: 'Home',  href: route('dashboard') },
-    { label: 'Leads', href: route('leads.index') },
-    { label: props.record?.display_name ?? 'Lead' },
-]);
+const linkedCustomerProfile = computed(() => props.record?.converted_customer ?? null);
+const hasCustomerProfile = computed(() => Boolean(linkedCustomerProfile.value?.id));
+const hasContact = computed(() => Boolean(props.record?.contact?.id ?? props.record?.contact_id));
 
-// ── edit ──────────────────────────────────────────────────────────────────────
-const handleEdit   = () => { isEditMode.value = true; };
-const handleCancel = () => { isEditMode.value = false; };
-const handleSave   = () => { formRef.value?.submitForm(); };
-
-const handleSubmit = () => {
-    isEditMode.value = false;
-    router.reload({ only: ['record', 'imageUrls'] });
+const fmt = {
+    date: (val) => {
+        if (!val) return null;
+        const d = new Date(val);
+        return Number.isNaN(d.getTime()) ? val : d.toLocaleDateString('en-US', { dateStyle: 'medium' });
+    },
+    datetime: (val) => {
+        if (!val) return '—';
+        const d = new Date(val);
+        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    },
+    currency: (val) => {
+        if (val == null || val === '') return null;
+        const num = Number(val);
+        if (Number.isNaN(num)) return null;
+        return num.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+    },
+    empty: (val) => (val == null || val === '' ? '—' : val),
 };
-const handleUpdated = () => {
-    isEditMode.value = false;
-    router.reload({ only: ['record', 'imageUrls'] });
-};
 
-// ── delete ────────────────────────────────────────────────────────────────────
+function enumLabel(fieldKey, val) {
+    const v = val !== undefined ? val : props.record?.[fieldKey];
+    if (v == null || v === '') return null;
+    const def = props.fieldsSchema?.[fieldKey];
+    if (!def?.enum) return String(v);
+    const opts = props.enumOptions?.[def.enum] || [];
+    const hit = opts.find(
+        (o) => o.id === v || o.value === v || String(o.id) === String(v) || String(o.value) === String(v),
+    );
+    return hit?.name ?? String(v);
+}
+
+function findOption(enumClass, val) {
+    if (val == null) return null;
+    const options = props.enumOptions?.[enumClass] ?? [];
+    return options.find((o) => o.id === val || o.value === val || o.id === Number(val)) ?? null;
+}
+
+const statusOption = computed(() => findOption('App\\Enums\\Leads\\Status', props.record?.status_id));
+const priorityOption = computed(() => findOption('App\\Enums\\Entity\\Priority', props.record?.priority_id));
+const sourceLabel = computed(() => enumLabel('source_id'));
+
+const assignedUserName = computed(() => {
+    const u = props.record.assigned_user;
+    if (!u || typeof u !== 'object') return null;
+    return u.display_name ?? u.name ?? null;
+});
+
+const budgetDisplay = computed(() => {
+    const min = props.record.budget_min;
+    const max = props.record.budget_max;
+    if (min != null && max != null) {
+        return `${fmt.currency(min)} – ${fmt.currency(max)}`;
+    }
+    if (min != null) return `From ${fmt.currency(min)}`;
+    if (max != null) return `Up to ${fmt.currency(max)}`;
+    return enumLabel('budget_range');
+});
+
+const hasAddress = computed(
+    () => props.record.address_line_1 || props.record.city || props.record.state || props.record.postal_code,
+);
+
+const hasMarketing = computed(
+    () =>
+        props.record.campaign
+        || props.record.medium
+        || props.record.source_details
+        || props.record.referrer
+        || props.record.utm_source
+        || props.record.utm_campaign
+        || props.record.marketing_opt_in != null,
+);
+
+const hasPurchaseIntent = computed(
+    () =>
+        enumLabel('purchase_timeline')
+        || props.record.interested_model
+        || budgetDisplay.value
+        || props.record.has_trade_in,
+);
+
 const confirmDelete = () => {
     isDeleting.value = true;
-    router.delete(route('leads.destroy', recordIdentifier.value), {
+    router.delete(route(`${props.recordType}.destroy`, props.record.id), {
+        onSuccess: () => router.visit(indexHref.value),
+        onError: () => { isDeleting.value = false; },
         onFinish: () => {
             isDeleting.value = false;
             showDeleteModal.value = false;
@@ -107,294 +155,614 @@ const confirmDelete = () => {
     });
 };
 
-const findOption = (enumClass, val) => {
-    if (val == null) return null;
-    const options = props.enumOptions?.[enumClass] ?? [];
-    return options.find((o) => o.id === val || o.value === val || o.id === Number(val)) ?? null;
+const convertToCustomer = () => {
+    if (isConverting.value || hasCustomerProfile.value) return;
+    isConverting.value = true;
+    router.post(route('leads.convert', props.record.id), {}, {
+        preserveScroll: true,
+        onFinish: () => { isConverting.value = false; },
+    });
 };
-
-const statusOption   = computed(() => findOption('App\\Enums\\Leads\\Status',   props.record?.status_id));
-const priorityOption = computed(() => findOption('App\\Enums\\Entity\\Priority', props.record?.priority_id));
 </script>
 
 <template>
-    <Head :title="`${recordTitle} - ${record?.display_name}`" />
+    <Head :title="`${leadLabel} — Lead`" />
 
     <TenantLayout>
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <!-- Title + status badge -->
-                    <div class="flex items-center gap-2.5">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                            {{ record?.display_name }}
-                        </h2>
-                        <span
-                            v-if="record?.converted"
-                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                        >
-                            Converted
-                        </span>
-                        <span
-                            v-else
-                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                        >
-                            Active lead
-                        </span>
-                    </div>
-
-                    <!-- View mode actions -->
-                    <div v-if="!isEditMode" class="flex items-center gap-2">
+                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200 truncate">
+                        {{ leadLabel }}
+                    </h2>
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
                         <Link
-                            v-if="!record?.converted"
-                            :href="customerCreateHref"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                            :href="indexHref"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            Add customer profile
+                            <span class="material-icons text-[16px]">arrow_back</span>
+                            Leads
                         </Link>
                         <button
-                            v-if="!record?.converted"
-                            @click="handleEdit"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit
-                        </button>
-                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors"
                             @click="showDeleteModal = true"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:bg-gray-800 dark:border-red-700 dark:hover:bg-red-900/20"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <span class="material-icons text-[16px]">delete</span>
                             Delete
                         </button>
-                    </div>
-
-                    <!-- Edit mode actions -->
-                    <div v-else class="flex items-center gap-2">
-                        <button
-                            @click="handleSave"
-                            :disabled="formRef?.isProcessing"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        <Link
+                            v-if="!hasCustomerProfile"
+                            :href="customerCreateHref"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
                         >
-                            <svg v-if="formRef?.isProcessing" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                            </svg>
-                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            {{ formRef?.isProcessing ? 'Saving…' : 'Save changes' }}
-                        </button>
-                        <button
-                            @click="isEditMode = false"
-                            :disabled="formRef?.isProcessing"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            <span class="material-icons text-[16px]">person_add</span>
+                            Add customer
+                        </Link>
+                        <Link
+                            :href="editHref"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
                         >
-                            Cancel
-                        </button>
+                            <span class="material-icons text-[16px]">edit</span>
+                            Edit
+                        </Link>
                     </div>
                 </div>
             </div>
         </template>
 
-        <!-- ── Page body ─────────────────────────────────────────────────────── -->
-        <div class="flex gap-6">
+        <div class="mx-auto flex w-full flex-col space-y-6">
+            <div
+                v-if="page.props.flash?.success"
+                class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200"
+            >
+                {{ page.props.flash.success }}
+            </div>
+            <div
+                v-if="page.props.flash?.error"
+                class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200"
+            >
+                {{ page.props.flash.error }}
+            </div>
 
-            <!-- Main column -->
-            <div class="flex-1 min-w-0">
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <Form
-                        ref="formRef"
-                        :schema="formSchema"
-                        :fields-schema="fieldsSchema"
-                        :record="record"
-                        :record-type="recordType"
-                        :record-title="recordTitle"
-                        :record-identifier="recordIdentifier"
-                        :enum-options="enumOptions"
-                        :image-urls="imageUrls"
-                        :account="account"
-                        :timezones="timezones"
-                        :mode="isEditMode ? 'edit' : 'view'"
-                        :prevent-redirect="true"
-                        :form-id="`form-${recordType}-${record?.id ?? record?.uuid}`"
-                        @submit="handleSubmit"
-                        @updated="handleUpdated"
-                        @cancel="handleCancel"
-                    />
+            <!-- Hero -->
+            <div class="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-600 via-amber-700 to-amber-950 dark:from-amber-700 dark:via-amber-800 dark:to-amber-950 shadow-lg">
+                <div class="absolute inset-0 opacity-10">
+                    <svg viewBox="0 0 1200 300" preserveAspectRatio="none" class="absolute bottom-0 w-full h-full">
+                        <path d="M0,200 C200,100 400,250 600,180 C800,110 1000,220 1200,160 L1200,300 L0,300 Z" fill="white" />
+                        <path d="M0,240 C300,170 500,270 700,210 C900,150 1100,240 1200,200 L1200,300 L0,300 Z" fill="white" opacity="0.5" />
+                    </svg>
                 </div>
-
-                <!-- Sublists -->
-                <div v-if="sublists.length > 0 && domainName" class="mt-6">
-                    <Sublist
-                        :parent-record="record"
-                        :parent-domain="domainName"
-                        :sublists="sublists"
-                    />
+                <div class="absolute right-8 top-1/2 -translate-y-1/2 opacity-[0.08] select-none pointer-events-none">
+                    <span class="material-icons" style="font-size: 180px">trending_up</span>
+                </div>
+                <div class="relative px-6 py-7 sm:px-10 sm:py-8">
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+                        <div class="space-y-2.5">
+                            <h1 class="text-2xl sm:text-3xl font-bold text-white leading-tight">{{ leadLabel }}</h1>
+                            <p v-if="record.company" class="text-amber-100 text-sm sm:text-base">
+                                {{ record.company }}
+                                <span v-if="record.title || record.position" class="text-amber-200/80">
+                                    · {{ [record.title, record.position].filter(Boolean).join(', ') }}
+                                </span>
+                            </p>
+                            <div class="flex flex-wrap gap-1.5">
+                                <span
+                                    v-if="record.converted"
+                                    class="inline-flex items-center gap-1 rounded-full bg-green-400/30 px-2.5 py-0.5 text-sm font-semibold text-green-100"
+                                >
+                                    <span class="material-icons text-[11px]">check_circle</span>
+                                    Converted
+                                </span>
+                                <span
+                                    v-else
+                                    class="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-medium text-white"
+                                >
+                                    <span class="material-icons text-[11px]">bolt</span>
+                                    Active lead
+                                </span>
+                                <span
+                                    v-if="statusOption"
+                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold"
+                                    :class="statusOption.bgClass"
+                                >
+                                    {{ statusOption.name }}
+                                </span>
+                                <span
+                                    v-if="priorityOption"
+                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold bg-white/20 text-white"
+                                >
+                                    {{ priorityOption.name }} priority
+                                </span>
+                                <span
+                                    v-if="record.is_qualified"
+                                    class="inline-flex items-center gap-1 rounded-full bg-blue-400/30 px-2.5 py-0.5 text-sm font-semibold text-blue-100"
+                                >
+                                    <span class="material-icons text-[11px]">verified</span>
+                                    Qualified
+                                </span>
+                                <span
+                                    v-if="hasCustomerProfile"
+                                    class="inline-flex items-center gap-1 rounded-full bg-green-400/30 px-2.5 py-0.5 text-sm font-semibold text-green-100"
+                                >
+                                    <span class="material-icons text-[11px]">shopping_bag</span>
+                                    Customer profile
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <a
+                                v-if="record.email"
+                                :href="`mailto:${record.email}`"
+                                class="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-sm text-white font-medium hover:bg-white/25 transition-colors"
+                            >
+                                <span class="material-icons text-[15px]">mail</span>
+                                {{ record.email }}
+                            </a>
+                            <a
+                                v-if="record.phone"
+                                :href="`tel:${record.phone}`"
+                                class="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-2 text-sm text-white font-medium hover:bg-white/25 transition-colors"
+                            >
+                                <span class="material-icons text-[15px]">phone</span>
+                                {{ record.phone }}
+                            </a>
+                            <a
+                                v-if="record.mobile"
+                                :href="`tel:${record.mobile}`"
+                                class="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/20 transition-colors"
+                            >
+                                <span class="material-icons text-[15px]">smartphone</span>
+                                {{ record.mobile }}
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Sidebar -->
-            <div class="w-80 lg:w-96 flex-shrink-0 space-y-4">
-
-                <!-- Lead status card -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Lead status</h3>
+            <!-- Stats strip -->
+            <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-gray-700">
+                    <div class="px-5 py-4">
+                        <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Lead score</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
+                            {{ record.lead_score != null ? record.lead_score : '—' }}
+                        </p>
                     </div>
-                    <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
-                        <li class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Status</span>
-                            <span
-                                v-if="statusOption"
-                                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                                :class="statusOption.bgClass"
-                            >
-                                {{ statusOption.name }}
-                            </span>
-                            <span v-else class="font-medium text-gray-400 dark:text-gray-500">—</span>
-                        </li>
-                        <li class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Priority</span>
-                            <span
-                                v-if="priorityOption"
-                                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                                :class="priorityOption.bgClass"
-                            >
-                                {{ priorityOption.name }}
-                            </span>
-                            <span v-else class="font-medium text-gray-400 dark:text-gray-500">—</span>
-                        </li>
-                        <li v-if="record?.converted_at" class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Converted</span>
-                            <span class="font-medium text-green-600 dark:text-green-400">
-                                {{ new Date(record.converted_at).toLocaleDateString() }}
-                            </span>
-                        </li>
-                        <li class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Created</span>
-                            <span class="font-medium text-gray-900 dark:text-white">
-                                {{ record?.created_at ? new Date(record.created_at).toLocaleDateString() : '—' }}
-                            </span>
-                        </li>
-                    </ul>
-
-                    <!-- Convert CTA (unconverted) -->
-                    <div v-if="!record?.converted" class="px-4 pb-4 pt-2">
-                        <Link
-                            :href="customerCreateHref"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
-                            Add customer profile
-                        </Link>
+                    <div class="px-5 py-4">
+                        <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Next follow-up</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
+                            {{ fmt.date(record.next_followup_at) ?? '—' }}
+                        </p>
                     </div>
-
-                    <!-- View customer link (converted) -->
-                    <div v-else class="px-4 pb-4 pt-2">
-                        <Link
-                            :href="route('customers.show', record.converted_customer.id)"
-                            class="flex items-center gap-2 px-3 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                        >
-                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            View customer record
-                        </Link>
+                    <div class="px-5 py-4">
+                        <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Budget</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-0.5 truncate">
+                            {{ budgetDisplay ?? '—' }}
+                        </p>
+                    </div>
+                    <div class="px-5 py-4">
+                        <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Last contacted</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
+                            {{ fmt.date(record.last_contacted_at) ?? '—' }}
+                        </p>
                     </div>
                 </div>
-
-                <!-- Contact / roles card -->
-                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contact</h3>
-                    </div>
-                    <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
-                        <li class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Contact record</span>
-                            <Link
-                                v-if="record?.contact?.id"
-                                :href="route('contacts.show', record.contact.id)"
-                                class="font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                            >
-                                {{ record.contact.display_name ?? 'View →' }}
-                            </Link>
-                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                        </li>
-                        <li class="flex items-center justify-between px-4 py-3">
-                            <span class="text-gray-500 dark:text-gray-400">Customer profile</span>
-                            <Link
-                                v-if="record?.converted_customer?.id"
-                                :href="route('customers.show', record.converted_customer.id)"
-                                class="font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                            >
-                                View →
-                            </Link>
-                            <span v-else class="text-gray-400 dark:text-gray-500">None</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Score panel -->
-                <ScorePanel
-                    :scorable-type="scoreScorableType"
-                    :scorable-id="record.id"
-                    :subscription-level="3"
-                    :initial-scores="scores"
-                />
-
             </div>
+
+            <!-- Overview grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="lg:col-span-2 space-y-4">
+                    <!-- Contact information -->
+                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contact information</span>
+                            <Link
+                                v-if="hasContact"
+                                :href="route('contacts.show', record.contact?.id ?? record.contact_id)"
+                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                                Open contact →
+                            </Link>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">mail</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Email</p>
+                                        <a
+                                            v-if="record.email"
+                                            :href="`mailto:${record.email}`"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
+                                        >{{ record.email }}</a>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">mail_outline</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Secondary email</p>
+                                        <a
+                                            v-if="record.secondary_email"
+                                            :href="`mailto:${record.secondary_email}`"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
+                                        >{{ record.secondary_email }}</a>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">phone</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Phone</p>
+                                        <a
+                                            v-if="record.phone"
+                                            :href="`tel:${record.phone}`"
+                                            class="text-sm font-medium text-gray-900 dark:text-white hover:underline"
+                                        >{{ record.phone }}</a>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">smartphone</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Mobile</p>
+                                        <a
+                                            v-if="record.mobile"
+                                            :href="`tel:${record.mobile}`"
+                                            class="text-sm font-medium text-gray-900 dark:text-white hover:underline"
+                                        >{{ record.mobile }}</a>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">contact_phone</span>
+                                    <div>
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Preferred method</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                                            {{ enumLabel('preferred_contact_method') ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">schedule</span>
+                                    <div>
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Preferred time</p>
+                                        <p class="text-sm font-medium text-gray-900 dark:text-white capitalize">
+                                            {{ enumLabel('preferred_contact_time') ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">language</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Website</p>
+                                        <a
+                                            v-if="record.website"
+                                            :href="record.website.startsWith('http') ? record.website : `https://${record.website}`"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
+                                        >{{ record.website }}</a>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                                <div class="px-5 py-3.5 flex items-center gap-3">
+                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">link</span>
+                                    <div>
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Social</p>
+                                        <div v-if="record.linkedin || record.facebook" class="flex gap-3 mt-0.5">
+                                            <a
+                                                v-if="record.linkedin"
+                                                :href="record.linkedin.startsWith('http') ? record.linkedin : `https://${record.linkedin}`"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                            >LinkedIn</a>
+                                            <a
+                                                v-if="record.facebook"
+                                                :href="record.facebook.startsWith('http') ? record.facebook : `https://${record.facebook}`"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                            >Facebook</a>
+                                        </div>
+                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Company -->
+                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
+                            <div class="px-5 py-3.5 flex items-center gap-3">
+                                <span class="material-icons text-[18px] text-gray-400 shrink-0">apartment</span>
+                                <div>
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Company</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.company) }}</p>
+                                </div>
+                            </div>
+                            <div class="px-5 py-3.5 flex items-center gap-3">
+                                <span class="material-icons text-[18px] text-gray-400 shrink-0">work</span>
+                                <div>
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Title</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.title) }}</p>
+                                </div>
+                            </div>
+                            <div class="px-5 py-3.5 flex items-center gap-3">
+                                <span class="material-icons text-[18px] text-gray-400 shrink-0">work_outline</span>
+                                <div>
+                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Position</p>
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.position) }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div
+                        v-if="hasAddress"
+                        class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
+                    >
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Address</span>
+                        </div>
+                        <div class="px-5 py-4 flex items-start gap-3">
+                            <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_on</span>
+                            <div class="min-w-0 text-sm text-gray-900 dark:text-white leading-relaxed">
+                                <p v-if="record.address_line_1">{{ record.address_line_1 }}</p>
+                                <p v-if="record.address_line_2">{{ record.address_line_2 }}</p>
+                                <p v-if="record.city || record.state || record.postal_code">
+                                    {{ [record.city, record.state, record.postal_code].filter(Boolean).join(', ') }}
+                                </p>
+                                <p v-if="record.country">{{ record.country }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</span>
+                        </div>
+                        <div class="px-5 py-4 flex items-start gap-3">
+                            <span class="material-icons text-[18px] text-gray-400 mt-0.5 shrink-0">notes</span>
+                            <p
+                                v-if="record.notes"
+                                class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
+                            >{{ record.notes }}</p>
+                            <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
+                        </div>
+                    </div>
+
+                    <!-- Marketing -->
+                    <div
+                        v-if="hasMarketing"
+                        class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
+                    >
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Marketing &amp; acquisition</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2">
+                            <div
+                                v-for="row in [
+                                    { label: 'Campaign', value: record.campaign },
+                                    { label: 'Medium', value: record.medium },
+                                    { label: 'Source details', value: record.source_details },
+                                    { label: 'Referrer', value: record.referrer },
+                                    { label: 'UTM source', value: record.utm_source },
+                                    { label: 'UTM medium', value: record.utm_medium },
+                                    { label: 'UTM campaign', value: record.utm_campaign },
+                                    { label: 'Marketing opt-in', value: record.marketing_opt_in != null ? (record.marketing_opt_in ? 'Yes' : 'No') : null },
+                                ]"
+                                :key="row.label"
+                                class="px-5 py-3.5 border-b border-gray-50 dark:border-gray-700/60 last:border-b-0 odd:sm:border-r odd:sm:border-gray-50 odd:dark:sm:border-gray-700/60"
+                            >
+                                <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{{ row.label }}</p>
+                                <p
+                                    :class="row.value ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-sm text-gray-300 dark:text-gray-600'"
+                                >{{ row.value || '—' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="space-y-4">
+                    <div class="sticky top-[140px] space-y-4">
+                        <!-- Record info -->
+                        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Record info</span>
+                            </div>
+                            <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">flag</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Status</span>
+                                    <span
+                                        v-if="statusOption"
+                                        class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold"
+                                        :class="statusOption.bgClass"
+                                    >{{ statusOption.name }}</span>
+                                    <span v-else class="text-gray-300 dark:text-gray-600">—</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">priority_high</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Priority</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ priorityOption?.name ?? '—' }}</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">travel_explore</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Source</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ sourceLabel ?? record.source ?? '—' }}</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">person_pin</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Assigned to</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ assignedUserName ?? '—' }}</span>
+                                </li>
+                                <li v-if="record.converted_at" class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">check_circle</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Converted</span>
+                                    <span class="font-medium text-green-600 dark:text-green-400">{{ fmt.date(record.converted_at) }}</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">calendar_today</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Created</span>
+                                    <span class="text-gray-900 dark:text-white">{{ fmt.datetime(record.created_at) }}</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px] text-gray-400">update</span>
+                                    <span class="text-gray-500 dark:text-gray-400 flex-1">Updated</span>
+                                    <span class="text-gray-900 dark:text-white">{{ fmt.datetime(record.updated_at) }}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Linked records -->
+                        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Linked records</span>
+                            </div>
+                            <ul class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px]" :class="hasContact ? 'text-primary-500' : 'text-gray-300 dark:text-gray-600'">person</span>
+                                    <span class="text-sm flex-1" :class="hasContact ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Contact</span>
+                                    <Link
+                                        v-if="hasContact"
+                                        :href="route('contacts.show', record.contact?.id ?? record.contact_id)"
+                                        class="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                                    >View</Link>
+                                    <span v-else class="text-sm text-gray-300 dark:text-gray-600">—</span>
+                                </li>
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-[16px]" :class="hasCustomerProfile ? 'text-green-500' : 'text-gray-300 dark:text-gray-600'">shopping_bag</span>
+                                    <span class="text-sm flex-1" :class="hasCustomerProfile ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Customer</span>
+                                    <Link
+                                        v-if="hasCustomerProfile"
+                                        :href="route('customers.show', linkedCustomerProfile.id)"
+                                        class="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                                    >View</Link>
+                                    <Link
+                                        v-else
+                                        :href="customerCreateHref"
+                                        class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                    >Create</Link>
+                                </li>
+                            </ul>
+                            <div v-if="!hasCustomerProfile" class="px-5 pb-4 space-y-2">
+                                <button
+                                    type="button"
+                                    :disabled="isConverting || !hasContact"
+                                    class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    @click="convertToCustomer"
+                                >
+                                    <span class="material-icons text-[18px]">swap_horiz</span>
+                                    {{ isConverting ? 'Converting…' : 'Convert to customer' }}
+                                </button>
+                                <p v-if="!hasContact" class="text-xs text-amber-700 dark:text-amber-400/90">
+                                    Link a contact before converting.
+                                </p>
+                            </div>
+                            <div v-else class="px-5 pb-4">
+                                <Link
+                                    :href="route('customers.show', linkedCustomerProfile.id)"
+                                    class="flex items-center gap-2 px-3 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                >
+                                    <span class="material-icons text-lg">open_in_new</span>
+                                    Open customer profile
+                                </Link>
+                            </div>
+                        </div>
+
+                        <!-- Purchase intent -->
+                        <div
+                            v-if="hasPurchaseIntent"
+                            class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
+                        >
+                            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Purchase intent</span>
+                            </div>
+                            <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
+                                <li v-if="enumLabel('purchase_timeline')" class="flex items-center justify-between gap-3 px-5 py-3">
+                                    <span class="text-gray-500 dark:text-gray-400">Timeline</span>
+                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ enumLabel('purchase_timeline') }}</span>
+                                </li>
+                                <li v-if="record.interested_model" class="flex items-center justify-between gap-3 px-5 py-3">
+                                    <span class="text-gray-500 dark:text-gray-400">Interested in</span>
+                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ record.interested_model }}</span>
+                                </li>
+                                <li v-if="budgetDisplay" class="flex items-center justify-between gap-3 px-5 py-3">
+                                    <span class="text-gray-500 dark:text-gray-400">Budget</span>
+                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ budgetDisplay }}</span>
+                                </li>
+                                <li v-if="record.has_trade_in" class="flex items-center justify-between gap-3 px-5 py-3">
+                                    <span class="text-gray-500 dark:text-gray-400">Trade-in</span>
+                                    <span class="font-medium text-gray-900 dark:text-white text-right">
+                                        {{ record.trade_in_value != null ? fmt.currency(record.trade_in_value) : 'Yes' }}
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <ScorePanel
+                            :scorable-type="scoreScorableType"
+                            :scorable-id="record.id"
+                            :subscription-level="3"
+                            :initial-scores="scores"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <Sublist
+                v-if="sublists.length > 0 && domainName"
+                :parent-record="record"
+                :parent-domain="domainName"
+                :sublists="sublists"
+            />
         </div>
 
-        <!-- ── Delete modal ──────────────────────────────────────────────────── -->
-        <Modal :show="showDeleteModal" @close="showDeleteModal = false" max-width="md">
+        <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">
             <div class="p-6 text-center">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
                     <svg class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete lead</h3>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Are you sure you want to delete <span class="font-medium text-gray-700 dark:text-gray-300">{{ record?.display_name }}</span>?
-                    This action cannot be undone.
+                    Are you sure you want to delete
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ leadLabel }}</span>?
+                    This cannot be undone.
                 </p>
                 <div class="mt-6 flex items-center justify-center gap-3">
                     <button
-                        @click="confirmDelete"
-                        :disabled="isDeleting"
                         type="button"
-                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="isDeleting"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        @click="confirmDelete"
                     >
-                        <svg v-if="isDeleting" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                        </svg>
-                        {{ isDeleting ? 'Deleting…' : 'Delete' }}
+                        {{ isDeleting ? 'Deleting…' : 'Delete lead' }}
                     </button>
                     <button
-                        @click="showDeleteModal = false"
-                        :disabled="isDeleting"
                         type="button"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="isDeleting"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="showDeleteModal = false"
                     >
                         Cancel
                     </button>
                 </div>
             </div>
         </Modal>
-
-
     </TenantLayout>
 </template>

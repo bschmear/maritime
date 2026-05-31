@@ -2,8 +2,8 @@
 
 namespace App\Models\Concerns;
 
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use App\Domain\Document\Models\Document;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 trait HasDocuments
 {
@@ -12,15 +12,27 @@ trait HasDocuments
         return $this->morphToMany(
             Document::class,
             'documentable'
-        )->withTimestamps();
+        )->withPivot(['sort_order', 'role', 'visible_to_customer', 'visible_to_vendor'])
+            ->withTimestamps();
     }
 
     /**
-     * Attach a document to this model
+     * @param  array<string, mixed>  $pivot
      */
-    public function attachDocument(Document $document): void
+    public function attachDocument(Document $document, array $pivot = []): void
     {
-        $this->documents()->attach($document);
+        $this->documents()->attach($document->id, array_merge([
+            'visible_to_customer' => false,
+            'visible_to_vendor' => false,
+        ], $pivot));
+    }
+
+    /**
+     * @param  array<string, mixed>  $pivot
+     */
+    public function updateDocumentPivot(Document $document, array $pivot): void
+    {
+        $this->documents()->updateExistingPivot($document->id, $pivot);
     }
 
     /**

@@ -7,10 +7,10 @@ namespace App\Domain\ConsignmentAgreement\Models;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ConsignmentAgreement extends Model
@@ -84,20 +84,11 @@ class ConsignmentAgreement extends Model
     }
 
     /**
-     * Temporary URL for the drawn signature image (S3). Not appended globally — use {@see Model::append()} when serializing for views that need it.
+     * URL for the drawn signature image. Not appended globally — use {@see Model::append()} when serializing for views that need it.
      */
     public function getSignatureUrlAttribute(): ?string
     {
-        $path = $this->signature_file;
-        if ($path === null || $path === '') {
-            return null;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($path, now()->addHours(2));
-        } catch (\Throwable) {
-            return null;
-        }
+        return SignatureStorage::url($this->signature_file);
     }
 
     public function assetUnit()

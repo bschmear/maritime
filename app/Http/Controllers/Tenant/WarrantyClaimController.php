@@ -17,6 +17,7 @@ use App\Domain\WarrantyClaim\Actions\CreateWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\DeleteWarrantyClaim;
 use App\Domain\WarrantyClaim\Actions\UpdateWarrantyClaim;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Support\ContactDocumentLinker;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\Timezone;
@@ -570,6 +571,8 @@ class WarrantyClaimController extends BaseController
             ->with($this->detailRelationships())
             ->firstOrFail();
 
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
         $vendorContacts = [];
@@ -625,6 +628,8 @@ class WarrantyClaimController extends BaseController
             ->whereKey($warrantyclaim->getKey())
             ->with($this->detailRelationships())
             ->firstOrFail();
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
 
         return inertia('Tenant/WarrantyClaim/Edit', array_merge($this->createEditSharedProps(), [
             'record' => $record,

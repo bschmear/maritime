@@ -185,7 +185,12 @@
 
     const getRecordDisplayName = (record) => {
         if (!record) return '';
-    
+
+        // Work orders: label is WO-{work_order_number} (display_name accessor needs that column loaded)
+        if (record.work_order_number != null && record.work_order_number !== '') {
+            return `WO-${record.work_order_number}`;
+        }
+
         // 1. display_name
         if (record.display_name) return record.display_name;
     
@@ -250,7 +255,7 @@
         }
     
         // Check in fetched records first
-        const record = records.value.find(r => r.id === selectedRecordId.value);
+        const record = records.value.find((r) => r.id == selectedRecordId.value);
         if (record) {
             return getRecordDisplayName(record);
         }
@@ -646,7 +651,10 @@
             if (props.enumOptions && props.enumOptions.length > 0) {
                 const option = props.enumOptions.find(o => o.id == mv || o.value == mv);
                 if (option) {
-                    selectedRecordName.value = option.name || option.display_name || '';
+                    const fromOption = option.name || option.display_name || '';
+                    if (fromOption) {
+                        selectedRecordName.value = fromOption;
+                    }
                     return;
                 }
             }
