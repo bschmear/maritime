@@ -2,6 +2,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 import colors from 'tailwindcss/colors';
 import typography from '@tailwindcss/typography';
+import { getTertiaryColor } from '@/Utils/colorHelpers';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -21,7 +22,20 @@ export default {
       current: 'currentColor',
       // Blues
       primary: colors.blue,
-      secondary: colors.emerald,
+      secondary: colors.purple,
+      tertiary: {
+        50:  '#ECFFFE',
+        100: '#D2FFFC',
+        200: '#A7FFF8',
+        300: '#73FAF2',
+        400: '#38F2EA',
+        500: '#17ECE3',
+        600: '#0EE7DF', 
+        700: '#0ABFB8',
+        800: '#089A95',
+        900: '#077572',
+        950: '#044644',
+      },
       lightblue: {
         DEFAULT: '#576CA8',
         50: '#EBEEF7',
@@ -79,6 +93,19 @@ export default {
         900: '#52131F',
         950: '#3A0B15',
       },
+      purple: {
+        50:  '#F3F0FF',
+        100: '#E8E1FF',
+        200: '#D1C2FF',
+        300: '#B39BFF',
+        400: '#8C6CFF',
+        500: '#6D46F7',
+        600: '#5428EC', // Base color
+        700: '#451FC7',
+        800: '#3719A1',
+        900: '#29137A',
+        950: '#180A4D',
+      },
       black: colors.black,
       gray: colors.gray,
       emerald: colors.emerald,
@@ -91,7 +118,6 @@ export default {
       amber: colors.amber,
       violet: colors.violet,
       red: colors.red,
-      purple: colors.purple,
       rose: colors.rose,
       blue: colors.blue,
       teal: colors.teal,

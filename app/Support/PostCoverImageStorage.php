@@ -9,14 +9,18 @@ use Intervention\Image\Laravel\Facades\Image;
 
 class PostCoverImageStorage
 {
-    public const DIRECTORY = 'posts';
+    /** @var string Must not match kiosk/blog URL segments (e.g. /posts). */
+    public const DIRECTORY = 'post-covers';
 
-    public const PUBLIC_PREFIX = '/posts/';
+    public const PUBLIC_PREFIX = '/post-covers/';
+
+    /** @var string Legacy path when covers lived under public/posts (conflicted with /posts routes). */
+    private const LEGACY_PUBLIC_PREFIX = '/posts/';
 
     public const MAX_WIDTH = 800;
 
     /**
-     * Store an uploaded cover image under public/posts and return the public URL path.
+     * Store an uploaded cover image under public/post-covers and return the public URL path.
      */
     public static function store(UploadedFile $file, ?string $previousPath = null): string
     {
@@ -66,9 +70,12 @@ class PostCoverImageStorage
      */
     public static function isStoredPublicPath(?string $path): bool
     {
-        return is_string($path)
-            && $path !== ''
-            && str_starts_with($path, self::PUBLIC_PREFIX);
+        if (! is_string($path) || $path === '') {
+            return false;
+        }
+
+        return str_starts_with($path, self::PUBLIC_PREFIX)
+            || str_starts_with($path, self::LEGACY_PUBLIC_PREFIX);
     }
 
     /**
@@ -99,11 +106,13 @@ class PostCoverImageStorage
             return null;
         }
 
-        if (str_starts_with($path, self::PUBLIC_PREFIX)) {
-            return ltrim(substr($path, 1), '/');
+        foreach ([self::PUBLIC_PREFIX, self::LEGACY_PUBLIC_PREFIX] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return ltrim(substr($path, 1), '/');
+            }
         }
 
-        if (str_starts_with($path, self::DIRECTORY.'/')) {
+        if (str_starts_with($path, self::DIRECTORY.'/') || str_starts_with($path, 'posts/')) {
             return $path;
         }
 
@@ -112,8 +121,10 @@ class PostCoverImageStorage
             return null;
         }
 
-        if (str_starts_with($parsed, self::PUBLIC_PREFIX)) {
-            return ltrim(substr($parsed, 1), '/');
+        foreach ([self::PUBLIC_PREFIX, self::LEGACY_PUBLIC_PREFIX] as $prefix) {
+            if (str_starts_with($parsed, $prefix)) {
+                return ltrim(substr($parsed, 1), '/');
+            }
         }
 
         return null;

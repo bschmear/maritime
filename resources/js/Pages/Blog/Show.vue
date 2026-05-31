@@ -304,7 +304,7 @@ const proseClass =
                                     />
                                     <div
                                         v-else
-                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary-600 text-lg font-semibold text-white"
+                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300"
                                     >
                                         {{ authorInitial }}
                                     </div>

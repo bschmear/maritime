@@ -10,20 +10,22 @@ class PostCoverImageStorageTest extends TestCase
 {
     protected function tearDown(): void
     {
-        foreach (glob(public_path('posts/*.jpg')) ?: [] as $file) {
-            @unlink($file);
+        foreach (glob(public_path('post-covers/*')) ?: [] as $file) {
+            if (is_file($file)) {
+                @unlink($file);
+            }
         }
 
         parent::tearDown();
     }
 
-    public function test_store_saves_under_public_posts_and_returns_path(): void
+    public function test_store_saves_under_public_post_covers_and_returns_path(): void
     {
         $file = UploadedFile::fake()->image('hero.jpg', 1200, 630);
 
         $path = PostCoverImageStorage::store($file);
 
-        $this->assertStringStartsWith('/posts/', $path);
+        $this->assertStringStartsWith('/post-covers/', $path);
         $fullPath = public_path(ltrim($path, '/'));
         $this->assertFileExists($fullPath);
 
@@ -57,5 +59,10 @@ class PostCoverImageStorageTest extends TestCase
         PostCoverImageStorage::deleteIfStoredLocally('https://example.com/image.jpg');
 
         $this->assertTrue(true);
+    }
+
+    public function test_legacy_posts_prefix_is_accepted_for_validation(): void
+    {
+        $this->assertTrue(PostCoverImageStorage::isStoredPublicPath('/posts/legacy-uuid.jpg'));
     }
 }

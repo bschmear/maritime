@@ -129,7 +129,7 @@ defineProps({
                             </div>
 
                             <Link :href="`/blog/${post.slug}`">
-                                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-secondary-600 dark:group-hover:text-secondary-400 transition-colors duration-300">
+                                <h3 class="mb-3 line-clamp-2 text-xl font-bold text-gray-900 transition-colors duration-300 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
                                     {{ post.title }}
                                 </h3>
                             </Link>
@@ -138,13 +138,20 @@ defineProps({
                                 {{ post.excerpt }}
                             </p>
 
-                            <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <span class="text-sm text-gray-700 dark:text-gray-300 font-semibold">
-                                    {{ post.author }}
-                                </span>
+                            <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+                                <div class="flex items-center gap-2">
+                                    <div
+                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300"
+                                    >
+                                        {{ (post.author || '?').charAt(0).toUpperCase() }}
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        {{ post.author }}
+                                    </span>
+                                </div>
                                 <Link
                                     :href="`/blog/${post.slug}`"
-                                    class="inline-flex items-center gap-1 text-secondary-600 dark:text-secondary-400 font-semibold text-sm group-hover:gap-2 transition-all duration-200"
+                                    class="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 transition-all duration-200 group-hover:gap-2 dark:text-primary-400"
                                 >
                                     <span>Read More</span>
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
