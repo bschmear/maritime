@@ -405,7 +405,7 @@ class LeadController extends BaseController
         }
 
         return inertia('Tenant/Lead/Show', [
-            'record' => $record,
+            'record' => $record->toInertiaArray(),
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
             'domainName' => $this->domainName,
@@ -489,7 +489,7 @@ class LeadController extends BaseController
         $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Edit', [
-            'record' => $record,
+            'record' => $record->toInertiaArray(),
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,

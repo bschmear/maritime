@@ -290,6 +290,11 @@ class Lead extends Model
 
     public function getNotesAttribute(): ?string
     {
+        $profileNotes = $this->getRawOriginal('notes');
+        if ($profileNotes !== null && $profileNotes !== '') {
+            return $profileNotes;
+        }
+
         return $this->contact?->notes;
     }
 
@@ -401,6 +406,36 @@ class Lead extends Model
             'latitude',
             'longitude',
         ];
+    }
+
+    /**
+     * Flatten contact + primary address onto the root array for Inertia show/edit pages.
+     *
+     * @return array<string, mixed>
+     */
+    public function toInertiaArray(): array
+    {
+        $this->loadMissing([
+            'contact.primaryAddress',
+            'contact.addresses',
+            'assigned_user',
+            'converted_customer',
+        ]);
+
+        $array = $this->toArray();
+
+        foreach (array_merge(self::contactAttributeKeys(), self::addressAttributeKeys()) as $key) {
+            $value = $this->getAttribute($key);
+            if ($value !== null && $value !== '') {
+                $array[$key] = $value;
+            }
+        }
+
+        if ($this->relationLoaded('contact') && $this->contact) {
+            $array['contact'] = $this->contact->toArray();
+        }
+
+        return $array;
     }
 
     /**

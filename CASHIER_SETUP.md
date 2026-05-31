@@ -57,22 +57,27 @@ STRIPE_AGENCY_YEARLY_PRICE_ID=price_xxxxx
 
 ### 4. Configure Webhooks (Production)
 
-For production, you need to set up Stripe webhooks:
+Helmful uses a **platform Connect webhook** on the central app domain (one URL for all tenants):
 
-1. Go to Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://yourdomain.com/stripe/webhook`
-3. Select events to listen for:
-   - `customer.subscription.created`
-   - `customer.subscription.updated`
-   - `customer.subscription.deleted`
-   - `invoice.payment_succeeded`
-   - `invoice.payment_failed`
-4. Copy the webhook signing secret
-5. Add to `.env`:
+1. Stripe Dashboard → **Developers → Webhooks → Add endpoint**
+2. URL: `https://your-app-domain/stripe/connect-webhook` (e.g. `https://app.helmful.com/stripe/connect-webhook`)
+3. Enable **Listen to events on Connected accounts** (Connect)
+4. Events (minimum): `account.updated`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`
+5. Open the endpoint → **Signing secret** → Reveal → copy the `whsec_…` value
+6. Set on production (Forge / Vapor / etc.) — **not** the endpoint URL:
 
 ```env
-STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+STRIPE_WEBHOOK=https://app.helmful.com/stripe/connect-webhook
+STRIPE_CONNECT_WEBHOOK_SECRET=whsec_xxxxx
+# Legacy alias (optional):
+# STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 ```
+
+After changing secrets, run `php artisan config:clear` or redeploy so `config:cache` picks up the new value.
+
+**Common mistake:** putting the webhook URL in `STRIPE_WEBHOOK_SECRET` or using the `stripe listen` CLI secret in production. The secret must come from the **same** Dashboard endpoint URL you registered.
+
+Optional per-tenant endpoint: `POST https://{tenant}.yourdomain.com/stripe/webhook` (same signing secret and handler; prefer the central Connect URL).
 
 ### 5. Test Webhooks Locally
 

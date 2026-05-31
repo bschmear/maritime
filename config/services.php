@@ -43,13 +43,18 @@ return [
     ],
 
     /*
-    | Stripe Connect (optional reference)
+    | Stripe Connect (platform webhook)
     |----------------------------------------------------------------------
-    | Register this URL once in the Stripe Dashboard (Connect webhooks).
-    | Signing secret for that endpoint → STRIPE_WEBHOOK_SECRET (see config/cashier.php).
+    | Dashboard → Developers → Webhooks → add endpoint (Connect enabled):
+    |   POST https://your-app-domain/stripe/connect-webhook
+    |
+    | STRIPE_WEBHOOK is the public URL (documentation / ops reference only).
+    | STRIPE_CONNECT_WEBHOOK_SECRET (or STRIPE_WEBHOOK_SECRET) must be the
+    | signing secret (whsec_…) from that exact endpoint — not the URL.
     */
     'stripe' => [
         'connect_webhook_url' => env('STRIPE_WEBHOOK'),
+        'connect_webhook_secret' => env('STRIPE_CONNECT_WEBHOOK_SECRET', env('STRIPE_WEBHOOK_SECRET')),
     ],
 
     /*

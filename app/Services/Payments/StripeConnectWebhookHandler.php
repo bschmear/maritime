@@ -34,18 +34,38 @@ class StripeConnectWebhookHandler
     public static function decodePayloadFromRequest(Request $request): array
     {
         $payloadRaw = $request->getContent();
-        $secret = (string) config('cashier.webhook.secret');
+        $secret = self::connectWebhookSigningSecret();
+
         if ($secret !== '') {
+            self::guardSigningSecretLooksValid($secret);
+
             $event = Webhook::constructEvent(
                 $payloadRaw,
                 $request->header('Stripe-Signature', ''),
                 $secret,
+                (int) config('cashier.webhook.tolerance', 300),
             );
 
             return json_decode(json_encode($event), true) ?: [];
         }
 
         return json_decode($payloadRaw, true) ?: [];
+    }
+
+    public static function connectWebhookSigningSecret(): string
+    {
+        return (string) (config('services.stripe.connect_webhook_secret')
+            ?? config('cashier.webhook.secret')
+            ?? '');
+    }
+
+    private static function guardSigningSecretLooksValid(string $secret): void
+    {
+        if (str_starts_with($secret, 'http://') || str_starts_with($secret, 'https://')) {
+            Log::error('Stripe Connect webhook: signing secret looks like a URL — set STRIPE_CONNECT_WEBHOOK_SECRET (whsec_…) from the Stripe Dashboard endpoint, not STRIPE_WEBHOOK');
+        } elseif (! str_starts_with($secret, 'whsec_')) {
+            Log::warning('Stripe Connect webhook: signing secret does not start with whsec_ — confirm it matches the Connect endpoint in Stripe Dashboard');
+        }
     }
 
     /**

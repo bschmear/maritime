@@ -46,6 +46,18 @@
         {
           "key": "title",
           "required": false
+        },
+        {
+          "key": "linkedin",
+          "required": false
+        },
+        {
+          "key": "facebook",
+          "required": false
+        },
+        {
+          "key": "website",
+          "required": false
         }
       ]
     },
@@ -152,6 +164,21 @@
           "key": "notes",
           "required": false
         }
+      ]
+    },
+    "marketing": {
+      "label": "Marketing & acquisition",
+      "fields": [
+        { "key": "campaign", "required": false },
+        { "key": "medium", "required": false },
+        { "key": "source_details", "required": false },
+        { "key": "referrer", "required": false },
+        { "key": "utm_source", "required": false },
+        { "key": "utm_medium", "required": false },
+        { "key": "utm_campaign", "required": false },
+        { "key": "utm_term", "required": false },
+        { "key": "utm_content", "required": false },
+        { "key": "marketing_opt_in", "required": false }
       ]
     }
   },

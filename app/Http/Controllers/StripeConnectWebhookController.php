@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domain\Payment\Models\PaymentConfiguration;
+use App\Models\PaymentAccount;
 use App\Models\Tenant;
 use App\Services\Payments\StripeConnectWebhookHandler;
 use App\Services\Payments\StripeService;
@@ -28,6 +30,9 @@ class StripeConnectWebhookController extends Controller
         } catch (\Throwable $e) {
             Log::warning('Stripe Connect webhook signature verification failed', [
                 'error' => $e->getMessage(),
+                'connect_webhook_url' => config('services.stripe.connect_webhook_url'),
+                'has_stripe_signature_header' => $request->hasHeader('Stripe-Signature'),
+                'signing_secret_configured' => StripeConnectWebhookHandler::connectWebhookSigningSecret() !== '',
             ]);
 
             return response()->json(['status' => 'invalid_signature'], 400);
@@ -84,10 +89,10 @@ class StripeConnectWebhookController extends Controller
             Tenancy::initialize($tenant);
 
             try {
-                $matches = \App\Domain\Payment\Models\PaymentConfiguration::query()
+                $matches = PaymentConfiguration::query()
                     ->where('stripe_account_id', $stripeAccountId)
                     ->exists()
-                    || \App\Models\PaymentAccount::query()
+                    || PaymentAccount::query()
                         ->where('provider', 'stripe')
                         ->where('external_account_id', $stripeAccountId)
                         ->exists();

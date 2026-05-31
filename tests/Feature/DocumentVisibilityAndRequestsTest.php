@@ -5,10 +5,12 @@ namespace Tests\Feature;
 use App\Domain\DocumentRequest\Actions\FulfillDocumentRequest;
 use App\Domain\DocumentRequest\Actions\SendDocumentRequest;
 use App\Http\Controllers\Portal\CustomerPortalController;
+use App\Http\Controllers\Portal\VendorPortalController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\DocumentRequestController;
 use App\Models\Concerns\HasDocuments;
 use App\Services\NotificationService;
+use App\Services\Payments\StripeConnectWebhookHandler;
 use App\Support\ContactDocumentLinker;
 use ReflectionClass;
 use Tests\TestCase;
@@ -45,8 +47,21 @@ class DocumentVisibilityAndRequestsTest extends TestCase
 
     public function test_vendor_portal_controller_has_warranty_claim_document_download(): void
     {
-        $ref = new ReflectionClass(\App\Http\Controllers\Portal\VendorPortalController::class);
+        $ref = new ReflectionClass(VendorPortalController::class);
         $this->assertTrue($ref->hasMethod('downloadWarrantyClaimDocument'));
+    }
+
+    public function test_stripe_connect_webhook_reads_signing_secret_from_services_config(): void
+    {
+        config([
+            'services.stripe.connect_webhook_secret' => 'whsec_test_connect',
+            'cashier.webhook.secret' => 'whsec_cashier',
+        ]);
+
+        $this->assertSame(
+            'whsec_test_connect',
+            StripeConnectWebhookHandler::connectWebhookSigningSecret(),
+        );
     }
 
     public function test_document_request_controller_exists(): void

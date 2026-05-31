@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import ScorePanel from '@/Components/Tenant/ScorePanel.vue';
+import LeadSchemaShowSections from '@/Components/Tenant/Lead/LeadSchemaShowSections.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -119,29 +120,6 @@ const budgetDisplay = computed(() => {
     if (max != null) return `Up to ${fmt.currency(max)}`;
     return enumLabel('budget_range');
 });
-
-const hasAddress = computed(
-    () => props.record.address_line_1 || props.record.city || props.record.state || props.record.postal_code,
-);
-
-const hasMarketing = computed(
-    () =>
-        props.record.campaign
-        || props.record.medium
-        || props.record.source_details
-        || props.record.referrer
-        || props.record.utm_source
-        || props.record.utm_campaign
-        || props.record.marketing_opt_in != null,
-);
-
-const hasPurchaseIntent = computed(
-    () =>
-        enumLabel('purchase_timeline')
-        || props.record.interested_model
-        || budgetDisplay.value
-        || props.record.has_trade_in,
-);
 
 const confirmDelete = () => {
     isDeleting.value = true;
@@ -354,225 +332,22 @@ const convertToCustomer = () => {
             <!-- Overview grid -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div class="lg:col-span-2 space-y-4">
-                    <!-- Contact information -->
-                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Contact information</span>
-                            <Link
-                                v-if="hasContact"
-                                :href="route('contacts.show', record.contact?.id ?? record.contact_id)"
-                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                            >
-                                Open contact →
-                            </Link>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
-                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">mail</span>
-                                    <div class="min-w-0">
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Email</p>
-                                        <a
-                                            v-if="record.email"
-                                            :href="`mailto:${record.email}`"
-                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
-                                        >{{ record.email }}</a>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">mail_outline</span>
-                                    <div class="min-w-0">
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Secondary email</p>
-                                        <a
-                                            v-if="record.secondary_email"
-                                            :href="`mailto:${record.secondary_email}`"
-                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
-                                        >{{ record.secondary_email }}</a>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">phone</span>
-                                    <div class="min-w-0">
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Phone</p>
-                                        <a
-                                            v-if="record.phone"
-                                            :href="`tel:${record.phone}`"
-                                            class="text-sm font-medium text-gray-900 dark:text-white hover:underline"
-                                        >{{ record.phone }}</a>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">smartphone</span>
-                                    <div class="min-w-0">
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Mobile</p>
-                                        <a
-                                            v-if="record.mobile"
-                                            :href="`tel:${record.mobile}`"
-                                            class="text-sm font-medium text-gray-900 dark:text-white hover:underline"
-                                        >{{ record.mobile }}</a>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">contact_phone</span>
-                                    <div>
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Preferred method</p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                                            {{ enumLabel('preferred_contact_method') ?? '—' }}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">schedule</span>
-                                    <div>
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Preferred time</p>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                                            {{ enumLabel('preferred_contact_time') ?? '—' }}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">language</span>
-                                    <div class="min-w-0">
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Website</p>
-                                        <a
-                                            v-if="record.website"
-                                            :href="record.website.startsWith('http') ? record.website : `https://${record.website}`"
-                                            target="_blank"
-                                            rel="noopener"
-                                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline truncate block"
-                                        >{{ record.website }}</a>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                                <div class="px-5 py-3.5 flex items-center gap-3">
-                                    <span class="material-icons text-[18px] text-gray-400 shrink-0">link</span>
-                                    <div>
-                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Social</p>
-                                        <div v-if="record.linkedin || record.facebook" class="flex gap-3 mt-0.5">
-                                            <a
-                                                v-if="record.linkedin"
-                                                :href="record.linkedin.startsWith('http') ? record.linkedin : `https://${record.linkedin}`"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                            >LinkedIn</a>
-                                            <a
-                                                v-if="record.facebook"
-                                                :href="record.facebook.startsWith('http') ? record.facebook : `https://${record.facebook}`"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                            >Facebook</a>
-                                        </div>
-                                        <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="flex items-center justify-end">
+                        <Link
+                            v-if="hasContact"
+                            :href="route('contacts.show', record.contact?.id ?? record.contact_id)"
+                            class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                        >
+                            Open linked contact →
+                        </Link>
                     </div>
 
-                    <!-- Company -->
-                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-50 dark:divide-gray-700/60">
-                            <div class="px-5 py-3.5 flex items-center gap-3">
-                                <span class="material-icons text-[18px] text-gray-400 shrink-0">apartment</span>
-                                <div>
-                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Company</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.company) }}</p>
-                                </div>
-                            </div>
-                            <div class="px-5 py-3.5 flex items-center gap-3">
-                                <span class="material-icons text-[18px] text-gray-400 shrink-0">work</span>
-                                <div>
-                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Title</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.title) }}</p>
-                                </div>
-                            </div>
-                            <div class="px-5 py-3.5 flex items-center gap-3">
-                                <span class="material-icons text-[18px] text-gray-400 shrink-0">work_outline</span>
-                                <div>
-                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">Position</p>
-                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ fmt.empty(record.position) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Address -->
-                    <div
-                        v-if="hasAddress"
-                        class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-                    >
-                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Address</span>
-                        </div>
-                        <div class="px-5 py-4 flex items-start gap-3">
-                            <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">location_on</span>
-                            <div class="min-w-0 text-sm text-gray-900 dark:text-white leading-relaxed">
-                                <p v-if="record.address_line_1">{{ record.address_line_1 }}</p>
-                                <p v-if="record.address_line_2">{{ record.address_line_2 }}</p>
-                                <p v-if="record.city || record.state || record.postal_code">
-                                    {{ [record.city, record.state, record.postal_code].filter(Boolean).join(', ') }}
-                                </p>
-                                <p v-if="record.country">{{ record.country }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Notes -->
-                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</span>
-                        </div>
-                        <div class="px-5 py-4 flex items-start gap-3">
-                            <span class="material-icons text-[18px] text-gray-400 mt-0.5 shrink-0">notes</span>
-                            <p
-                                v-if="record.notes"
-                                class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed"
-                            >{{ record.notes }}</p>
-                            <p v-else class="text-sm text-gray-300 dark:text-gray-600">—</p>
-                        </div>
-                    </div>
-
-                    <!-- Marketing -->
-                    <div
-                        v-if="hasMarketing"
-                        class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-                    >
-                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Marketing &amp; acquisition</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2">
-                            <div
-                                v-for="row in [
-                                    { label: 'Campaign', value: record.campaign },
-                                    { label: 'Medium', value: record.medium },
-                                    { label: 'Source details', value: record.source_details },
-                                    { label: 'Referrer', value: record.referrer },
-                                    { label: 'UTM source', value: record.utm_source },
-                                    { label: 'UTM medium', value: record.utm_medium },
-                                    { label: 'UTM campaign', value: record.utm_campaign },
-                                    { label: 'Marketing opt-in', value: record.marketing_opt_in != null ? (record.marketing_opt_in ? 'Yes' : 'No') : null },
-                                ]"
-                                :key="row.label"
-                                class="px-5 py-3.5 border-b border-gray-50 dark:border-gray-700/60 last:border-b-0 odd:sm:border-r odd:sm:border-gray-50 odd:dark:sm:border-gray-700/60"
-                            >
-                                <p class="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide">{{ row.label }}</p>
-                                <p
-                                    :class="row.value ? 'text-sm font-medium text-gray-900 dark:text-white' : 'text-sm text-gray-300 dark:text-gray-600'"
-                                >{{ row.value || '—' }}</p>
-                            </div>
-                        </div>
-                    </div>
+                    <LeadSchemaShowSections
+                        :record="record"
+                        :form-schema="formSchema"
+                        :fields-schema="fieldsSchema"
+                        :enum-options="enumOptions"
+                    />
                 </div>
 
                 <!-- Sidebar -->
@@ -681,36 +456,6 @@ const convertToCustomer = () => {
                                     Open customer profile
                                 </Link>
                             </div>
-                        </div>
-
-                        <!-- Purchase intent -->
-                        <div
-                            v-if="hasPurchaseIntent"
-                            class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden"
-                        >
-                            <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
-                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Purchase intent</span>
-                            </div>
-                            <ul class="divide-y divide-gray-50 dark:divide-gray-700/60 text-sm">
-                                <li v-if="enumLabel('purchase_timeline')" class="flex items-center justify-between gap-3 px-5 py-3">
-                                    <span class="text-gray-500 dark:text-gray-400">Timeline</span>
-                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ enumLabel('purchase_timeline') }}</span>
-                                </li>
-                                <li v-if="record.interested_model" class="flex items-center justify-between gap-3 px-5 py-3">
-                                    <span class="text-gray-500 dark:text-gray-400">Interested in</span>
-                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ record.interested_model }}</span>
-                                </li>
-                                <li v-if="budgetDisplay" class="flex items-center justify-between gap-3 px-5 py-3">
-                                    <span class="text-gray-500 dark:text-gray-400">Budget</span>
-                                    <span class="font-medium text-gray-900 dark:text-white text-right">{{ budgetDisplay }}</span>
-                                </li>
-                                <li v-if="record.has_trade_in" class="flex items-center justify-between gap-3 px-5 py-3">
-                                    <span class="text-gray-500 dark:text-gray-400">Trade-in</span>
-                                    <span class="font-medium text-gray-900 dark:text-white text-right">
-                                        {{ record.trade_in_value != null ? fmt.currency(record.trade_in_value) : 'Yes' }}
-                                    </span>
-                                </li>
-                            </ul>
                         </div>
 
                         <ScorePanel
