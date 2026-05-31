@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\ContactDemoRequest;
 use App\Models\Faq;
 use App\Support\PublicPageCache;
+use App\Support\PublicPageMeta;
 use App\Support\Turnstile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,56 +29,52 @@ class PageController extends Controller
 
     public function about()
     {
-        $user = auth()->user();
-
-        return Inertia::render('About', [
-
-        ]);
+        return Inertia::render('About', PublicPageMeta::about());
     }
 
     public function features()
     {
-        return Inertia::render('Features');
+        return Inertia::render('Features', PublicPageMeta::features());
     }
 
     public function featuresBoatShows()
     {
-        return Inertia::render('Features/BoatShows');
+        return Inertia::render('Features/BoatShows', PublicPageMeta::featureBoatShows());
     }
 
     public function featuresServiceDepartment()
     {
-        return Inertia::render('Features/ServiceDepartment');
+        return Inertia::render('Features/ServiceDepartment', PublicPageMeta::featureServiceDepartment());
     }
 
     public function featuresPerformanceTracking()
     {
-        return Inertia::render('Features/PerformanceTracking');
+        return Inertia::render('Features/PerformanceTracking', PublicPageMeta::featurePerformanceTracking());
     }
 
     public function featuresDeliverySystem()
     {
-        return Inertia::render('Features/DeliverySystem');
+        return Inertia::render('Features/DeliverySystem', PublicPageMeta::featureDeliverySystem());
     }
 
     public function featuresSmartSurveys()
     {
-        return Inertia::render('Features/SmartSurveys');
+        return Inertia::render('Features/SmartSurveys', PublicPageMeta::featureSmartSurveys());
     }
 
     public function featuresStripePayments()
     {
-        return Inertia::render('Features/StripePayments');
+        return Inertia::render('Features/StripePayments', PublicPageMeta::featureStripePayments());
     }
 
     public function featuresMailchimp()
     {
-        return Inertia::render('Features/Mailchimp');
+        return Inertia::render('Features/Mailchimp', PublicPageMeta::featureMailchimp());
     }
 
     public function featuresQuickbooks()
     {
-        return Inertia::render('Features/Quickbooks');
+        return Inertia::render('Features/Quickbooks', PublicPageMeta::featureQuickbooks());
     }
 
     // public function pricing()
@@ -115,22 +112,23 @@ class PageController extends Controller
                 ->all();
         });
 
-        return Inertia::render('Faq', [
-            'faqs' => $faqs,
-        ]);
-
+        return Inertia::render('Faq', array_merge(
+            PublicPageMeta::faq($faqs),
+            ['faqs' => $faqs],
+        ));
     }
 
     public function contact()
     {
-        $user = auth()->user();
-
         session(['contact_form_loaded_at' => time()]);
 
-        return Inertia::render('Contact', [
-            'legalEmail' => config('app.legal_email'),
-            'turnstileSiteKey' => Turnstile::siteKey(),
-        ]);
+        return Inertia::render('Contact', array_merge(
+            PublicPageMeta::contact(),
+            [
+                'legalEmail' => config('app.legal_email'),
+                'turnstileSiteKey' => Turnstile::siteKey(),
+            ],
+        ));
     }
 
     public function contactStore(Request $request): RedirectResponse
@@ -213,23 +211,18 @@ class PageController extends Controller
 
     public function terms()
     {
-        $user = auth()->user();
-
-        // return view('page.terms',compact(['user']));
-
-        return Inertia::render('Terms', [
-            'legalEmail' => config('app.legal_email'),
-        ]);
-
+        return Inertia::render('Terms', array_merge(
+            PublicPageMeta::terms(),
+            ['legalEmail' => config('app.legal_email')],
+        ));
     }
 
     public function privacy()
     {
-        $user = auth()->user();
-
-        return Inertia::render('Privacy', [
-            'legalEmail' => config('app.legal_email'),
-        ]);
+        return Inertia::render('Privacy', array_merge(
+            PublicPageMeta::privacy(),
+            ['legalEmail' => config('app.legal_email')],
+        ));
     }
 
     // public function googlecal()

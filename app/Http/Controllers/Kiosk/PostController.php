@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Support\PostCoverImageStorage;
 use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,23 +55,13 @@ class PostController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'body' => 'nullable|string',
-            'category_id' => 'nullable|exists:categories,id',
-            'short_description' => 'nullable|string|max:255',
-            'cover_image' => 'nullable|string',
-            'featured' => 'boolean',
-            'published' => 'boolean',
-            'published_at' => 'nullable|date',
-            'tags' => 'nullable|array',
-            'tags.*' => 'exists:tags,id',
-        ]);
+        $validated = $this->validatePost($request);
 
         $validated['user_id'] = auth()->id();
         $validated['slug'] = Str::slug($validated['title']);
 
         $this->ensurePublishedAtWhenPublished($validated);
+        $this->applyCoverImageUpload($request, $validated);
 
         $post = Post::create($validated);
 
@@ -106,22 +97,12 @@ class PostController extends Controller
 
     public function update(Request $request, Post $post): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'body' => 'nullable|string',
-            'category_id' => 'nullable|exists:categories,id',
-            'short_description' => 'nullable|string|max:255',
-            'cover_image' => 'nullable|string',
-            'featured' => 'boolean',
-            'published' => 'boolean',
-            'published_at' => 'nullable|date',
-            'tags' => 'nullable|array',
-            'tags.*' => 'exists:tags,id',
-        ]);
+        $validated = $this->validatePost($request);
 
         $validated['slug'] = Str::slug($validated['title']);
 
         $this->ensurePublishedAtWhenPublished($validated);
+        $this->applyCoverImageUpload($request, $validated, $post->cover_image);
 
         $post->update($validated);
 
@@ -137,12 +118,50 @@ class PostController extends Controller
 
     public function destroy(Post $post): RedirectResponse
     {
+        PostCoverImageStorage::deleteIfStoredLocally($post->cover_image);
+
         $post->delete();
 
         PublicPageCache::forgetWelcomeBlogPosts();
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post deleted successfully.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatePost(Request $request): array
+    {
+        return $request->validate([
+            'title' => 'required|string|max:255',
+            'body' => 'nullable|string',
+            'category_id' => 'nullable|exists:categories,id',
+            'short_description' => 'nullable|string|max:255',
+            'cover_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
+            'featured' => 'boolean',
+            'published' => 'boolean',
+            'published_at' => 'nullable|date',
+            'tags' => 'nullable|array',
+            'tags.*' => 'exists:tags,id',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function applyCoverImageUpload(Request $request, array &$validated, ?string $previousCover = null): void
+    {
+        if ($request->hasFile('cover_image_file')) {
+            $validated['cover_image'] = PostCoverImageStorage::store(
+                $request->file('cover_image_file'),
+                $previousCover,
+            );
+        } else {
+            unset($validated['cover_image']);
+        }
+
+        unset($validated['cover_image_file']);
     }
 
     /**

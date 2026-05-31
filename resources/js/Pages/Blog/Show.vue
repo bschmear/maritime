@@ -1,10 +1,60 @@
 <script setup>
+import { computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     post: Object,
     relatedPosts: Array,
+});
+
+const page = usePage();
+
+const shareUrl = computed(() => {
+    if (page.props.meta?.url) {
+        return page.props.meta.url;
+    }
+
+    if (props.post?.slug && typeof window !== 'undefined') {
+        return `${window.location.origin}/blog/${props.post.slug}`;
+    }
+
+    return '';
+});
+
+const twitterShareHref = computed(() => {
+    if (!shareUrl.value) {
+        return '#';
+    }
+
+    const params = new URLSearchParams({
+        text: props.post?.title ?? '',
+        url: shareUrl.value,
+    });
+
+    return `https://twitter.com/intent/tweet?${params.toString()}`;
+});
+
+const facebookShareHref = computed(() => {
+    if (!shareUrl.value) {
+        return '#';
+    }
+
+    return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl.value)}`;
+});
+
+const linkedInShareHref = computed(() => {
+    if (!shareUrl.value) {
+        return '#';
+    }
+
+    const params = new URLSearchParams({
+        mini: 'true',
+        url: shareUrl.value,
+        title: props.post?.title ?? '',
+    });
+
+    return `https://www.linkedin.com/shareArticle?${params.toString()}`;
 });
 </script>
 
@@ -76,7 +126,7 @@ defineProps({
                 ></div>
 
                 <!-- Tags -->
-                <div v-if="post.tags.length > 0" class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+                <div v-if="post.tags?.length > 0" class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Tags:</h3>
                     <div class="flex flex-wrap gap-2">
                         <Link
@@ -95,8 +145,9 @@ defineProps({
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Share this post:</h3>
                     <div class="flex gap-3">
                         <a
-                            :href="`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(window.location.href)}`"
+                            :href="twitterShareHref"
                             target="_blank"
+                            rel="noopener noreferrer"
                             class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-primary-600 hover:text-white transition-colors"
                         >
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -104,8 +155,9 @@ defineProps({
                             </svg>
                         </a>
                         <a
-                            :href="`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`"
+                            :href="facebookShareHref"
                             target="_blank"
+                            rel="noopener noreferrer"
                             class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-primary-600 hover:text-white transition-colors"
                         >
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -113,8 +165,9 @@ defineProps({
                             </svg>
                         </a>
                         <a
-                            :href="`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(post.title)}`"
+                            :href="linkedInShareHref"
                             target="_blank"
+                            rel="noopener noreferrer"
                             class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-secondary-600 hover:text-white transition-colors"
                         >
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

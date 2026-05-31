@@ -23,21 +23,29 @@ const deletePlan = (plan) => {
 
         <div class="space-y-6">
             <!-- Header with Create Button -->
-            <div class="flex justify-between items-center">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         Manage your subscription plans
                     </p>
                 </div>
-                <Link
-                    :href="route('kiosk.plans.create')"
-                    class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm"
-                >
-                    <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    New Plan
-                </Link>
+                <div class="flex flex-wrap gap-2">
+                    <Link
+                        :href="route('kiosk.pricing-settings.edit')"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                        All tiers features
+                    </Link>
+                    <Link
+                        :href="route('kiosk.plans.create')"
+                        class="gradient-btn gap-x-2 rounded-lg px-4 py-2.5 text-sm"
+                    >
+                        <svg class="-ml-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        New Plan
+                    </Link>
+                </div>
             </div>
 
             <!-- Table -->

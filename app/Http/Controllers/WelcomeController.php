@@ -5,12 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Faq;
 use App\Models\Plan;
 use App\Models\Post;
+use App\Support\PlanFeatureList;
 use App\Support\PublicPageCache;
+use App\Support\PublicPageMeta;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -65,23 +66,7 @@ class WelcomeController extends Controller
             return Plan::where('active', true)
                 ->orderBy('monthly_price')
                 ->get()
-                ->map(function ($plan) {
-                    return [
-                        'id' => $plan->id,
-                        'name' => $plan->name,
-                        'description' => $plan->description,
-                        'coming_soon' => (bool) ($plan->coming_soon ?? false),
-                        'price' => [
-                            'monthly' => $plan->monthly_price ?? 0,
-                            'annual' => $plan->yearly_price ?? 0,
-                        ],
-                        'features' => $plan->included ?? [],
-                        'cta' => $plan->popular ? 'Start '.$plan->name.' Trial' : 'Get '.$plan->name,
-                        'ctaLink' => route('checkout.plans', ['plan' => $plan->id, 'billing' => 'monthly']),
-                        'popular' => $plan->popular,
-                        'seatLimit' => $plan->seat_limit,
-                    ];
-                })
+                ->map(fn (Plan $plan) => PlanFeatureList::toWelcomeArray($plan))
                 ->values()
                 ->all();
         });
@@ -102,12 +87,13 @@ class WelcomeController extends Controller
                 ->all();
         });
 
-        return Inertia::render('Welcome', [
-            'canLogin' => Route::has('login'),
-            'canRegister' => Route::has('register'),
-            'blogPosts' => $blogPosts,
-            'pricingPlans' => $plans,
-            'faqs' => $faqs,
-        ]);
+        return Inertia::render('Welcome', array_merge(
+            PublicPageMeta::home(),
+            [
+                'blogPosts' => $blogPosts,
+                'pricingPlans' => $plans,
+                'faqs' => $faqs,
+            ],
+        ));
     }
 }

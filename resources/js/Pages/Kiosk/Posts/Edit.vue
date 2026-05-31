@@ -5,8 +5,8 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import PostCoverImageField from '@/Components/Kiosk/PostCoverImageField.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
 
 /**
  * Laravel sends published_at as ISO 8601 (e.g. …T12:00:00.000000Z). Browsers only accept
@@ -35,7 +35,7 @@ const form = useForm({
     body: props.post.body || '',
     category_id: props.post.category_id || '',
     short_description: props.post.short_description || '',
-    cover_image: props.post.cover_image || '',
+    cover_image_file: null,
     featured: props.post.featured || false,
     published: props.post.published || false,
     published_at: toDateTimeLocalValue(props.post.published_at),
@@ -43,13 +43,9 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.put(route('kiosk.posts.update', props.post.id));
+    const opts = form.cover_image_file instanceof File ? { forceFormData: true } : {};
+    form.put(route('kiosk.posts.update', props.post.id), opts);
 };
-
-const showCoverPreview = computed(() => {
-    const u = (form.cover_image || '').trim();
-    return u.startsWith('http://') || u.startsWith('https://') || u.startsWith('/');
-});
 </script>
 
 <template>
@@ -182,29 +178,13 @@ const showCoverPreview = computed(() => {
                             class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
                         >
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Cover image</h3>
-                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">URL used in blog cards and headers</p>
+                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Hero image for blog cards and post headers</p>
 
                             <div class="mt-4">
-                                <InputLabel for="cover_image" value="Image URL" class="sr-only" />
-                                <TextInput
-                                    id="cover_image"
-                                    v-model="form.cover_image"
-                                    type="text"
-                                    class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
-                                    placeholder="https://..."
-                                />
-                                <InputError class="mt-2" :message="form.errors.cover_image" />
-                            </div>
-
-                            <div
-                                v-if="showCoverPreview"
-                                class="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-600 dark:bg-gray-800"
-                            >
-                                <img
-                                    :src="form.cover_image.trim()"
-                                    alt="Cover preview"
-                                    class="max-h-40 w-full object-cover"
-                                    @error="$event.target.style.display = 'none'"
+                                <PostCoverImageField
+                                    v-model:cover-image-file="form.cover_image_file"
+                                    :existing-url="post.cover_image || ''"
+                                    :file-error="form.errors.cover_image_file"
                                 />
                             </div>
                         </div>

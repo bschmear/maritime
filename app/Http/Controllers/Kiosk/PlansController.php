@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Support\PlanFeatureList;
 use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class PlansController extends Controller
 
     public function create(): Response
     {
-        return Inertia::render('Kiosk/Plans/Create');
+        return Inertia::render('Kiosk/Plans/Create', $this->planFormProps());
     }
 
     public function store(Request $request): RedirectResponse
@@ -38,17 +39,15 @@ class PlansController extends Controller
             'seat_extra' => 'nullable|numeric|min:0|max:999999.99',
             'description' => 'nullable|string',
             'included' => 'nullable|array',
+            'included.*.title' => 'required|string|max:255',
+            'included.*.description' => 'nullable|string|max:5000',
             'popular' => 'boolean',
             'active' => 'boolean',
             'ticket_support_access' => 'boolean',
             'coming_soon' => 'boolean',
         ]);
 
-        // Ensure included is stored as JSON array
-        if (! isset($validated['included'])) {
-            $validated['included'] = [];
-        }
-
+        $validated['included'] = PlanFeatureList::validateAndNormalize($validated['included'] ?? []);
         $validated['coming_soon'] = $request->boolean('coming_soon');
 
         Plan::create($validated);
@@ -68,9 +67,13 @@ class PlansController extends Controller
 
     public function edit(Plan $plan): Response
     {
-        return Inertia::render('Kiosk/Plans/Edit', [
-            'plan' => $plan->load('items'),
-        ]);
+        $plan->load('items');
+        $plan->setAttribute('included', PlanFeatureList::normalize($plan->included));
+
+        return Inertia::render('Kiosk/Plans/Edit', array_merge(
+            $this->planFormProps($plan),
+            ['plan' => $plan],
+        ));
     }
 
     public function update(Request $request, Plan $plan): RedirectResponse
@@ -85,17 +88,15 @@ class PlansController extends Controller
             'seat_extra' => 'nullable|numeric|min:0|max:999999.99',
             'description' => 'nullable|string',
             'included' => 'nullable|array',
+            'included.*.title' => 'required|string|max:255',
+            'included.*.description' => 'nullable|string|max:5000',
             'popular' => 'boolean',
             'active' => 'boolean',
             'ticket_support_access' => 'boolean',
             'coming_soon' => 'boolean',
         ]);
 
-        // Ensure included is stored as JSON array
-        if (! isset($validated['included'])) {
-            $validated['included'] = [];
-        }
-
+        $validated['included'] = PlanFeatureList::validateAndNormalize($validated['included'] ?? []);
         $validated['coming_soon'] = $request->boolean('coming_soon');
 
         $plan->update($validated);
@@ -114,5 +115,25 @@ class PlansController extends Controller
 
         return redirect()->route('kiosk.plans.index')
             ->with('success', 'Plan deleted successfully.');
+    }
+
+    /**
+     * @return array{otherPlans: array<int, array{id: int, name: string, included: array<int, array{title: string, description: string}>}>}
+     */
+    private function planFormProps(?Plan $exclude = null): array
+    {
+        $otherPlans = Plan::query()
+            ->when($exclude, fn ($query) => $query->where('id', '!=', $exclude->id))
+            ->orderBy('name')
+            ->get(['id', 'name', 'included'])
+            ->map(fn (Plan $plan) => [
+                'id' => $plan->id,
+                'name' => $plan->name,
+                'included' => PlanFeatureList::normalize($plan->included),
+            ])
+            ->values()
+            ->all();
+
+        return ['otherPlans' => $otherPlans];
     }
 }

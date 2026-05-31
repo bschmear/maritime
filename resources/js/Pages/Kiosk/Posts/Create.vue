@@ -5,6 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import Checkbox from '@/Components/Checkbox.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
+import PostCoverImageField from '@/Components/Kiosk/PostCoverImageField.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -17,7 +18,7 @@ const form = useForm({
     body: '',
     category_id: '',
     short_description: '',
-    cover_image: '',
+    cover_image_file: null,
     featured: false,
     published: false,
     published_at: '',
@@ -25,7 +26,8 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.post(route('kiosk.posts.store'));
+    const opts = form.cover_image_file instanceof File ? { forceFormData: true } : {};
+    form.post(route('kiosk.posts.store'), opts);
 };
 </script>
 
@@ -118,16 +120,11 @@ const submit = () => {
                                 <InputError class="mt-2" :message="form.errors.category_id" />
                             </div>
 
-                            <div class="sm:col-span-3">
-                                <InputLabel for="cover_image" value="Cover Image URL" class="text-gray-900 dark:text-white" />
-                                <TextInput
-                                    id="cover_image"
-                                    v-model="form.cover_image"
-                                    type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
-                                    placeholder="https://..."
+                            <div class="sm:col-span-6">
+                                <PostCoverImageField
+                                    v-model:cover-image-file="form.cover_image_file"
+                                    :file-error="form.errors.cover_image_file"
                                 />
-                                <InputError class="mt-2" :message="form.errors.cover_image" />
                             </div>
 
                             <!-- Tags -->

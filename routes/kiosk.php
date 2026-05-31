@@ -6,6 +6,7 @@ use App\Http\Controllers\Kiosk\FaqController;
 use App\Http\Controllers\Kiosk\PlanItemsController;
 use App\Http\Controllers\Kiosk\PlansController;
 use App\Http\Controllers\Kiosk\PostController;
+use App\Http\Controllers\Kiosk\PricingSettingsController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
 use App\Http\Middleware\EnsureKioskAdmin;
@@ -25,6 +26,8 @@ Route::domain(config('app.admin_url'))->middleware(['auth'])->name('kiosk.')->gr
         Route::resource('faqs', FaqController::class);
         Route::resource('plans', PlansController::class);
         Route::resource('plan-items', PlanItemsController::class);
+        Route::get('pricing-settings', [PricingSettingsController::class, 'edit'])->name('pricing-settings.edit');
+        Route::put('pricing-settings', [PricingSettingsController::class, 'update'])->name('pricing-settings.update');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');

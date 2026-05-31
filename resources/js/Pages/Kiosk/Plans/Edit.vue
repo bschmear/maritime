@@ -3,11 +3,12 @@ import KioskLayout from '@/Layouts/KioskLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
+import PlanFeatureEditor from '@/Components/Kiosk/PlanFeatureEditor.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
 
 const props = defineProps({
     plan: Object,
+    otherPlans: { type: Array, default: () => [] },
 });
 
 const form = useForm({
@@ -19,25 +20,16 @@ const form = useForm({
     seat_limit: props.plan.seat_limit || 1,
     seat_extra: props.plan.seat_extra || '',
     description: props.plan.description || '',
-    included: props.plan.included || [],
+    included: (props.plan.included || []).map((item) =>
+        typeof item === 'string'
+            ? { title: item, description: '' }
+            : { title: item.title ?? '', description: item.description ?? '' },
+    ),
     popular: props.plan.popular ?? false,
     active: props.plan.active ?? true,
     ticket_support_access: props.plan.ticket_support_access ?? false,
     coming_soon: props.plan.coming_soon ?? true,
 });
-
-const newIncludedItem = ref('');
-
-const addIncludedItem = () => {
-    if (newIncludedItem.value.trim()) {
-        form.included.push(newIncludedItem.value.trim());
-        newIncludedItem.value = '';
-    }
-};
-
-const removeIncludedItem = (index) => {
-    form.included.splice(index, 1);
-};
 
 const submit = () => {
     form.put(route('kiosk.plans.update', props.plan.id));
@@ -251,68 +243,11 @@ const submit = () => {
                                 <InputError class="mt-2" :message="form.errors.description" />
                             </div>
 
-                            <!-- Included Features Field -->
-                            <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                                <InputLabel value="Included Features" class="text-gray-900 dark:text-white" />
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Add features or benefits included in this plan.
-                                </p>
-
-                                <!-- Add New Item -->
-                                <div class="mt-3 flex gap-2">
-                                    <TextInput
-                                        v-model="newIncludedItem"
-                                        type="text"
-                                        class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
-                                        placeholder="e.g., Unlimited projects"
-                                        @keydown.enter.prevent="addIncludedItem"
-                                    />
-                                    <button
-                                        type="button"
-                                        @click="addIncludedItem"
-                                        class="inline-flex items-center px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                                    >
-                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <!-- List of Items -->
-                                <div v-if="form.included.length > 0" class="mt-4 space-y-2">
-                                    <div
-                                        v-for="(item, index) in form.included"
-                                        :key="index"
-                                        class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg group hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
-                                    >
-                                        <svg class="h-5 w-5 text-primary-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        <span class="flex-1 text-sm text-gray-900 dark:text-white">{{ item }}</span>
-                                        <button
-                                            type="button"
-                                            @click="removeIncludedItem(index)"
-                                            class="flex-shrink-0 p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                            title="Remove item"
-                                        >
-                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div v-else class="mt-4 text-center py-6 bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                        No features added yet
-                                    </p>
-                                </div>
-
-                                <InputError class="mt-2" :message="form.errors.included" />
-                            </div>
+                            <PlanFeatureEditor
+                                v-model="form.included"
+                                :other-plans="otherPlans"
+                                :error="form.errors.included"
+                            />
 
                             <!-- Popular Field -->
                             <div>

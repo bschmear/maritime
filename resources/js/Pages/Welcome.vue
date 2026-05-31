@@ -1,9 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
 import { Head, Link, router } from '@inertiajs/vue3';
 
 const billingCycle = ref('monthly');
+
+const pricingFeaturesUrl = `${route('checkout.plans')}#plan-features`;
 
 defineProps({
     canLogin:     { type: Boolean },
@@ -569,11 +572,15 @@ onUnmounted(() => {
                                     What’s included
                                 </p>
                                 <ul class="space-y-3">
-                                    <li v-for="(feature, fIndex) in plan.features" :key="fIndex" class="flex items-start gap-3">
+                                    <li
+                                        v-for="(title, fIndex) in planFeatureTitles(plan.features)"
+                                        :key="fIndex"
+                                        class="flex items-start gap-3"
+                                    >
                                         <span class="material-icons mt-0.5 shrink-0 text-lg leading-none text-primary-600 dark:text-primary-400"
                                             >check_circle</span
                                         >
-                                        <span class="text-base text-gray-700 dark:text-gray-300">{{ feature }}</span>
+                                        <span class="text-base text-gray-700 dark:text-gray-300">{{ title }}</span>
                                     </li>
                                 </ul>
                             </div>
@@ -584,12 +591,20 @@ onUnmounted(() => {
                         <p class="text-base text-gray-600 dark:text-gray-400">
                             All plans include a 14-day free trial. No credit card required.
                         </p>
-                        <Link
-                            :href="route('checkout.plans')"
-                            class="mt-3 inline-block text-base font-semibold text-primary-600 hover:underline dark:text-primary-400"
-                        >
-                            View all plans →
-                        </Link>
+                        <div class="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-6">
+                            <Link
+                                :href="route('checkout.plans')"
+                                class="text-base font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                            >
+                                View all plans →
+                            </Link>
+                            <Link
+                                :href="pricingFeaturesUrl"
+                                class="text-base font-semibold text-gray-700 hover:text-primary-600 hover:underline dark:text-gray-300 dark:hover:text-primary-400"
+                            >
+                                See full feature list →
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </section>

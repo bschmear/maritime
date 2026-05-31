@@ -1,10 +1,16 @@
 <script setup>
-import { ref, computed } from 'vue';
+import PlanAllTiersIncluded from '@/Components/Marketing/PlanAllTiersIncluded.vue';
+import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
     plans: Array,
+    allTiers: {
+        type: Object,
+        default: () => ({ title: 'All tiers include', subtitle: '', features: [] }),
+    },
     selectedPlanId: Number,
     billingCycle: String,
     prefilled_existing_account_id: {
@@ -17,9 +23,25 @@ const page = usePage();
 
 const planCheckoutError = computed(() => page.props.errors?.plan);
 
+const billingCycle = ref(
+    props.billingCycle === 'yearly' || props.billingCycle === 'annual' ? 'yearly' : 'monthly',
+);
+
 const initialPlanId = props.selectedPlanId || null;
 const initialPlan = initialPlanId ? props.plans.find((p) => p.id === initialPlanId) : null;
 const selectedPlan = ref(initialPlan && !initialPlan.coming_soon ? initialPlanId : null);
+
+const featureTitlesForPlan = (plan) => plan.feature_titles ?? planFeatureTitles(plan.features);
+
+const scrollToPlanFeatures = () => {
+    document.getElementById('plan-features')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+onMounted(() => {
+    if (window.location.hash === '#plan-features') {
+        nextTick(() => scrollToPlanFeatures());
+    }
+});
 
 const selectPlan = (plan) => {
     if (plan.coming_soon) {
@@ -192,11 +214,15 @@ const proceedToCart = () => {
                             <div class="space-y-4">
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">What's included:</p>
                                 <ul class="space-y-3">
-                                    <li v-for="(feature, index) in plan.included" :key="index" class="flex items-start gap-3">
+                                    <li
+                                        v-for="(title, index) in featureTitlesForPlan(plan)"
+                                        :key="index"
+                                        class="flex items-start gap-3"
+                                    >
                                         <svg class="w-5 h-5 text-secondary-600 dark:text-secondary-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                         </svg>
-                                        <span class="text-gray-600 dark:text-gray-400">{{ feature }}</span>
+                                        <span class="text-gray-600 dark:text-gray-400">{{ title }}</span>
                                     </li>
                                 </ul>
                             </div>
@@ -235,6 +261,12 @@ const proceedToCart = () => {
                     </button>
                 </div>
             </div>
+
+            <PlanAllTiersIncluded
+                :title="allTiers.title"
+                :subtitle="allTiers.subtitle"
+                :features="allTiers.features"
+            />
         </div>
     </AppLayout>
 </template>

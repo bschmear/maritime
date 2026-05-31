@@ -6,12 +6,17 @@ use App\Domain\Role\Models\Role;
 use App\Domain\User\Models\User as TenantUserModel;
 use App\Models\Account;
 use App\Models\Plan;
+use App\Models\PricingSetting;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\WorkspaceNavCache;
+use App\Support\PlanFeatureList;
+use App\Support\PublicPageMeta;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Cashier\Subscription as CashierSubscription;
 use Stancl\Tenancy\Database\Models\Domain;
@@ -20,7 +25,10 @@ class CheckoutController extends Controller
 {
     public function plans(Request $request)
     {
-        $plans = Plan::active()->orderBy('monthly_price')->get();
+        $planModels = Plan::active()->orderBy('monthly_price')->get();
+        $plans = $planModels
+            ->map(fn (Plan $plan) => PlanFeatureList::toPublicArray($plan))
+            ->values();
 
         $selectedPlanId = $request->query('plan');
         $rawBilling = $request->query('billing', 'monthly');
@@ -37,12 +45,16 @@ class CheckoutController extends Controller
             }
         }
 
-        return Inertia::render('Checkout/Plans', [
-            'plans' => $plans,
-            'selectedPlanId' => $selectedPlanId ? (int) $selectedPlanId : null,
-            'billingCycle' => $billingCycle,
-            'prefilled_existing_account_id' => $prefilledExistingAccountId,
-        ]);
+        return Inertia::render('Checkout/Plans', array_merge(
+            PublicPageMeta::pricing($planModels),
+            [
+                'plans' => $plans,
+                'allTiers' => PricingSetting::allTiersSection(),
+                'selectedPlanId' => $selectedPlanId ? (int) $selectedPlanId : null,
+                'billingCycle' => $billingCycle,
+                'prefilled_existing_account_id' => $prefilledExistingAccountId,
+            ],
+        ));
     }
 
     public function checkout(Request $request)
@@ -213,7 +225,7 @@ class CheckoutController extends Controller
     /**
      * An owned account that does not already have an active Cashier subscription (may be reactivated).
      */
-    private function resolveOwnedAccountWithoutSubscription(\App\Models\User $user, ?int $accountId): ?Account
+    private function resolveOwnedAccountWithoutSubscription(User $user, ?int $accountId): ?Account
     {
         if ($accountId === null || $accountId === 0) {
             return null;
@@ -241,7 +253,7 @@ class CheckoutController extends Controller
      * Checkout for an account that already has a tenant — Stripe only.
      */
     private function completeCheckoutForExistingAccount(
-        \App\Models\User $user,
+        User $user,
         Account $account,
         Plan $plan,
         string $billingCycle,
@@ -279,7 +291,7 @@ class CheckoutController extends Controller
      * New workspace: central account without tenant first, Stripe subscription, then tenant + migrations.
      */
     private function completeCheckoutForNewAccount(
-        \App\Models\User $user,
+        User $user,
         string $accountName,
         Plan $plan,
         string $billingCycle,
@@ -344,7 +356,7 @@ class CheckoutController extends Controller
     /**
      * Central account row only (no tenant, no schema, no migrations) until Stripe succeeds.
      */
-    private function createPendingAccountWithoutTenant(\App\Models\User $user, string $accountName): Account
+    private function createPendingAccountWithoutTenant(User $user, string $accountName): Account
     {
         $account = Account::query()->create([
             'name' => $accountName,
@@ -362,7 +374,7 @@ class CheckoutController extends Controller
     /**
      * After Stripe subscription exists: create tenant (runs migrations via TenantCreated pipeline), domain, link account.
      */
-    private function provisionTenantForPendingAccount(Account $account, \App\Models\User $user): void
+    private function provisionTenantForPendingAccount(Account $account, User $user): void
     {
         if ($account->tenant_id !== null) {
             throw new Exception('Account already has a tenant.');
@@ -373,7 +385,7 @@ class CheckoutController extends Controller
             $domainName = $subdomain.'.'.config('app.domain', 'localhost');
         } while (Domain::query()->where('domain', $domainName)->exists());
 
-        $tenantId = (string) \Illuminate\Support\Str::uuid();
+        $tenantId = (string) Str::uuid();
 
         $tenant = Tenant::query()->create(['id' => $tenantId]);
 
@@ -395,7 +407,7 @@ class CheckoutController extends Controller
     /**
      * Undo a failed new-workspace checkout: cancel Stripe subscription, remove account and orphan tenant.
      */
-    private function rollbackNewWorkspaceCheckout(\App\Models\User $user, ?CashierSubscription $subscription, Account $account): void
+    private function rollbackNewWorkspaceCheckout(User $user, ?CashierSubscription $subscription, Account $account): void
     {
         WorkspaceNavCache::forgetForAccount($account);
 
@@ -437,7 +449,7 @@ class CheckoutController extends Controller
     /**
      * Copy the authenticated user to the tenant's users table.
      */
-    private function copyUserToTenant(\App\Models\User $user, \App\Models\Tenant $tenant, bool $throwOnFailure = false): void
+    private function copyUserToTenant(User $user, Tenant $tenant, bool $throwOnFailure = false): void
     {
         try {
             // Switch to tenant context

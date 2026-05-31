@@ -13,6 +13,7 @@ use App\Http\Controllers\Kiosk\HelpArticleController;
 use App\Http\Controllers\Kiosk\HelpCategoryController;
 use App\Http\Controllers\Kiosk\PlanItemsController;
 use App\Http\Controllers\Kiosk\PlansController;
+use App\Http\Controllers\Kiosk\PricingSettingsController;
 use App\Http\Controllers\Kiosk\PostController;
 use App\Http\Controllers\Kiosk\SupportTicketsController;
 use App\Http\Controllers\Kiosk\TagController;
@@ -46,6 +47,8 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
             ->name('support-tickets.responses.store');
         Route::resource('plans', PlansController::class);
         Route::resource('plan-items', PlanItemsController::class);
+        Route::get('pricing-settings', [PricingSettingsController::class, 'edit'])->name('pricing-settings.edit');
+        Route::put('pricing-settings', [PricingSettingsController::class, 'update'])->name('pricing-settings.update');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');

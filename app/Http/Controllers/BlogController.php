@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Support\PublicPageMeta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -17,7 +18,7 @@ class BlogController extends Controller
      */
     public function index(Request $request): Response
     {
-        
+
         $query = Post::with(['user', 'category', 'tags'])
             ->where('published', true);
 
@@ -52,12 +53,15 @@ class BlogController extends Controller
                 return $this->formatPost($post);
             });
 
-        return Inertia::render('Blog/Index', [
-            'posts' => $posts,
-            'categories' => Category::withCount('posts')->get(),
-            'tags' => Tag::withCount('posts')->get(),
-            'filters' => $request->only(['search', 'category', 'tag']),
-        ]);
+        return Inertia::render('Blog/Index', array_merge(
+            PublicPageMeta::blogIndex(),
+            [
+                'posts' => $posts,
+                'categories' => Category::withCount('posts')->get(),
+                'tags' => Tag::withCount('posts')->get(),
+                'filters' => $request->only(['search', 'category', 'tag']),
+            ],
+        ));
     }
 
     /**
@@ -66,8 +70,8 @@ class BlogController extends Controller
     public function category(Request $request): Response
     {
         $categorySlug = $request->query('slug');
-        
-        if (!$categorySlug) {
+
+        if (! $categorySlug) {
             return redirect()->route('blog');
         }
 
@@ -83,12 +87,15 @@ class BlogController extends Controller
                 return $this->formatPost($post);
             });
 
-        return Inertia::render('Blog/Category', [
-            'category' => $category,
-            'posts' => $posts,
-            'categories' => Category::withCount('posts')->get(),
-            'tags' => Tag::withCount('posts')->get(),
-        ]);
+        return Inertia::render('Blog/Category', array_merge(
+            PublicPageMeta::blogCategory($category->name, $category->slug),
+            [
+                'category' => $category,
+                'posts' => $posts,
+                'categories' => Category::withCount('posts')->get(),
+                'tags' => Tag::withCount('posts')->get(),
+            ],
+        ));
     }
 
     /**
@@ -97,8 +104,8 @@ class BlogController extends Controller
     public function tag(Request $request): Response
     {
         $tagSlug = $request->query('slug');
-        
-        if (!$tagSlug) {
+
+        if (! $tagSlug) {
             return redirect()->route('blog');
         }
 
@@ -116,12 +123,15 @@ class BlogController extends Controller
                 return $this->formatPost($post);
             });
 
-        return Inertia::render('Blog/Tag', [
-            'tag' => $tag,
-            'posts' => $posts,
-            'categories' => Category::withCount('posts')->get(),
-            'tags' => Tag::withCount('posts')->get(),
-        ]);
+        return Inertia::render('Blog/Tag', array_merge(
+            PublicPageMeta::blogTag($tag->name, $tag->slug),
+            [
+                'tag' => $tag,
+                'posts' => $posts,
+                'categories' => Category::withCount('posts')->get(),
+                'tags' => Tag::withCount('posts')->get(),
+            ],
+        ));
     }
 
     /**
@@ -146,32 +156,39 @@ class BlogController extends Controller
                 return $this->formatPost($relatedPost);
             });
 
-        return Inertia::render('Blog/Show', [
-            'post' => [
-                'id' => $post->id,
-                'title' => $post->title,
-                'body' => $post->body,
-                'short_description' => $post->short_description,
-                'cover_image' => $post->cover_image,
-                'published_at' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
-                'author' => [
-                    'name' => $post->user->name ?? 'Anonymous',
-                    'avatar' => $post->user->avatar ?? null,
-                ],
-                'category' => $post->category ? [
-                    'name' => $post->category->name,
-                    'slug' => $post->category->slug,
-                ] : null,
-                'tags' => $post->tags->map(function ($tag) {
-                    return [
-                        'name' => $tag->name,
-                        'slug' => $tag->slug,
-                    ];
-                }),
-                'read_time' => $this->calculateReadTime($post->body),
+        $postPayload = [
+            'id' => $post->id,
+            'slug' => $post->slug,
+            'title' => $post->title,
+            'body' => $post->body,
+            'short_description' => $post->short_description,
+            'cover_image' => $post->cover_image,
+            'published_at' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
+            'published_at_iso' => ($post->published_at ?? $post->created_at)?->toIso8601String(),
+            'author' => [
+                'name' => $post->user->name ?? 'Anonymous',
+                'avatar' => $post->user->avatar ?? null,
             ],
-            'relatedPosts' => $relatedPosts,
-        ]);
+            'category' => $post->category ? [
+                'name' => $post->category->name,
+                'slug' => $post->category->slug,
+            ] : null,
+            'tags' => $post->tags->map(function ($tag) {
+                return [
+                    'name' => $tag->name,
+                    'slug' => $tag->slug,
+                ];
+            }),
+            'read_time' => $this->calculateReadTime($post->body),
+        ];
+
+        return Inertia::render('Blog/Show', array_merge(
+            PublicPageMeta::blogPost($postPayload),
+            [
+                'post' => $postPayload,
+                'relatedPosts' => $relatedPosts,
+            ],
+        ));
     }
 
     /**
@@ -208,6 +225,7 @@ class BlogController extends Controller
     {
         $wordCount = str_word_count(strip_tags($content ?? ''));
         $readTime = $wordCount > 0 ? ceil($wordCount / 200) : 1;
-        return $readTime . ' min read';
+
+        return $readTime.' min read';
     }
 }
