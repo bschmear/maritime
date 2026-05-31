@@ -1,34 +1,68 @@
 <script setup>
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
+import { BLOG_COVER_MAX_WIDTH, resizeImageFileToMaxWidth } from '@/Utils/resizeImageFile.js';
+import axios from 'axios';
 import { computed, ref } from 'vue';
 
-const coverImageFile = defineModel('coverImageFile', { type: [Object, null], default: null });
+const coverImage = defineModel('coverImage', { type: String, default: '' });
 
 const props = defineProps({
     existingUrl: { type: String, default: '' },
+    previousCover: { type: String, default: '' },
     fileError: { type: String, default: null },
+    uploadUrl: { type: String, required: true },
 });
 
 const fileInput = ref(null);
 const previewObjectUrl = ref(null);
+const isUploading = ref(false);
+const uploadError = ref(null);
 
-const onFileChange = (event) => {
+const onFileChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) {
         return;
     }
 
-    coverImageFile.value = file;
+    uploadError.value = null;
+    isUploading.value = true;
 
-    if (previewObjectUrl.value) {
-        URL.revokeObjectURL(previewObjectUrl.value);
+    try {
+        const prepared = await resizeImageFileToMaxWidth(file, BLOG_COVER_MAX_WIDTH);
+        const formData = new FormData();
+        formData.append('cover_image_file', prepared);
+        if (props.previousCover || coverImage.value) {
+            formData.append('previous_cover', props.previousCover || coverImage.value);
+        }
+
+        const { data } = await axios.post(props.uploadUrl, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        coverImage.value = data.cover_image ?? '';
+
+        if (previewObjectUrl.value) {
+            URL.revokeObjectURL(previewObjectUrl.value);
+        }
+        previewObjectUrl.value = URL.createObjectURL(prepared);
+    } catch (error) {
+        uploadError.value =
+            error?.response?.data?.message ||
+            error?.response?.data?.errors?.cover_image_file?.[0] ||
+            'Could not upload image. Try a smaller file.';
+        coverImage.value = '';
+    } finally {
+        isUploading.value = false;
+        if (fileInput.value) {
+            fileInput.value.value = '';
+        }
     }
-    previewObjectUrl.value = URL.createObjectURL(file);
 };
 
 const clearUpload = () => {
-    coverImageFile.value = null;
+    coverImage.value = '';
+    uploadError.value = null;
     if (previewObjectUrl.value) {
         URL.revokeObjectURL(previewObjectUrl.value);
         previewObjectUrl.value = null;
@@ -43,7 +77,7 @@ const previewSrc = computed(() => {
         return previewObjectUrl.value;
     }
 
-    const value = (props.existingUrl || '').trim();
+    const value = (coverImage.value || props.existingUrl || '').trim();
     if (!value) {
         return null;
     }
@@ -75,24 +109,32 @@ const hasPreview = computed(() => Boolean(previewSrc.value));
         <div>
             <InputLabel for="cover_image_file" value="Hero image" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                JPEG, PNG, WebP, or GIF — saved to /posts/ (max 10 MB)
+                Uploads immediately; wide images are scaled to {{ BLOG_COVER_MAX_WIDTH }}px wide
             </p>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    :disabled="isUploading"
                     @click="fileInput?.click()"
                 >
-                    <span class="material-icons text-base">upload</span>
-                    {{ existingUrl && !coverImageFile ? 'Replace image' : 'Choose file' }}
+                    <span class="material-icons text-base">{{ isUploading ? 'hourglass_empty' : 'upload' }}</span>
+                    {{
+                        isUploading
+                            ? 'Uploading…'
+                            : hasPreview
+                              ? 'Replace image'
+                              : 'Choose file'
+                    }}
                 </button>
                 <button
-                    v-if="coverImageFile"
+                    v-if="coverImage || previewObjectUrl"
                     type="button"
-                    class="text-sm font-medium text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                    class="text-sm font-medium text-gray-500 hover:text-gray-800 disabled:opacity-50 dark:text-gray-400 dark:hover:text-gray-200"
+                    :disabled="isUploading"
                     @click="clearUpload"
                 >
-                    Clear selection
+                    Remove
                 </button>
             </div>
             <input
@@ -101,9 +143,10 @@ const hasPreview = computed(() => Boolean(previewSrc.value));
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 class="sr-only"
+                :disabled="isUploading"
                 @change="onFileChange"
             />
-            <InputError class="mt-2" :message="fileError" />
+            <InputError class="mt-2" :message="fileError || uploadError" />
         </div>
     </div>
 </template>

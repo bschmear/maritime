@@ -20,6 +20,7 @@ Route::domain(config('app.admin_url'))->middleware(['auth'])->name('kiosk.')->gr
 
         Route::get('/', [KioskDashboardController::class, 'index'])->name('dashboard');
 
+        Route::post('posts/cover-image', [PostController::class, 'uploadCover'])->name('posts.upload-cover');
         Route::resource('posts', PostController::class);
         Route::resource('categories', CategoryController::class);
         Route::resource('tags', TagController::class);

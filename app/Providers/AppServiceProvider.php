@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Domain\EmailTemplate\Models\EmailTemplate as TenantEmailTemplate;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Models\Post;
 use App\Models\User;
+use App\Observers\PostObserver;
 use App\Policies\WarrantyClaimPolicy;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
@@ -36,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Post::observe(PostObserver::class);
+
         Gate::policy(WarrantyClaim::class, WarrantyClaimPolicy::class);
 
         RedirectIfAuthenticated::redirectUsing(function (Request $request): string {
@@ -65,7 +69,7 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         Request::macro('isPwa', function () {
-            /** @var \Illuminate\Http\Request $this */
+            /** @var Request $this */
             if ($this->query('pwa') === '0') {
                 return false;
             }

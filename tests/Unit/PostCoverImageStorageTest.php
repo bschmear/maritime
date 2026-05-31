@@ -24,7 +24,22 @@ class PostCoverImageStorageTest extends TestCase
         $path = PostCoverImageStorage::store($file);
 
         $this->assertStringStartsWith('/posts/', $path);
-        $this->assertFileExists(public_path(ltrim($path, '/')));
+        $fullPath = public_path(ltrim($path, '/'));
+        $this->assertFileExists($fullPath);
+
+        [$width] = getimagesize($fullPath);
+        $this->assertLessThanOrEqual(PostCoverImageStorage::MAX_WIDTH, $width);
+    }
+
+    public function test_store_does_not_upscale_images_narrower_than_max_width(): void
+    {
+        $file = UploadedFile::fake()->image('small.jpg', 400, 300);
+
+        $path = PostCoverImageStorage::store($file);
+
+        [$width] = getimagesize(public_path(ltrim($path, '/')));
+
+        $this->assertSame(400, $width);
     }
 
     public function test_delete_removes_local_post_image(): void

@@ -27,6 +27,7 @@
         "phpoffice/phpword": "^1.4",
         "predis/predis": "^3.3",
         "setasign/fpdi": "^2.6",
+        "spatie/laravel-sitemap": "^8.1",
         "spatie/pdf-to-image": "^1.2",
         "stancl/tenancy": "^3.9",
         "symfony/http-client": "^7.4",

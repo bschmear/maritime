@@ -35,7 +35,7 @@ const form = useForm({
     body: props.post.body || '',
     category_id: props.post.category_id || '',
     short_description: props.post.short_description || '',
-    cover_image_file: null,
+    cover_image: props.post.cover_image || '',
     featured: props.post.featured || false,
     published: props.post.published || false,
     published_at: toDateTimeLocalValue(props.post.published_at),
@@ -43,8 +43,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    const opts = form.cover_image_file instanceof File ? { forceFormData: true } : {};
-    form.put(route('kiosk.posts.update', props.post.id), opts);
+    form.put(route('kiosk.posts.update', props.post.id));
 };
 </script>
 
@@ -182,9 +181,11 @@ const submit = () => {
 
                             <div class="mt-4">
                                 <PostCoverImageField
-                                    v-model:cover-image-file="form.cover_image_file"
+                                    v-model:cover-image="form.cover_image"
+                                    :upload-url="route('kiosk.posts.upload-cover')"
                                     :existing-url="post.cover_image || ''"
-                                    :file-error="form.errors.cover_image_file"
+                                    :previous-cover="post.cover_image || ''"
+                                    :file-error="form.errors.cover_image || form.errors.cover_image_file"
                                 />
                             </div>
                         </div>

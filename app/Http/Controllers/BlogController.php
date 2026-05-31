@@ -165,6 +165,9 @@ class BlogController extends Controller
             'cover_image' => $post->cover_image,
             'published_at' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
             'published_at_iso' => ($post->published_at ?? $post->created_at)?->toIso8601String(),
+            'updated_at' => $post->updated_at && $post->updated_at->gt($post->published_at ?? $post->created_at)
+                ? $post->updated_at->format('F j, Y')
+                : null,
             'author' => [
                 'name' => $post->user->name ?? 'Anonymous',
                 'avatar' => $post->user->avatar ?? null,

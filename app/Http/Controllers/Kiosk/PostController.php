@@ -8,6 +8,7 @@ use App\Models\Post;
 use App\Models\Tag;
 use App\Support\PostCoverImageStorage;
 use App\Support\PublicPageCache;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -51,6 +52,21 @@ class PostController extends Controller
             'categories' => Category::all(),
             'tags' => Tag::all(),
         ]);
+    }
+
+    public function uploadCover(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'cover_image_file' => 'required|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
+            'previous_cover' => PostCoverImageStorage::storedPublicPathRules(),
+        ]);
+
+        $path = PostCoverImageStorage::store(
+            $request->file('cover_image_file'),
+            $validated['previous_cover'] ?? null,
+        );
+
+        return response()->json(['cover_image' => $path]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -138,6 +154,7 @@ class PostController extends Controller
             'body' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'short_description' => 'nullable|string|max:255',
+            'cover_image' => PostCoverImageStorage::storedPublicPathRules(),
             'cover_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
             'featured' => 'boolean',
             'published' => 'boolean',
@@ -157,6 +174,11 @@ class PostController extends Controller
                 $request->file('cover_image_file'),
                 $previousCover,
             );
+        } elseif (! empty($validated['cover_image'] ?? null)) {
+            $path = (string) $validated['cover_image'];
+            if ($previousCover && $path !== $previousCover) {
+                PostCoverImageStorage::deleteIfStoredLocally($previousCover);
+            }
         } else {
             unset($validated['cover_image']);
         }

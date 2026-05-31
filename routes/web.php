@@ -34,6 +34,7 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
     Route::middleware([EnsureKioskAdmin::class])->group(function () {
         Route::get('/', [KioskDashboardController::class, 'index'])->name('dashboard');
 
+        Route::post('posts/cover-image', [PostController::class, 'uploadCover'])->name('posts.upload-cover');
         Route::resource('posts', PostController::class);
         Route::resource('categories', CategoryController::class);
         Route::resource('tags', TagController::class);

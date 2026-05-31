@@ -18,7 +18,7 @@ const form = useForm({
     body: '',
     category_id: '',
     short_description: '',
-    cover_image_file: null,
+    cover_image: '',
     featured: false,
     published: false,
     published_at: '',
@@ -26,8 +26,7 @@ const form = useForm({
 });
 
 const submit = () => {
-    const opts = form.cover_image_file instanceof File ? { forceFormData: true } : {};
-    form.post(route('kiosk.posts.store'), opts);
+    form.post(route('kiosk.posts.store'));
 };
 </script>
 
@@ -122,8 +121,9 @@ const submit = () => {
 
                             <div class="sm:col-span-6">
                                 <PostCoverImageField
-                                    v-model:cover-image-file="form.cover_image_file"
-                                    :file-error="form.errors.cover_image_file"
+                                    v-model:cover-image="form.cover_image"
+                                    :upload-url="route('kiosk.posts.upload-cover')"
+                                    :file-error="form.errors.cover_image || form.errors.cover_image_file"
                                 />
                             </div>
 

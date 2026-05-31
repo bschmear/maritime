@@ -15,37 +15,72 @@ defineProps({
 
     <AppLayout>
         <!-- Hero Section -->
-        <section class="relative border-b border-gray-200 dark:border-gray-800 bg-secondary-50 dark:bg-gray-900 py-20">
-            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section class="relative border-b border-gray-200 bg-secondary-50 py-20 dark:border-gray-800 dark:bg-gray-900">
+            <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="text-center">
-                    <Link
-                        :href="route('blog')"
-                        class="inline-flex items-center gap-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 font-semibold mb-6 transition-all duration-200 hover:gap-3 group"
-                    >
-                        <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        <span>Back to Blog</span>
-                    </Link>
-                    
-                    <!-- Tag Display -->
-                    <div class="inline-flex items-center gap-3 mb-4">
-                        <div class="inline-flex items-center justify-center w-14 h-14 bg-secondary-100 dark:bg-secondary-900/50 rounded-2xl border-2 border-secondary-200 dark:border-secondary-700 shadow-md">
-                            <svg class="w-7 h-7 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    <div class="mb-6">
+                        <Link
+                            :href="route('blog')"
+                            class="group inline-flex items-center gap-2 font-semibold text-secondary-600 transition-all duration-200 hover:gap-3 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-300"
+                        >
+                            <svg
+                                class="h-5 w-5 transition-transform group-hover:-translate-x-1"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                                />
+                            </svg>
+                            <span>Back to Blog</span>
+                        </Link>
+                    </div>
+
+                    <div class="mb-4">
+                        <div
+                            class="inline-flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-secondary-200 bg-secondary-100 shadow-md dark:border-secondary-700 dark:bg-secondary-900/50"
+                        >
+                            <svg
+                                class="h-7 w-7 text-secondary-600 dark:text-secondary-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                                />
                             </svg>
                         </div>
                     </div>
 
-                    <h1 class="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-white mb-4 tracking-tight">
+                    <h1 class="mb-4 text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
                         #<span class="text-secondary-600 dark:text-secondary-400">{{ tag.name }}</span>
                     </h1>
-                    
-                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-700">
-                        <svg class="w-4 h-4 text-secondary-600 dark:text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+
+                    <div
+                        class="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/80 px-4 py-2 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/80"
+                    >
+                        <svg
+                            class="h-4 w-4 text-secondary-600 dark:text-secondary-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
                         </svg>
-                        <span class="text-gray-700 dark:text-gray-300 font-semibold">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">
                             {{ posts.total }} {{ posts.total === 1 ? 'post' : 'posts' }} with this tag
                         </span>
                     </div>
@@ -54,7 +89,7 @@ defineProps({
         </section>
 
         <!-- Posts Grid -->
-        <section class="py-12 bg-gray-50 dark:bg-gray-900">
+        <section class="bg-gray-50 py-12 dark:bg-gray-900">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div v-if="posts.data.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     <article

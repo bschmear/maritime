@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 
@@ -56,160 +56,414 @@ const linkedInShareHref = computed(() => {
 
     return `https://www.linkedin.com/shareArticle?${params.toString()}`;
 });
+
+const authorInitial = computed(() => {
+    const name = props.post?.author?.name ?? '';
+    return name.charAt(0).toUpperCase() || '?';
+});
+
+const linkCopied = ref(false);
+let copyResetTimer = null;
+
+const copyShareLink = async () => {
+    const url = shareUrl.value;
+    if (!url) {
+        return;
+    }
+
+    try {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url);
+        } else {
+            const input = document.createElement('textarea');
+            input.value = url;
+            input.setAttribute('readonly', '');
+            input.style.position = 'absolute';
+            input.style.left = '-9999px';
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+        }
+
+        linkCopied.value = true;
+        if (copyResetTimer) {
+            clearTimeout(copyResetTimer);
+        }
+        copyResetTimer = setTimeout(() => {
+            linkCopied.value = false;
+        }, 2000);
+    } catch {
+        linkCopied.value = false;
+    }
+};
+
+const proseClass =
+    'prose prose-lg prose-secondary dark:prose-invert max-w-none ' +
+    'prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white ' +
+    'prose-p:text-gray-700 dark:prose-p:text-gray-300 ' +
+    'prose-a:text-secondary-600 dark:prose-a:text-secondary-400 prose-a:no-underline hover:prose-a:underline ' +
+    'prose-strong:text-gray-900 dark:prose-strong:text-white ' +
+    'prose-code:text-secondary-600 dark:prose-code:text-secondary-400 ' +
+    'prose-blockquote:border-secondary-500 dark:prose-blockquote:border-secondary-400 ' +
+    'prose-img:rounded-xl prose-img:shadow-lg';
 </script>
 
 <template>
     <Head :title="post.title" />
 
     <AppLayout>
-        <!-- Hero Section with Cover Image -->
-        <section class="relative h-96 bg-gray-900">
-            <img
-                v-if="post.cover_image"
-                :src="post.cover_image"
-                :alt="post.title"
-                class="absolute inset-0 w-full h-full object-cover opacity-50"
-            />
-            <div class="absolute inset-0 bg-gray-900/70"></div>
-            
-            <div class="relative h-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-12">
-                <!-- Category Badge -->
+        <!-- Post header -->
+        <section class="relative overflow-hidden border-b border-gray-200/80 dark:border-gray-800">
+            <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+                <div
+                    class="absolute inset-0 bg-gradient-to-br from-primary-50 via-sky-50/90 to-secondary-100/60 dark:from-gray-900 dark:via-slate-900 dark:to-primary-950"
+                />
+                <!-- <div
+                    v-if="post.cover_image"
+                    class="absolute inset-0 bg-cover bg-center opacity-[0.12] mix-blend-multiply dark:opacity-[0.08] dark:mix-blend-lighten"
+                    :style="{ backgroundImage: `url(${post.cover_image})` }"
+                /> -->
+                <svg class="absolute inset-0 h-full w-full text-primary-600/10 dark:text-sky-400/15" preserveAspectRatio="none" >
+                    <defs>
+                        <pattern
+                            id="blog-post-wave-lines"
+                            width="160"
+                            height="48"
+                            patternUnits="userSpaceOnUse"
+                            patternTransform="rotate(-4)"
+                        >
+                            <path
+                                d="M0 24 Q40 10 80 24 T160 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            />
+                            <path
+                                d="M0 38 Q40 24 80 38 T160 38"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1"
+                                opacity="0.7"
+                            />
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#blog-post-wave-lines)" />
+                </svg>
+                <div
+                    class="absolute -right-24 top-8 h-72 w-72 rounded-full bg-secondary-300/25 blur-3xl dark:bg-secondary-600/10"
+                />
+                <div
+                    class="absolute -left-16 bottom-0 h-64 w-64 rounded-full bg-primary-300/30 blur-3xl dark:bg-primary-700/15"
+                />
+            </div>
+
+            <div class="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-16">
+                <Link
+                    :href="route('blog')"
+                    class="mb-8 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-secondary-600 dark:text-gray-400 dark:hover:text-secondary-400"
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to blog
+                </Link>
+
                 <div v-if="post.category" class="mb-4">
                     <Link
                         :href="`/blog/category?slug=${post.category.slug}`"
-                        class="inline-block px-4 py-2 bg-secondary-600 hover:bg-secondary-700 text-white text-sm font-semibold rounded-full transition-colors"
+                        class="inline-flex items-center rounded-full bg-secondary-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-secondary-800 transition-colors hover:bg-secondary-200 dark:bg-secondary-900/50 dark:text-secondary-300 dark:hover:bg-secondary-900"
                     >
                         {{ post.category.name }}
                     </Link>
                 </div>
 
-                <!-- Title -->
-                <h1 class="text-4xl sm:text-5xl font-bold text-white mb-4">
+                <h1 class="max-w-4xl text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl lg:text-5xl">
                     {{ post.title }}
                 </h1>
 
-                <!-- Meta Info -->
-                <div class="flex flex-wrap items-center gap-4 text-gray-300">
-                    <div class="flex items-center gap-2">
-                        <div class="w-10 h-10 bg-secondary-600 rounded-full flex items-center justify-center text-white font-semibold">
-                            {{ post.author.name.charAt(0) }}
+                <p
+                    v-if="post.short_description"
+                    class="mt-5 max-w-3xl text-lg leading-relaxed text-gray-600 dark:text-gray-400"
+                >
+                    {{ post.short_description }}
+                </p>
+            </div>
+        </section>
+
+        <!-- Article + sidebar -->
+        <section class="py-12 lg:py-16">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-10 xl:gap-14">
+                    <!-- Main column -->
+                    <article class="min-w-0 lg:col-span-8">
+                        <div
+                            v-if="post.cover_image"
+                            class="mb-10 overflow-hidden rounded-2xl border border-gray-200 shadow-sm dark:border-gray-700"
+                        >
+                            <img
+                                :src="post.cover_image"
+                                :alt="post.title"
+                                class="aspect-[2/1] w-full object-cover"
+                            />
                         </div>
-                        <span class="font-medium">{{ post.author.name }}</span>
-                    </div>
-                    <span>•</span>
-                    <span>{{ post.published_at }}</span>
-                    <span>•</span>
-                    <span>{{ post.read_time }}</span>
+
+                        <div :class="proseClass" v-html="post.body"></div>
+
+                        <div
+                            v-if="post.tags?.length > 0"
+                            class="mt-12 border-t border-gray-200 pt-8 dark:border-gray-700 lg:hidden"
+                        >
+                            <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Tags
+                            </h3>
+                            <div class="flex flex-wrap gap-2">
+                                <Link
+                                    v-for="tag in post.tags"
+                                    :key="tag.slug"
+                                    :href="`/blog/tag?slug=${tag.slug}`"
+                                    class="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-secondary-100 hover:text-secondary-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-secondary-900/50 dark:hover:text-secondary-300"
+                                >
+                                    #{{ tag.name }}
+                                </Link>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Sidebar -->
+                    <aside class="lg:col-span-4">
+                        <div class="space-y-6 lg:sticky lg:top-24">
+                            <!-- Article metadata -->
+                            <div
+                                class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                            >
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Article details
+                                </h2>
+
+                                <dl class="mt-5 space-y-4">
+                                    <div>
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            Published
+                                        </dt>
+                                        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                            <time v-if="post.published_at_iso" :datetime="post.published_at_iso">
+                                                {{ post.published_at }}
+                                            </time>
+                                            <span v-else>{{ post.published_at }}</span>
+                                        </dd>
+                                    </div>
+
+                                    <div v-if="post.updated_at">
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            Updated
+                                        </dt>
+                                        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ post.updated_at }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            Reading time
+                                        </dt>
+                                        <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                            {{ post.read_time }}
+                                        </dd>
+                                    </div>
+
+                                    <div v-if="post.category">
+                                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            Category
+                                        </dt>
+                                        <dd class="mt-1">
+                                            <Link
+                                                :href="`/blog/category?slug=${post.category.slug}`"
+                                                class="text-sm font-medium text-secondary-600 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-300"
+                                            >
+                                                {{ post.category.name }}
+                                            </Link>
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </div>
+
+                            <!-- Author -->
+                            <div
+                                class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                            >
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Written by
+                                </h2>
+                                <div class="mt-4 flex items-center gap-3">
+                                    <img
+                                        v-if="post.author?.avatar"
+                                        :src="post.author.avatar"
+                                        :alt="post.author.name"
+                                        class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
+                                    />
+                                    <div
+                                        v-else
+                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary-600 text-lg font-semibold text-white"
+                                    >
+                                        {{ authorInitial }}
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-gray-900 dark:text-white">
+                                            {{ post.author?.name }}
+                                        </p>
+                                        <p class="text-sm text-gray-500 dark:text-gray-400">Maritime team</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Share -->
+                            <div
+                                class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+                            >
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Share
+                                </h2>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <a
+                                        :href="twitterShareHref"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                        title="Share on X"
+                                    >
+                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                        </svg>
+                                        <span>X</span>
+                                    </a>
+                                    <a
+                                        :href="facebookShareHref"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                        title="Share on Facebook"
+                                    >
+                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                                        </svg>
+                                        <span>Facebook</span>
+                                    </a>
+                                    <a
+                                        :href="linkedInShareHref"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                                        title="Share on LinkedIn"
+                                    >
+                                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                                        </svg>
+                                        <span>LinkedIn</span>
+                                    </a>
+                                </div>
+
+                                <div v-if="shareUrl" class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                                    <p class="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                        Page link
+                                    </p>
+                                    <p class="mb-3 truncate text-sm text-gray-600 dark:text-gray-400" :title="shareUrl">
+                                        {{ shareUrl }}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        :class="linkCopied ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-300' : ''"
+                                        @click="copyShareLink"
+                                    >
+                                        <svg
+                                            v-if="!linkCopied"
+                                            class="h-4 w-4 shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                            />
+                                        </svg>
+                                        <svg
+                                            v-else
+                                            class="h-4 w-4 shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            aria-hidden="true"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <span>{{ linkCopied ? 'Copied!' : 'Copy link' }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Tags (sidebar, desktop) -->
+                            <div
+                                v-if="post.tags?.length > 0"
+                                class="hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900 lg:block"
+                            >
+                                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Tags
+                                </h2>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <Link
+                                        v-for="tag in post.tags"
+                                        :key="tag.slug"
+                                        :href="`/blog/tag?slug=${tag.slug}`"
+                                        class="rounded-full bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-secondary-100 hover:text-secondary-800 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-secondary-900/50 dark:hover:text-secondary-300"
+                                    >
+                                        #{{ tag.name }}
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </section>
 
-        <!-- Main Content -->
-        <article class="py-12 bg-white dark:bg-gray-900">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                <!-- Short Description -->
-                <div v-if="post.short_description" class="text-xl text-gray-600 dark:text-gray-400 mb-8 pb-8 border-b border-gray-200 dark:border-gray-700 italic">
-                    {{ post.short_description }}
-                </div>
+        <!-- Related posts -->
+        <section v-if="relatedPosts.length > 0" class="border-t border-gray-200 bg-gray-50 py-14 dark:border-gray-800 dark:bg-gray-900/50">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <h2 class="mb-8 text-2xl font-bold text-gray-900 dark:text-white">Related posts</h2>
 
-                <!-- Post Body -->
-                <div
-                    class="prose prose-lg prose-secondary dark:prose-invert max-w-none
-                           prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white
-                           prose-p:text-gray-700 dark:prose-p:text-gray-300
-                           prose-a:text-secondary-600 dark:prose-a:text-secondary-400 prose-a:no-underline hover:prose-a:underline
-                           prose-strong:text-gray-900 dark:prose-strong:text-white
-                           prose-code:text-secondary-600 dark:prose-code:text-secondary-400
-                           prose-blockquote:border-secondary-500 dark:prose-blockquote:border-secondary-400
-                           prose-img:rounded-xl prose-img:shadow-lg"
-                    v-html="post.body"
-                ></div>
-
-                <!-- Tags -->
-                <div v-if="post.tags?.length > 0" class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Tags:</h3>
-                    <div class="flex flex-wrap gap-2">
-                        <Link
-                            v-for="tag in post.tags"
-                            :key="tag.slug"
-                            :href="`/blog/tag?slug=${tag.slug}`"
-                            class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium hover:bg-secondary-100 dark:hover:bg-secondary-900 hover:text-secondary-700 dark:hover:text-secondary-300 transition-colors"
-                        >
-                            #{{ tag.name }}
-                        </Link>
-                    </div>
-                </div>
-
-                <!-- Share Section -->
-                <div class="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-4">Share this post:</h3>
-                    <div class="flex gap-3">
-                        <a
-                            :href="twitterShareHref"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-primary-600 hover:text-white transition-colors"
-                        >
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-                            </svg>
-                        </a>
-                        <a
-                            :href="facebookShareHref"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-primary-600 hover:text-white transition-colors"
-                        >
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                            </svg>
-                        </a>
-                        <a
-                            :href="linkedInShareHref"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="p-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-secondary-600 hover:text-white transition-colors"
-                        >
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                            </svg>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </article>
-
-        <!-- Related Posts -->
-        <section v-if="relatedPosts.length > 0" class="py-12 bg-gray-50 dark:bg-gray-800">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">Related Posts</h2>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
                     <article
                         v-for="relatedPost in relatedPosts"
                         :key="relatedPost.id"
-                        class="group bg-white dark:bg-gray-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                        class="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
                     >
-                        <Link :href="`/blog/${relatedPost.slug}`" class="block relative overflow-hidden h-48">
+                        <Link :href="`/blog/${relatedPost.slug}`" class="relative block h-44 overflow-hidden">
                             <img
                                 :src="relatedPost.cover_image"
                                 :alt="relatedPost.title"
-                                class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                         </Link>
 
-                        <div class="p-6">
-                            <div class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        <div class="p-5">
+                            <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
                                 {{ relatedPost.published_at }}
-                            </div>
-                            
+                            </p>
+
                             <Link :href="`/blog/${relatedPost.slug}`">
-                                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-2 group-hover:text-secondary-600 dark:group-hover:text-secondary-400 transition-colors">
+                                <h3
+                                    class="mb-2 line-clamp-2 text-lg font-bold text-gray-900 transition-colors group-hover:text-secondary-600 dark:text-white dark:group-hover:text-secondary-400"
+                                >
                                     {{ relatedPost.title }}
                                 </h3>
                             </Link>
 
-                            <p class="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
+                            <p class="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
                                 {{ relatedPost.excerpt }}
                             </p>
                         </div>
@@ -217,21 +471,24 @@ const linkedInShareHref = computed(() => {
                 </div>
             </div>
         </section>
-
-        <!-- Back to Blog -->
-        <div class="py-8 bg-white dark:bg-gray-900">
-            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                <Link
-                    :href="route('blog')"
-                    class="inline-flex items-center gap-2 text-secondary-600 dark:text-secondary-400 hover:text-secondary-700 dark:hover:text-secondary-300 font-semibold transition-colors"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    <span>Back to Blog</span>
-                </Link>
-            </div>
-        </div>
     </AppLayout>
 </template>
 
+<style scoped>
+.blog-post-header-wave {
+    animation: blog-header-wave-drift 14s ease-in-out infinite alternate;
+}
+
+.blog-post-header-wave-slow {
+    animation: blog-header-wave-drift 20s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes blog-header-wave-drift {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-2.5%);
+    }
+}
+</style>
