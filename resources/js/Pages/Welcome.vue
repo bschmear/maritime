@@ -12,11 +12,12 @@ const pricingFeaturesUrl = `${route('checkout.plans')}#plan-features`;
 
 const postCoverImage = (post) => post.image || blogPlaceholderImage.value;
 
-defineProps({
+const props = defineProps({
     canLogin:     { type: Boolean },
     canRegister:  { type: Boolean },
     blogPosts:    { type: Array, default: () => [] },
     pricingPlans: { type: Array, default: () => [] },
+    seatPolicy:   { type: Object, default: () => ({ included: 5 }) },
     faqs:         { type: Array, default: () => [] },
     heroHighlights: {
         type: Array,
@@ -38,6 +39,19 @@ defineProps({
             },
         ],
     },
+});
+
+const planSeatsIncluded = (plan) => plan.seatLimit ?? props.seatPolicy?.included ?? 5;
+
+const pricingGridClass = computed(() => {
+    const count = props.pricingPlans?.length ?? 0;
+    if (count <= 1) {
+        return 'mt-16 grid grid-cols-1 gap-8 max-w-md mx-auto';
+    }
+    if (count === 2) {
+        return 'mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 max-w-4xl mx-auto';
+    }
+    return 'mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3';
 });
 
 // ── Hero rulers ──
@@ -506,7 +520,7 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <div class="mt-16 grid grid-cols-1 gap-8 md:grid-cols-3">
+                    <div :class="pricingGridClass">
                         <div
                             v-for="(plan, index) in pricingPlans"
                             :key="index"
@@ -515,7 +529,7 @@ onUnmounted(() => {
                         >
                             <div
                                 v-if="plan.popular"
-                                class="absolute right-0 top-0 rounded-bl-xl rounded-tr-xl bg-primary-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white"
+                                class="absolute right-[-1px] top-[-1px] rounded-bl-xl rounded-tr-xl bg-primary-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white"
                             >
                                 Most popular
                             </div>
@@ -548,6 +562,12 @@ onUnmounted(() => {
                                         class="mt-2 text-sm text-secondary-600 dark:text-secondary-400"
                                     >
                                         Save ${{ plan.price.monthly * 12 - plan.price.annual }}/year
+                                    </p>
+                                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="font-semibold text-gray-900 dark:text-white">{{
+                                            planSeatsIncluded(plan)
+                                        }}</span>
+                                        {{ planSeatsIncluded(plan) === 1 ? 'seat' : 'seats' }} included
                                     </p>
                                 </template>
                             </div>

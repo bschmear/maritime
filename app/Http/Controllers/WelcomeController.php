@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\Post;
 use App\Support\BlogPlaceholder;
 use App\Support\PlanFeatureList;
+use App\Support\PlanSeatPolicy;
 use App\Support\PublicPageCache;
 use App\Support\PublicPageMeta;
 use Illuminate\Http\RedirectResponse;
@@ -94,6 +95,7 @@ class WelcomeController extends Controller
             [
                 'blogPosts' => $blogPosts,
                 'pricingPlans' => $plans,
+                'seatPolicy' => PlanSeatPolicy::forMarketing(),
                 'faqs' => $faqs,
             ],
         ));

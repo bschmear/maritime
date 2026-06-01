@@ -46,6 +46,19 @@ const selectedPlan = ref(initialPlan && !initialPlan.coming_soon ? initialPlanId
 
 const featureTitlesForPlan = (plan) => plan.feature_titles ?? planFeatureTitles(plan.features);
 
+const planSeatsIncluded = (plan) => plan.seat_limit ?? props.seatPolicy?.included ?? 5;
+
+const pricingGridClass = computed(() => {
+    const count = props.plans?.length ?? 0;
+    if (count <= 1) {
+        return 'mb-12 grid grid-cols-1 gap-8 lg:gap-6 max-w-md mx-auto';
+    }
+    if (count === 2) {
+        return 'mb-12 grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-6 max-w-4xl mx-auto';
+    }
+    return 'mb-12 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6';
+});
+
 const scrollToPlanFeatures = () => {
     document.getElementById('plan-features')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
@@ -150,13 +163,15 @@ const proceedToCart = () => {
                 >
                     <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
                     <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
-                        <span class="font-semibold text-gray-900 dark:text-white">$15/month</span>
+                        <span class="font-semibold text-gray-900 dark:text-white"
+                            >${{ formatSeatPrice(seatPolicy.extra_monthly_price) }}/month</span
+                        >
                         per additional seat after included seats.
                     </p>
                 </div>
 
                 <!-- Plans Grid -->
-                <div class="mb-12 grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6">
+                <div :class="pricingGridClass">
                     <div
                         v-for="plan in plans"
                         :key="plan.id"
@@ -230,6 +245,12 @@ const proceedToCart = () => {
                                     <p v-if="billingCycle === 'yearly' && plan.yearly_price > 0" class="text-sm text-green-600 dark:text-green-400 mt-2">
                                         Save ${{ (plan.monthly_price * 12) - plan.yearly_price }}/year
                                     </p>
+                                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <span class="font-semibold text-gray-900 dark:text-white">{{
+                                            planSeatsIncluded(plan)
+                                        }}</span>
+                                        {{ planSeatsIncluded(plan) === 1 ? 'seat' : 'seats' }} included
+                                    </p>
                                 </template>
                             </div>
 
@@ -248,13 +269,6 @@ const proceedToCart = () => {
                                         <span class="text-gray-600 dark:text-gray-400">{{ title }}</span>
                                     </li>
                                 </ul>
-                            </div>
-
-                            <div class="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
-                                <p class="text-sm text-gray-600 dark:text-gray-400">
-                                    <span class="font-semibold text-gray-900 dark:text-white">{{ plan.seat_limit ?? seatPolicy.included }}</span>
-                                    {{ (plan.seat_limit ?? seatPolicy.included) === 1 ? 'seat' : 'seats' }} included
-                                </p>
                             </div>
                         </div>
                     </div>
