@@ -2,11 +2,15 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 
 const billingCycle = ref('monthly');
+const page = usePage();
+const blogPlaceholderImage = computed(() => page.props.app?.blogPlaceholderImage ?? '');
 
 const pricingFeaturesUrl = `${route('checkout.plans')}#plan-features`;
+
+const postCoverImage = (post) => post.image || blogPlaceholderImage.value;
 
 defineProps({
     canLogin:     { type: Boolean },
@@ -703,14 +707,15 @@ onUnmounted(() => {
                     </div>
 
                     <div class="mt-16 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                        <article
-                            v-for="(post, index) in blogPosts"
+                        <Link
+                            v-for="post in blogPosts"
                             :key="post.id"
-                            class="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:shadow-none"
+                            :href="post.link || route('blogPostShow', post.slug)"
+                            class="group block overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:shadow-none"
                         >
                             <div class="relative h-48 overflow-hidden">
                                 <img
-                                    :src="post.image"
+                                    :src="postCoverImage(post)"
                                     :alt="post.title"
                                     class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                                 />
@@ -721,7 +726,7 @@ onUnmounted(() => {
                                         Featured
                                     </span>
                                     <span
-                                        class="inline-block rounded-full bg-primary-600 px-3 py-1 text-xs font-semibold text-white"
+                                        class="inline-block rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm"
                                     >
                                         {{ post.category }}
                                     </span>
@@ -759,16 +764,15 @@ onUnmounted(() => {
                                         </div>
                                         <span class="text-base font-medium text-gray-700 dark:text-gray-300">{{ post.author }}</span>
                                     </div>
-                                    <a
-                                        :href="post.link"
+                                    <span
                                         class="inline-flex items-center gap-1 text-base font-semibold text-primary-600 transition group-hover:gap-2 dark:text-primary-400"
                                     >
                                         Read more
                                         <span class="material-icons text-lg leading-none">arrow_forward</span>
-                                    </a>
+                                    </span>
                                 </div>
                             </div>
-                        </article>
+                        </Link>
                     </div>
 
                     <div class="mt-12 text-center">

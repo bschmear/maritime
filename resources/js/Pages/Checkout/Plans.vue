@@ -17,7 +17,20 @@ const props = defineProps({
         type: Number,
         default: null,
     },
+    seatPolicy: {
+        type: Object,
+        default: () => ({ included: 5, extra_monthly_price: 15 }),
+    },
 });
+
+const formatSeatPrice = (amount) => {
+    const n = Number(amount);
+    if (Number.isNaN(n)) {
+        return '15';
+    }
+
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+};
 
 const page = usePage();
 
@@ -132,6 +145,16 @@ const proceedToCart = () => {
                     </div>
                 </div>
 
+                <div
+                    class="mb-10 flex items-start justify-center gap-3 rounded-xl border border-primary-200/60 bg-primary-50/80 px-5 py-4 text-center dark:border-primary-800/60 dark:bg-primary-950/40 sm:px-6"
+                >
+                    <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
+                        <span class="font-semibold text-gray-900 dark:text-white">${{ formatSeatPrice(seatPolicy.extra_monthly_price) }}/month</span>
+                        per additional seat after {{ seatPolicy.included }} included seats.
+                    </p>
+                </div>
+
                 <!-- Plans Grid -->
                 <div class="mb-12 grid grid-cols-1 gap-8 md:grid-cols-3 lg:gap-6">
                     <div
@@ -227,11 +250,10 @@ const proceedToCart = () => {
                                 </ul>
                             </div>
 
-                            <!-- Seat Limit -->
-                            <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div class="mt-6 border-t border-gray-200 pt-6 dark:border-gray-700">
                                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                                    <span class="font-semibold">{{ plan.seat_limit }}</span>
-                                    {{ plan.seat_limit === 1 ? 'seat' : 'seats' }} included
+                                    <span class="font-semibold text-gray-900 dark:text-white">{{ plan.seat_limit ?? seatPolicy.included }}</span>
+                                    {{ (plan.seat_limit ?? seatPolicy.included) === 1 ? 'seat' : 'seats' }} included
                                 </p>
                             </div>
                         </div>

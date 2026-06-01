@@ -22,20 +22,8 @@ export default {
       current: 'currentColor',
       // Blues
       primary: colors.blue,
-      secondary: colors.purple,
-      tertiary: {
-        50:  '#ECFFFE',
-        100: '#D2FFFC',
-        200: '#A7FFF8',
-        300: '#73FAF2',
-        400: '#38F2EA',
-        500: '#17ECE3',
-        600: '#0EE7DF', 
-        700: '#0ABFB8',
-        800: '#089A95',
-        900: '#077572',
-        950: '#044644',
-      },
+      secondary: colors.emerald,
+      tertiary: colors.purple,
       lightblue: {
         DEFAULT: '#576CA8',
         50: '#EBEEF7',

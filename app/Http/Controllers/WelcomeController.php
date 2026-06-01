@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Faq;
 use App\Models\Plan;
 use App\Models\Post;
+use App\Support\BlogPlaceholder;
 use App\Support\PlanFeatureList;
 use App\Support\PublicPageCache;
 use App\Support\PublicPageMeta;
@@ -51,12 +52,13 @@ class WelcomeController extends Controller
                 return [
                     'id' => $post->id,
                     'slug' => $post->slug,
+                    'link' => route('blogPostShow', $post->slug),
                     'title' => $post->title,
                     'excerpt' => $post->short_description ?? Str::limit(strip_tags($post->body ?? ''), 150),
                     'date' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
                     'author' => $post->user->name ?? 'Anonymous',
                     'category' => $post->category->name ?? 'Uncategorized',
-                    'image' => $post->cover_image ?: 'https://images.unsplash.com/vector-1753704660095-8788aa5fa966?w=800&h=500&fit=crop',
+                    'image' => BlogPlaceholder::coverImage($post->cover_image),
                     'readTime' => $readTime.' min read',
                 ];
             })->values()->all();

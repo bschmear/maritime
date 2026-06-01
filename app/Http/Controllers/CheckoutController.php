@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\WorkspaceNavCache;
 use App\Support\PlanFeatureList;
+use App\Support\PlanSeatPolicy;
 use App\Support\PublicPageMeta;
 use Exception;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class CheckoutController extends Controller
                 'selectedPlanId' => $selectedPlanId ? (int) $selectedPlanId : null,
                 'billingCycle' => $billingCycle,
                 'prefilled_existing_account_id' => $prefilledExistingAccountId,
+                'seatPolicy' => PlanSeatPolicy::forMarketing(),
             ],
         ));
     }

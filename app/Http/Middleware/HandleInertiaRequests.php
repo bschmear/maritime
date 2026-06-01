@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Domain\Delivery\Models\Delivery;
 use App\Models\AccountSettings;
 use App\Services\TenantStaffResolver;
+use App\Support\BlogPlaceholder;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
 use Illuminate\Http\Request;
@@ -109,6 +110,7 @@ class HandleInertiaRequests extends Middleware
             'csrf_token' => fn () => csrf_token(),
             'app' => [
                 'name' => config('app.name'),
+                'blogPlaceholderImage' => BlogPlaceholder::url(),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

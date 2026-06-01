@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Support\BlogPlaceholder;
 use App\Support\PublicPageMeta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -162,7 +163,7 @@ class BlogController extends Controller
             'title' => $post->title,
             'body' => $post->body,
             'short_description' => $post->short_description,
-            'cover_image' => $post->cover_image,
+            'cover_image' => BlogPlaceholder::coverImage($post->cover_image),
             'published_at' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
             'published_at_iso' => ($post->published_at ?? $post->created_at)?->toIso8601String(),
             'updated_at' => $post->updated_at && $post->updated_at->gt($post->published_at ?? $post->created_at)
@@ -204,7 +205,7 @@ class BlogController extends Controller
             'title' => $post->title,
             'slug' => $post->slug,
             'excerpt' => $post->short_description ?? Str::limit(strip_tags($post->body ?? ''), 150),
-            'cover_image' => $post->cover_image ?: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=500&fit=crop',
+            'cover_image' => BlogPlaceholder::coverImage($post->cover_image),
             'published_at' => $post->published_at ? $post->published_at->format('F j, Y') : $post->created_at->format('F j, Y'),
             'author' => $post->user->name ?? 'Anonymous',
             'category' => $post->category ? [

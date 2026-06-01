@@ -105,7 +105,7 @@ defineProps({
                             />
                             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             <div v-if="post.category" class="absolute top-4 left-4">
-                                <span class="inline-block rounded-full bg-secondary-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md">
+                                <span class="inline-block rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
                                     {{ post.category.name }}
                                 </span>
                             </div>
