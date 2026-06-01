@@ -134,7 +134,7 @@ class PostController extends Controller
 
     public function destroy(Post $post): RedirectResponse
     {
-        PostCoverImageStorage::deleteIfStoredLocally($post->cover_image);
+        PostCoverImageStorage::deleteIfStored($post->cover_image);
 
         $post->delete();
 
@@ -177,7 +177,7 @@ class PostController extends Controller
         } elseif (! empty($validated['cover_image'] ?? null)) {
             $path = (string) $validated['cover_image'];
             if ($previousCover && $path !== $previousCover) {
-                PostCoverImageStorage::deleteIfStoredLocally($previousCover);
+                PostCoverImageStorage::deleteIfStored($previousCover);
             }
         } else {
             unset($validated['cover_image']);

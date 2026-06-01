@@ -19,6 +19,7 @@
 /public/manifest.webmanifest
 /public/hot
 /public/storage
+/public/posts
 /storage/*.key
 /storage/pail
 /vendor
