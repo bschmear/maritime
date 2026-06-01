@@ -1,8 +1,19 @@
 <?php
 
+use App\Http\Middleware\ClearPwaModeCookie;
+use App\Http\Middleware\EnsureActiveWorkspaceSubscription;
+use App\Http\Middleware\EnsureCentralEmailVerified;
+use App\Http\Middleware\EnsureKioskAdmin;
+use App\Http\Middleware\EnsureKioskDomain;
+use App\Http\Middleware\EnsureTenantAccess;
+use App\Http\Middleware\EnsureTicketSupportAccess;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RedirectUnauthenticatedFromTenant;
+use App\Http\Middleware\ValidatePortalToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -51,9 +62,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            \App\Http\Middleware\ClearPwaModeCookie::class,
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            ClearPwaModeCookie::class,
+            HandleInertiaRequests::class,
+            EnsureCentralEmailVerified::class,
+            AddLinkHeadersForPreloadedAssets::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [
@@ -61,13 +73,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'stripe/connect-webhook',
         ]);
         $middleware->alias([
-            'kiosk.domain' => \App\Http\Middleware\EnsureKioskDomain::class,
-            'kiosk.admin' => \App\Http\Middleware\EnsureKioskAdmin::class,
-            'tenant.access' => \App\Http\Middleware\EnsureTenantAccess::class,
-            'workspace.subscription' => \App\Http\Middleware\EnsureActiveWorkspaceSubscription::class,
-            'redirect.unauthenticated' => \App\Http\Middleware\RedirectUnauthenticatedFromTenant::class,
-            'portal.token' => \App\Http\Middleware\ValidatePortalToken::class,
-            'ticket.support' => \App\Http\Middleware\EnsureTicketSupportAccess::class,
+            'kiosk.domain' => EnsureKioskDomain::class,
+            'kiosk.admin' => EnsureKioskAdmin::class,
+            'tenant.access' => EnsureTenantAccess::class,
+            'workspace.subscription' => EnsureActiveWorkspaceSubscription::class,
+            'redirect.unauthenticated' => RedirectUnauthenticatedFromTenant::class,
+            'portal.token' => ValidatePortalToken::class,
+            'ticket.support' => EnsureTicketSupportAccess::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
@@ -107,11 +119,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 }
             }
 
-            if ($request->isPwa() && ($user = $request->user('web'))) {
-                if ($user->email_verified_at === null) {
-                    return '/verify-email';
-                }
+            $user = $request->user('web');
+            if ($user && $user->email_verified_at === null) {
+                return route('verification.notice', absolute: false);
+            }
 
+            if ($request->isPwa() && $user) {
                 return '/dashboard?pwa=1';
             }
 

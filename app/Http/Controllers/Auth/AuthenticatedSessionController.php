@@ -55,6 +55,8 @@ class AuthenticatedSessionController extends Controller
             $url = route('invitations.show', [
                 'token' => $request->input('invitation_token'),
             ], absolute: true);
+        } elseif ($request->user('web')?->hasVerifiedEmail() === false) {
+            $url = route('verification.notice', absolute: true);
         } else {
             $url = redirect()->intended(route('dashboard', absolute: true))->getTargetUrl();
         }

@@ -55,6 +55,6 @@ class RegisteredUserController extends Controller
         Auth::login($user);
 
         // Full document navigation so CSRF meta/cookie matches the new session (avoids 419 on subsequent POSTs).
-        return Inertia::location(route('dashboard', absolute: true));
+        return Inertia::location(route('verification.notice', absolute: true));
     }
 }
