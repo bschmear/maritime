@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Faq;
 use App\Models\Plan;
+use App\Models\PricingSetting;
 use App\Models\Post;
 use App\Support\BlogPlaceholder;
 use App\Support\PlanFeatureList;
@@ -95,6 +96,7 @@ class WelcomeController extends Controller
             [
                 'blogPosts' => $blogPosts,
                 'pricingPlans' => $plans,
+                'allTiers' => PricingSetting::allTiersSection(),
                 'seatPolicy' => PlanSeatPolicy::forMarketing(),
                 'faqs' => $faqs,
             ],

@@ -1,5 +1,6 @@
 <script setup>
 import PlanAllTiersIncluded from '@/Components/Marketing/PlanAllTiersIncluded.vue';
+import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
 import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -127,8 +128,18 @@ const proceedToCart = () => {
                 >
                     {{ planCheckoutError }}
                 </div>
-                <!-- Billing Toggle -->
-                <div class="mb-12 flex justify-center">
+
+
+                <PlanAllTiersIncluded
+                    :title="allTiers.title"
+                    :subtitle="allTiers.subtitle"
+                    :features="allTiers.features"
+                    embedded
+                />
+
+
+
+                <div class="mb-12 mt-10 flex justify-center">
                     <div class="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                         <button
                             type="button"
@@ -158,17 +169,7 @@ const proceedToCart = () => {
                     </div>
                 </div>
 
-                <div
-                    class="mb-10 flex items-start justify-center gap-3 rounded-xl border border-primary-200/60 bg-primary-50/80 px-5 py-4 text-center dark:border-primary-800/60 dark:bg-primary-950/40 sm:px-6"
-                >
-                    <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
-                    <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
-                        <span class="font-semibold text-gray-900 dark:text-white"
-                            >${{ formatSeatPrice(seatPolicy.extra_monthly_price) }}/month</span
-                        >
-                        per additional seat after included seats.
-                    </p>
-                </div>
+
 
                 <!-- Plans Grid -->
                 <div :class="pricingGridClass">
@@ -274,6 +275,18 @@ const proceedToCart = () => {
                     </div>
                 </div>
 
+                <div
+                    class="mb-10 flex items-start justify-center gap-3 rounded-xl border border-primary-200/60 bg-primary-50/80 px-5 py-4 text-center dark:border-primary-800/60 dark:bg-primary-950/40 sm:px-6"
+                >
+                    <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
+                        <span class="font-semibold text-gray-900 dark:text-white"
+                            >${{ formatSeatPrice(seatPolicy.extra_monthly_price) }}/month</span
+                        >
+                        per additional seat after included seats.
+                    </p>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="flex flex-wrap justify-center gap-4">
                     <Link
@@ -298,10 +311,15 @@ const proceedToCart = () => {
                 </div>
             </div>
 
-            <PlanAllTiersIncluded
-                :title="allTiers.title"
-                :subtitle="allTiers.subtitle"
-                :features="allTiers.features"
+            <FeaturePageCta
+                badge="Get started"
+                badge-icon="rocket_launch"
+                title="Ready to see it in action?"
+                description="Talk with our team about how Helmful fits your dealership or start with pricing."
+                primary-label="Contact us"
+                primary-route="contact"
+                secondary-label="View pricing"
+                secondary-route="checkout.plans"
             />
         </div>
     </AppLayout>

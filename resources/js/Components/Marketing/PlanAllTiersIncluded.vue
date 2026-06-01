@@ -6,6 +6,8 @@ const props = defineProps({
     subtitle: { type: String, default: '' },
     features: { type: Array, default: () => [] },
     sectionId: { type: String, default: 'plan-features' },
+    /** When true, omit full-bleed band styles (for use inside an existing pricing section). */
+    embedded: { type: Boolean, default: false },
 });
 
 const normalizedFeatures = computed(() =>
@@ -28,11 +30,21 @@ const normalizedFeatures = computed(() =>
     <section
         v-if="normalizedFeatures.length > 0"
         :id="sectionId"
-        class="w-full scroll-mt-24 border-t border-gray-200 bg-gray-50 py-16 dark:border-gray-800 dark:bg-gray-900/50"
+        :class="[
+            'w-full scroll-mt-24',
+            embedded
+                ? 'py-10 sm:py-12'
+                : 'border-t border-gray-200 bg-gray-50 py-16 dark:border-gray-800 dark:bg-gray-900/50',
+        ]"
     >
-        <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div :class="embedded ? 'w-full' : 'mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8'">
             <div class="text-center">
-                <h2 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+                <h2
+                    :class="[
+                        'font-bold tracking-tight text-gray-900 dark:text-white',
+                        embedded ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl',
+                    ]"
+                >
                     {{ title }}
                 </h2>
                 <p v-if="subtitle" class="mt-3 text-lg text-gray-600 dark:text-gray-400">
@@ -40,7 +52,12 @@ const normalizedFeatures = computed(() =>
                 </p>
             </div>
 
-            <ul class="mt-12 grid w-full grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            <ul
+                :class="[
+                    'grid w-full grid-cols-1 gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3',
+                    embedded ? 'mt-8' : 'mt-12',
+                ]"
+            >
                 <li
                     v-for="feature in normalizedFeatures"
                     :key="feature.title"

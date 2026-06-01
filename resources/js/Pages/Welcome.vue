@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import PlanAllTiersIncluded from '@/Components/Marketing/PlanAllTiersIncluded.vue';
+import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
 import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { usePwaLinks } from '@/composables/usePwaLinks';
@@ -91,6 +93,10 @@ const props = defineProps({
     canRegister:  { type: Boolean },
     blogPosts:    { type: Array, default: () => [] },
     pricingPlans: { type: Array, default: () => [] },
+    allTiers: {
+        type: Object,
+        default: () => ({ title: 'All tiers include', subtitle: '', features: [] }),
+    },
     seatPolicy:   { type: Object, default: () => ({ included: 5 }) },
     faqs:         { type: Array, default: () => [] },
     heroHighlights: {
@@ -618,8 +624,20 @@ onUnmounted(() => {
                         <p class="text-xl leading-relaxed text-gray-600 dark:text-gray-300">
                             Flexible pricing for boat dealerships of all sizes. Start free and scale as you grow.
                         </p>
+                    </div>
 
-                        <div class="mt-10 inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div class="mt-6">
+                        <PlanAllTiersIncluded
+                            :title="allTiers.title"
+                            :subtitle="allTiers.subtitle"
+                            :features="allTiers.features"
+                            section-id="plan-features"
+                            embedded
+                        />
+                    </div>
+
+                    <div class="mt-10 flex justify-center">
+                        <div class="inline-flex items-center rounded-full border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                             <button
                                 type="button"
                                 class="rounded-full px-6 py-2 text-base font-semibold transition"
@@ -741,8 +759,25 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <div class="mt-16 text-center">
-                        <p class="text-base text-gray-600 dark:text-gray-400">
+                    <div
+                    class="flex justify-center  mt-16"
+                    >
+
+                    <div
+                    class=" flex items-start justify-center gap-3 rounded-xl border border-primary-200/60 bg-primary-50/80 px-5 py-4 text-center dark:border-primary-800/60 dark:bg-primary-950/40 sm:px-6"
+                    >
+                        <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
+                        <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
+                            <span class="font-semibold text-gray-900 dark:text-white"
+                                >$15/month</span
+                            >
+                            per additional seat after included seats.
+                        </p>
+                    </div>
+                    </div>
+
+                    <div class="mt-10 text-center">
+                        <p class="text-base text-gray-600 dark:text-gray-400 font-bold">
                             All plans include a 14-day free trial. No credit card required.
                         </p>
                         <div class="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-6">
@@ -935,6 +970,17 @@ onUnmounted(() => {
                     </div>
                 </div>
             </section>
+
+            <FeaturePageCta
+                badge="Get started"
+                badge-icon="rocket_launch"
+                title="Ready to see it in action?"
+                description="Talk with our team about how Helmful fits your dealership or start with pricing."
+                primary-label="Contact us"
+                primary-route="contact"
+                secondary-label="View pricing"
+                secondary-route="checkout.plans"
+            />
         </div>
     </AppLayout>
 </template>

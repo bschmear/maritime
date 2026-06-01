@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -162,6 +163,16 @@ const rest = computed(() => props.faqs.filter((f) => !f.featured));
                 </div>
             </section>
 
+            <FeaturePageCta
+                badge="Get started"
+                badge-icon="rocket_launch"
+                title="Ready to see it in action?"
+                description="Talk with our team about how Helmful fits your dealership or start with pricing."
+                primary-label="Contact us"
+                primary-route="contact"
+                secondary-label="View pricing"
+                secondary-route="checkout.plans"
+            />
         </div>
     </AppLayout>
 </template>

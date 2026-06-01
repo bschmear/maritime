@@ -203,9 +203,9 @@ const submit = () => {
                 <!-- Terms Text -->
                 <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
                     By creating an account, you agree to our
-                    <a href="#" class="text-secondary-600 dark:text-secondary-400 hover:underline">Terms of Service</a>
+                    <Link :href="route('terms')" class="text-secondary-600 dark:text-secondary-400 hover:underline">Terms of Service</Link>
                     and
-                    <a href="#" class="text-secondary-600 dark:text-secondary-400 hover:underline">Privacy Policy</a>
+                    <Link :href="route('privacy-policy')" class="text-secondary-600 dark:text-secondary-400 hover:underline">Privacy Policy</Link>
                 </p>
             </div>
         </div>

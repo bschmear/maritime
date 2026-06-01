@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
+import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
 import { Head } from '@inertiajs/vue3';
 
 defineProps({
@@ -334,26 +335,17 @@ const marineItems = [
                 </div>
             </section>
 
-            <!-- Closing CTA -->
-            <section class="border-b border-gray-200 bg-gray-50 px-6 py-24 text-center dark:border-gray-800 dark:bg-gray-950 sm:px-12 lg:px-24">
-                <div class="mx-auto max-w-3xl">
-                    <span class="material-icons mb-6 text-5xl leading-none text-secondary-600 dark:text-secondary-400">sailing</span>
-                    <h2 class="mb-4 text-4xl font-bold leading-tight tracking-tight text-gray-950 dark:text-white sm:text-5xl">
-                        Helmful is just getting started
-                    </h2>
-                    <p class="mb-10 text-xl leading-relaxed text-gray-600 dark:text-gray-300">
-                        Built for boat dealerships that are ready to run tighter, faster, and smarter.
-                    </p>
-                    <a
-                        href="#"
-                        class="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-8 py-4 text-base font-semibold text-white shadow-md transition hover:bg-primary-700"
-                    >
-                        <span class="material-icons text-base leading-none">rocket_launch</span>
-                        Modernize your dealership
-                    </a>
-                </div>
-            </section>
 
+            <FeaturePageCta
+                badge="Get started"
+                badge-icon="rocket_launch"
+                title="Ready to see it in action?"
+                description="Talk with our team about how Helmful fits your dealership or start with pricing."
+                primary-label="Contact us"
+                primary-route="contact"
+                secondary-label="View pricing"
+                secondary-route="checkout.plans"
+            />
         </div>
     </AppLayout>
 </template>
