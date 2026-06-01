@@ -10,29 +10,12 @@ import PwaInstallInstructionsModal from '@/Components/PwaInstallInstructionsModa
 import { Link, usePage } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
 import { usePwaInstall } from '@/composables/usePwaInstall';
+import { usePwaLinks } from '@/composables/usePwaLinks';
 import { featuresMegaMenuGroups, featuresNavRouteNames } from '@/data/marketingFeatures';
 
 const page = usePage();
 const pwa = computed(() => Boolean(page.props.pwa));
-const pwaForLinks = computed(() => {
-    if (pwa.value) {
-        return true;
-    }
-    if (typeof window === 'undefined') {
-        return false;
-    }
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-        return true;
-    }
-    if (window.matchMedia('(display-mode: window-controls-overlay)').matches) {
-        return true;
-    }
-    if (typeof window.navigator.standalone === 'boolean' && window.navigator.standalone) {
-        return true;
-    }
-
-    return false;
-});
+const { pwaForLinks, externalLinkTarget, externalLinkRel } = usePwaLinks();
 
 const showingNavigationDropdown = ref(false);
 const featuresMegaOpen = ref(false);
@@ -70,8 +53,6 @@ const getTenantUrl = (domain) => {
 
     return `${window.location.protocol}//${domain}`;
 };
-
-const workspaceExternalRel = computed(() => (pwaForLinks.value ? undefined : 'noopener noreferrer'));
 
 /** Public + marketing routes (aligned with Footer / web.php). */
 const primaryNavLinks = [
@@ -288,8 +269,8 @@ onUnmounted(() => {
                     <a
                         v-if="isAuthenticated() && singleWorkspace?.domain"
                         :href="getTenantUrl(singleWorkspace.domain)"
-                        :target="pwaForLinks ? '_self' : '_blank'"
-                        :rel="workspaceExternalRel"
+                        :target="externalLinkTarget"
+                        :rel="externalLinkRel"
                         class="inline-flex items-center gap-2 rounded-lg bg-gray-800 px-3 py-1.5 text-sm font-bold text-white shadow-sm transition hover:bg-gray-700 hover:text-white"
                         :class="workspaceLinkClass"
                     >
@@ -330,8 +311,8 @@ onUnmounted(() => {
                                 <a
                                     v-if="ws.domain"
                                     :href="getTenantUrl(ws.domain)"
-                                    :target="pwaForLinks ? '_self' : '_blank'"
-                                    :rel="workspaceExternalRel"
+                                    :target="externalLinkTarget"
+                                    :rel="externalLinkRel"
                                     class="block w-full truncate px-4 py-2 text-start text-sm leading-5 text-gray-700 transition duration-150 ease-in-out hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:bg-gray-700"
                                 >
                                     {{ ws.name }}
@@ -586,8 +567,8 @@ onUnmounted(() => {
                             <a
                                 v-if="ws.domain"
                                 :href="getTenantUrl(ws.domain)"
-                                :target="pwaForLinks ? '_self' : '_blank'"
-                                :rel="workspaceExternalRel"
+                                :target="externalLinkTarget"
+                                :rel="externalLinkRel"
                                 class="block w-full border-l-4 border-transparent ps-3 pe-4 py-2 text-start text-base font-medium text-gray-600 transition duration-150 ease-in-out hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 focus:bg-gray-50 focus:outline-none dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
                                 @click="closeMobileMenu"
                             >

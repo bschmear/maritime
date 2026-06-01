@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { usePwaLinks } from '@/composables/usePwaLinks';
 
 defineProps({
     accounts: {
@@ -15,14 +16,7 @@ defineProps({
 });
 
 const pwa = computed(() => Boolean(usePage().props.pwa));
-const pwaForLinks = computed(() => {
-    if (pwa.value) return true;
-    if (typeof window === 'undefined') return false;
-    if (window.matchMedia('(display-mode: standalone)').matches) return true;
-    if (window.matchMedia('(display-mode: window-controls-overlay)').matches) return true;
-    if (typeof window.navigator.standalone === 'boolean' && window.navigator.standalone) return true;
-    return false;
-});
+const { pwaForLinks, externalLinkTarget, externalLinkRel } = usePwaLinks();
 
 const showModal = ref(false);
 const modalType = ref('success');
@@ -310,8 +304,8 @@ const cancelAccount = (account) => {
                                     <a
                                         v-if="accounts[0].domain"
                                         :href="getTenantUrl(accounts[0].domain)"
-                                        :target="pwaForLinks ? '_self' : '_blank'"
-                                        :rel="pwaForLinks ? null : 'noopener noreferrer'"
+                                        :target="externalLinkTarget"
+                                        :rel="externalLinkRel"
                                         class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-500"
                                     >
                                         <span class="material-icons text-base leading-none">rocket_launch</span>
@@ -390,8 +384,8 @@ const cancelAccount = (account) => {
                                     <a
                                         v-if="account.domain"
                                         :href="getTenantUrl(account.domain)"
-                                        :target="pwaForLinks ? '_self' : '_blank'"
-                                        :rel="pwaForLinks ? null : 'noopener noreferrer'"
+                                        :target="externalLinkTarget"
+                                        :rel="externalLinkRel"
                                         class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-500"
                                     >
                                         Open

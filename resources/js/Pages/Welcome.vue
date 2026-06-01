@@ -3,10 +3,84 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { usePwaLinks } from '@/composables/usePwaLinks';
+
+const page = usePage();
+const { pwaForLinks, externalLinkTarget, externalLinkRel } = usePwaLinks();
 
 const billingCycle = ref('monthly');
-const page = usePage();
 const blogPlaceholderImage = computed(() => page.props.app?.blogPlaceholderImage ?? '');
+
+const authUser = computed(() => page.props.auth?.user ?? null);
+const isLoggedIn = computed(() => Boolean(authUser.value));
+const workspaceNav = computed(() => page.props.workspace_nav ?? []);
+const hasActiveWorkspace = computed(() => workspaceNav.value.length > 0);
+const singleWorkspace = computed(() =>
+    workspaceNav.value.length === 1 ? workspaceNav.value[0] : null,
+);
+
+const welcomeFirstName = computed(() => {
+    const user = authUser.value;
+    if (!user) {
+        return '';
+    }
+    const first = String(user.first_name ?? '').trim();
+    if (first) {
+        return first;
+    }
+    const name = String(user.name ?? '').trim();
+    if (name) {
+        return name.split(/\s+/)[0];
+    }
+
+    return 'there';
+});
+
+const loggedInHeroHighlights = [
+    {
+        icon: 'rocket_launch',
+        title: 'Jump back in',
+        description: 'Open your dealership workspace and pick up leads, service, and deals where you left off.',
+    },
+    {
+        icon: 'groups',
+        title: 'Your team & seats',
+        description: 'Invite staff, adjust roles, and keep everyone working from the same system.',
+    },
+    {
+        icon: 'settings',
+        title: 'Billing & workspaces',
+        description: 'Manage subscriptions, switch plans, and open any workspace you belong to.',
+    },
+];
+
+const displayedHeroHighlights = computed(() =>
+    isLoggedIn.value ? loggedInHeroHighlights : props.heroHighlights,
+);
+
+const getTenantUrl = (domain) => {
+    if (!domain) {
+        return null;
+    }
+    if (typeof window === 'undefined') {
+        return `https://${domain}`;
+    }
+
+    return `${window.location.protocol}//${domain}`;
+};
+
+const openAppHref = computed(() => {
+    if (singleWorkspace.value?.domain) {
+        return getTenantUrl(singleWorkspace.value.domain);
+    }
+    if (hasActiveWorkspace.value) {
+        return route('dashboard');
+    }
+
+    return null;
+});
+
+const openAppIsExternal = computed(() => Boolean(singleWorkspace.value?.domain));
 
 const pricingFeaturesUrl = `${route('checkout.plans')}#plan-features`;
 
@@ -220,21 +294,41 @@ onUnmounted(() => {
                      px-4 py-2
                      text-xs font-mono uppercase tracking-[0.15em]
                      text-primary-600 dark:text-primary-400">
-             <span class="material-icons text-sm leading-none">anchor</span>
-             <span>Boat Dealership CRM</span>
+             <span class="material-icons text-sm leading-none">{{ isLoggedIn ? 'waving_hand' : 'anchor' }}</span>
+             <span>{{ isLoggedIn ? 'Welcome back' : 'Boat Dealership Platform' }}</span>
          </div>
 
-         <h1 class="mb-6  font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white text-3xl sm:text-5xl lg:text-6xl">
-            Run your dealership,<br />
-            <span class="text-primary-600 dark:text-primary-400">from lead to close</span>
-        </h1>
+         <h1
+             v-if="isLoggedIn"
+             class="mb-6 font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white text-3xl sm:text-5xl lg:text-6xl"
+         >
+             Welcome back,<br />
+             <span class="text-primary-600 dark:text-primary-400">{{ welcomeFirstName }}</span>
+         </h1>
+         <h1
+             v-else
+             class="mb-6 font-black leading-[1.06] tracking-tight text-gray-950 dark:text-white text-3xl sm:text-5xl lg:text-6xl"
+         >
+             Run your dealership,<br />
+             <span class="text-primary-600 dark:text-primary-400">from lead to close</span>
+         </h1>
 
-        <p class="max-w-lg text-lg lg:text-xl leading-relaxed text-gray-600 dark:text-gray-400">
-            Track leads, manage inventory, handle service, and close deals — all in one system built specifically for boat dealerships. No spreadsheets. No disconnected tools.
-        </p>
+         <p v-if="isLoggedIn" class="max-w-lg text-lg lg:text-xl leading-relaxed text-gray-600 dark:text-gray-400">
+             <template v-if="hasActiveWorkspace">
+                 Your Helmful workspace{{ singleWorkspace ? ` (${singleWorkspace.name})` : 's' }} {{ singleWorkspace ? 'is' : 'are' }} ready. Open the app to run the floor, or manage billing and team access from your account.
+             </template>
+             <template v-else>
+                 You are signed in. Head to your account dashboard to create a workspace, accept a team invitation, or choose a plan to get started.
+             </template>
+         </p>
+         <p v-else class="max-w-lg text-lg lg:text-xl leading-relaxed text-gray-600 dark:text-gray-400">
+             Track leads, manage inventory, handle service, and close deals — all in one system built specifically for boat dealerships. No spreadsheets. No disconnected tools.
+         </p>
 
 
-        <div class="mt-7 grid grid-cols-2
+        <div
+            v-if="!isLoggedIn"
+            class="mt-7 grid grid-cols-2
             rounded-md
             bg-gray-400/8 dark:bg-white/5
             backdrop-blur-sm
@@ -276,28 +370,64 @@ onUnmounted(() => {
 
          <!-- CTAs -->
          <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-             <Link
-                 :href="route('checkout.plans')"
-                 class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm lg:text-md font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
-             >
-                 <span>Start free trial</span>
-                 <span class="material-icons text-base leading-none">arrow_forward</span>
-             </Link>
-             <!-- Secondary CTA — glassmorphism blur button -->
-             <Link
-                 :href="route('contact')"
-                 class="inline-flex items-center justify-center gap-2 rounded-md
-                        bg-white/60 dark:bg-white/5
-                        backdrop-blur-sm
-                        border border-gray-300/70 dark:border-gray-600/50
-                        px-8 py-4
-                        text-sm lg:text-md font-bold uppercase tracking-wide
-                        text-gray-700 dark:text-gray-300
-                        transition hover:bg-white/80 dark:hover:bg-white/10 hover:border-primary-400 hover:text-primary-700 dark:hover:border-primary-600 dark:hover:text-white"
-             >
-                 <span class="material-icons text-base leading-none">call</span>
-                 <span>Talk to our team</span>
-             </Link>
+             <template v-if="isLoggedIn">
+                 <a
+                     v-if="hasActiveWorkspace && openAppHref && openAppIsExternal"
+                     :href="openAppHref"
+                     :target="externalLinkTarget"
+                     :rel="externalLinkRel"
+                     class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm lg:text-md font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
+                 >
+                     <span class="material-icons text-base leading-none">rocket_launch</span>
+                     <span>Open app</span>
+                     <span v-if="!pwaForLinks" class="material-icons text-base leading-none opacity-80">open_in_new</span>
+                 </a>
+                 <Link
+                     v-else-if="hasActiveWorkspace && openAppHref"
+                     :href="openAppHref"
+                     class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm lg:text-md font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
+                 >
+                     <span class="material-icons text-base leading-none">rocket_launch</span>
+                     <span>Open app</span>
+                 </Link>
+                 <Link
+                     :href="route('dashboard')"
+                     class="inline-flex items-center justify-center gap-2 rounded-md
+                            bg-white/60 dark:bg-white/5
+                            backdrop-blur-sm
+                            border border-gray-300/70 dark:border-gray-600/50
+                            px-8 py-4
+                            text-sm lg:text-md font-bold uppercase tracking-wide
+                            text-gray-700 dark:text-gray-300
+                            transition hover:bg-white/80 dark:hover:bg-white/10 hover:border-primary-400 hover:text-primary-700 dark:hover:border-primary-600 dark:hover:text-white"
+                 >
+                     <span class="material-icons text-base leading-none">manage_accounts</span>
+                     <span>Manage account</span>
+                 </Link>
+             </template>
+             <template v-else>
+                 <Link
+                     :href="route('checkout.plans')"
+                     class="inline-flex items-center justify-center gap-2 rounded-md bg-primary-600 px-8 py-4 text-sm lg:text-md font-bold uppercase tracking-wide text-white shadow-lg shadow-primary-200/60 dark:shadow-primary-900/40 transition hover:bg-primary-500"
+                 >
+                     <span>Start free trial</span>
+                     <span class="material-icons text-base leading-none">arrow_forward</span>
+                 </Link>
+                 <Link
+                     :href="route('contact')"
+                     class="inline-flex items-center justify-center gap-2 rounded-md
+                            bg-white/60 dark:bg-white/5
+                            backdrop-blur-sm
+                            border border-gray-300/70 dark:border-gray-600/50
+                            px-8 py-4
+                            text-sm lg:text-md font-bold uppercase tracking-wide
+                            text-gray-700 dark:text-gray-300
+                            transition hover:bg-white/80 dark:hover:bg-white/10 hover:border-primary-400 hover:text-primary-700 dark:hover:border-primary-600 dark:hover:text-white"
+                 >
+                     <span class="material-icons text-base leading-none">call</span>
+                     <span>Talk to our team</span>
+                 </Link>
+             </template>
          </div>
      </div>
 
@@ -314,7 +444,7 @@ onUnmounted(() => {
                      shadow-sm shadow-gray-200/50 dark:shadow-black/20">
 
              <div
-                 v-for="(item, idx) in heroHighlights"
+                 v-for="(item, idx) in displayedHeroHighlights"
                  :key="item.title"
                  :class="[ 'relative lg:pl-2', idx > 0 ? 'mt-6 border-t border-gray-200/70 dark:border-white/8 pt-6' : '', ]"
              >

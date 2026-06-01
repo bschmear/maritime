@@ -2,6 +2,7 @@ import '../css/app.css';
 import './bootstrap';
 import { registerSW } from 'virtual:pwa-register';
 import { formatPhoneNumber } from './Utils/formatPhoneNumber';
+import { installPwaSameTabLinks } from './composables/usePwaLinks';
 
 /**
  * Keep pwa_mode in sync with the actual display context.
@@ -27,6 +28,7 @@ function syncPwaModeCookie() {
 }
 
 syncPwaModeCookie();
+installPwaSameTabLinks();
 
 // Clean up any previously-registered service workers that don't match the current
 // build (e.g. an old vite-plugin-pwa dev SW at /build/dev-sw.js). A stale SW will
