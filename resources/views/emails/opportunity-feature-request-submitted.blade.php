@@ -30,7 +30,7 @@
     @endif
 
     <p style="margin: 0 0 24px;">
-        <a href="{{ $opportunityUrl }}" style="display: inline-block; background: #0369a1; color: #fff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-weight: 600;">Open opportunity</a>
+        <a href="{{ $opportunityUrl }}" style="display: inline-block; background: #000; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-weight: 600;">Open opportunity</a>
     </p>
 
     <p style="margin: 0; font-size: 13px; color: #6b7280;">

@@ -150,8 +150,8 @@ const proceedToCart = () => {
                 >
                     <span class="material-icons mt-0.5 hidden shrink-0 text-primary-600 dark:text-primary-400 sm:inline">group</span>
                     <p class="text-sm text-gray-700 dark:text-gray-300 sm:text-base">
-                        <span class="font-semibold text-gray-900 dark:text-white">${{ formatSeatPrice(seatPolicy.extra_monthly_price) }}/month</span>
-                        per additional seat after {{ seatPolicy.included }} included seats.
+                        <span class="font-semibold text-gray-900 dark:text-white">$15/month</span>
+                        per additional seat after included seats.
                     </p>
                 </div>
 

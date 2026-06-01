@@ -1,6 +1,8 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
+import { useCustomerApprovalDelivery } from '@/composables/useCustomerApprovalDelivery';
+import CustomerApprovalDeliveryModal from '@/Components/Tenant/CustomerApprovalDeliveryModal.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
@@ -35,10 +37,33 @@ const props = defineProps({
         type: String,
         default: 'create',
         validator: (value) => ['create', 'edit', 'show'].includes(value)
-    }
+    },
+    serviceTicketApprovalSms: {
+        type: Object,
+        default: () => ({ offered: false, hint: null }),
+    },
 });
 
-const emit = defineEmits(['saved', 'cancelled']);
+const emit = defineEmits(['saved', 'cancelled', 'approval-sent']);
+
+const customerApprovalEmail = computed(() => props.record?.customer?.email ?? '');
+
+const {
+    showModal: showApprovalDeliveryModal,
+    delivery: approvalDelivery,
+    sendForm: sendApprovalForm,
+    emailPreview: approvalEmailPreview,
+    modalSubtitle: approvalModalSubtitle,
+    deliveryError: approvalDeliveryError,
+    openModal: openApprovalDeliveryModal,
+    closeModal: closeApprovalDeliveryModal,
+    confirmSend: confirmSendApproval,
+} = useCustomerApprovalDelivery({
+    postRoute: (id) => route('servicetickets.send-approval-request', id),
+    recordId: () => props.record?.id,
+    customerEmail: customerApprovalEmail,
+    smsOffer: () => props.serviceTicketApprovalSms,
+});
 
 // Check if the service ticket has been approved/signed and cannot be edited
 const isLocked = computed(() => {
@@ -1066,33 +1091,23 @@ const saveTicket = () => {
 // Client Approval Actions
 // ==============================
 
-const sendApprovalRequest = async () => {
-    if (!confirm('Send approval request email to customer?')) {
-        return;
-    }
+const sendApprovalRequest = () => {
+    openApprovalDeliveryModal();
+};
 
-    try {
-        const response = await fetch(route('servicetickets.send-approval-request', props.record.id), {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-            },
-            credentials: 'same-origin',
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            alert('Approval request sent successfully!');
-        } else {
-            alert(data.message || 'Failed to send approval request');
-        }
-    } catch (error) {
-        console.error('Error sending approval request:', error);
-        alert('Failed to send approval request. Please try again.');
-    }
+const confirmSendApprovalRequest = () => {
+    confirmSendApproval({
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash?.success) {
+                emit('approval-sent', { success: flash.success });
+            }
+            const flashErr = flash?.error;
+            if (flashErr) {
+                emit('approval-sent', { error: Array.isArray(flashErr) ? flashErr[0] : flashErr });
+            }
+        },
+    });
 };
 
 const previewApprovalForm = async () => {
@@ -1154,15 +1169,9 @@ const handleCancel = () => {
                             </div>
 
                             <div class="p-6 space-y-6">
-                                <!-- Customer & Location / Ticket Details: show stacks until lg; edit uses md+ two columns -->
-                                <div
-                                    :class="[
-                                        'grid grid-cols-1 gap-6',
-                                        mode === 'show' ? 'lg:grid-cols-2' : 'md:grid-cols-2',
-                                    ]"
-                                >
+                                <!-- Customer & Location and Ticket Details as separate full-width sections -->
+                                <div class="space-y-6">
 
-                                    <!-- Left Column: Customer & Location -->
                                     <div class="space-y-4">
                                         <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                             Customer & Location
@@ -1361,8 +1370,7 @@ const handleCancel = () => {
                                         </div>
                                     </div>
 
-                                    <!-- Right Column: Ticket Details -->
-                                    <div class="space-y-4">
+                                    <div class="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-6">
                                         <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
                                             Ticket Details
                                         </h3>
@@ -1947,10 +1955,11 @@ const handleCancel = () => {
                                     <button
                                         @click="sendApprovalRequest"
                                         type="button"
+                                        :disabled="sendApprovalForm.processing"
                                         class="w-full inline-flex items-center justify-center px-3 py-2 text-md font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         <span class="material-icons text-md mr-2">email</span>
-                                        Send Approval Request
+                                        {{ sendApprovalForm.processing ? 'Sending…' : 'Send Approval Request' }}
                                     </button>
 
                                     <!-- Preview Approval Form -->
@@ -2292,4 +2301,17 @@ const handleCancel = () => {
             </div>
         </div>
     </div>
+
+    <CustomerApprovalDeliveryModal
+        v-model:delivery="approvalDelivery"
+        :show="showApprovalDeliveryModal"
+        title="Send for approval"
+        :subtitle="approvalModalSubtitle"
+        :email-preview="approvalEmailPreview"
+        :sms-offer="serviceTicketApprovalSms"
+        :delivery-error="approvalDeliveryError"
+        :processing="sendApprovalForm.processing"
+        @close="closeApprovalDeliveryModal"
+        @confirm="confirmSendApprovalRequest"
+    />
 </template>

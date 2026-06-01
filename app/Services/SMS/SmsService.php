@@ -7,6 +7,7 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User as TenantUser;
 use App\Enums\SMS;
 use App\Models\AccountSettings;
@@ -81,6 +82,58 @@ class SmsService
 
         if ($customer === null) {
             return ['offered' => false, 'hint' => 'This estimate has no customer to text.'];
+        }
+
+        $raw = $customer->mobile ?? $customer->phone ?? null;
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return [
+                'offered' => false,
+                'hint' => 'Add a mobile or phone number on the customer record to send SMS.',
+            ];
+        }
+
+        return ['offered' => true, 'hint' => null];
+    }
+
+    /**
+     * Whether the UI may offer “email + SMS” for service ticket approval sends.
+     *
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function serviceTicketApprovalSmsCanBeOffered(?Customer $customer, WebUser|TenantUser|null $authUser): array
+    {
+        if (! $this->tenantWantsSms(SMS::ServiceTicket)) {
+            return ['offered' => false, 'hint' => null];
+        }
+
+        if ($authUser === null) {
+            return ['offered' => false, 'hint' => 'Sign in to send SMS.'];
+        }
+
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            if ($tenantStaff === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'No staff user in this tenant matches your login email; create or link your staff profile to send sandbox SMS.',
+                ];
+            }
+
+            $to = $this->normalizePhoneForSms($tenantStaff->mobile_phone ?? $tenantStaff->office_phone ?? null);
+            if ($to === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'Sandbox mode sends texts to you: add a mobile or office phone on your staff user profile.',
+                ];
+            }
+
+            return ['offered' => true, 'hint' => null];
+        }
+
+        if ($customer === null) {
+            return ['offered' => false, 'hint' => 'This service ticket has no customer to text.'];
         }
 
         $raw = $customer->mobile ?? $customer->phone ?? null;
@@ -365,6 +418,35 @@ class SmsService
 
         $label = $estimate->display_name ?? 'Estimate';
         $message = "Your estimate {$label} is ready to review: {$reviewUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
+    /**
+     * Send a short SMS with the public service ticket review link.
+     */
+    public function sendServiceTicketApprovalSms(WebUser|TenantUser $authUser, ?Customer $customer, ServiceTicket $serviceTicket, string $reviewUrl): SmsResult
+    {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $customer?->mobile ?? $customer?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $number = $serviceTicket->service_ticket_number ?? $serviceTicket->id;
+        $message = "Service ticket #{$number} is ready to review: {$reviewUrl}";
         if (strlen($message) > 480) {
             $message = substr($message, 0, 477).'…';
         }

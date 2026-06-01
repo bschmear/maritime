@@ -5,16 +5,21 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\ServiceItem\Models\ServiceItem;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\ServiceTicket\Support\SyncServiceTicketCompletionToWorkOrders;
 use App\Domain\Transaction\Models\Transaction;
+use App\Enums\ServiceItem\BillingType;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ServiceTicketApprovalRequest;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use App\Services\ServiceTicketService;
+use App\Services\SMS\SmsService;
+use App\Support\ContactDocumentLinker;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
@@ -174,10 +179,10 @@ class ServiceTicketController extends BaseController
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $transactionId = $request->filled('transaction_id')
             ? (int) $request->get('transaction_id')
@@ -438,7 +443,21 @@ class ServiceTicketController extends BaseController
             $query->select(['id', 'title', 'sequence']);
         };
 
+        $formSchema = $this->getFormSchema();
+
+        if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
+            foreach ($formSchema['sublists'] as $sublist) {
+                if (isset($sublist['modelRelationship']) && ! isset($relationships[$sublist['modelRelationship']])) {
+                    $relationships[$sublist['modelRelationship']] = function ($query) {
+                        $query->select('*');
+                    };
+                }
+            }
+        }
+
         $record = ServiceTicket::with($relationships)->findOrFail($id);
+
+        ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
 
         $recordArray = $record->toArray();
         $recordArray['created_at'] = $record->created_at?->toISOString();
@@ -471,18 +490,22 @@ class ServiceTicketController extends BaseController
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
+
+        $smsService = app(SmsService::class);
+        $serviceTicketApprovalSms = $smsService->serviceTicketApprovalSmsCanBeOffered($record->customer, request()->user());
 
         return inertia('Tenant/ServiceTicket/Show', [
             'record' => $recordArray,
-            'formSchema' => $this->getFormSchema(),
+            'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
+            'serviceTicketApprovalSms' => $serviceTicketApprovalSms,
             'workOrders' => $record->workOrders->map(fn ($wo) => [
                 'id' => $wo->id,
                 'display_name' => $wo->display_name,
@@ -578,10 +601,10 @@ class ServiceTicketController extends BaseController
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/ServiceTicket/Edit', [
             'record' => $record,
@@ -633,7 +656,7 @@ class ServiceTicketController extends BaseController
         $perPage = $request->get('per_page', 10);
         $page = $request->get('page', 1);
 
-        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
+        $serviceItems = ServiceItem::query()
             ->where('inactive', false)
             ->select([
                 'id', 'display_name', 'code', 'description',
@@ -698,7 +721,7 @@ class ServiceTicketController extends BaseController
                         if ($domainName === 'Customer') {
                             $records = Customer::queryOrderedByContactDisplayName()->get();
                         } elseif ($domainName === 'AssetUnit') {
-                            $records = \App\Domain\AssetUnit\Models\AssetUnit::query()
+                            $records = AssetUnit::query()
                                 ->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
                                 ->with(['asset' => fn ($q) => $q->select(['id', 'display_name'])])
                                 ->orderBy('id')
@@ -728,45 +751,81 @@ class ServiceTicketController extends BaseController
     }
 
     /**
-     * Send service ticket approval request to customer via email
+     * Send service ticket approval request to customer via email and optional SMS.
      */
-    public function sendApprovalRequest($id, \App\Services\Mail\TenantMailService $tenantMail)
+    public function sendApprovalRequest(Request $request, $id, SmsService $smsService, TenantMailService $tenantMail)
     {
+        $validated = $request->validate([
+            'delivery' => 'required|string|in:email,email_sms',
+        ]);
+
         try {
-            $serviceTicket = ServiceTicket::findOrFail($id);
+            $serviceTicket = ServiceTicket::with([
+                'customer' => Customer::eagerWithContactSelect(['email', 'phone', 'mobile']),
+                'subsidiary',
+                'location',
+                'assetUnit',
+                'serviceItems',
+            ])->findOrFail($id);
 
-            $customerEmail = $serviceTicket->customer->email ?? null;
-
+            $customerEmail = $serviceTicket->customer?->email;
             $account = AccountSettings::getCurrent();
 
-            $approvalUrl = route('service-tickets.review', $serviceTicket->uuid);
-
-            $emailData = [
-                'service_ticket' => $serviceTicket->load([
-                    'customer',
-                    'subsidiary',
-                    'location',
-                    'assetUnit',
-                    'serviceItems',
-                ]),
-                'account' => $account,
-                'approval_url' => $approvalUrl,
-            ];
-
-            $mailable = new ServiceTicketApprovalRequest($emailData);
-
-            if (! $tenantMail->canSend($customerEmail, $mailable, request()->user())) {
-                return back()->with('error', $tenantMail->validationErrorMessage($mailable));
+            $tenant = tenant();
+            $domain = $tenant?->domains->first()?->domain;
+            if (! $domain) {
+                return back()->withErrors(['error' => 'Unable to resolve tenant domain.']);
             }
 
-            $tenantMail->send($customerEmail, $mailable, request()->user());
+            $approvalUrl = "https://{$domain}/service-tickets/{$serviceTicket->uuid}/review";
 
-            return back()->with('success', 'Approval request sent successfully to '.$tenantMail->displayRecipient($customerEmail, $mailable, request()->user()));
+            $mailable = new ServiceTicketApprovalRequest([
+                'service_ticket' => $serviceTicket,
+                'account' => $account,
+                'approval_url' => $approvalUrl,
+            ]);
 
+            if (! $tenantMail->canSend($customerEmail, $mailable, $request->user())) {
+                return back()->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);
+            }
+
+            if ($validated['delivery'] === 'email_sms') {
+                $offer = $smsService->serviceTicketApprovalSmsCanBeOffered($serviceTicket->customer, $request->user());
+                if (! $offer['offered']) {
+                    return back()->withErrors([
+                        'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                    ]);
+                }
+            }
+
+            $tenantMail->send($customerEmail, $mailable, $request->user());
+
+            $emailTarget = $tenantMail->displayRecipient($customerEmail, $mailable, $request->user());
+
+            $smsNote = '';
+            if ($validated['delivery'] === 'email_sms') {
+                $result = $smsService->sendServiceTicketApprovalSms(
+                    $request->user(),
+                    $serviceTicket->customer,
+                    $serviceTicket,
+                    $approvalUrl,
+                );
+                if (! $result->success && ($result->status ?? '') === 'not_implemented') {
+                    $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
+                } elseif (! $result->success) {
+                    return back()
+                        ->with('success', "Approval request sent to {$emailTarget}.")
+                        ->with('error', 'Email was sent, but SMS failed: '.($result->error ?? 'Unknown error'));
+                } else {
+                    $smsNote = ' A text message was also sent.';
+                }
+            }
+
+            return back()->with('success', 'Approval request sent successfully to '.$emailTarget.$smsNote);
         } catch (\Exception $e) {
             \Log::error('Failed to send approval request email: '.$e->getMessage());
 
-            return back()->with('error', 'Failed to send email. Please try again.');
+            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
     }
 

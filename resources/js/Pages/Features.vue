@@ -1,88 +1,13 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
+import { marketingFeatures as features } from '@/data/marketingFeatures';
 import { Head, Link } from '@inertiajs/vue3';
 
-const features = [
-    {
-        icon: 'person',
-        title: 'Leads & Contacts',
-        description: 'Capture, assign, and nurture leads with full contact history in one place.',
-        href: null,
-        category: 'Sales',
-    },
-    {
-        icon: 'handshake',
-        title: 'Deals & Estimates',
-        description: 'Build estimates, move deals through your pipeline, and close with confidence.',
-        href: null,
-        category: 'Sales',
-    },
-    {
-        icon: 'inventory_2',
-        title: 'Inventory Control',
-        description: 'Track boats, engines, and trailers across locations with rich specifications.',
-        href: null,
-        category: 'Operations',
-    },
-    {
-        icon: 'build',
-        title: 'Service Department',
-        description: 'Run service tickets and work orders tied to customers and inventory.',
-        href: 'features.service-department',
-        category: 'Operations',
-        featured: true,
-    },
-    {
-        icon: 'event',
-        title: 'Boat Shows & Events',
-        description: 'Plan show layouts, showcase inventory publicly, and capture leads on the floor.',
-        href: 'features.boat-shows',
-        category: 'Marketing',
-    },
-    {
-        icon: 'bar_chart',
-        title: 'Performance Tracking',
-        description: 'See how your team and locations are performing across sales and operations.',
-        href: 'features.performance-tracking',
-        category: 'Analytics',
-    },
-    {
-        icon: 'local_shipping',
-        title: 'Delivery System',
-        description: 'Plan routes, schedule deliveries, alert customers, and capture signatures on delivery day.',
-        href: 'features.delivery-system',
-        category: 'Operations',
-    },
-    {
-        icon: 'poll',
-        title: 'Smart Surveys',
-        description: 'Build feedback and lead surveys with templates, conditional logic, and responses tied to leads and contacts.',
-        href: 'features.smart-surveys',
-        category: 'Marketing',
-    },
-    {
-        icon: 'payments',
-        title: 'Stripe Payments',
-        description: 'Connect Stripe Express and let customers pay open invoices online by card or bank debit.',
-        href: 'features.stripe-payments',
-        category: 'Integrations',
-    },
-    {
-        icon: 'campaign',
-        title: 'Mailchimp',
-        description: 'Sync contacts and leads with Mailchimp audiences — push, pull, lists, and segments.',
-        href: 'features.mailchimp',
-        category: 'Integrations',
-    },
-    {
-        icon: 'account_balance',
-        title: 'QuickBooks Online',
-        description: 'Connect QuickBooks to sync customers, push invoices, and pull payments into Helmful.',
-        href: 'features.quickbooks',
-        category: 'Integrations',
-    },
-];
+const featureHref = (feature) =>
+    feature.routeName && route().has(feature.routeName) ? route(feature.routeName) : undefined;
+
+const hasFeatureLink = (feature) => Boolean(featureHref(feature));
 </script>
 
 <template>
@@ -149,10 +74,10 @@ const features = [
                             <component
                                 v-for="(feature, idx) in [features[0], features[1], features[2]]"
                                 :key="feature.title"
-                                :is="feature.href && route().has(feature.href) ? Link : 'div'"
-                                :href="feature.href && route().has(feature.href) ? route(feature.href) : undefined"
+                                :is="hasFeatureLink(feature) ? Link : 'div'"
+                                :href="featureHref(feature)"
                                 class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 dark:border-gray-800 dark:bg-gray-900"
-                                :class="feature.href && route().has(feature.href) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
+                                :class="hasFeatureLink(feature) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
                                 :style="{ animationDelay: `${idx * 100}ms` }"
                             >
                                 <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-primary-500/5"></div>
@@ -169,7 +94,7 @@ const features = [
 
                                     <!-- Link -->
                                     <div
-                                        v-if="feature.href && route().has(feature.href)"
+                                        v-if="hasFeatureLink(feature)"
                                         class="inline-flex items-center gap-2 text-primary-600 dark:text-primary-400 font-semibold text-sm group-hover:gap-3 transition-all"
                                     >
                                         Learn more
@@ -199,10 +124,10 @@ const features = [
                         <div class="grid gap-6 lg:grid-cols-3">
                             <!-- Featured card (spans 2 columns) -->
                             <component
-                                :is="features[3].href && route().has(features[3].href) ? Link : 'div'"
-                                :href="features[3].href && route().has(features[3].href) ? route(features[3].href) : undefined"
+                                :is="hasFeatureLink(features[3]) ? Link : 'div'"
+                                :href="featureHref(features[3])"
                                 class="group lg:col-span-2 relative overflow-hidden rounded-2xl border border-secondary-200 bg-secondary-50 dark:border-secondary-900 dark:bg-secondary-950/30 p-8 lg:p-10 transition-all duration-300 ring-1 ring-secondary-100 dark:ring-secondary-900"
-                                :class="features[3].href && route().has(features[3].href) ? 'hover:border-secondary-400 hover:shadow-lg dark:hover:border-secondary-700 dark:hover:ring-secondary-800' : ''"
+                                :class="hasFeatureLink(features[3]) ? 'hover:border-secondary-400 hover:shadow-lg dark:hover:border-secondary-700 dark:hover:ring-secondary-800' : ''"
                                 style="animation-delay: 100ms"
                             >
                                 <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-secondary-500/5"></div>
@@ -217,7 +142,7 @@ const features = [
                                         <p class="text-gray-600 dark:text-gray-300 leading-relaxed text-lg mb-6 whitespace-normal">{{ features[3].description }}</p>
 
                                         <div
-                                            v-if="features[3].href && route().has(features[3].href)"
+                                            v-if="hasFeatureLink(features[3])"
                                             class="inline-flex items-center gap-2 text-secondary-600 dark:text-secondary-400 font-semibold group-hover:gap-3 transition-all"
                                         >
                                             Explore feature
@@ -241,10 +166,10 @@ const features = [
                             <component
                                 v-for="(feature, idx) in [features[4], features[5], features[6], features[7]]"
                                 :key="feature.title"
-                                :is="feature.href && route().has(feature.href) ? Link : 'div'"
-                                :href="feature.href && route().has(feature.href) ? route(feature.href) : undefined"
+                                :is="hasFeatureLink(feature) ? Link : 'div'"
+                                :href="featureHref(feature)"
                                 class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 dark:border-gray-800 dark:bg-gray-900"
-                                :class="feature.href && route().has(feature.href) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
+                                :class="hasFeatureLink(feature) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
                                 :style="{ animationDelay: `${200 + idx * 100}ms` }"
                             >
                                 <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-primary-500/5"></div>
@@ -258,7 +183,7 @@ const features = [
                                     <p class="text-gray-600 dark:text-gray-400 leading-relaxed mb-4 whitespace-normal">{{ feature.description }}</p>
 
                                     <div
-                                        v-if="feature.href && route().has(feature.href)"
+                                        v-if="hasFeatureLink(feature)"
                                         class="inline-flex items-center gap-2 text-primary-600 dark:text-primary-400 font-semibold text-sm group-hover:gap-3 transition-all"
                                     >
                                         Learn more
@@ -290,10 +215,10 @@ const features = [
                             <component
                                 v-for="(feature, idx) in [features[8], features[9], features[10]]"
                                 :key="feature.title"
-                                :is="feature.href && route().has(feature.href) ? Link : 'div'"
-                                :href="feature.href && route().has(feature.href) ? route(feature.href) : undefined"
+                                :is="hasFeatureLink(feature) ? Link : 'div'"
+                                :href="featureHref(feature)"
                                 class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 dark:border-gray-800 dark:bg-gray-900"
-                                :class="feature.href && route().has(feature.href) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
+                                :class="hasFeatureLink(feature) ? 'hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700' : 'hover:border-gray-300 dark:hover:border-gray-700'"
                                 :style="{ animationDelay: `${500 + idx * 100}ms` }"
                             >
                                 <div class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-primary-500/5"></div>
@@ -307,7 +232,7 @@ const features = [
                                     <p class="text-gray-600 dark:text-gray-400 leading-relaxed mb-4 whitespace-normal">{{ feature.description }}</p>
 
                                     <div
-                                        v-if="feature.href && route().has(feature.href)"
+                                        v-if="hasFeatureLink(feature)"
                                         class="inline-flex items-center gap-2 text-primary-600 dark:text-primary-400 font-semibold text-sm group-hover:gap-3 transition-all"
                                     >
                                         Learn more

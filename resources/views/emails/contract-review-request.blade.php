@@ -92,15 +92,18 @@
         }
         .button {
             display: inline-block;
-            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-            color: white;
+            background: #000;
+            color: #ffffff !important;
             text-decoration: none;
             padding: 16px 32px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 16px;
             text-align: center;
-            box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.4);
+            box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.15);
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
         .notice {
             background: #dbeafe;
@@ -209,7 +212,7 @@
                     <br>
                     {{ $loc->city }}, {{ $loc->state }} {{ $loc->postal_code }}
                     @if($loc->phone)
-                        <br>{{ $loc->phone }}
+                        <br>{{ format_phone_number($loc->phone) }}
                     @endif
                 </p>
             @endif

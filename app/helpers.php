@@ -38,3 +38,39 @@ if (! function_exists('tenant_can_access_record_type')) {
         return app(CurrentTenantProfile::class)->canAccessRecordType($type);
     }
 }
+
+if (! function_exists('format_phone_number')) {
+    /**
+     * Format a phone string as (XXX) XXX-XXXX (US-style, first 10 digits).
+     * Matches resources/js/Utils/formatPhoneNumber.js.
+     */
+    function format_phone_number(?string $value): string
+    {
+        if ($value === null || trim($value) === '') {
+            return '';
+        }
+
+        $numbers = preg_replace('/\D/', '', $value) ?? '';
+
+        if (strlen($numbers) === 11 && str_starts_with($numbers, '1')) {
+            $numbers = substr($numbers, 1);
+        }
+
+        $length = strlen($numbers);
+
+        if ($length <= 3) {
+            return $numbers;
+        }
+
+        if ($length <= 6) {
+            return sprintf('(%s) %s', substr($numbers, 0, 3), substr($numbers, 3));
+        }
+
+        return sprintf(
+            '(%s) %s-%s',
+            substr($numbers, 0, 3),
+            substr($numbers, 3, 3),
+            substr($numbers, 6, 10)
+        );
+    }
+}

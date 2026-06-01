@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useForm, Head } from '@inertiajs/vue3';
 import { VueSignaturePad } from 'vue-signature-pad';
+import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -47,18 +48,6 @@ const formatDate = (value) => {
         if (isNaN(d.getTime())) return '—';
         return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     } catch { return '—'; }
-};
-
-const formatPhoneNumber = (phone) => {
-    if (!phone) return '';
-    // Remove all non-numeric characters
-    const cleaned = phone.replace(/\D/g, '');
-    // Format as (XXX) XXX-XXXX
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-        return `(${match[1]}) ${match[2]}-${match[3]}`;
-    }
-    return phone; // Return original if it doesn't match expected format
 };
 
 const formatDateTime = (value) => {
@@ -201,7 +190,7 @@ const signaturePadOptions = {
                     <div class="px-8 py-8">
                         <p class="text-sm text-gray-600 text-center">
                             If you have any questions or would like to discuss alternatives,
-                            please contact us<span v-if="record.location?.phone"> at {{ record.location.phone }}</span>.
+                            please contact us<span v-if="record.location?.phone"> at {{ formatPhoneNumber(record.location.phone) }}</span>.
                         </p>
                     </div>
                 </div>
@@ -261,7 +250,7 @@ const signaturePadOptions = {
                                         </p>
                                         <p v-if="record.location?.phone" class="flex items-center gap-1">
                                             <span class="material-icons text-sm">phone</span>
-                                            {{ record.location.phone }}
+                                            {{ formatPhoneNumber(record.location.phone) }}
                                         </p>
                                         <p v-if="record.location?.email" class="flex items-center gap-1">
                                             <span class="material-icons text-sm">email</span>
@@ -298,7 +287,7 @@ const signaturePadOptions = {
                                         </div>
                                         <div v-if="record.customer?.phone" class="flex items-center gap-2 text-sm text-gray-600">
                                             <span class="material-icons text-sm">phone</span>
-                                            {{ record.customer.phone }}
+                                            {{ formatPhoneNumber(record.customer.phone) }}
                                         </div>
                                         <div v-if="record.customer?.address_line1" class="flex items-start gap-2 text-sm text-gray-600 mt-3">
                                             <span class="material-icons text-sm mt-0.5">location_on</span>

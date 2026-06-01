@@ -22,9 +22,19 @@ class PublicPageMeta
 
     public static function defaultImage(): string
     {
-        $path = config('public-pages.default_og_image', '/assets/icons/android-chrome-512x512.png');
+        $configured = config('public-pages.default_og_image', '/assets/icons/android-chrome-512x512.png');
 
-        return url($path);
+        if (! is_string($configured) || trim($configured) === '') {
+            return url('/assets/icons/android-chrome-512x512.png');
+        }
+
+        $configured = trim($configured);
+
+        if (str_starts_with($configured, 'http://') || str_starts_with($configured, 'https://')) {
+            return $configured;
+        }
+
+        return url($configured);
     }
 
     public static function logoUrl(): string
@@ -42,6 +52,7 @@ class PublicPageMeta
             'author' => self::author(),
             'type' => 'website',
             'site_name' => self::siteName(),
+            'image' => self::defaultImage(),
         ], $overrides);
     }
 
@@ -211,12 +222,7 @@ class PublicPageMeta
             'url' => $url,
             'mainEntityOfPage' => $url,
             'image' => $image,
-            'author' => [
-                '@type' => 'Person',
-                'name' => is_array($post['author'] ?? null)
-                    ? ($post['author']['name'] ?? self::author())
-                    : (string) ($post['author'] ?? self::author()),
-            ],
+            'author' => self::organizationSchema(),
             'publisher' => self::organizationSchema(),
         ];
 

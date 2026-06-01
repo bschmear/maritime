@@ -12,7 +12,7 @@
         ul { margin: 12px 0; padding-left: 1.25rem; color: #374151; font-size: 15px; }
         ul li { margin: 8px 0; }
         a.link-spec { color: #2563eb; text-decoration: underline; }
-        .btn { display: inline-block; padding: 12px 22px; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-top: 8px; }
+        .btn { display: inline-block; padding: 12px 22px; background: #000; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-top: 8px; }
         .footer { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
     </style>
 </head>

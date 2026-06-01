@@ -20,6 +20,12 @@
         @inertiaHead
 
         @if(isset($page['props']['meta']))
+            @php
+                $pageMeta = $page['props']['meta'];
+                $ogImage = ! empty($pageMeta['image'])
+                    ? $pageMeta['image']
+                    : \App\Support\PublicPageMeta::defaultImage();
+            @endphp
 
             {{-- Title --}}
             @if(!empty($page['props']['meta']['title']))
@@ -65,16 +71,10 @@
                 <meta property="og:url" content="{{ $page['props']['meta']['url'] }}">
             @endif
 
-            @if(!empty($page['props']['meta']['image']))
-                <meta property="og:image" content="{{ $page['props']['meta']['image'] }}">
-            @endif
+            <meta property="og:image" content="{{ $ogImage }}">
 
             {{-- Twitter --}}
-            @if(!empty($page['props']['meta']['image']))
-                <meta name="twitter:card" content="summary_large_image">
-            @else
-                <meta name="twitter:card" content="summary">
-            @endif
+            <meta name="twitter:card" content="summary_large_image">
 
             @if(!empty($page['props']['meta']['title']))
                 <meta name="twitter:title" content="{{ $page['props']['meta']['title'] }}">
@@ -84,9 +84,7 @@
                 <meta name="twitter:description" content="{{ $page['props']['meta']['description'] }}">
             @endif
 
-            @if(!empty($page['props']['meta']['image']))
-                <meta name="twitter:image" content="{{ $page['props']['meta']['image'] }}">
-            @endif
+            <meta name="twitter:image" content="{{ $ogImage }}">
 
             {{-- Structured Data / Schema --}}
 

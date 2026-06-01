@@ -2,7 +2,17 @@
 
 namespace App\Domain\Document\Models;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\InventoryItem\Models\InventoryItem;
+use App\Domain\InventoryUnit\Models\InventoryUnit;
+use App\Domain\Lead\Models\Lead;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\User\Models\User;
+use App\Domain\Vendor\Models\Vendor;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Document extends Model
 {
@@ -35,60 +45,65 @@ class Document extends Model
 
         // Clean up file when document is deleted
         static::deleting(function ($document) {
-            if ($document->file && \Illuminate\Support\Facades\Storage::disk('s3')->exists($document->file)) {
-                \Illuminate\Support\Facades\Storage::disk('s3')->delete($document->file);
+            if ($document->file && Storage::disk('s3')->exists($document->file)) {
+                Storage::disk('s3')->delete($document->file);
             }
         });
     }
 
     public function created_by()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'created_by_id');
+        return $this->belongsTo(User::class, 'created_by_id');
     }
 
     public function updated_by()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'updated_by_id');
+        return $this->belongsTo(User::class, 'updated_by_id');
     }
 
     public function assigned()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_id');
+        return $this->belongsTo(User::class, 'assigned_id');
     }
 
     public function contacts()
     {
-        return $this->morphedByMany(\App\Domain\Contact\Models\Contact::class, 'documentable')->withTimestamps();
+        return $this->morphedByMany(Contact::class, 'documentable')->withTimestamps();
     }
 
     public function transactions()
     {
-        return $this->morphedByMany(\App\Domain\Transaction\Models\Transaction::class, 'documentable')->withTimestamps();
+        return $this->morphedByMany(Transaction::class, 'documentable')->withTimestamps();
     }
 
     public function vendors()
     {
-        return $this->morphedByMany(\App\Domain\Vendor\Models\Vendor::class, 'documentable')->withTimestamps();
+        return $this->morphedByMany(Vendor::class, 'documentable')->withTimestamps();
     }
 
     public function leads()
     {
-        return $this->morphedByMany(\App\Domain\Lead\Models\Lead::class, 'documentable')->withTimestamps();
+        return $this->morphedByMany(Lead::class, 'documentable')->withTimestamps();
     }
 
     public function warrantyClaims()
     {
-        return $this->morphedByMany(\App\Domain\WarrantyClaim\Models\WarrantyClaim::class, 'documentable')->withTimestamps();
+        return $this->morphedByMany(WarrantyClaim::class, 'documentable')->withTimestamps();
+    }
+
+    public function serviceTickets()
+    {
+        return $this->morphedByMany(ServiceTicket::class, 'documentable')->withTimestamps();
     }
 
     public function inventory_items()
     {
-        return $this->morphedByMany(\App\Domain\InventoryItem\Models\InventoryItem::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
+        return $this->morphedByMany(InventoryItem::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
     }
 
     public function inventory_units()
     {
-        return $this->morphedByMany(\App\Domain\InventoryUnit\Models\InventoryUnit::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
+        return $this->morphedByMany(InventoryUnit::class, 'documentable')->withTimestamps()->withPivot('sort_order', 'role');
     }
 
     /**

@@ -57,11 +57,6 @@ const linkedInShareHref = computed(() => {
     return `https://www.linkedin.com/shareArticle?${params.toString()}`;
 });
 
-const authorInitial = computed(() => {
-    const name = props.post?.author?.name ?? '';
-    return name.charAt(0).toUpperCase() || '?';
-});
-
 const linkCopied = ref(false);
 let copyResetTimer = null;
 
@@ -286,35 +281,6 @@ const proseClass =
                                         </dd>
                                     </div>
                                 </dl>
-                            </div>
-
-                            <!-- Author -->
-                            <div
-                                class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-                            >
-                                <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                    Written by
-                                </h2>
-                                <div class="mt-4 flex items-center gap-3">
-                                    <img
-                                        v-if="post.author?.avatar"
-                                        :src="post.author.avatar"
-                                        :alt="post.author.name"
-                                        class="h-12 w-12 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
-                                    />
-                                    <div
-                                        v-else
-                                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300"
-                                    >
-                                        {{ authorInitial }}
-                                    </div>
-                                    <div>
-                                        <p class="font-semibold text-gray-900 dark:text-white">
-                                            {{ post.author?.name }}
-                                        </p>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400">Maritime team</p>
-                                    </div>
-                                </div>
                             </div>
 
                             <!-- Share -->

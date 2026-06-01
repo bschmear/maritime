@@ -70,11 +70,15 @@ Thanks,<br>
         .button {
             display: inline-block;
             padding: 12px 24px;
-            background-color: #1e40af;
-            color: white;
+            background-color: #000;
+            color: #ffffff !important;
             text-decoration: none;
-            border-radius: 5px;
+            border-radius: 8px;
+            font-weight: 600;
             margin: 20px 0;
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
     </style>
 </head>
@@ -151,7 +155,7 @@ Thanks,<br>
                 @endif
                 {{ $serviceTicket->location->city }}, {{ $serviceTicket->location->state }} {{ $serviceTicket->location->postal_code }}<br>
                 @if($serviceTicket->location->phone)
-                    Phone: {{ $serviceTicket->location->phone }}
+                    Phone: {{ format_phone_number($serviceTicket->location->phone) }}
                 @endif
             @endif
         </p>

@@ -160,6 +160,11 @@
       "label": "Images",
       "domain": "InventoryImage",
       "modelRelationship": "images"
+    },
+    {
+      "label": "Documents",
+      "domain": "Document",
+      "modelRelationship": "documents"
     }
   ]
 }

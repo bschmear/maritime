@@ -8,7 +8,7 @@
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 24px; border-radius: 10px 10px 0 0; }
         .content { background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px; }
-        .btn { display: inline-block; margin-top: 16px; padding: 12px 20px; background: #2563eb; color: #fff !important; text-decoration: none; border-radius: 8px; font-weight: 600; }
+        .btn { display: inline-block; margin-top: 16px; padding: 12px 20px; background: #000; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; }
         .muted { color: #6b7280; font-size: 14px; }
     </style>
 </head>

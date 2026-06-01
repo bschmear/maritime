@@ -17,7 +17,7 @@
     </p>
 
     <p style="margin: 24px 0;">
-        <a href="{{ $internalUrl }}" style="display: inline-block; background: #2563eb; color: #fff; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">
+        <a href="{{ $internalUrl }}" style="display: inline-block; background: #000; color: #ffffff !important; text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">
             Open claim in {{ $account->name ?? 'Maritime' }}
         </a>
     </p>

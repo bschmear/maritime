@@ -78,14 +78,17 @@
         }
         .button {
             display: inline-block;
-            background: linear-gradient(135deg, #059669 0%, #047857 100%);
-            color: white !important;
+            background: #000;
+            color: #ffffff !important;
             text-decoration: none;
             padding: 16px 36px;
             border-radius: 8px;
-            font-weight: 700;
+            font-weight: 600;
             font-size: 16px;
-            box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.35);
+            box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.15);
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
         .footer {
             padding: 24px 40px;

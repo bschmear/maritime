@@ -1,6 +1,7 @@
 <script setup>
+import CustomerApprovalDeliveryModal from '@/Components/Tenant/CustomerApprovalDeliveryModal.vue';
+import { useCustomerApprovalDelivery } from '@/composables/useCustomerApprovalDelivery';
 import { computed, ref } from 'vue';
-import { router } from '@inertiajs/vue3';
 
 const props = defineProps({
     record: {
@@ -20,14 +21,36 @@ const props = defineProps({
         type: Object,
         default: () => ({}),
     },
+    serviceTicketApprovalSms: {
+        type: Object,
+        default: () => ({ offered: false, hint: null }),
+    },
 });
 
 const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'sent']);
 
-const sending = ref(false);
 const printing = ref(false);
+
+const customerEmail = computed(() => props.record?.customer?.email ?? '');
+
+const {
+    showModal: showApprovalDeliveryModal,
+    delivery: approvalDelivery,
+    sendForm: sendApprovalForm,
+    emailPreview: approvalEmailPreview,
+    modalSubtitle: approvalModalSubtitle,
+    deliveryError: approvalDeliveryError,
+    openModal: openApprovalDeliveryModal,
+    closeModal: closeApprovalDeliveryModal,
+    confirmSend: confirmSendApproval,
+} = useCustomerApprovalDelivery({
+    postRoute: (id) => route('servicetickets.send-approval-request', id),
+    recordId: () => props.record.id,
+    customerEmail,
+    smsOffer: () => props.serviceTicketApprovalSms,
+});
 
 const formatCurrency = (value) => {
     return value != null ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
@@ -47,6 +70,36 @@ const formatDate = (value) => {
         return '—';
     }
 };
+
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        });
+    } catch (e) {
+        return '—';
+    }
+};
+
+const isSigned = computed(() =>
+    Boolean(
+        props.record.approved
+        || props.record.signed_at
+        || props.record.customer_signature
+        || props.record.signature_url,
+    ),
+);
+
+const hasSignatureImage = computed(() =>
+    Boolean(props.record.signature_url || (Number(props.record.signature_method) === 5 && props.record.customer_signature)),
+);
 
 const getBillingTypeLabel = (billingType) => {
     const options = props.enumOptions?.billing_type || [];
@@ -111,25 +164,23 @@ const handlePrint = () => {
     }, 100);
 };
 
-const handleSendEmail = () => {
-    if (confirm('Send approval request to the customer via email? This will allow them to review and approve the service ticket online.')) {
-        sending.value = true;
-        router.post(route('servicetickets.send-approval-request', props.record.id), {}, {
-            preserveState: true,
-            onSuccess: () => {
-                alert('Approval request sent successfully!');
-                sending.value = false;
-            },
-            onError: (errors) => {
-                let message = 'Failed to send approval request.';
-                if (errors && errors.message) {
-                    message += ' ' + errors.message;
-                }
-                alert(message + ' Please try again.');
-                sending.value = false;
+const handleSendApproval = () => {
+    openApprovalDeliveryModal();
+};
+
+const handleConfirmSendApproval = () => {
+    confirmSendApproval({
+        onSuccess: (page) => {
+            const flash = page.props.flash;
+            if (flash?.success) {
+                emit('sent', flash.success);
             }
-        });
-    }
+            const flashErr = flash?.error;
+            if (flashErr) {
+                emit('sent', { error: Array.isArray(flashErr) ? flashErr[0] : flashErr });
+            }
+        },
+    });
 };
 </script>
 
@@ -163,15 +214,15 @@ const handleSendEmail = () => {
 
                 <button
                     type="button"
-                    :aria-label="sending ? 'Sending approval request' : 'Send approval request to customer'"
-                    :aria-busy="sending"
-                    :disabled="sending"
+                    :aria-label="sendApprovalForm.processing ? 'Sending approval request' : 'Send approval request to customer'"
+                    :aria-busy="sendApprovalForm.processing"
+                    :disabled="sendApprovalForm.processing"
                     class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
-                    @click="handleSendEmail"
+                    @click="handleSendApproval"
                 >
-                    <span v-if="sending" class="material-icons animate-spin text-[18px]">refresh</span>
+                    <span v-if="sendApprovalForm.processing" class="material-icons animate-spin text-[18px]">refresh</span>
                     <span v-else class="material-icons text-[18px]">send</span>
-                    <span class="hidden lg:inline">{{ sending ? 'Sending...' : 'Send Approval Request' }}</span>
+                    <span class="hidden lg:inline">{{ sendApprovalForm.processing ? 'Sending...' : 'Send Approval Request' }}</span>
                 </button>
 
                 <button
@@ -454,6 +505,14 @@ const handleSendEmail = () => {
                 <!-- Customer Acknowledgment & Signature -->
                 <div class="px-8 py-6 border-t-2 border-gray-900">
                     <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Customer Authorization</h2>
+
+                    <div
+                        v-if="isSigned"
+                        class="mb-6 inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-800"
+                    >
+                        <span class="material-icons text-base">check_circle</span>
+                        Signed {{ formatDateTime(record.signed_at) }}
+                    </div>
                     
                     <!-- Acknowledgment Text -->
                     <div v-if="account.service_ticket_ack_text" class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -462,23 +521,55 @@ const handleSendEmail = () => {
                         </p>
                     </div>
 
-                    <!-- Signature Section -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                        <div>
-                            <div class="border-b-2 border-gray-900 pb-1 mb-2 h-24"></div>
-                            <div class="text-sm text-gray-600">Customer Signature</div>
+                    <template v-if="isSigned && hasSignatureImage">
+                        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer signature</h3>
+                        <div class="flex flex-wrap items-start gap-6">
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <img
+                                    v-if="record.signature_url"
+                                    :src="record.signature_url"
+                                    alt="Customer signature"
+                                    class="max-h-24 w-auto"
+                                />
+                                <p
+                                    v-else
+                                    class="text-3xl text-gray-900"
+                                    style="font-family: 'Brush Script MT', 'Segoe Script', cursive;"
+                                >
+                                    {{ record.customer_signature }}
+                                </p>
+                            </div>
+                            <div class="space-y-1 text-sm text-gray-600 pt-1">
+                                <div>
+                                    <span class="text-gray-500">Signed by:</span>
+                                    <span class="ml-1 font-medium text-gray-900">{{ record.signed_name || '—' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-500">Date:</span>
+                                    <span class="ml-1 font-medium text-gray-900">{{ formatDateTime(record.signed_at) }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="border-b-2 border-gray-900 pb-1 mb-2 h-24"></div>
-                            <div class="text-sm text-gray-600">Date</div>
-                        </div>
-                    </div>
+                    </template>
 
-                    <!-- Print Name -->
-                    <div class="mt-6">
-                        <div class="border-b border-gray-900 pb-1 mb-2"></div>
-                        <div class="text-sm text-gray-600">Print Name</div>
-                    </div>
+                    <template v-else>
+                        <!-- Blank signature lines for unsigned preview -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                            <div>
+                                <div class="border-b-2 border-gray-900 pb-1 mb-2 h-24"></div>
+                                <div class="text-sm text-gray-600">Customer Signature</div>
+                            </div>
+                            <div>
+                                <div class="border-b-2 border-gray-900 pb-1 mb-2 h-24"></div>
+                                <div class="text-sm text-gray-600">Date</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <div class="border-b border-gray-900 pb-1 mb-2"></div>
+                            <div class="text-sm text-gray-600">Print Name</div>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- Footer -->
@@ -490,6 +581,19 @@ const handleSendEmail = () => {
                 </div>
             </div>
         </div>
+
+        <CustomerApprovalDeliveryModal
+            v-model:delivery="approvalDelivery"
+            :show="showApprovalDeliveryModal"
+            title="Send for approval"
+            :subtitle="approvalModalSubtitle"
+            :email-preview="approvalEmailPreview"
+            :sms-offer="serviceTicketApprovalSms"
+            :delivery-error="approvalDeliveryError"
+            :processing="sendApprovalForm.processing"
+            @close="closeApprovalDeliveryModal"
+            @confirm="handleConfirmSendApproval"
+        />
     </div>
 </template>
 

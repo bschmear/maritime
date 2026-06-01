@@ -22,7 +22,7 @@
         <p><strong>{{ $leadFullName }}</strong> submitted interest from the public boat show page.</p>
         <p><strong>Contact</strong><br>
             @if($leadEmail) Email: {{ $leadEmail }}<br>@endif
-            @if($leadPhone) Phone: {{ $leadPhone }}<br>@endif
+            @if($leadPhone) Phone: {{ format_phone_number($leadPhone) }}<br>@endif
         </p>
 
         @if($leadNotes)

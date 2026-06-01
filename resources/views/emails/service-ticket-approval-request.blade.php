@@ -78,6 +78,7 @@
         .detail-label {
             font-weight: 500;
             color: #374151;
+            padding-right: 10px;
         }
         .detail-value {
             color: #111827;
@@ -93,6 +94,9 @@
             font-weight: 700;
             color: #111827;
         }
+        .space-after {
+            margin-right: 1rem;
+        }
         .notice {
             background: #dbeafe;
             border: 1px solid #93c5fd;
@@ -104,25 +108,28 @@
         }
         .button {
             display: inline-block;
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
+            background: #000;
+            color: white !important;
             text-decoration: none;
             padding: 16px 32px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 16px;
             text-align: center;
-            box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.4);
+            box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.15);
             transition: all 0.2s ease;
         }
         .button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px 0 rgba(245, 158, 11, 0.6);
+            box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.25);
+        }
+        .button:visited {
+            color: white !important;
         }
         .button-secondary {
             display: inline-block;
-            background: #6b7280;
-            color: white;
+            background: #111827;
+            color: #ffffff !important;
             text-decoration: none;
             padding: 12px 24px;
             border-radius: 6px;
@@ -201,7 +208,7 @@
                     </div>
 
                     <div class="total-row">
-                        <span>Total</span>
+                        <span class="space-after">Total</span>
                         <span>${{ number_format($total, 2) }}</span>
                     </div>
                 </div>
@@ -245,7 +252,7 @@
                     <br>
                     {{ $serviceTicket->location->city }}, {{ $serviceTicket->location->state }} {{ $serviceTicket->location->postal_code }}
                     @if($serviceTicket->location->phone)
-                        <br>{{ $serviceTicket->location->phone }}
+                        <br>{{ format_phone_number($serviceTicket->location->phone) }}
                     @endif
                 </p>
             @endif

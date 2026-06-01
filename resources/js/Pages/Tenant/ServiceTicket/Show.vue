@@ -6,6 +6,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
 import ServiceTicketPreview from '@/Components/Tenant/ServiceTicketPreview.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
+import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -36,6 +37,10 @@ const props = defineProps({
     workOrders: {
         type: Array,
         default: () => [],
+    },
+    serviceTicketApprovalSms: {
+        type: Object,
+        default: () => ({ offered: false, hint: null }),
     },
 });
 
@@ -122,8 +127,8 @@ const isSublistVisible = (sub) => {
     }
 };
 
-// Only Images belong in Sublist here — service items and revisions are covered elsewhere on the ticket UI.
-const ALLOWED_SERVICE_TICKET_SUBLIST_DOMAINS = new Set(['InventoryImage']);
+// Service items and revisions are covered elsewhere on the ticket UI.
+const ALLOWED_SERVICE_TICKET_SUBLIST_DOMAINS = new Set(['InventoryImage', 'Document']);
 
 const visibleSublists = computed(() =>
     (props.formSchema?.sublists || [])
@@ -235,6 +240,70 @@ const linkedTransaction = computed(() => {
         title: props.record.transaction?.title || `Deal #${props.record.transaction?.sequence || props.record.transaction_id}`,
     };
 });
+
+const isSigned = computed(() =>
+    Boolean(
+        props.record.approved
+        || props.record.signed_at
+        || props.record.customer_signature
+        || props.record.signature_url,
+    ),
+);
+
+const relatedRecords = computed(() => {
+    const out = [];
+
+    if (props.record.customer?.id) {
+        out.push({
+            label: 'Customer',
+            name: props.record.customer.display_name ?? `Customer #${props.record.customer.id}`,
+            href: route('customers.show', props.record.customer.id),
+            icon: 'person',
+        });
+    }
+
+    for (const workOrder of props.workOrders) {
+        out.push({
+            label: props.workOrders.length > 1 ? 'Work order' : 'Work order',
+            name: workOrder.display_name ?? `WO-${workOrder.work_order_number ?? workOrder.id}`,
+            href: route('workorders.show', workOrder.id),
+            icon: 'assignment',
+        });
+    }
+
+    if (linkedTransaction.value) {
+        out.push({
+            label: 'Deal',
+            name: linkedTransaction.value.title,
+            href: route('transactions.show', linkedTransaction.value.id),
+            icon: 'handshake',
+        });
+    }
+
+    const assetUnitHref = props.record.asset_unit?.id
+        ? buildRecordShowUrl('AssetUnit', props.record.asset_unit.id)
+        : null;
+    if (assetUnitHref) {
+        out.push({
+            label: 'Asset unit',
+            name: props.record.asset_unit.display_name ?? `Unit #${props.record.asset_unit.id}`,
+            href: assetUnitHref,
+            icon: 'directions_boat',
+        });
+    }
+
+    if (isSigned.value && route().has('service-tickets.review')) {
+        out.push({
+            label: 'Signed service ticket',
+            name: `ST-${props.record.service_ticket_number ?? props.record.id}`,
+            href: route('service-tickets.review', props.record.uuid),
+            icon: 'draw',
+            external: true,
+        });
+    }
+
+    return out;
+});
 </script>
 
 <template>
@@ -283,7 +352,7 @@ const linkedTransaction = computed(() => {
                         <button
                             type="button"
                             aria-label="Customer preview"
-                            class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-purple-600 p-2 text-md font-medium text-white transition-colors hover:bg-purple-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-secondary-600 p-2 text-md font-medium text-white transition-colors hover:bg-secondary-700 md:gap-1.5 md:px-4 md:py-2.5"
                             @click="openPreview"
                         >
                             <span class="material-icons text-xl leading-none md:text-md">visibility</span>
@@ -404,17 +473,114 @@ const linkedTransaction = computed(() => {
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="w-full space-y-4 md:space-y-6 !pt-0 !mt-0">
-            <ServiceTicketForm
-                :record="record"
-                :form-schema="formSchema"
-                :fields-schema="fieldsSchema"
-                :enum-options="enumOptions"
-                :account="account"
-                :timezones="timezones"
-                mode="show"
-            />
+        <!-- Form + sidebar -->
+        <div class="w-full !pt-0 !mt-0">
+            <div class="grid gap-6 lg:grid-cols-12">
+                <div class="lg:col-span-8 space-y-4 md:space-y-6">
+                    <ServiceTicketForm
+                        :record="record"
+                        :form-schema="formSchema"
+                        :fields-schema="fieldsSchema"
+                        :enum-options="enumOptions"
+                        :account="account"
+                        :timezones="timezones"
+                        :service-ticket-approval-sms="serviceTicketApprovalSms"
+                        mode="show"
+                    />
+                </div>
+
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="sticky top-[140px] space-y-4">
+                        <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Quick links</span>
+                            </div>
+                            <div class="p-5 space-y-3">
+                                <button
+                                    type="button"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-secondary-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-secondary-700"
+                                    @click="openPreview"
+                                >
+                                    <span class="material-icons text-base">visibility</span>
+                                    Customer preview
+                                </button>
+                                <Link
+                                    v-if="workOrders.length > 0"
+                                    :href="route('workorders.show', workOrders[0].id)"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700"
+                                >
+                                    <span class="material-icons text-base">assignment</span>
+                                    {{ workOrders.length > 1 ? 'View work orders' : 'View work order' }}
+                                </Link>
+                                <Link
+                                    v-else
+                                    :href="route('workorders.create') + '?service_ticket_id=' + record.id"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-900/50"
+                                >
+                                    <span class="material-icons text-base">add_circle</span>
+                                    Create work order
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="relatedRecords.length"
+                            class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                        >
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Related records</span>
+                            </div>
+                            <ul class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <li
+                                    v-for="rel in relatedRecords"
+                                    :key="`${rel.label}-${rel.href}`"
+                                    class="flex items-center justify-between gap-3 px-5 py-3"
+                                >
+                                    <div class="flex min-w-0 items-start gap-3">
+                                        <span class="material-icons mt-0.5 text-lg text-gray-400">{{ rel.icon }}</span>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ rel.label }}</div>
+                                            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ rel.name }}</div>
+                                        </div>
+                                    </div>
+                                    <component
+                                        :is="rel.external ? 'a' : Link"
+                                        :href="rel.href"
+                                        :target="rel.external ? '_blank' : undefined"
+                                        :rel="rel.external ? 'noopener noreferrer' : undefined"
+                                        class="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                    >
+                                        <span class="material-icons text-base">{{ rel.external ? 'open_in_new' : 'chevron_right' }}</span>
+                                    </component>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Ticket info</span>
+                            </div>
+                            <ul class="divide-y divide-gray-50 text-sm dark:divide-gray-700/60">
+                                <li class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-base text-gray-400">tag</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Ticket #</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ record.service_ticket_number || '—' }}</span>
+                                </li>
+                                <li v-if="isSigned" class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-base text-green-500">verified</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Signed</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatDateTime(record.signed_at) }}</span>
+                                </li>
+                                <li v-if="record.signed_name" class="flex items-center gap-3 px-5 py-3">
+                                    <span class="material-icons text-base text-gray-400">draw</span>
+                                    <span class="flex-1 text-gray-500 dark:text-gray-400">Signed by</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ record.signed_name }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div
@@ -437,6 +603,7 @@ const linkedTransaction = computed(() => {
                     :account="account"
                     :logo-url="logoUrl"
                     :enum-options="enumOptions"
+                    :service-ticket-approval-sms="serviceTicketApprovalSms"
                     @close="closePreview"
                 />
             </div>

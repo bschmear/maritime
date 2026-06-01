@@ -4,11 +4,13 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+import FeaturesMegaMenuPanel from '@/Components/Marketing/FeaturesMegaMenuPanel.vue';
 import PwaInstallButton from '@/Components/PwaInstallButton.vue';
 import PwaInstallInstructionsModal from '@/Components/PwaInstallInstructionsModal.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
 import { usePwaInstall } from '@/composables/usePwaInstall';
+import { featuresMegaMenuGroups, featuresNavRouteNames } from '@/data/marketingFeatures';
 
 const page = usePage();
 const pwa = computed(() => Boolean(page.props.pwa));
@@ -33,6 +35,9 @@ const pwaForLinks = computed(() => {
 });
 
 const showingNavigationDropdown = ref(false);
+const featuresMegaOpen = ref(false);
+const featuresMobileOpen = ref(false);
+const navRoot = ref(null);
 const { theme, setTheme, initTheme } = useTheme();
 const { showManualInstall, promptInstall } = usePwaInstall();
 
@@ -71,7 +76,7 @@ const workspaceExternalRel = computed(() => (pwaForLinks.value ? undefined : 'no
 /** Public + marketing routes (aligned with Footer / web.php). */
 const primaryNavLinks = [
     { label: 'About', routeName: 'about', match: ['about'] },
-    { label: 'Features', routeName: 'features', match: ['features', 'features.boat-shows', 'features.service-department', 'features.performance-tracking', 'features.delivery-system', 'features.smart-surveys', 'features.stripe-payments', 'features.mailchimp', 'features.quickbooks'] },
+    { label: 'Features', routeName: 'features', match: featuresNavRouteNames, megaMenu: true },
     { label: 'Pricing', routeName: 'checkout.plans', match: ['checkout.plans'] },
     { label: 'Blog', routeName: 'blog', match: ['blog', 'blogCategory', 'blogTag', 'blogPostShow'] },
     { label: 'FAQ', routeName: 'faq', match: ['faq'] },
@@ -81,6 +86,44 @@ const primaryNavLinks = [
 const visiblePrimaryLinks = computed(() =>
     primaryNavLinks.filter((item) => route().has(item.routeName)),
 );
+
+const hasFeaturesMegaMenu = computed(() => route().has('features'));
+
+const mobileFeatureGroups = computed(() =>
+    featuresMegaMenuGroups.map((group) => ({
+        ...group,
+        items: group.items.filter(
+            (item) => !item.routeName || route().has(item.routeName),
+        ),
+    })).filter((group) => group.items.length > 0),
+);
+
+const featureLinkHref = (item) => {
+    if (item.routeName && route().has(item.routeName)) {
+        return route(item.routeName);
+    }
+    if (route().has('features')) {
+        return route('features');
+    }
+
+    return '#';
+};
+
+const navLinkClass = (active) =>
+    [
+        'rounded-lg px-2.5 py-2 text-md font-medium transition-colors lg:px-3',
+        active
+            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white',
+    ].join(' ');
+
+const closeFeaturesMega = () => {
+    featuresMegaOpen.value = false;
+};
+
+const toggleFeaturesMega = () => {
+    featuresMegaOpen.value = !featuresMegaOpen.value;
+};
 
 /** Central app has `home`; tenant subdomains often only expose portal/dashboard routes. */
 const guestLogoHref = computed(() => {
@@ -111,6 +154,23 @@ const isNavActive = (matchNames) => matchNames.some((name) => route().current(na
 
 const closeMobileMenu = () => {
     showingNavigationDropdown.value = false;
+    featuresMobileOpen.value = false;
+};
+
+const onDocumentClick = (event) => {
+    if (!featuresMegaOpen.value || !navRoot.value) {
+        return;
+    }
+    if (navRoot.value.contains(event.target)) {
+        return;
+    }
+    closeFeaturesMega();
+};
+
+const onDocumentKeydown = (event) => {
+    if (event.key === 'Escape') {
+        closeFeaturesMega();
+    }
 };
 
 const cycleTheme = () => {
@@ -122,6 +182,12 @@ const cycleTheme = () => {
 
 onMounted(() => {
     initTheme();
+    document.addEventListener('click', onDocumentClick);
+    document.addEventListener('keydown', onDocumentKeydown);
+});
+
+watch(() => page.url, () => {
+    closeFeaturesMega();
 });
 
 watch(showingNavigationDropdown, (open) => {
@@ -134,12 +200,15 @@ watch(showingNavigationDropdown, (open) => {
 onUnmounted(() => {
     if (typeof document !== 'undefined') {
         document.body.classList.remove('overflow-hidden');
+        document.removeEventListener('click', onDocumentClick);
+        document.removeEventListener('keydown', onDocumentKeydown);
     }
 });
 </script>
 
 <template>
     <nav
+        ref="navRoot"
         class="sticky top-0 z-30 w-full border-b border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950 relative"
     >
         <!-- Primary row: full width, centered links on lg+ (md is too cramped for many links) -->
@@ -161,19 +230,43 @@ onUnmounted(() => {
                 >
                     <div class="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-1 gap-y-1 lg:gap-x-3">
                         <template v-if="!pwa">
-                            <Link
+                            <template
                                 v-for="item in visiblePrimaryLinks"
                                 :key="item.routeName"
-                                :href="route(item.routeName)"
-                                class="rounded-lg px-2.5 py-2 text-md font-medium transition-colors lg:px-3"
-                                :class="
-                                    isNavActive(item.match)
-                                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
-                                "
                             >
-                                {{ item.label }}
-                            </Link>
+                                <button
+                                    v-if="item.megaMenu && hasFeaturesMegaMenu"
+                                    type="button"
+                                    class="inline-flex items-center"
+                                    :class="navLinkClass(isNavActive(item.match))"
+                                    :aria-expanded="featuresMegaOpen"
+                                    aria-controls="features-megamenu"
+                                    @click="toggleFeaturesMega"
+                                >
+                                    {{ item.label }}
+                                    <svg
+                                        class="ml-1 h-4 w-4 transition-transform"
+                                        :class="{ 'rotate-180': featuresMegaOpen }"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            fill-rule="evenodd"
+                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                            clip-rule="evenodd"
+                                        />
+                                    </svg>
+                                </button>
+                                <Link
+                                    v-else
+                                    :href="route(item.routeName)"
+                                    :class="navLinkClass(isNavActive(item.match))"
+                                >
+                                    {{ item.label }}
+                                </Link>
+                            </template>
                         </template>
                     </div>
                 </nav>
@@ -361,6 +454,13 @@ onUnmounted(() => {
             </div>
         </div>
 
+        <FeaturesMegaMenuPanel
+            v-if="featuresMegaOpen && hasFeaturesMegaMenu && !pwa"
+            id="features-megamenu"
+            class="hidden lg:block"
+            @navigate="closeFeaturesMega"
+        />
+
         <!-- Mobile: dim page behind menu; closes on tap -->
         <Transition
             enter-active-class="transition-opacity duration-200 ease-out"
@@ -394,15 +494,75 @@ onUnmounted(() => {
                         Menu
                     </p>
                     <template v-if="!pwa">
-                        <ResponsiveNavLink
+                        <template
                             v-for="item in visiblePrimaryLinks"
                             :key="'m-' + item.routeName"
-                            :href="route(item.routeName)"
-                            :active="isNavActive(item.match)"
-                            @click="closeMobileMenu"
                         >
-                            {{ item.label }}
-                        </ResponsiveNavLink>
+                            <template v-if="item.megaMenu && hasFeaturesMegaMenu">
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center justify-between border-l-4 border-transparent ps-3 pe-4 py-2 text-start text-base font-medium transition duration-150 ease-in-out focus:outline-none"
+                                    :class="
+                                        isNavActive(item.match)
+                                            ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                                            : 'text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
+                                    "
+                                    :aria-expanded="featuresMobileOpen"
+                                    @click="featuresMobileOpen = !featuresMobileOpen"
+                                >
+                                    {{ item.label }}
+                                    <svg
+                                        class="h-4 w-4 shrink-0 transition-transform"
+                                        :class="{ 'rotate-180': featuresMobileOpen }"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            fill-rule="evenodd"
+                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                            clip-rule="evenodd"
+                                        />
+                                    </svg>
+                                </button>
+                                <div
+                                    v-show="featuresMobileOpen"
+                                    class="border-l-2 border-primary-200 pb-2 ps-2 dark:border-primary-800"
+                                >
+                                    <template v-for="group in mobileFeatureGroups" :key="'mg-' + group.title">
+                                        <p class="px-3 pt-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            {{ group.title }}
+                                        </p>
+                                        <ResponsiveNavLink
+                                            v-for="feature in group.items"
+                                            :key="'mf-' + feature.title"
+                                            :href="featureLinkHref(feature)"
+                                            class="!border-l-0 ps-5 text-sm"
+                                            @click="closeMobileMenu"
+                                        >
+                                            {{ feature.title }}
+                                        </ResponsiveNavLink>
+                                    </template>
+                                    <ResponsiveNavLink
+                                        :href="route('features')"
+                                        class="!border-l-0 ps-5 text-sm font-semibold"
+                                        :active="route().current('features')"
+                                        @click="closeMobileMenu"
+                                    >
+                                        View all features
+                                    </ResponsiveNavLink>
+                                </div>
+                            </template>
+                            <ResponsiveNavLink
+                                v-else
+                                :href="route(item.routeName)"
+                                :active="isNavActive(item.match)"
+                                @click="closeMobileMenu"
+                            >
+                                {{ item.label }}
+                            </ResponsiveNavLink>
+                        </template>
                     </template>
                     <ResponsiveNavLink
                         v-if="isAuthenticated() && route().has('dashboard')"

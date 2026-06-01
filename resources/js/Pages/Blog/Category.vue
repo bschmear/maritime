@@ -139,16 +139,12 @@ defineProps({
                             </p>
 
                             <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
-                                <div class="flex items-center gap-2">
-                                    <div
-                                        class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300"
-                                    >
-                                        {{ (post.author || '?').charAt(0).toUpperCase() }}
-                                    </div>
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        {{ post.author }}
-                                    </span>
-                                </div>
+                                <span class="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {{ post.read_time }}
+                                </span>
                                 <Link
                                     :href="`/blog/${post.slug}`"
                                     class="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 transition-all duration-200 group-hover:gap-2 dark:text-primary-400"

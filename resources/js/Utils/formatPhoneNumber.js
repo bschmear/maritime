@@ -3,7 +3,10 @@
  */
 export function formatPhoneNumber(value) {
     if (!value) return '';
-    const numbers = String(value).replace(/\D/g, '');
+    let numbers = String(value).replace(/\D/g, '');
+    if (numbers.length === 11 && numbers.startsWith('1')) {
+        numbers = numbers.slice(1);
+    }
     if (numbers.length <= 3) {
         return numbers;
     }

@@ -234,7 +234,7 @@
                     <br>
                     {{ $serviceTicket->location->city }}, {{ $serviceTicket->location->state }} {{ $serviceTicket->location->postal_code }}
                     @if($serviceTicket->location->phone)
-                        <br>{{ $serviceTicket->location->phone }}
+                        <br>{{ format_phone_number($serviceTicket->location->phone) }}
                     @endif
                 </p>
             @endif

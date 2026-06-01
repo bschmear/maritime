@@ -12,6 +12,7 @@ use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Models\Concerns\HasDocuments;
 use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ServiceTicket extends Model
 {
+    use HasDocuments;
     use HasLinkedInventoryImages;
     use SoftDeletes;
 

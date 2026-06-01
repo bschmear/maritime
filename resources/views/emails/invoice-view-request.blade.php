@@ -23,7 +23,7 @@
         .amounts .row > span:last-child { text-align: right; font-weight: 600; }
         .amount-due { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1d5db; font-size: 16px; }
         .amount-due span:last-child { color: #0369a1; }
-        .btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #0284c7; color: #fff !important; text-decoration: none; border-radius: 8px; font-weight: 600; }
+        .btn { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #000; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; }
         .muted { color: #6b7280; font-size: 13px; margin-top: 20px; line-height: 1.5; }
         .footer { margin-top: 28px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
     </style>

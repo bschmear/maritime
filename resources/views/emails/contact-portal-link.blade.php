@@ -11,8 +11,8 @@
         .brand img { max-height: 48px; max-width: 220px; width: auto; display: block; margin-bottom: 12px; }
         h1 { font-size: 18px; font-weight: 600; color: #111827; margin: 0 0 12px; }
         .btn-row { margin: 20px 0 8px; }
-        .btn { display: inline-block; padding: 12px 22px; background: #0284c7; color: #fff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin-right: 10px; margin-bottom: 10px; }
-        .btn-secondary { background: #374151; }
+        .btn { display: inline-block; padding: 12px 22px; background: #000; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin-right: 10px; margin-bottom: 10px; }
+        .btn-secondary { background: #111827; color: #ffffff !important; }
         ol { margin: 12px 0; padding-left: 1.25rem; color: #374151; font-size: 14px; }
         ol li { margin: 8px 0; }
         .note { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #4b5563; margin-top: 20px; }

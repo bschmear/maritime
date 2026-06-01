@@ -64,20 +64,23 @@
         }
         .button {
             display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #000;
+            color: #ffffff !important;
             text-decoration: none;
             padding: 16px 32px;
             border-radius: 8px;
             font-weight: 600;
             font-size: 16px;
             text-align: center;
-            box-shadow: 0 4px 14px 0 rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.15);
             transition: all 0.2s ease;
         }
         .button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px 0 rgba(102, 126, 234, 0.6);
+            box-shadow: 0 6px 20px 0 rgba(0, 0, 0, 0.25);
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
         .footer {
             margin-top: 40px;

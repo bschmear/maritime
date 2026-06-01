@@ -21,6 +21,10 @@ return [
                 'description' => 'Capture, assign, and manage your pipeline with full history on every record.',
             ],
             [
+                'title' => 'Boat shows & events',
+                'description' => 'Plan show layouts, publish a public showcase, capture leads on the floor with QR codes, and sync every submission into your CRM with scoring and follow-up.',
+            ],
+            [
                 'title' => 'Opportunities, estimates & contracts',
                 'description' => 'Quote deals, send for approval and signature, and move sales forward in one place.',
             ],
@@ -51,6 +55,10 @@ return [
             [
                 'title' => 'Transactional email',
                 'description' => 'Send branded emails for estimates, invoices, deliveries, and customer notifications.',
+            ],
+            [
+                'title' => 'Integrations',
+                'description' => 'Connect the tools your dealership relies on and keep your workflows running smoothly from one place.',
             ],
             [
                 'title' => 'Team users & roles',

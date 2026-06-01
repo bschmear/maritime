@@ -3,82 +3,26 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import FeaturePageCta from '@/Components/Features/FeaturePageCta.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
-const hierarchy = [
+const highlights = [
     {
         icon: 'link',
-        title: 'Stripe Connect',
-        description: 'Each dealership connects its own Stripe Express account. Onboarding runs through Stripe; Helmful stores the connected account id and syncs charges_enabled and payouts_enabled before checkout is offered.',
+        title: 'Connect your Stripe account',
+        description: 'Each dealership connects its own Stripe account from Account → Payments. Funds go to you—not a shared platform wallet.',
+    },
+    {
+        icon: 'credit_card',
+        title: 'Pay invoices online',
+        description: 'Customers use a secure pay link on open invoices. Card and bank debit are available when you enable them.',
     },
     {
         icon: 'tune',
-        title: 'Payment Methods',
-        description: 'Enable card, ACH, and wire options per account configuration. Invoices can restrict which methods customers see on the public pay page.',
+        title: 'Methods you control',
+        description: 'Turn on card, ACH, and other options your store accepts, and choose which methods appear on each invoice.',
     },
     {
         icon: 'receipt_long',
-        title: 'Payments & Invoices',
-        description: 'Recorded payments live in Helmful alongside Stripe Checkout sessions. When a customer pays an open invoice online, the webhook flow confirms the payment and updates invoice balance.',
-    },
-];
-
-const capabilities = [
-    {
-        icon: 'credit_card',
-        title: 'Pay Invoices Online',
-        description: 'Customers open a secure Stripe Checkout session from the public invoice page. Card and US bank debit are supported when enabled and allowed on the invoice.',
-    },
-    {
-        icon: 'percent',
-        title: 'Optional Surcharge',
-        description: 'Configure a surcharge percent on invoices so card fees can be passed through transparently. Principal and surcharge amounts are stored in Checkout metadata for verification.',
-    },
-    {
-        icon: 'account_balance',
-        title: 'ACH & Bank Debit',
-        description: 'When ACH or wire is enabled for USD invoices, Checkout can offer us_bank_account with Financial Connections for verified bank payment.',
-    },
-    {
-        icon: 'verified_user',
-        title: 'Ready-to-Charge Guard',
-        description: 'Helmful checks stripeReadyForCharges before creating a session — onboarding alone is not enough; charges must be enabled on the connected account.',
-    },
-    {
-        icon: 'hub',
-        title: 'Webhooks & Reconciliation',
-        description: 'Stripe Connect webhooks handle checkout.session.completed and account.updated so payment status and Connect capability flags stay in sync.',
-    },
-    {
-        icon: 'swap_horiz',
-        title: 'Provider-Agnostic Design',
-        description: 'PaymentConfiguration supports stripe and quickbooks processors so tenants can choose how customer payments are collected without rewriting invoice logic.',
-    },
-];
-
-const behindTheScenes = [
-    {
-        step: '01',
-        title: 'Connect from Account → Payments',
-        body: 'StripeController creates or resumes an Express account, requests card_payments, transfers, and us_bank_account_ach_payments capabilities, then redirects through Stripe Account Link onboarding.',
-    },
-    {
-        step: '02',
-        title: 'Checkout Session on the Connected Account',
-        body: 'StripeService::createInvoiceCheckoutSession builds a one-time Checkout on the tenant stripe_account_id with invoice metadata, optional us_bank_account options, and success/cancel URLs on your domain.',
-    },
-    {
-        step: '03',
-        title: 'InvoicePayOnline Gates the Button',
-        body: 'InvoicePayOnline verifies the invoice is open, has balance due, is not QuickBooks-managed, and that at least one Stripe method is enabled on the account and allowed on the invoice.',
-    },
-    {
-        step: '04',
-        title: 'Customer Completes Payment',
-        body: 'The customer pays on Stripe-hosted Checkout. Session metadata carries invoice id, uuid, principal, and surcharge for fulfillment when the webhook fires.',
-    },
-    {
-        step: '05',
-        title: 'Webhook Updates Helmful',
-        body: 'StripeConnectWebhookHandler processes completed sessions and account updates so payments post to the tenant ledger and Connect status reflects what Stripe reports.',
+        title: 'Payments stay in Helmful',
+        description: 'When a customer pays online, the invoice balance updates in Helmful so your team sees the same status as your customer.',
     },
 ];
 </script>
@@ -116,25 +60,10 @@ const behindTheScenes = [
                         Get paid on invoices,<br>
                         <span class="text-primary-400">on your Stripe account.</span>
                     </h1>
-                    <p class="mb-16 max-w-2xl text-lg leading-relaxed text-gray-400">
-                        Connect Stripe Express, turn on the payment methods you accept,
-                        and let customers pay open invoices online — funds flow to your dealership, not a shared platform wallet.
+                    <p class="max-w-2xl text-lg leading-relaxed text-gray-400">
+                        Connect Stripe, turn on the payment methods you accept,
+                        and let customers pay open invoices online—funds flow to your dealership.
                     </p>
-
-                    <div class="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-white/5 bg-white/5">
-                        <div class="bg-gray-950 px-8 py-6">
-                            <div class="text-3xl font-bold text-white">Connect</div>
-                            <div class="mt-1 text-sm text-gray-400">Your Stripe Express</div>
-                        </div>
-                        <div class="bg-gray-950 px-8 py-6">
-                            <div class="text-3xl font-bold text-white">Card</div>
-                            <div class="mt-1 text-sm text-gray-400">+ ACH when enabled</div>
-                        </div>
-                        <div class="bg-gray-950 px-8 py-6">
-                            <div class="text-3xl font-bold text-white">Webhook</div>
-                            <div class="mt-1 text-sm text-gray-400">Confirmed payments</div>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="absolute bottom-0 left-0 right-0 leading-none">
@@ -147,94 +76,28 @@ const behindTheScenes = [
             <section class="px-6 py-24 sm:px-12 lg:px-24">
                 <div class="mx-auto max-w-7xl">
                     <div class="mb-14 max-w-xl">
-                        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary-600 dark:text-primary-400">How it's structured</p>
+                        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary-600 dark:text-primary-400">What you get</p>
                         <h2 class="mb-4 text-3xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-4xl">
-                            Connect, configure, collect
+                            From open invoice to paid
                         </h2>
                         <p class="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                            Tenant customer payments are separate from Helmful subscription billing.
-                            Your Connect account is the destination for invoice checkout.
+                            Customer invoice payments are separate from your Helmful subscription.
+                            Your connected Stripe account is where online invoice payments land.
                         </p>
                     </div>
 
-                    <div class="grid gap-5 lg:grid-cols-3">
+                    <div class="grid gap-5 sm:grid-cols-2">
                         <div
-                            v-for="(item, i) in hierarchy"
+                            v-for="item in highlights"
                             :key="item.title"
-                            class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-7 shadow-sm transition hover:shadow-md dark:border-gray-700/60 dark:bg-gray-800/80"
+                            class="rounded-2xl border border-gray-200 bg-white p-7 shadow-sm dark:border-gray-700/60 dark:bg-gray-800/80"
                         >
-                            <div class="absolute right-5 top-5 select-none text-5xl font-black text-gray-100 dark:text-gray-700/60">
-                                {{ String(i + 1).padStart(2, '0') }}
-                            </div>
                             <div class="mb-5 inline-flex rounded-xl bg-primary-50 p-3 dark:bg-primary-900/30">
                                 <span class="material-icons text-2xl leading-none text-primary-600 dark:text-primary-400">{{ item.icon }}</span>
                             </div>
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
                             <p class="mt-2 text-md leading-relaxed text-gray-500 dark:text-gray-400">{{ item.description }}</p>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="bg-secondary-50 px-6 py-24 dark:bg-secondary-950/25 sm:px-12 lg:px-24">
-                <div class="mx-auto max-w-7xl">
-                    <div class="mb-14 max-w-xl">
-                        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-secondary-700 dark:text-secondary-400">What it does</p>
-                        <h2 class="mb-4 text-3xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-4xl">
-                            From open invoice to paid
-                        </h2>
-                        <p class="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                            Give customers a pay-now link, support the methods your store accepts,
-                            and keep payment records inside Helmful.
-                        </p>
-                    </div>
-
-                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div
-                            v-for="cap in capabilities"
-                            :key="cap.title"
-                            class="group rounded-2xl border border-secondary-200 bg-white p-6 shadow-sm transition hover:border-secondary-400 hover:shadow-md dark:border-secondary-800 dark:bg-gray-900 dark:hover:border-secondary-600"
-                        >
-                            <div class="mb-4 inline-flex rounded-lg bg-secondary-100 p-2.5 dark:bg-secondary-900/50">
-                                <span class="material-icons text-xl leading-none text-secondary-600 dark:text-secondary-400">{{ cap.icon }}</span>
-                            </div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">{{ cap.title }}</h3>
-                            <p class="mt-2 text-md leading-relaxed text-gray-600 dark:text-gray-400">{{ cap.description }}</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section class="px-6 py-24 sm:px-12 lg:px-24">
-                <div class="mx-auto max-w-7xl">
-                    <div class="mb-14 max-w-xl">
-                        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-primary-600 dark:text-primary-400">Under the hood</p>
-                        <h2 class="mb-4 text-3xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-4xl">
-                            Checkout on the connected account
-                        </h2>
-                        <p class="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                            Stripe handles PCI-sensitive card and bank flows.
-                            Helmful ties each session back to the invoice and payment ledger.
-                        </p>
-                    </div>
-
-                    <div class="relative">
-                        <div class="absolute left-[2.75rem] top-12 hidden h-[calc(100%-6rem)] w-px bg-gradient-to-b from-primary-500/40 via-primary-500/20 to-transparent lg:block"></div>
-                        <ol class="space-y-4">
-                            <li
-                                v-for="item in behindTheScenes"
-                                :key="item.step"
-                                class="flex gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-800/80"
-                            >
-                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold tracking-wide text-white">
-                                    {{ item.step }}
-                                </div>
-                                <div class="pt-1">
-                                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ item.title }}</h3>
-                                    <p class="mt-1.5 text-md leading-relaxed text-gray-500 dark:text-gray-400">{{ item.body }}</p>
-                                </div>
-                            </li>
-                        </ol>
                     </div>
                 </div>
             </section>

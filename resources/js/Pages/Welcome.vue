@@ -739,10 +739,10 @@ onUnmounted(() => {
                                         <span class="material-icons text-lg leading-none">calendar_today</span>
                                         {{ post.date }}
                                     </span>
-                                    <span class="inline-flex items-center gap-1">
+                                    <!-- <span class="inline-flex items-center gap-1">
                                         <span class="material-icons text-lg leading-none">schedule</span>
                                         {{ post.readTime }}
-                                    </span>
+                                    </span> -->
                                 </div>
 
                                 <h3
@@ -755,15 +755,14 @@ onUnmounted(() => {
                                     {{ post.excerpt }}
                                 </p>
 
-                                <div class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-700">
-                                    <div class="flex items-center gap-2">
-                                        <div
-                                            class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300"
-                                        >
-                                            {{ post.author.charAt(0) }}
-                                        </div>
-                                        <span class="text-base font-medium text-gray-700 dark:text-gray-300">{{ post.author }}</span>
-                                    </div>
+                                <!-- <div class="flex items-center justify-end border-t border-gray-100 pt-4 dark:border-gray-700"> -->
+
+                                    <div class="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+                                        <span class="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-400">
+                                            <span class="material-icons text-lg leading-none">schedule</span>
+                                            {{ post.readTime }}
+                                        </span>
+
                                     <span
                                         class="inline-flex items-center gap-1 text-base font-semibold text-primary-600 transition group-hover:gap-2 dark:text-primary-400"
                                     >

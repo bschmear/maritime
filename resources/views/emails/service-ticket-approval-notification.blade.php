@@ -66,13 +66,16 @@
         }
         .button {
             display: inline-block;
-            background: #667eea;
-            color: white;
+            background: #000;
+            color: #ffffff !important;
             padding: 12px 24px;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 600;
             margin: 20px 0;
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
         .footer {
             margin-top: 30px;

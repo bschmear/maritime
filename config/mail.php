@@ -18,6 +18,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | SendGrid (SMTP)
+    |--------------------------------------------------------------------------
+    |
+    | Set MAIL_MAILER=sendgrid and SENDGRID_API_KEY in .env.
+    | Username is always "apikey"; password is your SendGrid API key.
+    | Verify SENDGRID_FROM_ADDRESS (or MAIL_FROM_ADDRESS) in SendGrid first.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
     | Mailer Configurations
     |--------------------------------------------------------------------------
     |
@@ -45,6 +56,17 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        'sendgrid' => [
+            'transport' => 'smtp',
+            'host' => env('SENDGRID_HOST', 'smtp.sendgrid.net'),
+            'port' => (int) env('SENDGRID_PORT', 587),
+            'username' => env('SENDGRID_USERNAME', 'apikey'),
+            'password' => env('SENDGRID_API_KEY'),
+            'scheme' => env('SENDGRID_SCHEME', 'smtp'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
@@ -111,7 +133,7 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+        'address' => env('MAIL_FROM_ADDRESS', env('SENDGRID_FROM_ADDRESS', 'hello@example.com')),
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 

@@ -51,13 +51,16 @@
         .info-value { display: table-cell; padding: 8px 0; color: #111827; }
         .button {
             display: inline-block;
-            background: #0ea5e9;
-            color: white;
+            background: #000;
+            color: #ffffff !important;
             padding: 12px 24px;
             text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 600;
             margin: 20px 0;
+        }
+        .button:visited {
+            color: #ffffff !important;
         }
         .footer {
             margin-top: 30px;
