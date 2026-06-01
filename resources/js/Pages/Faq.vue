@@ -73,7 +73,7 @@ const rest = computed(() => props.faqs.filter((f) => !f.featured));
                                         v-for="faq in featured"
                                         :key="faq.id"
                                         :href="'#faq-' + faq.id"
-                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/60 dark:hover:text-white"
+                                        class="group flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800/60 dark:hover:text-white whitespace-normal"
                                     >
                                         <span
                                             class="material-icons text-xl leading-none text-primary-300 transition-colors group-hover:text-primary-500 dark:text-primary-600 dark:group-hover:text-primary-400"

@@ -35,3 +35,34 @@ To backfill `boat_type`, `hull_type`, `hull_material`, dimensions, and `type` fo
 ## Related commands
 
 - `inventory:seed-asset-catalog` seeds the **inventory** database from `app/AssetInformation/{slug}/meta.json` (not tenant assets).
+
+
+
+1. Dry run (recommended)
+Validates JSON and reports counts without writing:
+
+php artisan inventory:seed-asset-catalog --brand=ranieri --dry-run
+For every brand under app/AssetInformation/:
+
+php artisan inventory:seed-asset-catalog --dry-run
+2. Apply to the inventory database
+php artisan inventory:seed-asset-catalog --brand=ranieri
+Or all brands:
+
+php artisan inventory:seed-asset-catalog
+This upserts boat_make, assets, and asset_variants from app/AssetInformation/{slug}/meta.json. Ranieri is already in manufacturers.json as "ranieri": "Ranieri" and has a BoatMake enum entry, so the ranieri folder should be picked up.
+
+Options
+Flag	Purpose
+--brand=ranieri
+Only that manufacturer folder
+--dry-run
+Validate only, no DB writes
+--keep-orphan-variants
+Don’t delete inventory variants removed from meta.json
+Prerequisites
+Inventory migrations must be applied on the inventory connection (the command checks for columns like catalog_data, features, length_mm on assets). If that fails, run your inventory migrations first.
+
+Optional: refresh make rows from the catalog list:
+
+php artisan inventory:seed-makes
