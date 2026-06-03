@@ -62,7 +62,7 @@ class CreateDocument
             // Generate filename: name-timestamp.ext
             $filename = Str::slug(basename($file->getClientOriginalName(), '.'.$extension)).'-'.time().'.'.$extension;
 
-            $path = self::storagePathForUpload($authUser, $staffUserId, $filename);
+            $path = self::storagePathForFilename($filename);
 
             // Upload to S3
             $uploaded = Storage::disk('s3')->put($path, file_get_contents($file), 'private');
@@ -126,16 +126,14 @@ class CreateDocument
     }
 
     /**
-     * Tenant staff uploads use documents/{user_id}/…; customer portal uploads use documents/portal/contacts/{contact_id}/….
+     * Mirror public asset layout: documents/{tenant_id}/{filename} (see PublicStorage).
      */
-    private static function storagePathForUpload(mixed $authUser, ?int $staffUserId, string $filename): string
+    public static function storagePathForFilename(string $filename): string
     {
-        if ($authUser instanceof Contact) {
-            return 'documents/portal/contacts/'.$authUser->id.'/'.$filename;
-        }
+        $tenantId = tenant()?->id;
 
-        if ($staffUserId) {
-            return 'documents/'.$staffUserId.'/'.$filename;
+        if ($tenantId !== null) {
+            return 'documents/'.$tenantId.'/'.$filename;
         }
 
         return 'documents/uploads/'.$filename;

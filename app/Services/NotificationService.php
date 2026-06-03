@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\Document\Actions\CreateDocument;
 use App\Domain\Document\Models\Document;
 use App\Domain\DocumentRequest\Models\DocumentRequest;
 use App\Domain\Estimate\Models\Estimate;
@@ -524,15 +525,16 @@ class NotificationService
             ]);
 
             $filename = 'service-ticket-'.$ticket->service_ticket_number.'-'.now()->format('Y-m-d-H-i-s').'.pdf';
-            $path = 'pdfs/'.$filename;
+            $path = CreateDocument::storagePathForFilename($filename);
+            $pdfOutput = $pdf->output();
 
-            Storage::disk('s3')->put($path, $pdf->output());
+            Storage::disk('s3')->put($path, $pdfOutput);
 
             Document::create([
                 'display_name' => "Service Ticket #{$ticket->service_ticket_number} - Signed",
                 'file' => $path,
                 'file_extension' => 'pdf',
-                'file_size' => strlen($pdf->output()),
+                'file_size' => strlen($pdfOutput),
                 'created_by_id' => null,
                 'ai_status' => 'completed',
             ]);
