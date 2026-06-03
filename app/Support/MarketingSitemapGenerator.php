@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL as UrlGenerator;
+use RuntimeException;
 use Spatie\Sitemap\Sitemap;
 use Spatie\Sitemap\Tags\Url;
 
@@ -18,6 +20,8 @@ class MarketingSitemapGenerator
      */
     public function generate(): string
     {
+        UrlGenerator::forceRootUrl(rtrim((string) config('app.url'), '/'));
+
         $sitemap = Sitemap::create();
 
         $this->addStaticPages($sitemap);
@@ -26,7 +30,41 @@ class MarketingSitemapGenerator
         $this->addBlogTags($sitemap);
 
         $path = public_path(self::OUTPUT_PATH);
-        $sitemap->writeToFile($path);
+        $directory = dirname($path);
+
+        if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+            throw new RuntimeException("Cannot create public directory: {$directory}");
+        }
+
+        if (! is_writable($directory)) {
+            throw new RuntimeException("Public directory is not writable: {$directory}");
+        }
+
+        $tempPath = $directory.'/'.self::OUTPUT_PATH.'.'.getmypid().'.tmp';
+
+        try {
+            if (is_file($tempPath)) {
+                unlink($tempPath);
+            }
+
+            $sitemap->writeToFile($tempPath);
+
+            if (! is_file($tempPath) || filesize($tempPath) === 0) {
+                throw new RuntimeException('Sitemap generation produced an empty file.');
+            }
+
+            if (is_file($path)) {
+                unlink($path);
+            }
+
+            rename($tempPath, $path);
+        } catch (\Throwable $exception) {
+            if (is_file($tempPath)) {
+                @unlink($tempPath);
+            }
+
+            throw $exception;
+        }
 
         $this->updateRobotsTxt();
 
