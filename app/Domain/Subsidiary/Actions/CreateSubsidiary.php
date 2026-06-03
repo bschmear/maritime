@@ -34,6 +34,7 @@ class CreateSubsidiary
             'next_work_order_number' => ['nullable', 'integer', 'min:1000'],
             'settings'            => ['nullable', 'array'],
             'notes'               => ['nullable', 'string'],
+            'logo'                => ['nullable', 'integer'],
         ];
 
         // Only validate keys that exist in $data to allow extra custom fields

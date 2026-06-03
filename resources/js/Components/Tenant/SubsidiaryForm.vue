@@ -20,8 +20,8 @@ const props = defineProps({
 const emit = defineEmits(['saved', 'cancelled']);
 
 const isEdit = computed(() => props.mode === 'edit' && props.record?.id);
-const logoFile = ref(null);
 const logoPreview = ref(props.imageUrls?.logo ?? props.record?.logo_url ?? null);
+const logoInputRef = ref(null);
 
 const timezoneEnumKey = 'App\\Enums\\Timezone';
 
@@ -44,6 +44,7 @@ const form = useForm({
     country: initial.value.country ?? 'US',
     latitude: initial.value.latitude ?? null,
     longitude: initial.value.longitude ?? null,
+    logo: null,
 });
 
 const subsidiaryLabel = computed(() => {
@@ -72,31 +73,29 @@ const onAddressUpdate = (data) => {
     form.longitude = data.longitude ?? null;
 };
 
+const hasLogoUpload = computed(() => form.logo instanceof File);
+
 const onLogoChange = (event) => {
     const file = event.target.files?.[0] ?? null;
-    logoFile.value = file;
+    form.logo = file;
     if (file) {
         logoPreview.value = URL.createObjectURL(file);
     }
 };
 
 const clearLogo = () => {
-    logoFile.value = null;
-    logoPreview.value = null;
     form.logo = null;
+    logoPreview.value = null;
+    if (logoInputRef.value) {
+        logoInputRef.value.value = '';
+    }
 };
 
-const preparePayload = () => {
-    const data = { ...form.data() };
-    data.inactive = !!(data.inactive === true || data.inactive === 1 || data.inactive === '1');
-    if (data.timezone === '') {
-        data.timezone = null;
-    }
-    if (logoFile.value) {
-        data.logo = logoFile.value;
-    }
-    return data;
-};
+const transformPayload = (data) => ({
+    ...data,
+    inactive: !!(data.inactive === true || data.inactive === 1 || data.inactive === '1'),
+    timezone: data.timezone === '' ? null : data.timezone,
+});
 
 const submit = () => {
     const url = isEdit.value
@@ -104,16 +103,9 @@ const submit = () => {
         : route(`${props.recordType}.store`);
 
     form.clearErrors();
-    const payload = preparePayload();
-    Object.keys(payload).forEach((key) => {
-        form[key] = payload[key];
-    });
-
-    const hasFiles = Boolean(logoFile.value);
 
     const options = {
         preserveScroll: true,
-        forceFormData: hasFiles,
         onSuccess: (page) => {
             if (isEdit.value) {
                 emit('saved', {});
@@ -125,18 +117,27 @@ const submit = () => {
         },
     };
 
-    if (isEdit.value && hasFiles) {
-        // Laravel expects PUT; multipart uploads must POST with _method in the body (not visit options).
-        form.transform((data) => ({ ...data, _method: 'PUT' })).post(url, options);
+    if (isEdit.value && hasLogoUpload.value) {
+        // Multipart file uploads must POST with method spoofing (same pattern as generic Form.vue).
+        form.transform((data) => ({
+            ...transformPayload(data),
+            _method: 'put',
+        })).post(url, {
+            ...options,
+            forceFormData: true,
+        });
         return;
     }
 
     if (isEdit.value) {
-        form.put(url, options);
+        form.transform(transformPayload).put(url, options);
         return;
     }
 
-    form.post(url, options);
+    form.transform(transformPayload).post(url, {
+        ...options,
+        forceFormData: hasLogoUpload.value,
+    });
 };
 </script>
 
@@ -248,6 +249,7 @@ const submit = () => {
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Logo</label>
                             <input
+                                ref="logoInputRef"
                                 type="file"
                                 accept="image/*"
                                 class="input-style"

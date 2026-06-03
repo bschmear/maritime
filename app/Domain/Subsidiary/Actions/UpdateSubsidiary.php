@@ -34,6 +34,7 @@ class UpdateSubsidiary
             'next_work_order_number' => ['nullable', 'integer', 'min:1000'],
             'settings'            => ['nullable', 'array'],
             'notes'               => ['nullable', 'string'],
+            'logo'                => ['nullable', 'integer'],
         ];
 
         // Only validate fields that exist in the input
