@@ -253,7 +253,7 @@ class PaymentController extends Controller
         ]);
         $validated['apply_to_invoice'] = $request->boolean('apply_to_invoice', true);
 
-        $payment = (new StoreRecordedPayment)($validated, Auth::id());
+        $payment = (new StoreRecordedPayment)($validated, current_tenant_user_id());
 
         return redirect()
             ->route('payments.show', $payment)

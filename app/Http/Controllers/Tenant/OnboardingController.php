@@ -58,6 +58,14 @@ class OnboardingController extends BaseController
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'notes' => ['nullable', 'string'],
+            'address_line_1' => ['nullable', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'state' => ['nullable', 'string', 'max:255'],
+            'postal_code' => ['nullable', 'string', 'max:50'],
+            'country' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric'],
+            'longitude' => ['nullable', 'numeric'],
         ]);
 
         $payload = [
@@ -66,6 +74,14 @@ class OnboardingController extends BaseController
             'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'notes' => $validated['notes'] ?? null,
+            'address_line_1' => $validated['address_line_1'] ?? null,
+            'address_line_2' => $validated['address_line_2'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'state' => $validated['state'] ?? null,
+            'postal_code' => $validated['postal_code'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'latitude' => $validated['latitude'] ?? null,
+            'longitude' => $validated['longitude'] ?? null,
         ];
 
         $result = $createLocation($payload);
@@ -147,9 +163,7 @@ class OnboardingController extends BaseController
         $account->onboarding_complete = true;
         $account->save();
 
-        return redirect()
-            ->route('account.index')
-            ->with('success', 'Welcome! Your workspace setup is complete.');
+        return back();
     }
 
     private function ensureOnboardingIncomplete(): void

@@ -4,5 +4,14 @@
     { "key": "name", "label": "Name", "sortable": true, "record_link": true },
     { "key": "input_type", "label": "Input type", "sortable": true },
     { "key": "active", "label": "Active", "sortable": true }
+  ],
+  "filters": [
+    {
+      "field": "make_id",
+      "label": "Brand",
+      "type": "record",
+      "typeDomain": "BoatMake",
+      "lookup_route": "asset-options.assignment-lookup"
+    }
   ]
 }

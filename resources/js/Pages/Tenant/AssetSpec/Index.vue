@@ -5,6 +5,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import SpecPreview from '@/Components/Tenant/AssetSpec/SpecPreview.vue';
 import AddSpecModal from '@/Components/Tenant/AssetSpec/AddSpecModal.vue';
+import EditSpecModal from '@/Components/Tenant/AssetSpec/EditSpecModal.vue';
 import SpecGroupTable from '@/Components/Tenant/AssetSpec/SpecGroupTable.vue';
 
 const props = defineProps({
@@ -15,6 +16,7 @@ const props = defineProps({
 });
 
 const showAddModal = ref(false);
+const editingSpec = ref(null);
 const savingSpecId = ref(null);
 const deletingSpecId = ref(null);
 
@@ -181,6 +183,10 @@ const buildUpdatePayload = (spec) => ({
     position: spec.position ?? 0,
     asset_types: normalizeAssetTypes(spec.asset_types),
 });
+
+const openEditSpec = (spec) => {
+    editingSpec.value = { ...spec };
+};
 
 const deleteSpec = (spec) => {
     if (spec.is_required) return;
@@ -575,6 +581,7 @@ const previewSpecs = computed(() =>
                                 @cross-group-move="onCrossGroupMove"
                                 @toggle-asset-type="toggleAssetType"
                                 @toggle-show-on-table="toggleShowOnTable"
+                                @edit-spec="openEditSpec"
                                 @delete-spec="deleteSpec"
                                 @move-group="({ blockKey, direction }) => moveGroup(blockKey, direction)"
                             />
@@ -605,5 +612,11 @@ const previewSpecs = computed(() =>
         </div>
 
         <AddSpecModal v-if="showAddModal" :spec-groups="specGroupsList" @close="showAddModal = false" />
+        <EditSpecModal
+            v-if="editingSpec"
+            :spec="editingSpec"
+            :spec-groups="specGroupsList"
+            @close="editingSpec = null"
+        />
     </TenantLayout>
 </template>

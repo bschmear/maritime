@@ -3,6 +3,7 @@ defineOptions({ inheritAttrs: false });
 
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
+import VariantForm from '@/Components/Tenant/VariantForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
@@ -12,6 +13,7 @@ import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
+import { defaultFiltersFromTableSchema } from '@/Utils/defaultTableFilters';
 
 const props = defineProps({
     // Parent record information
@@ -63,6 +65,10 @@ const sublistFormExtraRouteParams = computed(() => ({
     ...(sublistCreateFormData.value?.extraRouteParams || {}),
     ...(props.parentDomain === 'Asset' ? { asset: props.parentRecord.id } : {}),
 }));
+
+const isVariantSublistForm = computed(
+    () => sublistCreateFormData.value?.recordType === 'assets.variants',
+);
 
 const documentRequestContactId = computed(() => {
     if (props.parentDomain === 'Contact') {
@@ -763,17 +769,15 @@ const fetchSublistData = async (sublist, page = 1) => {
         sublistFieldsSchema.value = response.data.fieldsSchema || {}; // Fields schema for data types
         sublistPagination.value = response.data.meta;
         
-        // Load default filters from schema on first load only
-        if (!defaultFiltersLoaded.value && activeFilters.value.length === 0 && sublistTableSchema.value?.filters) {
+        // Load explicit default filters only (default_value / apply_as_default), not quick-filter defs
+        if (!defaultFiltersLoaded.value && activeFilters.value.length === 0 && sublistTableSchema.value) {
             defaultFiltersLoaded.value = true;
-            // Ensure each filter has an id for UI management
-            activeFilters.value = sublistTableSchema.value.filters.map((f, index) => ({
-                ...f,
-                id: f.id || `default-${index}-${Date.now()}`
-            }));
-            // Refetch with default filters applied
-            fetchSublistData(sublist, page);
-            return;
+            const defaults = defaultFiltersFromTableSchema(sublistTableSchema.value);
+            if (defaults.length > 0) {
+                activeFilters.value = defaults;
+                fetchSublistData(sublist, page);
+                return;
+            }
         }
 
     } catch (error) {
@@ -1931,28 +1935,32 @@ watch(
                     </div>
                     
                     <!-- Pagination -->
-                    <div 
-                        v-if="sublistPagination && sublistPagination.last_page > 1" 
-                        class="flex justify-between items-center mt-4"
+                    <nav
+                        v-if="sublistPagination && sublistPagination.last_page > 1"
+                        class="mt-4 flex justify-end border-t border-gray-100 px-4 py-3 dark:border-gray-700"
                     >
-                        <button
-                            @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
-                            :disabled="sublistPagination.current_page === 1"
-                            class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-                        <span class="text-sm text-gray-600 dark:text-gray-400">
-                            Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
-                        </span>
-                        <button
-                            @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
-                            :disabled="sublistPagination.current_page === sublistPagination.last_page"
-                            class="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
+                        <div class="inline-flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page - 1)"
+                                :disabled="sublistPagination.current_page === 1"
+                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                Previous
+                            </button>
+                            <span class="px-1 text-sm text-gray-600 dark:text-gray-400">
+                                Page {{ sublistPagination.current_page }} of {{ sublistPagination.last_page }}
+                            </span>
+                            <button
+                                type="button"
+                                @click="activeTab && !(activeTab.modelRelationship && activeTab.domain === 'InventoryImage') && activeTab.domain !== 'Document' && fetchSublistData(activeTab, sublistPagination.current_page + 1)"
+                                :disabled="sublistPagination.current_page === sublistPagination.last_page"
+                                class="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </nav>
                 </div>
 
                 <!-- Empty State (for regular sublists only) -->
@@ -2001,6 +2009,20 @@ watch(
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
+            <VariantForm
+                v-else-if="sublistCreateFormData && isVariantSublistForm"
+                :schema="sublistCreateFormData.formSchema"
+                :fields-schema="getSublistFieldsSchema()"
+                :asset-id="parentRecord.id"
+                :enum-options="getSublistEnumOptions()"
+                :available-specs="sublistCreateFormData.availableSpecs || []"
+                :specs-context-asset-type="sublistCreateFormData.specsContextAssetType ?? null"
+                mode="create"
+                :prevent-redirect="true"
+                compact
+                @created="handleSublistItemCreated"
+                @cancel="closeSublistCreateModal"
+            />
             <Form
                 v-else-if="sublistCreateFormData"
                 :schema="sublistCreateFormData.formSchema"
@@ -2047,6 +2069,21 @@ watch(
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
+            <VariantForm
+                v-else-if="sublistCreateFormData && sublistEditRecord && isVariantSublistForm"
+                :schema="sublistCreateFormData.formSchema"
+                :fields-schema="getSublistFieldsSchema()"
+                :record="sublistEditRecord"
+                :asset-id="parentRecord.id"
+                :enum-options="sublistCreateFormData.enumOptions"
+                :available-specs="sublistCreateFormData.availableSpecs || []"
+                :specs-context-asset-type="sublistCreateFormData.specsContextAssetType ?? null"
+                :prevent-redirect="true"
+                mode="edit"
+                compact
+                @updated="handleSublistItemUpdated"
+                @cancel="closeSublistEditModal"
+            />
             <Form
                 v-else-if="sublistCreateFormData && sublistEditRecord"
                 :schema="sublistCreateFormData.formSchema"

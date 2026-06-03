@@ -534,7 +534,7 @@ class WarrantyClaimController extends BaseController
             }
 
             $data = $this->collectStoreUpdatePayload($request, $publicStorage);
-            $result = ($this->createWarrantyClaim)($data, $request->user('web')?->id);
+            $result = ($this->createWarrantyClaim)($data, current_tenant_user_id());
 
             if (! is_array($result)) {
                 $result = ['success' => true, 'record' => $result];
@@ -836,8 +836,8 @@ class WarrantyClaimController extends BaseController
                 'file' => $result['key'],
                 'file_extension' => $result['file_extension'],
                 'file_size' => $result['file_size'],
-                'created_by_id' => auth()->id(),
-                'updated_by_id' => auth()->id(),
+                'created_by_id' => current_tenant_user_id(),
+                'updated_by_id' => current_tenant_user_id(),
             ]);
 
             $data[$fieldKey] = $document->id;

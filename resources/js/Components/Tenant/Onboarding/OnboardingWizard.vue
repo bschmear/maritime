@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
+import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 
 const props = defineProps({
     onboarding: {
@@ -9,8 +10,11 @@ const props = defineProps({
     },
 });
 
+const emit = defineEmits(['completed']);
+
 const step = ref(props.onboarding.initial_step ?? 1);
 const totalSteps = 5;
+const completionStep = 6;
 
 watch(
     () => props.onboarding.initial_step,
@@ -40,6 +44,14 @@ const locationForm = useForm({
     location_type: defaultLocationTypeId.value,
     email: '',
     phone: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: '',
+    latitude: null,
+    longitude: null,
 });
 
 const addedLocations = computed(() => props.onboarding.locations ?? []);
@@ -76,6 +88,38 @@ const filteredManufacturers = computed(() => {
 
 function isBrandAlreadyAdded(slug) {
     return existingBrandKeySet.value.has(slug);
+}
+
+const manufacturerBySlug = computed(() => {
+    const map = {};
+    for (const m of props.onboarding.manufacturers ?? []) {
+        map[m.slug] = m;
+    }
+    return map;
+});
+
+const pendingSelectedBrands = computed(() =>
+    selectedBrandSlugs.value
+        .filter((slug) => !isBrandAlreadyAdded(slug))
+        .map((slug) => ({
+            slug,
+            display_name: manufacturerBySlug.value[slug]?.display_name ?? slug,
+        }))
+);
+
+function removeSelectedBrand(slug) {
+    selectedBrandSlugs.value = selectedBrandSlugs.value.filter((s) => s !== slug);
+}
+
+function onLocationAddressUpdate(data) {
+    locationForm.address_line_1 = data.street || '';
+    locationForm.address_line_2 = data.unit || '';
+    locationForm.city = data.city || '';
+    locationForm.state = data.stateCode || data.state || '';
+    locationForm.postal_code = data.postalCode || '';
+    locationForm.country = data.countryCode || data.country || '';
+    locationForm.latitude = data.latitude ?? null;
+    locationForm.longitude = data.longitude ?? null;
 }
 
 const finalizeForm = useForm({
@@ -121,7 +165,19 @@ function submitLocation() {
     locationForm.post(route('onboarding.location'), {
         preserveScroll: true,
         onSuccess: () => {
-            locationForm.reset('display_name', 'email', 'phone');
+            locationForm.reset(
+                'display_name',
+                'email',
+                'phone',
+                'address_line_1',
+                'address_line_2',
+                'city',
+                'state',
+                'postal_code',
+                'country',
+                'latitude',
+                'longitude'
+            );
             locationForm.location_type = defaultLocationTypeId.value;
             reloadOnboarding();
         },
@@ -180,10 +236,16 @@ function onLogoChange(e) {
 function submitFinalize() {
     finalizeForm.post(route('onboarding.finalize'), {
         forceFormData: true,
+        preserveScroll: true,
         onSuccess: () => {
-            /* redirect handled server-side */
+            step.value = completionStep;
         },
     });
+}
+
+function finishOnboarding() {
+    emit('completed');
+    router.visit(route('account.index'));
 }
 
 const canSubmitLocation = computed(
@@ -205,12 +267,12 @@ const canSubmitLocation = computed(
         >
             <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                 <h2 id="onboarding-title" class="text-lg font-semibold text-gray-900 dark:text-white">
-                    Welcome — set up your workspace
+                    {{ step === completionStep ? 'Setup complete' : 'Welcome — set up your workspace' }}
                 </h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                <p v-if="step !== completionStep" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Complete these steps to configure subsidiaries, locations, brands, payments, and branding.
                 </p>
-                <ol class="mt-4 flex flex-wrap gap-2">
+                <ol v-if="step !== completionStep" class="mt-4 flex flex-wrap gap-2">
                     <li
                         v-for="n in totalSteps"
                         :key="n"
@@ -280,8 +342,16 @@ const canSubmitLocation = computed(
                                 :key="loc.id"
                                 class="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900"
                             >
-                                <span class="font-medium text-gray-900 dark:text-white">{{ loc.display_name }}</span>
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                <div class="min-w-0">
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ loc.display_name }}</span>
+                                    <p
+                                        v-if="loc.address_summary"
+                                        class="mt-0.5 text-xs text-gray-500 dark:text-gray-400"
+                                    >
+                                        {{ loc.address_summary }}
+                                    </p>
+                                </div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400 shrink-0">
                                     <span v-if="loc.location_type_label">{{ loc.location_type_label }}</span>
                                     <span v-if="loc.location_type_label && loc.subsidiary_labels"> · </span>
                                     <span v-if="loc.subsidiary_labels">{{ loc.subsidiary_labels }}</span>
@@ -317,6 +387,25 @@ const canSubmitLocation = computed(
                         </select>
                         <p v-if="locationForm.errors.location_type" class="mt-1 text-sm text-red-600">
                             {{ locationForm.errors.location_type }}
+                        </p>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
+                        <AddressAutocomplete
+                            id="onboarding-location-address"
+                            :street="locationForm.address_line_1"
+                            :unit="locationForm.address_line_2"
+                            :city="locationForm.city"
+                            :state="locationForm.state"
+                            :stateCode="locationForm.state"
+                            :postalCode="locationForm.postal_code"
+                            :country="locationForm.country"
+                            :latitude="locationForm.latitude"
+                            :longitude="locationForm.longitude"
+                            @update="onLocationAddressUpdate"
+                        />
+                        <p v-if="locationForm.errors.address_line_1" class="mt-1 text-sm text-red-600">
+                            {{ locationForm.errors.address_line_1 }}
                         </p>
                     </div>
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -359,6 +448,34 @@ const canSubmitLocation = computed(
                         Select manufacturers to add. Each uses a stable catalog key (slug) shared with the inventory database. You
                         can manage brands anytime under Brands.
                     </p>
+                    <div
+                        v-if="pendingSelectedBrands.length"
+                        class="rounded-lg border border-primary-200 bg-primary-50 p-3 dark:border-primary-800/50 dark:bg-primary-950/30"
+                    >
+                        <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-800 dark:text-primary-200">
+                            Selected brands ({{ pendingSelectedBrands.length }})
+                        </p>
+                        <ul class="flex flex-wrap gap-2">
+                            <li
+                                v-for="brand in pendingSelectedBrands"
+                                :key="brand.slug"
+                                class="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-white py-1 pl-3 pr-1 text-sm text-gray-900 dark:border-primary-700 dark:bg-gray-900 dark:text-white"
+                            >
+                                <span>{{ brand.display_name }}</span>
+                                <button
+                                    type="button"
+                                    class="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                                    :aria-label="`Remove ${brand.display_name}`"
+                                    @click="removeSelectedBrand(brand.slug)"
+                                >
+                                    <span class="sr-only">Remove</span>
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
                         <input
@@ -495,8 +612,53 @@ const canSubmitLocation = computed(
                         :disabled="finalizeForm.processing"
                         @click="submitFinalize"
                     >
-                        Save and go to Account
+                        Finish setup
                     </button>
+                </div>
+
+                <!-- Completion -->
+                <div v-show="step === completionStep" class="space-y-5">
+                    <div class="flex flex-col items-center text-center sm:px-4">
+                        <div
+                            class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40"
+                            aria-hidden="true"
+                        >
+                            <svg class="h-8 w-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Success — you&apos;re all set to get started
+                        </h3>
+                        <p class="mt-2 max-w-md text-sm text-gray-600 dark:text-gray-300">
+                            Your workspace setup is complete. We highly recommend testing in
+                            <strong class="font-semibold text-gray-800 dark:text-white">sandbox mode</strong>
+                            before you go live with customers.
+                        </p>
+                    </div>
+
+                    <div
+                        class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700/80 dark:bg-amber-950/40 dark:text-amber-100"
+                        role="status"
+                    >
+                        <p class="font-semibold">Sandbox mode</p>
+                        <p class="mt-1.5 leading-relaxed">
+                            While sandbox mode is on, emails and text messages are routed back to you (the signed-in user)
+                            instead of the customer&apos;s real address or phone number. Use this to try invoices, estimates,
+                            deliveries, and notifications safely. Turn sandbox off under
+                            <strong>Account → General Account Settings</strong> when you are ready to contact customers for real.
+                        </p>
+                    </div>
+
+                    <div class="flex justify-center pt-2">
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                            @click="finishOnboarding"
+                        >
+                            Get started
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

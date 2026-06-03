@@ -42,8 +42,6 @@ class ScoreController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $user = auth()->user();
-
         $validated = $request->validate([
             'scorable_type' => ['required', 'string'],
             'scorable_id' => ['required', 'integer'],
@@ -61,7 +59,7 @@ class ScoreController extends Controller
             'notes' => ['nullable', 'string', 'max:250'],
         ]);
 
-        $validated['user_id'] = $user?->id;
+        $validated['user_id'] = current_tenant_user_id();
 
         $result = ($this->createScore)($validated);
 

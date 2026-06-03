@@ -99,7 +99,7 @@ class UpdateInventoryImage
                 $validated['file_size'] = $uploadResult['file_size'];
             }
 
-            $validated['updated_by_id'] = auth()->id();
+            $validated['updated_by_id'] = current_tenant_user_id();
 
             if ($validated !== []) {
                 $record->update($validated);

@@ -10,6 +10,15 @@ import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 export function useAssetSchemaForm(props, emit) {
     const { convertUTCToTimezone, convertTimezoneToUTC, accountTimezone, accountTimezoneLabel } = useTimezone();
 
+    const resolvedExtraRouteParams = computed(() => {
+        const base = { ...(props.extraRouteParams || {}) };
+        if (props.assetId != null && props.assetId !== '') {
+            base.asset = props.assetId;
+        }
+
+        return base;
+    });
+
     const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
     const isCreateMode = computed(() => props.mode === 'create');
     const updateRecordId = computed(() => props.recordIdentifier ?? props.record?.id);
@@ -51,13 +60,31 @@ export function useAssetSchemaForm(props, emit) {
         return Object.values(s).some((g) => g && typeof g === 'object' && g.type === 'specs');
     });
 
+    const usesAssetTypeScopedSpecs = computed(
+        () => props.recordType === 'assets' || props.recordType === 'assets.variants',
+    );
+
     const specsOverrideFromFetch = ref(null);
+
+    const normalizeSpecsList = (raw) => {
+        if (Array.isArray(raw)) {
+            return raw;
+        }
+        if (raw && typeof raw === 'object') {
+            return Object.values(raw);
+        }
+
+        return [];
+    };
+
+    const specsFromProps = computed(() => normalizeSpecsList(props.availableSpecs));
 
     const resolvedAvailableSpecs = computed(() => {
         if (specsOverrideFromFetch.value !== null) {
             return specsOverrideFromFetch.value;
         }
-        return props.availableSpecs || [];
+
+        return specsFromProps.value;
     });
 
     const buildInitialSpecValues = () => {
@@ -337,23 +364,38 @@ export function useAssetSchemaForm(props, emit) {
     const imagePreviews = ref({});
 
     watch(
-        [() => props.recordType, () => form.type, () => props.availableSpecs?.length ?? 0],
-        async ([recordType, type, availableLen], oldVals) => {
-            if (!hasSpecsSection.value || props.mode === 'view') {
+        [
+            () => props.recordType,
+            () => form.type,
+            () => props.specsContextAssetType,
+            () => specsFromProps.value.length,
+        ],
+        async ([recordType, type, ctxType, propsSpecLen], oldVals) => {
+            if (!usesAssetTypeScopedSpecs.value || !hasSpecsSection.value || props.mode === 'view') {
                 return;
             }
 
-            if (oldVals === undefined && availableLen > 0) {
-                return;
+            let assetType = null;
+            if (recordType === 'assets') {
+                assetType = type === null || type === '' ? null : Number(type);
+            } else if (recordType === 'assets.variants') {
+                assetType = ctxType === null || ctxType === '' ? null : Number(ctxType);
             }
 
-            const assetType = type === null || type === '' ? null : Number(type);
             if (assetType === null || Number.isNaN(assetType)) {
-                specsOverrideFromFetch.value = [];
+                specsOverrideFromFetch.value = null;
                 return;
             }
 
-            if (recordType !== 'assets') {
+            // Variant edit/show: definitions come from the parent asset via Inertia — do not clobber with fetch.
+            if (recordType === 'assets.variants' && propsSpecLen > 0) {
+                specsOverrideFromFetch.value = null;
+                return;
+            }
+
+            // Asset create/edit first paint: server already included specs for the current type.
+            if (oldVals === undefined && propsSpecLen > 0) {
+                specsOverrideFromFetch.value = null;
                 return;
             }
 
@@ -365,9 +407,9 @@ export function useAssetSchemaForm(props, emit) {
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                 });
-                specsOverrideFromFetch.value = data?.specs ?? [];
+                specsOverrideFromFetch.value = normalizeSpecsList(data?.specs);
             } catch {
-                specsOverrideFromFetch.value = [];
+                specsOverrideFromFetch.value = null;
             }
         },
         { immediate: true },
@@ -939,7 +981,73 @@ export function useAssetSchemaForm(props, emit) {
         }
         delete data.specValues;
         data.specs = buildSpecsPayload();
+        if (props.enableHasVariantsOnStore && props.recordType === 'assets.variants') {
+            data.enable_has_variants = true;
+        }
         return data;
+    };
+
+    const applyCopiedVariantRecord = (srcRaw) => {
+        if (!srcRaw || typeof srcRaw !== 'object') {
+            return;
+        }
+        const src = { ...srcRaw };
+        delete src.id;
+        delete src.asset_id;
+        delete src.created_at;
+        delete src.updated_at;
+        delete src.key;
+        const specRows = src.spec_values || src.specValues;
+        delete src.spec_values;
+        delete src.specValues;
+        delete src.resolved_description;
+
+        Object.keys(src).forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(resolvedFieldsSchema.value, key)) {
+                return;
+            }
+            const def = getFieldDefinition(key);
+            const value = src[key];
+            if (def.type === 'checkbox' || def.type === 'boolean') {
+                form[key] = value === true || value === 1 ? 1 : 0;
+            } else if (def.type === 'measurement') {
+                if (value == null || value === '') {
+                    form[key] = null;
+                } else {
+                    const n = Number(value);
+                    form[key] = Number.isFinite(n) && n >= 0 ? n : null;
+                }
+            } else if (def.type === 'currency' || def.type === 'number') {
+                const n = Number(value);
+                form[key] = value != null && value !== '' && Number.isFinite(n) ? n : null;
+            } else if (value !== undefined) {
+                form[key] = value;
+            }
+        });
+
+        if (Array.isArray(specRows) && specRows.length) {
+            const byDefId = {};
+            specRows.forEach((sv) => {
+                byDefId[sv.asset_spec_definition_id] = sv;
+            });
+            resolvedAvailableSpecs.value.forEach((spec) => {
+                const sv = byDefId[spec.id];
+                if (!sv || !form.specValues?.[spec.id]) {
+                    return;
+                }
+                const cell = form.specValues[spec.id];
+                if (spec.type === 'number') {
+                    cell.value_number = sv.value_number ?? null;
+                } else if (spec.type === 'boolean') {
+                    cell.value_boolean = sv.value_boolean ?? false;
+                } else if (spec.type === 'text' || spec.type === 'select') {
+                    cell.value_text = sv.value_text ?? null;
+                }
+                if (sv.unit) {
+                    cell.unit = sv.unit;
+                }
+            });
+        }
     };
 
     const handleSubmit = () => {
@@ -958,7 +1066,7 @@ export function useAssetSchemaForm(props, emit) {
                     submissionData = formData;
                 }
                 axios
-                    .post(route(`${props.recordType}.store`, props.extraRouteParams), submissionData, {
+                    .post(route(`${props.recordType}.store`, resolvedExtraRouteParams.value), submissionData, {
                         headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
                     })
                     .then((response) => {
@@ -976,7 +1084,7 @@ export function useAssetSchemaForm(props, emit) {
                         isProcessing.value = false;
                     });
             } else {
-                form.transform(() => rawData).post(route(`${props.recordType}.store`, props.extraRouteParams), {
+                form.transform(() => rawData).post(route(`${props.recordType}.store`, resolvedExtraRouteParams.value), {
                     preserveScroll: true,
                     onSuccess: (page) => {
                         let recordId = page?.props?.flash?.recordId;
@@ -996,7 +1104,7 @@ export function useAssetSchemaForm(props, emit) {
                 let method = 'put';
                 const url = route(
                     `${props.recordType}.update`,
-                    buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams),
+                    buildResourceRouteParams(props.recordType, updateRecordId.value, resolvedExtraRouteParams.value),
                 );
                 if (hasFiles) {
                     const formData = new FormData();
@@ -1026,7 +1134,7 @@ export function useAssetSchemaForm(props, emit) {
                 form.transform(() => rawData).put(
                     route(
                         `${props.recordType}.update`,
-                        buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams),
+                        buildResourceRouteParams(props.recordType, updateRecordId.value, resolvedExtraRouteParams.value),
                     ),
                     {
                         preserveScroll: true,
@@ -1058,6 +1166,7 @@ export function useAssetSchemaForm(props, emit) {
         isEditMode,
         isCreateMode,
         normalizedSchema,
+        resolvedExtraRouteParams,
         visibleFormGroups,
         accountTimezoneLabel,
         getFieldId,
@@ -1101,6 +1210,7 @@ export function useAssetSchemaForm(props, emit) {
         cancelForm,
         isProcessing: isFormProcessing,
         imagePreviews,
+        applyCopiedVariantRecord,
     };
 }
 

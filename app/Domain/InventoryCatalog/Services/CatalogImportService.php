@@ -10,10 +10,15 @@ use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAssetVariant;
+use App\Domain\InventoryCatalog\Support\CatalogImportSpecSync;
+use App\Domain\InventoryCatalog\Support\InventoryCatalogSpecificationReader;
 use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Imports inventory catalog assets into tenant {@see Asset} records for a {@see BoatMake} with a matching `brand_key`.
@@ -31,6 +36,27 @@ class CatalogImportService
             return ['catalog_rows' => [], 'imported_keys' => []];
         }
 
+        try {
+            return $this->buildPreview($tenantMake);
+        } catch (Throwable $e) {
+            if ($this->isInventoryConnectionFailure($e)) {
+                Log::warning('Inventory catalog unavailable during preview', [
+                    'brand_key' => $tenantMake->brand_key,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return ['catalog_rows' => [], 'imported_keys' => []];
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array{catalog_rows: list<array<string, mixed>>, imported_keys: list<string>}
+     */
+    private function buildPreview(BoatMake $tenantMake): array
+    {
         $invMake = InventoryBoatMake::query()->where('slug', $tenantMake->brand_key)->first();
         if ($invMake === null) {
             return ['catalog_rows' => [], 'imported_keys' => []];
@@ -82,7 +108,21 @@ class CatalogImportService
             return ['imported' => 0, 'skipped' => 0];
         }
 
-        $invMake = InventoryBoatMake::query()->where('slug', $tenantMake->brand_key)->first();
+        try {
+            $invMake = InventoryBoatMake::query()->where('slug', $tenantMake->brand_key)->first();
+        } catch (Throwable $e) {
+            if ($this->isInventoryConnectionFailure($e)) {
+                Log::warning('Inventory catalog unavailable during import', [
+                    'brand_key' => $tenantMake->brand_key,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return ['imported' => 0, 'skipped' => 0];
+            }
+
+            throw $e;
+        }
+
         if ($invMake === null) {
             return ['imported' => 0, 'skipped' => 0];
         }
@@ -126,6 +166,12 @@ class CatalogImportService
                     $payload
                 );
 
+                $assetType = (int) $asset->type;
+                CatalogImportSpecSync::syncForInventoryRow($asset, $assetType, $src);
+
+                $parentLength = $payload['length'] ?? null;
+                $parentWidth = $payload['width'] ?? null;
+
                 if (! $src->has_variants) {
                     AssetVariant::query()->where('asset_id', $asset->id)->delete();
                 } else {
@@ -135,7 +181,12 @@ class CatalogImportService
                             continue;
                         }
                         $incomingVariantKeys[] = $v->key;
-                        AssetVariant::query()->updateOrCreate(
+                        $variantLength = InventoryCatalogSpecificationReader::effectiveUInt($v, 'length_mm', 'length_mm')
+                            ?? $parentLength;
+                        $variantWidth = InventoryCatalogSpecificationReader::effectiveUInt($v, 'width_mm', 'width_mm')
+                            ?? $parentWidth;
+                        /** @var AssetVariant $variant */
+                        $variant = AssetVariant::query()->updateOrCreate(
                             [
                                 'asset_id' => $asset->id,
                                 'key' => $v->key,
@@ -143,12 +194,15 @@ class CatalogImportService
                             [
                                 'name' => $v->name ?? $v->display_name,
                                 'display_name' => $v->display_name,
+                                'length' => $variantLength,
+                                'width' => $variantWidth,
                                 'default_cost' => $v->default_cost,
                                 'default_price' => $v->default_price,
                                 'description' => $v->description,
                                 'inactive' => $v->inactive,
                             ]
                         );
+                        CatalogImportSpecSync::syncForInventoryRow($variant, $assetType, $v);
                     }
 
                     if ($incomingVariantKeys === []) {
@@ -169,18 +223,81 @@ class CatalogImportService
     }
 
     /**
+     * Populate tenant spec values from inventory for assets already linked by `catalog_asset_key`.
+     */
+    public function resyncImportedSpecs(BoatMake $tenantMake): int
+    {
+        if ($tenantMake->brand_key === null || $tenantMake->brand_key === '') {
+            return 0;
+        }
+
+        try {
+            $invMake = InventoryBoatMake::query()->where('slug', $tenantMake->brand_key)->first();
+        } catch (Throwable $e) {
+            if ($this->isInventoryConnectionFailure($e)) {
+                return 0;
+            }
+
+            throw $e;
+        }
+
+        if ($invMake === null) {
+            return 0;
+        }
+
+        $synced = 0;
+
+        $assets = Asset::query()
+            ->where('make_id', $tenantMake->id)
+            ->whereNotNull('catalog_asset_key')
+            ->with('variants')
+            ->get();
+
+        foreach ($assets as $asset) {
+            $src = InventoryCatalogAsset::query()
+                ->where('make_id', $invMake->id)
+                ->where('slug', $asset->catalog_asset_key)
+                ->with('variants')
+                ->first();
+
+            if ($src === null) {
+                continue;
+            }
+
+            $assetType = (int) $asset->type;
+            CatalogImportSpecSync::syncForInventoryRow($asset, $assetType, $src);
+
+            if ($src->has_variants) {
+                foreach ($src->variants as $invVariant) {
+                    if ($invVariant->key === null || $invVariant->key === '') {
+                        continue;
+                    }
+                    $tenantVariant = $asset->variants->firstWhere('key', $invVariant->key);
+                    if ($tenantVariant !== null) {
+                        CatalogImportSpecSync::syncForInventoryRow($tenantVariant, $assetType, $invVariant);
+                    }
+                }
+            }
+
+            $synced++;
+        }
+
+        return $synced;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function mapInventoryAssetToTenantPayload(InventoryCatalogAsset $src, int $tenantMakeId): array
     {
-        $enumLayer = $this->inventoryCatalogAttributeLayer($src);
+        $enumLayer = InventoryCatalogSpecificationReader::attributeLayer($src);
         $enums = $this->enumColumnsFromCatalogKeys($enumLayer);
 
-        $length = $this->effectiveUIntFromColumnOrSpecifications($src, 'length_mm', 'length_mm');
-        $width = $this->effectiveUIntFromColumnOrSpecifications($src, 'width_mm', 'width_mm');
-        $persons = $this->effectiveUIntFromColumnOrSpecifications($src, 'capacity_persons', 'capacity_persons');
-        $maxHp = $this->effectiveUIntFromColumnOrSpecifications($src, 'max_hp', 'max_hp');
-        $fuelL = $this->effectiveUIntFromColumnOrSpecifications($src, 'fuel_capacity_l', 'fuel_capacity_l');
+        $length = InventoryCatalogSpecificationReader::effectiveUInt($src, 'length_mm', 'length_mm');
+        $width = InventoryCatalogSpecificationReader::effectiveUInt($src, 'width_mm', 'width_mm');
+        $persons = InventoryCatalogSpecificationReader::effectiveUInt($src, 'capacity_persons', 'capacity_persons');
+        $maxHp = InventoryCatalogSpecificationReader::effectiveUInt($src, 'max_hp', 'max_hp');
+        $fuelL = InventoryCatalogSpecificationReader::effectiveUInt($src, 'fuel_capacity_l', 'fuel_capacity_l');
 
         return [
             'type' => $this->normalizedTenantAssetType($src->type),
@@ -213,19 +330,6 @@ class CatalogImportService
     }
 
     /**
-     * Same merge order as {@see mergedInventoryCatalogAttributes}: catalog_data first, then attributes (overrides).
-     *
-     * @return array<string, mixed>
-     */
-    private function inventoryCatalogAttributeLayer(InventoryCatalogAsset $src): array
-    {
-        $fromCatalog = is_array($src->catalog_data) ? $src->catalog_data : [];
-        $fromAttrs = is_array($src->attributes) ? $src->attributes : [];
-
-        return array_merge($fromCatalog, $fromAttrs);
-    }
-
-    /**
      * Tenant {@see Asset} `type` must be a valid {@see \App\Enums\Inventory\AssetType} value (1–4); invalid or missing values default to 1 (boat).
      */
     private function normalizedTenantAssetType(mixed $type): int
@@ -233,55 +337,6 @@ class CatalogImportService
         $t = is_numeric($type) ? (int) $type : 0;
 
         return in_array($t, [1, 2, 3, 4], true) ? $t : 1;
-    }
-
-    /**
-     * Prefer inventory table column; fall back to nested `specifications` in catalog_data/attributes merge.
-     */
-    private function effectiveUIntFromColumnOrSpecifications(InventoryCatalogAsset $src, string $columnKey, string $specKey): ?int
-    {
-        $direct = $src->getAttribute($columnKey);
-        if ($direct !== null && $direct !== '') {
-            return $this->nonNegativeInt($direct);
-        }
-
-        $spec = $this->inventoryNestedSpecifications($src);
-        if (! array_key_exists($specKey, $spec)) {
-            return null;
-        }
-
-        return $this->nonNegativeInt($spec[$specKey]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function inventoryNestedSpecifications(InventoryCatalogAsset $src): array
-    {
-        $layer = $this->inventoryCatalogAttributeLayer($src);
-        $nested = $layer['specifications'] ?? null;
-
-        return is_array($nested) ? $nested : [];
-    }
-
-    private function nonNegativeInt(mixed $value): ?int
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_int($value)) {
-            return $value >= 0 ? $value : null;
-        }
-        if (is_float($value)) {
-            return $value >= 0.0 ? (int) round($value) : null;
-        }
-        if (is_string($value) && is_numeric(trim($value))) {
-            $n = (int) trim($value);
-
-            return $n >= 0 ? $n : null;
-        }
-
-        return null;
     }
 
     /**
@@ -335,12 +390,28 @@ class CatalogImportService
     {
         $out = [];
         foreach (['length_mm', 'width_mm', 'height_mm', 'weight_kg', 'capacity_persons', 'max_hp', 'fuel_capacity_l'] as $key) {
-            $n = $this->effectiveUIntFromColumnOrSpecifications($src, $key, $key);
+            $n = InventoryCatalogSpecificationReader::effectiveUInt($src, $key, $key);
             if ($n !== null) {
                 $out[$key] = $n;
             }
         }
 
         return $out;
+    }
+
+    private function isInventoryConnectionFailure(Throwable $e): bool
+    {
+        $current = $e;
+        while ($current instanceof Throwable) {
+            if ($current instanceof QueryException && $current->getConnectionName() === 'inventory') {
+                return true;
+            }
+            if (str_contains($current->getMessage(), 'Connection: inventory')) {
+                return true;
+            }
+            $current = $current->getPrevious();
+        }
+
+        return false;
     }
 }

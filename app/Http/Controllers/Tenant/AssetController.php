@@ -196,7 +196,7 @@ class AssetController extends RecordController
         }
 
         $account = \App\Models\AccountSettings::getCurrent();
-        $userId = $request->user()?->id;
+        $userId = current_tenant_user_id();
         $confirmResend = $request->boolean('confirm_resend');
 
         $resolved = [];
@@ -456,7 +456,7 @@ class AssetController extends RecordController
                 'record' => array_merge($variant->toArray(), [
                     'resolved_description' => $variant->resolvedDescription(),
                 ]),
-                'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
+                'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant, true),
             ]);
         }
 
@@ -475,7 +475,7 @@ class AssetController extends RecordController
             'variant' => array_merge($variant->toArray(), [
                 'resolved_description' => $variant->resolvedDescription(),
             ]),
-            'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant),
+            'specRows' => SpecValueDisplayFormatter::labeledRowsFromVariant($variant, true),
             'catalogResolvedOptions' => $catalogResolved->values()->all(),
             'catalogContext' => [
                 'asset_id' => $asset->id,
@@ -484,6 +484,56 @@ class AssetController extends RecordController
                 'has_variants' => (bool) $asset->has_variants,
                 'show_variant_scope' => true,
             ],
+        ]);
+    }
+
+    public function variantsEdit(Request $request, RecordModel $asset, AssetVariant $variant): Response
+    {
+        $this->ensureVariantBelongsToAsset($asset, $variant);
+
+        $payload = $this->withAssetVariantDomain(function () use ($asset, $variant) {
+            $formSchema = $this->getFormSchema();
+            $fieldsSchemaRaw = $this->getFieldsSchema();
+            $fieldsSchema = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+
+            $variant->load([
+                'specValues.definition',
+                'asset' => fn ($q) => $q->select(['id', 'display_name', 'type', 'has_variants']),
+            ]);
+
+            $record = $variant->toArray();
+            $record['spec_values'] = $variant->specValues;
+            $record['resolved_description'] = $variant->resolvedDescription();
+
+            return [
+                'formSchema' => $formSchema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $this->getEnumOptions(),
+                'record' => $record,
+                'availableSpecs' => AvailableAssetSpecsCache::get((int) $asset->type)->values()->all(),
+            ];
+        });
+
+        $account = \App\Models\AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Asset/VariantEdit', [
+            'asset' => [
+                'id' => $asset->id,
+                'display_name' => $asset->display_name,
+                'type' => $asset->type,
+                'has_variants' => (bool) $asset->has_variants,
+            ],
+            'record' => $payload['record'],
+            'recordType' => 'assets.variants',
+            'recordTitle' => 'Variant',
+            'formSchema' => $payload['formSchema'],
+            'fieldsSchema' => $payload['fieldsSchema'],
+            'enumOptions' => $payload['enumOptions'],
+            'availableSpecs' => $payload['availableSpecs'],
+            'extraRouteParams' => ['asset' => $asset->id],
+            'specsContextAssetType' => (int) $asset->type,
+            'account' => $account,
+            'timezones' => Timezone::options(),
         ]);
     }
 

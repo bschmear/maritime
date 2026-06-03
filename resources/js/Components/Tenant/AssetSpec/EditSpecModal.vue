@@ -1,13 +1,18 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import {
     addSelectOptionRow,
+    normalizeSelectOptionsForEditor,
     reindexSelectOptions,
     removeSelectOptionRow,
 } from '@/Utils/assetSpecSelectOptions.js';
 
 const props = defineProps({
+    spec: {
+        type: Object,
+        required: true,
+    },
     specGroups: {
         type: Array,
         default: () => [],
@@ -16,26 +21,52 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const form = useForm({
-    key: '',
-    label: '',
-    group_id: '',
-    type: 'text',
-    unit: '',
-    unit_imperial: '',
-    unit_metric: '',
-    use_metric: false,
-    options: [],
-    is_filterable: false,
-    is_visible: true,
-    is_required: false,
-    show_on_table: false,
-    position: 0,
-    asset_types: [],
+const normalizeAssetTypes = (raw) => {
+    if (!raw || !Array.isArray(raw)) {
+        return [];
+    }
+
+    return [...new Set(raw.map((t) => Number(t)).filter((n) => !Number.isNaN(n)))];
+};
+
+const buildFormState = (spec) => ({
+    label: spec?.label ?? '',
+    group_id: spec?.group_id != null && spec?.group_id !== '' ? spec.group_id : '',
+    type: spec?.type ?? 'text',
+    unit: spec?.unit ?? '',
+    unit_imperial: spec?.unit_imperial ?? '',
+    unit_metric: spec?.unit_metric ?? '',
+    use_metric: Boolean(spec?.use_metric),
+    options: normalizeSelectOptionsForEditor(spec?.options),
+    is_filterable: Boolean(spec?.is_filterable),
+    is_visible: spec?.is_visible !== false,
+    is_required: Boolean(spec?.is_required),
+    show_on_table: Boolean(spec?.show_on_table),
+    position: spec?.position ?? 0,
+    asset_types: normalizeAssetTypes(spec?.asset_types),
 });
 
-const showUnitFields = ref(false);
-const showOptionsFields = ref(false);
+const form = useForm(buildFormState(props.spec));
+
+const showUnitFields = ref(
+    Boolean(props.spec?.unit_imperial || props.spec?.unit_metric),
+);
+const showOptionsFields = ref(props.spec?.type === 'select');
+
+watch(
+    () => props.spec,
+    (spec) => {
+        if (!spec) {
+            return;
+        }
+        const state = buildFormState(spec);
+        form.defaults(state);
+        form.reset();
+        showUnitFields.value = Boolean(spec.unit_imperial || spec.unit_metric);
+        showOptionsFields.value = spec.type === 'select';
+    },
+    { deep: true },
+);
 
 const typeOptions = [
     { value: 'text', label: 'Text' },
@@ -44,13 +75,14 @@ const typeOptions = [
     { value: 'boolean', label: 'Yes/No (Boolean)' },
 ];
 
-/** AssetType enum: Boat=1, Engine=2, Trailer=3, Other=4 */
 const assetTypeOptions = [
     { value: 1, label: 'Boat' },
     { value: 3, label: 'Trailer' },
     { value: 2, label: 'Engine' },
     { value: 4, label: 'Other' },
 ];
+
+const isRequiredSpec = computed(() => Boolean(props.spec?.is_required));
 
 const addOption = () => {
     form.options = addSelectOptionRow(form.options);
@@ -67,20 +99,12 @@ const handleTypeChange = () => {
     }
 };
 
-const generateKey = () => {
-    if (form.label) {
-        form.key = form.label
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '');
-    }
-};
-
 const submit = () => {
     form.transform((data) => ({
         ...data,
+        group_id: data.group_id === '' || data.group_id == null ? null : data.group_id,
         options: data.type === 'select' ? reindexSelectOptions(data.options) : data.options,
-    })).post(route('asset-specs.store'), {
+    })).put(route('asset-specs.update', { assetSpec: props.spec.id }), {
         preserveScroll: true,
         onSuccess: () => {
             emit('close');
@@ -91,111 +115,90 @@ const submit = () => {
 
 <template>
     <div class="fixed inset-0 z-50 overflow-y-auto">
-        <!-- Backdrop -->
         <div
-            @click="emit('close')"
             class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity"
-        ></div>
+            @click="emit('close')"
+        />
 
-        <!-- Modal -->
         <div class="flex min-h-full items-center justify-center p-4">
-            <div class="relative w-full max-w-2xl rounded-lg bg-white dark:bg-gray-800 shadow-xl">
-                <!-- Header -->
-                <div class="border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        Create New Spec
-                    </h3>
+            <div class="relative w-full max-w-2xl rounded-lg bg-white shadow-xl dark:bg-gray-800">
+                <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            Edit spec
+                        </h3>
+                        <p class="mt-0.5 font-mono text-xs text-gray-500 dark:text-gray-400">
+                            {{ spec.key }}
+                        </p>
+                    </div>
                     <button
-                        @click="emit('close')"
+                        type="button"
                         class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        @click="emit('close')"
                     >
                         <span class="material-icons">close</span>
                     </button>
                 </div>
 
-                <!-- Form -->
-                <form @submit.prevent="submit" class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                    <!-- Label -->
+                <form class="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-4" @submit.prevent="submit">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Label <span class="text-red-500">*</span>
                         </label>
                         <input
                             v-model="form.label"
-                            @blur="generateKey"
                             type="text"
-                            placeholder="e.g., Overall Length"
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                             required
+                            class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
                         />
-                        <p v-if="form.errors.label" class="mt-1 text-sm text-red-600">{{ form.errors.label }}</p>
-                    </div>
-
-                    <!-- Key -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Key <span class="text-red-500">*</span>
-                        </label>
-                        <input
-                            v-model="form.key"
-                            type="text"
-                            placeholder="e.g., overall_length"
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400 font-mono text-sm"
-                            required
-                        />
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Unique identifier (auto-generated from label)
+                        <p v-if="form.errors.label" class="mt-1 text-sm text-red-600">
+                            {{ form.errors.label }}
                         </p>
-                        <p v-if="form.errors.key" class="mt-1 text-sm text-red-600">{{ form.errors.key }}</p>
                     </div>
 
-                    <!-- Type -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Type <span class="text-red-500">*</span>
                         </label>
                         <select
                             v-model="form.type"
-                            @change="handleTypeChange"
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                             required
+                            class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                            @change="handleTypeChange"
                         >
                             <option v-for="option in typeOptions" :key="option.value" :value="option.value">
                                 {{ option.label }}
                             </option>
                         </select>
-                        <p v-if="form.errors.type" class="mt-1 text-sm text-red-600">{{ form.errors.type }}</p>
+                        <p v-if="form.errors.type" class="mt-1 text-sm text-red-600">
+                            {{ form.errors.type }}
+                        </p>
                     </div>
 
-                    <!-- Group -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Group
                         </label>
                         <select
                             v-model="form.group_id"
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                            class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
                         >
                             <option value="">None</option>
                             <option v-for="g in specGroups" :key="g.id" :value="g.id">
                                 {{ g.name }}
                             </option>
                         </select>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Optional section for organizing specs
-                        </p>
                     </div>
 
-                    <!-- Unit (for number type) -->
                     <div v-if="form.type === 'number'">
-                        <div class="flex items-center justify-between mb-2">
+                        <div class="mb-2 flex items-center justify-between">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Unit
                             </label>
                             <button
                                 type="button"
-                                @click="showUnitFields = !showUnitFields"
                                 class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                                @click="showUnitFields = !showUnitFields"
                             >
                                 {{ showUnitFields ? 'Hide' : 'Show' }} imperial/metric
                             </button>
@@ -204,57 +207,70 @@ const submit = () => {
                             v-model="form.unit"
                             type="text"
                             placeholder="e.g., ft, lb, hp"
-                            class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                            class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
                         />
 
-                        <!-- Imperial/Metric Units -->
-                        <div v-if="showUnitFields" class="mt-3 space-y-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div
+                            v-if="showUnitFields"
+                            class="mt-3 space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50"
+                        >
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Imperial Unit
+                                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Imperial unit
                                 </label>
                                 <input
                                     v-model="form.unit_imperial"
                                     type="text"
-                                    placeholder="e.g., ft, lb"
-                                    class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                    class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Metric Unit
+                                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Metric unit
                                 </label>
                                 <input
                                     v-model="form.unit_metric"
                                     type="text"
-                                    placeholder="e.g., m, kg"
-                                    class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                    class="block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 />
                             </div>
+                            <label class="flex items-center">
+                                <input
+                                    v-model="form.use_metric"
+                                    type="checkbox"
+                                    class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
+                                />
+                                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                    Prefer metric display
+                                </span>
+                            </label>
                         </div>
                     </div>
 
-                    <!-- Options (for select type) -->
                     <div v-if="showOptionsFields">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Options <span class="text-red-500">*</span>
                         </label>
                         <p class="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                            Enter each choice label only. Stored values are assigned automatically (1, 2, 3…).
+                            Labels only — stored values are reassigned as 1, 2, 3… in this order when you save.
                         </p>
                         <div class="space-y-2">
-                            <div v-for="(option, index) in form.options" :key="index" class="flex gap-2">
+                            <div
+                                v-for="(option, index) in form.options"
+                                :key="index"
+                                class="flex gap-2"
+                            >
                                 <input
                                     v-model="option.label"
                                     type="text"
                                     placeholder="Label (e.g., Short shaft)"
-                                    class="block flex-1 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     required
+                                    class="block flex-1 rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 />
                                 <button
                                     type="button"
-                                    @click="removeOption(index)"
                                     class="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                                    @click="removeOption(index)"
                                 >
                                     <span class="material-icons text-[20px]">delete</span>
                                 </button>
@@ -262,18 +278,17 @@ const submit = () => {
                         </div>
                         <button
                             type="button"
-                            @click="addOption"
                             class="mt-2 inline-flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                            @click="addOption"
                         >
                             <span class="material-icons text-[16px]">add</span>
                             Add option
                         </button>
                     </div>
 
-                    <!-- Asset Types -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Asset Types
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Asset types
                         </label>
                         <div class="space-y-2">
                             <label
@@ -285,7 +300,7 @@ const submit = () => {
                                     v-model="form.asset_types"
                                     :value="option.value"
                                     type="checkbox"
-                                    class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                    class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                                 />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                     {{ option.label }}
@@ -294,16 +309,17 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <!-- Toggles -->
-                    <div class="space-y-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div class="space-y-3 rounded-lg bg-gray-50 p-4 dark:bg-gray-700/50">
                         <label class="flex items-center">
                             <input
                                 v-model="form.is_required"
                                 type="checkbox"
-                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                :disabled="isRequiredSpec"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600"
                             />
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                 Required field
+                                <span v-if="isRequiredSpec" class="text-xs text-gray-500">(system default)</span>
                             </span>
                         </label>
 
@@ -311,7 +327,7 @@ const submit = () => {
                             <input
                                 v-model="form.is_filterable"
                                 type="checkbox"
-                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                             />
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                 Marketplace filterable
@@ -322,7 +338,7 @@ const submit = () => {
                             <input
                                 v-model="form.is_visible"
                                 type="checkbox"
-                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                             />
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                                 Always visible in UI
@@ -333,30 +349,30 @@ const submit = () => {
                             <input
                                 v-model="form.show_on_table"
                                 type="checkbox"
-                                class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600"
                             />
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                Show on asset Variants table (when this spec applies to selected asset types)
+                                Show on asset Variants table
                             </span>
                         </label>
                     </div>
                 </form>
 
-                <!-- Footer -->
-                <div class="border-t border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-end gap-3">
+                <div class="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4 dark:border-gray-700">
                     <button
                         type="button"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                         @click="emit('close')"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                         Cancel
                     </button>
                     <button
-                        @click="submit"
+                        type="button"
                         :disabled="form.processing"
-                        class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        @click="submit"
                     >
-                        {{ form.processing ? 'Creating...' : 'Create Spec' }}
+                        {{ form.processing ? 'Saving…' : 'Save changes' }}
                     </button>
                 </div>
             </div>

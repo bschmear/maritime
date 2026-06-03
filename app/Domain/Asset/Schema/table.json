@@ -4,7 +4,8 @@
     {
       "key": "display_name",
       "label": "Asset Name",
-      "sortable": true
+      "sortable": true,
+      "isKey": true
     },
     {
       "key": "type",
@@ -59,7 +60,9 @@
     },
     {
       "field": "inactive",
-      "label": "Inactive"
+      "label": "Inactive",
+      "operator": "is_false",
+      "default_value": true
     }
   ]
 }

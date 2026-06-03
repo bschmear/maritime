@@ -85,7 +85,7 @@ class SyncChecklist
                         ];
                         if ($completed) {
                             $payload['completed_at'] = $item->completed_at ?? now();
-                            $payload['completed_by'] = $item->completed_by ?? auth()->id();
+                            $payload['completed_by'] = $item->completed_by ?? current_tenant_user_id();
                         } else {
                             $payload['completed_at'] = null;
                             $payload['completed_by'] = null;
@@ -100,7 +100,7 @@ class SyncChecklist
                         'position' => $position,
                         'completed' => $completed,
                         'completed_at' => $completed ? now() : null,
-                        'completed_by' => $completed ? auth()->id() : null,
+                        'completed_by' => $completed ? current_tenant_user_id() : null,
                     ]);
                     $keptIds[] = $item->id;
                 }

@@ -191,13 +191,13 @@ class EstimateController extends RecordController
             if ($opportunity) {
                 Opportunity::hydratePivotAssetVariants($opportunity->assets);
                 Opportunity::attachLineItemSnapshotsForJson($opportunity);
-                $user = auth()->user();
+                $tenantUser = current_tenant_profile();
 
                 $initialData = [
                     'opportunity_id' => $opportunity->id,
                     'opportunity' => ['id' => $opportunity->id, 'display_name' => $opportunity->display_name],
-                    'user_id' => $user->id,
-                    'user' => ['id' => $user->id, 'display_name' => $user->display_name ?? $user->name ?? ''],
+                    'user_id' => $tenantUser?->id,
+                    'user' => $tenantUser ? ['id' => $tenantUser->id, 'display_name' => $tenantUser->display_name ?? ''] : null,
                 ];
 
                 if ($opportunity->customer_id) {

@@ -146,9 +146,9 @@
       "group_id": 4,
       "type": "select",
       "options": [
-        { "value": "S", "label": "Short" },
-        { "value": "L", "label": "Long" },
-        { "value": "XL", "label": "Extra Long" }
+        { "value": "1", "label": "Short" },
+        { "value": "2", "label": "Long" },
+        { "value": "3", "label": "Extra Long" }
       ],
       "is_filterable": true,
       "is_required": false,
@@ -162,10 +162,10 @@
       "group_id": 5,
       "type": "select",
       "options": [
-        { "value": "A", "label": "Ocean" },
-        { "value": "B", "label": "Offshore" },
-        { "value": "C", "label": "Inshore" },
-        { "value": "D", "label": "Sheltered" }
+        { "value": "1", "label": "Ocean" },
+        { "value": "2", "label": "Offshore" },
+        { "value": "3", "label": "Inshore" },
+        { "value": "4", "label": "Sheltered" }
       ],
       "is_filterable": true,
       "is_required": false,

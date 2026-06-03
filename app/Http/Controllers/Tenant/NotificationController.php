@@ -33,7 +33,7 @@ class NotificationController extends RecordController
      */
     public function index(Request $request)
     {
-        return RecordModel::where('assigned_to_user_id', $request->user()->id)
+        return RecordModel::where('assigned_to_user_id', current_tenant_user_id())
             ->latest()
             ->paginate(20);
     }
@@ -87,7 +87,7 @@ class NotificationController extends RecordController
      */
     public function markAllAsRead(Request $request)
     {
-        RecordModel::where('assigned_to_user_id', $request->user()->id)
+        RecordModel::where('assigned_to_user_id', current_tenant_user_id())
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
@@ -112,7 +112,7 @@ class NotificationController extends RecordController
      */
     protected function authorizeNotification(Request $request, RecordModel $notification)
     {
-        if ($notification->assigned_to_user_id !== $request->user()->id) {
+        if ($notification->assigned_to_user_id !== current_tenant_user_id()) {
             abort(403);
         }
     }

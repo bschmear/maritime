@@ -14,7 +14,7 @@ import MeasurementImperialInput from '@/Components/Tenant/FormComponents/Measure
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/Utils/measurementMm.js';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
-import Form from '@/Components/Tenant/Form.vue';
+import VariantForm from '@/Components/Tenant/VariantForm.vue';
 const props = defineProps({
     schema: { type: Object, default: null },
     fieldsSchema: { type: Object, default: () => ({}) },
@@ -305,10 +305,6 @@ const getVariantSpecValuesArray = (variant) => {
     if (Array.isArray(variant.specValues)) return variant.specValues;
     return [];
 };
-
-const variantFormExtraRouteParams = computed(() =>
-    props.record?.id ? { asset: props.record.id } : {},
-);
 
 const variantFieldsSchema = computed(() => {
     const fs = variantFormConfig.value?.fieldsSchema;
@@ -608,16 +604,10 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                         {{ col.label }}
                                                                     </th>
                                                                     <th
-                                                                        v-if="isEditMode"
+                                                                        v-if="record?.id && hasVariants"
                                                                         class="w-36 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
                                                                     >
                                                                         Actions
-                                                                    </th>
-                                                                    <th
-                                                                        v-else-if="record?.id && hasVariants"
-                                                                        class="w-52 px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
-                                                                    >
-                                                                        Variant
                                                                     </th>
                                                                 </tr>
                                                             </thead>
@@ -657,47 +647,35 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                                             }}
                                                                         </template>
                                                                     </td>
-                                                                    <td v-if="isEditMode" class="px-4 py-3">
+                                                                    <td
+                                                                        v-if="record?.id && hasVariants && variant.id"
+                                                                        class="px-4 py-3"
+                                                                    >
                                                                         <div class="flex justify-end gap-2">
                                                                             <button
                                                                                 type="button"
-                                                                                class="text-primary-600 dark:text-primary-400"
+                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white transition-colors hover:bg-primary-700"
                                                                                 title="Edit variant"
                                                                                 @click="openEditVariantModal(idx)"
                                                                             >
-                                                                                <span class="material-icons text-base">edit</span>
+                                                                                <span class="material-icons text-[18px]">edit</span>
                                                                             </button>
+                                                                            <Link
+                                                                                :href="route('assets.variants.show', { asset: record.id, variant: variant.id })"
+                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white transition-colors hover:bg-primary-700"
+                                                                                title="Open variant page"
+                                                                            >
+                                                                                <span class="material-icons text-[18px]">open_in_new</span>
+                                                                            </Link>
                                                                             <button
+                                                                                v-if="isEditMode"
                                                                                 type="button"
-                                                                                class="text-red-600 dark:text-red-400"
+                                                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-red-600 text-white transition-colors hover:bg-red-700"
                                                                                 title="Delete variant"
                                                                                 @click="removeVariant(idx)"
                                                                             >
-                                                                                <span class="material-icons text-base">delete</span>
+                                                                                <span class="material-icons text-[18px]">delete</span>
                                                                             </button>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td
-                                                                        v-else-if="record?.id && hasVariants && variant.id"
-                                                                        class="px-4 py-3 text-right"
-                                                                    >
-                                                                        <div class="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:gap-3">
-                                                                            <Link
-                                                                                :href="route('assets.variants.show', { asset: record.id, variant: variant.id })"
-                                                                                class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-                                                                            >
-                                                                                Overview
-                                                                            </Link>
-                                                                            <Link
-                                                                                :href="variant.public_uuid
-                                                                                    ? route('public.spec-sheet', { publicUuid: variant.public_uuid })
-                                                                                    : route('assets.variants.show', { asset: record.id, variant: variant.id })"
-                                                                                :target="variant.public_uuid ? '_blank' : undefined"
-                                                                                :rel="variant.public_uuid ? 'noopener noreferrer' : undefined"
-                                                                                class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-                                                                            >
-                                                                                Specifications
-                                                                            </Link>
                                                                         </div>
                                                                     </td>
                                                                 </tr>
@@ -734,7 +712,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                 >
                                                     <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Specifications are per variant</p>
                                                     <p class="mt-1 text-sm text-blue-800/90 dark:text-blue-200/90">
-                                                        Use <strong>Add Variant</strong> or <strong>Edit</strong> to set spec values for each row.
+                                                        Use <strong>Add Variant</strong> or the row <strong>Edit</strong> action to set spec values in a modal, or <strong>Open</strong> to view and edit on the variant page.
                                                     </p>
                                                 </div>
                                             </template>
@@ -1422,22 +1400,19 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                             {{ variantToolbarError }}
                                         </p>
                                     </div>
-                                    <Form
+                                    <VariantForm
                                         :key="variantFormKey"
                                         ref="variantFormRef"
                                         :schema="variantFormConfig.formSchema"
                                         :fields-schema="variantFieldsSchema"
                                         :record="editingVariantIdx !== null ? variantRecord : null"
-                                        :record-type="variantFormConfig.recordType"
-                                        :record-title="variantFormConfig.recordTitle || 'Variant'"
+                                        :asset-id="record.id"
                                         :enum-options="variantFormConfig.enumOptions || {}"
-                                        :extra-route-params="variantFormExtraRouteParams"
                                         :available-specs="variantFormConfig.availableSpecs || []"
                                         :specs-context-asset-type="variantFormConfig.specsContextAssetType ?? null"
-                                        :record-identifier="variantRecord?.id ?? null"
                                         :mode="editingVariantIdx !== null ? 'edit' : 'create'"
                                         :prevent-redirect="true"
-                                        :enable-has-variants-on-store="hasVariants"
+                                        compact
                                         @created="onVariantFormCreated"
                                         @updated="onVariantFormUpdated"
                                         @cancel="closeVariantModal"

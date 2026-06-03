@@ -53,7 +53,7 @@ final class SendDocumentRequest
             'customer_profile_id' => $customer->id,
             'source_type' => $source ? $source::class : null,
             'source_id' => $source?->getKey(),
-            'requested_by_user_id' => auth()->id(),
+            'requested_by_user_id' => current_tenant_user_id(),
             'title' => $title,
             'description' => $description,
             'status' => DocumentRequestStatus::Pending,

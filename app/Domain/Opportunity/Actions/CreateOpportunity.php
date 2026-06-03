@@ -41,7 +41,7 @@ class CreateOpportunity
                     ])
                 );
 
-                $fillable['createdby_id'] = auth()->id();
+                $fillable['createdby_id'] = current_tenant_user_id();
 
                 $record = RecordModel::create($fillable);
 

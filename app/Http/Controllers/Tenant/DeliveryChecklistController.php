@@ -149,7 +149,7 @@ class DeliveryChecklistController extends Controller
             $updates['completed'] = $completed;
             if ($completed && ! $item->completed) {
                 $updates['completed_at'] = now();
-                $updates['completed_by'] = auth()->id();
+                $updates['completed_by'] = current_tenant_user_id();
             } elseif (! $completed) {
                 $updates['completed_at'] = null;
                 $updates['completed_by'] = null;

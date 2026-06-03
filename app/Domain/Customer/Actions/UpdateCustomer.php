@@ -54,8 +54,9 @@ class UpdateCustomer
                 $profileData['assigned_user_id'] = $fieldsToSave['assigned_user_id'];
             }
 
-            if (auth()->check()) {
-                $profileData['last_updated_by_user_id'] = auth()->id();
+            $tenantUserId = current_tenant_user_id();
+            if ($tenantUserId !== null) {
+                $profileData['last_updated_by_user_id'] = $tenantUserId;
             }
 
             DB::transaction(function () use ($customer, $contactData, $addressData, $profileData) {

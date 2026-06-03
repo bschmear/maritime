@@ -115,7 +115,7 @@ class OpportunityController extends RecordController
             ])->find($request->query('id'));
 
             if ($qualification) {
-                $user = auth()->user();
+                $tenantUser = current_tenant_profile();
                 $makeId = $qualification->getRawOriginal('desired_brand');
                 $brandRelation = $qualification->relationLoaded('desired_brand')
                     ? $qualification->getRelation('desired_brand')
@@ -127,8 +127,8 @@ class OpportunityController extends RecordController
                 $initialData = [
                     'qualification_id' => $qualification->id,
                     'qualification' => ['id' => $qualification->id, 'display_name' => $qualification->display_name],
-                    'user_id' => $user->id,
-                    'user' => ['id' => $user->id, 'display_name' => $user->display_name ?? $user->name ?? ''],
+                    'user_id' => $tenantUser?->id,
+                    'user' => $tenantUser ? ['id' => $tenantUser->id, 'display_name' => $tenantUser->display_name ?? ''] : null,
                     'qualification_prefill' => [
                         'desired_brand_id' => $makeId,
                         'desired_brand_name' => $brandName,

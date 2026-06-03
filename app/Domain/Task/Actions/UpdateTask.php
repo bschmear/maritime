@@ -46,7 +46,7 @@ class UpdateTask
             }
 
             // Automatically set updated_by to the authenticated user
-            $fieldsToUpdate['updated_by'] = auth()->id();
+            $fieldsToUpdate['updated_by'] = current_tenant_user_id();
 
             $record = RecordModel::findOrFail($id);
             $record->update($fieldsToUpdate);

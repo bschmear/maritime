@@ -28,8 +28,8 @@ class CreateDocument
 
         $authUser = auth()->user();
         $staffUserId = $validated['created_by_id'] ?? null;
-        if ($staffUserId === null && $authUser instanceof User) {
-            $staffUserId = (int) $authUser->id;
+        if ($staffUserId === null && ! ($authUser instanceof Contact)) {
+            $staffUserId = current_tenant_user_id();
         }
 
         $assignedId = $validated['assigned_id'] ?? $staffUserId;

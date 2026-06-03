@@ -60,10 +60,17 @@ class DashboardController extends Controller
                 ->whereHas('subsidiaries')
                 ->with(['subsidiaries:id,display_name'])
                 ->orderBy('display_name')
-                ->get(['id', 'display_name', 'location_type'])
+                ->get(['id', 'display_name', 'location_type', 'address_line_1', 'city', 'state', 'postal_code'])
                 ->map(function (Location $location) {
                     $typeLabel = collect(LocationType::options())
                         ->firstWhere('id', (int) $location->location_type)['name'] ?? null;
+
+                    $addressParts = array_filter([
+                        $location->address_line_1,
+                        collect([$location->city, $location->state, $location->postal_code])
+                            ->filter()
+                            ->join(', '),
+                    ]);
 
                     return [
                         'id' => (int) $location->id,
@@ -72,6 +79,7 @@ class DashboardController extends Controller
                         'subsidiary_labels' => $location->subsidiaries
                             ->pluck('display_name')
                             ->join(', '),
+                        'address_summary' => $addressParts !== [] ? implode(', ', $addressParts) : null,
                     ];
                 })
                 ->values()

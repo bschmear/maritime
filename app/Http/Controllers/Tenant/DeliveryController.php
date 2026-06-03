@@ -662,7 +662,7 @@ class DeliveryController extends RecordController
         // Mark every undelivered item so the status flip is consistent with per-item tracking.
         $delivery->items()->whereNull('delivered_at')->update([
             'delivered_at' => now(),
-            'delivered_by_user_id' => optional($request->user())->id,
+            'delivered_by_user_id' => current_tenant_user_id(),
         ]);
 
         $delivery->load('items');
@@ -708,7 +708,7 @@ class DeliveryController extends RecordController
 
         $delivered = (bool) $request->input('delivered', true);
 
-        (new MarkDeliveryItemDelivered)($deliveryItem, optional($request->user())->id, $delivered);
+        (new MarkDeliveryItemDelivered)($deliveryItem, current_tenant_user_id(), $delivered);
 
         if ($request->wantsJson()) {
             return response()->json(['success' => true]);

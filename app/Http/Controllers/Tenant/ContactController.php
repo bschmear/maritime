@@ -304,8 +304,8 @@ class ContactController extends Controller
                         'file' => $result['key'],
                         'file_extension' => $result['file_extension'],
                         'file_size' => $result['file_size'],
-                        'created_by_id' => auth()->id(),
-                        'updated_by_id' => auth()->id(),
+                        'created_by_id' => current_tenant_user_id(),
+                        'updated_by_id' => current_tenant_user_id(),
                     ]);
 
                     $data[$fieldKey] = $document->id;
@@ -510,8 +510,8 @@ class ContactController extends Controller
                         'file' => $storageResult['key'],
                         'file_extension' => $storageResult['file_extension'],
                         'file_size' => $storageResult['file_size'],
-                        'created_by_id' => auth()->id(),
-                        'updated_by_id' => auth()->id(),
+                        'created_by_id' => current_tenant_user_id(),
+                        'updated_by_id' => current_tenant_user_id(),
                     ]);
 
                     if ($existingDocument) {

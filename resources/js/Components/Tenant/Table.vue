@@ -328,9 +328,38 @@ const handleRecordUpdated = (updated) => {
 const quickFilterDefs = computed(() => props.schema?.filters ?? []);
 const openQuickFilter = ref(null); // field key of the currently open quick-filter dropdown
 
-const getQuickFieldDef = (field) => {
+/** Merge fields.json with table.json filter metadata (filter-only fields are not on the model). */
+const quickFilterFieldDef = (qf) => {
+    const key = typeof qf === 'string' ? qf : quickFilterKey(qf);
     const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
-    return schema[field] ?? {};
+    const base = key ? (schema[key] ?? {}) : {};
+    if (!qf || typeof qf !== 'object') {
+        return base;
+    }
+    const extras = {};
+    if (qf.label) {
+        extras.label = qf.label;
+    }
+    if (qf.type) {
+        extras.type = qf.type;
+    }
+    if (qf.typeDomain) {
+        extras.typeDomain = qf.typeDomain;
+    }
+    if (qf.enum) {
+        extras.enum = qf.enum;
+    }
+
+    return { ...base, ...extras };
+};
+
+const getQuickFieldDef = (fieldOrQf) => {
+    if (fieldOrQf && typeof fieldOrQf === 'object' && (fieldOrQf.field || fieldOrQf.key)) {
+        return quickFilterFieldDef(fieldOrQf);
+    }
+    const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
+
+    return schema[fieldOrQf] ?? {};
 };
 
 /** Quick-filter chip title: schema label, else fields.json label, else field key */
@@ -452,9 +481,12 @@ const quickFilterIsActive = (qf) => {
     return getQuickActiveValues(key).length > 0;
 };
 
-/** fields.json record field → searchable multi-select via records.lookup */
+/** fields.json or table.json filter row → searchable multi-select via records.lookup or lookup_route */
 const isRecordQuickFilter = (qf) => {
-    const fd = getQuickFieldDef(quickFilterKey(qf));
+    if (qf?.lookup_route) {
+        return true;
+    }
+    const fd = quickFilterFieldDef(qf);
 
     return fd?.type === 'record' && !!fd?.typeDomain;
 };
@@ -473,15 +505,46 @@ const getQuickActiveRecordIds = (qf) =>
         .map((x) => Number(x))
         .filter((n) => !Number.isNaN(n) && n > 0);
 
-const setQuickRecordFilterValues = (fieldKey, ids) => {
+const recordFilterLabelCache = ref({});
+
+const filterDefForField = (fieldKey) => {
+    const qf = quickFilterDefs.value.find((f) => quickFilterKey(f) === fieldKey);
+
+    return qf ? quickFilterFieldDef(qf) : getQuickFieldDef(fieldKey);
+};
+
+const cacheRecordFilterLabels = (fieldKey, labelsById) => {
+    if (!labelsById || typeof labelsById !== 'object') {
+        return;
+    }
+    const next = { ...recordFilterLabelCache.value };
+    if (!next[fieldKey]) {
+        next[fieldKey] = {};
+    }
+    for (const [id, label] of Object.entries(labelsById)) {
+        if (label != null && String(label).trim() !== '') {
+            next[fieldKey][String(id)] = String(label).trim();
+        }
+    }
+    recordFilterLabelCache.value = next;
+};
+
+const setQuickRecordFilterValues = (fieldKey, ids, labelsById = {}) => {
     const others = activeFilters.value.filter((f) => f.field !== fieldKey);
     const arr = Array.isArray(ids) ? ids.map((x) => String(x)) : [];
     if (! arr.length) {
         applyFilters(others);
     } else {
+        cacheRecordFilterLabels(fieldKey, labelsById);
         applyFilters([
             ...others,
-            { id: Date.now(), field: fieldKey, operator: 'any_of', value: arr },
+            {
+                id: Date.now(),
+                field: fieldKey,
+                operator: 'any_of',
+                value: arr,
+                valueLabels: arr.map((id) => labelsById[Number(id)] ?? labelsById[String(id)] ?? ''),
+            },
         ]);
     }
 };
@@ -579,17 +642,81 @@ const applyRecordQuickModal = () => {
     if (! recordQuickModalQf.value) {
         return;
     }
-    setQuickRecordFilterValues(quickFilterKey(recordQuickModalQf.value), recordQuickDraftIds.value);
+    setQuickRecordFilterValues(
+        quickFilterKey(recordQuickModalQf.value),
+        recordQuickDraftIds.value,
+        recordQuickDraftLabels.value,
+    );
     closeRecordQuickModal();
 };
+
+/** Resolve display names for filter-only record fields (e.g. Brand on asset-options). */
+async function hydrateRecordFilterLabels() {
+    for (const filter of activeFilters.value) {
+        const fieldKey = filter.field;
+        if (!fieldKey) {
+            continue;
+        }
+        const qf = quickFilterDefs.value.find((f) => quickFilterKey(f) === fieldKey);
+        const fc = filterDefForField(fieldKey);
+        const isRecord =
+            Boolean(qf?.lookup_route) || (fc.type === 'record' && Boolean(fc.typeDomain));
+        if (!isRecord) {
+            continue;
+        }
+
+        const ids = Array.isArray(filter.value)
+            ? filter.value.map((v) => String(v))
+            : filter.value != null && filter.value !== ''
+                ? [String(filter.value)]
+                : [];
+        if (!ids.length) {
+            continue;
+        }
+
+        const cache = recordFilterLabelCache.value[fieldKey] ?? {};
+        if (ids.every((id) => cache[id])) {
+            continue;
+        }
+
+        if (!qf?.lookup_route) {
+            continue;
+        }
+
+        try {
+            const response = await fetch(route(qf.lookup_route), {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+            });
+            if (!response.ok) {
+                continue;
+            }
+            const data = await response.json();
+            const list = data.makers ?? data.records ?? [];
+            const labels = {};
+            for (const r of list) {
+                if (r?.id != null) {
+                    labels[String(r.id)] = recordQuickDisplayName(r);
+                }
+            }
+            cacheRecordFilterLabels(fieldKey, labels);
+        } catch {
+            /* keep numeric fallback */
+        }
+    }
+}
 
 async function fetchRecordQuickLookup() {
     const qf = recordQuickModalQf.value;
     if (! qf) {
         return;
     }
-    const fd = getQuickFieldDef(quickFilterKey(qf));
-    if (! fd?.typeDomain) {
+    const fd = quickFilterFieldDef(qf);
+    if (! qf.lookup_route && ! fd?.typeDomain) {
         return;
     }
     const seq = ++recordQuickLookupSeq;
@@ -598,13 +725,56 @@ async function fetchRecordQuickLookup() {
     const { signal } = recordQuickLookupAbort;
     recordQuickLoading.value = true;
 
+    const q = typeof recordQuickSearch.value === 'string' ? recordQuickSearch.value.trim() : '';
+
     try {
+        // Pivot / assignment filters: optional dedicated route (not a model column / records.lookup).
+        if (qf.lookup_route) {
+            const url = new URL(route(qf.lookup_route), window.location.origin);
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                credentials: 'same-origin',
+                signal,
+            });
+            if (seq !== recordQuickLookupSeq) {
+                return;
+            }
+            if (! response.ok) {
+                throw new Error('lookup failed');
+            }
+            const data = await response.json();
+            if (seq !== recordQuickLookupSeq) {
+                return;
+            }
+            let list = data.makers ?? data.records ?? [];
+            if (q) {
+                const needle = q.toLowerCase();
+                list = list.filter((r) => recordQuickDisplayName(r).toLowerCase().includes(needle));
+            }
+            recordQuickRecords.value = list;
+            recordQuickTotalPages.value = 1;
+            const nextLabels = { ...recordQuickDraftLabels.value };
+            for (const r of list) {
+                const rid = Number(r?.id);
+                if (! Number.isNaN(rid) && recordQuickDraftIds.value.includes(rid)) {
+                    nextLabels[rid] = recordQuickDisplayName(r);
+                }
+            }
+            recordQuickDraftLabels.value = nextLabels;
+
+            return;
+        }
+
         const domain = fd.typeDomain.toLowerCase();
         const url = new URL(route('records.lookup'), window.location.origin);
         url.searchParams.set('page', String(recordQuickPage.value));
         url.searchParams.set('per_page', '15');
         url.searchParams.set('type', domain);
-        const q = typeof recordQuickSearch.value === 'string' ? recordQuickSearch.value.trim() : '';
         if (q) {
             url.searchParams.set('search', q);
         }
@@ -796,6 +966,11 @@ const humanFilterValueLabel = (filter) => {
 const recordOptionLabelForFilter = (filter, fc) => {
     if (Array.isArray(filter.value)) return '';
     if (fc.type !== 'record' && !fc.typeDomain) return '';
+    const cache = recordFilterLabelCache.value[filter.field] ?? {};
+    const cached = cache[String(filter.value)];
+    if (cached) {
+        return cached;
+    }
     const opts = props.enumOptions?.[filter.field];
     if (!Array.isArray(opts) || opts.length === 0) return '';
     const o = opts.find(
@@ -804,9 +979,38 @@ const recordOptionLabelForFilter = (filter, fc) => {
     return o?.name != null && String(o.name).trim() !== '' ? String(o.name).trim() : '';
 };
 
+const recordFilterValuesLabel = (filter, fc) => {
+    const ids = Array.isArray(filter.value) ? filter.value : [];
+
+    if (Array.isArray(filter.valueLabels) && filter.valueLabels.length === ids.length) {
+        const named = filter.valueLabels.map((l) => String(l ?? '').trim()).filter(Boolean);
+        if (named.length) {
+            return named.join(', ');
+        }
+    }
+
+    const cache = recordFilterLabelCache.value[filter.field] ?? {};
+    const names = ids.map((id) => {
+        const fromCache = cache[String(id)];
+        if (fromCache) {
+            return fromCache;
+        }
+        if (fc.enum && props.enumOptions[fc.enum]) {
+            const o = props.enumOptions[fc.enum].find(
+                (opt) => String(opt.id) === String(id) || String(opt.value) === String(id),
+            );
+            if (o?.name) {
+                return o.name;
+            }
+        }
+        return String(id);
+    });
+
+    return names.join(', ');
+};
+
 const getFilterLabel = (filter) => {
-    const schema = props.fieldsSchema?.fields ?? props.fieldsSchema ?? {};
-    const fc = schema[filter.field] ?? {};
+    const fc = filterDefForField(filter.field);
     const fl = fc.label || filter.field;
     let vl = '';
     if (filter.operator === 'between' && typeof filter.value === 'object') {
@@ -827,6 +1031,8 @@ const getFilterLabel = (filter) => {
                 const o = props.enumOptions[fc.enum].find(o => String(o.id) === String(filter.value) || String(o.value) === String(filter.value));
                 vl = o ? o.name : filter.value;
             }
+        } else if (Array.isArray(filter.value) && (fc.type === 'record' || fc.typeDomain)) {
+            vl = recordFilterValuesLabel(filter, fc);
         } else {
             vl = Array.isArray(filter.value) ? filter.value.join(', ') : filter.value;
         }
@@ -885,6 +1091,14 @@ watch(() => props.records.data, () => {
     emitSelectionChange();
 }, { immediate: true });
 
+watch(
+    activeFilters,
+    () => {
+        void hydrateRecordFilterLabels();
+    },
+    { deep: true },
+);
+
 onMounted(() => {
     const urlHasFiltersKey = new URLSearchParams(window.location.search).has('filters');
     const applied = page.props.appliedFilters;
@@ -897,6 +1111,7 @@ onMounted(() => {
     const s = new URLSearchParams(window.location.search).get('search');
     if (s) searchQuery.value = s;
     document.addEventListener('click', handleQuickFilterClickOutside);
+    void hydrateRecordFilterLabels();
 });
 
 onUnmounted(() => {

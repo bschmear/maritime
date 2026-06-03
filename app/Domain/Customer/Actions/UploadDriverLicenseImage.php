@@ -60,8 +60,8 @@ final class UploadDriverLicenseImage
                 'sort_order' => 0,
                 'role' => $role,
                 'is_primary' => false,
-                'created_by_id' => auth()->id(),
-                'updated_by_id' => auth()->id(),
+                'created_by_id' => current_tenant_user_id(),
+                'updated_by_id' => current_tenant_user_id(),
             ]);
 
             $customer->forceFill([$column => $image->id])->save();

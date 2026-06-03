@@ -39,6 +39,7 @@ const emit = defineEmits([
     'toggle-asset-type',
     'toggle-show-on-table',
     'move-group',
+    'edit-spec',
     'delete-spec',
 ]);
 
@@ -207,14 +208,6 @@ const isPending = (specId, typeId) => {
     return !!pendingUpdates.value[`${specId}_${typeId}`];
 };
 
-const onToggleAssetType = async ({ spec, typeId, checked, done }) => {
-    try {
-        await api.updateSpec(spec.id, typeId, checked);
-    } finally {
-        done(); // 🔥 required
-    }
-};
-
 const onToggleType = (spec, typeId) => {
     if (!checkboxStates.value[spec.id]) {
         checkboxStates.value[spec.id] = {};
@@ -321,9 +314,9 @@ const onToggleShowOnTable = (spec) => {
                         </th>
                         <th
                             scope="col"
-                            class="w-12 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
+                            class="w-24 px-2 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400"
                         >
-                            <span class="sr-only">Delete</span>
+                            <span class="sr-only">Actions</span>
                         </th>
                     </tr>
                 </thead>
@@ -425,23 +418,34 @@ const onToggleShowOnTable = (spec) => {
                             </button>
                         </td>
                         <td class="px-2 py-3 text-center align-middle">
-                            <button
-                                type="button"
-                                class="inline-flex items-center justify-center rounded p-1 text-gray-400 transition-colors hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
-                                :disabled="
-                                    spec.is_required ||
-                                    savingSpecId === spec.id ||
-                                    deletingSpecId === spec.id
-                                "
-                                :title="
-                                    spec.is_required
-                                        ? 'Required specs cannot be deleted'
-                                        : 'Delete spec'
-                                "
-                                @click="emit('delete-spec', spec)"
-                            >
-                                <span class="material-icons text-[18px]">delete_outline</span>
-                            </button>
+                            <div class="flex items-center justify-center gap-0.5">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center justify-center rounded p-1 text-gray-400 transition-colors hover:text-primary-600 dark:text-gray-500 dark:hover:text-primary-400 disabled:cursor-not-allowed disabled:opacity-30"
+                                    :disabled="savingSpecId === spec.id || deletingSpecId === spec.id"
+                                    title="Edit spec"
+                                    @click="emit('edit-spec', spec)"
+                                >
+                                    <span class="material-icons text-[18px]">edit</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center justify-center rounded p-1 text-gray-400 transition-colors hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400 dark:disabled:hover:text-gray-500"
+                                    :disabled="
+                                        spec.is_required ||
+                                        savingSpecId === spec.id ||
+                                        deletingSpecId === spec.id
+                                    "
+                                    :title="
+                                        spec.is_required
+                                            ? 'Required specs cannot be deleted'
+                                            : 'Delete spec'
+                                    "
+                                    @click="emit('delete-spec', spec)"
+                                >
+                                    <span class="material-icons text-[18px]">delete_outline</span>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 </tbody>

@@ -73,6 +73,30 @@ function formatMoney(value) {
 
 const sectionExpanded = ref(true);
 
+const resolvedIntro = computed(() => {
+    if (props.intro) {
+        return props.intro;
+    }
+    const ctx = props.catalogContext;
+    if (ctx?.show_variant_scope && ctx?.variant_id) {
+        return 'Equipment and upgrades for this variant—color packages, stereo or electronics, seating, engines, trailers, and similar add-ons. Link options from your catalog and choose whether each applies to this variant only, to all variants of this model, or to the whole brand.';
+    }
+    if (ctx?.show_variant_scope) {
+        return 'Optional equipment for this model (color, stereo, seating, engines, and more). Assign options to specific variants or to the whole asset.';
+    }
+
+    return 'Options available for this catalog configuration—color, stereo, packages, and other add-ons. Add an existing option from your catalog or create a new one, then choose where it applies.';
+});
+
+const emptyStateMessage = computed(() => {
+    const ctx = props.catalogContext;
+    if (ctx?.show_variant_scope && ctx?.variant_id) {
+        return 'No options are assigned to this variant yet. Add color packages, stereo options, and other upgrades from your catalog.';
+    }
+
+    return 'No asset options are assigned yet for this configuration.';
+});
+
 onMounted(() => {
     try {
         const raw = localStorage.getItem(SECTION_EXPANDED_STORAGE_KEY);
@@ -460,7 +484,7 @@ function chipSwatchStyle(row) {
                             </span>
                         </h3>
                         <p v-show="sectionExpanded" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            {{ intro || 'Options available for this catalog configuration. Add an existing option or create a new definition, then choose where it applies.' }}
+                            {{ resolvedIntro }}
                         </p>
                     </div>
                 </div>
@@ -487,7 +511,7 @@ function chipSwatchStyle(row) {
         <!-- ── Body ───────────────────────────────────────────────────── -->
         <div v-show="sectionExpanded" id="asset-options-body">
             <div v-if="!resolvedOptions?.length" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                No asset options are assigned yet for this configuration.
+                {{ emptyStateMessage }}
             </div>
 
             <div v-else class="divide-y divide-gray-100 dark:divide-gray-700/60">

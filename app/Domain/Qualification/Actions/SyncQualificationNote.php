@@ -19,7 +19,7 @@ class SyncQualificationNote
             return;
         }
 
-        $userId = auth()->id();
+        $userId = current_tenant_user_id();
 
         if ($note) {
             $note->update([

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Role\Models\Role;
 use App\Domain\User\Models\User as TenantUserModel;
+use App\Mail\SubscriptionWelcomeMail;
 use App\Models\Account;
 use App\Models\Plan;
 use App\Models\PricingSetting;
@@ -13,10 +14,12 @@ use App\Services\WorkspaceNavCache;
 use App\Support\PlanFeatureList;
 use App\Support\PlanSeatPolicy;
 use App\Support\PublicPageMeta;
+use App\Support\TenantDashboardUrl;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Laravel\Cashier\Subscription as CashierSubscription;
@@ -284,6 +287,7 @@ class CheckoutController extends Controller
         ]);
 
         WorkspaceNavCache::forgetForAccount($account);
+        $this->sendSubscriptionWelcomeEmail($user, $account->fresh(['domains']), $plan);
 
         return redirect()->route('dashboard')
             ->with('success', 'Subscription created successfully!');
@@ -350,6 +354,7 @@ class CheckoutController extends Controller
         ]);
 
         WorkspaceNavCache::forgetForAccount($account);
+        $this->sendSubscriptionWelcomeEmail($user, $account->fresh(['domains']), $plan);
 
         return redirect()->route('dashboard')
             ->with('success', 'Subscription created successfully!');
@@ -484,6 +489,24 @@ class CheckoutController extends Controller
         } finally {
             // Reset tenancy context
             tenancy()->end();
+        }
+    }
+
+    private function sendSubscriptionWelcomeEmail(User $user, Account $account, Plan $plan): void
+    {
+        try {
+            Mail::to($user->email)->send(new SubscriptionWelcomeMail(
+                user: $user,
+                account: $account,
+                plan: $plan,
+                dashboardUrl: TenantDashboardUrl::forAccount($account),
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send subscription welcome email', [
+                'user_id' => $user->id,
+                'account_id' => $account->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('account_settings', function (Blueprint $table) {
             $table->boolean('sms_enabled')->default(false)->after('consignment_terms');
-            $table->boolean('sandbox_mode')->default(false)->after('sms_enabled');
+            $table->boolean('sandbox_mode')->default(true)->after('sms_enabled');
         });
     }
 

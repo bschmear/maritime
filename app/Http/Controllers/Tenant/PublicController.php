@@ -47,6 +47,7 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -82,7 +83,8 @@ class PublicController extends Controller
         $headline = $asset->display_name ?? 'Asset';
         $subhead = $variant->display_name ?: $variant->name ?: 'Variant';
         $description = $variant->resolvedDescription();
-        $specRows = SpecValueDisplayFormatter::labeledRowsFromVariant($variant);
+        $includeEmptySpecs = Auth::check();
+        $specRows = SpecValueDisplayFormatter::labeledRowsFromVariant($variant, $includeEmptySpecs);
 
         $settings = is_array($account->settings) ? $account->settings : [];
         $businessName = trim((string) ($settings['business_name'] ?? ''));
@@ -108,6 +110,7 @@ class PublicController extends Controller
             'makeName' => $asset->make?->display_name,
             'year' => $asset->year,
             'specRows' => $specRows,
+            'includeEmptySpecs' => $includeEmptySpecs,
             'primaryImageUrl' => $primaryImageUrl,
             'account' => $account,
             'logoUrl' => $account->logo_url ?? null,

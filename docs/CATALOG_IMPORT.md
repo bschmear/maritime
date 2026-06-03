@@ -18,6 +18,26 @@ Values must match slugs on `App\Enums\Inventory\BoatType`, `HullType`, and `Hull
 
 Tenant columns `length`, `beam`, `width`, `persons`, `maximum_power`, and `fuel_tank` prefer inventory table columns (`length_mm`, `width_mm`, `capacity_persons`, `max_hp`, `fuel_capacity_l`). When those are null—common for series rows that only define a `length_range_mm` in JSON but still attach per-model **`specifications`** in `meta.json`—the importer falls back to the nested `specifications` object inside the same merged catalog/attributes layer (e.g. `length_mm`, `width_mm`, `fuel_capacity_l`).
 
+## Tenant spec builder values
+
+When default tenant definitions still exist (`boat_weight`, `max_people`, `max_hp`, `engine_shaft`), import also writes matching `asset_spec_values` rows:
+
+| Inventory source | Tenant definition | Notes |
+|------------------|-------------------|--------|
+| `weight_kg` | `boat_weight` | Stored in **lb** (kg × 2.20462) |
+| `capacity_persons` | `max_people` | Integer |
+| `max_hp` | `max_hp` | Integer |
+| `engine_shaft` | `engine_shaft` | Select value (e.g. `L`, `XL`) |
+
+Variant rows receive `length` / `width` (mm) from inventory variants when present, otherwise the parent asset values. Spec values sync on the variant when the catalog model has variants, otherwise on the asset.
+
+To backfill spec values on assets that were imported before this mapping existed, run in tinker (per make):
+
+```php
+app(\App\Domain\InventoryCatalog\Services\CatalogImportService::class)
+    ->resyncImportedSpecs(\App\Domain\BoatMake\Models\BoatMake::find($makeId));
+```
+
 ## Asset type (`type`)
 
 Tenant `assets.type` must be a valid `App\Enums\Inventory\AssetType` value (1–4). If the inventory row has a missing or invalid `type`, import defaults to **1** (boat).
@@ -65,4 +85,17 @@ Inventory migrations must be applied on the inventory connection (the command ch
 
 Optional: refresh make rows from the catalog list:
 
+```bash
 php artisan inventory:seed-makes
+```
+
+### Troubleshooting seed errors
+
+**`Lookup boat_type.slug not found in inventory DB: raft`**
+
+The slug must exist in inventory `boat_type` (seeded from `app/Domain/BoatMake/Schema/boat_types.json`). If the enum has a case but the JSON file was missing it, run inventory migrations so lookup rows are upserted, then re-seed the brand:
+
+```bash
+php artisan migrate --database=inventory --path=database/migrations/inventory
+php artisan inventory:seed-asset-catalog --brand=achilles
+```

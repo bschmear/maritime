@@ -95,8 +95,7 @@ class AssetSpecController extends Controller
             'unit_metric' => 'nullable|string|max:50',
             'use_metric' => 'boolean',
             'options' => 'nullable|array',
-            'options.*.value' => 'required_with:options|string',
-            'options.*.label' => 'required_with:options|string',
+            'options.*.label' => 'required_with:options|string|max:255',
             'is_filterable' => 'boolean',
             'is_visible' => 'boolean',
             'is_required' => 'boolean',
@@ -109,6 +108,11 @@ class AssetSpecController extends Controller
         if (! isset($validated['position'])) {
             $validated['position'] = (int) (AssetSpecDefinition::max('position') ?? 0) + 1;
         }
+
+        $validated['options'] = $this->normalizeSelectOptions(
+            $validated['options'] ?? null,
+            $validated['type'],
+        );
 
         AssetSpecDefinition::create($validated);
         AvailableAssetSpecsCache::forgetAll();
@@ -130,6 +134,7 @@ class AssetSpecController extends Controller
             'unit_metric' => 'nullable|string|max:50',
             'use_metric' => 'boolean',
             'options' => 'nullable|array',
+            'options.*.label' => 'required_with:options|string|max:255',
             'is_filterable' => 'boolean',
             'is_visible' => 'boolean',
             'is_required' => 'boolean',
@@ -138,6 +143,13 @@ class AssetSpecController extends Controller
             'asset_types' => 'nullable|array',
             'asset_types.*' => 'integer',
         ]);
+
+        if (array_key_exists('options', $validated)) {
+            $validated['options'] = $this->normalizeSelectOptions(
+                $validated['options'],
+                $validated['type'],
+            );
+        }
 
         $assetSpec->update($validated);
         AvailableAssetSpecsCache::forgetAll();
@@ -178,5 +190,43 @@ class AssetSpecController extends Controller
         AvailableAssetSpecsCache::forgetAll();
 
         return back()->with('success', 'Specs reordered successfully.');
+    }
+
+    /**
+     * Select options: sequential numeric values (1, 2, 3…) by list order; labels from the form only.
+     *
+     * @return list<array{label: string, value: string}>|null
+     */
+    private function normalizeSelectOptions(?array $options, string $type): ?array
+    {
+        if ($type !== 'select') {
+            return $options;
+        }
+
+        if (! is_array($options)) {
+            return null;
+        }
+
+        $normalized = [];
+        $index = 1;
+
+        foreach ($options as $option) {
+            if (! is_array($option)) {
+                continue;
+            }
+
+            $label = trim((string) ($option['label'] ?? ''));
+            if ($label === '') {
+                continue;
+            }
+
+            $normalized[] = [
+                'label' => $label,
+                'value' => (string) $index,
+            ];
+            $index++;
+        }
+
+        return $normalized === [] ? null : $normalized;
     }
 }

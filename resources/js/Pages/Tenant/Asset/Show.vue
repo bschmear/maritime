@@ -244,7 +244,7 @@ const cancelDelete = () => {
                 v-if="showAssetCatalogOptions"
                 :resolved-options="catalogResolvedOptions"
                 :catalog-context="catalogContext"
-                intro="These options apply when quoting or configuring this asset. Assignments for the whole brand appear here automatically."
+                intro="Optional equipment for this model—color packages, stereo or electronics, seating, engines, and similar add-ons. These apply when quoting or configuring this asset; brand-wide assignments appear here automatically."
             />
 
             <Sublist

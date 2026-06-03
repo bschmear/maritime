@@ -18,7 +18,9 @@ use App\Services\AssetOptionResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Inertia\Response as InertiaResponse;
 
 class AssetOptionController extends RecordController
 {
@@ -44,6 +46,125 @@ class AssetOptionController extends RecordController
             new DeleteAction,
             'AssetOption'
         );
+    }
+
+    /**
+     * Asset options index — no RecordController relationship eager-load (options have no make_id column).
+     */
+    public function index(Request $request): JsonResponse|InertiaResponse
+    {
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $schema = $this->getTableSchema();
+        $formSchema = $this->getFormSchema();
+        $enumOptions = $this->getEnumOptions();
+
+        $tableName = $this->recordModel->getTable();
+        $dbColumns = Schema::connection($this->recordModel->getConnectionName())->getColumnListing($tableName);
+
+        $actualColumns = [];
+        foreach ($this->getSchemaColumns() as $column) {
+            if (! str_contains($column, '.') && in_array($column, $dbColumns, true)) {
+                $actualColumns[] = $column;
+            }
+        }
+
+        if (! in_array('id', $actualColumns, true)) {
+            $actualColumns[] = 'id';
+        }
+
+        $query = $this->recordModel->newQuery()->select($actualColumns);
+
+        $searchQuery = $request->get('search');
+        if (is_string($searchQuery) && trim($searchQuery) !== '') {
+            $term = '%'.strtolower(trim($searchQuery)).'%';
+            $query->whereRaw('LOWER('.$tableName.'.name) LIKE ?', [$term]);
+        }
+
+        $appliedFilters = $this->resolveIndexFiltersFromRequest($request, $schema);
+        if ($appliedFilters !== []) {
+            $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
+        }
+
+        $statsBaseQuery = clone $query;
+
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema)) {
+            $query->orderBy($tableName.'.name');
+        }
+
+        $perPage = (int) $request->get('per_page', 15);
+        $records = $query->paginate($perPage);
+        $tableStats = $this->indexTableStats($request, $statsBaseQuery, $schema);
+
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'records' => $records->items(),
+                'schema' => $schema,
+                'fieldsSchema' => $fieldsSchema,
+                'stats' => $tableStats,
+                'meta' => [
+                    'current_page' => $records->currentPage(),
+                    'last_page' => $records->lastPage(),
+                    'per_page' => $records->perPage(),
+                    'total' => $records->total(),
+                ],
+            ]);
+        }
+
+        $indexProps = $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters);
+        $indexProps['stats'] = $tableStats;
+
+        return inertia('Tenant/AssetOption/Index', $indexProps);
+    }
+
+    /**
+     * Brand is not a column on asset_options — match make-wide or per-asset catalog assignments.
+     */
+    protected function applyFilters($query, array $filters, $fieldsSchema)
+    {
+        $remaining = [];
+
+        foreach ($filters as $filter) {
+            if (! is_array($filter) || ($filter['field'] ?? '') !== 'make_id') {
+                $remaining[] = $filter;
+
+                continue;
+            }
+
+            $makeIds = $this->resolveMakeIdsFromFilter($filter);
+            if ($makeIds === []) {
+                continue;
+            }
+
+            $query->where(function ($q) use ($makeIds) {
+                $q->whereHas('makeAssignments', fn ($mq) => $mq->whereIn('make_id', $makeIds))
+                    ->orWhereHas('assignments.asset', fn ($aq) => $aq->whereIn('make_id', $makeIds));
+            });
+        }
+
+        return parent::applyFilters($query, $remaining, $fieldsSchema);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function resolveMakeIdsFromFilter(array $filter): array
+    {
+        $operator = $filter['operator'] ?? 'equals';
+        $value = $filter['value'] ?? null;
+
+        if ($operator === 'any_of' && is_array($value)) {
+            $ids = array_map(fn ($v) => (int) $v, $value);
+
+            return array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
+        }
+
+        if (($operator === 'equals' || $operator === 'any_of') && $value !== null && $value !== '') {
+            $id = (int) $value;
+
+            return $id > 0 ? [$id] : [];
+        }
+
+        return [];
     }
 
     public function resolveForAsset(Request $request): JsonResponse

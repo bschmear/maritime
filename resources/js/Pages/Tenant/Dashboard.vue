@@ -7,7 +7,7 @@ import OperationsWidget from '@/Components/Tenant/Dashboard/OperationsWidget.vue
 import ActivityFeedWidget from '@/Components/Tenant/Dashboard/ActivityFeedWidget.vue';
 import OnboardingWizard from '@/Components/Tenant/Onboarding/OnboardingWizard.vue';
 import { Head, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     account: {
@@ -25,6 +25,13 @@ const props = defineProps({
 });
 
 const page = usePage();
+
+/** Stays true through the post-onboarding success screen until the user dismisses the wizard. */
+const showOnboardingWizard = ref(!props.onboarding.complete);
+
+function dismissOnboardingWizard() {
+    showOnboardingWizard.value = false;
+}
 
 const userName = computed(() => page.props.auth?.user?.name ?? 'there');
 const now = new Date();
@@ -57,7 +64,11 @@ function formatCurrency(value) {
 <template>
     <Head title="Dashboard" />
 
-    <OnboardingWizard v-if="!onboarding.complete" :onboarding="onboarding" />
+    <OnboardingWizard
+        v-if="showOnboardingWizard"
+        :onboarding="onboarding"
+        @completed="dismissOnboardingWizard"
+    />
 
     <TenantLayout>
         <template #header>

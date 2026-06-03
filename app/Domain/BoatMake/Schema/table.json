@@ -3,7 +3,8 @@
     {
       "key": "display_name",
       "label": "Brand",
-      "sortable": true
+      "sortable": true,
+      "isKey": true
     },
     {
       "key": "brand_key",

@@ -15,6 +15,21 @@ if (! function_exists('current_tenant_profile')) {
     }
 }
 
+if (! function_exists('current_tenant_user_id')) {
+    /**
+     * Tenant `users.id` for the authenticated central user, or null when not in tenant context.
+     *
+     * Use for created_by_id, assigned_user_id, and other FKs to the tenant users table —
+     * not auth()->id(), which is the central (public) users table.
+     */
+    function current_tenant_user_id(): ?int
+    {
+        $id = current_tenant_profile()?->id;
+
+        return $id !== null ? (int) $id : null;
+    }
+}
+
 if (! function_exists('current_tenant_role')) {
     /**
      * Role model from the tenant database for the current user.

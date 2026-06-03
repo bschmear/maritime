@@ -85,8 +85,6 @@ const importDiscoveredError = computed(() => {
     return Array.isArray(e) ? e[0] : e;
 });
 
-const catalogRows = computed(() => props.catalogPreview.catalog_rows ?? []);
-
 const hasPendingModelImports = computed(() => (props.pendingModelImports ?? []).length > 0);
 
 let pendingImportsPollTimer = null;
@@ -121,30 +119,6 @@ onMounted(() => {
 onUnmounted(() => {
     clearPendingImportsPoll();
 });
-
-const importableCount = computed(() => catalogRows.value.filter((r) => !r.already_imported).length);
-
-/** Nothing left to pull in, or no catalog rows at all. */
-const canImportAny = computed(() => importableCount.value > 0);
-
-const importBusy = ref(false);
-
-function importAll() {
-    if (!canImportAny.value) {
-        return;
-    }
-    importBusy.value = true;
-    router.post(
-        route('boatmakes.catalog-import', props.record.id),
-        {},
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                importBusy.value = false;
-            },
-        }
-    );
-}
 
 const aiForm = useForm({
     model_label: '',
@@ -197,6 +171,17 @@ const importDiscoveredForm = useForm({
     models: [],
 });
 
+const showImportModelsModal = ref(false);
+
+function openImportModelsModal() {
+    selectedLibrarySlugs.value = new Set();
+    showImportModelsModal.value = true;
+}
+
+function closeImportModelsModal() {
+    showImportModelsModal.value = false;
+}
+
 const showAddModelModal = ref(false);
 
 function openAddModelModal() {
@@ -236,6 +221,7 @@ function importSelectedLibraryModels() {
         preserveScroll: true,
         onSuccess: () => {
             selectedLibrarySlugs.value = new Set();
+            closeImportModelsModal();
         },
     });
 }
@@ -289,10 +275,8 @@ function importSelectedLibraryModels() {
             >
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Models for this brand</h3>
                 <p class="mt-1 mb-3 text-sm text-gray-600 dark:text-gray-400">
-                    Import lines from the inventory database (same catalog as below), pull everything onto your tenant
-                    list<template v-if="boatMakeAiCatalogUiEnabled"
-                        >, or use Add model to create a catalog line with AI</template
-                    >.
+                    Import models from your shared inventory catalog when this brand has assets there. Not every brand
+                    has catalog inventory — use Import model to check and pull lines onto your tenant list.
                 </p>
                 <div
                     v-if="flashSuccess"
@@ -344,16 +328,53 @@ function importSelectedLibraryModels() {
                         </li>
                     </ul>
                 </div>
-                <div
-                    v-if="libraryModels.length > 0"
-                    class="mb-3 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/40"
-                >
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Inventory catalog (library)</p>
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        These rows live in your inventory database. Select lines to import; each runs as its own
-                        background job, then syncs. Rows you already have are skipped.
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                        @click="openImportModelsModal"
+                    >
+                        Import model
+                    </button>
+                    <button
+                        v-if="boatMakeAiCatalogUiEnabled"
+                        type="button"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="openAddModelModal"
+                    >
+                        Add model
+                    </button>
+                </div>
+            </div>
+        </template>
+    </ShowRecord>
+
+    <Modal :show="showImportModelsModal" max-width="lg" @close="closeImportModelsModal">
+        <div class="flex max-h-[90vh] flex-col">
+            <div class="flex shrink-0 items-start justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Import models</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Select one or more lines from the inventory catalog for
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ record.display_name }}</span>.
+                        Each import runs as a background job.
                     </p>
-                    <div class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                </div>
+                <button
+                    type="button"
+                    class="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                    @click="closeImportModelsModal"
+                >
+                    <svg class="h-3 w-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                    </svg>
+                    <span class="sr-only">Close</span>
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 overflow-y-auto p-4">
+                <div v-if="libraryModels.length > 0">
+                    <div class="flex flex-wrap items-center gap-3 text-sm">
                         <button
                             type="button"
                             class="font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300"
@@ -373,112 +394,62 @@ function importSelectedLibraryModels() {
                             {{ selectedLibraryCount }} selected
                         </span>
                     </div>
-                    <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
-                        <li v-for="m in libraryModels" :key="m.slug" class="py-2">
+                    <ul class="mt-3 max-h-72 divide-y divide-gray-200 overflow-y-auto rounded-md border border-gray-200 dark:divide-gray-700 dark:border-gray-600">
+                        <li v-for="m in libraryModels" :key="m.slug" class="px-3 py-2">
                             <label
-                                :for="`library-${m.slug}`"
+                                :for="`library-modal-${m.slug}`"
                                 class="flex cursor-pointer items-start gap-3 text-sm text-gray-900 dark:text-gray-100"
                             >
                                 <input
-                                    :id="`library-${m.slug}`"
+                                    :id="`library-modal-${m.slug}`"
                                     type="checkbox"
                                     class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
                                     :checked="isLibrarySelected(m.slug)"
                                     @change="setLibrarySelected(m.slug, $event.target.checked)"
                                 />
-                                <span class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm sm:flex-row">
-                                    <span class="font-medium text-gray-800 dark:text-gray-200">Import</span>
-                                    <span class="text-gray-700 dark:text-gray-300">{{ m.label }}</span>
-                                    <span class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ m.slug }}</span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ m.label }}</span>
+                                    <span class="mt-0.5 block font-mono text-xs text-gray-500 dark:text-gray-400">{{ m.slug }}</span>
                                 </span>
                             </label>
                         </li>
                     </ul>
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
-                            :disabled="selectedLibraryCount === 0 || importDiscoveredForm.processing"
-                            @click="importSelectedLibraryModels"
-                        >
-                            {{ importDiscoveredForm.processing ? 'Starting…' : 'Import selected' }}
-                        </button>
-                    </div>
                 </div>
                 <div
                     v-else
-                    class="mb-3 rounded-md border border-dashed border-gray-300 bg-gray-50/80 px-3 py-2 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-800/40 dark:text-gray-400"
+                    class="rounded-md border border-dashed border-gray-300 bg-gray-50/80 px-3 py-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-800/40 dark:text-gray-400"
                 >
                     <p class="font-medium text-gray-800 dark:text-gray-200">No catalog assets for this brand in inventory</p>
-                    <p class="mt-1">
-                        Add the make and assets in your inventory database (connection
-                        <code class="rounded bg-gray-200 px-1 py-0.5 font-mono text-xs dark:bg-gray-700">inventory</code>
-                        , env
-                        <code class="rounded bg-gray-200 px-1 py-0.5 font-mono text-xs dark:bg-gray-700">INVENTORY_DATABASE</code>
-                        ). Asset slug must be
+                    <p class="mt-2">
+                        Add assets in your inventory database with slug
                         <code class="rounded bg-gray-200 px-1 py-0.5 font-mono text-xs dark:bg-gray-700">{{ record.brand_key }}--your-model-slug</code>
-                        to match brand key
+                        (brand key
                         <code class="rounded bg-gray-200 px-1 py-0.5 font-mono text-xs dark:bg-gray-700">{{ record.brand_key }}</code>
-                        .
+                        ).
                     </p>
-                </div>
-                <div v-if="catalogRows.length === 0" class="mb-3 text-sm text-gray-600 dark:text-gray-300">
-                    <p class="font-medium text-gray-800 dark:text-gray-200">Nothing from the shared catalog on your list yet</p>
-                    <p class="mt-1 text-gray-600 dark:text-gray-400">
-                        <template v-if="boatMakeAiCatalogUiEnabled">
-                            Use the library above or
-                            <span class="font-medium text-gray-800 dark:text-gray-200">Add model</span>
-                            to create a line in the inventory catalog with AI. When lines exist, you can use &quot;Add
-                            all models&quot; to pull them onto your tenant list.
-                        </template>
-                        <template v-else>
-                            When lines appear in the library above, import them or use &quot;Add all models&quot; to pull
-                            them onto your tenant list.
-                        </template>
-                    </p>
-                </div>
-                <div
-                    v-else-if="importableCount === 0"
-                    class="mb-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                >
-                    Every catalog model for this brand is already on your list.
-                </div>
-                <ul
-                    v-if="catalogRows.length > 0"
-                    class="mb-3 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-200 dark:divide-gray-800 dark:border-gray-700"
-                >
-                    <li
-                        v-for="row in catalogRows"
-                        :key="row.catalog_asset_key"
-                        class="flex items-center gap-2 px-3 py-2 text-sm"
-                        :class="row.already_imported ? 'bg-gray-50 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'"
-                    >
-                        <span class="font-medium">{{ row.display_name }}</span>
-                        <span class="ml-auto font-mono text-sm text-gray-500 dark:text-gray-400">{{ row.catalog_asset_key }}</span>
-                        <span v-if="row.already_imported" class="shrink-0 text-sm text-gray-500 dark:text-gray-400">On your list</span>
-                    </li>
-                </ul>
-                <div class="mt-6 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
-                    <button
-                        type="button"
-                        class="inline-flex items-center rounded-md bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
-                        :disabled="importBusy || !canImportAny"
-                        @click="importAll"
-                    >
-                        Add all models
-                    </button>
-                    <button
-                        v-if="boatMakeAiCatalogUiEnabled"
-                        type="button"
-                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                        @click="openAddModelModal"
-                    >
-                        Add model
-                    </button>
                 </div>
             </div>
-        </template>
-    </ShowRecord>
+
+            <div class="flex shrink-0 flex-wrap justify-end gap-3 border-t border-gray-200 p-4 dark:border-gray-700">
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    :disabled="importDiscoveredForm.processing"
+                    @click="closeImportModelsModal"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
+                    :disabled="selectedLibraryCount === 0 || importDiscoveredForm.processing || libraryModels.length === 0"
+                    @click="importSelectedLibraryModels"
+                >
+                    {{ importDiscoveredForm.processing ? 'Starting…' : 'Import selected' }}
+                </button>
+            </div>
+        </div>
+    </Modal>
 
     <Modal
         v-if="boatMakeAiCatalogUiEnabled"

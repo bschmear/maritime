@@ -157,7 +157,7 @@ class DocumentController extends RecordController
                 'file' => $request->file('file'),
                 'display_name' => $request->input('display_name'),
                 'description' => $request->input('description'),
-                'assigned_id' => auth()->id(),
+                'assigned_id' => current_tenant_user_id(),
             ]);
 
             if ($result['success']) {

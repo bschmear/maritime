@@ -26,7 +26,7 @@ class UpdateLocation
             // Remove fields that shouldn't be mass-assigned
             unset($fieldsToSave['id'], $fieldsToSave['created_at'], $fieldsToSave['updated_at']);
 
-            $fieldsToSave['updated_by_id'] = auth()->user()->id;
+            $fieldsToSave['updated_by_id'] = current_tenant_user_id();
 
             $record->update($fieldsToSave);
 

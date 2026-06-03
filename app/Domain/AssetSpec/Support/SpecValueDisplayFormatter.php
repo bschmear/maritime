@@ -14,7 +14,7 @@ final class SpecValueDisplayFormatter
     /**
      * @return list<array{label: string, value: string|null}>
      */
-    public static function labeledRowsFromAsset(Asset $asset): array
+    public static function labeledRowsFromAsset(Asset $asset, bool $includeEmptyDefinitions = false): array
     {
         $asset->loadMissing(['specValues.definition', 'make']);
 
@@ -22,23 +22,19 @@ final class SpecValueDisplayFormatter
 
         foreach (['length' => 'Length', 'width' => 'Width', 'beam' => 'Beam'] as $field => $label) {
             $mm = $asset->{$field};
-            if ($mm !== null && (int) $mm > 0) {
-                $rows[] = ['label' => $label, 'value' => self::formatLengthMmToImperial((int) $mm)];
+            $formatted = ($mm !== null && (int) $mm > 0)
+                ? self::formatLengthMmToImperial((int) $mm)
+                : null;
+            if ($includeEmptyDefinitions || $formatted !== null) {
+                $rows[] = ['label' => $label, 'value' => $formatted];
             }
         }
 
-        $defs = AssetSpecDefinition::query()
-            ->whereJsonContains('asset_types', (int) $asset->type)
-            ->orderBy('position')
-            ->get();
-
-        foreach ($defs as $def) {
-            $sv = $asset->specValues->firstWhere('asset_spec_definition_id', $def->id);
-            $display = self::formatSpecValue($sv instanceof AssetSpecValue ? $sv : null, $def);
-            if ($display !== null && $display !== '') {
-                $rows[] = ['label' => $def->label, 'value' => $display];
-            }
-        }
+        $rows = array_merge($rows, self::definitionRowsForSpecable(
+            $asset->specValues,
+            (int) $asset->type,
+            $includeEmptyDefinitions,
+        ));
 
         return $rows;
     }
@@ -46,31 +42,68 @@ final class SpecValueDisplayFormatter
     /**
      * @return list<array{label: string, value: string|null}>
      */
-    public static function labeledRowsFromVariant(AssetVariant $variant): array
+    public static function labeledRowsFromVariant(AssetVariant $variant, bool $includeEmptyDefinitions = false): array
     {
-        $variant->loadMissing(['asset.make', 'specValues.definition']);
+        $variant->loadMissing(['asset.make', 'asset.specValues.definition', 'specValues.definition']);
 
         $rows = [];
+        $asset = $variant->asset;
 
         foreach (['length' => 'Length', 'width' => 'Width'] as $field => $label) {
             $mm = $variant->{$field};
-            if ($mm !== null && (int) $mm > 0) {
-                $rows[] = ['label' => $label, 'value' => self::formatLengthMmToImperial((int) $mm)];
+            if (($mm === null || (int) $mm <= 0) && $asset !== null) {
+                $mm = $asset->{$field};
+            }
+            $formatted = ($mm !== null && (int) $mm > 0)
+                ? self::formatLengthMmToImperial((int) $mm)
+                : null;
+            if ($includeEmptyDefinitions || $formatted !== null) {
+                $rows[] = ['label' => $label, 'value' => $formatted];
             }
         }
 
-        $asset = $variant->asset;
         $type = $asset ? (int) $asset->type : 0;
+        $assetSpecValues = $asset?->specValues ?? collect();
+
+        $rows = array_merge($rows, self::definitionRowsForSpecable(
+            $variant->specValues,
+            $type,
+            $includeEmptyDefinitions,
+            $assetSpecValues,
+        ));
+
+        return $rows;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, AssetSpecValue>  $specValues
+     * @param  \Illuminate\Support\Collection<int, AssetSpecValue>|null  $fallbackSpecValues
+     * @return list<array{label: string, value: string|null}>
+     */
+    private static function definitionRowsForSpecable(
+        $specValues,
+        int $assetType,
+        bool $includeEmptyDefinitions,
+        $fallbackSpecValues = null,
+    ): array {
+        if ($assetType < 1) {
+            return [];
+        }
 
         $defs = AssetSpecDefinition::query()
-            ->whereJsonContains('asset_types', $type)
+            ->whereJsonContains('asset_types', $assetType)
             ->orderBy('position')
             ->get();
 
+        $rows = [];
+
         foreach ($defs as $def) {
-            $sv = $variant->specValues->firstWhere('asset_spec_definition_id', $def->id);
+            $sv = $specValues->firstWhere('asset_spec_definition_id', $def->id);
+            if (! ($sv instanceof AssetSpecValue) && $fallbackSpecValues !== null) {
+                $sv = $fallbackSpecValues->firstWhere('asset_spec_definition_id', $def->id);
+            }
             $display = self::formatSpecValue($sv instanceof AssetSpecValue ? $sv : null, $def);
-            if ($display !== null && $display !== '') {
+            if ($includeEmptyDefinitions || ($display !== null && $display !== '')) {
                 $rows[] = ['label' => $def->label, 'value' => $display];
             }
         }

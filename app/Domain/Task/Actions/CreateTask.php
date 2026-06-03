@@ -45,7 +45,7 @@ class CreateTask
             }
 
             // Automatically set created_by to the authenticated user
-            $fieldsToSave['created_by'] = auth()->id();
+            $fieldsToSave['created_by'] = current_tenant_user_id();
 
             $record = RecordModel::create($fieldsToSave);
 

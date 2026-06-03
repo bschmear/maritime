@@ -49,9 +49,10 @@ class CreateLead
             }
 
             $profileData['contact_id'] = null;
-            if (auth()->check()) {
-                $profileData['created_by_user_id'] = auth()->id();
-                $profileData['last_updated_by_user_id'] = auth()->id();
+            $tenantUserId = current_tenant_user_id();
+            if ($tenantUserId !== null) {
+                $profileData['created_by_user_id'] = $tenantUserId;
+                $profileData['last_updated_by_user_id'] = $tenantUserId;
             }
 
             $record = DB::transaction(function () use ($contactData, $addressData, $profileData) {

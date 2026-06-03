@@ -275,8 +275,8 @@ class UserController extends RecordController
                         'file' => $result['key'],
                         'file_extension' => $result['file_extension'],
                         'file_size' => $result['file_size'],
-                        'created_by_id' => auth()->id(),
-                        'updated_by_id' => auth()->id(),
+                        'created_by_id' => current_tenant_user_id(),
+                        'updated_by_id' => current_tenant_user_id(),
                     ]);
 
                     $data[$fieldKey] = $document->id;
@@ -361,8 +361,8 @@ class UserController extends RecordController
                         'file' => $result['key'],
                         'file_extension' => $result['file_extension'],
                         'file_size' => $result['file_size'],
-                        'created_by_id' => auth()->id(),
-                        'updated_by_id' => auth()->id(),
+                        'created_by_id' => current_tenant_user_id(),
+                        'updated_by_id' => current_tenant_user_id(),
                     ]);
 
                     $data[$fieldKey] = $document->id;

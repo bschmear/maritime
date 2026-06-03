@@ -27,7 +27,7 @@ class CreateQualification
             $fieldsToSave = array_merge($data, $validated);
 
             // Set the createdby_id to the authenticated user
-            $fieldsToSave['createdby_id'] = auth()->id();
+            $fieldsToSave['createdby_id'] = current_tenant_user_id();
             $fieldsToSave['uuid'] = (string) Str::uuid();
 
             $record = RecordModel::create($fieldsToSave);

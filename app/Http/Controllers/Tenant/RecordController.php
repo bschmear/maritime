@@ -709,8 +709,8 @@ class RecordController extends BaseController
                             'file' => $result['key'],
                             'file_extension' => $result['file_extension'],
                             'file_size' => $result['file_size'],
-                            'created_by_id' => auth()->id(),
-                            'updated_by_id' => auth()->id(),
+                            'created_by_id' => current_tenant_user_id(),
+                            'updated_by_id' => current_tenant_user_id(),
                         ]);
 
                         // Update data to save the document ID instead of the file object/key
@@ -1187,8 +1187,8 @@ class RecordController extends BaseController
                             'file' => $storageResult['key'],
                             'file_extension' => $storageResult['file_extension'],
                             'file_size' => $storageResult['file_size'],
-                            'created_by_id' => auth()->id(),
-                            'updated_by_id' => auth()->id(),
+                            'created_by_id' => current_tenant_user_id(),
+                            'updated_by_id' => current_tenant_user_id(),
                         ]);
 
                         // Delete old document record

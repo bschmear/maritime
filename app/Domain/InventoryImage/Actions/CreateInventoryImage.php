@@ -91,8 +91,8 @@ class CreateInventoryImage
             }
 
             // Set created_by and updated_by
-            $validated['created_by_id'] = auth()->id();
-            $validated['updated_by_id'] = auth()->id();
+            $validated['created_by_id'] = current_tenant_user_id();
+            $validated['updated_by_id'] = current_tenant_user_id();
 
             $record = RecordModel::create($validated);
 

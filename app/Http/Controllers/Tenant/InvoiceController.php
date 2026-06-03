@@ -147,7 +147,7 @@ class InvoiceController extends RecordController
             'memo' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        (new ApplyManualInvoicePayment)($model, $validated, Auth::id());
+        (new ApplyManualInvoicePayment)($model, $validated, current_tenant_user_id());
 
         return redirect()
             ->route('invoices.show', $model)
@@ -614,8 +614,8 @@ class InvoiceController extends RecordController
             return back()->with('error', 'QuickBooks is not connected.');
         }
 
-        $userId = Auth::id();
-        $result = PullPaymentsFromQuickBooks::runSync($record->id, is_int($userId) ? $userId : null);
+        $userId = current_tenant_user_id();
+        $result = PullPaymentsFromQuickBooks::runSync($record->id, $userId);
 
         if (! empty($result['message']) && ($result['imported'] ?? 0) === 0 && ($result['skipped'] ?? 0) === 0) {
             return back()->with('error', $result['message']);

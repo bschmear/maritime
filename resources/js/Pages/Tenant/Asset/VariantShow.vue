@@ -97,13 +97,15 @@ const breadcrumbItems = computed(() => [
                             <span class="material-icons text-base">table_chart</span>
                             Specifications
                         </a>
-                        <Link :href="route('assets.edit', asset.id)">
+                        <Link
+                            :href="route('assets.variants.edit', { asset: asset.id, variant: variant.id })"
+                        >
                             <button
                                 type="button"
                                 class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
                             >
                                 <span class="material-icons text-base">edit</span>
-                                Edit asset
+                                Edit variant
                             </button>
                         </Link>
                     </div>

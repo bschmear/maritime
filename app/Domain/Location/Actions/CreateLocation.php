@@ -24,7 +24,7 @@ class CreateLocation
 
             // Remove fields that shouldn't be mass-assigned
             unset($fieldsToSave['id'], $fieldsToSave['created_at'], $fieldsToSave['updated_at']);
-            $fieldsToSave['created_by_id'] = auth()->user()->id;
+            $fieldsToSave['created_by_id'] = current_tenant_user_id();
             // Create the lead in the tenant database
             $record = RecordModel::create($fieldsToSave);
 

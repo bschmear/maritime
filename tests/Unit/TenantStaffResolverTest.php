@@ -11,4 +11,9 @@ class TenantStaffResolverTest extends TestCase
     {
         $this->assertNull(TenantStaffResolver::tenantStaffForWebUser(null));
     }
+
+    public function test_current_tenant_user_id_is_null_outside_tenant_context(): void
+    {
+        $this->assertNull(current_tenant_user_id());
+    }
 }
