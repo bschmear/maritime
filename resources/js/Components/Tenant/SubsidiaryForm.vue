@@ -109,9 +109,11 @@ const submit = () => {
         form[key] = payload[key];
     });
 
+    const hasFiles = Boolean(logoFile.value);
+
     const options = {
         preserveScroll: true,
-        forceFormData: !!logoFile.value,
+        forceFormData: hasFiles,
         onSuccess: (page) => {
             if (isEdit.value) {
                 emit('saved', {});
@@ -123,15 +125,18 @@ const submit = () => {
         },
     };
 
-    if (isEdit.value) {
-        if (logoFile.value) {
-            form.post(url, { ...options, _method: 'put' });
-        } else {
-            form.put(url, options);
-        }
-    } else {
-        form.post(url, { ...options, forceFormData: !!logoFile.value });
+    if (isEdit.value && hasFiles) {
+        // Laravel expects PUT; multipart uploads must POST with _method in the body (not visit options).
+        form.transform((data) => ({ ...data, _method: 'PUT' })).post(url, options);
+        return;
     }
+
+    if (isEdit.value) {
+        form.put(url, options);
+        return;
+    }
+
+    form.post(url, options);
 };
 </script>
 
