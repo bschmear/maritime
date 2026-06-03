@@ -16,7 +16,6 @@ class UpdateSubsidiary
         $validationRules = [
             'display_name'        => ['required', 'string', 'max:255'],
             'legal_name'          => ['nullable', 'string', 'max:255'],
-            'code'                => ['nullable', 'string', 'max:50'],
             'inactive'            => ['nullable', 'boolean'],
             'email'               => ['nullable', 'email', 'max:255'],
             'phone'               => ['nullable', 'string', 'max:50'],

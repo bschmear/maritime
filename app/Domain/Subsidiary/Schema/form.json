@@ -15,10 +15,6 @@
           "required": false
         },
         {
-          "key": "code",
-          "required": false
-        },
-        {
           "key": "inactive",
           "required": false
         },
