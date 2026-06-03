@@ -13,8 +13,8 @@ use App\Http\Controllers\Kiosk\HelpArticleController;
 use App\Http\Controllers\Kiosk\HelpCategoryController;
 use App\Http\Controllers\Kiosk\PlanItemsController;
 use App\Http\Controllers\Kiosk\PlansController;
-use App\Http\Controllers\Kiosk\PricingSettingsController;
 use App\Http\Controllers\Kiosk\PostController;
+use App\Http\Controllers\Kiosk\PricingSettingsController;
 use App\Http\Controllers\Kiosk\SupportTicketsController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
@@ -102,7 +102,9 @@ Route::get('/pricing', [CheckoutController::class, 'plans'])->name('checkout.pla
 Route::middleware('auth')->group(function () {
     Route::get('/checkout/cart', [CheckoutController::class, 'cart'])->name('checkout.cart');
     Route::get('/checkout', [CheckoutController::class, 'checkout'])->name('checkout.show');
-    Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+    Route::post('/checkout', [CheckoutController::class, 'process'])
+        ->middleware('checkout.execution_time')
+        ->name('checkout.process');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');

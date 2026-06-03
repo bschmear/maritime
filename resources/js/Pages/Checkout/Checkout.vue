@@ -1,6 +1,6 @@
 <script setup>
 import { planFeatureTitles } from '@/composables/usePlanFeatureTitles';
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -24,6 +24,20 @@ const stripe = ref(null);
 const cardElement = ref(null);
 const processing = ref(false);
 const cardError = ref('');
+const setupTakingLong = ref(false);
+let setupLongTimer = null;
+
+const isNewWorkspaceCheckout = computed(() => !props.existingAccountId);
+
+const processingMessage = computed(() => {
+    if (isNewWorkspaceCheckout.value) {
+        return setupTakingLong.value
+            ? 'Creating your workspace and database — this can take a few minutes. Please keep this tab open…'
+            : 'Creating your subscription and workspace…';
+    }
+
+    return 'Processing your subscription…';
+});
 
 const form = useForm({
     plan_id: props.plan.id,
@@ -77,11 +91,34 @@ const initializeStripe = () => {
     });
 };
 
+const clearSetupLongTimer = () => {
+    if (setupLongTimer !== null) {
+        clearTimeout(setupLongTimer);
+        setupLongTimer = null;
+    }
+};
+
+const startSetupLongTimer = () => {
+    clearSetupLongTimer();
+    setupTakingLong.value = false;
+    if (!isNewWorkspaceCheckout.value) {
+        return;
+    }
+    setupLongTimer = setTimeout(() => {
+        setupTakingLong.value = true;
+    }, 15000);
+};
+
+onUnmounted(() => {
+    clearSetupLongTimer();
+});
+
 const submit = async () => {
     if (processing.value) return;
 
     processing.value = true;
     cardError.value = '';
+    startSetupLongTimer();
 
     try {
         // Create payment method
@@ -93,6 +130,8 @@ const submit = async () => {
         if (error) {
             cardError.value = error.message;
             processing.value = false;
+            clearSetupLongTimer();
+            setupTakingLong.value = false;
             return;
         }
 
@@ -103,11 +142,21 @@ const submit = async () => {
             preserveScroll: true,
             onFinish: () => {
                 processing.value = false;
+                clearSetupLongTimer();
+                setupTakingLong.value = false;
+            },
+            onError: () => {
+                if (!form.errors.error && Object.keys(form.errors).length === 0) {
+                    cardError.value =
+                        'The request timed out or was interrupted while setting up your workspace. If you were charged, check your email or contact support before trying again.';
+                }
             },
         });
     } catch (error) {
         cardError.value = 'An error occurred. Please try again.';
         processing.value = false;
+        clearSetupLongTimer();
+        setupTakingLong.value = false;
     }
 };
 
@@ -245,12 +294,14 @@ const planPrice = props.billingCycle === 'yearly'
                                     :disabled="processing || form.processing"
                                     class="px-8 py-4 bg-primary-500 hover:bg-primary-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
-                                    <span v-if="processing || form.processing">
-                                        <svg class="animate-spin h-5 w-5 text-white inline-block mr-2" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Processing...
+                                    <span v-if="processing || form.processing" class="flex flex-col items-center gap-1 sm:flex-row">
+                                        <span class="inline-flex items-center">
+                                            <svg class="animate-spin h-5 w-5 text-white inline-block mr-2" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            {{ processingMessage }}
+                                        </span>
                                     </span>
                                     <span v-else class="flex items-center space-x-2">
                                         <span>Start Free Trial</span>

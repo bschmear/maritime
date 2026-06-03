@@ -111,6 +111,11 @@ class CheckoutController extends Controller
 
     public function process(Request $request)
     {
+        $maxSeconds = (int) config('checkout.process_max_execution_seconds', 300);
+        if ($maxSeconds > 0) {
+            set_time_limit($maxSeconds);
+        }
+
         $request->validate([
             'plan_id' => 'required|exists:plans,id',
             'billing_cycle' => 'required|in:monthly,yearly',

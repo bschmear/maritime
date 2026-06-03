@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureKioskAdmin;
 use App\Http\Middleware\EnsureKioskDomain;
 use App\Http\Middleware\EnsureTenantAccess;
 use App\Http\Middleware\EnsureTicketSupportAccess;
+use App\Http\Middleware\ExtendCheckoutExecutionTime;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RedirectUnauthenticatedFromTenant;
 use App\Http\Middleware\ValidatePortalToken;
@@ -80,6 +81,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'redirect.unauthenticated' => RedirectUnauthenticatedFromTenant::class,
             'portal.token' => ValidatePortalToken::class,
             'ticket.support' => EnsureTicketSupportAccess::class,
+            'checkout.execution_time' => ExtendCheckoutExecutionTime::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

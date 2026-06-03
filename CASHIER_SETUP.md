@@ -144,6 +144,7 @@ Any future expiry date and any 3-digit CVC.
 4. **Seat Limits**: Plans have seat limits stored in the `seat_limit` column
 5. **Add-ons**: Use `PlanItem` model for additional purchasable items
 6. **Multiple Accounts**: Users can own multiple accounts or be members of multiple accounts
+7. **Checkout timeouts**: New workspaces run tenant DB creation and migrations during `POST /checkout`. Set `CHECKOUT_PROCESS_MAX_EXECUTION_SECONDS=300` (default) and ensure your web server allows long requests (e.g. nginx `fastcgi_read_timeout 300;`). If users see 504 errors after Stripe succeeds, raise both values.
 
 ## Next Steps
 
