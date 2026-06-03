@@ -1,12 +1,18 @@
 <script setup>
 import DocumentationLayout from '@/Layouts/DocumentationLayout.vue';
+import { useProseResponsiveTables } from '@/composables/useProseResponsiveTables';
 import { Head, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 defineProps({
     article: Object,
     prev: Object,
     next: Object,
 });
+
+const articleEl = ref(null);
+
+useProseResponsiveTables(articleEl);
 </script>
 
 <template>
@@ -35,7 +41,8 @@ defineProps({
         </header>
 
         <article
-            class="prose prose-gray mt-10 max-w-none prose-headings:scroll-mt-24 prose-headings:font-semibold prose-headings:tracking-tight prose-a:font-medium prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline"
+            ref="articleEl"
+            class="documentation-prose prose prose-gray mt-10 max-w-none min-w-0 prose-headings:scroll-mt-24 prose-headings:font-semibold prose-headings:tracking-tight prose-a:font-medium prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline"
             v-html="article.body"
         />
 

@@ -514,6 +514,40 @@ td.sticky {
     --tw-prose-bold: #ffffff;
 }
 
+@layer components {
+    .prose {
+        @apply min-w-0 max-w-full;
+    }
+
+    /* Help documentation tables (wrapped by useProseResponsiveTables) */
+    .documentation-prose .prose-table-scroll {
+        @apply my-6 w-full max-w-full overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .documentation-prose .prose-table-scroll > table {
+        width: max-content;
+        min-width: 100%;
+        @apply my-0 border-collapse text-sm;
+    }
+
+    .documentation-prose .prose-table-scroll :where(th, td) {
+        @apply border-b border-r border-gray-200 px-3 py-2.5 align-top text-left;
+    }
+
+    .documentation-prose .prose-table-scroll :where(tr > :last-child) {
+        @apply border-r-0;
+    }
+
+    .documentation-prose .prose-table-scroll :where(tbody tr:last-child > *) {
+        @apply border-b-0;
+    }
+
+    .documentation-prose .prose-table-scroll :where(thead th) {
+        @apply bg-gray-50 font-semibold text-gray-900;
+    }
+}
+
 /* Stripe Connect CTA — uses theme primary (not indigo; full theme.colors may omit indigo utilities in some builds) */
 .stripe-button {
     @apply inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900;

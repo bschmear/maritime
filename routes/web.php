@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\AccountBillingController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\InvitationController;
+use App\Http\Controllers\Kiosk\AccountController as KioskAccountController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
 use App\Http\Controllers\Kiosk\FaqController;
@@ -51,9 +53,13 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
         Route::get('pricing-settings', [PricingSettingsController::class, 'edit'])->name('pricing-settings.edit');
         Route::put('pricing-settings', [PricingSettingsController::class, 'update'])->name('pricing-settings.update');
 
+        Route::get('accounts', [KioskAccountController::class, 'index'])->name('accounts.index');
+        Route::get('accounts/{account}', [KioskAccountController::class, 'show'])->name('accounts.show');
+
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });
@@ -123,6 +129,11 @@ Route::middleware(['auth', 'verified'])
 
         Route::post('{account}/switch-plan', [AccountController::class, 'switchPlan'])->name('switch-plan');
         Route::post('{account}/cancel', [AccountController::class, 'cancelSubscription'])->name('cancel');
+
+        Route::get('{account}/invoices', [AccountBillingController::class, 'invoices'])->name('invoices.index');
+        Route::get('{account}/invoices/{invoice}', [AccountBillingController::class, 'showInvoice'])->name('invoices.show');
+        Route::post('{account}/billing/setup-intent', [AccountBillingController::class, 'setupIntent'])->name('billing.setup-intent');
+        Route::post('{account}/billing/payment-method', [AccountBillingController::class, 'updatePaymentMethod'])->name('billing.payment-method');
 
         Route::get('{account}', [AccountController::class, 'show'])->name('show');
     });

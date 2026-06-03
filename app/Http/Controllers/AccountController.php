@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
+use Laravel\Cashier\Exceptions\SubscriptionUpdateFailure;
+use Stripe\StripeClient;
 
 class AccountController extends Controller
 {
@@ -61,6 +63,9 @@ class AccountController extends Controller
         // Get all available plans
         $plans = Plan::active()->orderBy('monthly_price')->get();
 
+        $isOwner = $account->owner_id === $user->id;
+        $billingOwner = $account->owner;
+
         return Inertia::render('Account/Show', [
             'account' => [
                 'id' => $account->id,
@@ -68,9 +73,18 @@ class AccountController extends Controller
                 'owner' => $account->owner,
                 'tenant_id' => $account->tenant_id,
                 'domain' => $account->tenant?->domains?->first()?->domain,
-                'is_owner' => $account->owner_id === $user->id,
+                'is_owner' => $isOwner,
                 'user_role' => $account->users()->where('users.id', $user->id)->first()?->pivot?->role,
                 'created_at' => $account->created_at,
+            ],
+            'billing' => [
+                'can_manage' => $isOwner,
+                'has_stripe_customer' => (bool) $billingOwner?->hasStripeId(),
+                'payment_method' => $billingOwner && $billingOwner->hasDefaultPaymentMethod() ? [
+                    'type' => $billingOwner->pm_type,
+                    'last_four' => $billingOwner->pm_last_four,
+                ] : null,
+                'stripe_key' => $isOwner ? config('cashier.key') : null,
             ],
             'users' => $account->users->map(function ($user) use ($account) {
                 return [
@@ -254,7 +268,7 @@ class AccountController extends Controller
                 if ($cashierSub && $cashierSub->active()) {
 
                     // Stripe client
-                    $stripe = new \Stripe\StripeClient(config('cashier.secret'));
+                    $stripe = new StripeClient(config('cashier.secret'));
 
                     // Recalculate user count AFTER removal
                     $totalUsers = $account->users()->count();
@@ -410,7 +424,7 @@ class AccountController extends Controller
             $extraSeats = max(0, $totalUsers - $includedSeats);
 
             // Use Stripe SDK directly for ALL updates (base plan + extra seats) in ONE atomic call
-            $stripe = new \Stripe\StripeClient(config('cashier.secret'));
+            $stripe = new StripeClient(config('cashier.secret'));
             $stripeSub = $cashierSubscription->asStripeSubscription();
 
             // Identify subscription items
@@ -485,7 +499,7 @@ class AccountController extends Controller
                 ]);
             }
 
-        } catch (\Laravel\Cashier\Exceptions\SubscriptionUpdateFailure $e) {
+        } catch (SubscriptionUpdateFailure $e) {
             Log::error('Stripe subscription update failed', [
                 'account_id' => $account->id,
                 'plan_id' => $plan->id,
@@ -604,7 +618,7 @@ class AccountController extends Controller
         }
 
         // Use Stripe SDK directly
-        $stripe = new \Stripe\StripeClient(config('cashier.secret'));
+        $stripe = new StripeClient(config('cashier.secret'));
         $stripeSub = $cashierSub->asStripeSubscription();
         $extraSeatItem = collect($stripeSub->items->data)
             ->firstWhere('price.id', $extraSeatPriceId);

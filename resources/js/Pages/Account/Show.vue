@@ -1,4 +1,5 @@
 <script setup>
+import UpdatePaymentMethodModal from '@/Components/Account/UpdatePaymentMethodModal.vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -45,10 +46,20 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    billing: {
+        type: Object,
+        default: () => ({
+            can_manage: false,
+            has_stripe_customer: false,
+            payment_method: null,
+            stripe_key: null,
+        }),
+    },
 });
 
 const showAddUserModal = ref(false);
 const showSwitchPlanModal = ref(false);
+const showPaymentMethodModal = ref(false);
 const newUserEmail = ref('');
 const newUserRole = ref('');
 const selectedPlanId = ref('');
@@ -523,6 +534,48 @@ const cancelAccount = () => {
                     </div>
                 </div>
 
+                <!-- Billing -->
+                <div
+                    v-if="has_active_subscription || billing.has_stripe_customer"
+                    class="rounded-lg border border-gray-200 bg-white p-6 shadow dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Billing</h3>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Subscription invoices and payment method for this account.
+                            </p>
+                        </div>
+                        <Link
+                            :href="route('accounts.invoices.index', account.id)"
+                            class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        >
+                            View invoices
+                        </Link>
+                    </div>
+
+                    <dl class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Payment method</dt>
+                            <dd class="mt-1 text-sm text-gray-900 dark:text-white">
+                                <template v-if="billing.payment_method">
+                                    {{ billing.payment_method.type }} •••• {{ billing.payment_method.last_four }}
+                                </template>
+                                <span v-else class="text-gray-500 dark:text-gray-400">No card on file</span>
+                            </dd>
+                        </div>
+                        <div v-if="billing.can_manage" class="flex items-end">
+                            <button
+                                type="button"
+                                class="inline-flex items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-700"
+                                @click="showPaymentMethodModal = true"
+                            >
+                                Update payment method
+                            </button>
+                        </div>
+                    </dl>
+                </div>
+
                 <!-- Team Members Section -->
                 <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
                     <div class="flex items-center justify-between mb-6">
@@ -987,5 +1040,12 @@ const cancelAccount = () => {
                     </div>
                 </div>
             </div>
+
+            <UpdatePaymentMethodModal
+                :show="showPaymentMethodModal"
+                :account-id="account.id"
+                :stripe-key="billing.stripe_key"
+                @close="showPaymentMethodModal = false"
+            />
         </AuthenticatedLayout>
     </template>

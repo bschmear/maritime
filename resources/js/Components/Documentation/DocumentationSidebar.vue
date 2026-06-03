@@ -40,7 +40,7 @@ const closeMenu = () => {
             </div>
 
             <!-- Main content -->
-            <div class="relative flex min-h-full flex-col px-4 pt-14 sm:px-6 lg:px-8 grow">
+            <div class="relative flex min-h-full min-w-0 flex-col px-4 pt-14 sm:px-6 lg:px-8 grow">
                 <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
                     <div
                         class="absolute -top-20 -right-16 h-64 w-80 rounded-full bg-primary-200/15 blur-3xl"
@@ -117,7 +117,7 @@ const closeMenu = () => {
                     />
                 </div>
 
-                <main class="relative z-10 mx-auto w-full max-w-3xl flex-auto py-10 lg:max-w-5xl lg:py-16 grow">
+                <main class="relative z-10 mx-auto w-full min-w-0 max-w-3xl flex-auto py-10 lg:max-w-5xl lg:py-16 grow">
                     <slot />
                 </main>
             </div>

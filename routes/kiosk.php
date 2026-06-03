@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Kiosk\AccountController as KioskAccountController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
 use App\Http\Controllers\Kiosk\FaqController;
@@ -30,9 +31,13 @@ Route::domain(config('app.admin_url'))->middleware(['auth'])->name('kiosk.')->gr
         Route::get('pricing-settings', [PricingSettingsController::class, 'edit'])->name('pricing-settings.edit');
         Route::put('pricing-settings', [PricingSettingsController::class, 'update'])->name('pricing-settings.update');
 
+        Route::get('accounts', [KioskAccountController::class, 'index'])->name('accounts.index');
+        Route::get('accounts/{account}', [KioskAccountController::class, 'show'])->name('accounts.show');
+
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 
