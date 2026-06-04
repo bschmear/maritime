@@ -48,6 +48,8 @@ class TenantDashboardDataService
     public function build(Request $request): array
     {
         $cap = max(1, (int) config('dashboard.list_cap', 10));
+        $activityFetchCap = max(15, (int) config('dashboard.activity_fetch_cap', 45));
+        $activityPerPage = max(10, (int) config('dashboard.activity_per_page', 15));
         $stalledDays = max(1, (int) config('dashboard.stalled_opportunity_days', 14));
         $ticketStaleDays = max(1, (int) config('dashboard.service_ticket_stale_days', 7));
         $estimateExpiringDays = max(1, (int) config('dashboard.expiring_estimate_days', 14));
@@ -177,16 +179,24 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'sequence', 'scheduled_at']);
 
-        $notifications = $tenantUserId
+        $activityNotifications = $tenantUserId
             ? Notification::query()
                 ->where('assigned_to_user_id', $tenantUserId)
                 ->whereNull('read_at')
                 ->latest()
-                ->limit($cap)
+                ->limit($activityFetchCap)
                 ->get(['id', 'title', 'message', 'type', 'created_at', 'route'])
             : collect();
 
-        $activityItems = $this->mergeActivityFeed($notifications, $recentPayments, $cap);
+        $activityPayments = Payment::query()
+            ->with(['invoice' => fn ($q) => $q->select(['id', 'sequence', 'customer_name'])])
+            ->whereIn('status', ['completed', 'partially_refunded'])
+            ->orderByDesc('paid_at')
+            ->orderByDesc('id')
+            ->limit($activityFetchCap)
+            ->get(['id', 'sequence', 'amount', 'paid_at', 'created_at', 'invoice_id', 'status']);
+
+        $activityItems = $this->mergeActivityFeed($activityNotifications, $activityPayments, $activityFetchCap);
 
         return [
             'actionCenter' => [
@@ -301,6 +311,8 @@ class TenantDashboardDataService
             ],
             'activity' => [
                 'items' => $activityItems,
+                'per_page' => $activityPerPage,
+                'total' => count($activityItems),
                 'links' => [
                     'notifications' => $this->safeRoute('notifications.index'),
                     'payments' => $this->safeRoute('payments.index'),
@@ -312,6 +324,8 @@ class TenantDashboardDataService
                 'service_ticket_stale_days' => $ticketStaleDays,
                 'expiring_estimate_days' => $estimateExpiringDays,
                 'list_cap' => $cap,
+                'activity_fetch_cap' => $activityFetchCap,
+                'activity_per_page' => $activityPerPage,
             ],
         ];
     }

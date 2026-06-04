@@ -74,6 +74,7 @@ use App\Http\Controllers\Tenant\Surveys\SurveyController;
 use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\UserController;
+use App\Http\Controllers\Tenant\UserFavoriteController;
 use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Tenant\WarrantyClaimController;
 use App\Http\Controllers\Tenant\WorkOrderController;
@@ -790,6 +791,17 @@ Route::middleware([
 
                 // Optional: delete notification
                 Route::delete('/{id}', [NotificationController::class, 'destroy'])
+                    ->name('destroy');
+            });
+
+        Route::prefix('favorites')
+            ->name('favorites.')
+            ->group(function () {
+                Route::get('/', [UserFavoriteController::class, 'index'])
+                    ->name('index');
+                Route::post('/', [UserFavoriteController::class, 'store'])
+                    ->name('store');
+                Route::delete('/{id}', [UserFavoriteController::class, 'destroy'])
                     ->name('destroy');
             });
 

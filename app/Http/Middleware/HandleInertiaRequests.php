@@ -4,11 +4,14 @@ namespace App\Http\Middleware;
 
 use App\Domain\Delivery\Models\Delivery;
 use App\Models\AccountSettings;
+use App\Services\Help\HelpArticleSearch;
+use App\Services\Help\HelpCategoryTree;
 use App\Services\TenantStaffResolver;
-use App\Support\BlogPlaceholder;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
+use App\Support\BlogPlaceholder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -81,10 +84,10 @@ class HandleInertiaRequests extends Middleware
                 'app' => [
                     'name' => config('app.name'),
                 ],
-                'helpNav' => fn () => \App\Services\Help\HelpCategoryTree::toNavArray(
-                    \App\Services\Help\HelpCategoryTree::forPortal()
+                'helpNav' => fn () => HelpCategoryTree::toNavArray(
+                    HelpCategoryTree::forPortal()
                 ),
-                'docSearchIndex' => fn () => \App\Services\Help\HelpArticleSearch::index(),
+                'docSearchIndex' => fn () => HelpArticleSearch::index(),
             ];
         }
 
@@ -134,6 +137,27 @@ class HandleInertiaRequests extends Middleware
             'workspace_plan' => fn () => tenant() ? WorkspacePlanCache::get() : null,
             'tenant_sandbox_mode' => fn () => tenant() ? (bool) AccountSettings::getCurrent()->sandbox_mode : false,
             'delivery_en_route_banner' => fn () => $this->deliveryEnRouteBanner($request),
+            'tenant_route' => fn () => $this->tenantRoute($request),
+        ];
+    }
+
+    /**
+     * @return array{name: string|null, params: array<string, mixed>}|null
+     */
+    protected function tenantRoute(Request $request): ?array
+    {
+        if (! tenant() || $this->rootView($request) !== 'tenant') {
+            return null;
+        }
+
+        $current = Route::current();
+        if ($current === null) {
+            return null;
+        }
+
+        return [
+            'name' => $current->getName(),
+            'params' => $current->parameters(),
         ];
     }
 
@@ -180,7 +204,7 @@ class HandleInertiaRequests extends Middleware
 
     /**
      * Accounts the central user can open in the tenant app (member + provisioned tenant + active subscription).
-     * Host URLs are built on the client with {@see \App\Services\WorkspaceNavCache} (cached; same rules as the CRM entry list).
+     * Host URLs are built on the client with {@see WorkspaceNavCache} (cached; same rules as the CRM entry list).
      *
      * @return array<int, array{id: int, name: string, domain: string}>
      */

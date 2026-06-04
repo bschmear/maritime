@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
+import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
 import Toast from '@/Components/Toast.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -253,6 +254,11 @@ const secondaryNavItems = ref([
         <nav class="hidden lg:block bg-gray-100 border-b border-gray-200 dark:bg-gray-700 dark:border-gray-800 ">
             <div class="px-4 py-2">
                 <div class="flex items-center">
+                    <FavoritesNavControl
+                        class="hidden lg:flex shrink-0 mr-2"
+                        :nav-items="secondaryNavItems"
+                        dropdown-align="left"
+                    />
                     <ul class="flex items-center text-md text-gray-900 font-medium space-x-1">
                         <li v-for="item in secondaryNavItems" :key="item.name || item.href" class="relative">
                             <!-- Item with children (dropdown) -->

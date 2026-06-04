@@ -55,7 +55,7 @@ defineProps({
                 {{ moreLabel }}
             </Link>
         </header>
-        <div class="flex flex-1 flex-col p-4">
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden p-4">
             <p v-if="empty" class="text-sm text-gray-500 dark:text-gray-400">
                 {{ emptyMessage }}
             </p>

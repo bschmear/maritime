@@ -83,7 +83,7 @@ function formatCurrency(value) {
             </div>
         </template>
 
-        <div class="mx-auto space-y-6 px-4 py-6 w-full">
+        <div class="mx-auto w-full min-w-0 max-w-full space-y-6 overflow-x-hidden px-4 py-6">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">

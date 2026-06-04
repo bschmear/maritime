@@ -2,9 +2,12 @@
 
 namespace App\Domain\User\Models;
 
+use App\Domain\Location\Models\Location;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\Role\Models\Role;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
+use App\Domain\UserFavorite\Models\UserFavorite;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -79,7 +82,7 @@ class User extends Model
     public function subsidiaries()
     {
         return $this->belongsToMany(
-            \App\Domain\Subsidiary\Models\Subsidiary::class,
+            Subsidiary::class,
             'subsidiary_user'
         )->withPivot(['primary'])
             ->withTimestamps();
@@ -88,7 +91,7 @@ class User extends Model
     public function locations(): BelongsToMany
     {
         return $this->belongsToMany(
-            \App\Domain\Location\Models\Location::class,
+            Location::class,
             'location_user'
         )->withTimestamps();
     }
@@ -99,5 +102,10 @@ class User extends Model
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'assigned_to_user_id');
+    }
+
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(UserFavorite::class);
     }
 }

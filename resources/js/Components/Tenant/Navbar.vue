@@ -6,6 +6,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
 import NotificationDropdown from '@/Components/Tenant/NotificationDropdown.vue';
+import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
 import axios from 'axios';
 
 const page = usePage();
@@ -188,14 +189,17 @@ onMounted(() => {
                         <ApplicationLogo class="mr-3 h-8 fill-current text-gray-800 dark:text-white" />
                     </Link>
 
+                    <FavoritesNavControl class="lg:hidden shrink-0 mr-2" dropdown-align="left" />
+
                     <Link
                         v-if="isSandboxMode"
                         :href="route('account.index')"
-                        class="mr-4 flex max-w-[min(100%,20rem)] items-center gap-1.5 rounded-full border border-amber-400 bg-amber-300 px-2.5 py-1 text-[11px] font-bold uppercase leading-tight tracking-wide text-amber-950 shadow-sm transition hover:bg-amber-200 sm:px-3 sm:text-xs dark:border-amber-500 dark:bg-amber-500/90 dark:text-amber-950 dark:hover:bg-amber-400/90"
+                        class="mr-2 flex shrink-0 items-center gap-1 rounded-full border border-amber-400 bg-amber-300 px-2 py-1 text-[11px] font-bold uppercase leading-tight tracking-wide text-amber-950 shadow-sm transition hover:bg-amber-200 md:mr-4 md:gap-1.5 md:px-2.5 md:text-xs dark:border-amber-500 dark:bg-amber-500/90 dark:text-amber-950 dark:hover:bg-amber-400/90"
                         title="Sandbox mode: customer emails and text notifications are sent to you (the signed-in user), not real customers. Click to open Account settings."
                     >
-                        <span class="material-icons shrink-0 text-[16px] leading-none sm:text-[18px]" aria-hidden="true">science</span>
-                        <span class="min-w-0">Sandbox</span>
+                        <span class="material-icons shrink-0 text-[16px] leading-none md:text-[18px]" aria-hidden="true">science</span>
+                        <span class="md:hidden">SB</span>
+                        <span class="hidden md:inline">Sandbox</span>
                     </Link>
 
                     <!-- Desktop Search -->

@@ -93,7 +93,7 @@ function priorityBadgeClass(color) {
                         <component
                             :is="row.href ? Link : 'span'"
                             :href="row.href || undefined"
-                            class="block text-sm font-semibold text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+                            class="block break-words text-sm font-semibold text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
                             :class="{ 'cursor-default hover:text-gray-900 dark:hover:text-white': !row.href }"
                         >
                             {{ row.label }}
