@@ -7,6 +7,8 @@ import { Link, usePage, router } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
 import NotificationDropdown from '@/Components/Tenant/NotificationDropdown.vue';
 import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
+import PwaInstallInstructionsModal from '@/Components/PwaInstallInstructionsModal.vue';
+import { usePwaInstall } from '@/composables/usePwaInstall';
 import axios from 'axios';
 
 const page = usePage();
@@ -16,8 +18,15 @@ const notificationDropdownOpen = ref(false);
 const notifications = ref([]);
 
 const isSandboxMode = computed(() => !!page.props.tenant_sandbox_mode);
+const onTenantDashboard = computed(() => route().current('dashboard'));
 
 const { theme, setTheme, initTheme } = useTheme();
+const { showManualInstall, promptInstall } = usePwaInstall();
+
+const handleInstallApp = () => {
+    userDropdownOpen.value = false;
+    promptInstall();
+};
 
 const cycleTheme = () => {
     const themes = ['light', 'dark', 'auto'];
@@ -311,6 +320,16 @@ onMounted(() => {
                                     Profile
                                 </Link>
                             </li>
+                            <li v-if="showManualInstall && onTenantDashboard">
+                                <button
+                                    type="button"
+                                    class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
+                                    @click="handleInstallApp"
+                                >
+                                    <span class="material-icons text-lg leading-none">install_mobile</span>
+                                    Download app
+                                </button>
+                            </li>
                             <li>
                                 <Link
                                     :href="route('logout')"
@@ -338,5 +357,6 @@ onMounted(() => {
                 </div>
             </div>
         </nav>
+        <PwaInstallInstructionsModal />
     </header>
 </template>

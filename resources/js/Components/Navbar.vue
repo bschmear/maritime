@@ -5,11 +5,8 @@ import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import FeaturesMegaMenuPanel from '@/Components/Marketing/FeaturesMegaMenuPanel.vue';
-import PwaInstallButton from '@/Components/PwaInstallButton.vue';
-import PwaInstallInstructionsModal from '@/Components/PwaInstallInstructionsModal.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { useTheme } from '@/composables/useTheme';
-import { usePwaInstall } from '@/composables/usePwaInstall';
 import { usePwaLinks } from '@/composables/usePwaLinks';
 import { featuresMegaMenuGroups, featuresNavRouteNames } from '@/data/marketingFeatures';
 
@@ -22,9 +19,6 @@ const featuresMegaOpen = ref(false);
 const featuresMobileOpen = ref(false);
 const navRoot = ref(null);
 const { theme, setTheme, initTheme } = useTheme();
-const { showManualInstall, promptInstall } = usePwaInstall();
-
-const canInstall = computed(() => isAuthenticated() && showManualInstall.value);
 
 const dashboardHref = computed(() =>
     pwa.value && route().has('dashboard') ? route('dashboard', { pwa: 1 }) : route('dashboard'),
@@ -391,7 +385,6 @@ onUnmounted(() => {
 
                 <!-- Compact: theme + hamburger (below lg) -->
                 <div class="-me-2 flex items-center gap-2 lg:hidden z-20">
-                    <PwaInstallButton :authenticated="isAuthenticated()" />
                     <button
                         type="button"
                         @click="cycleTheme"
@@ -553,15 +546,6 @@ onUnmounted(() => {
                     >
                         Accounts
                     </ResponsiveNavLink>
-                    <button
-                        v-if="canInstall"
-                        type="button"
-                        class="flex w-full items-center gap-2 border-l-4 border-transparent ps-3 pe-4 py-2 text-start text-base font-medium text-gray-600 transition duration-150 ease-in-out hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 focus:bg-gray-50 focus:outline-none dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white"
-                        @click="promptInstall(); closeMobileMenu()"
-                    >
-                        <span class="material-icons text-xl leading-none">install_mobile</span>
-                        Install app
-                    </button>
                     <template v-if="isAuthenticated() && hasWorkspaceNav">
                         <template v-for="ws in workspaceNav" :key="'m-ws-' + ws.id">
                             <a
@@ -627,6 +611,5 @@ onUnmounted(() => {
                 </div>
         </div>
 
-        <PwaInstallInstructionsModal />
     </nav>
 </template>
