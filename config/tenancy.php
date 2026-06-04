@@ -53,7 +53,7 @@ return [
         '--realpath' => true,
     ],
     'seeder_parameters' => [
-        '--class' => 'DatabaseSeeder',
-        
+        '--class' => 'Database\\Seeders\\TenantDatabaseSeeder',
+        '--force' => true,
     ],
 ];

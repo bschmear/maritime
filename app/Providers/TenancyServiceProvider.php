@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Jobs\CreateTenantDatabase;
+use App\Jobs\MigrateTenantDatabase;
+use App\Jobs\SeedTenantDatabase;
+use Illuminate\Foundation\Http\Kernel;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -25,9 +29,9 @@ class TenancyServiceProvider extends ServiceProvider
             Events\CreatingTenant::class => [],
             Events\TenantCreated::class => [
                 JobPipeline::make([
-                    \App\Jobs\CreateTenantDatabase::class,  // Use our custom job
-                    \App\Jobs\MigrateTenantDatabase::class,
-                    Jobs\SeedDatabase::class, // Add seeding job here
+                    CreateTenantDatabase::class,  // Use our custom job
+                    MigrateTenantDatabase::class,
+                    SeedTenantDatabase::class,
                 ])->send(function (Events\TenantCreated $event) {
                     return $event->tenant;
                 })->shouldBeQueued(false),
@@ -134,7 +138,7 @@ class TenancyServiceProvider extends ServiceProvider
 
         foreach (array_reverse($tenancyMiddleware) as $middleware) {
             if (class_exists($middleware)) {
-                app(\Illuminate\Foundation\Http\Kernel::class)
+                app(Kernel::class)
                     ->prependToMiddlewarePriority($middleware);
             }
         }

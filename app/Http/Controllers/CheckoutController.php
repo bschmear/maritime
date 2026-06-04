@@ -15,8 +15,10 @@ use App\Support\PlanFeatureList;
 use App\Support\PlanSeatPolicy;
 use App\Support\PublicPageMeta;
 use App\Support\TenantDashboardUrl;
+use Database\Seeders\TenantDatabaseSeeder;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -405,7 +407,7 @@ class CheckoutController extends Controller
             'domain' => $domainName,
         ]);
 
-        sleep(1);
+        $this->ensureTenantDatabaseSeeded($tenant);
 
         $account->update([
             'tenant_id' => $tenant->id,
@@ -456,6 +458,27 @@ class CheckoutController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * TenantCreated pipeline should seed via SeedTenantDatabase; this covers prod skips and race windows.
+     */
+    private function ensureTenantDatabaseSeeded(Tenant $tenant): void
+    {
+        $tenant->run(function () use ($tenant) {
+            if (Role::query()->where('slug', 'admin')->exists()) {
+                return;
+            }
+
+            Log::warning('Tenant missing default roles after create; running tenant seeder', [
+                'tenant_id' => $tenant->id,
+            ]);
+
+            Artisan::call('db:seed', [
+                '--class' => TenantDatabaseSeeder::class,
+                '--force' => true,
+            ]);
+        });
     }
 
     /**
