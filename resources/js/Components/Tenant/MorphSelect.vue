@@ -29,7 +29,7 @@ const props = defineProps({
     }
 });
 
-const emit = defineEmits(['update:modelValue', 'update:selectedType']);
+const emit = defineEmits(['update:modelValue', 'update:selectedType', 'record-selected']);
 
 const showModal = ref(false);
 const selectedMorphType = ref(props.selectedType || '');
@@ -112,6 +112,7 @@ const clearSelection = () => {
     selectedRecordName.value = '';
     emit('update:selectedType', '');
     emit('update:modelValue', null);
+    emit('record-selected', null);
     records.value = [];
 };
 
@@ -227,6 +228,11 @@ const selectRecord = (record) => {
 
     emit('update:modelValue', record.id);
     emit('update:selectedType', selectedMorphType.value);
+    emit('record-selected', {
+        id: record.id,
+        type: selectedMorphType.value,
+        displayName: selectedRecordName.value,
+    });
     closeModal();
 };
 

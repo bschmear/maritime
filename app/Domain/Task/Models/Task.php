@@ -6,6 +6,7 @@ use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Task extends Model
@@ -78,7 +79,8 @@ class Task extends Model
         return $this->morphTo();
     }
 
-    /**
-     * Get the task type.
-     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TaskComment::class)->orderByDesc('created_at');
+    }
 }

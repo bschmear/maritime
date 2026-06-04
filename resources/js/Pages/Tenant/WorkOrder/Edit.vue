@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
+import WorkOrderLogTimePanel from '@/Components/Tenant/WorkOrderLogTimePanel.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -96,6 +97,12 @@ const handleCancelled = () => {
                 <Breadcrumb :items="breadcrumbItems" />
             </div>
         </template>
+        <WorkOrderLogTimePanel
+            class="mb-6"
+            :work-order-id="record.id"
+            :service-items="record.service_items ?? []"
+            :billing-type-options="enumOptions.billing_type ?? []"
+        />
         <WorkOrderForm
             :record="record"
             :record-type="recordType"

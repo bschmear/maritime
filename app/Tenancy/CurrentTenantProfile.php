@@ -82,4 +82,38 @@ class CurrentTenantProfile
 
         return in_array($slug, $allowed, true);
     }
+
+    /**
+     * @return list<string>
+     */
+    public function permissionKeys(): array
+    {
+        $profile = $this->profile();
+        if ($profile === null) {
+            return [];
+        }
+
+        $profile->loadMissing('role.permissions');
+
+        if ($profile->role === null) {
+            return [];
+        }
+
+        return $profile->role->permissions
+            ->pluck('key')
+            ->filter(fn ($key) => is_string($key) && $key !== '')
+            ->values()
+            ->all();
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        $slug = $this->roleSlug();
+        $superAdmins = config('record_type_access.superadmin_slugs', []);
+        if ($slug !== null && is_array($superAdmins) && in_array($slug, $superAdmins, true)) {
+            return true;
+        }
+
+        return in_array($permission, $this->permissionKeys(), true);
+    }
 }

@@ -184,10 +184,6 @@
 
   "sublists": [
     {
-      "label": "Tasks",
-      "domain": "Task"
-    },
-    {
       "label": "Documents",
       "domain": "Document"
     },

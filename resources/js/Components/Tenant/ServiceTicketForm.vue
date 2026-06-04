@@ -417,7 +417,9 @@ const getEnumLabel = (fieldKey, value) => {
 };
 
 const recordLinkClass =
-    'text-md font-medium text-primary-600 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300';
+    'block min-w-0 max-w-full break-words text-md font-medium text-primary-600 hover:text-primary-800 hover:underline dark:text-primary-400 dark:hover:text-primary-300';
+
+const recordTextClass = 'block min-w-0 max-w-full break-words text-md text-gray-900 dark:text-white';
 
 const relatedRecordForField = (fieldKey) => {
     const def = props.fieldsSchema[fieldKey];
@@ -1149,7 +1151,7 @@ const handleCancel = () => {
                     <div
                         :class="{
                             'lg:col-span-9': mode !== 'show',
-                            'lg:col-span-12': mode === 'show',
+                            'lg:col-span-12 min-w-0': mode === 'show',
                             'space-y-6': true
                         }"
                     >
@@ -1199,7 +1201,7 @@ const handleCancel = () => {
                                             >
                                                 {{ relatedRecordLabel('customer_id') }}
                                             </Link>
-                                            <p v-else class="text-md text-gray-900 dark:text-white">
+                                            <p v-else :class="recordTextClass">
                                                 {{ relatedRecordLabel('customer_id') }}
                                             </p>
                                             <p v-if="form.errors.customer_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
@@ -1228,7 +1230,7 @@ const handleCancel = () => {
                                             >
                                                 {{ relatedRecordLabel('subsidiary_id') }}
                                             </Link>
-                                            <p v-else class="text-md text-gray-900 dark:text-white">
+                                            <p v-else :class="recordTextClass">
                                                 {{ relatedRecordLabel('subsidiary_id') }}
                                             </p>
                                             <p v-if="form.errors.subsidiary_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.subsidiary_id }}</p>
@@ -1259,7 +1261,7 @@ const handleCancel = () => {
                                             >
                                                 {{ relatedRecordLabel('location_id') }}
                                             </Link>
-                                            <p v-else class="text-md text-gray-900 dark:text-white">
+                                            <p v-else :class="recordTextClass">
                                                 {{ relatedRecordLabel('location_id') }}
                                             </p>
                                             <p v-if="form.errors.location_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
@@ -1362,7 +1364,7 @@ const handleCancel = () => {
                                             >
                                                 {{ relatedRecordLabel('asset_unit_id') }}
                                             </Link>
-                                            <p v-else class="text-md text-gray-900 dark:text-white">—</p>
+                                            <p v-else :class="recordTextClass">—</p>
                                             <p v-if="fieldsSchema.asset_unit_id?.help && mode !== 'show'" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                                 {{ fieldsSchema.asset_unit_id.help }}
                                             </p>
@@ -1512,12 +1514,12 @@ const handleCancel = () => {
                                         >
                                             <div class="flex items-start justify-between gap-3">
                                                 <div class="min-w-0 flex-1">
-                                                    <div class="text-base font-semibold text-gray-900 dark:text-white">
+                                                    <div class="break-words text-base font-semibold text-gray-900 dark:text-white">
                                                         {{ item.display_name || item.description }}
                                                     </div>
                                                     <p
                                                         v-if="item.description && item.description !== (item.display_name || '')"
-                                                        class="mt-1 text-sm text-gray-600 dark:text-gray-400"
+                                                        class="mt-1 break-words text-sm text-gray-600 dark:text-gray-400"
                                                     >
                                                         {{ item.description }}
                                                     </p>

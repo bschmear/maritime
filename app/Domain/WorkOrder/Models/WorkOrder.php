@@ -2,12 +2,22 @@
 
 namespace App\Domain\WorkOrder\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
+use App\Domain\Customer\Models\Customer;
+use App\Domain\InventoryItem\Models\InventoryItem;
+use App\Domain\InventoryUnit\Models\InventoryUnit;
+use App\Domain\Location\Models\Location;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Task\Models\Task;
+use App\Domain\User\Models\User;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-// use App\Domain\WorkOrder\Models\WorkOrderLineItem;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -80,63 +90,63 @@ class WorkOrder extends Model
     public function serviceTicket(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\ServiceTicket\Models\ServiceTicket::class
+            ServiceTicket::class
         );
     }
 
     public function service_ticket(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\ServiceTicket\Models\ServiceTicket::class
+            ServiceTicket::class
         );
     }
 
     public function subsidiary(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\Subsidiary\Models\Subsidiary::class
+            Subsidiary::class
         );
     }
 
     public function customer(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\Customer\Models\Customer::class
+            Customer::class
         );
     }
 
     public function assetUnit(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\AssetUnit\Models\AssetUnit::class
+            AssetUnit::class
         );
     }
 
     public function asset_unit(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\AssetUnit\Models\AssetUnit::class
+            AssetUnit::class
         );
     }
 
     public function inventoryUnit(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\InventoryUnit\Models\InventoryUnit::class
+            InventoryUnit::class
         );
     }
 
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\InventoryItem\Models\InventoryItem::class
+            InventoryItem::class
         );
     }
 
     public function inventory_item(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\InventoryItem\Models\InventoryItem::class,
+            InventoryItem::class,
             'inventory_item_id'
         );
     }
@@ -148,13 +158,13 @@ class WorkOrder extends Model
 
     public function warrantyClaims(): HasMany
     {
-        return $this->hasMany(\App\Domain\WarrantyClaim\Models\WarrantyClaim::class);
+        return $this->hasMany(WarrantyClaim::class);
     }
 
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\User\Models\User::class,
+            User::class,
             'assigned_user_id'
         );
     }
@@ -162,7 +172,7 @@ class WorkOrder extends Model
     public function assigned_user(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\User\Models\User::class,
+            User::class,
             'assigned_user_id'
         );
     }
@@ -170,7 +180,7 @@ class WorkOrder extends Model
     public function requested_by_user(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\User\Models\User::class,
+            User::class,
             'requested_by_user_id'
         );
     }
@@ -178,8 +188,13 @@ class WorkOrder extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(
-            \App\Domain\Location\Models\Location::class
+            Location::class
         );
+    }
+
+    public function tasks(): MorphMany
+    {
+        return $this->morphMany(Task::class, 'relatable');
     }
 
     // public function lineItems(): HasMany

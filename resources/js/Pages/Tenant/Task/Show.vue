@@ -1,11 +1,13 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import Form from '@/Components/Tenant/Form.vue';
+import TaskForm from '@/Components/Tenant/TaskForm.vue';
+import TaskCommentsPanel from '@/Components/Tenant/TaskCommentsPanel.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { ref, computed } from 'vue';
+import { useTenantPermissions } from '@/composables/useTenantPermissions.js';
 
 const props = defineProps({
     record: {
@@ -49,6 +51,8 @@ const props = defineProps({
         default: () => [],
     },
 });
+
+const { canEditTask, canDeleteTask } = useTenantPermissions();
 
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
@@ -127,6 +131,7 @@ const handleCancelEdit = () => {
                     <!-- View Mode Buttons -->
                     <div v-if="!isEditMode" class="flex items-center space-x-3">
                         <button
+                            v-if="canEditTask"
                             @click="handleEdit"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                         >
@@ -136,6 +141,7 @@ const handleCancelEdit = () => {
                             Edit
                         </button>
                         <button
+                            v-if="canDeleteTask"
                             @click="handleDelete"
                             class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
@@ -147,7 +153,7 @@ const handleCancelEdit = () => {
                     </div>
 
                     <!-- Edit Mode Buttons -->
-                    <div v-else class="flex items-center space-x-3">
+                    <div v-else-if="canEditTask" class="flex items-center space-x-3">
                         <button
                             @click="handleSave"
                             :disabled="formRef?.isProcessing"
@@ -178,7 +184,7 @@ const handleCancelEdit = () => {
             <!-- Main Content -->
             <div class="flex-1 min-w-0">
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-lg sm:rounded-lg">
-                    <Form
+                    <TaskForm
                         ref="formRef"
                         :schema="formSchema"
                         :fields-schema="fieldsSchema"
@@ -187,16 +193,16 @@ const handleCancelEdit = () => {
                         :record-title="recordTitle"
                         :record-identifier="recordIdentifier"
                         :enum-options="enumOptions"
-                        :image-urls="imageUrls"
-                        :account="account"
-                        :timezones="timezones"
-                        :mode="isEditMode ? 'edit' : 'view'"
+                        :mode="isEditMode && canEditTask ? 'edit' : 'view'"
                         :prevent-redirect="true"
-                        :form-id="`form-${recordType}-${record?.id ?? record?.uuid}`"
+                        hide-actions
                         @submit="handleSubmit"
                         @updated="handleUpdated"
-                        @cancel="handleCancel"
+                        @cancel="handleCancelEdit"
                     />
+                    <div v-if="recordIdentifier" class="px-6 pb-6">
+                        <TaskCommentsPanel :task-id="recordIdentifier" :can-comment="canEditTask" />
+                    </div>
                 </div>
 
                 <!-- Sublists below the form -->

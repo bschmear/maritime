@@ -5,7 +5,9 @@ import axios from 'axios';
 import KanbanBoard from '@/Components/Tenant/KanbanBoard.vue';
 import TaskListView from '@/Components/Tenant/TaskListView.vue';
 import Modal from '@/Components/Modal.vue';
-import Form from '@/Components/Tenant/Form.vue';
+import TaskForm from '@/Components/Tenant/TaskForm.vue';
+import TaskCommentsPanel from '@/Components/Tenant/TaskCommentsPanel.vue';
+import { useTenantPermissions } from '@/composables/useTenantPermissions.js';
 
 /**
  * Reusable task board for a morph relatable (boat show event, lead, etc.).
@@ -59,7 +61,11 @@ const mergedEnumOptions = computed(() => ({
     ...props.taskBoardEnumOptions,
 }));
 
-const canUseTaskForms = computed(() => props.taskFormSchema && props.taskFieldsSchema);
+const { canViewTask, canCreateTask, canEditTask, canDeleteTask } = useTenantPermissions();
+
+const canUseTaskForms = computed(() => props.taskFormSchema && props.taskFieldsSchema && canViewTask.value);
+
+const taskModalMode = computed(() => (canEditTask.value ? 'edit' : 'view'));
 
 const effectiveSortableGroup = computed(
     () => props.sortableGroup ?? `relatable-tasks-${effectiveRelatableId.value}`,
@@ -120,12 +126,14 @@ const showColumnsMenu = ref(false);
 
 const showViewModal = ref(false);
 const showCreateModal = ref(false);
+const showDeleteModal = ref(false);
 const selectedRecord = ref(null);
 const isLoadingRecord = ref(false);
+const isDeleting = ref(false);
 const prePopulatedData = ref({});
 
 function openCreateModal(groupId = null) {
-    if (!canUseTaskForms.value) {
+    if (!canUseTaskForms.value || !canCreateTask.value) {
         return;
     }
     prePopulatedData.value = {
@@ -149,6 +157,9 @@ function handleTaskCreated() {
 }
 
 async function handleViewTask(task) {
+    if (!canViewTask.value) {
+        return;
+    }
     if (!canUseTaskForms.value) {
         router.visit(route(`${props.taskRecordType}.show`, task.id));
         return;
@@ -178,6 +189,35 @@ function closeViewModal() {
 function handleTaskUpdated() {
     router.reload({ only: props.reloadOnly });
     closeViewModal();
+}
+
+function openDeleteModal() {
+    if (!canDeleteTask.value || !selectedRecord.value?.id) {
+        return;
+    }
+    showDeleteModal.value = true;
+}
+
+function cancelDelete() {
+    showDeleteModal.value = false;
+}
+
+function confirmDelete() {
+    if (!selectedRecord.value?.id) {
+        return;
+    }
+    isDeleting.value = true;
+    router.delete(route(`${props.taskRecordType}.destroy`, selectedRecord.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showDeleteModal.value = false;
+            closeViewModal();
+            router.reload({ only: props.reloadOnly });
+        },
+        onFinish: () => {
+            isDeleting.value = false;
+        },
+    });
 }
 </script>
 
@@ -233,7 +273,7 @@ function handleTaskUpdated() {
                 </div>
 
                 <button
-                    v-if="canUseTaskForms"
+                    v-if="canUseTaskForms && canCreateTask"
                     type="button"
                     class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700"
                     @click="openCreateModal()"
@@ -285,6 +325,7 @@ function handleTaskUpdated() {
             :enum-options="mergedEnumOptions"
             :reload-only="reloadOnly"
             :sortable-group="effectiveSortableGroup"
+            :can-update="canEditTask"
             @task-updated="handleTaskUpdated"
             @view-task="handleViewTask"
             @create-task="openCreateModal"
@@ -308,43 +349,63 @@ function handleTaskUpdated() {
         <Modal :show="showViewModal" max-width="4xl" @close="closeViewModal">
             <div class="flex flex-shrink-0 items-start justify-between border-b p-4 dark:border-gray-700">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ selectedRecord ? `Edit ${taskRecordTitle}` : '' }}
+                    {{
+                        selectedRecord
+                            ? `${taskModalMode === 'edit' ? 'Edit' : 'View'} ${taskRecordTitle}`
+                            : ''
+                    }}
                 </h3>
-                <button
-                    type="button"
-                    class="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
-                    @click="closeViewModal"
-                >
-                    <span class="sr-only">Close</span>
-                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 14 14">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
-                    </svg>
-                </button>
+                <div class="ml-auto flex items-center gap-2">
+                    <button
+                        v-if="canDeleteTask && selectedRecord?.id"
+                        type="button"
+                        class="inline-flex items-center rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-950/40"
+                        @click="openDeleteModal"
+                    >
+                        Delete
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                        @click="closeViewModal"
+                    >
+                        <span class="sr-only">Close</span>
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 14 14">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="max-h-[70vh] flex-1 overflow-y-auto">
                 <div v-if="isLoadingRecord" class="flex items-center justify-center py-8">
                     <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600" />
                     <span class="ml-2 text-gray-600 dark:text-gray-400">Loading…</span>
                 </div>
-                <div v-else-if="selectedRecord && taskFormSchema && taskFieldsSchema">
-                    <Form
+                <div v-else-if="selectedRecord && taskFormSchema && taskFieldsSchema" class="px-4 pb-4">
+                    <TaskForm
                         :schema="taskFormSchema"
                         :fields-schema="taskFieldsSchema"
                         :record="selectedRecord"
                         :record-type="taskRecordType"
                         :record-title="taskRecordTitle"
                         :enum-options="mergedEnumOptions"
-                        mode="edit"
+                        :mode="taskModalMode"
                         :prevent-redirect="true"
+                        :hide-actions="taskModalMode === 'view'"
                         @updated="handleTaskUpdated"
                         @submit="handleTaskUpdated"
                         @cancel="closeViewModal"
+                    />
+                    <TaskCommentsPanel
+                        v-if="selectedRecord.id && canViewTask"
+                        :task-id="selectedRecord.id"
+                        class="mt-2 px-2"
                     />
                 </div>
             </div>
         </Modal>
 
-        <Modal :show="showCreateModal" max-width="4xl" @close="closeCreateModal">
+        <Modal v-if="canCreateTask" :show="showCreateModal" max-width="4xl" @close="closeCreateModal">
             <div class="flex flex-shrink-0 items-start justify-between border-b p-4 dark:border-gray-700">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
                     Create {{ taskRecordTitle }}
@@ -361,7 +422,7 @@ function handleTaskUpdated() {
                 </button>
             </div>
             <div class="max-h-[70vh] flex-1 overflow-y-auto">
-                <Form
+                <TaskForm
                     v-if="taskFormSchema && taskFieldsSchema"
                     :schema="taskFormSchema"
                     :fields-schema="taskFieldsSchema"
@@ -370,11 +431,39 @@ function handleTaskUpdated() {
                     :record-title="taskRecordTitle"
                     :enum-options="mergedEnumOptions"
                     mode="create"
+                    lock-relatable
                     :prevent-redirect="true"
                     @created="handleTaskCreated"
                     @submit="handleTaskCreated"
                     @cancel="closeCreateModal"
                 />
+            </div>
+        </Modal>
+
+        <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
+            <div class="p-6 text-center">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete task?</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    This cannot be undone.
+                </p>
+                <div class="mt-6 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                        :disabled="isDeleting"
+                        @click="cancelDelete"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        :disabled="isDeleting"
+                        @click="confirmDelete"
+                    >
+                        {{ isDeleting ? 'Deleting…' : 'Delete' }}
+                    </button>
+                </div>
             </div>
         </Modal>
     </div>

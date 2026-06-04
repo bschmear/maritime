@@ -61,13 +61,18 @@ final class Turnstile
         }
 
         try {
+            $payload = [
+                'secret' => config('services.turnstile.secret_key'),
+                'response' => $token,
+            ];
+
+            if (config('services.turnstile.send_remote_ip') && $remoteIp !== null && $remoteIp !== '') {
+                $payload['remoteip'] = $remoteIp;
+            }
+
             $response = Http::asForm()
                 ->timeout(10)
-                ->post(self::VERIFY_URL, array_filter([
-                    'secret' => config('services.turnstile.secret_key'),
-                    'response' => $token,
-                    'remoteip' => $remoteIp,
-                ], fn ($value) => $value !== null && $value !== ''));
+                ->post(self::VERIFY_URL, $payload);
 
             if ($response->failed()) {
                 Log::warning('Turnstile siteverify HTTP failure', [

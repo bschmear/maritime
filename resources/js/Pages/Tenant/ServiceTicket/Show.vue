@@ -395,7 +395,7 @@ const relatedRecords = computed(() => {
         <div class="border-t  border-gray-200 dark:border-gray-700  top-0 z-10 shadow-md full-w-margin bg-white dark:bg-gray-900 mb-4 dark:mb-0">
             <div class="w-full px-4 py-4 sm:py-5">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-                    <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-4 flex-1">
+                    <div class="flex min-w-0 flex-1 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Status:</span>
                             <div class="flex items-center gap-2">
@@ -433,10 +433,10 @@ const relatedRecords = computed(() => {
                         <Link
                             v-if="linkedTransaction"
                             :href="route('transactions.show', linkedTransaction.id)"
-                            class="flex items-center justify-between sm:justify-start gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 sm:py-2.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors group"
+                            class="flex min-w-0 max-w-full items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 transition-colors hover:bg-blue-100 group dark:border-blue-800 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 sm:max-w-md sm:py-2.5"
                         >
-                            <span class="material-icons text-lg text-blue-500 dark:text-blue-400">handshake</span>
-                            <span class="text-md font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap group-hover:underline">{{ linkedTransaction.title }}</span>
+                            <span class="material-icons shrink-0 text-lg text-blue-500 dark:text-blue-400">handshake</span>
+                            <span class="min-w-0 truncate text-md font-semibold text-blue-700 group-hover:underline dark:text-blue-300">{{ linkedTransaction.title }}</span>
                         </Link>
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:py-2.5 rounded-lg">
                             <span class="text-md font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Approved:</span>
@@ -474,9 +474,9 @@ const relatedRecords = computed(() => {
         </div>
 
         <!-- Form + sidebar -->
-        <div class="w-full !pt-0 !mt-0">
-            <div class="grid gap-6 lg:grid-cols-12">
-                <div class="lg:col-span-8 space-y-4 md:space-y-6">
+        <div class="w-full min-w-0 !pt-0 !mt-0">
+            <div class="grid min-w-0 gap-6 lg:grid-cols-12">
+                <div class="min-w-0 lg:col-span-8 space-y-4 md:space-y-6">
                     <ServiceTicketForm
                         :record="record"
                         :form-schema="formSchema"
@@ -489,7 +489,7 @@ const relatedRecords = computed(() => {
                     />
                 </div>
 
-                <div class="lg:col-span-4 space-y-4">
+                <div class="min-w-0 lg:col-span-4 space-y-4">
                     <div class="sticky top-[140px] space-y-4">
                         <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                             <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
@@ -534,13 +534,18 @@ const relatedRecords = computed(() => {
                                 <li
                                     v-for="rel in relatedRecords"
                                     :key="`${rel.label}-${rel.href}`"
-                                    class="flex items-center justify-between gap-3 px-5 py-3"
+                                    class="flex min-w-0 items-center justify-between gap-3 px-5 py-3"
                                 >
-                                    <div class="flex min-w-0 items-start gap-3">
-                                        <span class="material-icons mt-0.5 text-lg text-gray-400">{{ rel.icon }}</span>
-                                        <div class="min-w-0">
+                                    <div class="flex min-w-0 flex-1 items-start gap-3">
+                                        <span class="material-icons mt-0.5 shrink-0 text-lg text-gray-400">{{ rel.icon }}</span>
+                                        <div class="min-w-0 flex-1">
                                             <div class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ rel.label }}</div>
-                                            <div class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ rel.name }}</div>
+                                            <div
+                                                class="truncate text-sm font-medium text-gray-900 dark:text-white"
+                                                :title="rel.name"
+                                            >
+                                                {{ rel.name }}
+                                            </div>
                                         </div>
                                     </div>
                                     <component
@@ -549,6 +554,7 @@ const relatedRecords = computed(() => {
                                         :target="rel.external ? '_blank' : undefined"
                                         :rel="rel.external ? 'noopener noreferrer' : undefined"
                                         class="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                        :aria-label="`Open ${rel.label}`"
                                     >
                                         <span class="material-icons text-base">{{ rel.external ? 'open_in_new' : 'chevron_right' }}</span>
                                     </component>

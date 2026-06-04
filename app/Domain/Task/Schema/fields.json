@@ -89,6 +89,12 @@
         "label": "Boat Show Event",
         "domain": "BoatShowEvent",
         "lookupRoute": "boat-show-events.index"
+      },
+      {
+        "value": "App\\Domain\\WorkOrder\\Models\\WorkOrder",
+        "label": "Work Order",
+        "domain": "WorkOrder",
+        "lookupRoute": "workorders.index"
       }
     ],
     "id_field": "relatable_id"

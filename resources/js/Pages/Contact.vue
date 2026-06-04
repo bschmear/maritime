@@ -16,6 +16,7 @@ const props = defineProps({
 });
 
 const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
+const turnstileRef = ref(null);
 
 const page = usePage();
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
@@ -56,10 +57,23 @@ const locationOptions = [
     { value: '10+', label: '10+ locations' },
 ];
 
+function resetTurnstile() {
+    if (!turnstileEnabled.value) {
+        return;
+    }
+    form.turnstile_token = '';
+    turnstileRef.value?.reset();
+}
+
 function submit() {
     form.post(route('contact.store'), {
         preserveScroll: true,
         onSuccess: () => form.reset(),
+        onFinish: () => {
+            if (Object.keys(form.errors).length > 0) {
+                resetTurnstile();
+            }
+        },
     });
 }
 </script>
@@ -354,6 +368,7 @@ function submit() {
 
                                     <TurnstileWidget
                                         v-if="turnstileEnabled"
+                                        ref="turnstileRef"
                                         v-model="form.turnstile_token"
                                         :site-key="turnstileSiteKey"
                                     />

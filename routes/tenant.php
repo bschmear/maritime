@@ -71,6 +71,7 @@ use App\Http\Controllers\Tenant\SubsidiaryController;
 use App\Http\Controllers\Tenant\SupportTicketsController;
 use App\Http\Controllers\Tenant\Surveys\PublicSurveyController;
 use App\Http\Controllers\Tenant\Surveys\SurveyController;
+use App\Http\Controllers\Tenant\TaskCommentController;
 use App\Http\Controllers\Tenant\TaskController;
 use App\Http\Controllers\Tenant\TransactionController;
 use App\Http\Controllers\Tenant\UserController;
@@ -384,6 +385,7 @@ Route::middleware([
             Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
             Route::get('/{id}/preview', [WorkOrderController::class, 'preview'])->name('preview.view');
+            Route::post('/{id}/log-time', [WorkOrderController::class, 'logLineItemTime'])->name('log-time');
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
@@ -609,6 +611,10 @@ Route::middleware([
         });
 
         Route::prefix('tasks')->name('tasks.')->group(function () {
+            Route::get('comments/mentionable-users', [TaskCommentController::class, 'mentionableUsers'])
+                ->name('comments.mentionable-users');
+            Route::get('{task}/comments', [TaskCommentController::class, 'index'])->name('comments.index');
+            Route::post('{task}/comments', [TaskCommentController::class, 'store'])->name('comments.store');
             Route::resource('/', TaskController::class)->parameters(['' => 'task']);
         });
 

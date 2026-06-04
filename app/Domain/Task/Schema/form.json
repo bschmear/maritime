@@ -1,6 +1,6 @@
 {
   "settings": {
-    "max_width": "4xl"
+    "max_width": "5xl"
   },
   "form": {
     "task_details": {
@@ -11,11 +11,11 @@
           "required": true
         },
         {
-          "key": "relatable_type",
+          "key": "notes",
           "required": false
         },
         {
-          "key": "notes",
+          "key": "start_date",
           "required": false
         },
         {
@@ -37,7 +37,7 @@
       ]
     },
     "management": {
-      "label": "Management & Assignment",
+      "label": "Assignment & Status",
       "fields": [
         {
           "key": "status_id",
@@ -49,6 +49,18 @@
         },
         {
           "key": "assigned_id",
+          "required": false
+        },
+        {
+          "key": "relatable_type",
+          "required": false
+        },
+        {
+          "key": "completed",
+          "required": false
+        },
+        {
+          "key": "reminder_at",
           "required": false
         },
         {

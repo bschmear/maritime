@@ -4,11 +4,13 @@ import Table from '@/Components/Tenant/Table.vue';
 import KanbanBoard from '@/Components/Tenant/KanbanBoard.vue';
 import TaskListView from '@/Components/Tenant/TaskListView.vue';
 import Modal from '@/Components/Modal.vue';
-import Form from '@/Components/Tenant/Form.vue';
+import TaskForm from '@/Components/Tenant/TaskForm.vue';
+import TaskCommentsPanel from '@/Components/Tenant/TaskCommentsPanel.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import axios from 'axios';
+import { useTenantPermissions } from '@/composables/useTenantPermissions.js';
 
 const props = defineProps({
     records: {
@@ -50,11 +52,17 @@ const currentView = ref(localStorage.getItem('task-view') || 'kanban'); // 'kanb
 const groupBy = ref('status_id'); // 'status_id' or 'priority_id'
 const showGroupDropdown = ref(false);
 
+const { canViewTask, canCreateTask, canEditTask, canDeleteTask } = useTenantPermissions();
+
+const taskModalMode = computed(() => (canEditTask.value ? 'edit' : 'view'));
+
 // Modal state
 const showViewModal = ref(false);
 const showCreateModal = ref(false);
+const showDeleteModal = ref(false);
 const selectedRecord = ref(null);
 const isLoadingRecord = ref(false);
+const isDeleting = ref(false);
 const prePopulatedData = ref({});
 
 const breadcrumbItems = computed(() => {
@@ -100,6 +108,9 @@ const setGroupBy = (field) => {
 
 // Handle view task event from Kanban/List components
 const handleViewTask = async (task) => {
+    if (!canViewTask.value) {
+        return;
+    }
     isLoadingRecord.value = true;
     showViewModal.value = true;
 
@@ -135,6 +146,9 @@ const closeViewModal = () => {
 
 // Open create modal (optionally with pre-populated data)
 const openCreateModal = (groupId = null) => {
+    if (!canCreateTask.value) {
+        return;
+    }
     prePopulatedData.value = {};
     
     // If a group ID is provided, pre-populate the groupBy field
@@ -156,6 +170,34 @@ const handleTaskCreated = () => {
     router.reload({ only: ['records'] });
     closeCreateModal();
 };
+
+function openDeleteModal() {
+    if (!canDeleteTask.value || !selectedRecord.value?.id) {
+        return;
+    }
+    showDeleteModal.value = true;
+}
+
+function cancelDelete() {
+    showDeleteModal.value = false;
+}
+
+function confirmDelete() {
+    if (!selectedRecord.value?.id) {
+        return;
+    }
+    isDeleting.value = true;
+    router.delete(route(`${props.recordType}.destroy`, selectedRecord.value.id), {
+        onSuccess: () => {
+            showDeleteModal.value = false;
+            closeViewModal();
+            router.reload({ only: ['records'] });
+        },
+        onFinish: () => {
+            isDeleting.value = false;
+        },
+    });
+}
 
 // Watch for view changes and save to localStorage
 watch(currentView, (newView) => {
@@ -180,7 +222,7 @@ watch(currentView, (newView) => {
                     <div class="flex items-center space-x-3">
                         <!-- Add Task Button (only for kanban/list views) -->
                         <button
-                            v-if="currentView !== 'table'"
+                            v-if="currentView !== 'table' && canCreateTask"
                             @click="openCreateModal()"
                             type="button"
                             class="inline-flex items-center rounded-lg bg-primary-700 px-3 py-2 text-sm font-medium text-white hover:bg-primary-800 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
@@ -285,6 +327,7 @@ watch(currentView, (newView) => {
                 :fields-schema="fieldsSchema"
                 :enum-options="enumOptions"
                 :reload-only="['records']"
+                :can-update="canEditTask"
                 @task-updated="handleTaskUpdated"
                 @view-task="handleViewTask"
                 @create-task="openCreateModal"
@@ -300,6 +343,7 @@ watch(currentView, (newView) => {
                 :fields-schema="fieldsSchema"
                 :enum-options="enumOptions"
                 :reload-only="['records']"
+                :can-update="canEditTask"
                 @task-updated="handleTaskUpdated"
                 @view-task="handleViewTask"
                 @create-task="openCreateModal"
@@ -312,18 +356,32 @@ watch(currentView, (newView) => {
             <!-- Modal header (fixed) -->
             <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ selectedRecord ? `Edit ${recordTitle}` : '' }}
+                    {{
+                        selectedRecord
+                            ? `${taskModalMode === 'edit' ? 'Edit' : 'View'} ${recordTitle}`
+                            : ''
+                    }}
                 </h3>
-                <button
-                    @click="closeViewModal"
-                    type="button"
-                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-                >
-                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                    </svg>
-                    <span class="sr-only">Close modal</span>
-                </button>
+                <div class="ml-auto flex items-center gap-2">
+                    <button
+                        v-if="canDeleteTask && selectedRecord?.id"
+                        type="button"
+                        class="inline-flex items-center rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
+                        @click="openDeleteModal"
+                    >
+                        Delete
+                    </button>
+                    <button
+                        type="button"
+                        class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                        @click="closeViewModal"
+                    >
+                        <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                        </svg>
+                        <span class="sr-only">Close modal</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Modal body (scrollable) -->
@@ -332,27 +390,58 @@ watch(currentView, (newView) => {
                     <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                     <span class="ml-2 text-gray-600 dark:text-gray-400">Loading...</span>
                 </div>
-                <div v-else-if="selectedRecord">
-                    <Form
+                <div v-else-if="selectedRecord" class="px-4 pb-4">
+                    <TaskForm
                         :schema="formSchema"
                         :fields-schema="fieldsSchema"
                         :record="selectedRecord"
                         :record-type="recordType"
                         :record-title="recordTitle"
                         :enum-options="enumOptions"
-                        :mode="'edit'"
+                        :mode="taskModalMode"
                         :prevent-redirect="true"
+                        :hide-actions="taskModalMode === 'view'"
                         @updated="handleTaskUpdated"
                         @submit="handleTaskFormSubmit"
                         @cancel="closeViewModal"
+                    />
+                    <TaskCommentsPanel
+                        v-if="selectedRecord.id && canViewTask"
+                        :task-id="selectedRecord.id"
+                        class="mt-2 px-2"
                     />
                 </div>
             </div>
 
         </Modal>
 
+        <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
+            <div class="p-6 text-center">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete task?</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">This cannot be undone.</p>
+                <div class="mt-6 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-300"
+                        :disabled="isDeleting"
+                        @click="cancelDelete"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        :disabled="isDeleting"
+                        @click="confirmDelete"
+                    >
+                        {{ isDeleting ? 'Deleting…' : 'Delete' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
         <!-- Create Modal for Kanban/List Views -->
-        <Modal :show="showCreateModal" @close="closeCreateModal" max-width="4xl">
+        <Modal v-if="canCreateTask" :show="showCreateModal" @close="closeCreateModal" max-width="4xl">
             <!-- Modal header (fixed) -->
             <div class="flex items-start justify-between p-4 border-b dark:border-gray-700 flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
@@ -372,7 +461,7 @@ watch(currentView, (newView) => {
 
             <!-- Modal body (scrollable) -->
             <div class="flex-1 overflow-y-auto max-h-[70vh]">
-                <Form
+                <TaskForm
                     :schema="formSchema"
                     :fields-schema="fieldsSchema"
                     :record="prePopulatedData"

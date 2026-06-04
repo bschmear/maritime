@@ -68,6 +68,43 @@ export function getDomainPlural(domain) {
  * @param {number|string} recordId
  * @param {{ assetId?: number|string }} [context] - required for AssetVariant nested routes
  */
+/** Morph model class → Ziggy show route (when getDomainPlural does not match). */
+const MORPH_SHOW_ROUTE_BY_MODEL = {
+    'App\\Domain\\BoatShowEvent\\Models\\BoatShowEvent': {
+        route: 'boat-show-events.show',
+        recordType: 'boat-show-events',
+    },
+};
+
+/**
+ * Build the show-page URL for a task morph relatable (relatable_type + relatable_id).
+ *
+ * @param {string} morphType - Laravel morph class, e.g. App\Domain\Lead\Models\Lead
+ * @param {number|string} recordId
+ * @param {{ domain?: string }} [morphConfig] - entry from fields schema morphable_types
+ */
+export function buildMorphShowUrl(morphType, recordId, morphConfig = null) {
+    if (!morphType || recordId == null || recordId === '') {
+        return null;
+    }
+
+    try {
+        const mapped = MORPH_SHOW_ROUTE_BY_MODEL[morphType];
+        if (mapped) {
+            return route(mapped.route, buildResourceRouteParams(mapped.recordType, recordId));
+        }
+
+        const domain = morphConfig?.domain;
+        if (domain) {
+            return buildRecordShowUrl(domain, recordId);
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 export function buildRecordShowUrl(typeDomain, recordId, context = {}) {
     if (!typeDomain || recordId == null || recordId === '') {
         return null;

@@ -42,6 +42,19 @@ function renderWidget() {
     });
 }
 
+/** Issue a fresh token after a failed submit (Turnstile tokens are single-use). */
+function reset() {
+    model.value = '';
+
+    if (widgetId !== null && window.turnstile?.reset) {
+        window.turnstile.reset(widgetId);
+    } else if (containerRef.value && window.turnstile) {
+        renderWidget();
+    }
+}
+
+defineExpose({ reset });
+
 onMounted(() => {
     if (window.turnstile) {
         renderWidget();

@@ -10,6 +10,7 @@ use App\Services\TenantStaffResolver;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
 use App\Support\BlogPlaceholder;
+use App\Tenancy\CurrentTenantProfile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Middleware;
@@ -138,6 +139,9 @@ class HandleInertiaRequests extends Middleware
             'tenant_sandbox_mode' => fn () => tenant() ? (bool) AccountSettings::getCurrent()->sandbox_mode : false,
             'delivery_en_route_banner' => fn () => $this->deliveryEnRouteBanner($request),
             'tenant_route' => fn () => $this->tenantRoute($request),
+            'tenant_permissions' => fn () => tenancy()->initialized
+                ? app(CurrentTenantProfile::class)->permissionKeys()
+                : [],
         ];
     }
 

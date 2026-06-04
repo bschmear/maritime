@@ -4,20 +4,35 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
 use App\Domain\Attachment\Services\InventoryImageAttachmentService;
+use App\Domain\ServiceItem\Models\ServiceItem;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Actions\CreateWorkOrder as CreateAction;
 use App\Domain\WorkOrder\Actions\DeleteWorkOrder as DeleteAction;
 use App\Domain\WorkOrder\Actions\LinkInventoryImagesToWorkOrderAfterCreate;
+use App\Domain\WorkOrder\Actions\LogWorkOrderLineItemTime;
 use App\Domain\WorkOrder\Actions\UpdateWorkOrder as UpdateAction;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrder\Support\MapWorkOrderStatusToServiceTicketStatus;
 use App\Domain\WorkOrder\Support\SyncWorkOrderStatusToServiceTicket;
+use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\RecordType;
+use App\Enums\ServiceItem\BillingType;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
+use App\Enums\Tasks\Priority as TaskPriority;
+use App\Enums\Tasks\Status as TaskStatus;
 use App\Enums\Timezone;
+use App\Enums\WorkOrder\Priority as WorkOrderPriority;
+use App\Enums\WorkOrder\Status as WorkOrderStatus;
+use App\Models\AccountSettings;
+use App\Services\WorkOrderCalculator;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class WorkOrderController extends RecordController
 {
@@ -34,6 +49,34 @@ class WorkOrderController extends RecordController
             new DeleteAction,
             'WorkOrder' // Explicitly set domain name
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function taskBoardInertiaProps(): array
+    {
+        $fieldsPath = app_path('Domain/Task/Schema/fields.json');
+        $formPath = app_path('Domain/Task/Schema/form.json');
+
+        $fieldsRaw = is_file($fieldsPath)
+            ? json_decode((string) file_get_contents($fieldsPath), true) ?? []
+            : [];
+        $taskFieldsSchema = $fieldsRaw['fields'] ?? $fieldsRaw;
+
+        $taskFormSchema = is_file($formPath)
+            ? json_decode((string) file_get_contents($formPath), true) ?? []
+            : [];
+
+        return [
+            'taskBoardFormSchema' => $taskFormSchema,
+            'taskBoardFieldsSchema' => $taskFieldsSchema,
+            'taskBoardEnumOptions' => [
+                'App\\Enums\\Tasks\\Status' => TaskStatus::options(),
+                'App\\Enums\\Tasks\\Priority' => TaskPriority::options(),
+            ],
+            'taskStatusOptions' => TaskStatus::options(),
+        ];
     }
 
     public function index(Request $request)
@@ -158,28 +201,17 @@ class WorkOrderController extends RecordController
             });
         }
 
-        // Apply user filtering - DEFAULT to current user if no filter is set
         $userParam = $request->get('user');
 
-        // If no user parameter is provided, default to current user
-        if ($userParam === null && ! $completedDrilldown) {
-            $query->where('assigned_user_id', $currentUser->id);
-        } elseif ($userParam !== null && $userParam !== 'all') {
-            // If a specific user is selected, filter by that user
+        if ($userParam !== null && $userParam !== 'all') {
             $query->where('assigned_user_id', $userParam);
         }
-        // If 'all' is selected, don't apply any user filter
 
-        // Apply status filtering
-        $statusParam = $request->get('status');
-        if ($statusParam && $statusParam !== 'all') {
-            $query->where('status', $statusParam);
-        }
-
-        // Apply priority filtering
-        $priorityParam = $request->get('priority');
-        if ($priorityParam && $priorityParam !== 'all') {
-            $query->where('priority', $priorityParam);
+        $statusesForQuery = $this->resolveWorkOrderIndexStatuses($request);
+        $prioritiesForQuery = $this->resolveWorkOrderIndexPriorities($request);
+        $this->applyWorkOrderIndexStatusScope($query, $request, $statusesForQuery, true);
+        if ($prioritiesForQuery !== null) {
+            $query->whereIn('priority', $prioritiesForQuery);
         }
 
         $filtersParam = $request->get('filters');
@@ -195,20 +227,20 @@ class WorkOrderController extends RecordController
 
         $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
         $perPage = $request->get('per_page', 15);
-        $records = $query->paginate($perPage);
+        $records = $query->paginate($perPage)->appends($request->query());
 
         if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {
             return $json;
         }
 
         // Get other users (excluding current user)
-        $users = \App\Domain\User\Models\User::select('id', 'display_name')
+        $users = User::select('id', 'display_name')
             ->where('id', '!=', $currentUser->id)
             ->orderBy('display_name')
             ->get();
 
         // Calculate dynamic stats based on current filters
-        $baseQuery = \App\Domain\WorkOrder\Models\WorkOrder::query();
+        $baseQuery = WorkOrder::query();
 
         // Apply user filter if specified
         $userParam = $request->get('user');
@@ -216,16 +248,9 @@ class WorkOrderController extends RecordController
             $baseQuery->where('assigned_user_id', $userParam);
         }
 
-        // Apply status filter if specified
-        $statusParam = $request->get('status');
-        if ($statusParam && $statusParam !== 'all') {
-            $baseQuery->where('status', $statusParam);
-        }
-
-        // Apply priority filter if specified
-        $priorityParam = $request->get('priority');
-        if ($priorityParam && $priorityParam !== 'all') {
-            $baseQuery->where('priority', $priorityParam);
+        $this->applyWorkOrderIndexStatusScope($baseQuery, $request, $statusesForQuery, false);
+        if ($prioritiesForQuery !== null) {
+            $baseQuery->whereIn('priority', $prioritiesForQuery);
         }
 
         // Calculate stats based on filtered data
@@ -236,10 +261,20 @@ class WorkOrderController extends RecordController
             'completed_week' => (clone $baseQuery)->whereIn('status', [7, 8])->whereNotNull('completed_at')->whereBetween('completed_at', [now()->startOfWeek(), now()->endOfWeek()])->count(), // Completed or closed this week (by date completed)
         ];
 
-        $pluralTitle = \Illuminate\Support\Str::plural($this->recordTitle);
+        $pluralTitle = Str::plural($this->recordTitle);
+
+        $kanbanRecords = $this->loadKanbanWorkOrders(
+            $request,
+            $currentUser,
+            $actualColumns,
+            $relationships,
+            $completedDrilldown,
+        );
 
         return inertia('Tenant/'.$this->domainName.'/Index', [
             'records' => $records,
+            'kanbanRecords' => $kanbanRecords,
+            'workOrderStatusOptions' => $this->workOrderKanbanStatusOptions(),
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
             'pluralTitle' => $pluralTitle,
@@ -251,11 +286,242 @@ class WorkOrderController extends RecordController
             'users' => $users,
             'stats' => $stats,
             'filters' => [
-                'user' => $userParam ?? $currentUser->id, // Pass the current filter value to the frontend
-                'status' => $statusParam ?? 'all',
-                'priority' => $priorityParam ?? 'all',
+                'user' => $userParam ?? 'all',
+                'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
+                'priority' => $prioritiesForQuery === null ? 'all' : $prioritiesForQuery,
+                'show_closed' => $request->boolean('show_closed'),
+                'show_cancelled' => $request->boolean('show_cancelled'),
             ],
         ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function workOrderFilterableStatusIds(): array
+    {
+        return [
+            WorkOrderStatus::Draft->id(),
+            WorkOrderStatus::Open->id(),
+            WorkOrderStatus::Scheduled->id(),
+            WorkOrderStatus::InProgress->id(),
+            WorkOrderStatus::Waiting->id(),
+            WorkOrderStatus::Blocked->id(),
+            WorkOrderStatus::Completed->id(),
+        ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function workOrderKanbanStatusIds(): array
+    {
+        return [
+            WorkOrderStatus::Open->id(),
+            WorkOrderStatus::Scheduled->id(),
+            WorkOrderStatus::InProgress->id(),
+            WorkOrderStatus::Waiting->id(),
+            WorkOrderStatus::Blocked->id(),
+            WorkOrderStatus::Completed->id(),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function workOrderKanbanStatusOptions(): array
+    {
+        $kanbanIds = $this->workOrderKanbanStatusIds();
+
+        return array_values(array_filter(
+            WorkOrderStatus::options(),
+            static fn (array $option): bool => in_array((int) $option['id'], $kanbanIds, true),
+        ));
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function workOrderFilterablePriorityIds(): array
+    {
+        return array_map(static fn (WorkOrderPriority $p) => $p->id(), WorkOrderPriority::cases());
+    }
+
+    /**
+     * @return list<int>|null
+     */
+    private function resolveWorkOrderIndexStatuses(Request $request): ?array
+    {
+        $allowed = $this->workOrderFilterableStatusIds();
+        $raw = $request->input('status');
+
+        if ($raw === 'all') {
+            return null;
+        }
+
+        if (is_array($raw)) {
+            $picked = array_values(array_unique(array_map(
+                'intval',
+                array_intersect($allowed, array_map(static fn ($v) => (int) $v, $raw)),
+            )));
+
+            return count($picked) > 0 ? $picked : null;
+        }
+
+        if (is_string($raw) && $raw !== '' && $raw !== 'all') {
+            $id = (int) $raw;
+
+            return in_array($id, $allowed, true) ? [$id] : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<int>|null
+     */
+    private function resolveWorkOrderIndexPriorities(Request $request): ?array
+    {
+        $allowed = $this->workOrderFilterablePriorityIds();
+        $raw = $request->input('priority');
+
+        if ($raw === 'all') {
+            return null;
+        }
+
+        if (is_array($raw)) {
+            $picked = array_values(array_unique(array_map(
+                'intval',
+                array_intersect($allowed, array_map(static fn ($v) => (int) $v, $raw)),
+            )));
+
+            return count($picked) > 0 ? $picked : null;
+        }
+
+        if (is_string($raw) && $raw !== '' && $raw !== 'all') {
+            $id = (int) $raw;
+
+            return in_array($id, $allowed, true) ? [$id] : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<int>|null  $statusesForQuery
+     */
+    private function applyWorkOrderIndexStatusScope(
+        Builder $query,
+        Request $request,
+        ?array $statusesForQuery,
+        bool $allowTerminalToggles,
+    ): void {
+        $filterable = $statusesForQuery ?? $this->workOrderFilterableStatusIds();
+        $showClosed = $allowTerminalToggles && $request->boolean('show_closed');
+        $showCancelled = $allowTerminalToggles && $request->boolean('show_cancelled');
+
+        if (! $showClosed && ! $showCancelled) {
+            $query->whereIn('status', $filterable);
+
+            return;
+        }
+
+        $query->where(function (Builder $q) use ($filterable, $showClosed, $showCancelled): void {
+            $q->whereIn('status', $filterable);
+            $terminal = [];
+            if ($showClosed) {
+                $terminal[] = WorkOrderStatus::Closed->id();
+            }
+            if ($showCancelled) {
+                $terminal[] = WorkOrderStatus::Cancelled->id();
+            }
+            if ($terminal !== []) {
+                $q->orWhereIn('status', $terminal);
+            }
+        });
+    }
+
+    /**
+     * Work orders for the kanban board (non-paginated, active statuses only).
+     *
+     * @param  list<string>  $actualColumns
+     * @param  array<string, mixed>  $relationships
+     * @return list<array<string, mixed>>
+     */
+    private function loadKanbanWorkOrders(
+        Request $request,
+        $currentUser,
+        array $actualColumns,
+        array $relationships,
+        bool $completedDrilldown,
+    ): array {
+        $kanbanStatusIds = $this->workOrderKanbanStatusIds();
+        $statusesForQuery = $this->resolveWorkOrderIndexStatuses($request);
+        if ($statusesForQuery !== null) {
+            $kanbanStatusIds = array_values(array_intersect($kanbanStatusIds, $statusesForQuery));
+        }
+
+        $prioritiesForQuery = $this->resolveWorkOrderIndexPriorities($request);
+
+        $query = $this->recordModel->select($actualColumns)->with($relationships);
+
+        if ($completedDrilldown) {
+            $from = Carbon::parse($request->string('completed_from'))->startOfDay();
+            $to = Carbon::parse($request->string('completed_to'))->endOfDay();
+            $query->whereBetween('completed_at', [$from, $to])->whereNotNull('completed_at');
+            if ($request->filled('subsidiary_id')) {
+                $query->where('subsidiary_id', $request->integer('subsidiary_id'));
+            }
+            if ($request->filled('location_id')) {
+                $query->where('location_id', $request->integer('location_id'));
+            }
+        }
+
+        $searchQuery = $request->get('search');
+        if ($searchQuery && ! empty(trim($searchQuery))) {
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], trim($searchQuery));
+            $term = '%'.strtolower($escaped).'%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(CAST(work_orders.work_order_number AS TEXT)) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(CAST(work_orders.id AS TEXT)) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(COALESCE(work_orders.description, \'\')) LIKE ?', [$term]);
+            });
+        }
+
+        $userParam = $request->get('user');
+        if ($userParam !== null && $userParam !== 'all') {
+            $query->where('assigned_user_id', $userParam);
+        }
+
+        if ($prioritiesForQuery !== null) {
+            $query->whereIn('priority', $prioritiesForQuery);
+        }
+
+        $filtersParam = $request->get('filters');
+        if ($filtersParam) {
+            try {
+                $filters = json_decode(urldecode((string) $filtersParam), true);
+                if (is_array($filters)) {
+                    $fieldsSchema = $this->getUnwrappedFieldsSchema();
+                    $query = $this->applyFilters($query, $filters, $fieldsSchema);
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        if ($kanbanStatusIds === []) {
+            return [];
+        }
+
+        return $query
+            ->whereIn('status', $kanbanStatusIds)
+            ->orderBy('scheduled_start_at', 'asc')
+            ->orderBy('due_at', 'asc')
+            ->limit(500)
+            ->get()
+            ->map(fn ($wo) => $wo->toArray())
+            ->values()
+            ->all();
     }
 
     public function edit($id)
@@ -344,13 +610,13 @@ class WorkOrderController extends RecordController
         // Service items are now loaded on-demand via the paginated modal
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Load service ticket data if linked
         $serviceTicket = null;
         if ($record->service_ticket_id) {
-            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($record->service_ticket_id);
+            $ticket = ServiceTicket::find($record->service_ticket_id);
             if ($ticket) {
                 $serviceTicket = [
                     'id' => $ticket->id,
@@ -363,7 +629,7 @@ class WorkOrderController extends RecordController
             }
         }
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/'.$this->domainName.'/Edit', [
             'record' => $record,
@@ -391,18 +657,18 @@ class WorkOrderController extends RecordController
         $currentUser = Auth::user();
 
         // Get other users for assignment dropdown
-        $users = \App\Domain\User\Models\User::select('id', 'display_name')
+        $users = User::select('id', 'display_name')
             ->where('id', '!=', $currentUser->id)
             ->orderBy('display_name')
             ->get();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         // Service items are now loaded on-demand via the paginated modal
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Check if creating from a service ticket
@@ -411,7 +677,7 @@ class WorkOrderController extends RecordController
         $serviceTicketId = request()->get('service_ticket_id');
 
         if ($serviceTicketId) {
-            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::with([
+            $ticket = ServiceTicket::with([
                 'serviceItems' => function ($query) {
                     $query->where('inactive', false)->orderBy('sort_order')->orderBy('id');
                 },
@@ -513,7 +779,7 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         // Service items are now loaded on-demand via the paginated modal
 
@@ -545,13 +811,13 @@ class WorkOrderController extends RecordController
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         // Load service ticket data if linked
         $serviceTicket = null;
         if ($record->service_ticket_id) {
-            $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($record->service_ticket_id);
+            $ticket = ServiceTicket::find($record->service_ticket_id);
             if ($ticket) {
                 $serviceTicket = [
                     'id' => $ticket->id,
@@ -565,7 +831,17 @@ class WorkOrderController extends RecordController
             }
         }
 
-        return inertia('Tenant/'.$this->domainName.'/Show', [
+        $workOrderWithTasks = RecordModel::query()
+            ->with([
+                'tasks' => fn ($q) => $q->with([
+                    'assigned' => fn ($a) => $a->select(['id', 'display_name', 'first_name', 'last_name']),
+                ])
+                    ->orderByRaw('case when due_date is null then 1 else 0 end')
+                    ->orderBy('due_date'),
+            ])
+            ->findOrFail($id);
+
+        return inertia('Tenant/'.$this->domainName.'/Show', array_merge([
             'record' => $recordArray,
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -579,7 +855,8 @@ class WorkOrderController extends RecordController
             'serviceTicket' => $serviceTicket,
             'serviceTicketStatusMap' => MapWorkOrderStatusToServiceTicketStatus::all(),
             'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
-        ]);
+            'tasks' => $workOrderWithTasks->tasks,
+        ], $this->taskBoardInertiaProps()));
     }
 
     /**
@@ -643,8 +920,8 @@ class WorkOrderController extends RecordController
             $location = $response->getTargetUrl();
             if (preg_match('/\/workorders\/(\d+)/', $location, $matches)) {
                 $workOrderId = $matches[1];
-                $calculator = app(\App\Services\WorkOrderCalculator::class);
-                $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+                $calculator = app(WorkOrderCalculator::class);
+                $workOrder = WorkOrder::find($workOrderId);
                 if ($workOrder) {
                     if (! empty($serviceItems)) {
                         $this->createServiceItems($workOrderId, $serviceItems);
@@ -682,7 +959,7 @@ class WorkOrderController extends RecordController
         $statusToSync = isset($data['status']) ? (int) $data['status'] : null;
 
         // Validate threshold if linked to a service ticket
-        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
+        $workOrder = WorkOrder::find($id);
         $serviceTicketId = $data['service_ticket_id'] ?? $workOrder->service_ticket_id ?? null;
         if ($serviceTicketId) {
             $thresholdError = $this->validateThreshold($serviceTicketId, $serviceItems, $data['tax_rate'] ?? 0);
@@ -695,8 +972,8 @@ class WorkOrderController extends RecordController
         $response = parent::update($request, $id, $publicStorage);
 
         // Always recalculate work order totals after update
-        $calculator = app(\App\Services\WorkOrderCalculator::class);
-        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($id);
+        $calculator = app(WorkOrderCalculator::class);
+        $workOrder = WorkOrder::find($id);
         if ($workOrder) {
             if ($syncServiceTicketStatus && $statusToSync !== null && (int) $workOrder->status === $statusToSync) {
                 (new SyncWorkOrderStatusToServiceTicket)($workOrder, $statusToSync);
@@ -720,7 +997,7 @@ class WorkOrderController extends RecordController
         $perPage = $request->get('per_page', 10);
         $page = $request->get('page', 1);
 
-        $serviceItems = \App\Domain\ServiceItem\Models\ServiceItem::query()
+        $serviceItems = ServiceItem::query()
             ->where('inactive', false)
             ->select([
                 'id',
@@ -762,12 +1039,12 @@ class WorkOrderController extends RecordController
      */
     protected function validateThreshold(int $serviceTicketId, array $serviceItems, float $taxRate): ?string
     {
-        $ticket = \App\Domain\ServiceTicket\Models\ServiceTicket::find($serviceTicketId);
+        $ticket = ServiceTicket::find($serviceTicketId);
         if (! $ticket) {
             return null; // No ticket to validate against
         }
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
         $thresholdPercent = (float) ($account->estimate_threshold_percent ?? 20);
         $estimatedTotal = (float) ($ticket->estimated_total ?? 0);
 
@@ -829,7 +1106,7 @@ class WorkOrderController extends RecordController
         }
 
         // Fallback: get the latest work order for current tenant
-        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::latest()->first();
+        $workOrder = WorkOrder::latest()->first();
 
         return $workOrder ? $workOrder->id : null;
     }
@@ -839,14 +1116,14 @@ class WorkOrderController extends RecordController
      */
     protected function createServiceItems(int $workOrderId, array $serviceItems)
     {
-        $calculator = app(\App\Services\WorkOrderCalculator::class);
-        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+        $calculator = app(WorkOrderCalculator::class);
+        $workOrder = WorkOrder::find($workOrderId);
 
         foreach ($serviceItems as $index => $itemData) {
             $warranty = $itemData['warranty'] ?? false;
             $billableTo = $itemData['billable_to']
                 ?? (! $warranty ? 'customer' : (($itemData['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal'));
-            $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
+            $lineItem = WorkOrderServiceItem::create([
                 'work_order_id' => $workOrderId,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
                 'display_name' => $itemData['display_name'] ?? '',
@@ -877,18 +1154,18 @@ class WorkOrderController extends RecordController
      */
     protected function updateServiceItems(int $workOrderId, array $serviceItems)
     {
-        $calculator = app(\App\Services\WorkOrderCalculator::class);
-        $workOrder = \App\Domain\WorkOrder\Models\WorkOrder::find($workOrderId);
+        $calculator = app(WorkOrderCalculator::class);
+        $workOrder = WorkOrder::find($workOrderId);
 
         // Delete existing service items
-        \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::where('work_order_id', $workOrderId)->delete();
+        WorkOrderServiceItem::where('work_order_id', $workOrderId)->delete();
 
         // Create new ones and recalculate
         foreach ($serviceItems as $index => $itemData) {
             $warranty = $itemData['warranty'] ?? false;
             $billableTo = $itemData['billable_to']
                 ?? (! $warranty ? 'customer' : (($itemData['warranty_type'] ?? null) === 'manufacturer' ? 'manufacturer' : 'internal'));
-            $lineItem = \App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem::create([
+            $lineItem = WorkOrderServiceItem::create([
                 'work_order_id' => $workOrderId,
                 'service_item_id' => $itemData['service_item_id'] ?? null,
                 'display_name' => $itemData['display_name'] ?? '',
@@ -942,7 +1219,7 @@ class WorkOrderController extends RecordController
         $enumOptions = $this->getEnumOptions();
 
         // Get account settings for timezone display (cached)
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         // Service items are now loaded on-demand via the paginated modal
 
@@ -974,7 +1251,7 @@ class WorkOrderController extends RecordController
         ])->values()->all();
 
         $enumOptions = $this->getEnumOptions();
-        $enumOptions['billing_type'] = \App\Enums\ServiceItem\BillingType::options();
+        $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
 
         return inertia('Tenant/'.$this->domainName.'/Public', [
@@ -989,5 +1266,19 @@ class WorkOrderController extends RecordController
             'timezones' => Timezone::options(),
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
         ]);
+    }
+
+    /**
+     * Quick-add actual hours to a work order line item (JSON).
+     */
+    public function logLineItemTime(Request $request, int $id, LogWorkOrderLineItemTime $action)
+    {
+        $payload = $action($id, $request->all());
+
+        if ($request->expectsJson()) {
+            return response()->json($payload);
+        }
+
+        return back();
     }
 }

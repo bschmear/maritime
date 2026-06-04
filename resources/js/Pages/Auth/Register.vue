@@ -6,7 +6,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import TurnstileWidget from '@/Components/TurnstileWidget.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     turnstileSiteKey: {
@@ -16,6 +16,7 @@ const props = defineProps({
 });
 
 const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
+const turnstileRef = ref(null);
 
 const form = useForm({
     first_name: '',
@@ -26,9 +27,22 @@ const form = useForm({
     turnstile_token: '',
 });
 
+function resetTurnstile() {
+    if (!turnstileEnabled.value) {
+        return;
+    }
+    form.turnstile_token = '';
+    turnstileRef.value?.reset();
+}
+
 const submit = () => {
     form.post(route('register'), {
-        onFinish: () => form.reset('password', 'password_confirmation'),
+        onFinish: () => {
+            form.reset('password', 'password_confirmation');
+            if (Object.keys(form.errors).length > 0) {
+                resetTurnstile();
+            }
+        },
     });
 };
 </script>
@@ -168,6 +182,7 @@ const submit = () => {
 
                         <TurnstileWidget
                             v-if="turnstileEnabled"
+                            ref="turnstileRef"
                             v-model="form.turnstile_token"
                             :site-key="turnstileSiteKey"
                         />

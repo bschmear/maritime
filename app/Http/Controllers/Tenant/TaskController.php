@@ -1,16 +1,19 @@
 <?php
+
 namespace App\Http\Controllers\Tenant;
-use App\Http\Controllers\Tenant\RecordController;
-use App\Domain\Task\Models\Task as RecordModel;
+
+use App\Actions\PublicStorage;
 use App\Domain\Task\Actions\CreateTask as CreateAction;
-use App\Domain\Task\Actions\UpdateTask as UpdateAction;
 use App\Domain\Task\Actions\DeleteTask as DeleteAction;
+use App\Domain\Task\Actions\UpdateTask as UpdateAction;
+use App\Domain\Task\Models\Task as RecordModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class TaskController extends RecordController
 {
     protected $recordType = 'Task';
+
     protected $table = null;
 
     public function __construct(Request $request)
@@ -19,10 +22,10 @@ class TaskController extends RecordController
             $request,
             'tasks',
             'Task',
-            new RecordModel(),
-            new CreateAction(),
-            new UpdateAction(),
-            new DeleteAction(),
+            new RecordModel,
+            new CreateAction,
+            new UpdateAction,
+            new DeleteAction,
             $this->recordType // Domain name for schema lookup
         );
     }
@@ -35,7 +38,7 @@ class TaskController extends RecordController
         $fieldsSchema = $this->getFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
-        if (!in_array('id', $columns)) {
+        if (! in_array('id', $columns)) {
             $columns[] = 'id';
             $columns[] = 'notes';
             $columns[] = 'start_date';
@@ -49,8 +52,8 @@ class TaskController extends RecordController
 
         // Apply search query (fuzzy search on display_name, case-insensitive)
         $searchQuery = $request->get('search');
-        if ($searchQuery && !empty(trim($searchQuery))) {
-            $query->whereRaw('LOWER(display_name) LIKE ?', ['%' . strtolower(trim($searchQuery)) . '%']);
+        if ($searchQuery && ! empty(trim($searchQuery))) {
+            $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
         }
 
         // Apply filters from query parameters
@@ -68,11 +71,11 @@ class TaskController extends RecordController
 
         // $records = $query->where('completed', false)->paginate(15);
         $records = $query->where('completed', false)->get();
-// dd($records);
+        // dd($records);
         // For now, always return Inertia response for navigation
         // AJAX requests are handled by the parent RecordController
 
-        return inertia('Tenant/' . $this->domainName . '/Index', [
+        return inertia('Tenant/'.$this->domainName.'/Index', [
             'records' => $records,
             'schema' => $schema,
             'formSchema' => $formSchema,
@@ -84,4 +87,24 @@ class TaskController extends RecordController
         ]);
     }
 
+    public function store(Request $request, PublicStorage $publicStorage)
+    {
+        abort_unless(tenant_has_permission('task.create'), 403);
+
+        return parent::store($request, $publicStorage);
+    }
+
+    public function update(Request $request, $id, PublicStorage $publicStorage)
+    {
+        abort_unless(tenant_has_permission('task.edit'), 403);
+
+        return parent::update($request, $id, $publicStorage);
+    }
+
+    public function destroy($id)
+    {
+        abort_unless(tenant_has_permission('task.delete'), 403);
+
+        return parent::destroy($id);
+    }
 }

@@ -86,6 +86,8 @@ return [
     'turnstile' => [
         'site_key' => env('TURNSTILE_SITE_KEY'),
         'secret_key' => env('TURNSTILE_SECRET_KEY'),
+        // When true, sends request()->ip() to siteverify. Leave false behind load balancers / Cloudflare unless TrustProxies is correct.
+        'send_remote_ip' => env('TURNSTILE_SEND_REMOTE_IP', false),
     ],
 
     'mailchimp' => [

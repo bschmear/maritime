@@ -40,8 +40,26 @@ class TurnstileTest extends TestCase
             return $request->url() === 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
                 && $request['secret'] === 'secret-key'
                 && $request['response'] === 'token-abc'
-                && $request['remoteip'] === '203.0.113.1';
+                && ! isset($request['remoteip']);
         });
+    }
+
+    #[Test]
+    public function verify_sends_remote_ip_when_enabled(): void
+    {
+        config([
+            'services.turnstile.site_key' => 'site-key',
+            'services.turnstile.secret_key' => 'secret-key',
+            'services.turnstile.send_remote_ip' => true,
+        ]);
+
+        Http::fake([
+            'challenges.cloudflare.com/*' => Http::response(['success' => true]),
+        ]);
+
+        $this->assertTrue(Turnstile::verify('token-abc', '203.0.113.1'));
+
+        Http::assertSent(fn ($request) => $request['remoteip'] === '203.0.113.1');
     }
 
     #[Test]

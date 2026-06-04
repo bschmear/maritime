@@ -5,7 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import TurnstileWidget from '@/Components/TurnstileWidget.vue';
 import { firstValidationError, validationError } from '@/Utils/validationError';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     canResetPassword: {
@@ -25,6 +25,7 @@ const props = defineProps({
 });
 
 const turnstileEnabled = computed(() => Boolean(props.turnstileSiteKey));
+const turnstileRef = ref(null);
 const page = usePage();
 
 const form = useForm({
@@ -52,10 +53,23 @@ const loginAlertMessage = computed(() =>
 
 const inputErrorClass = 'border-red-500 focus:ring-red-500 dark:border-red-500 dark:focus:ring-red-500';
 
+function resetTurnstile() {
+    if (!turnstileEnabled.value) {
+        return;
+    }
+    form.turnstile_token = '';
+    turnstileRef.value?.reset();
+}
+
 const submit = () => {
     form.post(route('login'), {
         preserveScroll: true,
         onSuccess: () => form.reset('password'),
+        onFinish: () => {
+            if (Object.keys(form.errors).length > 0) {
+                resetTurnstile();
+            }
+        },
     });
 };
 </script>
@@ -210,6 +224,7 @@ const submit = () => {
 
                         <TurnstileWidget
                             v-if="turnstileEnabled"
+                            ref="turnstileRef"
                             v-model="form.turnstile_token"
                             :site-key="turnstileSiteKey"
                         />

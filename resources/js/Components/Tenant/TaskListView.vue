@@ -43,6 +43,10 @@ const props = defineProps({
         type: String,
         default: 'list-tasks',
     },
+    canUpdate: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['task-clicked', 'view-task', 'create-task', 'task-updated']);
@@ -126,6 +130,8 @@ const initializeSortable = () => {
                 sortableInstances.value[groupId] = new Sortable(element, {
                     group: props.sortableGroup,
                     animation: 150,
+                    sort: props.canUpdate,
+                    disabled: !props.canUpdate,
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
                     chosenClass: 'sortable-chosen',
@@ -190,6 +196,19 @@ const columnDotClass = (color) => {
 
 watch(
     () => props.groupOptions.map((o) => o.id).join(','),
+    () => {
+        nextTick(() => {
+            Object.values(sortableInstances.value).forEach((instance) => {
+                if (instance) instance.destroy();
+            });
+            sortableInstances.value = {};
+            initializeSortable();
+        });
+    },
+);
+
+watch(
+    () => props.canUpdate,
     () => {
         nextTick(() => {
             Object.values(sortableInstances.value).forEach((instance) => {

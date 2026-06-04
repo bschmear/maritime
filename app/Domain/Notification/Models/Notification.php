@@ -18,6 +18,7 @@ class Notification extends Model
         'contacts.show' => 'contact',
         'warrantyclaims.show' => 'warrantyclaim',
         'opportunities.show' => 'opportunity',
+        'tasks.show' => 'task',
     ];
 
     protected $fillable = [

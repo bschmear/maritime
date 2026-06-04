@@ -54,6 +54,13 @@ if (! function_exists('tenant_can_access_record_type')) {
     }
 }
 
+if (! function_exists('tenant_has_permission')) {
+    function tenant_has_permission(string $permission): bool
+    {
+        return app(CurrentTenantProfile::class)->hasPermission($permission);
+    }
+}
+
 if (! function_exists('format_phone_number')) {
     /**
      * Format a phone string as (XXX) XXX-XXXX (US-style, first 10 digits).

@@ -46,6 +46,11 @@ const props = defineProps({
         type: String,
         default: 'tasks',
     },
+    /** When false, cards cannot be dragged between columns */
+    canUpdate: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['task-updated', 'task-clicked', 'view-task', 'create-task']);
@@ -77,6 +82,8 @@ const initializeSortable = () => {
                     dragClass: 'sortable-drag',
                     chosenClass: 'sortable-chosen',
                     handle: '.task-drag-handle',
+                    sort: props.canUpdate,
+                    disabled: !props.canUpdate,
                     onStart: () => {
                         isDragging.value = true;
                     },
@@ -249,6 +256,21 @@ watch(
         nextTick(() => {
             Object.values(sortableInstances.value).forEach((instance) => {
                 if (instance) instance.destroy();
+            });
+            sortableInstances.value = {};
+            initializeSortable();
+        });
+    },
+);
+
+watch(
+    () => props.canUpdate,
+    () => {
+        nextTick(() => {
+            Object.values(sortableInstances.value).forEach((instance) => {
+                if (instance) {
+                    instance.destroy();
+                }
             });
             sortableInstances.value = {};
             initializeSortable();

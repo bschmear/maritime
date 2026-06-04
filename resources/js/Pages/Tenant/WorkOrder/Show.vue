@@ -4,7 +4,9 @@ import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
+import RelatableTasksBoard from '@/Components/Tenant/RelatableTasksBoard.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
+import WorkOrderLogTimePanel from '@/Components/Tenant/WorkOrderLogTimePanel.vue';
 import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -48,12 +50,21 @@ const props = defineProps({
         type: Number,
         default: 20,
     },
+    tasks: { type: Array, default: () => [] },
+    taskStatusOptions: { type: Array, default: () => [] },
+    taskBoardFormSchema: { type: Object, default: null },
+    taskBoardFieldsSchema: { type: Object, default: () => ({}) },
+    taskBoardEnumOptions: { type: Object, default: () => ({}) },
 });
+
+const workOrderRelatableType = 'App\\Domain\\WorkOrder\\Models\\WorkOrder';
 
 const selectedStatus = ref(props.record.status);
 const statusChanged = ref(false);
 const updatingStatus = ref(false);
 const showServiceTicketSyncModal = ref(false);
+const logTimePanelRef = ref(null);
+const activeTab = ref('details');
 
 watch(
     () => props.record.status,
@@ -95,6 +106,17 @@ const isSublistVisible = (sub) => {
 };
 
 const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter(isSublistVisible));
+
+const tabs = computed(() => {
+    const list = [
+        { key: 'details', label: 'Details', icon: 'info' },
+        { key: 'tasks', label: 'Tasks', icon: 'task_alt' },
+    ];
+    if (visibleSublists.value.length > 0) {
+        list.push({ key: 'related', label: 'Related', icon: 'link' });
+    }
+    return list;
+});
 
 const statusOptions = computed(() => {
     const fieldDef = props.fieldsSchema.status;
@@ -228,39 +250,51 @@ const deleteWorkOrder = () => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex items-center justify-between mt-4">
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="min-w-0 flex-1 truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                         {{ pluralTitle }} Details
                     </h2>
 
-                    <div class="flex items-center space-x-2">
-                        <Link :href="route('workorders.index')" class="w-full">
-                            <button class="w-full inline-flex items-center justify-center px-4 py-2.5 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-2">arrow_back</span>
-                                Back to List
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
+                        <Link :href="route('workorders.index')">
+                            <button
+                                type="button"
+                                aria-label="Back to work orders"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-300 bg-white p-2 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 md:gap-1.5 md:px-4 md:py-2.5 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">arrow_back</span>
+                                <span class="hidden md:inline">Back to List</span>
                             </button>
                         </Link>
                         <Link :href="route('workorders.edit', record.id)">
-                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-1">edit</span>
-                                Edit
+                            <button
+                                type="button"
+                                aria-label="Edit work order"
+                                class="inline-flex items-center justify-center gap-0 rounded-lg bg-blue-600 p-2 text-md font-medium text-white transition-colors hover:bg-blue-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">edit</span>
+                                <span class="hidden md:inline">Edit</span>
                             </button>
                         </Link>
                         <Link :href="route('invoices.create') + `?work_order_id=${record.id}`">
-                            <button class="inline-flex items-center px-4 py-2.5 text-md font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors">
-                                <span class="material-icons text-md mr-1">request_quote</span>
-                                Create Invoice
+                            <button
+                                type="button"
+                                aria-label="Create invoice"
+                                class="inline-flex items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-emerald-600 p-2 text-md font-medium text-white transition-colors hover:bg-emerald-700 md:gap-1.5 md:px-4 md:py-2.5"
+                            >
+                                <span class="material-icons text-xl leading-none md:text-md">request_quote</span>
+                                <span class="hidden md:inline">Create Invoice</span>
                             </button>
                         </Link>
-
-
-                                <button
-                                    @click="deleteWorkOrder"
-                                    class="w-full inline-flex items-center justify-center px-4 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
-                                    <span class="material-icons ">delete_forever</span>
-                                </button>
-
-
+                        <button
+                            type="button"
+                            aria-label="Delete work order"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-red-600 p-2 text-md font-medium text-white transition-colors hover:bg-red-700 md:gap-1.5 md:px-3 md:py-2.5"
+                            @click="deleteWorkOrder"
+                        >
+                            <span class="material-icons text-xl leading-none">delete_forever</span>
+                            <span class="hidden md:inline">Delete</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -269,19 +303,88 @@ const deleteWorkOrder = () => {
         <div class="w-full space-y-4 md:space-y-6">
             <div class="grid gap-4 lg:gap-6  xl:grid-cols-12">
                 <!-- Main Work Order Display -->
-                <div class="xl:col-span-9 space-y-6">
-                    <WorkOrderForm
-                        :record="record"
-                        :record-type="recordType"
-                        :form-schema="formSchema"
-                        :fields-schema="fieldsSchema"
-                        :enum-options="enumOptions"
-                        :account="account"
-                        :timezones="timezones"
-                        :service-ticket="serviceTicket"
-                        :estimate-threshold="estimateThreshold"
-                        mode="show"
-                    />
+                <div class="xl:col-span-9">
+                    <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                        <div class="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-2 dark:border-gray-700">
+                            <button
+                                v-for="tab in tabs"
+                                :key="tab.key"
+                                type="button"
+                                class="flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3.5 text-sm font-medium transition-colors"
+                                :class="
+                                    activeTab === tab.key
+                                        ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200'
+                                "
+                                @click="activeTab = tab.key"
+                            >
+                                <span class="material-icons text-[17px]">{{ tab.icon }}</span>
+                                {{ tab.label }}
+                                <span
+                                    v-if="tab.key === 'tasks'"
+                                    class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                >
+                                    {{ tasks.length }}
+                                </span>
+                            </button>
+                        </div>
+
+                        <div v-show="activeTab === 'details'" class="space-y-6 p-4 sm:p-6">
+                            <WorkOrderLogTimePanel
+                                ref="logTimePanelRef"
+                                :work-order-id="record.id"
+                                :service-items="record.service_items ?? []"
+                                :billing-type-options="enumOptions.billing_type ?? []"
+                            />
+                            <WorkOrderForm
+                                :record="record"
+                                :record-type="recordType"
+                                :form-schema="formSchema"
+                                :fields-schema="fieldsSchema"
+                                :enum-options="enumOptions"
+                                :account="account"
+                                :timezones="timezones"
+                                :service-ticket="serviceTicket"
+                                :estimate-threshold="estimateThreshold"
+                                mode="show"
+                            />
+                        </div>
+
+                        <div v-show="activeTab === 'tasks'" class="p-6">
+                            <div class="mb-5">
+                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tasks</h3>
+                                <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                                    Kanban or list view of tasks linked to this work order.
+                                </p>
+                            </div>
+                            <RelatableTasksBoard
+                                v-if="taskStatusOptions.length"
+                                :tasks="tasks"
+                                :record="record"
+                                :relatable-type="workOrderRelatableType"
+                                :status-options="taskStatusOptions"
+                                :default-hidden-status-ids="[3, 4]"
+                                :task-form-schema="taskBoardFormSchema"
+                                :task-fields-schema="taskBoardFieldsSchema"
+                                :task-board-enum-options="taskBoardEnumOptions"
+                                :enum-options="enumOptions"
+                                :reload-only="['tasks']"
+                            />
+                            <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                Task board is not configured for this page.
+                            </p>
+                        </div>
+
+                        <div v-show="activeTab === 'related'" class="p-6">
+                            <Sublist
+                                v-if="visibleSublists.length > 0 && formSchema"
+                                :key="`work-order-sublist-${record?.id || 'new'}`"
+                                :parent-record="record"
+                                parent-domain="WorkOrder"
+                                :sublists="visibleSublists"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Actions Sidebar -->
@@ -292,8 +395,18 @@ const deleteWorkOrder = () => {
                         </div>
 
                         <div class="p-4 sm:p-5 space-y-6">
+                            <button
+                                type="button"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="!(record.service_items?.length)"
+                                @click="logTimePanelRef?.openModal()"
+                            >
+                                <span class="material-icons text-lg" aria-hidden="true">schedule</span>
+                                Log actual time
+                            </button>
+
                             <!-- Classification -->
-                            <div class="space-y-4">
+                            <div class="space-y-4 border-t border-gray-200 pt-6 dark:border-gray-700">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Type
@@ -371,22 +484,34 @@ const deleteWorkOrder = () => {
                                 </div>
                             </div>
 
-
+                            <div class="space-y-1 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Jump to
+                                </p>
+                                <button
+                                    v-for="tab in tabs"
+                                    :key="'jump-' + tab.key"
+                                    type="button"
+                                    class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                                    :class="
+                                        activeTab === tab.key
+                                            ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                                            : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
+                                    "
+                                    @click="activeTab = tab.key"
+                                >
+                                    <span
+                                        class="material-icons text-[18px]"
+                                        :class="activeTab === tab.key ? 'text-primary-500' : 'text-gray-400'"
+                                    >
+                                        {{ tab.icon }}
+                                    </span>
+                                    {{ tab.label }}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div
-                v-if="visibleSublists.length > 0 && formSchema"
-                class="w-full space-y-4 md:space-y-6"
-            >
-                <Sublist
-                    :key="`work-order-sublist-${record?.id || 'new'}`"
-                    :parent-record="record"
-                    parent-domain="WorkOrder"
-                    :sublists="visibleSublists"
-                />
             </div>
         </div>
 
