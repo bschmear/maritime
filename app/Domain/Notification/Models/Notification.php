@@ -5,9 +5,21 @@ namespace App\Domain\Notification\Models;
 use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Route;
 
 class Notification extends Model
 {
+    /** @var array<string, string> */
+    private const SCALAR_PARAM_BY_ROUTE = [
+        'contracts.show' => 'contract',
+        'servicetickets.show' => 'serviceticket',
+        'estimates.show' => 'estimate',
+        'deliveries.show' => 'delivery',
+        'contacts.show' => 'contact',
+        'warrantyclaims.show' => 'warrantyclaim',
+        'opportunities.show' => 'opportunity',
+    ];
+
     protected $fillable = [
         'assigned_to_user_id',
         'type',
@@ -24,19 +36,74 @@ class Notification extends Model
     ];
 
     /**
-     * Get the route parameters for URL generation
+     * Resolve stored route_params for URL generation (named route + parameters).
+     *
+     * @return array<string, mixed>
      */
     public function getRouteParameters(): array
     {
-        // Handle different formats of route_params
-        if (is_array($this->route_params)) {
+        $params = $this->rawRouteParams();
+
+        if (is_array($params) && $params !== []) {
+            if (! array_is_list($params)) {
+                return $params;
+            }
+
+            if (count($params) === 1 && is_scalar($params[0])) {
+                return $this->wrapScalarForRoute($this->route, $params[0]);
+            }
+
+            return [];
+        }
+
+        if (is_scalar($params) && $params !== '' && $params !== null) {
+            return $this->wrapScalarForRoute($this->route, $params);
+        }
+
+        return [];
+    }
+
+    /**
+     * Decode route_params without the array cast dropping legacy scalar JSON values.
+     */
+    protected function rawRouteParams(): mixed
+    {
+        $raw = $this->getAttributes()['route_params'] ?? null;
+
+        if ($raw === null) {
             return $this->route_params;
         }
 
-        // If route_params is a scalar value, treat it as a single ID parameter
-        // For service tickets, the parameter name is 'serviceticket'
-        if (is_scalar($this->route_params) && ! empty($this->route_params)) {
-            return ['serviceticket' => $this->route_params];
+        if (is_string($raw)) {
+            return json_decode($raw, true);
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Map a legacy scalar ID to the named route's single parameter (e.g. contract, estimate).
+     *
+     * @return array<string, mixed>
+     */
+    protected function wrapScalarForRoute(?string $routeName, mixed $value): array
+    {
+        if ($routeName === null || $routeName === '') {
+            return [];
+        }
+
+        if (isset(self::SCALAR_PARAM_BY_ROUTE[$routeName])) {
+            return [self::SCALAR_PARAM_BY_ROUTE[$routeName] => $value];
+        }
+
+        if (Route::has($routeName)) {
+            $route = Route::getRoutes()->getByName($routeName);
+            if ($route !== null) {
+                $names = $route->parameterNames();
+                if (count($names) === 1) {
+                    return [$names[0] => $value];
+                }
+            }
         }
 
         return [];

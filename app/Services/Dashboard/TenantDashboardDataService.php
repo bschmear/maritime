@@ -49,7 +49,7 @@ class TenantDashboardDataService
     {
         $cap = max(1, (int) config('dashboard.list_cap', 10));
         $activityFetchCap = max(15, (int) config('dashboard.activity_fetch_cap', 45));
-        $activityPerPage = max(10, (int) config('dashboard.activity_per_page', 15));
+        $activityPerPage = max(10, (int) config('dashboard.activity_per_page', 10));
         $stalledDays = max(1, (int) config('dashboard.stalled_opportunity_days', 14));
         $ticketStaleDays = max(1, (int) config('dashboard.service_ticket_stale_days', 7));
         $estimateExpiringDays = max(1, (int) config('dashboard.expiring_estimate_days', 14));

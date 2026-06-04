@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 FaqSeeder::class,
                 HelpDocumentationSeeder::class,
+                HelpSmartSurveysSeeder::class,
                 BlogTaxonomySeeder::class,
             ]);
 

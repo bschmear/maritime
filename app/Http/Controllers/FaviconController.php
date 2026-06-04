@@ -6,7 +6,7 @@ class FaviconController extends Controller
 {
     public function __invoke()
     {
-        $path = public_path('assets/icons/favicon.ico');
+        $path = public_path('brand/icons/favicon.ico');
         if (! is_file($path)) {
             abort(404);
         }

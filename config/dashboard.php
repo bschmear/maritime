@@ -10,5 +10,5 @@ return [
     'activity_fetch_cap' => (int) env('DASHBOARD_ACTIVITY_FETCH_CAP', 45),
 
     /** Rows shown per page in the activity feed (client-side pagination). */
-    'activity_per_page' => (int) env('DASHBOARD_ACTIVITY_PER_PAGE', 15),
+    'activity_per_page' => (int) env('DASHBOARD_ACTIVITY_PER_PAGE', 10),
 ];

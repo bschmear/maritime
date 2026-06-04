@@ -22,10 +22,10 @@ class PublicPageMeta
 
     public static function defaultImage(): string
     {
-        $configured = config('public-pages.default_og_image', '/assets/icons/android-chrome-512x512.png');
+        $configured = config('public-pages.default_og_image', '/brand/icons/android-chrome-512x512.png');
 
         if (! is_string($configured) || trim($configured) === '') {
-            return url('/assets/icons/android-chrome-512x512.png');
+            return url('/brand/icons/android-chrome-512x512.png');
         }
 
         $configured = trim($configured);
@@ -39,7 +39,7 @@ class PublicPageMeta
 
     public static function logoUrl(): string
     {
-        return url('/assets/helmful-logo-512.svg');
+        return url('/brand/helmful-logo-512.svg');
     }
 
     /**

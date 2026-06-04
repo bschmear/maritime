@@ -12,7 +12,7 @@ const props = defineProps({
 
 const items = computed(() => props.activity?.items ?? []);
 const links = computed(() => props.activity?.links ?? {});
-const perPage = computed(() => Math.max(1, Number(props.activity?.per_page) || 15));
+const perPage = computed(() => Math.max(1, Number(props.activity?.per_page) || 10));
 
 const page = ref(1);
 
@@ -84,7 +84,7 @@ function relativeAt(iso) {
 
 <template>
     <DashboardWidgetShell
-        title="Activity"
+        title="Recent Activity"
         :empty="isEmpty"
         empty-message="No recent notifications or payments to show."
     >

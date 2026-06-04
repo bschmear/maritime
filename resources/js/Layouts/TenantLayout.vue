@@ -259,7 +259,7 @@ const secondaryNavItems = ref([
                         :nav-items="secondaryNavItems"
                         dropdown-align="left"
                     />
-                    <ul class="flex items-center text-md text-gray-900 font-medium space-x-1">
+                    <ul class="flex items-center text-sm lg:text-md text-gray-900 font-medium space-x-1">
                         <li v-for="item in secondaryNavItems" :key="item.name || item.href" class="relative">
                             <!-- Item with children (dropdown) -->
                             <div 

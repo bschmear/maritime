@@ -1,7 +1,7 @@
 /**
  * After `vite build`, the PWA plugin emits the web manifest under public/build/ and workbox
  * precaches it as `manifest.webmanifest` (URL /manifest.webmanifest). Copy to public root.
- * Favicons: Blade uses /assets/icons/; GET /favicon.ico is served by FaviconController.
+ * Favicons: Blade uses /brand/icons/; GET /favicon.ico is served by FaviconController.
  */
 import { copyFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';

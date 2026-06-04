@@ -142,14 +142,10 @@ const handleDismiss = async (id) => {
 };
 
 const handleNotificationClick = (notification) => {
-    // Close the dropdown
     notificationDropdownOpen.value = false;
 
-    // Redirect to the notification's route
-    if (notification.route && notification.route_params) {
-        router.visit(route(notification.route, notification.route_params));
-    } else if (notification.route) {
-        router.visit(route(notification.route));
+    if (notification.id) {
+        router.visit(route('notifications.redirect', notification.id));
     }
 };
 

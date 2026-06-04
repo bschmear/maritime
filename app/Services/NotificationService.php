@@ -61,7 +61,7 @@ class NotificationService
                 'title' => 'Service Ticket Approved',
                 'message' => "Service ticket #{$ticket->service_ticket_number} has been approved by {$ticket->customer->display_name}.",
                 'route' => 'servicetickets.show',
-                'route_params' => $ticket->id,
+                'route_params' => ['serviceticket' => $ticket->id],
             ]);
 
             $this->sendServiceTicketApprovalEmail($ticket, $account, $notifyUser, $pdfPath);
@@ -273,7 +273,7 @@ class NotificationService
                     ? "Estimate {$estimate->display_name} has been approved by {$estimate->customer?->display_name}."
                     : "Estimate {$estimate->display_name} was declined by {$estimate->customer?->display_name}.",
                 'route' => 'estimates.show',
-                'route_params' => $estimate->id,
+                'route_params' => ['estimate' => $estimate->id],
             ]);
 
             $mailable = new EstimateApprovalNotification($estimate, $account, $salesperson, $action);
@@ -317,7 +317,7 @@ class NotificationService
                 'title' => 'Delivery Signed',
                 'message' => "Delivery for {$assetName} has been signed by {$recipientName} ({$customerName}).",
                 'route' => 'deliveries.show',
-                'route_params' => $delivery->id,
+                'route_params' => ['delivery' => $delivery->id],
             ]);
 
             // Optionally send an email — add a Mailable here when ready
@@ -357,7 +357,7 @@ class NotificationService
                 'title' => 'Contract Signed',
                 'message' => "Contract {$contract->contract_number} has been signed by {$contract->customer?->display_name}.",
                 'route' => 'contracts.show',
-                'route_params' => $contract->id,
+                'route_params' => ['contract' => $contract->id],
             ]);
 
             $mailable = new ContractSignedNotification($contract, $account, $notifyUser);
@@ -449,7 +449,7 @@ class NotificationService
                 'title' => 'Document request fulfilled',
                 'message' => "{$contactName} uploaded \"{$documentRequest->title}\".",
                 'route' => 'contacts.show',
-                'route_params' => $documentRequest->contact_id,
+                'route_params' => ['contact' => $documentRequest->contact_id],
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to notify document request fulfilled', [
