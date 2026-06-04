@@ -1130,11 +1130,22 @@ const handleSubmit = () => {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             })
             .then((response) => {
-                const recordId =
-                    response.data?.recordId
-                    ?? response.data?.record?.id
-                    ?? response.data?.data?.recordId;
-                const createdRecord = response.data?.record ?? null;
+                const data = response.data;
+                if (!data || typeof data !== 'object') {
+                    console.error('Unexpected create response (expected JSON)', response);
+                    form.errors = { general: ['Could not read the server response after save.'] };
+
+                    return;
+                }
+
+                if (data.success === false) {
+                    form.errors = data.errors || { general: [data.message || 'Validation failed'] };
+
+                    return;
+                }
+
+                const recordId = data.recordId ?? data.record?.id ?? data.data?.recordId;
+                const createdRecord = data.record ?? null;
                 if (recordId) {
                     form.reset();
                     emit('created', recordId, createdRecord);

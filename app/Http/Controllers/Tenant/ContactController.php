@@ -46,6 +46,12 @@ class ContactController extends Controller
 
     protected Contact $recordModel;
 
+    private function wantsEmbedJson(Request $request): bool
+    {
+        return $request->expectsJson()
+            || ($request->ajax() && ! $request->header('X-Inertia'));
+    }
+
     public function __construct(
         protected CreateContact $createContact,
         protected UpdateContact $updateContact,
@@ -319,7 +325,7 @@ class ContactController extends Controller
             }
 
             if ($result['success']) {
-                if ($request->ajax() && ! $request->header('X-Inertia')) {
+                if ($this->wantsEmbedJson($request)) {
                     $rels = $this->buildEagerLoadConstraints($fieldsSchema, $this->getFormSchema());
                     $record = Contact::query()->with($rels)->find($result['record']->id);
 
@@ -337,7 +343,7 @@ class ContactController extends Controller
                     ->with('recordId', $result['record']->id);
             }
 
-            if ($request->ajax() && ! $request->header('X-Inertia')) {
+            if ($this->wantsEmbedJson($request)) {
                 return response()->json([
                     'success' => false,
                     'errors' => $result['errors'] ?? [],
@@ -349,7 +355,7 @@ class ContactController extends Controller
                 ->withInput()
                 ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
         } catch (ValidationException $e) {
-            if ($request->ajax() && ! $request->header('X-Inertia')) {
+            if ($this->wantsEmbedJson($request)) {
                 return response()->json([
                     'success' => false,
                     'errors' => $e->errors(),

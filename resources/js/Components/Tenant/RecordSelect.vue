@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+    import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
     
@@ -364,23 +364,81 @@
         }
     };
 
-    // Handle record created in enhanced modal
-    const handleRecordCreated = (recordId) => {
-        fetchRecordsImmediate();
+    function resolveCreatedRecordPayload(recordId, createdRecord = null) {
+        if (createdRecord && typeof createdRecord === 'object' && createdRecord.id != null) {
+            return { id: Number(createdRecord.id), record: createdRecord };
+        }
+
+        if (recordId && typeof recordId === 'object' && recordId.id != null) {
+            return { id: Number(recordId.id), record: recordId };
+        }
+
         const id = Number(recordId);
-        if (props.multiple && !Number.isNaN(id) && id > 0) {
+
+        return {
+            id: Number.isNaN(id) || id <= 0 ? null : id,
+            record: createdRecord && typeof createdRecord === 'object' ? createdRecord : null,
+        };
+    }
+
+    async function applyCreatedRecordSelection(recordId, createdRecord = null) {
+        const { id, record } = resolveCreatedRecordPayload(recordId, createdRecord);
+        if (id == null) {
+            console.error('RecordSelect: create succeeded but no record id was returned', { recordId, createdRecord });
+
+            return;
+        }
+
+        const label = record ? getRecordDisplayName(record) : '';
+
+        if (props.multiple) {
             const base = normalizeMultiIds(Array.isArray(props.modelValue) ? props.modelValue : []);
             if (!base.includes(id)) {
                 base.push(id);
             }
-            multiLabels.value = { ...multiLabels.value, [id]: multiLabels.value[id] || `New #${id}` };
+            multiLabels.value = {
+                ...multiLabels.value,
+                [id]: label || multiLabels.value[id] || `#${id}`,
+            };
+            if (record) {
+                const without = records.value.filter((r) => Number(r.id) !== id);
+                records.value = [record, ...without];
+            }
             emit('update:modelValue', base);
             closeEnhancedModal();
+            closeModal();
+            showCreateModal.value = false;
+            if (!record) {
+                fetchRecordsImmediate(true);
+            }
+
             return;
         }
-        selectedRecordId.value = recordId;
-        emit('update:modelValue', recordId);
+
+        selectedRecordId.value = id;
+        selectedRecordName.value = label || selectedRecordName.value || `#${id}`;
+
+        if (record) {
+            const without = records.value.filter((r) => Number(r.id) !== id);
+            records.value = [record, ...without];
+        }
+
+        emit('update:modelValue', id);
+        emit('record-selected', record ?? { id, display_name: selectedRecordName.value });
+
+        await nextTick();
+
         closeEnhancedModal();
+        closeModal();
+        showCreateModal.value = false;
+
+        if (!record) {
+            fetchRecordsImmediate(true);
+        }
+    }
+
+    const handleRecordCreated = (recordId, createdRecord = null) => {
+        applyCreatedRecordSelection(recordId, createdRecord);
     };
     
     // Clear selection
@@ -641,7 +699,17 @@
                 return;
             }
 
-            selectedRecordId.value = mv;
+            const numericMv = Number(mv);
+            const useMv = !Number.isNaN(numericMv) && numericMv > 0 ? numericMv : mv;
+            selectedRecordId.value = useMv;
+
+            if (
+                selectedRecordName.value
+                && selectedRecordId.value != null
+                && selectedRecordId.value == useMv
+            ) {
+                return;
+            }
 
             if (props.record && props.fieldKey) {
                 const relatedRecord = relatedFromParentRecord(props.record, props.fieldKey);
