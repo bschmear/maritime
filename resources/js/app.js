@@ -43,7 +43,8 @@ if ('serviceWorker' in navigator) {
         });
     });
 }
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
+import { validationErrorsToMessage } from './Utils/toastValidation';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
@@ -148,6 +149,15 @@ createInertiaApp({
         app.config.globalProperties.$toast = (type, message) => {
             root.createToast(type, message);
         };
+
+        router.on('invalid', (event) => {
+            const errors = event.detail?.errors;
+            if (!errors || typeof errors !== 'object') {
+                return;
+            }
+
+            root.createToast('error', validationErrorsToMessage(errors));
+        });
 
         return root;
     },

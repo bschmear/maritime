@@ -136,10 +136,19 @@ class OpportunityController extends RecordController
                     ],
                 ];
 
-                if ($qualification->lead && $qualification->lead->converted_customer_id) {
-                    $customer = $qualification->lead->converted_customer;
-                    $initialData['customer_id'] = $qualification->lead->converted_customer_id;
-                    $initialData['customer'] = ['id' => $customer->id, 'display_name' => $customer->display_name];
+                if ($qualification->lead) {
+                    if ($qualification->lead->contact_id) {
+                        $initialData['contact_id'] = $qualification->lead->contact_id;
+                    }
+
+                    if ($qualification->lead->converted_customer_id) {
+                        $customer = $qualification->lead->converted_customer;
+                        $initialData['customer_id'] = $qualification->lead->converted_customer_id;
+                        $initialData['customer'] = ['id' => $customer->id, 'display_name' => $customer->display_name];
+                        if ($customer->contact_id) {
+                            $initialData['contact_id'] = $customer->contact_id;
+                        }
+                    }
                 }
 
                 $initialData['needs_engine'] = (bool) $qualification->needs_engine;

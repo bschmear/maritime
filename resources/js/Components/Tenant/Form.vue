@@ -1130,9 +1130,17 @@ const handleSubmit = () => {
                 headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
             })
             .then((response) => {
-                const recordId = response.data?.recordId || response.data?.data?.recordId;
-                if (recordId) { form.reset(); emit('created', recordId); }
-                else emit('submit');
+                const recordId =
+                    response.data?.recordId
+                    ?? response.data?.record?.id
+                    ?? response.data?.data?.recordId;
+                const createdRecord = response.data?.record ?? null;
+                if (recordId) {
+                    form.reset();
+                    emit('created', recordId, createdRecord);
+                } else {
+                    emit('submit');
+                }
             })
             .catch((error) => {
                 if (error.response?.status === 422) form.errors = error.response.data.errors || {};

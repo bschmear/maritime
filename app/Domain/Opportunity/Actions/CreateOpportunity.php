@@ -2,7 +2,10 @@
 
 namespace App\Domain\Opportunity\Actions;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Opportunity\Models\Opportunity as RecordModel;
+use App\Support\ContactPartyResolver;
 use App\Domain\Opportunity\Services\OpportunityAddonsSync;
 use App\Domain\Opportunity\Services\OpportunitySelectedOptionSync;
 use App\Domain\Opportunity\Validation\OpportunityLineRequestRules;
@@ -18,13 +21,31 @@ class CreateOpportunity
     public function __invoke(array $data): array
     {
         $rules = array_merge([
-            'customer_id' => 'required|integer|exists:customer_profiles,id',
+            'contact_id' => 'nullable|integer|exists:contacts,id',
+            'customer_id' => 'nullable|integer|exists:customer_profiles,id',
             'user_id' => 'required|integer|exists:users,id',
             'stage' => 'required',
             'status' => 'required',
         ], OpportunityLineRequestRules::nested($data));
 
         $validated = Validator::make($data, $rules)->validate();
+
+        if (! empty($data['contact_id']) && empty($data['customer_id'])) {
+            $contact = Contact::query()->findOrFail((int) $data['contact_id']);
+            $data['customer_id'] = ContactPartyResolver::ensureCustomerProfile($contact)->id;
+        }
+
+        Validator::make($data, [
+            'customer_id' => 'required|integer|exists:customer_profiles,id',
+        ])->validate();
+
+        $contactId = ! empty($data['contact_id'])
+            ? (int) $data['contact_id']
+            : (int) (Customer::query()->whereKey($data['customer_id'])->value('contact_id') ?? 0);
+
+        if ($contactId > 0) {
+            ContactPartyResolver::ensureLeadProfile($contactId);
+        }
 
         try {
             $record = DB::transaction(function () use ($data, $validated) {
@@ -38,6 +59,7 @@ class CreateOpportunity
                         'updated_at',
                         'uuid',
                         'sequence',
+                        'contact_id',
                     ])
                 );
 

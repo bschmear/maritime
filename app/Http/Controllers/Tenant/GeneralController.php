@@ -11,7 +11,9 @@ use App\Enums\Inventory\UnitCondition;
 use App\Enums\Inventory\UnitStatus;
 use App\Enums\Leads\Status;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Domain\Contact\Models\Contact;
 use App\Services\TaxRateService;
+use App\Support\ContactPartyResolver;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
@@ -149,6 +151,13 @@ class GeneralController extends BaseController
 
         if ($typeKey === 'assetoption') {
             $query->where($recordModel->getTable().'.active', true);
+        }
+
+        if ($typeKey === 'contact') {
+            $query->with([
+                'customer:id,contact_id',
+                'leads:id,contact_id',
+            ]);
         }
 
         // Load relationships for models that need them for display names
@@ -408,6 +417,17 @@ class GeneralController extends BaseController
             $items = array_map(function ($item) {
                 $itemArray = $item->toArray();
                 $itemArray['display_name'] = $item->display_name;
+
+                return $itemArray;
+            }, $items);
+        }
+
+        if ($typeKey === 'contact') {
+            $items = array_map(function ($item) {
+                $itemArray = $item instanceof Contact ? $item->toArray() : (array) $item;
+                if ($item instanceof Contact) {
+                    $itemArray['party_labels'] = ContactPartyResolver::partyLabelsForContact($item);
+                }
 
                 return $itemArray;
             }, $items);

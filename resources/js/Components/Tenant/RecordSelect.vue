@@ -183,6 +183,14 @@
         return record[snake] ?? record[camel] ?? null;
     }
 
+    const getPartyLabels = (record) => {
+        if (!record?.party_labels || !Array.isArray(record.party_labels)) {
+            return [];
+        }
+
+        return record.party_labels.filter(Boolean);
+    };
+
     const getRecordDisplayName = (record) => {
         if (!record) return '';
 
@@ -911,7 +919,7 @@
                     </div>
 
                     <!-- Modal Body -->
-                    <div class="flex-1 overflow-y-auto p-4">
+                    <div class="flex-1 overflow-y-auto ">
                         <div v-if="isLoadingForm" class="flex justify-center py-8">
                             <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1001,7 +1009,10 @@
                     </div>
 
                     <!-- Content Area -->
-                    <div class="flex-1 overflow-y-auto p-4">
+                    <div
+                        class="flex-1 overflow-y-auto"
+                        :class="enhancedModalTab === 'create' ? '' : 'p-4'"
+                    >
                         <!-- Select Existing Tab -->
                         <div v-if="enhancedModalTab === 'existing'" class="space-y-4">
                             <!-- Search -->
@@ -1055,6 +1066,24 @@
                                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                                                     {{ getRecordDisplayName(record) }}
                                                 </h4>
+                                                <p
+                                                    v-if="getPartyLabels(record).length"
+                                                    class="mt-0.5 flex flex-wrap gap-1"
+                                                >
+                                                    <span
+                                                        v-for="label in getPartyLabels(record)"
+                                                        :key="label"
+                                                        class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                                                    >
+                                                        {{ label }}
+                                                    </span>
+                                                </p>
+                                                <p
+                                                    v-else-if="record.email"
+                                                    class="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400"
+                                                >
+                                                    {{ record.email }}
+                                                </p>
                                             </div>
                                         </div>
                                         <button

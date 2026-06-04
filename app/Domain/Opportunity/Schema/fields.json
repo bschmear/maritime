@@ -1,7 +1,7 @@
 {
     "fields": {
         "customer_id": {
-            "label": "Customer",
+            "label": "Contact / Lead / Customer",
             "type": "record",
             "typeDomain": "Customer",
             "relationship": "customer",

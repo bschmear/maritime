@@ -2,7 +2,10 @@
 
 namespace App\Domain\Opportunity\Actions;
 
+use App\Domain\Contact\Models\Contact;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Opportunity\Models\Opportunity as RecordModel;
+use App\Support\ContactPartyResolver;
 use App\Domain\Opportunity\Services\OpportunityAddonsSync;
 use App\Domain\Opportunity\Services\OpportunitySelectedOptionSync;
 use App\Domain\Opportunity\Validation\OpportunityLineRequestRules;
@@ -18,11 +21,23 @@ class UpdateOpportunity
     public function __invoke(int $id, array $data): array
     {
         $rules = array_merge([
-            'customer_id' => 'sometimes|integer|exists:customer_profiles,id',
+            'contact_id' => 'sometimes|nullable|integer|exists:contacts,id',
+            'customer_id' => 'sometimes|nullable|integer|exists:customer_profiles,id',
             'user_id' => 'sometimes|integer|exists:users,id',
         ], OpportunityLineRequestRules::nested($data));
 
         $validated = Validator::make($data, $rules)->validate();
+
+        if (array_key_exists('contact_id', $data) && ! empty($data['contact_id'])) {
+            $contact = Contact::query()->findOrFail((int) $data['contact_id']);
+            $data['customer_id'] = ContactPartyResolver::ensureCustomerProfile($contact)->id;
+            ContactPartyResolver::ensureLeadProfile((int) $contact->id);
+        } elseif (array_key_exists('customer_id', $data) && ! empty($data['customer_id'])) {
+            $customer = Customer::query()->find((int) $data['customer_id']);
+            if ($customer?->contact_id) {
+                ContactPartyResolver::ensureLeadProfile((int) $customer->contact_id);
+            }
+        }
 
         try {
             $record = DB::transaction(function () use ($id, $data, $validated) {
@@ -37,6 +52,7 @@ class UpdateOpportunity
                         'updated_at',
                         'uuid',
                         'sequence',
+                        'contact_id',
                     ])
                 );
                 $record->update($fillable);

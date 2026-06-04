@@ -33,7 +33,10 @@ class CreateContact
             'first_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['nullable', 'string', 'max:255'],
 
-            'type' => ['nullable', Rule::in(array_column(ContactType::cases(), 'value'))],
+            'type' => [
+                'nullable',
+                fn (string $attribute, mixed $value, \Closure $fail) => ContactType::assertValidForValidation($value, $fail, $attribute),
+            ],
 
             /*
             |--------------------------------------------------------------------------
@@ -127,6 +130,7 @@ class CreateContact
         ])->validate();
 
         foreach ([
+            'type' => ContactType::class,
             'preferred_contact_method' => ContactMethod::class,
             'preferred_contact_time' => ContactTimePreference::class,
             'status' => ContactStatus::class,

@@ -578,7 +578,41 @@ const isReadonly = computed(() => props.mode === 'edit' && false); // future: lo
 // ==============================
 // Pseudo-record for RecordSelect display resolution in create mode
 // ==============================
-const pseudoRecord = computed(() => props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null));
+const pseudoRecord = computed(() => {
+    const base = props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null);
+    if (!base) {
+        return null;
+    }
+
+    const contactId = base.contact_id ?? base.customer?.contact_id ?? null;
+    if (!contactId) {
+        return base;
+    }
+
+    return {
+        ...base,
+        contact_id: contactId,
+        contact: base.contact ?? base.customer?.contact ?? {
+            id: contactId,
+            display_name: base.customer?.display_name ?? '',
+        },
+    };
+});
+
+const contactPartyField = computed(() => {
+    const fromSchema = props.fieldsSchema?.contact_id ?? props.fieldsSchema?.customer_id ?? {};
+
+    return {
+        type: 'record',
+        typeDomain: 'Contact',
+        label: fromSchema.label || 'Contact / Lead / Customer',
+        required: true,
+        create: true,
+        ...fromSchema,
+        typeDomain: 'Contact',
+        create: true,
+    };
+});
 
 const qualificationAssetPrefill = computed(() => props.initialData?.qualification_prefill ?? null);
 
@@ -613,6 +647,11 @@ const buildInitialFormData = () => {
     });
 
     // Overwrite with initialData IDs for record fields
+    data.contact_id =
+        props.initialData?.contact_id
+        ?? props.record?.customer?.contact_id
+        ?? props.initialData?.customer?.contact_id
+        ?? null;
     if (props.initialData.customer_id) data.customer_id = props.initialData.customer_id;
     if (props.initialData.qualification_id) data.qualification_id = props.initialData.qualification_id;
     if (props.initialData.user_id) data.user_id = props.initialData.user_id;
@@ -717,13 +756,10 @@ const submit = () => {
             onSuccess: () => {
                 window.location.href = route('opportunities.show', buildResourceRouteParams('opportunities', props.record.id));
             },
-            onError: (errors) => console.error('Update failed:', errors),
         });
     } else {
         // Server returns redirect to opportunities.show; Inertia follows it (no client-side URL needed).
-        form.post(route('opportunities.store'), {
-            onError: (errors) => console.error('Create failed:', errors),
-        });
+        form.post(route('opportunities.store'));
     }
 };
 
@@ -765,25 +801,27 @@ const handleCancel = () => emit('cancelled');
                                         Customer & Lead
                                     </h3>
 
-                                    <!-- Customer -->
+                                    <!-- Contact / lead / customer (contact-first; stored as customer_id on opportunity) -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                            {{ fieldsSchema.customer_id?.label || 'Customer' }} <span class="text-red-500">*</span>
+                                            {{ contactPartyField.label }} <span class="text-red-500">*</span>
                                         </label>
                                         <RecordSelect
-                                            id="customer_id"
-                                            :field="fieldsSchema.customer_id"
-                                            v-model="form.customer_id"
-                                            :enum-options="getEnumOptions('customer_id')"
+                                            id="contact_id"
+                                            :field="contactPartyField"
+                                            v-model="form.contact_id"
+                                            :enum-options="getEnumOptions('contact_id')"
                                             :record="pseudoRecord"
-                                            field-key="customer_id"
+                                            field-key="contact_id"
                                             :disabled="fromQualification"
                                         />
                                         <p v-if="fromQualification" class="mt-1 text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-10a9 9 0 110 18A9 9 0 0112 5z"/></svg>
                                             Set from qualification
                                         </p>
-                                        <p v-if="form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
+                                        <p v-if="form.errors.contact_id || form.errors.customer_id" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                            {{ form.errors.contact_id || form.errors.customer_id }}
+                                        </p>
                                     </div>
 
                                     <!-- Qualification -->
