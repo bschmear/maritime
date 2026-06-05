@@ -29,7 +29,7 @@ abstract class PortalLoginRequest extends FormRequest
      *
      * @throws ValidationException
      */
-    protected function attemptLogin(callable $attempt): void
+    public function attemptLogin(callable $attempt): void
     {
         $this->ensureIsNotRateLimited();
 
