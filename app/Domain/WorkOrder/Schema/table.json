@@ -3,7 +3,8 @@
     {
       "key": "work_order_number",
       "label": "WO #",
-      "sortable": true
+      "sortable": true,
+      "isKey": true
     },
     {
       "key": "status",

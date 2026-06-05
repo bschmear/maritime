@@ -60,6 +60,7 @@ use App\Http\Controllers\Tenant\PublicController;
 use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
+use App\Http\Controllers\Tenant\SalesController;
 use App\Http\Controllers\Tenant\SchedulingController;
 use App\Http\Controllers\Tenant\ScoreController;
 use App\Http\Controllers\Tenant\ServiceItemController;
@@ -330,6 +331,11 @@ Route::middleware([
 
         Route::prefix('operations')->name('operations.')->group(function () {
             Route::get('/', [OperationsController::class, 'index'])->name('index');
+        });
+
+        Route::prefix('sales')->name('sales.')->group(function () {
+            Route::get('/', [SalesController::class, 'index'])->name('index');
+            Route::get('/flow', [SalesController::class, 'flow'])->name('flow');
         });
 
         Route::prefix('transactions')->name('transactions.')->group(function () {

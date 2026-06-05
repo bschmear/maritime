@@ -24,6 +24,7 @@ const props = defineProps({
 
 const chartEl = ref(null);
 let chart = null;
+let themeObserver = null;
 
 const formatMoney = (value) => {
     const n = Number(value) || 0;
@@ -31,6 +32,27 @@ const formatMoney = (value) => {
 };
 
 const isDark = () => document.documentElement.classList.contains('dark');
+
+/** Axis, grid, and legend colors readable in light and dark UI. */
+function themeStyles() {
+    if (isDark()) {
+        return {
+            foreColor: '#e5e7eb',
+            labelColor: '#d1d5db',
+            axisColor: '#9ca3af',
+            gridColor: 'rgba(156, 163, 175, 0.28)',
+            legendColor: '#f3f4f6',
+        };
+    }
+
+    return {
+        foreColor: '#374151',
+        labelColor: '#6b7280',
+        axisColor: '#9ca3af',
+        gridColor: 'rgba(107, 114, 128, 0.22)',
+        legendColor: '#374151',
+    };
+}
 
 const hasData = computed(() => (props.categories?.length ?? 0) > 0);
 
@@ -41,53 +63,89 @@ const apexSeries = computed(() =>
     }))
 );
 
-const chartOptions = computed(() => ({
-    chart: {
-        type: 'line',
-        height: props.height,
-        toolbar: { show: false },
-        zoom: { enabled: false },
-        background: 'transparent',
-        animations: { enabled: true, speed: 250 },
-        fontFamily: 'inherit',
-    },
-    stroke: { width: 2, curve: 'smooth' },
-    colors: props.colors.length ? [...props.colors] : undefined,
-    dataLabels: { enabled: false },
-    xaxis: {
-        categories: [...(props.categories || [])],
-        labels: {
-            rotate: (props.categories?.length ?? 0) > 14 ? -45 : 0,
-            rotateAlways: (props.categories?.length ?? 0) > 14,
+function buildChartOptions() {
+    const theme = themeStyles();
+    const manyCategories = (props.categories?.length ?? 0) > 14;
+
+    return {
+        chart: {
+            type: 'line',
+            height: props.height,
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            background: 'transparent',
+            foreColor: theme.foreColor,
+            animations: { enabled: true, speed: 250 },
+            fontFamily: 'inherit',
         },
-    },
-    yaxis: {
-        labels: {
-            formatter: (val) => formatMoney(val),
+        stroke: { width: 2.5, curve: 'smooth' },
+        colors: props.colors.length ? [...props.colors] : undefined,
+        dataLabels: { enabled: false },
+        xaxis: {
+            categories: [...(props.categories || [])],
+            axisBorder: {
+                show: true,
+                color: theme.axisColor,
+            },
+            axisTicks: {
+                show: true,
+                color: theme.axisColor,
+            },
+            labels: {
+                rotate: manyCategories ? -45 : 0,
+                rotateAlways: manyCategories,
+                style: {
+                    colors: theme.labelColor,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                },
+            },
         },
-    },
-    legend: {
-        position: 'top',
-        horizontalAlign: 'right',
-        fontWeight: 500,
-    },
-    tooltip: {
-        shared: true,
-        intersect: false,
-        theme: isDark() ? 'dark' : 'light',
-        y: {
-            formatter: (val) => formatMoney(val),
+        yaxis: {
+            labels: {
+                style: {
+                    colors: theme.labelColor,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                },
+                formatter: (val) => formatMoney(val),
+            },
         },
-    },
-    markers: {
-        size: 0,
-        hover: { size: 5 },
-    },
-    grid: {
-        borderColor: 'rgba(128, 128, 128, 0.15)',
-        strokeDashArray: 4,
-    },
-}));
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right',
+            fontSize: '14px',
+            fontWeight: 500,
+            labels: {
+                colors: theme.legendColor,
+            },
+        },
+        tooltip: {
+            shared: true,
+            intersect: false,
+            theme: isDark() ? 'dark' : 'light',
+            y: {
+                formatter: (val) => formatMoney(val),
+            },
+        },
+        markers: {
+            size: 0,
+            hover: { size: 5 },
+        },
+        grid: {
+            borderColor: theme.gridColor,
+            strokeDashArray: 4,
+            xaxis: {
+                lines: { show: true },
+            },
+            yaxis: {
+                lines: { show: true },
+            },
+        },
+    };
+}
+
+const chartOptions = computed(() => buildChartOptions());
 
 const buildFullOptions = () => ({
     ...chartOptions.value,
@@ -127,11 +185,10 @@ const destroyChart = () => {
 };
 
 const handleThemeChange = () => {
-    if (chart) {
-        chart.updateOptions({
-            tooltip: { theme: isDark() ? 'dark' : 'light' },
-        });
+    if (!chart) {
+        return;
     }
+    chart.updateOptions(buildChartOptions(), false, true);
 };
 
 watch(
@@ -145,10 +202,17 @@ watch(
 onMounted(() => {
     renderChart();
     document.addEventListener('rerender-charts', handleThemeChange);
+    themeObserver = new MutationObserver(handleThemeChange);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+    });
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('rerender-charts', handleThemeChange);
+    themeObserver?.disconnect();
+    themeObserver = null;
     destroyChart();
 });
 </script>

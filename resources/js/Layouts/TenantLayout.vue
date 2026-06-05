@@ -112,6 +112,7 @@ const secondaryNavItems = ref([
     {
         name: 'Sales',
         children: [
+            { name: 'Overview', href: 'sales.index' },
             { name: 'Opportunities', href: 'opportunities.index' },
             { name: 'Estimates', href: 'estimates.index' },
             { name: 'Contracts', href: 'contracts.index' },
