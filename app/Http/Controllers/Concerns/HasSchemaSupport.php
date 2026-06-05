@@ -449,6 +449,7 @@ trait HasSchemaSupport
         return match ($this->domainName ?? '') {
             'Location' => array_merge($common, ['subsidiary_id']),
             'AssetUnit' => array_merge($common, ['customer_id']),
+            'Payment' => array_merge($common, ['contact_id']),
             default => $common,
         };
     }
@@ -503,6 +504,15 @@ trait HasSchemaSupport
                     }
                     break;
                 case 'equals':
+                    // Payment sublists on contact/lead profiles filter by invoice.contact_id.
+                    if ($field === 'contact_id' && $value !== null && $value !== ''
+                        && strcasecmp((string) $this->domainName, 'Payment') === 0) {
+                        $query->whereHas('invoice', function ($q) use ($value) {
+                            $q->where('contact_id', $value);
+                        });
+                        break;
+                    }
+
                     // Transactions link to units on line items, not a transactions.asset_unit_id column.
                     if ($field === 'asset_unit_id' && $value !== null && $value !== ''
                         && strcasecmp((string) $this->domainName, 'Transaction') === 0) {

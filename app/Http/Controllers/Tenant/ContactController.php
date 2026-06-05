@@ -134,11 +134,25 @@ class ContactController extends Controller
 
         if (is_array($formSchema) && isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
-                if (isset($sublist['modelRelationship'])) {
-                    $relationships[$sublist['modelRelationship']] = function ($query) {
-                        $query->select('*');
-                    };
+                if (! isset($sublist['modelRelationship'])) {
+                    continue;
                 }
+
+                $relationshipName = $sublist['modelRelationship'];
+
+                if ($relationshipName === 'payments') {
+                    $relationships[$relationshipName] = function ($query): void {
+                        $query->with([
+                            'invoice' => fn ($q) => $q->select(['id', 'sequence', 'uuid', 'contact_id']),
+                        ]);
+                    };
+
+                    continue;
+                }
+
+                $relationships[$relationshipName] = function ($query): void {
+                    $query->select('*');
+                };
             }
         }
 
@@ -205,18 +219,6 @@ class ContactController extends Controller
             }
         }
 
-        $roleFilter = $request->query('role');
-        $roleFilter = is_string($roleFilter) && in_array($roleFilter, ['lead', 'customer', 'vendor'], true)
-            ? $roleFilter
-            : null;
-        if ($roleFilter === 'lead') {
-            $query->whereHas('leads');
-        } elseif ($roleFilter === 'customer') {
-            $query->whereHas('customer');
-        } elseif ($roleFilter === 'vendor') {
-            $query->whereHas('vendors');
-        }
-
         $query->withExists('leads')
             ->withExists('customer')
             ->withExists('vendors');
@@ -259,7 +261,6 @@ class ContactController extends Controller
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
-            'roleFilter' => $roleFilter,
         ]);
     }
 
@@ -793,7 +794,7 @@ class ContactController extends Controller
         }
 
         return redirect()
-            ->route($this->recordType.'.index', $request->only(['role', 'search', 'filters', 'per_page', 'sort', 'direction']))
+            ->route($this->recordType.'.index', $request->only(['search', 'filters', 'per_page', 'sort', 'direction']))
             ->with('success', $message);
     }
 }

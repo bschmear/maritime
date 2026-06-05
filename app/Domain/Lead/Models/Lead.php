@@ -6,14 +6,19 @@ use App\Domain\Communication\Models\Communication;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
+use App\Domain\Payment\Models\Payment;
 use App\Domain\Qualification\Models\Qualification;
 use App\Domain\Score\Models\Score;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Lead extends Model
 {
@@ -207,6 +212,40 @@ class Lead extends Model
     {
         return $this->morphMany(Communication::class, 'communicable')
             ->orderByDesc('created_at');
+    }
+
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class, 'contact_id', 'contact_id');
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'contact_id', 'contact_id');
+    }
+
+    public function payments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Payment::class,
+            Invoice::class,
+            'contact_id',
+            'invoice_id',
+            'contact_id',
+            'id',
+        );
+    }
+
+    public function serviceTickets(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            ServiceTicket::class,
+            Customer::class,
+            'contact_id',
+            'customer_id',
+            'contact_id',
+            'id',
+        );
     }
 
     protected function primaryAddressRow(): ?ContactAddress

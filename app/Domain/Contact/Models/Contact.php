@@ -4,8 +4,12 @@ namespace App\Domain\Contact\Models;
 
 use App\Domain\Communication\Models\Communication;
 use App\Domain\Customer\Models\Customer;
+use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Payment\Models\Payment;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
 use App\Domain\Vendor\Models\Vendor;
 use App\Enums\Entity\ContactMethod;
@@ -192,14 +196,39 @@ class Contact extends Authenticatable
         );
     }
 
-    // public function estimates(): HasMany
-    // {
-    //     return $this->hasMany(Estimate::class, 'contact_id');
-    // }
-    // public function invoices(): HasMany
-    // {
-    //     return $this->hasMany(Invoice::class, 'contact_id');
-    // }
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(Estimate::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function payments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Payment::class,
+            Invoice::class,
+            'contact_id',
+            'invoice_id',
+            'id',
+            'id',
+        );
+    }
+
+    public function serviceTickets(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            ServiceTicket::class,
+            Customer::class,
+            'contact_id',
+            'customer_id',
+            'id',
+            'id',
+        );
+    }
 
     /**
      * Communications where this contact is the morph parent.

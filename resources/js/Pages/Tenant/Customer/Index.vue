@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import PeopleIndexRoleLinks from '@/Components/Tenant/PeopleIndexRoleLinks.vue';
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -55,13 +56,21 @@ const breadcrumbItems = computed(() => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200 mt-4">
-                    {{ recordTitle }}
-                </h2>
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+                    <PeopleIndexRoleLinks active-page="customers" />
+                </div>
             </div>
         </template>
 
-        <Table :records="records" :schema="schema" :form-schema="formSchema" :fields-schema="fieldsSchema" :enum-options="enumOptions" :record-type="recordType" :record-title="recordTitle" :plural-title="pluralTitle" />
+        <Table
+            :records="records"
+            :schema="schema"
+            :form-schema="formSchema"
+            :fields-schema="fieldsSchema"
+            :enum-options="enumOptions"
+            :record-type="recordType"
+            :record-title="recordTitle"
+            :plural-title="pluralTitle"
+        />
     </TenantLayout>
 </template>
-

@@ -12,8 +12,10 @@ use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\Opportunity\Models\Opportunity;
+use App\Domain\Payment\Models\Payment;
 use App\Domain\PortalAccess\Models\PortalAccess;
 use App\Domain\Score\Models\Score;
+use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
 class Customer extends Model
@@ -214,9 +217,26 @@ class Customer extends Model
         return $this->hasMany(Estimate::class);
     }
 
-    public function invoices()
+    public function invoices(): HasMany
     {
-        return $this->hasMany(Invoice::class);
+        return $this->hasMany(Invoice::class, 'contact_id', 'contact_id');
+    }
+
+    public function payments(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Payment::class,
+            Invoice::class,
+            'contact_id',
+            'invoice_id',
+            'contact_id',
+            'id',
+        );
+    }
+
+    public function serviceTickets(): HasMany
+    {
+        return $this->hasMany(ServiceTicket::class, 'customer_id');
     }
 
     public function assigned_user()

@@ -66,5 +66,12 @@
       "label": "Assigned To",
       "sortable": true
     }
+  ],
+  "filters": [
+      {
+          "field": "status",
+          "label": "Status",
+          "type": "multi-select"
+      }
   ]
 }

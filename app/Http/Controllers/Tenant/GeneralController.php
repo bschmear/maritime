@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Location\Models\Location;
 use App\Enums\Entity\IntendedUse;
 use App\Enums\Entity\OwnershipType;
@@ -11,7 +12,6 @@ use App\Enums\Inventory\UnitCondition;
 use App\Enums\Inventory\UnitStatus;
 use App\Enums\Leads\Status;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
-use App\Domain\Contact\Models\Contact;
 use App\Services\TaxRateService;
 use App\Support\ContactPartyResolver;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -447,9 +447,28 @@ class GeneralController extends BaseController
     public function selectForm(Request $request)
     {
         $type = $request->get('type');
+        $typeKey = $type !== null && $type !== '' ? strtolower((string) $type) : '';
 
-        // Get the domain name from the type
-        $domainName = ucfirst($type);
+        $typeToDomain = [
+            'workorder' => 'WorkOrder',
+            'serviceticket' => 'ServiceTicket',
+            'serviceitem' => 'ServiceItem',
+            'assetunit' => 'AssetUnit',
+            'assetvariant' => 'AssetVariant',
+            'inventoryunit' => 'InventoryUnit',
+            'addon' => 'AddOn',
+            'boatmake' => 'BoatMake',
+            'assetoption' => 'AssetOption',
+            'deliverylocation' => 'DeliveryLocation',
+            'delivery_location' => 'DeliveryLocation',
+            'maintenancetype' => 'MaintenanceType',
+            'contactaddress' => 'ContactAddress',
+            'invoice' => 'Invoice',
+            'payment' => 'Payment',
+            'estimate' => 'Estimate',
+        ];
+
+        $domainName = $typeToDomain[$typeKey] ?? Str::studly((string) $type);
 
         // Temporarily set the domain name for schema methods
         $this->domainName = $domainName;
@@ -489,6 +508,7 @@ class GeneralController extends BaseController
             $recordType = match ($domainName) {
                 'ContactAddress' => 'contactaddresses',
                 'MaintenanceType' => 'maintenance-types',
+                'DeliveryLocation' => 'delivery-locations',
                 default => strtolower($domainName).'s',
             };
 

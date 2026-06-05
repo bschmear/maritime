@@ -2,14 +2,17 @@
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import { computed } from 'vue';
 
 const props = defineProps({
     record: { type: Object, default: null },
     mode: { type: String, default: 'create' },
+    /** When true, POST via JSON (RecordSelect modal) instead of a full-page redirect. */
+    embedded: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['saved', 'cancelled']);
+const emit = defineEmits(['saved', 'cancelled', 'created']);
 
 const isEdit = computed(() => props.mode === 'edit' && props.record);
 const recordForSelect = computed(() => props.record ?? {});
@@ -50,7 +53,48 @@ const onAddressUpdate = (data) => {
     form.longitude = data.longitude ?? null;
 };
 
+const submitEmbeddedCreate = async () => {
+    form.clearErrors();
+    try {
+        const { data } = await axios.post(route('delivery-locations.store'), form.data(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+
+        if (data?.success === false) {
+            form.errors = data.errors ?? { general: data.message ?? 'Failed to save.' };
+
+            return;
+        }
+
+        const recordId = data?.recordId ?? data?.record?.id;
+        if (recordId == null) {
+            form.errors = { general: 'Location was saved but the server did not return an id.' };
+
+            return;
+        }
+
+        emit('created', recordId, data.record ?? null);
+    } catch (error) {
+        if (error.response?.status === 422) {
+            form.errors = error.response.data?.errors ?? {};
+        } else {
+            form.errors = {
+                general: error.response?.data?.message ?? error.message ?? 'Failed to save.',
+            };
+        }
+    }
+};
+
 const submit = () => {
+    if (props.embedded && !isEdit.value) {
+        submitEmbeddedCreate();
+
+        return;
+    }
+
     if (isEdit.value && props.record?.id) {
         form.put(route('delivery-locations.update', props.record.id), {
             preserveScroll: true,
@@ -67,9 +111,16 @@ const submit = () => {
 
 <template>
     <div class="w-full">
-        <form @submit.prevent="submit" class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6">
+        <form
+            @submit.prevent="submit"
+            class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6"
+            :class="embedded ? 'gap-4' : ''"
+        >
             <!-- Page title strip (full width) -->
-            <div class="lg:col-span-12 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 shadow-lg sm:rounded-lg px-6 py-4">
+            <div
+                v-if="!embedded"
+                class="lg:col-span-12 bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 shadow-lg sm:rounded-lg px-6 py-4"
+            >
                 <h2 class="text-xl font-bold text-white">
                     {{ isEdit ? 'Edit location' : 'New common location' }}
                 </h2>
@@ -197,13 +248,16 @@ const submit = () => {
 
             <p v-if="form.errors.general" class="lg:col-span-12 text-sm text-red-600 dark:text-red-400">{{ form.errors.general }}</p>
 
-            <div class="lg:col-span-12 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <div
+                class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+                :class="embedded ? 'lg:col-span-12' : 'lg:col-span-12'"
+            >
                 <button
                     type="button"
                     class="inline-flex justify-center items-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     @click="emit('cancelled')"
                 >
-                    Cancel
+                    {{ embedded ? 'Back to list' : 'Cancel' }}
                 </button>
                 <button
                     type="submit"

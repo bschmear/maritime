@@ -1124,7 +1124,7 @@ defineExpose({
 </script>
 
 <template>
-    <section class="w-full flex flex-col space-y-4">
+    <section class="flex w-full min-w-0 max-w-full flex-col space-y-4">
         <!-- Optional stat cards (defined in table.json schema.stats; values from page props stats) -->
         <div
             v-if="statCardDefs.length"
@@ -1151,7 +1151,8 @@ defineExpose({
             </div>
         </div>
 
-        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col">
+        <!-- overflow-hidden on the card clamps width (same pattern as Sublist + Payment/Index); inner div scrolls horizontally -->
+        <div class="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
 
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
@@ -1402,15 +1403,16 @@ defineExpose({
             </div>
 
             <!-- Results: data table, or #grid slot (card layout) when resultLayout is grid -->
-            <div v-else>
+            <div v-else class="min-w-0 max-w-full">
                 <div
                     v-if="resultLayout === 'grid' && $slots.grid"
                     class="p-4 sm:px-5 sm:pt-0 sm:pb-2"
                 >
                     <slot name="grid" />
                 </div>
-                <div v-else class="overflow-x-auto grow">
-                <table class="w-full text-sm text-left table-auto">
+                <div v-else class="relative min-w-0 max-w-full">
+                    <div class="max-w-full overflow-x-auto overscroll-x-contain">
+                <table class="w-full min-w-max text-left text-sm table-auto">
                     <thead>
                         <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                             <th class="px-4 py-3 w-10">
@@ -1540,6 +1542,7 @@ defineExpose({
                         </tr>
                     </tbody>
                 </table>
+                    </div>
                 </div>
             </div>
 

@@ -118,7 +118,7 @@ const saveAddress = () => {
         city: result.city || '',
         state: result.stateCode || result.state || '',
         postal_code: result.postalCode || '',
-        country: result.country || '',
+        country: result.countryCode || result.country || '',
         latitude: result.latitude ?? null,
         longitude: result.longitude ?? null,
     });

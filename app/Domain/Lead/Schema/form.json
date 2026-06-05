@@ -189,6 +189,28 @@
       "modelRelationship": "qualitifications"
     },
     {
+      "label": "Estimates",
+      "domain": "Estimate",
+      "modelRelationship": "estimates"
+    },
+    {
+      "label": "Invoices",
+      "domain": "Invoice",
+      "modelRelationship": "invoices"
+    },
+    {
+      "label": "Payments",
+      "domain": "Payment",
+      "modelRelationship": "payments",
+      "readOnly": true
+    },
+    {
+      "label": "Service tickets",
+      "domain": "ServiceTicket",
+      "modelRelationship": "serviceTickets",
+      "readOnly": true
+    },
+    {
       "label": "Communications",
       "domain": "Communication",
       "modelRelationship": "communications",

@@ -642,7 +642,12 @@ const submit = () => {
 const customerField = computed(() => ({ type: 'record', typeDomain: 'Customer', label: 'Customer', required: true }));
 const workOrderField = computed(() => ({ type: 'record', typeDomain: 'WorkOrder', label: 'Work Order' }));
 const transactionField = computed(() => ({ type: 'record', typeDomain: 'Transaction', label: 'Transaction' }));
-const deliveryLocationField = computed(() => ({ type: 'record', typeDomain: 'DeliveryLocation', label: 'Delivery Location' }));
+const deliveryLocationField = computed(() => ({
+    type: 'record',
+    typeDomain: 'DeliveryLocation',
+    label: 'Common location',
+    create: true,
+}));
 const technicianField = computed(() => ({ type: 'record', typeDomain: 'User', label: 'Delivery Driver' }));
 
 const deliverToTypeLabel = computed(() => {
@@ -1196,7 +1201,13 @@ const onScheduledAtCommittedChange = async () => {
                                 </div>
 
                                 <div v-if="form.delivery_to_type === 'delivery_location'" class="mb-4">
-                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Common Delivery Location</label>
+                                    <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                        Common location
+                                    </label>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                        Choose a saved address your team delivers to often — marinas, docks, storage yards, and similar sites.
+                                        You can pick an existing location or create a new one without leaving this form.
+                                    </p>
                                     <RecordSelect
                                         id="delivery_location_id"
                                         :field="deliveryLocationField"

@@ -323,6 +323,61 @@ const getParentRelationship = (relationshipName) => {
         ?? props.parentRecord[camelToSnake(relationshipName)];
 };
 
+const resolveSublistParentFilterValue = (foreignKey, fieldDef) => {
+    if (foreignKey === 'contact_id') {
+        if (props.parentDomain === 'Contact') {
+            return props.parentRecord.id;
+        }
+
+        const contactId = props.parentRecord.contact_id ?? props.parentRecord.contact?.id;
+        if (contactId != null && contactId !== '') {
+            return contactId;
+        }
+    }
+
+    const typeDomain = fieldDef?.typeDomain;
+
+    if (typeDomain === 'Contact') {
+        const contactId = props.parentRecord.contact_id ?? props.parentRecord.contact?.id;
+        if (contactId != null && contactId !== '') {
+            return contactId;
+        }
+    }
+
+    if (typeDomain === 'Customer') {
+        if (props.parentDomain === 'Lead') {
+            const customerId =
+                props.parentRecord.converted_customer_id
+                ?? props.parentRecord.converted_customer?.id
+                ?? props.parentRecord.customer?.id;
+            if (customerId != null && customerId !== '') {
+                return customerId;
+            }
+        }
+        if (props.parentDomain === 'Contact') {
+            const customerId = props.parentRecord.customer?.id;
+            if (customerId != null && customerId !== '') {
+                return customerId;
+            }
+        }
+    }
+
+    return props.parentRecord.id;
+};
+
+const loadSublistIndexSchema = async (sublist) => {
+    const routePlural = getDomainPlural(sublist.domain);
+    const schemaResponse = await axios.get(route(`${routePlural}.index`), {
+        params: { per_page: 1, page: 1 },
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            Accept: 'application/json',
+        },
+    });
+    sublistTableSchema.value = schemaResponse.data.schema || null;
+    sublistFieldsSchema.value = schemaResponse.data.fieldsSchema || {};
+};
+
 const getRelatedRecord = (item, relationshipName) => {
     if (!item || !relationshipName) return null;
     return item[relationshipName] ?? item[camelToSnake(relationshipName)] ?? null;
@@ -673,42 +728,33 @@ const fetchSublistData = async (sublist, page = 1) => {
         return;
     }
 
-    // Invoice payments: rows come from the parent record; schema from payments.index (for columns / field types).
-    if (
-        sublist.domain === 'Payment'
-        && sublist.modelRelationship === 'payments'
-        && props.parentDomain === 'Invoice'
-    ) {
-        isLoadingSublist.value = true;
-        try {
-            const relationshipData = props.parentRecord.payments || [];
-            const sorted = Array.isArray(relationshipData)
-                ? [...relationshipData].sort((a, b) => {
-                    const ta = a.paid_at ? new Date(a.paid_at).getTime() : 0;
-                    const tb = b.paid_at ? new Date(b.paid_at).getTime() : 0;
-                    return tb - ta;
-                })
-                : [];
-            sublistData.value = sorted;
-            sublistPagination.value = null;
+    // Has-many / has-many-through rows already eager-loaded on the parent (contacts, leads, customers).
+    if (sublist.modelRelationship && sublist.relationshipType !== 'ManyToMany') {
+        const relationshipData = getParentRelationship(sublist.modelRelationship);
+        if (Array.isArray(relationshipData)) {
+            isLoadingSublist.value = true;
+            try {
+                let rows = [...relationshipData];
 
-            const routePlural = getDomainPlural(sublist.domain);
-            const schemaResponse = await axios.get(route(`${routePlural}.index`), {
-                params: { per_page: 1, page: 1 },
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json',
-                },
-            });
-            sublistTableSchema.value = schemaResponse.data.schema || null;
-            sublistFieldsSchema.value = schemaResponse.data.fieldsSchema || {};
-        } catch (error) {
-            console.error('Error loading invoice payments sublist:', error);
-            sublistData.value = [];
-        } finally {
-            isLoadingSublist.value = false;
+                if (sublist.domain === 'Payment') {
+                    rows.sort((a, b) => {
+                        const ta = a.paid_at ? new Date(a.paid_at).getTime() : 0;
+                        const tb = b.paid_at ? new Date(b.paid_at).getTime() : 0;
+                        return tb - ta;
+                    });
+                }
+
+                sublistData.value = rows;
+                sublistPagination.value = null;
+                await loadSublistIndexSchema(sublist);
+            } catch (error) {
+                console.error(`Error loading eager ${sublist.modelRelationship} sublist:`, error);
+                sublistData.value = [];
+            } finally {
+                isLoadingSublist.value = false;
+            }
+            return;
         }
-        return;
     }
 
     isLoadingSublist.value = true;
@@ -743,10 +789,19 @@ const fetchSublistData = async (sublist, page = 1) => {
                 return;
             }
             
+            const fields = sublistCreateFormData.value?.fieldsSchema?.fields
+                ?? sublistCreateFormData.value?.fieldsSchema
+                ?? {};
+            const fieldDef = fields[foreignKey];
+
             // Build filters - always use structured format for consistency
             const allFilters = [
-                // Parent filter (always include to filter by parent record)
-                { field: foreignKey, operator: 'equals', value: props.parentRecord.id },
+                // Parent filter (use contact_id / customer_id when the FK targets another profile)
+                {
+                    field: foreignKey,
+                    operator: 'equals',
+                    value: resolveSublistParentFilterValue(foreignKey, fieldDef),
+                },
                 // Add all active filters
                 ...activeFilters.value
             ];
@@ -794,13 +849,25 @@ const fetchSublistData = async (sublist, page = 1) => {
 const findParentReferenceFieldFromSchema = (fieldsSchema) => {
     // Handle wrapped schema structure
     const fields = fieldsSchema.fields || fieldsSchema;
-    
+
     for (const [fieldKey, fieldDef] of Object.entries(fields)) {
         if (fieldDef && fieldDef.typeDomain === props.parentDomain) {
             return fieldKey;
         }
     }
-    
+
+    const sublistDomain = activeTab.value?.domain;
+
+    // Payments link to invoices, not contacts — scope via invoice.contact_id in applyFilters.
+    if (sublistDomain === 'Payment' && ['Contact', 'Lead', 'Customer'].includes(props.parentDomain)) {
+        return 'contact_id';
+    }
+
+    // Service tickets link to customers; contacts scope via the linked customer profile.
+    if (sublistDomain === 'ServiceTicket' && ['Contact', 'Lead'].includes(props.parentDomain)) {
+        return 'customer_id';
+    }
+
     console.error(`[Sublist] No field found with typeDomain matching ${props.parentDomain}`);
     return null;
 };
@@ -1550,20 +1617,27 @@ onMounted(() => {
 });
 
 watch(
-    () => props.parentRecord.payments,
-    (payments) => {
-        if (
-            activeTab.value?.domain === 'Payment'
-            && activeTab.value?.modelRelationship === 'payments'
-            && props.parentDomain === 'Invoice'
-        ) {
-            const list = Array.isArray(payments) ? payments : [];
-            sublistData.value = [...list].sort((a, b) => {
+    () => {
+        const rel = activeTab.value?.modelRelationship;
+        if (!rel || activeTab.value?.relationshipType === 'ManyToMany') {
+            return null;
+        }
+        return getParentRelationship(rel);
+    },
+    (relationshipData) => {
+        if (relationshipData == null) {
+            return;
+        }
+        let rows = Array.isArray(relationshipData) ? [...relationshipData] : [];
+        if (activeTab.value?.domain === 'Payment') {
+            rows.sort((a, b) => {
                 const ta = a.paid_at ? new Date(a.paid_at).getTime() : 0;
                 const tb = b.paid_at ? new Date(b.paid_at).getTime() : 0;
                 return tb - ta;
             });
         }
+        sublistData.value = rows;
+        sublistPagination.value = null;
     },
     { deep: true },
 );
@@ -1587,7 +1661,7 @@ watch(
 </script>
 
 <template>
-    <div class="w-full" v-bind="$attrs">
+    <div class="w-full min-w-0 max-w-full" v-bind="$attrs">
         <!-- Mobile Select Dropdown -->
         <div class="sm:hidden">
             <label for="tabs" class="sr-only">Select Sublist</label>
@@ -1607,7 +1681,7 @@ watch(
         </div>
 
         <!-- Sublist Container -->
-        <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg w-full overflow-hidden">
+        <div class="w-full min-w-0 max-w-full overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800 sm:rounded-lg">
             <!-- Header -->
             <div class="flex justify-between items-center p-4 sm:px-5 w-full font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
                 Related Records
@@ -1739,8 +1813,8 @@ watch(
                         </div>
                     </div>
 
-                    <div v-if="sublistData.length > 0" class="overflow-x-auto" :class="{ '': activeTab?.readOnly }">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                    <div v-if="sublistData.length > 0" class="min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+                    <table class="w-full min-w-max text-left text-sm text-gray-500 dark:text-gray-400">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                             <tr>
                                 <th 

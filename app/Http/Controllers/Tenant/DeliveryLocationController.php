@@ -59,7 +59,23 @@ class DeliveryLocationController extends BaseController
         $record = $result['record'];
 
         if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'recordId' => $record->id]);
+            return response()->json([
+                'success' => true,
+                'recordId' => $record->id,
+                'record' => [
+                    'id' => $record->id,
+                    'display_name' => $record->display_name,
+                    'name' => $record->name,
+                    'address_line_1' => $record->address_line_1,
+                    'address_line_2' => $record->address_line_2,
+                    'city' => $record->city,
+                    'state' => $record->state,
+                    'postal_code' => $record->postal_code,
+                    'country' => $record->country,
+                    'latitude' => $record->latitude,
+                    'longitude' => $record->longitude,
+                ],
+            ]);
         }
 
         return redirect()

@@ -62,6 +62,27 @@
   },
   "sublists": [
     {
+      "label": "Estimates",
+      "domain": "Estimate",
+      "modelRelationship": "estimates"
+    },
+    {
+      "label": "Invoices",
+      "domain": "Invoice",
+      "modelRelationship": "invoices"
+    },
+    {
+      "label": "Payments",
+      "domain": "Payment",
+      "modelRelationship": "payments",
+      "readOnly": true
+    },
+    {
+      "label": "Service tickets",
+      "domain": "ServiceTicket",
+      "modelRelationship": "serviceTickets"
+    },
+    {
       "label": "Documents",
       "domain": "Document",
       "modelRelationship": "documents"

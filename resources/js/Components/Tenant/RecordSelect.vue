@@ -2,6 +2,7 @@
     import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
+    import DeliveryLocationForm from '@/Components/Tenant/DeliveryLocationForm.vue';
     
     const props = defineProps({
         field: {
@@ -102,6 +103,10 @@
 
     const isPickerOpen = computed(
         () => showModal.value || showEnhancedModal.value || showDropdown.value,
+    );
+
+    const usesDeliveryLocationCreateForm = computed(
+        () => props.field.typeDomain === 'DeliveryLocation',
     );
 
     /** JSON filters: coerce numeric strings so `vendor_id` matches integer columns. */
@@ -342,6 +347,10 @@
     // Open create new tab in enhanced modal
     const openCreateNewTab = async () => {
         enhancedModalTab.value = 'create';
+
+        if (usesDeliveryLocationCreateForm.value) {
+            return;
+        }
 
         // Load form data if not already loaded
         if (!createFormData.value) {
@@ -1025,7 +1034,11 @@
             <!-- Modal container -->
             <div class="flex items-center justify-center min-h-screen p-4">
                 <!-- Modal panel -->
-                <div @click.stop class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <div
+                    @click.stop
+                    class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all w-full max-h-[90vh] flex flex-col"
+                    :class="usesDeliveryLocationCreateForm && enhancedModalTab === 'create' ? 'max-w-5xl' : 'max-w-4xl'"
+                >
                     <!-- Header -->
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                         <div class="flex items-center gap-3">
@@ -1195,29 +1208,37 @@
 
                         <!-- Create New Tab -->
                         <div v-if="enhancedModalTab === 'create'" class="space-y-4">
-                            <div v-if="isLoadingForm" class="text-center py-12">
-                                <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
-                                <p class="text-gray-500 dark:text-gray-400 mt-2">Loading form...</p>
-                            </div>
-                            <div v-else-if="!createFormData" class="text-center py-12">
-                                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-                                    <span class="material-icons text-gray-400 dark:text-gray-500 text-4xl">error</span>
-                                </div>
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Unable to Load Form</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Please try again later</p>
-                            </div>
-                            <Form
-                                v-else
-                                :schema="createFormData.formSchema"
-                                :fields-schema="createFormData.fieldsSchema"
-                                :record-type="createFormData.recordType"
-                                :record-title="createFormData.recordTitle"
-                                :enum-options="createFormData.enumOptions"
-                                mode="create"
-                                :prevent-redirect="true"
+                            <DeliveryLocationForm
+                                v-if="usesDeliveryLocationCreateForm"
+                                embedded
                                 @created="handleRecordCreated"
-                                @cancel="enhancedModalTab = 'existing'"
+                                @cancelled="enhancedModalTab = 'existing'"
                             />
+                            <template v-else>
+                                <div v-if="isLoadingForm" class="text-center py-12">
+                                    <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
+                                    <p class="text-gray-500 dark:text-gray-400 mt-2">Loading form...</p>
+                                </div>
+                                <div v-else-if="!createFormData" class="text-center py-12">
+                                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
+                                        <span class="material-icons text-gray-400 dark:text-gray-500 text-4xl">error</span>
+                                    </div>
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Unable to Load Form</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">Please try again later</p>
+                                </div>
+                                <Form
+                                    v-else
+                                    :schema="createFormData.formSchema"
+                                    :fields-schema="createFormData.fieldsSchema"
+                                    :record-type="createFormData.recordType"
+                                    :record-title="createFormData.recordTitle"
+                                    :enum-options="createFormData.enumOptions"
+                                    mode="create"
+                                    :prevent-redirect="true"
+                                    @created="handleRecordCreated"
+                                    @cancel="enhancedModalTab = 'existing'"
+                                />
+                            </template>
                         </div>
                     </div>
                     <div

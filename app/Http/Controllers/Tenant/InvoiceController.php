@@ -12,11 +12,14 @@ use App\Domain\Invoice\Actions\CreateInvoice as CreateAction;
 use App\Domain\Invoice\Actions\DeleteInvoice as DeleteAction;
 use App\Domain\Invoice\Actions\RemoveInvoice;
 use App\Domain\Invoice\Actions\UpdateInvoice as UpdateAction;
+use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Invoice\Models\Invoice as RecordModel;
 use App\Domain\Invoice\Support\RepairInvoiceLineItemsFromTransaction;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Support\SyncLinkedDealTaxRate;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\AppliesPnlInvoiceDrillDownFilters;
 use App\Jobs\PullPaymentsFromQuickBooks;
 use App\Jobs\PushInvoiceToQuickBooks;
@@ -25,9 +28,9 @@ use App\Models\AccountSettings;
 use App\Services\Mail\TenantMailService;
 use App\Services\Payments\QuickBooksAccountingService;
 use App\Services\SMS\SmsService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class InvoiceController extends RecordController
 {
@@ -88,6 +91,22 @@ class InvoiceController extends RecordController
         $perPage = (int) $request->get('per_page', 15);
         $records = $query->paginate($perPage)->withQueryString();
         $stats = $this->indexTableStats($request, clone $query, $schema);
+
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'records' => $records->items(),
+                'schema' => $schema,
+                'fieldsSchema' => $fieldsSchema,
+                'enumOptions' => $enumOptions,
+                'stats' => $stats,
+                'meta' => [
+                    'current_page' => $records->currentPage(),
+                    'last_page' => $records->lastPage(),
+                    'per_page' => $records->perPage(),
+                    'total' => $records->total(),
+                ],
+            ]);
+        }
 
         return inertia('Tenant/Invoice/Index', [
             'records' => $records,
@@ -173,7 +192,7 @@ class InvoiceController extends RecordController
                 'invoice_id' => $record->quickbooks_invoice_id,
             ],
             'taxSync' => [
-                'invoice_tax_locked' => \App\Domain\Transaction\Support\SyncLinkedDealTaxRate::invoiceIsTaxLocked($record),
+                'invoice_tax_locked' => SyncLinkedDealTaxRate::invoiceIsTaxLocked($record),
                 'transaction_id' => $record->transaction_id,
                 'transaction_tax_rate' => $record->transaction?->tax_rate,
             ],
@@ -272,7 +291,7 @@ class InvoiceController extends RecordController
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<\App\Domain\Invoice\Models\Invoice>  $query
+     * @param  Builder<Invoice>  $query
      */
     private function applyInvoiceStatScope($query, string $scope): void
     {
@@ -312,7 +331,7 @@ class InvoiceController extends RecordController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $initialData = [];
         $transactionData = null;
@@ -406,7 +425,7 @@ class InvoiceController extends RecordController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'account' => $account,
-            'timezones' => \App\Enums\Timezone::options(),
+            'timezones' => Timezone::options(),
             'initialData' => $initialData,
             'transaction' => $transactionData,
             'workOrder' => $workOrderData,

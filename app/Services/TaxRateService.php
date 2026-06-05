@@ -50,15 +50,13 @@ class TaxRateService
             }
         }
 
-        $address = [
-            'line1'       => $location->address_line1 ?? $location->address ?? '',
-            'city'        => $location->city ?? '',
-            'state'       => $location->state ?? '',
+        $lookup = $this->lookupByAddress([
+            'line1' => $location->address_line1 ?? $location->address ?? '',
+            'city' => $location->city ?? '',
+            'state' => $location->state ?? '',
             'postal_code' => $location->postal_code ?? '',
-            'country'     => $location->country ?? 'US',
-        ];
-
-        $lookup = $this->lookupByAddress($address);
+            'country' => $location->country ?? 'US',
+        ]);
 
         if ($lookup['tax_rate_decimal'] !== null) {
             $location->tax_rate = $lookup['tax_rate_decimal'];
@@ -97,6 +95,8 @@ class TaxRateService
      */
     public function lookupByAddress(array $address): array
     {
+        $address = $this->normalizeAddressInput($address);
+
         $stateInput = (string) ($address['state'] ?? '');
         $jurisdictionCode = $this->normalizeStateCode($stateInput);
 
@@ -143,7 +143,7 @@ class TaxRateService
      */
     protected function fetchFromStripe(array $address): array
     {
-        $address = array_filter($address, fn ($v) => $v !== null && $v !== '');
+        $address = $this->prepareAddressForStripe($address);
 
         if (empty($address['state']) && empty($address['postal_code'])) {
             return ['rate_decimal' => null, 'jurisdiction_code' => null, 'jurisdiction_label' => null];
@@ -153,7 +153,7 @@ class TaxRateService
             $calculation = $this->stripe->tax->calculations->create([
                 'currency' => 'usd',
                 'customer_details' => [
-                    'address' => array_merge(['country' => 'US'], $address),
+                    'address' => $address,
                     'address_source' => 'billing',
                 ],
                 'line_items' => [
@@ -240,13 +240,14 @@ class TaxRateService
         $city = trim((string) ($address['city'] ?? ''));
         $state = trim((string) ($address['state'] ?? ''));
         $postal = trim((string) ($address['postal_code'] ?? ''));
-        $country = trim((string) ($address['country'] ?? 'US'));
+        $countryCode = $this->normalizeCountryCode((string) ($address['country'] ?? 'US'));
+        $countryDisplay = trim((string) ($address['country'] ?? ''));
 
         if ($city !== '' && $state !== '') {
             $base = implode(', ', array_filter([$city, $state, $postal]));
 
-            return ($country !== '' && strtoupper($country) !== 'US')
-                ? "{$base} ({$country})"
+            return $countryCode !== 'US'
+                ? "{$base} ({$countryDisplay})"
                 : $base;
         }
 
@@ -255,12 +256,96 @@ class TaxRateService
         }
 
         if ($state !== '') {
-            return ($country !== '' && strtoupper($country) !== 'US')
-                ? "{$state} ({$country})"
+            return $countryCode !== 'US'
+                ? "{$state} ({$countryDisplay})"
                 : $state;
         }
 
         return '';
+    }
+
+    /**
+     * Normalize free-text or ISO country values for Stripe Tax (ISO 3166-1 alpha-2).
+     */
+    public function normalizeCountryCode(?string $country): string
+    {
+        $country = trim((string) $country);
+        if ($country === '') {
+            return 'US';
+        }
+
+        if (preg_match('/^[A-Za-z]{2}$/', $country) === 1) {
+            return strtoupper($country);
+        }
+
+        $key = strtolower(preg_replace('/\s+/', ' ', $country));
+
+        $nameToCode = [
+            'united states' => 'US',
+            'united states of america' => 'US',
+            'usa' => 'US',
+            'u.s.a.' => 'US',
+            'u.s.' => 'US',
+            'us' => 'US',
+            'canada' => 'CA',
+            'mexico' => 'MX',
+            'united kingdom' => 'GB',
+            'great britain' => 'GB',
+            'uk' => 'GB',
+        ];
+
+        return $nameToCode[$key] ?? strtoupper($country);
+    }
+
+    /**
+     * @param  array{line1?: string, city?: string, state?: string, postal_code?: string, country?: string}  $address
+     * @return array{line1?: string, city?: string, state?: string, postal_code?: string, country?: string}
+     */
+    protected function normalizeAddressInput(array $address): array
+    {
+        $normalized = $address;
+
+        if (isset($normalized['country'])) {
+            $normalized['country'] = $this->normalizeCountryCode((string) $normalized['country']);
+        }
+
+        if (isset($normalized['state'])) {
+            $stateCode = $this->normalizeStateCode((string) $normalized['state']);
+            if ($stateCode !== null) {
+                $normalized['state'] = $stateCode;
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Stripe Tax requires ISO country codes and US state abbreviations.
+     *
+     * @param  array{line1?: string, city?: string, state?: string, postal_code?: string, country?: string}  $address
+     * @return array<string, string>
+     */
+    protected function prepareAddressForStripe(array $address): array
+    {
+        $address = $this->normalizeAddressInput($address);
+
+        $prepared = [
+            'country' => $this->normalizeCountryCode($address['country'] ?? 'US'),
+        ];
+
+        $stateCode = $this->normalizeStateCode((string) ($address['state'] ?? ''));
+        if ($stateCode !== null) {
+            $prepared['state'] = $stateCode;
+        }
+
+        foreach (['line1', 'city', 'postal_code'] as $key) {
+            $value = trim((string) ($address[$key] ?? ''));
+            if ($value !== '') {
+                $prepared[$key] = $value;
+            }
+        }
+
+        return $prepared;
     }
 
     public function normalizeStateCode(string $state): ?string
@@ -334,7 +419,7 @@ class TaxRateService
             'CO' => 2.9,  'CT' => 6.35, 'DE' => 0.0,  'FL' => 6.0,  'GA' => 4.0,
             'HI' => 4.0,  'ID' => 6.0,  'IL' => 6.25, 'IN' => 7.0,  'IA' => 6.0,
             'KS' => 6.5,  'KY' => 6.0,  'LA' => 4.45, 'ME' => 5.5,  'MD' => 6.0,
-            'MA' => 6.25, 'MI' => 6.0,  'MN' => 6.875,'MS' => 7.0,  'MO' => 4.225,
+            'MA' => 6.25, 'MI' => 6.0,  'MN' => 6.875, 'MS' => 7.0,  'MO' => 4.225,
             'MT' => 0.0,  'NE' => 5.5,  'NV' => 6.85, 'NH' => 0.0,  'NJ' => 6.625,
             'NM' => 5.0,  'NY' => 4.0,  'NC' => 4.75, 'ND' => 5.0,  'OH' => 5.75,
             'OK' => 4.5,  'OR' => 0.0,  'PA' => 6.0,  'RI' => 7.0,  'SC' => 6.0,

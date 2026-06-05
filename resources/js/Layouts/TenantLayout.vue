@@ -246,7 +246,7 @@ const secondaryNavItems = ref([
 </script>
 
 <template>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col ">
+    <div class="flex min-h-screen w-full min-w-0 flex-col bg-gray-50 dark:bg-gray-900">
         <div class="sticky top-0 z-40">
         <!-- Global Navbar -->
         <Navbar @toggle-sidebar="toggleMobileMenu" />
@@ -556,7 +556,7 @@ const secondaryNavItems = ref([
         </Teleport>
 
         <!-- Page Header (Optional) -->
-        <header v-if="$slots.header" class="min-w-0 max-w-full overflow-x-hidden">
+        <header v-if="$slots.header" class="min-w-0 max-w-full">
             <div class="w-full min-w-0 max-w-full px-4 pt-6 sm:px-6">
                 <slot name="header" />
             </div>
@@ -570,7 +570,7 @@ const secondaryNavItems = ref([
         </header>
 
         <!-- Page Content -->
-        <main class="mx-auto flex w-full min-w-0 max-w-full h-full relative p-4 grow flex-col space-y-4 md:space-y-6">
+        <main class="relative mx-auto flex h-full w-full min-w-0 max-w-full grow flex-col space-y-4 p-4 md:space-y-6 [&>*]:min-w-0 [&>*]:max-w-full">
             <slot />
         </main>
 
