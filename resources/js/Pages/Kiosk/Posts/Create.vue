@@ -13,11 +13,12 @@ const props = defineProps({
     tags: Array,
 });
 
+const titleMaxLength = 255;
+
 const form = useForm({
     title: '',
     body: '',
     category_id: '',
-    short_description: '',
     cover_image: '',
     featured: false,
     published: false,
@@ -68,28 +69,16 @@ const submit = () => {
                                     id="title"
                                     v-model="form.title"
                                     type="text"
+                                    :maxlength="titleMaxLength"
                                     class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
                                     placeholder="Enter an engaging post title..."
                                     required
                                     autofocus
                                 />
-                                <InputError class="mt-2" :message="form.errors.title" />
-                            </div>
-
-                            <!-- Short Description -->
-                            <div class="sm:col-span-6">
-                                <InputLabel for="short_description" value="Short Description" class="text-gray-900 dark:text-white" />
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Brief summary for previews and social media
+                                    {{ form.title.length }}/{{ titleMaxLength }} characters
                                 </p>
-                                <TextInput
-                                    id="short_description"
-                                    v-model="form.short_description"
-                                    type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
-                                    placeholder="Write a compelling summary..."
-                                />
-                                <InputError class="mt-2" :message="form.errors.short_description" />
+                                <InputError class="mt-2" :message="form.errors.title" />
                             </div>
 
                             <!-- Body -->
@@ -100,6 +89,7 @@ const submit = () => {
                                     v-model="form.body"
                                     :error="form.errors.body"
                                     :show-anchor="true"
+                                    :show-html-toggle="true"
                                 />
                             </div>
 

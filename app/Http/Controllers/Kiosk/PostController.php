@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Post;
 use App\Models\Tag;
+use App\Models\User;
 use App\Support\PostCoverImageStorage;
 use App\Support\PublicPageCache;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +22,7 @@ class PostController extends Controller
     {
         $query = Post::with(['user', 'category', 'tags']);
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -29,8 +30,17 @@ class PostController extends Controller
             });
         }
 
-        if ($request->has('category')) {
-            $query->where('category_id', $request->input('category'));
+        if ($request->filled('category')) {
+            $query->where('category_id', $request->integer('category'));
+        }
+
+        if ($request->filled('tag')) {
+            $tagId = $request->integer('tag');
+            $query->whereHas('tags', fn ($q) => $q->where('tags.id', $tagId));
+        }
+
+        if ($request->filled('author')) {
+            $query->where('user_id', $request->integer('author'));
         }
 
         if ($request->has('published')) {
@@ -38,11 +48,17 @@ class PostController extends Controller
             $query->where('published', $published);
         }
 
-        $posts = $query->latest()->paginate(15);
+        $posts = $query->latest()->paginate(15)->withQueryString();
 
         return Inertia::render('Kiosk/Posts/Index', [
             'posts' => $posts,
-            'filters' => $request->only(['search', 'category', 'published']),
+            'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
+            'tags' => Tag::query()->orderBy('name')->get(['id', 'name']),
+            'authors' => User::query()
+                ->whereHas('posts')
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'filters' => $request->only(['search', 'category', 'tag', 'author', 'published']),
         ]);
     }
 
@@ -153,7 +169,6 @@ class PostController extends Controller
             'title' => 'required|string|max:255',
             'body' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
-            'short_description' => 'nullable|string|max:255',
             'cover_image' => PostCoverImageStorage::storedPublicPathRules(),
             'cover_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp,gif|max:10240',
             'featured' => 'boolean',

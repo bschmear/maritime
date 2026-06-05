@@ -250,7 +250,7 @@ onMounted(() => {
         </div>
 
         <!-- Main Content -->
-        <div class="flex flex-1 flex-col lg:pl-72">
+        <div class="flex min-w-0 flex-1 flex-col lg:pl-72">
             <slot />
         </div>
     </div>

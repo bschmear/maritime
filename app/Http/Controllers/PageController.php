@@ -98,7 +98,8 @@ class PageController extends Controller
         $faqs = Cache::remember(PublicPageCache::FAQS_ALL, now()->addHours(12), function () {
             return Faq::query()
                 ->orderByDesc('featured')
-                ->orderBy('created_at')
+                ->orderBy('sort_order')
+                ->orderBy('id')
                 ->get()
                 ->map(function ($faq) {
                     return [

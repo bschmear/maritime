@@ -3,9 +3,13 @@
         <InputLabel v-if="label" :for="id" :value="label" class="text-gray-900 dark:text-white" />
         
         <!-- Toolbar -->
-        <div class="border border-gray-300 dark:border-gray-600 border-b-0 rounded-t-lg bg-gray-50 dark:bg-gray-800/50 toolbar mt-2">
+        <div
+            class="border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 toolbar mt-2"
+            :class="isHtmlMode ? 'rounded-t-lg border-b' : 'rounded-t-lg border-b-0'"
+        >
             <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
                 <div class="flex flex-wrap items-center gap-1">
+                    <template v-if="!isHtmlMode">
                     <!-- Text formatting -->
                     <div class="flex items-center gap-1">
                         <button
@@ -270,12 +274,42 @@
                             </svg>
                         </button>
                     </div>
+                    </template>
+
+                    <div
+                        v-if="showHtmlToggle"
+                        class="flex items-center"
+                        :class="{ 'ml-auto': !isHtmlMode }"
+                    >
+                        <button
+                            @click="toggleHtmlMode"
+                            :class="{ 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300': isHtmlMode }"
+                            class="px-2.5 py-1.5 text-sm font-mono font-semibold text-gray-600 dark:text-gray-400 rounded hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                            type="button"
+                            :title="isHtmlMode ? 'Switch to visual editor' : 'Switch to HTML source'"
+                        >
+                            {{ isHtmlMode ? 'Visual' : 'HTML' }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- HTML source -->
+        <textarea
+            v-if="isHtmlMode"
+            :id="id"
+            v-model="htmlSource"
+            @input="onHtmlInput"
+            rows="16"
+            spellcheck="false"
+            class="block w-full rounded-b-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 font-mono text-sm text-gray-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500 dark:focus:border-primary-400 dark:focus:ring-primary-400 min-h-[300px] resize-y transition-colors"
+            placeholder="Paste or edit HTML..."
+        />
+
         <!-- Editor -->
         <editor-content
+            v-else
             :editor="editor"
             class="prose prose-sm sm:prose lg:prose-lg !max-w-none block w-full px-4 py-3 text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-b-lg focus-within:ring-2 focus-within:ring-primary-500 focus-within:border-primary-500 dark:focus-within:ring-primary-400 dark:focus-within:border-primary-400 min-h-[300px] transition-colors"
         />
@@ -309,6 +343,10 @@ const props = defineProps({
         default: ''
     },
     showAnchor: {
+        type: Boolean,
+        default: false
+    },
+    showHtmlToggle: {
         type: Boolean,
         default: false
     },
@@ -367,6 +405,8 @@ const Anchor = Node.create({
 })
 
 const editor = ref(null)
+const isHtmlMode = ref(false)
+const htmlSource = ref('')
 
 onMounted(() => {
     editor.value = new Editor({
@@ -396,12 +436,42 @@ onBeforeUnmount(() => {
 })
 
 watch(() => props.modelValue, (value) => {
+    if (isHtmlMode.value) {
+        if (htmlSource.value !== value) {
+            htmlSource.value = value ?? ''
+        }
+        return
+    }
+
+    if (!editor.value) {
+        return
+    }
+
     const isSame = editor.value.getHTML() === value
     if (isSame) {
         return
     }
     editor.value.commands.setContent(value, false)
 })
+
+const toggleHtmlMode = () => {
+    if (isHtmlMode.value) {
+        const html = htmlSource.value
+        if (editor.value) {
+            editor.value.commands.setContent(html, false)
+        }
+        emit('update:modelValue', html)
+        isHtmlMode.value = false
+        return
+    }
+
+    htmlSource.value = editor.value?.getHTML() ?? props.modelValue ?? ''
+    isHtmlMode.value = true
+}
+
+const onHtmlInput = () => {
+    emit('update:modelValue', htmlSource.value)
+}
 
 const setLink = () => {
     if (!editor.value) return

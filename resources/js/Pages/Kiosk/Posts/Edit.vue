@@ -24,6 +24,8 @@ function toDateTimeLocalValue(value) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const titleMaxLength = 255;
+
 const props = defineProps({
     post: Object,
     categories: Array,
@@ -34,7 +36,6 @@ const form = useForm({
     title: props.post.title || '',
     body: props.post.body || '',
     category_id: props.post.category_id || '',
-    short_description: props.post.short_description || '',
     cover_image: props.post.cover_image || '',
     featured: props.post.featured || false,
     published: props.post.published || false,
@@ -78,7 +79,7 @@ const submit = () => {
                     >
                         <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6">
                             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Content</h2>
-                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Title, summary, and body</p>
+                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Title and body</p>
                         </div>
                         <div class="space-y-6 px-4 py-6 sm:px-6">
                             <div>
@@ -87,27 +88,16 @@ const submit = () => {
                                     id="title"
                                     v-model="form.title"
                                     type="text"
+                                    :maxlength="titleMaxLength"
                                     class="mt-2 block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
                                     placeholder="Enter an engaging post title..."
                                     required
                                     autofocus
                                 />
-                                <InputError class="mt-2" :message="form.errors.title" />
-                            </div>
-
-                            <div>
-                                <InputLabel for="short_description" value="Short description" class="text-gray-900 dark:text-white" />
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    Brief summary for previews and social media
+                                    {{ form.title.length }}/{{ titleMaxLength }} characters
                                 </p>
-                                <TextInput
-                                    id="short_description"
-                                    v-model="form.short_description"
-                                    type="text"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
-                                    placeholder="Write a compelling summary..."
-                                />
-                                <InputError class="mt-2" :message="form.errors.short_description" />
+                                <InputError class="mt-2" :message="form.errors.title" />
                             </div>
 
                             <div>
@@ -117,6 +107,7 @@ const submit = () => {
                                     v-model="form.body"
                                     :error="form.errors.body"
                                     :show-anchor="true"
+                                    :show-html-toggle="true"
                                 />
                             </div>
                         </div>

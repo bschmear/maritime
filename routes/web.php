@@ -40,7 +40,9 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
         Route::resource('posts', PostController::class);
         Route::resource('categories', CategoryController::class);
         Route::resource('tags', TagController::class);
+        Route::post('faqs/reorder', [FaqController::class, 'reorder'])->name('faqs.reorder');
         Route::resource('faqs', FaqController::class);
+        Route::post('help-categories/reorder', [HelpCategoryController::class, 'reorder'])->name('help-categories.reorder');
         Route::resource('help-categories', HelpCategoryController::class);
         Route::get('help-articles/siblings', [HelpArticleController::class, 'siblings'])->name('help-articles.siblings');
         Route::post('help-articles/reorder', [HelpArticleController::class, 'reorder'])->name('help-articles.reorder');

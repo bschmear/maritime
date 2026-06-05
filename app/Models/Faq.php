@@ -13,5 +13,11 @@ class Faq extends Model
         'question',
         'answer',
         'featured',
+        'sort_order',
+    ];
+
+    protected $casts = [
+        'featured' => 'boolean',
+        'sort_order' => 'integer',
     ];
 }

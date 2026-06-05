@@ -24,12 +24,36 @@ class HelpCategoryController extends Controller
             });
         }
 
-        $categories = $query->orderBy('sort_order')->paginate(15);
+        $categories = $query
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
 
         return Inertia::render('Kiosk/Help/Categories/Index', [
             'categories' => $categories,
             'filters' => $request->only(['search']),
+            'canReorder' => ! $request->filled('search'),
         ]);
+    }
+
+    public function reorder(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'order' => 'required|array|min:1',
+            'order.*' => 'integer|exists:help_categories,id',
+        ]);
+
+        $order = array_map('intval', $validated['order']);
+
+        if (HelpCategory::query()->whereIn('id', $order)->count() !== count($order)) {
+            abort(422, 'Invalid category order.');
+        }
+
+        foreach ($order as $index => $id) {
+            HelpCategory::query()->whereKey($id)->update(['sort_order' => $index]);
+        }
+
+        return back();
     }
 
     public function create(): Response
@@ -50,6 +74,10 @@ class HelpCategoryController extends Controller
         ]);
 
         $validated['slug'] = Str::slug($validated['name']);
+
+        if (! isset($validated['sort_order'])) {
+            $validated['sort_order'] = (int) (HelpCategory::query()->max('sort_order') ?? -1) + 1;
+        }
 
         HelpCategory::create($validated);
 

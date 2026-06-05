@@ -5,17 +5,50 @@ import { ref } from 'vue';
 
 const props = defineProps({
     posts: Object,
+    categories: {
+        type: Array,
+        default: () => [],
+    },
+    tags: {
+        type: Array,
+        default: () => [],
+    },
+    authors: {
+        type: Array,
+        default: () => [],
+    },
     filters: Object,
 });
 
-const search = ref(props.filters.search || '');
+const search = ref(props.filters?.search || '');
+const categoryId = ref(props.filters?.category ? String(props.filters.category) : '');
+const tagId = ref(props.filters?.tag ? String(props.filters.tag) : '');
+const authorId = ref(props.filters?.author ? String(props.filters.author) : '');
 
-const searchPosts = () => {
-    router.get(route('kiosk.posts.index'), { search: search.value }, {
+const filterParams = () => ({
+    search: search.value || undefined,
+    category: categoryId.value || undefined,
+    tag: tagId.value || undefined,
+    author: authorId.value || undefined,
+});
+
+const applyFilters = () => {
+    router.get(route('kiosk.posts.index'), filterParams(), {
         preserveState: true,
         replace: true,
     });
 };
+
+const clearFilters = () => {
+    search.value = '';
+    categoryId.value = '';
+    tagId.value = '';
+    authorId.value = '';
+    applyFilters();
+};
+
+const hasActiveFilters = () =>
+    Boolean(search.value || categoryId.value || tagId.value || authorId.value);
 
 const deletePost = (post) => {
     if (confirm('Are you sure you want to delete this post?')) {
@@ -23,10 +56,6 @@ const deletePost = (post) => {
     }
 };
 
-const truncate = (text, length = 50) => {
-    if (!text) return '';
-    return text.length > length ? text.substring(0, length) + '...' : text;
-};
 </script>
 
 <template>
@@ -37,19 +66,19 @@ const truncate = (text, length = 50) => {
             <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Posts</h1>
         </template>
 
-        <div class="space-y-6">
+        <div class="min-w-0 space-y-6">
             <!-- Header Actions -->
             <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
                 <div class="flex-1 max-w-lg">
                     <div class="relative">
                         <input
                             v-model="search"
-                            @keyup.enter="searchPosts"
+                            @keyup.enter="applyFilters"
                             type="search"
                             placeholder="Search posts..."
                             class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400 placeholder:text-gray-400 dark:placeholder:text-gray-500 pr-10"
                         />
-                        <button @click="searchPosts" class="absolute inset-y-0 right-0 flex items-center pr-3">
+                        <button @click="applyFilters" type="button" class="absolute inset-y-0 right-0 flex items-center pr-3">
                             <svg class="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                             </svg>
@@ -67,10 +96,55 @@ const truncate = (text, length = 50) => {
                 </Link>
             </div>
 
+            <!-- Filters -->
+            <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <select
+                    v-model="categoryId"
+                    class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400 sm:w-auto sm:min-w-[10rem]"
+                    @change="applyFilters"
+                >
+                    <option value="">All categories</option>
+                    <option v-for="category in categories" :key="category.id" :value="String(category.id)">
+                        {{ category.name }}
+                    </option>
+                </select>
+
+                <select
+                    v-model="tagId"
+                    class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400 sm:w-auto sm:min-w-[10rem]"
+                    @change="applyFilters"
+                >
+                    <option value="">All tags</option>
+                    <option v-for="tag in tags" :key="tag.id" :value="String(tag.id)">
+                        {{ tag.name }}
+                    </option>
+                </select>
+
+                <select
+                    v-model="authorId"
+                    class="block w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400 sm:w-auto sm:min-w-[10rem]"
+                    @change="applyFilters"
+                >
+                    <option value="">All authors</option>
+                    <option v-for="author in authors" :key="author.id" :value="String(author.id)">
+                        {{ author.name }}
+                    </option>
+                </select>
+
+                <button
+                    v-if="hasActiveFilters()"
+                    type="button"
+                    class="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                    @click="clearFilters"
+                >
+                    Clear filters
+                </button>
+            </div>
+
             <!-- Posts Table -->
-            <div class="overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl">
+            <div class="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <table class="min-w-[48rem] w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-800/50">
                             <tr>
                                 <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-white sm:pl-6">
@@ -99,13 +173,14 @@ const truncate = (text, length = 50) => {
                                 :key="post.id"
                                 class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                             >
-                                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
-                                    <Link :href="route('kiosk.posts.edit', post.id)" class="font-medium text-gray-900 dark:text-white hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
-                                        {{ truncate(post.title, 60) }}
+                                <td class="max-w-xs py-4 pl-4 pr-3 text-sm sm:max-w-sm sm:pl-6">
+                                    <Link
+                                        :href="route('kiosk.posts.edit', post.id)"
+                                        class="block truncate font-medium text-gray-900 transition-colors hover:text-primary-700 dark:text-white dark:hover:text-primary-300"
+                                        :title="post.title"
+                                    >
+                                        {{ post.title }}
                                     </Link>
-                                    <div v-if="post.short_description" class="text-gray-500 dark:text-gray-400 mt-1">
-                                        {{ truncate(post.short_description, 80) }}
-                                    </div>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                                     <span
@@ -167,8 +242,10 @@ const truncate = (text, length = 50) => {
                                     <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                                     </svg>
-                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No posts</h3>
-                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new post.</p>
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No posts found</h3>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ hasActiveFilters() ? 'Try adjusting your search or filters.' : 'Get started by creating a new post.' }}
+                                    </p>
                                     <div class="mt-6">
                                         <Link
                                             :href="route('kiosk.posts.create')"

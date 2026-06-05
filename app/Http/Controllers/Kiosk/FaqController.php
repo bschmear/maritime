@@ -14,11 +14,36 @@ class FaqController extends Controller
 {
     public function index(): Response
     {
-        $faqs = Faq::latest()->paginate(15);
+        $faqs = Faq::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
 
         return Inertia::render('Kiosk/Faqs/Index', [
             'faqs' => $faqs,
         ]);
+    }
+
+    public function reorder(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'order' => 'required|array|min:1',
+            'order.*' => 'integer|exists:faqs,id',
+        ]);
+
+        $order = array_map('intval', $validated['order']);
+
+        if (Faq::query()->whereIn('id', $order)->count() !== count($order)) {
+            abort(422, 'Invalid FAQ order.');
+        }
+
+        foreach ($order as $index => $id) {
+            Faq::query()->whereKey($id)->update(['sort_order' => $index]);
+        }
+
+        PublicPageCache::forgetFaqs();
+
+        return back();
     }
 
     public function create(): Response
@@ -34,7 +59,11 @@ class FaqController extends Controller
             'featured' => 'boolean',
         ]);
 
+        $validated['sort_order'] = (int) (Faq::query()->max('sort_order') ?? -1) + 1;
+
         Faq::create($validated);
+
+        PublicPageCache::forgetFaqs();
 
         return redirect()->route('kiosk.faqs.index')
             ->with('success', 'FAQ created successfully.');

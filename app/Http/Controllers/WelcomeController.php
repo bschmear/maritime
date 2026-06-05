@@ -77,7 +77,8 @@ class WelcomeController extends Controller
 
         $faqs = Cache::remember(PublicPageCache::WELCOME_FAQS_FEATURED, now()->addHours(12), function () {
             return Faq::where('featured', true)
-                ->orderBy('created_at')
+                ->orderBy('sort_order')
+                ->orderBy('id')
                 ->get()
                 ->map(function ($faq) {
                     return [
