@@ -373,14 +373,14 @@ function resetFilters() {
                     </div>
                 </div>
 
-                <div
-                    v-if="hasOpportunityChart"
-                    class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                >
+                <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="mb-4 text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Opportunities by status
                     </h3>
-                    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                    <div
+                        v-if="hasOpportunityChart"
+                        class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+                    >
                         <ApexPieChart
                             :labels="opportunityChart.labels"
                             :series="opportunityChart.series"
@@ -404,16 +404,19 @@ function resetFilters() {
                             </li>
                         </ul>
                     </div>
+                    <p v-else class="py-12 text-center text-base text-gray-400 dark:text-gray-500">
+                        No data for this period.
+                    </p>
                 </div>
 
-                <div
-                    v-if="hasEstimateChart"
-                    class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                >
+                <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="mb-4 text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Estimates by status
                     </h3>
-                    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                    <div
+                        v-if="hasEstimateChart"
+                        class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+                    >
                         <ApexPieChart
                             :labels="estimateChart.labels"
                             :series="estimateChart.series"
@@ -437,16 +440,19 @@ function resetFilters() {
                             </li>
                         </ul>
                     </div>
+                    <p v-else class="py-12 text-center text-base text-gray-400 dark:text-gray-500">
+                        No data for this period.
+                    </p>
                 </div>
 
-                <div
-                    v-if="hasLeadsChart"
-                    class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800"
-                >
+                <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="mb-4 text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Leads overview
                     </h3>
-                    <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                    <div
+                        v-if="hasLeadsChart"
+                        class="flex flex-col items-center gap-4 sm:flex-row sm:justify-center"
+                    >
                         <ApexPieChart
                             :labels="leadsChart.labels"
                             :series="leadsChart.series"
@@ -470,6 +476,9 @@ function resetFilters() {
                             </li>
                         </ul>
                     </div>
+                    <p v-else class="py-12 text-center text-base text-gray-400 dark:text-gray-500">
+                        No data for this period.
+                    </p>
                 </div>
             </div>
 

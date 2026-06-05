@@ -23,6 +23,7 @@
         "league/flysystem-aws-s3-v3": "^3.0",
         "mailchimp/marketing": "^3.0",
         "openai-php/laravel": "^0.19.1",
+        "predis/predis": "^2.2",
         "spatie/laravel-sitemap": "^8.1",
         "stancl/tenancy": "^3.9",
         "tightenco/ziggy": "^2.0",
