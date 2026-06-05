@@ -16,10 +16,6 @@ return [
     |
     */
 
-    'postmark' => [
-        'key' => env('POSTMARK_API_KEY', env('POSTMARK_TOKEN')),
-    ],
-
     'sendgrid' => [
         'api_key' => env('SENDGRID_API_KEY'),
     ],
