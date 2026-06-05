@@ -1073,6 +1073,7 @@ const handleCancel = () => {
                                     Customer Information
                                 </h3>
 
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 ">
                                 <!-- Customer Selection -->
                                 <div>
                                     <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1159,6 +1160,7 @@ const handleCancel = () => {
                                         {{ record?.location?.display_name || '—' }}
                                     </p>
                                 </div>
+                                </div>
                             </div>
 
                             <div class="space-y-4">
@@ -1166,6 +1168,7 @@ const handleCancel = () => {
                                     Assignment & Scheduling
                                 </h3>
 
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 ">
                                 <!-- Assigned User Selection -->
                                 <div>
                                     <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1250,6 +1253,7 @@ const handleCancel = () => {
                                     <p v-if="mode !== 'show' && fieldsSchema.completed_at?.help" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                         {{ fieldsSchema.completed_at.help }}
                                     </p>
+                                </div>
                                 </div>
                             </div>
                         </div>
