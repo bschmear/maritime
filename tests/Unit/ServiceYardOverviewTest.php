@@ -8,7 +8,7 @@ use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\WorkOrder\Status as WorkOrderStatus;
-use App\Http\Controllers\Tenant\ServiceYardController;
+use App\Services\ServiceYard\ServiceYardOverviewDataService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use ReflectionMethod;
@@ -88,8 +88,8 @@ class ServiceYardOverviewTest extends TestCase
             'work_order_number' => 9002,
         ]);
 
-        $controller = new ServiceYardController;
-        $method = new ReflectionMethod(ServiceYardController::class, 'loadStandaloneWorkOrdersForLocation');
+        $service = new ServiceYardOverviewDataService;
+        $method = new ReflectionMethod(ServiceYardOverviewDataService::class, 'loadStandaloneWorkOrdersForLocation');
         $method->setAccessible(true);
 
         $openWo = [
@@ -104,7 +104,7 @@ class ServiceYardOverviewTest extends TestCase
             ServiceTicketStatus::InProgress->id(),
         ];
 
-        $rows = $method->invoke($controller, 5, $openWo, $openTicket);
+        $rows = $method->invoke($service, 5, $openWo, $openTicket, null);
         $ids = collect($rows)->pluck('id')->all();
 
         $this->assertContains($blocked->id, $ids);
@@ -127,5 +127,18 @@ class ServiceYardOverviewTest extends TestCase
         $this->assertContains(8, $kanbanIds);
         $this->assertContains(9, $kanbanIds);
         $this->assertNotContains(1, $kanbanIds);
+    }
+
+    public function test_hours_variance_bucket_classification(): void
+    {
+        $service = new ServiceYardOverviewDataService;
+
+        $this->assertSame('no_estimate', $service->hoursVarianceBucket(null, null));
+        $this->assertSame('no_estimate', $service->hoursVarianceBucket(0, 5));
+        $this->assertSame('awaiting_actual', $service->hoursVarianceBucket(10, null));
+        $this->assertSame('awaiting_actual', $service->hoursVarianceBucket(10, 0));
+        $this->assertSame('under', $service->hoursVarianceBucket(10, 4));
+        $this->assertSame('on', $service->hoursVarianceBucket(10, 10));
+        $this->assertSame('over', $service->hoursVarianceBucket(10, 12));
     }
 }
