@@ -21,7 +21,7 @@ class CreateDocument
         $validated = Validator::make($data, [
             'display_name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'file' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,csv,txt,xlsx,excel,x-excel,x-msexcel', 'max:51200'], // 50MB max
+            'file' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,pdf,doc,docx,csv,txt,xlsx,excel,x-excel,x-msexcel', 'max:51200'], // 50MB max
             'assigned_id' => ['nullable', 'exists:users,id'],
             'created_by_id' => ['nullable', 'exists:users,id'],
         ])->validate();

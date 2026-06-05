@@ -159,7 +159,7 @@ class QuickBooksOAuthService
         ];
 
         /** @var Integration */
-        return Integration::query()->updateOrCreate(
+        return Integration::upsertFromOAuth(
             [
                 'integration_type' => (string) IntegrationType::QuickBooks->value,
                 ...Integration::attributesForExternalId($realmId),
@@ -202,10 +202,12 @@ class QuickBooksOAuthService
 
         $data = $response->json();
 
-        $integration->update([
+        $integration->updateOAuthTokens([
             'access_token' => $data['access_token'],
             'refresh_token' => $data['refresh_token'] ?? $integration->refresh_token,
             'token_expires_at' => now()->addSeconds((int) ($data['expires_in'] ?? 3600)),
+        ]);
+        $integration->update([
             'metadata' => array_merge($integration->metadata ?? [], [
                 'qbo_last_refreshed_at' => now()->toIso8601String(),
             ]),

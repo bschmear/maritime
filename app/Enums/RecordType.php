@@ -193,6 +193,17 @@ enum RecordType: string
         return tenant_can_access_record_type($this);
     }
 
+    public static function fromDomainName(string $domainName): ?self
+    {
+        foreach (self::cases() as $case) {
+            if ($case->domainName() === $domainName) {
+                return $case;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Returns an array suitable for dropdowns / selects
      */

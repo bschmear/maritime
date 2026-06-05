@@ -5,6 +5,7 @@ import Modal from '@/Components/Modal.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, ref } from 'vue';
+import { sanitizeHtml } from '@/Utils/sanitizeHtml.js';
 
 const appInstance = getCurrentInstance();
 
@@ -42,6 +43,7 @@ const visibleSublists = computed(() => props.formSchema?.sublists ?? []);
 const qualificationNotes = computed(() => props.record?.notes ?? []);
 
 const primaryNote = computed(() => qualificationNotes.value[0] ?? null);
+const primaryNoteHtml = computed(() => sanitizeHtml(primaryNote.value?.body ?? ''));
 
 const qualificationLabel = computed(() =>
     props.record?.display_name ? props.record.display_name : `QLF-${props.record?.id}`,
@@ -605,7 +607,7 @@ const convertLeadAndCreateOpportunity = () => {
                 <div v-if="primaryNote?.body" class="p-6">
                     <div
                         class="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
-                        v-html="primaryNote.body"
+                        v-html="primaryNoteHtml"
                     />
                 </div>
                 <div v-else class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">

@@ -34,9 +34,9 @@ Route::middleware([
     // Customer auth (guest only)
     Route::middleware('guest:customer')->prefix('portal')->group(function () {
         Route::get('/login', [CustomerAuthController::class, 'create'])->name('portal.login');
-        Route::post('/login', [CustomerAuthController::class, 'store']);
+        Route::post('/login', [CustomerAuthController::class, 'store'])->middleware('throttle:5,1');
         Route::get('/register', [CustomerRegistrationController::class, 'create'])->name('portal.register');
-        Route::post('/register', [CustomerRegistrationController::class, 'store']);
+        Route::post('/register', [CustomerRegistrationController::class, 'store'])->middleware('throttle:5,1');
     });
 
     // Authenticated customer portal
@@ -66,9 +66,9 @@ Route::middleware([
 
     Route::middleware('guest:vendor')->prefix('vendor/portal')->group(function () {
         Route::get('/login', [VendorAuthController::class, 'create'])->name('vendor.portal.login');
-        Route::post('/login', [VendorAuthController::class, 'store']);
+        Route::post('/login', [VendorAuthController::class, 'store'])->middleware('throttle:5,1');
         Route::get('/register', [VendorRegistrationController::class, 'create'])->name('vendor.portal.register');
-        Route::post('/register', [VendorRegistrationController::class, 'store']);
+        Route::post('/register', [VendorRegistrationController::class, 'store'])->middleware('throttle:5,1');
     });
 
     Route::middleware('auth:vendor')->prefix('vendor/portal')->name('vendor.portal.')->group(function () {

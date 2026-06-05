@@ -11,6 +11,7 @@ use App\Domain\User\Models\User;
 use App\Enums\Surveys\Status;
 use App\Enums\Surveys\Type;
 use App\Http\Controllers\Controller;
+use App\Support\SafeRedirectUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -339,11 +340,17 @@ class SurveyController extends Controller
             'automation_trigger' => 'nullable|string',
             'automation_config' => 'nullable|array',
             'thank_you_message' => 'nullable|string',
-            'redirect_url' => 'nullable|url',
+            'redirect_url' => ['nullable', 'string', 'max:2048', function ($attribute, $value, $fail) {
+                if ($value && ! SafeRedirectUrl::isAllowed($value)) {
+                    $fail('Redirect URL must be a relative path or your site domain.');
+                }
+            }],
             'privacy_settings' => 'nullable|array',
             'color_scheme' => 'nullable|in:default,custom',
             'custom_color' => 'nullable|string|max:20',
         ]);
+
+        $this->sanitizeValidatedRedirect($validated);
 
         $tenantUserId = $this->tenantUserId() ?? ($validated['assigned_user_id'] ?? null);
 
@@ -411,11 +418,17 @@ class SurveyController extends Controller
             'automation_trigger' => 'nullable|string',
             'automation_config' => 'nullable|array',
             'thank_you_message' => 'nullable|string',
-            'redirect_url' => 'nullable|url',
+            'redirect_url' => ['nullable', 'string', 'max:2048', function ($attribute, $value, $fail) {
+                if ($value && ! SafeRedirectUrl::isAllowed($value)) {
+                    $fail('Redirect URL must be a relative path or your site domain.');
+                }
+            }],
             'privacy_settings' => 'nullable|array',
             'color_scheme' => 'nullable|in:default,custom',
             'custom_color' => 'nullable|string|max:20',
         ]);
+
+        $this->sanitizeValidatedRedirect($validated);
 
         $survey->update([
             'title' => $validated['title'] ?? $survey->title,
@@ -742,6 +755,16 @@ class SurveyController extends Controller
     public function sendToContact(Request $request): JsonResponse
     {
         return response()->json(['message' => 'Not implemented.'], 501);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    protected function sanitizeValidatedRedirect(array &$validated): void
+    {
+        if (array_key_exists('redirect_url', $validated)) {
+            $validated['redirect_url'] = SafeRedirectUrl::sanitize($validated['redirect_url']);
+        }
     }
 
     public function sendToRecord(Request $request): JsonResponse

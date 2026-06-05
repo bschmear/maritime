@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Portal\CustomerLoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,24 +19,12 @@ class CustomerAuthController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(CustomerLoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
-        if (! Auth::guard('customer')->attempt(
+        $request->attemptLogin(fn () => Auth::guard('customer')->attempt(
             $request->only('email', 'password'),
             $request->boolean('remember')
-        )) {
-            $message = __('These credentials do not match our records.');
-
-            throw ValidationException::withMessages([
-                'email' => $message,
-                'password' => $message,
-            ]);
-        }
+        ));
 
         $request->session()->regenerate();
 

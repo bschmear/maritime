@@ -141,7 +141,7 @@ class DocumentController extends RecordController
     public function uploadAttach(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,csv,txt,xlsx,excel,x-excel,x-msexcel|max:51200',
+            'file' => 'required|file|mimes:jpeg,png,jpg,gif,pdf,doc,docx,csv,txt,xlsx,excel,x-excel,x-msexcel|max:51200',
             'display_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'attach_to_type' => 'required|string',

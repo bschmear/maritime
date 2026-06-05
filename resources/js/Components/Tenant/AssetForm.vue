@@ -14,6 +14,7 @@ import MeasurementImperialInput from '@/Components/Tenant/FormComponents/Measure
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial, formatLengthMmForDisplay } from '@/Utils/measurementMm.js';
 import { useAssetSchemaForm } from '@/composables/useAssetSchemaForm.js';
+import { sanitizeHtml } from '@/Utils/sanitizeHtml.js';
 import VariantForm from '@/Components/Tenant/VariantForm.vue';
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -92,6 +93,8 @@ const {
     isProcessing,
     imagePreviews,
 } = useAssetSchemaForm(props, emit);
+
+const sanitizedFieldHtml = (fieldKey) => sanitizeHtml(getFieldValue(fieldKey) || '');
 
 const hasVariants = computed(() => {
     const fromRecord = !!props.record?.has_variants;
@@ -959,7 +962,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                             >
                                                             <span v-else class="text-gray-500 dark:text-gray-400">No image</span>
                                                         </div>
-                                                        <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-800" v-html="getFieldValue(field.key) || '—'" />
+                                                        <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none rounded-lg border border-gray-200 p-4 dark:border-gray-700 dark:bg-gray-800" v-html="sanitizedFieldHtml(field.key) || '—'" />
                                                         <span v-else-if="getFieldType(field.key) === 'morph'">
                                                             <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">
                                                                 <span class="rounded bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">{{ getFieldValue(field.key)?.split('\\').pop() || 'Unknown' }}</span>

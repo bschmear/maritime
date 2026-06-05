@@ -421,7 +421,7 @@ class CustomerPortalController extends Controller
         $contact = Auth::guard('customer')->user();
 
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,csv,txt,xlsx', 'max:51200'],
+            'file' => ['required', 'file', 'mimes:jpeg,png,jpg,gif,pdf,doc,docx,csv,txt,xlsx', 'max:51200'],
         ]);
 
         $result = $fulfillDocumentRequest(

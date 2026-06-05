@@ -40,7 +40,7 @@ class MailchimpOAuthService
                 throw new \RuntimeException('No access token in refresh response');
             }
 
-            $integration->update([
+            $integration->updateOAuthTokens([
                 'access_token' => $data['access_token'],
                 'refresh_token' => $data['refresh_token'] ?? $refreshToken,
                 'token_expires_at' => isset($data['expires_in']) && $data['expires_in'] > 0

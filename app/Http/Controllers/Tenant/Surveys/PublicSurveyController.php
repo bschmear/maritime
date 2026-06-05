@@ -10,6 +10,7 @@ use App\Domain\Vendor\Models\Vendor;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessSurveyResponse;
 use App\Models\AccountSettings;
+use App\Support\SafeRedirectUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -88,9 +89,11 @@ class PublicSurveyController extends Controller
             abort(404);
         }
 
+        $this->bindRecipientSession($request, $survey);
         $recipientData = $this->resolveRecipientData($request);
         $agent = $this->resolveAgent($survey, $request->query('aid'));
         $account = AccountSettings::getCurrent();
+        $survey->setAttribute('redirect_url', SafeRedirectUrl::sanitize($survey->redirect_url));
 
         return [
             'survey' => $survey,
@@ -145,7 +148,64 @@ class PublicSurveyController extends Controller
     /**
      * @return array<string, mixed>|null
      */
+    protected function recipientSessionKey(Survey $survey): string
+    {
+        return 'survey_recipient_'.$survey->uuid;
+    }
+
+    protected function bindRecipientSession(Request $request, Survey $survey): void
+    {
+        $sessionKey = $this->recipientSessionKey($survey);
+
+        if (! $request->query('type') || $request->query('rid') === null || $request->query('rid') === '') {
+            return;
+        }
+
+        if (! $request->hasValidSignature()) {
+            $request->session()->forget($sessionKey);
+
+            return;
+        }
+
+        $recipientData = $this->resolveRecipientFromQuery($request);
+        if ($recipientData === null || ! isset($recipientData['type'], $recipientData['id'])) {
+            $request->session()->forget($sessionKey);
+
+            return;
+        }
+
+        $request->session()->put($sessionKey, [
+            'type' => $recipientData['type'],
+            'id' => (int) $recipientData['id'],
+            'agent_id' => $recipientData['agent_id'] ?? null,
+        ]);
+    }
+
     protected function resolveRecipientData(Request $request): ?array
+    {
+        $recipientType = $request->query('type');
+        $recipientId = $request->query('rid');
+        $agentId = $request->query('aid');
+
+        if ($recipientType && $recipientId !== null && $recipientId !== '') {
+            if (! $request->hasValidSignature()) {
+                return $this->agentOnlyRecipientData($agentId);
+            }
+
+            return $this->resolveRecipientFromQuery($request);
+        }
+
+        if ($agentId) {
+            return ['agent_id' => (int) $agentId];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function resolveRecipientFromQuery(Request $request): ?array
     {
         $recipientType = $request->query('type');
         $recipientId = $request->query('rid');
@@ -202,11 +262,15 @@ class PublicSurveyController extends Controller
             ];
         }
 
-        if ($agentId) {
-            return ['agent_id' => (int) $agentId];
-        }
-
         return null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function agentOnlyRecipientData(mixed $agentId): ?array
+    {
+        return $agentId ? ['agent_id' => (int) $agentId] : null;
     }
 
     /**
@@ -284,7 +348,7 @@ class PublicSurveyController extends Controller
                 }
             }
 
-            [$ownerType, $ownerId] = $this->resolveOwnerFromPayload($validated);
+            [$ownerType, $ownerId] = $this->resolveOwnerFromSession($request, $survey);
 
             $assignedTo = $survey->user_id;
             if (! empty($validated['aid'])) {
@@ -326,10 +390,12 @@ class PublicSurveyController extends Controller
 
             ProcessSurveyResponse::dispatch($survey->fresh(), $surveyResponse->fresh());
 
+            $safeRedirectUrl = SafeRedirectUrl::sanitize($survey->redirect_url);
+
             $responseData = [
                 'success' => true,
                 'message' => $survey->thank_you_message ?? 'Thank you for your response!',
-                'redirect_url' => $survey->redirect_url,
+                'redirect_url' => $safeRedirectUrl,
                 'response_id' => $surveyResponse->id,
             ];
 
@@ -350,8 +416,8 @@ class PublicSurveyController extends Controller
                 return response()->json($responseData);
             }
 
-            if ($survey->redirect_url) {
-                return redirect()->away($survey->redirect_url);
+            if ($safeRedirectUrl) {
+                return redirect()->to($safeRedirectUrl);
             }
 
             return redirect()->back()->with('success', $survey->thank_you_message ?? 'Thank you for your response!');
@@ -477,17 +543,23 @@ class PublicSurveyController extends Controller
     }
 
     /**
-     * @param  array{type?: string, rid?: int}  $validated
      * @return array{0: ?string, 1: ?int}
      */
-    protected function resolveOwnerFromPayload(array $validated): array
+    protected function resolveOwnerFromSession(Request $request, Survey $survey): array
     {
-        if (empty($validated['type']) || empty($validated['rid'])) {
+        $session = $request->session()->get($this->recipientSessionKey($survey));
+        if (! is_array($session) || empty($session['type']) || empty($session['id'])) {
             return [null, null];
         }
 
-        $recipientType = $validated['type'];
-        $recipientId = (int) $validated['rid'];
+        return $this->resolveOwnerFromTypeAndId((string) $session['type'], (int) $session['id']);
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?int}
+     */
+    protected function resolveOwnerFromTypeAndId(string $recipientType, int $recipientId): array
+    {
 
         $modelClass = match ($recipientType) {
             'contact' => Contact::class,

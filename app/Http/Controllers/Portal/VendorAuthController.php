@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Portal\VendorLoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,24 +23,12 @@ class VendorAuthController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(VendorLoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
-
-        if (! Auth::guard('vendor')->attempt(
+        $request->attemptLogin(fn () => Auth::guard('vendor')->attempt(
             $request->only('email', 'password'),
             $request->boolean('remember')
-        )) {
-            $message = __('These credentials do not match our records.');
-
-            throw ValidationException::withMessages([
-                'email' => $message,
-                'password' => $message,
-            ]);
-        }
+        ));
 
         $contact = Auth::guard('vendor')->user();
         if ($contact && ! $contact->vendors()->exists()) {

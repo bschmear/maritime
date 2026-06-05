@@ -122,14 +122,22 @@ Route::middleware([
 
     // Public routes — UUID-secured, no auth required
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
-    Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])->name('service-tickets.approve');
-    Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])->name('service-tickets.decline');
+    Route::post('/service-tickets/{uuid}/approve', [PublicController::class, 'approve'])
+        ->middleware('throttle:10,1')
+        ->name('service-tickets.approve');
+    Route::post('/service-tickets/{uuid}/decline', [PublicController::class, 'decline'])
+        ->middleware('throttle:10,1')
+        ->name('service-tickets.decline');
 
     Route::get('/warranty-claims/{uuid}/review', [PublicController::class, 'reviewWarrantyClaim'])->name('warranty-claims.review');
 
     Route::get('/estimates/{uuid}/review', [PublicController::class, 'reviewEstimate'])->name('estimates.review');
-    Route::post('/estimates/{uuid}/approve', [PublicController::class, 'approveEstimate'])->name('estimates.approve');
-    Route::post('/estimates/{uuid}/decline', [PublicController::class, 'declineEstimate'])->name('estimates.decline');
+    Route::post('/estimates/{uuid}/approve', [PublicController::class, 'approveEstimate'])
+        ->middleware('throttle:10,1')
+        ->name('estimates.approve');
+    Route::post('/estimates/{uuid}/decline', [PublicController::class, 'declineEstimate'])
+        ->middleware('throttle:10,1')
+        ->name('estimates.decline');
 
     Route::get('/estimates/{uuid}/boat-options/{line}', [PublicController::class, 'boatOptionsEstimate'])
         ->middleware('signed')
@@ -157,13 +165,19 @@ Route::middleware([
         ->name('opportunities.feature-request.submit');
 
     Route::get('/deliveries/{uuid}/review', [PublicController::class, 'reviewDelivery'])->name('deliveries.review');
-    Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])->name('deliveries.sign');
+    Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])
+        ->middleware('throttle:10,1')
+        ->name('deliveries.sign');
 
     Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
-    Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])->name('contracts.sign');
+    Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])
+        ->middleware('throttle:10,1')
+        ->name('contracts.sign');
 
     Route::get('/consignment-agreements/{uuid}/review', [PublicController::class, 'reviewConsignmentAgreement'])->name('consignment-agreements.review');
-    Route::post('/consignment-agreements/{uuid}/sign', [PublicController::class, 'signConsignmentAgreement'])->name('consignment-agreements.sign');
+    Route::post('/consignment-agreements/{uuid}/sign', [PublicController::class, 'signConsignmentAgreement'])
+        ->middleware('throttle:10,1')
+        ->name('consignment-agreements.sign');
 
     Route::get('/invoices/{uuid}/view', [PublicController::class, 'viewInvoice'])->name('invoices.view');
     Route::post('/invoices/{uuid}/pay', [PublicController::class, 'startInvoicePayment'])

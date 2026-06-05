@@ -13,6 +13,7 @@ use App\Enums\ServiceItem\BillingType;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use App\Enums\Timezone;
+use App\Http\Controllers\Concerns\EnforcesTenantRecordPermissions;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Mail\ServiceTicketApprovalRequest;
 use App\Models\AccountSettings;
@@ -27,7 +28,7 @@ use Illuminate\Routing\Controller as BaseController;
 
 class ServiceTicketController extends BaseController
 {
-    use AuthorizesRequests, HasSchemaSupport, ValidatesRequests;
+    use AuthorizesRequests, EnforcesTenantRecordPermissions, HasSchemaSupport, ValidatesRequests;
 
     protected $domainName = 'ServiceTicket';
 
@@ -38,6 +39,7 @@ class ServiceTicketController extends BaseController
     public function __construct(ServiceTicketService $service)
     {
         $this->middleware('auth');
+        $this->registerTenantRecordPermissionMiddleware();
         $this->recordModel = new ServiceTicket;
         $this->service = $service;
     }

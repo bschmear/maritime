@@ -6,6 +6,7 @@ use App\Domain\User\Models\User;
 use App\Models\AccountSettings;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class Survey extends Model
@@ -74,6 +75,21 @@ class Survey extends Model
         }
 
         return $url;
+    }
+
+    public function signedRecipientShowUrl(string $recipientType, int $recipientId, ?int $agentId = null): string
+    {
+        $params = [
+            'id' => $this->uuid,
+            'type' => $recipientType,
+            'rid' => $recipientId,
+        ];
+
+        if ($agentId) {
+            $params['aid'] = $agentId;
+        }
+
+        return URL::signedRoute('surveysPublicShow', $params);
     }
 
     public function getEmbedUrl(): string

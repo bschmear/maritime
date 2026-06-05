@@ -77,7 +77,7 @@ class CurrentTenantProfile
 
         $allowed = config('record_type_access.types.'.$type->value);
         if (! is_array($allowed)) {
-            return false;
+            return true;
         }
 
         return in_array($slug, $allowed, true);

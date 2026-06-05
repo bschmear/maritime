@@ -16,6 +16,7 @@ import MeasurementImperialInput from '@/Components/Tenant/FormComponents/Measure
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { sanitizeHtml } from '@/Utils/sanitizeHtml.js';
 
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -610,6 +611,7 @@ const getImageSource = (fieldKey) => {
 };
 
 const getFieldValue = (fieldKey) => form[fieldKey] ?? '';
+const sanitizedFieldHtml = (fieldKey) => sanitizeHtml(getFieldValue(fieldKey) || '');
 
 const toggleMultiEnumValue = (fieldKey, optionId) => {
     const id = Number(optionId);
@@ -1536,7 +1538,7 @@ defineExpose({
                                                 <span v-else class="text-sm text-gray-500 dark:text-gray-400">No image</span>
                                         </div>
                                         <div v-else-if="getFieldType(field.key) === 'wysiwyg'" class="prose prose-sm dark:prose-invert max-w-none p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg max-h-[400px] overflow-y-auto">
-                                            <div v-html="getFieldValue(field.key) || '—'"></div>
+                                            <div v-html="sanitizedFieldHtml(field.key) || '—'"></div>
                                         </div>
                                         <span v-else-if="getFieldType(field.key) === 'morph'">
                                             <span v-if="record && record[getFieldDefinition(field.key).id_field]" class="inline-flex items-center gap-2">

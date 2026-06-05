@@ -119,7 +119,7 @@ class MailchimpOAuthController extends Controller
             tenancy()->initialize($tenant);
 
             try {
-                Integration::query()->updateOrCreate(
+                Integration::upsertFromOAuth(
                     [
                         'integration_type' => (string) IntegrationType::MailChimp->value,
                         ...Integration::attributesForExternalId($externalId),

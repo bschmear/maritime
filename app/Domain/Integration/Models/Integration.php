@@ -9,12 +9,60 @@ use App\Enums\Integration\IntegrationSyncStatus;
 use App\Enums\Integration\IntegrationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Arr;
 
 class Integration extends Model
 {
     protected $connection = 'tenant';
 
-    protected $guarded = [];
+    protected $fillable = [
+        'user_id',
+        'integration_type',
+        'name',
+        'settings',
+        'metadata',
+        'sync_status',
+        'sync_error_message',
+        'last_synced_at',
+        'token_expires_at',
+        'active',
+    ];
+
+    protected $guarded = ['id'];
+
+    /**
+     * @param  array<string, mixed>  $match
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function upsertFromOAuth(array $match, array $attributes): self
+    {
+        $secretKeys = ['access_token', 'refresh_token', 'sync_token', 'external_id'];
+        $secrets = Arr::only($attributes, $secretKeys);
+        $safe = Arr::except($attributes, $secretKeys);
+
+        $record = static::query()->firstOrNew($match);
+        $record->fill($safe);
+        if ($secrets !== []) {
+            $record->forceFill($secrets);
+        }
+        $record->save();
+
+        return $record;
+    }
+
+    /**
+     * @param  array<string, mixed>  $tokens
+     */
+    public function updateOAuthTokens(array $tokens): void
+    {
+        $this->forceFill(Arr::only($tokens, [
+            'access_token',
+            'refresh_token',
+            'sync_token',
+            'external_id',
+            'token_expires_at',
+        ]))->save();
+    }
 
     protected $casts = [
         'settings' => 'array',

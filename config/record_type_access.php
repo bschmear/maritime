@@ -21,7 +21,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Keys must match App\Enums\RecordType case values (e.g. "survey").
-    | Omitted types are denied for everyone except superadmin_slugs.
+    | Types omitted from this list are allowed for all roles. Listed types
+    | require a matching role slug (or superadmin_slugs).
     |
     */
     'types' => [

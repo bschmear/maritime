@@ -7,6 +7,7 @@ use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Domain\Document\Models\Document;
 use App\Domain\Vendor\Models\Vendor;
 use App\Enums\Timezone;
+use App\Http\Controllers\Concerns\EnforcesTenantRecordPermissions;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
@@ -25,7 +26,7 @@ use Illuminate\Validation\ValidationException;
 
 class RecordController extends BaseController
 {
-    use AuthorizesRequests, HasImageSupport, HasSchemaSupport, ValidatesRequests;
+    use AuthorizesRequests, EnforcesTenantRecordPermissions, HasImageSupport, HasSchemaSupport, ValidatesRequests;
 
     protected $recordType;
 
@@ -52,6 +53,7 @@ class RecordController extends BaseController
         $domainName = null
     ) {
         $this->middleware('auth');
+        $this->registerTenantRecordPermissionMiddleware();
         $this->recordType = $recordType;
         $this->recordTitle = $recordTitle;
         $this->recordModel = $recordModel;
