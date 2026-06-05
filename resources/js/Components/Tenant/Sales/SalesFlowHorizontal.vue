@@ -7,7 +7,7 @@ import {
     salesFlowLeadPath,
     salesFlowMainSpine,
     salesFlowSteps,
-} from '@/Data/salesFlowSteps';
+} from '@/data/salesFlowSteps';
 import { computed, ref } from 'vue';
 
 const expandedIds = ref(new Set());
