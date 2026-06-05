@@ -6,6 +6,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\Mime\MimeTypes;
 use Exception;
@@ -71,7 +72,12 @@ class PublicStorage
                 ]);
                 $uploadedImage = $key;
             } catch (Exception $e) {
-                dd($e);
+                Log::error('S3 image upload failed', [
+                    'key' => $key,
+                    'error' => $e->getMessage(),
+                ]);
+
+                throw $e;
             }
 
             // If upload was successful, delete the existing file from S3

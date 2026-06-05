@@ -101,5 +101,6 @@ return [
 
     'google' => [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+        'analytics_id' => env('GOOGLE_ANALYTICS_ID', 'G-8RV63EJXH6'),
     ],
 ];

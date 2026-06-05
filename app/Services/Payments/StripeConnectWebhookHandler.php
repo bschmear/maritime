@@ -36,20 +36,24 @@ class StripeConnectWebhookHandler
         $payloadRaw = $request->getContent();
         $secret = self::connectWebhookSigningSecret();
 
-        if ($secret !== '') {
-            self::guardSigningSecretLooksValid($secret);
+        if ($secret === '') {
+            if (! app()->environment('local', 'testing')) {
+                throw new \RuntimeException('Stripe Connect webhook signing secret is not configured.');
+            }
 
-            $event = Webhook::constructEvent(
-                $payloadRaw,
-                $request->header('Stripe-Signature', ''),
-                $secret,
-                (int) config('cashier.webhook.tolerance', 300),
-            );
-
-            return json_decode(json_encode($event), true) ?: [];
+            return json_decode($payloadRaw, true) ?: [];
         }
 
-        return json_decode($payloadRaw, true) ?: [];
+        self::guardSigningSecretLooksValid($secret);
+
+        $event = Webhook::constructEvent(
+            $payloadRaw,
+            $request->header('Stripe-Signature', ''),
+            $secret,
+            (int) config('cashier.webhook.tolerance', 300),
+        );
+
+        return json_decode(json_encode($event), true) ?: [];
     }
 
     public static function connectWebhookSigningSecret(): string

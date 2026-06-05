@@ -6,6 +6,7 @@ use App\Domain\ServiceTicket\Actions\CreateServiceTicket;
 use App\Domain\ServiceTicket\Actions\DeleteServiceTicket;
 use App\Domain\ServiceTicket\Actions\UpdateServiceTicket;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\ServiceTicket\Support\ServiceTicketMassAssignment;
 use App\Domain\ServiceTicketServiceItem\Models\ServiceTicketServiceItem;
 
 class ServiceTicketService
@@ -18,6 +19,7 @@ class ServiceTicketService
         $serviceItems = $data['service_items'] ?? [];
         unset($data['service_items']);
 
+        $data = ServiceTicketMassAssignment::filter($data);
         unset($data['created_at'], $data['updated_at']);
 
         $result = (new CreateServiceTicket)($data);
@@ -45,6 +47,7 @@ class ServiceTicketService
         $serviceItems = $data['service_items'] ?? null;
         unset($data['service_items']);
 
+        $data = ServiceTicketMassAssignment::filter($data);
         unset($data['created_at'], $data['updated_at']);
 
         $result = (new UpdateServiceTicket)($ticket->id, $data);

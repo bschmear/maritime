@@ -2,6 +2,7 @@
 import KioskLayout from '@/Layouts/KioskLayout.vue';
 import SupportTicketStatusBadge from '@/Components/Tenant/SupportTicketStatusBadge.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps({
     ticket: { type: Object, required: true },
@@ -19,6 +20,20 @@ const replyForm = useForm({
     response: '',
     internal: false,
 });
+
+const escapeHtml = (text) => {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\n/g, '<br>');
+};
+
+const messageHtml = computed(() => escapeHtml(props.ticket.message));
+const responseHtml = (text) => escapeHtml(text);
 </script>
 
 <template>
@@ -40,7 +55,7 @@ const replyForm = useForm({
                 <div class="rounded-xl border border-gray-200 p-6 dark:border-gray-700 dark:bg-gray-900">
                     <p class="text-sm text-gray-500">{{ ticket.ticket_number }} · {{ ticket.user?.email }}</p>
                     <p class="mt-1 text-sm text-gray-500">{{ ticket.category_label }}</p>
-                    <div class="mt-4 prose max-w-none text-sm dark:prose-invert" v-html="ticket.message" />
+                    <div class="mt-4 prose max-w-none text-sm dark:prose-invert" v-html="messageHtml" />
                 </div>
                 <div
                     v-for="r in ticket.responses"
@@ -51,7 +66,7 @@ const replyForm = useForm({
                     <p class="text-xs text-gray-500">
                         {{ r.user?.name }} · {{ r.internal ? 'Internal' : 'Public' }}
                     </p>
-                    <div class="mt-2 prose max-w-none text-sm dark:prose-invert" v-html="r.response" />
+                    <div class="mt-2 prose max-w-none text-sm dark:prose-invert" v-html="responseHtml(r.response)" />
                 </div>
                 <form class="space-y-3" @submit.prevent="replyForm.post(route('kiosk.support-tickets.responses.store', ticket.id))">
                     <textarea v-model="replyForm.response" rows="4" class="input-style" placeholder="Agent reply..." />

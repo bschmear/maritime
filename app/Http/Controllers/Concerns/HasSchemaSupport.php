@@ -439,11 +439,39 @@ trait HasSchemaSupport
         return $out;
     }
 
+    /**
+     * @return list<string>
+     */
+    protected function specialFilterFields(): array
+    {
+        $common = ['make_id', 'asset_unit_id', 'asset_types'];
+
+        return match ($this->domainName ?? '') {
+            'Location' => array_merge($common, ['subsidiary_id']),
+            'AssetUnit' => array_merge($common, ['customer_id']),
+            default => $common,
+        };
+    }
+
+    protected function isAllowedFilterField(string $field, array $fieldsSchema): bool
+    {
+        if ($field === '' || ! preg_match('/^[a-z][a-z0-9_]*$/i', $field)) {
+            return false;
+        }
+
+        return isset($fieldsSchema[$field])
+            || in_array($field, $this->specialFilterFields(), true);
+    }
+
     protected function applyFilters($query, array $filters, $fieldsSchema)
     {
         foreach ($filters as $key => $filter) {
             // Handle simple key-value filters (e.g., ['inventory_item_id' => 2])
             if (! is_array($filter)) {
+                if (! $this->isAllowedFilterField((string) $key, $fieldsSchema)) {
+                    continue;
+                }
+
                 $query->where($key, '=', $filter);
 
                 continue;
@@ -455,6 +483,9 @@ trait HasSchemaSupport
             }
 
             $field = $filter['field'];
+            if (! $this->isAllowedFilterField($field, $fieldsSchema)) {
+                continue;
+            }
             $operator = $filter['operator'] ?? 'equals';
             $value = $filter['value'] ?? null;
 

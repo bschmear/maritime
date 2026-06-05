@@ -10,6 +10,8 @@ use App\Domain\Document\Actions\UpdateDocument as UpdateAction;
 use App\Domain\Document\Models\Document as RecordModel;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
+use App\Domain\Document\Support\DocumentableTypes;
+use App\Domain\Document\Support\TenantDocumentAccess;
 use App\Support\ContactDocumentLinker;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -162,10 +164,10 @@ class DocumentController extends RecordController
 
             if ($result['success']) {
                 // Attach to the parent model
-                $attachToType = $request->input('attach_to_type');
-                $attachToId = $request->input('attach_to_id');
-
-                $parentModel = app($attachToType)->find($attachToId);
+                $parentModel = DocumentableTypes::resolveModel(
+                    $request->input('attach_to_type'),
+                    (int) $request->input('attach_to_id'),
+                );
                 if ($parentModel) {
                     $this->attachDocumentToParent($parentModel, $result['record'], $visibleToCustomer, $visibleToVendor);
                 }
@@ -202,11 +204,10 @@ class DocumentController extends RecordController
 
         try {
             $document = $this->recordModel->findOrFail($request->input('document_id'));
-            $documentableType = $request->input('documentable_type');
-            $documentableId = $request->input('documentable_id');
-
-            // Get the parent model and attach the document
-            $parentModel = app($documentableType)->find($documentableId);
+            $parentModel = DocumentableTypes::resolveModel(
+                $request->input('documentable_type'),
+                (int) $request->input('documentable_id'),
+            );
             if ($parentModel) {
                 $this->attachDocumentToParent($parentModel, $document);
 
@@ -218,7 +219,7 @@ class DocumentController extends RecordController
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to attach document.',
+                'message' => 'Invalid document parent.',
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
@@ -241,11 +242,10 @@ class DocumentController extends RecordController
 
         try {
             $document = $this->recordModel->findOrFail($request->input('document_id'));
-            $documentableType = $request->input('documentable_type');
-            $documentableId = $request->input('documentable_id');
-
-            // Get the parent model and detach the document
-            $parentModel = app($documentableType)->find($documentableId);
+            $parentModel = DocumentableTypes::resolveModel(
+                $request->input('documentable_type'),
+                (int) $request->input('documentable_id'),
+            );
             if ($parentModel) {
                 $this->detachDocumentFromParent($parentModel, $document);
 
@@ -275,11 +275,7 @@ class DocumentController extends RecordController
         try {
             $document = $this->recordModel->findOrFail($id);
 
-            // Check if user has access to this document
-            // For now, allow download if they can access it through relationships
-            $canAccess = true; // TODO: Implement proper access control
-
-            if (! $canAccess) {
+            if (! TenantDocumentAccess::tenantCanDownload($document)) {
                 abort(403, 'Access denied.');
             }
 
@@ -337,7 +333,16 @@ class DocumentController extends RecordController
         }
 
         $document = $this->recordModel->findOrFail($validated['document_id']);
-        $parentModel = app($validated['documentable_type'])->findOrFail($validated['documentable_id']);
+        $parentModel = DocumentableTypes::resolveModel(
+            $validated['documentable_type'],
+            (int) $validated['documentable_id'],
+        );
+        if (! $parentModel) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid document parent.',
+            ], 422);
+        }
 
         $contact = ContactDocumentLinker::resolveContactFromRecord($parentModel);
         if ($contact) {

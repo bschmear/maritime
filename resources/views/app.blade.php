@@ -7,6 +7,7 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
+        @include('partials.google-tag')
         @include('partials.pwa-head')
 
         
