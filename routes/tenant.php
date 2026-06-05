@@ -69,6 +69,7 @@ use App\Http\Controllers\Tenant\ServiceYardController;
 use App\Http\Controllers\Tenant\SpecGroupController;
 use App\Http\Controllers\Tenant\StripeController;
 use App\Http\Controllers\Tenant\SubsidiaryController;
+use App\Http\Controllers\Tenant\SupportAccessController;
 use App\Http\Controllers\Tenant\SupportTicketsController;
 use App\Http\Controllers\Tenant\Surveys\PublicSurveyController;
 use App\Http\Controllers\Tenant\Surveys\SurveyController;
@@ -106,6 +107,7 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access'])->group(function () {
         Route::get('/workspace-billing-required', [WorkspaceBillingController::class, 'show'])
             ->name('tenant.workspace.billing-required');
+        Route::post('/support/exit', [SupportAccessController::class, 'exit'])->name('tenant.support.exit');
     });
 
     // ── Admin Portal Access Management ───────────────────────────────────

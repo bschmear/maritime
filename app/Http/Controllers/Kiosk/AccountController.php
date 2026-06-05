@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Kiosk;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Subscription;
+use App\Support\TenantDashboardUrl;
 use App\Support\WorkspaceAccountUserRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -42,7 +43,7 @@ class AccountController extends Controller
         ]);
     }
 
-    public function show(Account $account): Response
+    public function show(Request $request, Account $account): Response
     {
         $account->load([
             'owner:id,name,email',
@@ -69,7 +70,14 @@ class AccountController extends Controller
                 ] : null,
                 'tenant_id' => $account->tenant_id,
                 'domain' => $account->tenant?->domains?->first()?->domain,
+                'allow_support_access' => (bool) $account->allow_support_access,
             ],
+            'can_support_login' => (bool) (
+                $request->user()?->is_support
+                && $account->allow_support_access
+                && $account->tenant?->domains?->first()?->domain
+            ),
+            'tenant_dashboard_url' => TenantDashboardUrl::forAccount($account),
             'subscription' => $this->formatSubscriptionStatus($account, $cashierSub, $currentPlan),
             'seat_usage' => $account->seatUsageForDisplay(),
             'users' => $this->usersForAccountDisplay($account),

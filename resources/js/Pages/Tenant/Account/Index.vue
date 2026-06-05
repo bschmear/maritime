@@ -28,6 +28,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    allow_support_access: {
+        type: Boolean,
+        default: false,
+    },
+    app_name: {
+        type: String,
+        default: 'Support',
+    },
 });
 
 const defaultContractTermsFallback = 'This agreement outlines the terms and conditions of the sale, including product details, payment obligations, and delivery expectations.';
@@ -64,6 +72,7 @@ const form = useForm({
     start_time: timeInputValue(props.account?.start_time),
     allow_overlap: !!props.account?.allow_overlap,
     sandbox_mode: !!props.account?.sandbox_mode,
+    allow_support_access: !!props.allow_support_access,
 });
 
 const logoPreview = ref(props.account?.logo_url || null);
@@ -152,7 +161,7 @@ watch(
         if (keys.length === 0) {
             return;
         }
-        const generalKeys = ['logo', 'default_timezone', 'brand_color', 'sandbox_mode'];
+        const generalKeys = ['logo', 'default_timezone', 'brand_color', 'sandbox_mode', 'allow_support_access'];
         const schedulingKeys = ['workday_hours', 'start_time', 'allow_overlap'];
         const serviceKeys = [
             'estimate_threshold_percent',
@@ -446,6 +455,27 @@ watch(
                                 </label>
                                 <p v-if="form.errors.sandbox_mode" class="mt-2 text-xs text-red-600 dark:text-red-400">
                                     {{ form.errors.sandbox_mode }}
+                                </p>
+                            </div>
+
+                            <div class="mt-6 rounded-lg border border-sky-200 bg-sky-50/90 p-4 dark:border-sky-800/60 dark:bg-sky-950/25">
+                                <label class="flex cursor-pointer items-start gap-3 select-none">
+                                    <input
+                                        v-model="form.allow_support_access"
+                                        type="checkbox"
+                                        class="mt-0.5 rounded border-sky-300 text-sky-600 focus:ring-sky-500 dark:border-sky-600 dark:bg-gray-800"
+                                    />
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-semibold text-sky-950 dark:text-sky-100">
+                                            Allow {{ app_name }} support to access this workspace
+                                        </span>
+                                        <span class="mt-1 block text-sm text-sky-900/90 dark:text-sky-200/90">
+                                            When enabled, authorized {{ app_name }} support staff can sign in to help configure, set up, or debug your account. You can turn this off at any time.
+                                        </span>
+                                    </span>
+                                </label>
+                                <p v-if="form.errors.allow_support_access" class="mt-2 text-xs text-red-600 dark:text-red-400">
+                                    {{ form.errors.allow_support_access }}
                                 </p>
                             </div>
                         </div>

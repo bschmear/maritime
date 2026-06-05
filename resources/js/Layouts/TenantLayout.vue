@@ -4,7 +4,7 @@ import Navbar from '@/Components/Tenant/Navbar.vue';
 import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
 import Toast from '@/Components/Toast.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 
 defineProps({
     title: {
@@ -21,6 +21,11 @@ const mobileExpandedItems = ref([]);
 
 const page = usePage();
 const deliveryEnRouteBanner = computed(() => page.props.delivery_en_route_banner ?? null);
+const supportWorkspaceBanner = computed(() => page.props.support_workspace_banner ?? null);
+
+const exitSupportSession = () => {
+    router.post(supportWorkspaceBanner.value.exit_url);
+};
 
 // Helper functions for navigation state
 const isCurrentRoute = (item) => {
@@ -372,6 +377,23 @@ const secondaryNavItems = ref([
                 </div>
             </div>
         </nav>
+
+        <div
+            v-if="supportWorkspaceBanner"
+            class="border-b border-sky-700/30 bg-sky-700 px-4 py-2.5 text-center text-sm text-white shadow-sm dark:bg-sky-900 dark:text-sky-50"
+        >
+            <span class="font-medium">Support mode</span>
+            <span class="mx-2 opacity-80" aria-hidden="true">·</span>
+            <span>Viewing {{ supportWorkspaceBanner.account_name }}</span>
+            <span class="mx-2 opacity-80" aria-hidden="true">·</span>
+            <button
+                type="button"
+                class="font-semibold underline decoration-white/70 underline-offset-2 hover:decoration-white"
+                @click="exitSupportSession"
+            >
+                Exit support session
+            </button>
+        </div>
 
         <div
             v-if="deliveryEnRouteBanner"

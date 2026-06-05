@@ -11,15 +11,17 @@ class EnsureKioskAdmin
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('login');
         }
 
-        if (!auth()->user()->isKioskAdmin()) {
+        $user = auth()->user();
+
+        if (! $user->hasAdminAccess() || ! $user->isKioskAdmin()) {
             abort(403, 'Access denied. Admin role required.');
         }
 

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
+use App\Domain\User\Models\User;
 use App\Enums\Payments\Terms;
 use App\Enums\Timezone;
+use App\Models\Account;
 use App\Models\AccountSettings;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -18,9 +21,10 @@ class AccountController extends Controller
     {
         // Get current tenant's account settings (cached)
         $account = AccountSettings::getCurrent();
+        $centralAccount = Account::query()->where('tenant_id', tenant()->id)->first();
 
         // Get users for the notification dropdown
-        $users = \App\Domain\User\Models\User::select('id', 'display_name', 'email')
+        $users = User::select('id', 'display_name', 'email')
             ->orderBy('display_name')
             ->get()
             ->map(function ($user) {
@@ -86,6 +90,8 @@ class AccountController extends Controller
         return Inertia::render('Tenant/Account/Index', [
             'accountSections' => $accountSections,
             'account' => $account,
+            'allow_support_access' => (bool) $centralAccount?->allow_support_access,
+            'app_name' => config('app.name'),
             'timezones' => Timezone::options(),
             'users' => $users,
             'paymentTermOptions' => Terms::options(),
@@ -101,6 +107,7 @@ class AccountController extends Controller
         $validated = $request->validate([
             'logo' => 'nullable|image|max:2048',
             'sandbox_mode' => 'required|boolean',
+            'allow_support_access' => 'required|boolean',
             'default_timezone' => 'required|string',
             'brand_color' => 'nullable|string|max:7',
             'estimate_threshold_percent' => 'required|integer|min:0|max:100',
@@ -145,13 +152,20 @@ class AccountController extends Controller
 
         $account->save();
 
+        $centralAccount = Account::query()->where('tenant_id', tenant()->id)->first();
+        if ($centralAccount) {
+            $centralAccount->forceFill([
+                'allow_support_access' => $validated['allow_support_access'],
+            ])->save();
+        }
+
         return back()->with('success', 'Account settings updated successfully.');
     }
 
     /**
      * Dismiss the one-time “Account overview” modal after onboarding.
      */
-    public function dismissOverview(): \Illuminate\Http\RedirectResponse
+    public function dismissOverview(): RedirectResponse
     {
         $account = AccountSettings::getCurrent();
         $account->account_overviewed = true;

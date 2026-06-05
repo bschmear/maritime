@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\WorkspacePlanCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Stancl\Tenancy\Database\Models\Domain;
 
 class Account extends Model
 {
@@ -22,7 +23,15 @@ class Account extends Model
         'name',
         'owner_id',
         'tenant_id',
+        'allow_support_access',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'allow_support_access' => 'boolean',
+        ];
+    }
 
     /**
      * The owner of the account.
@@ -45,7 +54,7 @@ class Account extends Model
      */
     public function domains()
     {
-        return $this->hasMany(\Stancl\Tenancy\Database\Models\Domain::class, 'tenant_id', 'tenant_id');
+        return $this->hasMany(Domain::class, 'tenant_id', 'tenant_id');
     }
 
     /**

@@ -38,6 +38,9 @@ Route::domain(config('app.admin_url'))->middleware(['auth'])->name('kiosk.')->gr
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
         Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::patch('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('users/{user}/roles', [UserController::class, 'attachRole'])->name('users.roles.store');
+        Route::delete('users/{user}/kiosk-access', [UserController::class, 'removeKioskAccess'])->name('users.kiosk-access.destroy');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 

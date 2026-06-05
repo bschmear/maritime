@@ -98,7 +98,13 @@ const formatDate = (value) => {
                                     <span v-else class="text-gray-400 dark:text-gray-500">No accounts</span>
                                 </td>
                                 <td class="px-4 py-4 text-sm">
-                                    <div v-if="user.kiosk_roles?.length" class="flex flex-wrap gap-2">
+                                    <div v-if="user.admin_access" class="flex flex-wrap gap-2">
+                                        <span
+                                            v-if="user.is_support"
+                                            class="inline-flex items-center rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
+                                        >
+                                            Support
+                                        </span>
                                         <span
                                             v-for="role in user.kiosk_roles"
                                             :key="role.id"
@@ -113,6 +119,12 @@ const formatDate = (value) => {
                                             >
                                                 ×
                                             </button>
+                                        </span>
+                                        <span
+                                            v-if="!user.kiosk_roles?.length && !user.is_support"
+                                            class="text-gray-400 dark:text-gray-500"
+                                        >
+                                            No roles yet
                                         </span>
                                     </div>
                                     <span v-else class="text-gray-400 dark:text-gray-500">—</span>

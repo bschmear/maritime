@@ -38,6 +38,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'trial_ends_at',
         'current_tenant_id',
+        'is_support',
+        'admin_access',
     ];
 
     /**
@@ -69,7 +71,19 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_support' => 'boolean',
+            'admin_access' => 'boolean',
         ];
+    }
+
+    public function hasAdminAccess(): bool
+    {
+        return (bool) $this->admin_access;
+    }
+
+    public function isSupportStaff(): bool
+    {
+        return (bool) $this->is_support;
     }
 
     public function kioskRoles(): BelongsToMany

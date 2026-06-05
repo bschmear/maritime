@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Account;
 use App\Services\WorkspacePlanCache;
+use App\Support\SupportWorkspaceSession;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,7 +14,7 @@ class EnsureTenantAccess
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -29,7 +31,7 @@ class EnsureTenantAccess
 
         // Find the account linked to this tenant
         // Account model uses 'pgsql' connection (central/public schema) by default
-        $account = \App\Models\Account::where('tenant_id', $tenant->id)->first();
+        $account = Account::where('tenant_id', $tenant->id)->first();
 
         if (! $account) {
             abort(404, 'Account not found for this tenant.');
@@ -40,6 +42,10 @@ class EnsureTenantAccess
         $user = auth()->user();
         $hasAccess = $account->users()->where('users.id', $user->id)->exists()
                   || $account->owner_id === $user->id;
+
+        if (! $hasAccess && SupportWorkspaceSession::allows($request, $account, $user)) {
+            $hasAccess = true;
+        }
 
         if (! $hasAccess) {
             abort(403, 'You do not have access to this tenant.');

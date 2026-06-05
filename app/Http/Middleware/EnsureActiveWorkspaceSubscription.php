@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\Account;
+use App\Models\User;
+use App\Support\SupportWorkspaceSession;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -40,6 +42,11 @@ class EnsureActiveWorkspaceSubscription
         }
 
         $account->loadMissing('owner');
+
+        $user = $request->user('web');
+        if ($user instanceof User && SupportWorkspaceSession::allows($request, $account, $user)) {
+            return $next($request);
+        }
 
         if ($account->hasActiveSubscription()) {
             return $next($request);

@@ -17,6 +17,7 @@ use App\Http\Controllers\Kiosk\PlanItemsController;
 use App\Http\Controllers\Kiosk\PlansController;
 use App\Http\Controllers\Kiosk\PostController;
 use App\Http\Controllers\Kiosk\PricingSettingsController;
+use App\Http\Controllers\Kiosk\SupportAccessController;
 use App\Http\Controllers\Kiosk\SupportTicketsController;
 use App\Http\Controllers\Kiosk\TagController;
 use App\Http\Controllers\Kiosk\UserController;
@@ -57,11 +58,16 @@ Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.
 
         Route::get('accounts', [KioskAccountController::class, 'index'])->name('accounts.index');
         Route::get('accounts/{account}', [KioskAccountController::class, 'show'])->name('accounts.show');
+        Route::post('accounts/{account}/support-access', [SupportAccessController::class, 'store'])
+            ->name('accounts.support-access');
 
         Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
         Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::patch('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('users/{user}/roles', [UserController::class, 'attachRole'])->name('users.roles.store');
+        Route::delete('users/{user}/kiosk-access', [UserController::class, 'removeKioskAccess'])->name('users.kiosk-access.destroy');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
     });
 });

@@ -1,15 +1,27 @@
 <script setup>
 import KioskLayout from '@/Layouts/KioskLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     account: Object,
     subscription: Object,
     seat_usage: Object,
     users: Array,
     payment_history: Array,
     subscription_history: Array,
+    can_support_login: {
+        type: Boolean,
+        default: false,
+    },
+    tenant_dashboard_url: {
+        type: String,
+        default: null,
+    },
 });
+
+const openWorkspace = () => {
+    router.post(route('kiosk.accounts.support-access', props.account.id));
+};
 
 const formatDate = (value) => {
     if (!value) return '—';
@@ -100,7 +112,46 @@ const subscriptionStatusClass = (subscription) => {
                         <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Created</dt>
                         <dd class="mt-1 text-sm text-gray-900 dark:text-white">{{ formatDateOnly(account.created_at) }}</dd>
                     </div>
+                    <div>
+                        <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Support access</dt>
+                        <dd class="mt-1">
+                            <span
+                                class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                                :class="account.allow_support_access
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'"
+                            >
+                                {{ account.allow_support_access ? 'Enabled by customer' : 'Not enabled' }}
+                            </span>
+                        </dd>
+                    </div>
                 </dl>
+
+                <div
+                    v-if="account.allow_support_access && can_support_login"
+                    class="mt-6 rounded-lg border border-emerald-200 bg-emerald-50/90 p-4 dark:border-emerald-800/60 dark:bg-emerald-950/25"
+                >
+                    <p class="text-sm text-emerald-950 dark:text-emerald-100">
+                        This account has granted support access. You can open their workspace to help configure, set up, or debug.
+                    </p>
+                    <button
+                        type="button"
+                        class="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600"
+                        @click="openWorkspace"
+                    >
+                        <span class="material-icons text-base leading-none">open_in_new</span>
+                        Open workspace
+                    </button>
+                    <p v-if="tenant_dashboard_url" class="mt-2 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+                        {{ tenant_dashboard_url }}
+                    </p>
+                </div>
+                <p
+                    v-else-if="account.allow_support_access && !can_support_login"
+                    class="mt-6 text-sm text-gray-500 dark:text-gray-400"
+                >
+                    Support access is enabled, but your kiosk user is not marked as support.
+                </p>
             </section>
 
             <!-- Subscription status -->
