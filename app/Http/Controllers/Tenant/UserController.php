@@ -9,11 +9,14 @@ use App\Domain\User\Actions\CreateUser as CreateAction;
 use App\Domain\User\Actions\DeleteUser as DeleteAction;
 use App\Domain\User\Actions\UpdateUser as UpdateAction;
 use App\Domain\User\Models\User as RecordModel;
+use App\Enums\ServiceTicket\SignatureMethod;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Models\Account;
 use App\Models\Invitation;
 use App\Models\User as CentralUser;
 use App\Services\TenantStaffResolver;
+use App\Support\SignatureStorage;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -214,14 +217,92 @@ class UserController extends RecordController
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Model  $record
+     * @param  Model  $record
      */
     protected function showPageExtraProps($record): array
     {
         return [
             'canManageUsers' => $this->tenantStaffIsAdministrator(),
             'workspaceTeam' => $this->workspaceTeamProps($record->email),
+            'canEditSignature' => $this->canEditUserSignature($record),
+            'signature' => [
+                'method' => $record->signature_method,
+                'url' => $record->signature_url,
+                'typed' => $record->typed_signature,
+                'saved_at' => $record->signature_saved_at?->toIso8601String(),
+            ],
         ];
+    }
+
+    protected function canEditUserSignature(RecordModel $user): bool
+    {
+        if ($this->tenantStaffIsAdministrator()) {
+            return true;
+        }
+
+        $currentId = current_tenant_user_id();
+
+        return $currentId !== null && $currentId === (int) $user->id;
+    }
+
+    public function updateSignature(Request $request, $id): RedirectResponse
+    {
+        $user = RecordModel::query()->findOrFail($id);
+
+        if (! $this->canEditUserSignature($user)) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'signature_method' => 'required|in:draw,type',
+            'signature_data' => 'required|string|max:50000',
+        ]);
+
+        $updates = [
+            'signature_saved_at' => now(),
+        ];
+
+        if ($validated['signature_method'] === 'draw') {
+            $path = SignatureStorage::storeDrawnImageForStaff($validated['signature_data'], (int) $user->id);
+            if (! $path) {
+                return back()->withErrors(['signature_data' => 'Could not save drawn signature. Please try again.']);
+            }
+
+            $updates['signature_method'] = SignatureMethod::Digital->value;
+            $updates['signature_file'] = $path;
+            $updates['typed_signature'] = null;
+        } else {
+            $typed = trim($validated['signature_data']);
+            if ($typed === '') {
+                return back()->withErrors(['signature_data' => 'Typed signature is required.']);
+            }
+
+            $updates['signature_method'] = SignatureMethod::DigitalTyped->value;
+            $updates['typed_signature'] = $typed;
+            $updates['signature_file'] = null;
+        }
+
+        $user->update($updates);
+
+        return back()->with('success', 'Signature saved.');
+    }
+
+    public function destroySignature($id): RedirectResponse
+    {
+        $user = RecordModel::query()->findOrFail($id);
+
+        if (! $this->canEditUserSignature($user)) {
+            abort(403);
+        }
+
+        $user->update([
+            'signature_method' => null,
+            'signature_file' => null,
+            'typed_signature' => null,
+            'signature_saved_at' => null,
+        ]);
+
+        return back()->with('success', 'Signature removed.');
     }
 
     public function create(): InertiaResponse

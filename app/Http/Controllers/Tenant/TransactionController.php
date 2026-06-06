@@ -383,7 +383,7 @@ class TransactionController extends BaseController
                     ->select(['id', 'transaction_id', 'sequence', 'status', 'total', 'amount_due', 'currency', 'due_at', 'created_at'])
                     ->orderByDesc('id'),
                 'deliveries' => fn ($q) => $q
-                    ->select(['id', 'transaction_id', 'status'])
+                    ->select(['id', 'transaction_id', 'sequence', 'status', 'scheduled_at'])
                     ->orderByDesc('id'),
                 'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),

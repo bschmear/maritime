@@ -159,7 +159,7 @@ function saveSyncSettings() {
             <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <template v-if="hasQuickbooksToken">
                     <p class="text-sm text-gray-600 dark:text-gray-300">
-                        QuickBooks Online is connected. Use the contacts or leads list (gear menu) to import QuickBooks customers, or import here.
+                        QuickBooks Online is connected. Use the contacts, customers, or leads list (gear menu) to import QuickBooks customers, or import here.
                     </p>
                     <p
                         v-if="currentIntegration?.last_synced_at"
@@ -220,7 +220,7 @@ function saveSyncSettings() {
                 </template>
                 <template v-else>
                     <p class="text-sm text-gray-600 dark:text-gray-300">
-                        Connect your QuickBooks Online company to import customers as contacts or leads (export to QBO can build on this connection later).
+                        Connect your QuickBooks Online company to import customers as contacts with a customer or lead profile (export to QBO can build on this connection later).
                     </p>
                     <a
                         :href="route('quickbooks.connect')"

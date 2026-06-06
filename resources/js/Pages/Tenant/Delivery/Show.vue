@@ -5,7 +5,7 @@ import Modal from '@/Components/Modal.vue';
 import DeliveryPreview from '@/Components/Tenant/DeliveryPreview.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -641,6 +641,27 @@ const breadcrumbItems = computed(() => [
     { label: 'Deliveries', href: route('deliveries.index') },
     { label: props.record?.display_name ?? 'Delivery' },
 ]);
+
+const deliveryLabel = computed(() => props.record?.display_name ?? `Delivery #${props.record?.id ?? ''}`);
+
+const isDelivered = computed(() => props.record?.status === 'delivered');
+
+const transactionShowHref = computed(() => {
+    const id = props.record?.transaction?.id ?? props.record?.transaction_id;
+    return id ? route('transactions.show', id) : null;
+});
+
+const showDeliveredModal = ref(false);
+
+const closeDeliveredModal = () => {
+    showDeliveredModal.value = false;
+};
+
+onMounted(() => {
+    if (isDelivered.value) {
+        showDeliveredModal.value = true;
+    }
+});
 
 const deliverToSummary = computed(() => {
     const r = props.record;
@@ -1782,6 +1803,42 @@ const googleMapsDirectionsUrl = computed(() => {
                     </button>
                 </div>
             </form>
+        </Modal>
+
+        <Modal :show="showDeliveredModal" max-width="md" @close="closeDeliveredModal">
+            <div class="p-6">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+                    <span class="material-icons text-2xl text-green-600 dark:text-green-300">check_circle</span>
+                </div>
+                <h3 class="text-center text-xl font-semibold text-gray-900 dark:text-white">
+                    Delivery complete
+                </h3>
+                <p class="mt-2 text-center text-md text-gray-600 dark:text-gray-400">
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ deliveryLabel }}</span>
+                    has been delivered
+                    <template v-if="record.delivered_at">
+                        on <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDate(record.delivered_at) }}</span>
+                    </template>.
+                </p>
+                <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                    <Link
+                        v-if="transactionShowHref"
+                        :href="transactionShowHref"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                        @click="closeDeliveredModal"
+                    >
+                        <span class="material-icons text-base">handshake</span>
+                        View deal
+                    </Link>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="closeDeliveredModal"
+                    >
+                        Close and continue to delivery
+                    </button>
+                </div>
+            </div>
         </Modal>
 
         <!-- Preview -->

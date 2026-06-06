@@ -113,6 +113,7 @@ export default {
       brown: colors.brown,
       slate: colors.slate,
       stone: colors.stone,
+      sky: colors.sky,
     },
     extend: {
       fontFamily: {

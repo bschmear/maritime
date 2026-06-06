@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Domain\Contact\Actions\CreateContact;
 use App\Domain\Contact\Models\Contact;
+use App\Domain\Contact\Models\ContactAddress;
+use App\Domain\Customer\Actions\CreateCustomer;
+use App\Domain\Customer\Models\Customer;
 use App\Domain\Integration\Models\Integration;
+use App\Domain\Integration\Support\QuickBooksCustomerAddressMapper;
 use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Models\Lead;
 use App\Enums\Integration\IntegrationSyncStatus;
@@ -30,9 +33,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
 
     public function handle(
         QuickBooksOAuthService $oauth,
-        CreateContact $createContact,
+        CreateCustomer $createCustomer,
         CreateLead $createLead,
     ): void {
+        $this->recordType = $this->normalizeRecordType($this->recordType);
         $integration = Integration::query()
             ->where('integration_type', IntegrationType::QuickBooks)
             ->first();
@@ -72,7 +76,7 @@ class PullContactsFromQuickBooks implements ShouldQueue
                     if (! is_array($row)) {
                         continue;
                     }
-                    $this->importOneCustomer($row, $createContact, $createLead);
+                    $this->importOneCustomer($row, $createCustomer, $createLead);
                 }
 
                 $count = count($customers);
@@ -105,7 +109,15 @@ class PullContactsFromQuickBooks implements ShouldQueue
     /**
      * @param  array<string, mixed>  $row
      */
-    private function importOneCustomer(array $row, CreateContact $createContact, CreateLead $createLead): void
+    private function normalizeRecordType(string $recordType): string
+    {
+        return match ($recordType) {
+            'contact' => 'customer',
+            default => $recordType,
+        };
+    }
+
+    private function importOneCustomer(array $row, CreateCustomer $createCustomer, CreateLead $createLead): void
     {
         if (array_key_exists('Active', $row) && $row['Active'] === false) {
             return;
@@ -127,9 +139,11 @@ class PullContactsFromQuickBooks implements ShouldQueue
         }
 
         if ($email !== '') {
-            $exists = $this->recordType === 'lead'
-                ? Lead::query()->whereHas('contact', fn ($q) => $q->whereRaw('LOWER(email) = ?', [$email]))->exists()
-                : Contact::query()->whereRaw('LOWER(email) = ?', [$email])->exists();
+            $exists = match ($this->recordType) {
+                'lead' => Lead::query()->whereHas('contact', fn ($q) => $q->whereRaw('LOWER(email) = ?', [$email]))->exists(),
+                'customer' => Customer::query()->whereHas('contact', fn ($q) => $q->whereRaw('LOWER(email) = ?', [$email]))->exists(),
+                default => Contact::query()->whereRaw('LOWER(email) = ?', [$email])->exists(),
+            };
 
             if ($exists) {
                 return;
@@ -165,12 +179,23 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'quickbooks_customer_id' => $qboId,
                 'source' => 'QuickBooks',
             ]);
-            if (! ($result['success'] ?? false)) {
+            if ($result['success'] ?? false) {
+                $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
+            } else {
                 Log::warning('PullContactsFromQuickBooks: CreateLead failed', [
                     'qbo_id' => $qboId,
                     'message' => $result['message'] ?? null,
                 ]);
             }
+
+            return;
+        }
+
+        $subsidiaryId = Customer::defaultSubsidiaryId();
+        if ($subsidiaryId === null) {
+            Log::warning('PullContactsFromQuickBooks: no subsidiary available for customer import', [
+                'qbo_id' => $qboId,
+            ]);
 
             return;
         }
@@ -185,14 +210,38 @@ class PullContactsFromQuickBooks implements ShouldQueue
             'assigned_user_id' => $this->tenantUserProfileId,
             'quickbooks_customer_id' => $qboId,
             'source' => 'QuickBooks',
+            'subsidiary_id' => $subsidiaryId,
         ];
 
-        $result = $createContact($payload);
-        if (! ($result['success'] ?? false)) {
-            Log::warning('PullContactsFromQuickBooks: CreateContact failed', [
+        $result = $createCustomer($payload);
+        if ($result['success'] ?? false) {
+            $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
+        } else {
+            Log::warning('PullContactsFromQuickBooks: CreateCustomer failed', [
                 'qbo_id' => $qboId,
                 'message' => $result['message'] ?? null,
             ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function syncAddresses(int $contactId, array $row): void
+    {
+        if ($contactId <= 0) {
+            return;
+        }
+
+        $addresses = QuickBooksCustomerAddressMapper::addressesFromCustomerRow($row);
+        if ($addresses === []) {
+            return;
+        }
+
+        foreach ($addresses as $address) {
+            ContactAddress::query()->create(array_merge($address, [
+                'contact_id' => $contactId,
+            ]));
         }
     }
 

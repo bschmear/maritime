@@ -1,32 +1,48 @@
 <script setup>
+import Modal from '@/Components/Modal.vue';
 import axios from 'axios';
+import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
-    /** Import destination when `allowTypeChoice` is false (e.g. Contacts index tab). */
+    /** Import destination when `allowTypeChoice` is false (e.g. Contacts index → customers). */
     recordType: {
         type: String,
-        default: 'contact',
+        default: 'customer',
     },
-    /** When true, user picks Contact vs Lead in the modal (e.g. Integrations → QuickBooks page). */
+    /** When true, user picks customer vs lead in the modal (e.g. Integrations → QuickBooks page). */
     allowTypeChoice: {
         type: Boolean,
         default: false,
     },
+    /** Inertia route name to visit after a successful import (default: QuickBooks integration page). */
+    successRedirectRoute: {
+        type: String,
+        default: 'quickbooks',
+    },
 });
 
 const showModal = ref(false);
+const showSuccessModal = ref(false);
+const showErrorModal = ref(false);
+const successMessage = ref('');
+const errorMessage = ref('');
 const submitting = ref(false);
-const importAs = ref('contact');
+const importAs = ref('customer');
 
-const effectiveType = computed(() => (props.allowTypeChoice ? importAs.value : props.recordType));
+const effectiveType = computed(() => {
+    const chosen = props.allowTypeChoice ? importAs.value : props.recordType;
+    return chosen === 'contact' ? 'customer' : chosen;
+});
 
-const targetLabel = computed(() => (effectiveType.value === 'lead' ? 'leads' : 'contacts'));
+const targetLabel = computed(() => (effectiveType.value === 'lead' ? 'leads' : 'customers'));
 
 function openImportModal() {
     if (props.allowTypeChoice) {
-        importAs.value = 'contact';
+        importAs.value = 'customer';
     }
+    showSuccessModal.value = false;
+    showErrorModal.value = false;
     showModal.value = true;
 }
 
@@ -37,17 +53,28 @@ function closeImportModal() {
     showModal.value = false;
 }
 
+function goToIntegrationPage() {
+    showSuccessModal.value = false;
+    router.visit(route(props.successRedirectRoute));
+}
+
+function closeErrorModal() {
+    showErrorModal.value = false;
+}
+
 function submitImport() {
     submitting.value = true;
     axios
         .post(route('quickbooks.import-customers'), { type: effectiveType.value })
         .then((res) => {
-            closeImportModal();
-            window.alert(res.data.message || 'Import queued.');
+            successMessage.value = res.data.message || 'Import queued. Records may take a few minutes to appear.';
+            showModal.value = false;
+            showSuccessModal.value = true;
         })
         .catch((err) => {
-            const msg = err.response?.data?.error || err.response?.data?.message || 'Import request failed.';
-            window.alert(msg);
+            errorMessage.value = err.response?.data?.error || err.response?.data?.message || 'Import request failed.';
+            showModal.value = false;
+            showErrorModal.value = true;
         })
         .finally(() => {
             submitting.value = false;
@@ -58,6 +85,7 @@ defineExpose({ openImportModal, closeImportModal });
 </script>
 
 <template>
+    <!-- Import form modal -->
     <div
         v-if="showModal"
         class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4"
@@ -89,7 +117,7 @@ defineExpose({ openImportModal, closeImportModal });
                 <p>
                     We will read <strong class="text-gray-900 dark:text-gray-100">active customers</strong> from your connected QuickBooks Online company and create new
                     <strong class="text-gray-900 dark:text-gray-100">{{ targetLabel }}</strong>
-                    here. Existing matches are skipped (same email when present, or the same QuickBooks customer id).
+                    here. Each record is a contact with the matching profile (customer or lead). Billing and shipping addresses from QuickBooks are imported when present. Existing matches are skipped (same email when present, or the same QuickBooks customer id).
                 </p>
                 <div v-if="allowTypeChoice" class="space-y-2">
                     <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -97,14 +125,17 @@ defineExpose({ openImportModal, closeImportModal });
                     </p>
                     <div class="flex flex-wrap gap-4">
                         <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
-                            <input v-model="importAs" type="radio" value="contact" class="text-primary-600" :disabled="submitting">
-                            <span>Contacts</span>
+                            <input v-model="importAs" type="radio" value="customer" class="text-primary-600" :disabled="submitting">
+                            <span>Customers</span>
                         </label>
                         <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
                             <input v-model="importAs" type="radio" value="lead" class="text-primary-600" :disabled="submitting">
                             <span>Leads</span>
                         </label>
                     </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Customers create a contact plus a customer profile. Leads create a contact plus a lead profile.
+                    </p>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     Connect QuickBooks under Integrations if you have not already. Large companies may take a few minutes.
@@ -130,4 +161,48 @@ defineExpose({ openImportModal, closeImportModal });
             </div>
         </div>
     </div>
+
+    <!-- Success notification -->
+    <Modal :show="showSuccessModal" max-width="sm" :closeable="false" @close="goToIntegrationPage">
+        <div class="p-8 text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <span class="material-icons text-2xl text-green-600 dark:text-green-400">check_circle</span>
+            </div>
+            <h3 class="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                Import started
+            </h3>
+            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                {{ successMessage }}
+            </p>
+            <button
+                type="button"
+                class="inline-flex items-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+                @click="goToIntegrationPage"
+            >
+                Go
+            </button>
+        </div>
+    </Modal>
+
+    <!-- Error notification -->
+    <Modal :show="showErrorModal" max-width="sm" @close="closeErrorModal">
+        <div class="p-8 text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <span class="material-icons text-2xl text-red-600 dark:text-red-400">error_outline</span>
+            </div>
+            <h3 class="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                Import failed
+            </h3>
+            <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                {{ errorMessage }}
+            </p>
+            <button
+                type="button"
+                class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                @click="closeErrorModal"
+            >
+                Close
+            </button>
+        </div>
+    </Modal>
 </template>

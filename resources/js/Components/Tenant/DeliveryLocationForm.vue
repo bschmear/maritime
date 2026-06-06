@@ -111,7 +111,8 @@ const submit = () => {
 
 <template>
     <div class="w-full">
-        <form
+        <component
+            :is="embedded ? 'div' : 'form'"
             @submit.prevent="submit"
             class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6"
             :class="embedded ? 'gap-4' : ''"
@@ -260,9 +261,10 @@ const submit = () => {
                     {{ embedded ? 'Back to list' : 'Cancel' }}
                 </button>
                 <button
-                    type="submit"
+                    :type="embedded ? 'button' : 'submit'"
                     :disabled="form.processing"
                     class="inline-flex justify-center items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg border border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    @click="embedded ? submit() : undefined"
                 >
                     <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
                         {{ form.processing ? 'sync' : 'save' }}
@@ -270,6 +272,6 @@ const submit = () => {
                     {{ form.processing ? 'Saving…' : (isEdit ? 'Save changes' : 'Create location') }}
                 </button>
             </div>
-        </form>
+        </component>
     </div>
 </template>

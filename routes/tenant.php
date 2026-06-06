@@ -48,6 +48,8 @@ use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\LeadController;
 use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\MaintenanceTypeController;
+use App\Http\Controllers\Tenant\MsoController;
+use App\Http\Controllers\Tenant\MsoRecordController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OnboardingController;
 use App\Http\Controllers\Tenant\OperationsController;
@@ -354,10 +356,21 @@ Route::middleware([
             Route::get('/flow', [SalesController::class, 'flow'])->name('flow');
         });
 
+        Route::prefix('mso')->name('mso.')->group(function () {
+            Route::get('/pending', [MsoController::class, 'pending'])->name('pending');
+            Route::get('/create', [MsoController::class, 'create'])->name('create');
+        });
+
         Route::prefix('transactions')->name('transactions.')->group(function () {
             Route::get('/address-tax-rate', [GeneralController::class, 'getTaxRate'])->name('address-tax-rate');
             Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
+            Route::get('/{transaction}/mso/units', [MsoController::class, 'units'])->name('mso.units');
+            Route::post('/{transaction}/mso/batch', [MsoController::class, 'batch'])->name('mso.batch');
             Route::resource('/', TransactionController::class)->parameters(['' => 'transaction']);
+        });
+
+        Route::prefix('msorecords')->name('msorecords.')->group(function () {
+            Route::resource('/', MsoRecordController::class)->parameters(['' => 'msorecord']);
         });
 
         Route::prefix('invoices')->name('invoices.')->group(function () {
@@ -648,6 +661,8 @@ Route::middleware([
         });
 
         Route::prefix('users')->name('users.')->group(function () {
+            Route::put('/{user}/signature', [UserController::class, 'updateSignature'])->name('signature.update');
+            Route::delete('/{user}/signature', [UserController::class, 'destroySignature'])->name('signature.destroy');
             Route::resource('/', UserController::class)->parameters(['' => 'user']);
         });
 

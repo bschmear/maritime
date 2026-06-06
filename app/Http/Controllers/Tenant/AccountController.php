@@ -85,6 +85,13 @@ class AccountController extends Controller
                 'href' => route('account.notifications.sms.index'),
                 'stats' => null,
             ],
+            [
+                'title' => 'Integrations',
+                'description' => 'Connect third-party services such as QuickBooks, Mailchimp, and Stripe to sync data with your workspace.',
+                'icon' => 'extension',
+                'href' => route('integrations'),
+                'stats' => null,
+            ],
         ];
 
         return Inertia::render('Tenant/Account/Index', [

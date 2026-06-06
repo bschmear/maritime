@@ -2,9 +2,10 @@
   "allow_create_modal": false,
     "columns": [
       {
-        "key": "id",
+        "key": "display_name",
         "label": "Delivery #",
-        "sortable": true
+        "sortable": true,
+        "isKey": true
       },
       {
         "key": "customer_id",

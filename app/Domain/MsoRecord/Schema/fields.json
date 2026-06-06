@@ -1,0 +1,60 @@
+{
+    "fields": {
+        "asset_unit_id": {
+            "label": "Asset Unit",
+            "type": "record",
+            "typeDomain": "AssetUnit",
+            "relationship": "assetUnit",
+            "required": true
+        },
+        "transaction_id": {
+            "label": "Transaction",
+            "type": "record",
+            "typeDomain": "Transaction",
+            "relationship": "transaction"
+        },
+        "transaction_line_item_id": {
+            "label": "Line Item",
+            "type": "number",
+            "hidden": true
+        },
+        "status": {
+            "label": "Status",
+            "type": "select",
+            "enum": "App\\Enums\\MsoRecord\\Status",
+            "required": true,
+            "default": "draft"
+        },
+        "source_document_id": {
+            "label": "Source MSO",
+            "type": "record",
+            "typeDomain": "Document",
+            "relationship": "sourceDocument",
+            "readOnly": true
+        },
+        "output_document_id": {
+            "label": "Completed MSO",
+            "type": "record",
+            "typeDomain": "Document",
+            "relationship": "outputDocument",
+            "readOnly": true
+        },
+        "created_by_id": {
+            "label": "Created By",
+            "type": "record",
+            "typeDomain": "User",
+            "relationship": "createdBy",
+            "readOnly": true
+        },
+        "submitted_at": {
+            "label": "Submitted",
+            "type": "datetime",
+            "readOnly": true
+        },
+        "created_at": {
+            "label": "Created",
+            "type": "datetime",
+            "readOnly": true
+        }
+    }
+}

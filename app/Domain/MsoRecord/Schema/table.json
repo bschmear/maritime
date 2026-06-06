@@ -1,0 +1,29 @@
+{
+    "columns": [
+        {
+            "key": "display_name",
+            "label": "MSO",
+            "sortable": true
+        },
+        {
+            "key": "status",
+            "label": "Status",
+            "sortable": true
+        },
+        {
+            "key": "transaction_id",
+            "label": "Deal",
+            "sortable": false
+        },
+        {
+            "key": "submitted_at",
+            "label": "Submitted",
+            "sortable": true
+        },
+        {
+            "key": "created_at",
+            "label": "Created",
+            "sortable": true
+        }
+    ]
+}

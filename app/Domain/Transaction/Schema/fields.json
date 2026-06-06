@@ -76,6 +76,18 @@
             "type": "boolean",
             "default": false
           },
+        "mso_needed": {
+            "label": "MSO needed",
+            "type": "boolean",
+            "default": false,
+            "readOnly": true
+        },
+        "mso_created": {
+            "label": "MSO created",
+            "type": "boolean",
+            "default": false,
+            "readOnly": true
+        },
         "billing_address_line1": { "label": "Billing street", "type": "text" },
         "billing_address_line2": { "label": "Billing line 2", "type": "text" },
         "billing_city": { "label": "Billing city", "type": "text" },

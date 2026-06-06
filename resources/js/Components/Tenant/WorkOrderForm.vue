@@ -1,5 +1,5 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import axios from 'axios';
@@ -1089,9 +1089,14 @@ const handleCancel = () => {
                                         :record="pseudoRecord"
                                         field-key="customer_id"
                                     />
-                                    <p v-else class="text-md text-gray-900 dark:text-white">
-                                        {{ record?.customer?.display_name || '—' }}
-                                    </p>
+                                    <Link
+                                        v-else-if="record?.customer?.id"
+                                        :href="route('customers.show', record.customer.id)"
+                                        class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        {{ record.customer.display_name || `Customer #${record.customer.id}` }}
+                                    </Link>
+                                    <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                 </div>
 
                                 <!-- Asset Selection -->
@@ -1112,9 +1117,14 @@ const handleCancel = () => {
                                         filter-by="customer_id"
                                         :filter-value="form.customer_id"
                                     />
-                                    <p v-else class="text-md text-gray-900 dark:text-white">
-                                        {{ record?.asset_unit?.display_name || '—' }}
-                                    </p>
+                                    <Link
+                                        v-else-if="record?.asset_unit?.id"
+                                        :href="route('assetunits.show', record.asset_unit.id)"
+                                        class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        {{ record.asset_unit.display_name || `Unit #${record.asset_unit.id}` }}
+                                    </Link>
+                                    <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                 </div>
 
                                 <!-- Subsidiary Selection -->
@@ -1133,9 +1143,14 @@ const handleCancel = () => {
                                         :record="pseudoRecord"
                                         field-key="subsidiary_id"
                                     />
-                                    <p v-else class="text-md text-gray-900 dark:text-white">
-                                        {{ record?.subsidiary?.display_name || '—' }}
-                                    </p>
+                                    <Link
+                                        v-else-if="record?.subsidiary?.id"
+                                        :href="route('subsidiaries.show', record.subsidiary.id)"
+                                        class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        {{ record.subsidiary.display_name || `Subsidiary #${record.subsidiary.id}` }}
+                                    </Link>
+                                    <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                 </div>
 
                                 <!-- Location Selection -->
@@ -1156,9 +1171,14 @@ const handleCancel = () => {
                                         :filter-by="fieldsSchema.location_id.filterby || null"
                                         :filter-value="getFieldFilterValue('location_id')"
                                     />
-                                    <p v-else class="text-md text-gray-900 dark:text-white">
-                                        {{ record?.location?.display_name || '—' }}
-                                    </p>
+                                    <Link
+                                        v-else-if="record?.location?.id"
+                                        :href="route('locations.show', record.location.id)"
+                                        class="text-md font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        {{ record.location.display_name || `Location #${record.location.id}` }}
+                                    </Link>
+                                    <p v-else class="text-md text-gray-900 dark:text-white">—</p>
                                 </div>
                                 </div>
                             </div>

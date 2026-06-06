@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\User\Models\User;
 use App\Models\AccountSettings;
 use App\Services\Help\HelpArticleSearch;
 use App\Services\Help\HelpCategoryTree;
@@ -144,7 +145,27 @@ class HandleInertiaRequests extends Middleware
             'tenant_permissions' => fn () => tenancy()->initialized
                 ? app(CurrentTenantProfile::class)->permissionKeys()
                 : [],
+            'tenant_user_signature' => fn () => $this->tenantUserSignature(),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function tenantUserSignature(): ?array
+    {
+        if (! tenancy()->initialized) {
+            return null;
+        }
+
+        $profileId = current_tenant_user_id();
+        if ($profileId === null) {
+            return null;
+        }
+
+        $user = User::query()->find($profileId);
+
+        return $user?->savedSignaturePayload();
     }
 
     /**

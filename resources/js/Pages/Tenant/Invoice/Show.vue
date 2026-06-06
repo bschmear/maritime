@@ -6,7 +6,7 @@ import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
-import { computed, getCurrentInstance, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
 const page = usePage();
@@ -283,6 +283,13 @@ const partialPaymentSummary = computed(() => {
 
 // ─── Computed state ───────────────────────────────────────────────────────────
 const isPaid     = computed(() => !!props.record?.paid_at);
+const isPaidInFull = computed(() => {
+    if (props.record?.status !== 'paid') {
+        return false;
+    }
+    const due = parseFloat(props.record?.amount_due);
+    return Number.isNaN(due) || due <= 0.009;
+});
 const isOverdue  = computed(() => !isPaid.value && props.record?.due_at && new Date(props.record.due_at) < new Date() && props.record?.amount_due > 0);
 
 const invoiceLabel = computed(() => props.record?.display_name || `Invoice #${props.record?.sequence ?? props.record?.id}`);
@@ -610,6 +617,18 @@ const runHeaderAction = (fn) => {
     closeActionsModal();
     fn();
 };
+
+const showPaidInFullModal = ref(false);
+
+const closePaidInFullModal = () => {
+    showPaidInFullModal.value = false;
+};
+
+onMounted(() => {
+    if (isPaidInFull.value) {
+        showPaidInFullModal.value = true;
+    }
+});
 </script>
 
 <template>
@@ -1366,6 +1385,42 @@ const runHeaderAction = (fn) => {
                 :sublists="visibleSublists"
             />
         </div>
+
+        <Modal :show="showPaidInFullModal" max-width="md" @close="closePaidInFullModal">
+            <div class="p-6">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+                    <span class="material-icons text-2xl text-green-600 dark:text-green-300">check_circle</span>
+                </div>
+                <h3 class="text-center text-xl font-semibold text-gray-900 dark:text-white">
+                    Invoice paid in full
+                </h3>
+                <p class="mt-2 text-center text-md text-gray-600 dark:text-gray-400">
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ invoiceLabel }}</span>
+                    is fully paid
+                    <template v-if="record.paid_at">
+                        on <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDate(record.paid_at) }}</span>
+                    </template>.
+                </p>
+                <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                    <Link
+                        v-if="transactionShowHref"
+                        :href="transactionShowHref"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                        @click="closePaidInFullModal"
+                    >
+                        <span class="material-icons text-base">handshake</span>
+                        Go to deal
+                    </Link>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-md font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="closePaidInFullModal"
+                    >
+                        Close and continue to invoice
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <Modal :show="showRecordPaymentModal" max-width="lg" @close="showRecordPaymentModal = false">
             <div class="p-6">

@@ -7,8 +7,10 @@ use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\Document\Models\Document;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Location\Models\Location;
+use App\Domain\MsoRecord\Models\MsoRecord;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
@@ -165,6 +167,20 @@ class AssetUnit extends Model
     public function transactionLineItems(): HasMany
     {
         return $this->hasMany(TransactionLineItem::class, 'asset_unit_id');
+    }
+
+    public function msoRecords(): HasMany
+    {
+        return $this->hasMany(MsoRecord::class, 'asset_unit_id')->orderByDesc('created_at');
+    }
+
+    public function msoSourceDocument(): ?Document
+    {
+        return $this->documents()
+            ->wherePivot('role', 'mso')
+            ->orderBy('documentables.sort_order')
+            ->orderBy('documents.id')
+            ->first();
     }
 
     /**

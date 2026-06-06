@@ -8,7 +8,9 @@ use App\Domain\Role\Models\Role;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
 use App\Domain\UserFavorite\Models\UserFavorite;
+use App\Enums\ServiceTicket\SignatureMethod;
 use App\Models\Concerns\HasDocuments;
+use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -32,6 +34,10 @@ class User extends Model
         'current_role',
         'is_technician',
         'delivery_in_progress',
+        'signature_method',
+        'signature_file',
+        'typed_signature',
+        'signature_saved_at',
     ];
 
     protected $with = ['role.permissions'];
@@ -39,6 +45,8 @@ class User extends Model
     protected $casts = [
         'is_technician' => 'boolean',
         'delivery_in_progress' => 'boolean',
+        'signature_method' => 'integer',
+        'signature_saved_at' => 'datetime',
     ];
 
     /**
@@ -107,5 +115,38 @@ class User extends Model
     public function favorites(): HasMany
     {
         return $this->hasMany(UserFavorite::class);
+    }
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        return SignatureStorage::url($this->signature_file);
+    }
+
+    public function hasSavedSignature(): bool
+    {
+        if ($this->signature_method === SignatureMethod::DigitalTyped->value) {
+            return filled($this->typed_signature);
+        }
+
+        return filled($this->signature_file);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function savedSignaturePayload(): ?array
+    {
+        if (! $this->hasSavedSignature()) {
+            return null;
+        }
+
+        return [
+            'method' => $this->signature_method === SignatureMethod::DigitalTyped->value ? 'type' : 'draw',
+            'signature_method' => $this->signature_method,
+            'signature_url' => $this->signature_url,
+            'typed_signature' => $this->typed_signature,
+            'signed_name' => $this->display_name ?: $this->full_name,
+            'saved_at' => $this->signature_saved_at?->toIso8601String(),
+        ];
     }
 }

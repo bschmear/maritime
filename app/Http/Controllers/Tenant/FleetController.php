@@ -15,8 +15,10 @@ use App\Enums\Fleet\FleetType;
 use App\Enums\Fleet\FuelType;
 use App\Enums\Fleet\WeightUnit;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -118,11 +120,30 @@ class FleetController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
-        $result = ($this->createFleet)($request->all());
+        try {
+            $result = ($this->createFleet)($request->all());
+        } catch (ValidationException $e) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $e->errors(),
+                    'message' => 'Validation failed',
+                ], 422);
+            }
+
+            throw $e;
+        }
 
         if (! $result['success']) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Could not create fleet item.',
+                ], 422);
+            }
+
             return redirect()
                 ->back()
                 ->withInput()
@@ -131,7 +152,24 @@ class FleetController extends Controller
 
         $fleet = $result['record'];
         if (! $fleet instanceof Fleet) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not create fleet item.',
+                ], 422);
+            }
+
             return redirect()->back()->withInput();
+        }
+
+        if ($request->wantsJson()) {
+            $fleet->loadMissing('location:id,display_name,city,address_line_1');
+
+            return response()->json([
+                'success' => true,
+                'recordId' => $fleet->id,
+                'record' => $this->transformFleet($fleet, detailed: false),
+            ]);
         }
 
         return redirect()

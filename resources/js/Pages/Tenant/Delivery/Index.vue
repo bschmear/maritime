@@ -210,6 +210,34 @@ const getCustomerName = (d) => d.customer?.display_name ?? d.customer?.name ?? '
 const getLocationName = (d) => d.location?.display_name ?? '—';
 const getTechnicianName = (d) => d.technician?.display_name ?? d.technician?.name ?? '—';
 
+const recordLinkClass = 'font-medium text-primary-600 dark:text-primary-400 hover:underline';
+
+const getDeliveryHref = (d) => (d?.id ? route('deliveries.show', d.id) : null);
+
+const getCustomerHref = (d) => {
+    const id = d?.customer?.id ?? d?.customer_id;
+    return id ? route('customers.show', id) : null;
+};
+
+const getLocationHref = (d) => {
+    const id = d?.location?.id ?? d?.location_id;
+    return id ? route('locations.show', id) : null;
+};
+
+const getAssetUnitHref = (item) => {
+    const unit = item?.asset_unit ?? item?.assetUnit ?? null;
+    return unit?.id ? route('assetunits.show', unit.id) : null;
+};
+
+const getPrimaryAssetUnitHref = (d) => {
+    const lineItems = getDeliveryLineItems(d);
+    if (lineItems.length === 1) {
+        return getAssetUnitHref(lineItems[0]);
+    }
+    const legacyUnit = d?.asset_unit ?? d?.assetUnit;
+    return legacyUnit?.id ? route('assetunits.show', legacyUnit.id) : null;
+};
+
 /** Short “deliver to” label for calendar / lists (matches delivery_to_type). */
 const getDeliverToLabel = (d) => {
     if (!d) return '—';
@@ -1029,13 +1057,45 @@ onUnmounted(() => {
                         <tbody class="bg-white dark:bg-gray-800">
                             <template v-for="delivery in (deliveries?.data ?? [])" :key="delivery.id">
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-b border-gray-200 dark:border-gray-700">
-                                    <td class="px-6 py-4 whitespace-nowrap text-md font-mono text-gray-900 dark:text-white">{{ delivery.display_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-md text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</td>
-                                    <td class="px-6 py-4 text-md text-gray-500 dark:text-gray-400 max-w-[10rem] truncate" :title="getLocationName(delivery)">
-                                        {{ getLocationName(delivery) }}
+                                    <td class="px-6 py-4 whitespace-nowrap text-md font-mono">
+                                        <Link
+                                            v-if="getDeliveryHref(delivery)"
+                                            :href="getDeliveryHref(delivery)"
+                                            :class="recordLinkClass"
+                                        >
+                                            {{ delivery.display_name }}
+                                        </Link>
+                                        <span v-else class="text-gray-900 dark:text-white">{{ delivery.display_name }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-md">
+                                        <Link
+                                            v-if="getCustomerHref(delivery)"
+                                            :href="getCustomerHref(delivery)"
+                                            :class="recordLinkClass"
+                                        >
+                                            {{ getCustomerName(delivery) }}
+                                        </Link>
+                                        <span v-else class="text-gray-800 dark:text-gray-200">{{ getCustomerName(delivery) }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-md max-w-[10rem] truncate" :title="getLocationName(delivery)">
+                                        <Link
+                                            v-if="getLocationHref(delivery)"
+                                            :href="getLocationHref(delivery)"
+                                            :class="recordLinkClass"
+                                        >
+                                            {{ getLocationName(delivery) }}
+                                        </Link>
+                                        <span v-else class="text-gray-500 dark:text-gray-400">{{ getLocationName(delivery) }}</span>
                                     </td>
                                     <td class="px-6 py-4 text-md text-gray-600 dark:text-gray-300 max-w-[14rem]">
-                                        <span class="font-medium">{{ itemsSummaryLabel(delivery) }}</span>
+                                        <Link
+                                            v-if="getPrimaryAssetUnitHref(delivery)"
+                                            :href="getPrimaryAssetUnitHref(delivery)"
+                                            :class="recordLinkClass"
+                                        >
+                                            {{ itemsSummaryLabel(delivery) }}
+                                        </Link>
+                                        <span v-else class="font-medium">{{ itemsSummaryLabel(delivery) }}</span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ getTechnicianName(delivery) }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-md text-gray-500 dark:text-gray-400">{{ formatDateTime(delivery.scheduled_at) }}</td>
@@ -1065,8 +1125,22 @@ onUnmounted(() => {
                                                 :key="item.id ?? iidx"
                                                 class="flex flex-wrap items-baseline gap-x-2"
                                             >
-                                                <span class="font-medium text-gray-900 dark:text-white">{{ itemTitle(item) }}</span>
-                                                <span v-if="itemUnitDetail(item)" class="text-gray-500 text-xs">· {{ itemUnitDetail(item) }}</span>
+                                                <Link
+                                                    v-if="getAssetUnitHref(item)"
+                                                    :href="getAssetUnitHref(item)"
+                                                    :class="recordLinkClass"
+                                                >
+                                                    {{ itemTitle(item) }}
+                                                </Link>
+                                                <span v-else class="font-medium text-gray-900 dark:text-white">{{ itemTitle(item) }}</span>
+                                                <Link
+                                                    v-if="itemUnitDetail(item) && getAssetUnitHref(item)"
+                                                    :href="getAssetUnitHref(item)"
+                                                    class="text-primary-600 dark:text-primary-400 hover:underline text-xs"
+                                                >
+                                                    · {{ itemUnitDetail(item) }}
+                                                </Link>
+                                                <span v-else-if="itemUnitDetail(item)" class="text-gray-500 text-xs">· {{ itemUnitDetail(item) }}</span>
                                             </li>
                                         </ul>
                                     </td>

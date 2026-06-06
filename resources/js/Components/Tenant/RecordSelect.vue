@@ -3,6 +3,7 @@
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
     import DeliveryLocationForm from '@/Components/Tenant/DeliveryLocationForm.vue';
+    import FleetEmbeddedForm from '@/Components/Tenant/FleetEmbeddedForm.vue';
     
     const props = defineProps({
         field: {
@@ -108,6 +109,49 @@
     const usesDeliveryLocationCreateForm = computed(
         () => props.field.typeDomain === 'DeliveryLocation',
     );
+
+    const usesFleetCreateForm = computed(
+        () => props.field.typeDomain === 'Fleet',
+    );
+
+    const usesEmbeddedCreateForm = computed(
+        () => usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value,
+    );
+
+    const fleetCreateType = computed(() => {
+        const fromExtras = props.extraLookupParams?.fleet_type;
+        if (fromExtras === 'truck' || fromExtras === 'trailer') {
+            return fromExtras;
+        }
+        if (props.field.fleetType === 'truck' || props.field.fleetType === 'trailer') {
+            return props.field.fleetType;
+        }
+
+        return 'truck';
+    });
+
+    const fleetCreateLocationId = computed(() => {
+        const raw = props.extraLookupParams?.fleet_location_id ?? props.field.fleetLocationId ?? null;
+        if (raw === null || raw === '') {
+            return null;
+        }
+
+        const n = Number(raw);
+
+        return Number.isNaN(n) || n <= 0 ? null : n;
+    });
+
+    const fleetCreateLocation = computed(() => {
+        const rel = props.record?.location ?? props.record?.depart_location ?? null;
+        if (!rel || typeof rel !== 'object') {
+            return null;
+        }
+        if (fleetCreateLocationId.value != null && Number(rel.id) !== fleetCreateLocationId.value) {
+            return null;
+        }
+
+        return rel;
+    });
 
     /** JSON filters: coerce numeric strings so `vendor_id` matches integer columns. */
     const normalizedFilterValue = computed(() => {
@@ -348,7 +392,7 @@
     const openCreateNewTab = async () => {
         enhancedModalTab.value = 'create';
 
-        if (usesDeliveryLocationCreateForm.value) {
+        if (usesEmbeddedCreateForm.value) {
             return;
         }
 
@@ -823,10 +867,11 @@
                         No records found
                     </div>
                     <div v-else>
-                        <button
-                            v-for="record in records"
-                            :key="record.id"
-                            @click="selectRecord(record)"
+                    <button
+                        v-for="record in records"
+                        :key="record.id"
+                        type="button"
+                        @click="selectRecord(record)"
                             class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
                         >
                             {{ getRecordDisplayName(record) }}
@@ -936,6 +981,7 @@
                         <!-- Pagination -->
                         <div v-if="records.length > 0 && totalPages > 1" class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <button
+                                type="button"
                                 @click="prevPage"
                                 :disabled="currentPage === 1"
                                 class="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -946,6 +992,7 @@
                                 Page {{ currentPage }} of {{ totalPages }}
                             </span>
                             <button
+                                type="button"
                                 @click="nextPage"
                                 :disabled="currentPage === totalPages"
                                 class="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -1037,7 +1084,7 @@
                 <div
                     @click.stop
                     class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl transform transition-all w-full max-h-[90vh] flex flex-col"
-                    :class="usesDeliveryLocationCreateForm && enhancedModalTab === 'create' ? 'max-w-5xl' : 'max-w-4xl'"
+                    :class="usesEmbeddedCreateForm && enhancedModalTab === 'create' ? 'max-w-5xl' : 'max-w-4xl'"
                 >
                     <!-- Header -->
                     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -1063,6 +1110,7 @@
                     <div class="px-6 pt-4 border-b border-gray-200 dark:border-gray-700">
                         <nav class="flex gap-1">
                             <button
+                                type="button"
                                 @click="enhancedModalTab = 'existing'; initMultiDraft(); fetchRecordsImmediate(true)"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
@@ -1075,6 +1123,7 @@
                                 Select Existing
                             </button>
                             <button
+                                type="button"
                                 @click="openCreateNewTab"
                                 :class="[
                                     'flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all',
@@ -1181,6 +1230,7 @@
                                     <!-- Pagination -->
                                     <div v-if="totalPages > 1" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                                         <button
+                                            type="button"
                                             @click="prevPage"
                                             :disabled="currentPage === 1 || isLoading"
                                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -1194,6 +1244,7 @@
                                         </span>
 
                                         <button
+                                            type="button"
                                             @click="nextPage"
                                             :disabled="currentPage === totalPages || isLoading"
                                             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -1211,6 +1262,15 @@
                             <DeliveryLocationForm
                                 v-if="usesDeliveryLocationCreateForm"
                                 embedded
+                                @created="handleRecordCreated"
+                                @cancelled="enhancedModalTab = 'existing'"
+                            />
+                            <FleetEmbeddedForm
+                                v-else-if="usesFleetCreateForm"
+                                :fleet-type="fleetCreateType"
+                                :initial-location-id="fleetCreateLocationId"
+                                :initial-location="fleetCreateLocation"
+                                :lock-location="fleetCreateLocationId != null"
                                 @created="handleRecordCreated"
                                 @cancelled="enhancedModalTab = 'existing'"
                             />

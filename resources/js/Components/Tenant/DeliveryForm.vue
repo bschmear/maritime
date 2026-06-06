@@ -158,6 +158,25 @@ const relationOverlay = ref({
 /** Parent row for RecordSelect embedded relation stubs (prefill / edit). */
 const record = computed(() => ({ ...(props.record ?? {}), ...relationOverlay.value }));
 
+/** Depart-from location context for embedded fleet create in truck/trailer pickers. */
+const recordForFleetPickers = computed(() => {
+    const base = record.value;
+    if (!form.location_id) {
+        return base;
+    }
+    if (base.location && Number(base.location.id) === Number(form.location_id)) {
+        return base;
+    }
+
+    return {
+        ...base,
+        location: {
+            id: form.location_id,
+            display_name: base.location?.display_name ?? `Location #${form.location_id}`,
+        },
+    };
+});
+
 const statusOptions = computed(() => props.enumOptions?.delivery_status || [
     { id: 'scheduled', name: 'Scheduled' },
     { id: 'confirmed', name: 'Confirmed' },
@@ -662,8 +681,20 @@ const addressSummary = computed(() => {
 
 const subsidiaryField = computed(() => ({ type: 'record', typeDomain: 'Subsidiary', label: 'Subsidiary' }));
 const locationField = computed(() => ({ type: 'record', typeDomain: 'Location', label: 'Depart from (location)' }));
-const fleetTruckField = computed(() => ({ type: 'record', typeDomain: 'Fleet', label: 'Truck' }));
-const fleetTrailerField = computed(() => ({ type: 'record', typeDomain: 'Fleet', label: 'Trailer' }));
+const fleetTruckField = computed(() => ({
+    type: 'record',
+    typeDomain: 'Fleet',
+    label: 'Truck',
+    create: true,
+    fleetType: 'truck',
+}));
+const fleetTrailerField = computed(() => ({
+    type: 'record',
+    typeDomain: 'Fleet',
+    label: 'Trailer',
+    create: true,
+    fleetType: 'trailer',
+}));
 
 const fleetTruckLookupExtras = computed(() => ({
     fleet_type: 'truck',
@@ -1350,9 +1381,8 @@ const onScheduledAtCommittedChange = async () => {
                                         <RecordSelect
                                             id="fleet_truck_id"
                                             :field="fleetTruckField"
-                                            :record="record"
+                                            :record="recordForFleetPickers"
                                             v-model="form.fleet_truck_id"
-                                            :disabled="!form.location_id"
                                             :extra-lookup-params="fleetTruckLookupExtras"
                                             field-key="fleet_truck_id"
                                             @record-selected="onFleetTruckRecordSelected"
@@ -1366,9 +1396,8 @@ const onScheduledAtCommittedChange = async () => {
                                         <RecordSelect
                                             id="fleet_trailer_id"
                                             :field="fleetTrailerField"
-                                            :record="record"
+                                            :record="recordForFleetPickers"
                                             v-model="form.fleet_trailer_id"
-                                            :disabled="!form.location_id"
                                             :extra-lookup-params="fleetTrailerLookupExtras"
                                             field-key="fleet_trailer_id"
                                             @record-selected="onFleetTrailerRecordSelected"

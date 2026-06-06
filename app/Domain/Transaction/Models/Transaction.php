@@ -51,6 +51,8 @@ class Transaction extends Model
         'deleted_at' => 'datetime',
         'needs_contract' => 'boolean',
         'needs_delivery' => 'boolean',
+        'mso_needed' => 'boolean',
+        'mso_created' => 'boolean',
     ];
 
     protected static function booted(): void

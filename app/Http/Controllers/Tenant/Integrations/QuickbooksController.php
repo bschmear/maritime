@@ -8,6 +8,7 @@ use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Integration\IntegrationType;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\QuickBooksOAuthController;
 use App\Jobs\PullContactsFromQuickBooks;
 use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Http\JsonResponse;
@@ -22,7 +23,7 @@ use Inertia\Response;
 
 /**
  * QuickBooks Online under Integrations (OAuth + customer import). Central callback:
- * {@see \App\Http\Controllers\QuickBooksOAuthController}.
+ * {@see QuickBooksOAuthController}.
  */
 class QuickbooksController extends Controller
 {
@@ -202,7 +203,7 @@ class QuickbooksController extends Controller
         }
 
         $request->validate([
-            'type' => ['required', 'string', Rule::in(['contact', 'lead'])],
+            'type' => ['required', 'string', Rule::in(['contact', 'customer', 'lead'])],
         ]);
 
         $profile = current_tenant_profile();

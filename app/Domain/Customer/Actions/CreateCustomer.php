@@ -5,8 +5,10 @@ namespace App\Domain\Customer\Actions;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Customer\Models\Customer as RecordModel;
+use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
+use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -104,6 +106,13 @@ class CreateCustomer
 
                 return $customer;
             });
+
+            if ($record->contact_id && QuickBooksSettings::forCurrentTenant()->isSyncContactsEnabled()) {
+                $contact = Contact::query()->find($record->contact_id);
+                if ($contact !== null && ! $contact->quickbooks_customer_id) {
+                    PushContactToQuickBooks::dispatch($contact->id);
+                }
+            }
 
             return [
                 'success' => true,

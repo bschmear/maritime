@@ -28,6 +28,7 @@ const flash = computed(() => page.props.flash || {});
 
 const statusEnumKey = 'App\\Enums\\Transaction\\TransactionStatus';
 const invoiceStatusEnumKey = 'App\\Enums\\Invoice\\Status';
+const deliveryStatusEnumKey = 'App\\Enums\\Deliveries\\Status';
 
 const createInvoiceHref = computed(
     () => route('invoices.create') + `?transaction_id=${props.record.id}&contact_id=${props.record.customer?.contact_id || ''}`,
@@ -142,6 +143,22 @@ const invoiceStatusMeta = (status) => {
     }
     return { label: status || '—', bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
 };
+
+const deliveryStatusMeta = (status) => {
+    const opts = props.enumOptions[deliveryStatusEnumKey] || [];
+    const opt = opts.find((o) => o.value === status || o.id === status);
+    if (opt) {
+        return { label: opt.name, bgClass: opt.bgClass || 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+    }
+    const label = status ? String(status).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—';
+    return { label, bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200' };
+};
+
+const deliveryLabel = (delivery) =>
+    delivery?.display_name || (delivery?.sequence ? `DLV-${delivery.sequence}` : delivery?.id ? `DLV-${delivery.id}` : 'Delivery');
+
+const invoiceLabel = (invoice) =>
+    invoice?.display_name || (invoice?.sequence ? `INV-${invoice.sequence}` : invoice?.id ? `INV-${invoice.id}` : 'Invoice');
 
 const statusMeta = computed(() => {
     const raw = props.record.status;
@@ -305,6 +322,19 @@ const relatedRecords = computed(() => {
         });
     }
 
+    for (const delivery of transactionDeliveries.value) {
+        const status = deliveryStatusMeta(delivery.status);
+        links.push({
+            key: `delivery-${delivery.id}`,
+            icon: 'local_shipping',
+            label: 'Delivery',
+            name: deliveryLabel(delivery),
+            href: route('deliveries.show', delivery.id),
+            meta: status.label,
+            metaClass: status.bgClass,
+        });
+    }
+
     return links;
 });
 
@@ -416,7 +446,7 @@ const stepperSteps = computed(() => {
             label: 'Delivery',
             icon:  'local_shipping',
             state: delivered ? 'complete' : inFlight ? 'pending' : dels.length ? 'current' : 'todo',
-            href:  null,
+            href:  dels.length > 0 ? route('deliveries.show', dels[0].id) : null,
         });
     } else {
         steps.push({
@@ -961,29 +991,68 @@ const confirmAddStep = () => {
                                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Needs delivery</p>
                                     <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.needs_delivery ? 'Yes' : 'No' }}</p>
                                     <template v-if="record.needs_delivery">
-                                        <a :href="route('deliveries.create', { transaction_id: record.id })"
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors">
+                                        <div v-if="transactionDeliveries.length > 0" class="space-y-2 mb-2">
+                                            <Link
+                                                v-for="delivery in transactionDeliveries"
+                                                :key="delivery.id"
+                                                :href="route('deliveries.show', delivery.id)"
+                                                class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                            >
+                                                <span class="material-icons text-md">local_shipping</span>
+                                                View Delivery{{ transactionDeliveries.length > 1 ? ` (${deliveryLabel(delivery)})` : '' }}
+                                            </Link>
+                                        </div>
+                                        <Link
+                                            v-if="transactionDeliveries.length === 0"
+                                            :href="route('deliveries.create', { transaction_id: record.id })"
+                                            class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                                        >
                                             <span class="material-icons text-md">add</span>
                                             Schedule Delivery
-                                        </a>
+                                        </Link>
                                     </template>
+                                </div>
+
+                                <!-- MSO -->
+                                <div v-if="isCompleted && record.mso_needed">
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">MSO</p>
+                                    <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.mso_created ? 'Complete' : 'Pending' }}</p>
+                                    <Link
+                                        v-if="!record.mso_created"
+                                        :href="route('mso.pending')"
+                                        class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                        <span class="material-icons text-md">description</span>
+                                        Pending MSOs
+                                    </Link>
                                 </div>
 
                                 <!-- Invoice -->
                                 <div>
                                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Invoice</p>
+                                    <div v-if="transactionInvoices.length > 0" class="space-y-2 mb-2">
+                                        <Link
+                                            v-for="invoice in transactionInvoices"
+                                            :key="invoice.id"
+                                            :href="route('invoices.show', invoice.id)"
+                                            class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                                        >
+                                            <span class="material-icons text-md">receipt_long</span>
+                                            View Invoice{{ transactionInvoices.length > 1 ? ` (${invoiceLabel(invoice)})` : '' }}
+                                        </Link>
+                                    </div>
                                     <Link
-                                        v-if="canCreateInvoice"
+                                        v-if="canCreateInvoice && transactionInvoices.length === 0"
                                         :href="createInvoiceHref"
                                         class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
                                     >
                                         <span class="material-icons text-md">add</span>
                                         Create Invoice
                                     </Link>
-                                    <p v-else-if="createInvoiceBlockMessage" class="text-sm text-amber-700 dark:text-amber-300">
+                                    <p v-else-if="transactionInvoices.length === 0 && createInvoiceBlockMessage" class="text-sm text-amber-700 dark:text-amber-300">
                                         {{ createInvoiceBlockMessage }}
                                     </p>
-                                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                    <p v-else-if="transactionInvoices.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
                                         Invoices cannot be added after the deal is completed.
                                     </p>
                                 </div>
@@ -1170,7 +1239,7 @@ const confirmAddStep = () => {
                     <div class="flex items-center justify-between px-5 py-3.5 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                         <span class="text-md font-semibold text-gray-900 dark:text-white">Invoices</span>
                         <Link
-                            v-if="canCreateInvoice"
+                            v-if="canCreateInvoice && transactionInvoices.length === 0"
                             :href="createInvoiceHref"
                             class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                         >

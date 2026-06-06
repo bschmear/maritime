@@ -2,11 +2,6 @@
     "allow_create_modal": false,
     "columns": [
         {
-            "key": "id",
-            "label": "#",
-            "sortable": true
-        },
-        {
             "key": "display_name",
             "label": "Deal #",
             "sortable": true,

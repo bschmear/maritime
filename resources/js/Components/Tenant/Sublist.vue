@@ -53,6 +53,8 @@ const activeFilters = ref([]);
 const showFiltersModal = ref(false);
 const updatingItems = ref(new Set()); // Track which items are being updated
 const defaultFiltersLoaded = ref(false); // Track if default filters have been loaded
+/** When true, sublist rows came from the API and must not be overwritten by stale parent eager-loads. */
+const sublistUsesApiSource = ref(false);
 const rowActionPostingKey = ref(null); // `${contactId}-${routeName}` while Inertia POST row action runs
 
 // Sublist Create Modal State
@@ -659,7 +661,21 @@ const patchPivotToggle = async (item, col, checked) => {
     }
 };
 
-const fetchSublistData = async (sublist, page = 1) => {
+const shouldForceApiFetchForSublist = (sublist) => (
+    sublist?.modelRelationship
+    && sublist.relationshipType !== 'ManyToMany'
+    && sublist.domain !== 'InventoryImage'
+    && sublist.domain !== 'Document'
+);
+
+const shouldUseEagerRelationshipData = (sublist, forceApiFetch) => (
+    !forceApiFetch
+    && activeFilters.value.length === 0
+    && sublist.modelRelationship
+    && sublist.relationshipType !== 'ManyToMany'
+);
+
+const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
     if (!sublist) return;
 
     // Skip data fetching for image galleries only (they handle their own data)
@@ -729,7 +745,7 @@ const fetchSublistData = async (sublist, page = 1) => {
     }
 
     // Has-many / has-many-through rows already eager-loaded on the parent (contacts, leads, customers).
-    if (sublist.modelRelationship && sublist.relationshipType !== 'ManyToMany') {
+    if (shouldUseEagerRelationshipData(sublist, forceApiFetch)) {
         const relationshipData = getParentRelationship(sublist.modelRelationship);
         if (Array.isArray(relationshipData)) {
             isLoadingSublist.value = true;
@@ -746,6 +762,7 @@ const fetchSublistData = async (sublist, page = 1) => {
 
                 sublistData.value = rows;
                 sublistPagination.value = null;
+                sublistUsesApiSource.value = false;
                 await loadSublistIndexSchema(sublist);
             } catch (error) {
                 console.error(`Error loading eager ${sublist.modelRelationship} sublist:`, error);
@@ -823,6 +840,7 @@ const fetchSublistData = async (sublist, page = 1) => {
         sublistTableSchema.value = response.data.schema || null; // Table schema with columns array
         sublistFieldsSchema.value = response.data.fieldsSchema || {}; // Fields schema for data types
         sublistPagination.value = response.data.meta;
+        sublistUsesApiSource.value = true;
         
         // Load explicit default filters only (default_value / apply_as_default), not quick-filter defs
         if (!defaultFiltersLoaded.value && activeFilters.value.length === 0 && sublistTableSchema.value) {
@@ -830,7 +848,7 @@ const fetchSublistData = async (sublist, page = 1) => {
             const defaults = defaultFiltersFromTableSchema(sublistTableSchema.value);
             if (defaults.length > 0) {
                 activeFilters.value = defaults;
-                fetchSublistData(sublist, page);
+                await fetchSublistData(sublist, page, true);
                 return;
             }
         }
@@ -1167,6 +1185,7 @@ const handleTabChange = async (sublist) => {
     sublistTableSchema.value = null;
     activeFilters.value = [];
     defaultFiltersLoaded.value = false;
+    sublistUsesApiSource.value = false;
 
     // For image galleries only, skip normal data fetching
     // The ImageGallery component handles its own data
@@ -1414,7 +1433,7 @@ const detachRelatedRecord = async (record) => {
     }
 };
 
-const handleSublistItemCreated = async (recordId) => {
+const handleSublistItemCreated = async (recordId, createdRecord = null) => {
     // If this is a Many-to-Many relationship, attach the newly created record
     if (activeTab.value?.relationshipType === 'ManyToMany' && activeTab.value?.modelRelationship && recordId) {
         try {
@@ -1438,7 +1457,19 @@ const handleSublistItemCreated = async (recordId) => {
             && activeTab.value.domain !== 'Document'
             && activeTab.value.sublistKind !== 'morphCommunication'
             && !activeTab.value.readOnly) {
-            fetchSublistData(activeTab.value);
+            const forceApiFetch = shouldForceApiFetchForSublist(activeTab.value);
+
+            if (!sublistCreateFormData.value) {
+                await loadSublistSchema(activeTab.value);
+            }
+
+            if (forceApiFetch && recordId && createdRecord && !sublistData.value.some((row) => row.id === recordId)) {
+                sublistData.value = [...sublistData.value, createdRecord];
+                sublistUsesApiSource.value = true;
+            }
+
+            await fetchSublistData(activeTab.value, 1, forceApiFetch);
+            emitSublistMutatedIfNeeded();
         }
     }
     
@@ -1497,7 +1528,11 @@ const closeSublistEditModal = () => {
 
 const handleSublistItemUpdated = async () => {
     if (activeTab.value) {
-        await fetchSublistData(activeTab.value, sublistPagination.value?.current_page || 1);
+        await fetchSublistData(
+            activeTab.value,
+            sublistPagination.value?.current_page || 1,
+            shouldForceApiFetchForSublist(activeTab.value),
+        );
         emitSublistMutatedIfNeeded();
     }
     showSublistEditModal.value = false;
@@ -1625,7 +1660,7 @@ watch(
         return getParentRelationship(rel);
     },
     (relationshipData) => {
-        if (relationshipData == null) {
+        if (relationshipData == null || sublistUsesApiSource.value) {
             return;
         }
         let rows = Array.isArray(relationshipData) ? [...relationshipData] : [];

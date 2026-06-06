@@ -3,6 +3,7 @@
 namespace App\Domain\Transaction\Actions;
 
 use App\Domain\AssetOption\Services\PersistAssetOptionSelectionsForLineItem;
+use App\Domain\MsoRecord\Support\SyncTransactionMsoFlags;
 use App\Domain\Transaction\Models\Transaction as RecordModel;
 use App\Domain\Transaction\Models\TransactionItem;
 use App\Domain\Transaction\Support\AssertTransactionCanComplete;
@@ -155,6 +156,11 @@ class UpdateTransaction
             });
 
             $record = $record->fresh();
+
+            if ($record !== null && $record->isCompleted()) {
+                SyncTransactionMsoFlags::forTransaction($record);
+                $record = $record->fresh();
+            }
 
             if ($updateLinkedInvoiceTax && $record !== null) {
                 $newRate = (float) ($record->tax_rate ?? 0);

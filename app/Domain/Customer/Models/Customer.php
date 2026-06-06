@@ -452,6 +452,8 @@ class Customer extends Model
             'inactive',
             // Set by CreateCustomer / UpdateCustomer from inactive; lives on contacts, not customer_profiles
             'status',
+            'source',
+            'quickbooks_customer_id',
         ];
     }
 

@@ -14,6 +14,39 @@ final class SignatureStorage
 {
     public const DIRECTORY = 'public/signatures';
 
+    public static function storeDrawnImageForStaff(string $base64Data, int $userId): ?string
+    {
+        if (! preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {
+            return null;
+        }
+
+        $extension = $matches[1];
+        $decoded = base64_decode(substr($base64Data, strpos($base64Data, ',') + 1));
+        if (! $decoded) {
+            return null;
+        }
+
+        $filename = 'staff-'.$userId.'-signature.'.$extension;
+        $key = self::DIRECTORY.'/'.$filename;
+
+        try {
+            $disk = Storage::disk('s3');
+            $disk->getClient()->putObject([
+                'Bucket' => $disk->getConfig()['bucket'],
+                'Key' => $key,
+                'Body' => $decoded,
+                'ContentType' => "image/{$extension}",
+                'CacheControl' => 'public, max-age=604800',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to store staff signature image: '.$e->getMessage());
+
+            return null;
+        }
+
+        return $key;
+    }
+
     public static function storeDrawnImage(string $base64Data, string $uuid): ?string
     {
         if (! preg_match('/^data:image\/(\w+);base64,/', $base64Data, $matches)) {

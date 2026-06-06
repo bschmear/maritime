@@ -4,6 +4,7 @@ import Modal from '@/Components/Modal.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkspaceTeamUserScopeBanner from '@/Components/Tenant/WorkspaceTeamUserScopeBanner.vue';
+import UserSignatureSection from '@/Components/Tenant/UserSignatureSection.vue';
 import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
@@ -57,12 +58,21 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    canEditSignature: {
+        type: Boolean,
+        default: false,
+    },
+    signature: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const page = usePage();
 
 const flash = computed(() => page.props.flash || {});
 const isDeleting = ref(false);
+const showDeleteModal = ref(false);
 
 const sublists = computed(() => props.formSchema?.sublists || []);
 
@@ -250,6 +260,13 @@ const breadcrumbItems = computed(() => {
                                 </dd>
                             </div>
                         </dl>
+
+                        <UserSignatureSection
+                            :user-id="record.id"
+                            :can-edit="canEditSignature"
+                            :signature="signature"
+                            :display-name="record.display_name"
+                        />
                     </div>
                 </div>
 

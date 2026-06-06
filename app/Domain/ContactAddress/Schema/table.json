@@ -1,6 +1,5 @@
 {
   "columns": [
-    { "key": "display_name", "label": "Address", "sortable": true, "isKey": true },
     { "key": "label", "label": "Label", "sortable": true },
     { "key": "is_primary", "label": "Primary", "sortable": true },
     { "key": "address_line_1", "label": "Line 1", "sortable": true },

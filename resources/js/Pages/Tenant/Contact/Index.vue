@@ -230,7 +230,7 @@ const submitLicenseContact = async () => {
             :recordtype="mailchimpRecordtype"
         />
 
-        <QuickBooksImport ref="quickBooksImportRef" :record-type="mailchimpEntityType" />
+        <QuickBooksImport ref="quickBooksImportRef" record-type="customer" />
 
         <div
             v-if="licenseFlow"

@@ -93,6 +93,11 @@
     {
       "label": "Documents",
       "domain": "Document"
+    },
+    {
+      "label": "MSOs",
+      "domain": "MsoRecord",
+      "modelRelationship": "msoRecords"
     }
   ]
 }

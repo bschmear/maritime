@@ -31,6 +31,7 @@ enum RecordType: string
     case Contract = 'contract';
     case Delivery = 'delivery';
     case WarrantyClaim = 'warrantyclaim';
+    case MsoRecord = 'msorecord';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -65,6 +66,7 @@ enum RecordType: string
             self::Contract => 'Contract',
             self::Delivery => 'Delivery',
             self::WarrantyClaim => 'WarrantyClaim',
+            self::MsoRecord => 'MsoRecord',
         };
     }
 
@@ -101,6 +103,7 @@ enum RecordType: string
             self::Contract => 'App\\Domain\\Contract',
             self::Delivery => 'App\\Domain\\Delivery',
             self::WarrantyClaim => 'App\\Domain\\WarrantyClaim',
+            self::MsoRecord => 'App\\Domain\\MsoRecord',
         };
     }
 
@@ -137,6 +140,7 @@ enum RecordType: string
             self::Contract => 'Contract',
             self::Delivery => 'Delivery',
             self::WarrantyClaim => 'Warranty Claim',
+            self::MsoRecord => 'MSO',
         };
     }
 
@@ -173,6 +177,7 @@ enum RecordType: string
             self::Contract => 'contracts',
             self::Delivery => 'deliveries',
             self::WarrantyClaim => 'warrantyclaims',
+            self::MsoRecord => 'msorecords',
         };
     }
 
