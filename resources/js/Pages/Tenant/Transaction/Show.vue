@@ -1019,11 +1019,11 @@ const confirmAddStep = () => {
                                     <p class="text-gray-900 dark:text-gray-100 mb-2">{{ record.mso_created ? 'Complete' : 'Pending' }}</p>
                                     <Link
                                         v-if="!record.mso_created"
-                                        :href="route('mso.pending')"
+                                        :href="route('mso.index')"
                                         class="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
                                     >
                                         <span class="material-icons text-md">description</span>
-                                        Pending MSOs
+                                        MSO
                                     </Link>
                                 </div>
 

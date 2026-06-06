@@ -491,6 +491,22 @@ const relatedRecordShowUrl = (fieldKey) => {
     }
 };
 
+const linkedTransaction = computed(() => {
+    const id = props.record?.transaction?.id ?? props.record?.transaction_id;
+    if (!id) return null;
+
+    const tx = props.record?.transaction;
+    const title = tx?.title
+        || tx?.display_name
+        || (tx?.sequence ? `Deal #${tx.sequence}` : `Deal #${id}`);
+
+    return { id, title };
+});
+
+const linkedTransactionShowUrl = computed(() =>
+    linkedTransaction.value ? route('transactions.show', linkedTransaction.value.id) : null,
+);
+
 const isFieldRequired = (fieldKey) => {
     return props.fieldsSchema[fieldKey]?.required === true;
 };
@@ -677,6 +693,8 @@ if (!formData.hasOwnProperty('tax_rate')) {
 // Preserve transaction_id (not a schema field but needed for the FK relation)
 if (props.record?.transaction_id != null) {
     formData.transaction_id = props.record.transaction_id;
+} else if (props.record?.transaction?.id != null) {
+    formData.transaction_id = props.record.transaction.id;
 }
 
 const form = useForm(formData);
@@ -1179,6 +1197,7 @@ const handleCancel = () => {
                                             Customer & Location
                                         </h3>
 
+                                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
                                         <!-- Customer Selection -->
                                         <div>
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1267,8 +1286,17 @@ const handleCancel = () => {
                                             <p v-if="form.errors.location_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
                                         </div>
 
+                                        <div v-if="mode === 'show' && linkedTransactionShowUrl">
+                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                Deal
+                                            </label>
+                                            <Link :href="linkedTransactionShowUrl" :class="recordLinkClass">
+                                                {{ linkedTransaction.title }}
+                                            </Link>
+                                        </div>
+
                                         <!-- Equipment: catalog asset → variant → unit -->
-                                        <div v-if="fieldsSchema.asset_unit_id">
+                                        <div v-if="fieldsSchema.asset_unit_id" class="lg:col-span-2">
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 {{ fieldsSchema.asset_unit_id?.label || 'Asset' }}
                                                 {{ isFieldRequired('asset_unit_id') ? '*' : '' }}
@@ -1369,6 +1397,7 @@ const handleCancel = () => {
                                                 {{ fieldsSchema.asset_unit_id.help }}
                                             </p>
                                             <p v-if="form.errors.asset_unit_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.asset_unit_id }}</p>
+                                        </div>
                                         </div>
                                     </div>
 

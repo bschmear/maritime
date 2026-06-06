@@ -6,9 +6,13 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Actions\CreateAssetUnit as CreateAction;
 use App\Domain\AssetUnit\Actions\DeleteAssetUnit as DeleteAction;
 use App\Domain\AssetUnit\Actions\UpdateAssetUnit as UpdateAction;
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
+use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -47,6 +51,7 @@ class AssetUnitController extends RecordController
         $relationships['documents'] = fn ($q) => $q->select([
             'documents.id',
             'documents.display_name',
+            'documents.description',
             'documents.file',
             'documents.file_extension',
             'documents.file_size',
@@ -60,7 +65,7 @@ class AssetUnitController extends RecordController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $prefill = [];
         $assetId = (int) $request->query('asset_id', 0);
@@ -89,7 +94,7 @@ class AssetUnitController extends RecordController
     }
 
     /**
-     * @param  \App\Domain\AssetUnit\Models\AssetUnit  $record
+     * @param  AssetUnit  $record
      */
     protected function showPageExtraProps($record): array
     {
@@ -126,20 +131,11 @@ class AssetUnitController extends RecordController
             ];
         }
 
-        if (! $record->is_consignment) {
-            $record->loadMissing(['customer.contact']);
-            $ownerName = $record->customer?->contact?->display_name;
+        $msoBuilderLinks = $this->msoBuilderLinksForUnit($record);
 
+        if (! $record->is_consignment) {
             return array_merge($base, $catalog, [
-                'consignmentAgreementContext' => [
-                    'not_marked_consignment' => true,
-                    'needs_agreement' => true,
-                    'create_url' => URL::route('consignmentagreements.create', ['asset_unit_id' => $record->id]),
-                    'mark_consignment_preview' => [
-                        'owner_name' => $ownerName,
-                        'can_mark' => filled($ownerName) && $record->customer?->contact_id,
-                    ],
-                ],
+                'msoBuilderLinks' => $msoBuilderLinks,
             ]);
         }
 
@@ -154,6 +150,7 @@ class AssetUnitController extends RecordController
             : null;
 
         return array_merge($base, $catalog, [
+            'msoBuilderLinks' => $msoBuilderLinks,
             'consignmentAgreementContext' => [
                 'needs_agreement' => ! $hasSigned,
                 'has_signed_agreement' => $hasSigned,
@@ -170,5 +167,37 @@ class AssetUnitController extends RecordController
                 ]) : null,
             ],
         ]);
+    }
+
+    /**
+     * @return list<array{transaction_id: int, line_item_id: int, transaction_label: string, builder_url: string}>
+     */
+    private function msoBuilderLinksForUnit(AssetUnit $record): array
+    {
+        return TransactionLineItem::query()
+            ->select(['id', 'parent_id', 'parent_type', 'asset_unit_id', 'name'])
+            ->where('asset_unit_id', $record->id)
+            ->where('parent_type', Transaction::class)
+            ->with(['parent' => fn ($q) => $q->select(['id', 'sequence'])])
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (TransactionLineItem $line) {
+                $transaction = $line->parent;
+                $label = $transaction
+                    ? 'DL-'.($transaction->sequence ?: $transaction->id)
+                    : "Deal #{$line->parent_id}";
+
+                return [
+                    'transaction_id' => (int) $line->parent_id,
+                    'line_item_id' => (int) $line->id,
+                    'transaction_label' => $label,
+                    'builder_url' => route('mso.create', [
+                        'transaction_id' => $line->parent_id,
+                        'line_item_id' => $line->id,
+                    ]),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

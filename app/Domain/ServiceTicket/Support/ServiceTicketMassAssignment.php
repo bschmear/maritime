@@ -18,6 +18,7 @@ final class ServiceTicketMassAssignment
         'customer_id',
         'subsidiary_id',
         'location_id',
+        'transaction_id',
         'asset_unit_id',
         'expedite',
         'pickup_delivery_requested_at',

@@ -1,3 +1,5 @@
+import { buildRecordShowUrl } from '@/Utils/resourceRoutes';
+
 /** Polymorphic catalog types on estimate / deal line rows (match Laravel `::class` strings). */
 export const ASSET_LINE_ITEM_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
 export const INVENTORY_LINE_ITEM_TYPE = 'App\\Domain\\InventoryItem\\Models\\InventoryItem';
@@ -209,6 +211,41 @@ export function lineUnitDisplay(item) {
 /** Catalog asset id for links (snake or camel). */
 export function lineItemAssetCatalogId(item) {
     return item.itemable_id ?? item.itemable?.id ?? null;
+}
+
+/** Parent asset id for nested routes (variant show) when itemable is missing. */
+export function lineItemAssetIdForLinks(item) {
+    const catalogId = lineItemAssetCatalogId(item);
+    if (catalogId) {
+        return catalogId;
+    }
+    const unit = lineUnit(item);
+    if (unit?.asset_id) {
+        return unit.asset_id;
+    }
+    const variant = lineVariant(item);
+    if (variant?.asset_id) {
+        return variant.asset_id;
+    }
+    return null;
+}
+
+export function lineVariantShowUrl(item) {
+    const variantId = lineVariantId(item);
+    if (!variantId) {
+        return null;
+    }
+    return buildRecordShowUrl('AssetVariant', variantId, {
+        assetId: lineItemAssetIdForLinks(item),
+    });
+}
+
+export function lineUnitShowUrl(item) {
+    const unitId = lineUnitId(item);
+    if (!unitId) {
+        return null;
+    }
+    return buildRecordShowUrl('AssetUnit', unitId);
 }
 
 export function selectedOptionLabel(opt) {

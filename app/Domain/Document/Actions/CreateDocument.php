@@ -2,16 +2,16 @@
 
 namespace App\Domain\Document\Actions;
 
+use App\Actions\PublicStorage;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Document\Models\Document as RecordModel;
 use App\Domain\User\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Throwable;
 
 class CreateDocument
@@ -55,21 +55,23 @@ class CreateDocument
         */
 
         try {
+            /** @var UploadedFile $file */
             $file = $data['file'];
-            $fileSize = $file->getSize();
-            $info = pathinfo($file->getClientOriginalName());
-            $extension = $info['extension'] ?? '';
-            // Generate filename: name-timestamp.ext
-            $filename = Str::slug(basename($file->getClientOriginalName(), '.'.$extension)).'-'.time().'.'.$extension;
 
-            $path = self::storagePathForFilename($filename);
+            $uploadResult = app(PublicStorage::class)->store(
+                $file,
+                'documents',
+                null,
+                null,
+                false,
+                true,
+                true,
+            );
 
-            // Upload to S3
-            $uploaded = Storage::disk('s3')->put($path, file_get_contents($file), 'private');
-
-            if (! $uploaded) {
-                throw new \Exception('Failed to upload the document to S3.');
-            }
+            $path = $uploadResult['key'];
+            $filename = $uploadResult['file_name'];
+            $fileSize = $uploadResult['file_size'];
+            $extension = $uploadResult['file_extension'];
 
             return DB::transaction(function () use ($validated, $staffUserId, $assignedId, $path, $filename, $fileSize, $extension, $attachTo) {
                 // Update team storage if applicable
@@ -126,16 +128,12 @@ class CreateDocument
     }
 
     /**
-     * Mirror public asset layout: documents/{tenant_id}/{filename} (see PublicStorage).
+     * S3 key for generated documents (matches PublicStorage private layout).
      */
     public static function storagePathForFilename(string $filename): string
     {
-        $tenantId = tenant()?->id;
+        $tenantPrefix = tenant() ? tenant()->id.'/' : '';
 
-        if ($tenantId !== null) {
-            return 'documents/'.$tenantId.'/'.$filename;
-        }
-
-        return 'documents/uploads/'.$filename;
+        return "private/{$tenantPrefix}documents/{$filename}";
     }
 }

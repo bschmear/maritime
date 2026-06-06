@@ -1,5 +1,6 @@
 <script setup>
 import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
+import AssetUnitOriginalMsoCard from '@/Components/Tenant/AssetUnitOriginalMsoCard.vue';
 import ConsignmentAgreementSection from '@/Components/Tenant/ConsignmentAgreementSection.vue';
 import AssetUnitForm from '@/Components/Tenant/AssetUnitForm.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
@@ -23,6 +24,12 @@ const props = defineProps({
     catalogResolvedOptions: { type: Array, default: () => [] },
     catalogContext: { type: Object, default: null },
     consignmentAgreementContext: { type: Object, default: null },
+    msoBuilderLinks: { type: Array, default: () => [] },
+});
+
+const originalMso = computed(() => {
+    const docs = props.record?.documents ?? [];
+    return docs.find((doc) => (doc.pivot?.role ?? doc.role) === 'mso') ?? null;
 });
 
 const showDeleteModal = ref(false);
@@ -143,36 +150,51 @@ const sublists = computed(() => props.formSchema?.sublists ?? []);
             </div>
         </template>
 
-        <div class="mx-auto flex w-full flex-col space-y-6">
-            <ConsignmentAgreementSection
-                v-if="consignmentAgreementContext"
-                :context="consignmentAgreementContext"
-                :record="record"
-            />
+        <div class="w-full space-y-6">
+            <div class="grid gap-6 lg:grid-cols-12">
+                <div class="min-w-0 space-y-6 lg:col-span-8">
+                    <ConsignmentAgreementSection
+                        v-if="record?.is_consignment && consignmentAgreementContext"
+                        :context="consignmentAgreementContext"
+                        :record="record"
+                    />
 
-            <AssetCatalogOptionsSection
-                v-if="showAssetCatalogOptions"
-                :resolved-options="catalogResolvedOptions"
-                :catalog-context="catalogContext"
-                intro="These options apply when this unit’s parent asset has no variants."
-            />
+                    <AssetCatalogOptionsSection
+                        v-if="showAssetCatalogOptions"
+                        :resolved-options="catalogResolvedOptions"
+                        :catalog-context="catalogContext"
+                        intro="These options apply when this unit’s parent asset has no variants."
+                    />
 
-            <AssetUnitForm
-                :schema="formSchema"
-                :fields-schema="fieldsSchema"
-                :record="record"
-                :record-type="recordType"
-                :record-title="recordTitle"
-                :enum-options="enumOptions"
-                :timezones="timezones"
-                mode="view"
-            />
+                    <AssetUnitForm
+                        :schema="formSchema"
+                        :fields-schema="fieldsSchema"
+                        :record="record"
+                        :record-type="recordType"
+                        :record-title="recordTitle"
+                        :enum-options="enumOptions"
+                        :timezones="timezones"
+                        mode="view"
+                    />
+                </div>
+
+                <aside class="min-w-0 lg:col-span-4">
+                    <div class="sticky top-[140px]">
+                        <AssetUnitOriginalMsoCard
+                            :parent-id="record.id"
+                            :parent-type="domainName"
+                            :document="originalMso"
+                        />
+                    </div>
+                </aside>
+            </div>
 
             <Sublist
                 v-if="sublists.length > 0"
                 :parent-record="record"
                 :parent-domain="domainName"
                 :sublists="sublists"
+                :mso-builder-links="msoBuilderLinks"
             />
         </div>
 

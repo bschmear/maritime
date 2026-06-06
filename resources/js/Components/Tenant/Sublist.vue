@@ -9,6 +9,7 @@ import ImageGallery from '@/Components/Tenant/ImageGallery.vue';
 import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue';
 import DocumentRequestPanel from '@/Components/Tenant/DocumentRequestPanel.vue';
 import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
+import AssetUnitMsoCreateModal from '@/Components/Tenant/AssetUnitMsoCreateModal.vue';
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -27,6 +28,10 @@ const props = defineProps({
     },
     // Sublist configuration
     sublists: {
+        type: Array,
+        default: () => [],
+    },
+    msoBuilderLinks: {
         type: Array,
         default: () => [],
     },
@@ -59,6 +64,7 @@ const rowActionPostingKey = ref(null); // `${contactId}-${routeName}` while Iner
 
 // Sublist Create Modal State
 const showSublistCreateModal = ref(false);
+const showAssetUnitMsoModal = ref(false);
 const sublistCreateFormData = ref(null);
 const isLoadingSublistForm = ref(false);
 
@@ -1097,6 +1103,15 @@ const getSublistRecordType = (domain) => {
 
 const sublistAllowsCreateModal = () => sublistTableSchema.value?.allow_create_modal !== false;
 
+const isAssetUnitMsoTab = computed(() => activeTab.value?.sublistKind === 'assetUnitMso');
+
+const sublistCreateButtonLabel = computed(() => {
+    if (activeTab.value?.createLabel) {
+        return activeTab.value.createLabel;
+    }
+    return `Add New ${activeTab.value?.label || 'Record'}`;
+});
+
 const ensureSublistTableSchema = async (sublist) => {
     if (sublistTableSchema.value != null || !sublist?.domain) {
         return;
@@ -1260,6 +1275,11 @@ const loadSublistSchema = async (sublist) => {
 };
 
 const openSublistCreateModal = async () => {
+    if (activeTab.value?.sublistKind === 'assetUnitMso') {
+        showAssetUnitMsoModal.value = true;
+        return;
+    }
+
     // For Many-to-Many relationships, show the attach modal instead
     if (activeTab.value?.relationshipType === 'ManyToMany') {
         showSublistAttachModal.value = true;
@@ -1816,7 +1836,7 @@ watch(
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                 </svg>
-                                Add New {{ activeTab?.label || 'Record' }}
+                                {{ sublistCreateButtonLabel }}
                             </button>
                         </div>
 
@@ -2085,12 +2105,22 @@ watch(
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        Add New {{ activeTab?.label || 'Record' }}
+                        {{ sublistCreateButtonLabel }}
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <AssetUnitMsoCreateModal
+        v-if="isAssetUnitMsoTab"
+        :show="showAssetUnitMsoModal"
+        :parent-id="parentRecord.id"
+        :parent-type="parentDomain"
+        :builder-links="msoBuilderLinks"
+        @close="showAssetUnitMsoModal = false"
+        @uploaded="activeTab && fetchSublistData(activeTab)"
+    />
 
     <!-- Sublist Create Modal -->
     <Modal :show="showSublistCreateModal" @close="closeSublistCreateModal" :max-width="'4xl'">

@@ -76,9 +76,11 @@ const breadcrumbItems = computed(() => {
 });
 
 const isImageFile = computed(() => {
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
     return imageExtensions.includes(props.fileExtension.toLowerCase());
 });
+
+const isPdfFile = computed(() => props.fileExtension?.toLowerCase() === 'pdf');
 
 const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -282,6 +284,20 @@ const cancelDelete = () => {
                                                 :alt="record.display_name"
                                                 class="max-w-full object-contain"
                                                 @error="$event.target.parentElement.innerHTML='<div class=\'text-center p-8 text-gray-600 dark:text-gray-300\'><p class=\'mb-3\'>Unable to load image preview.</p><a href=\'' + downloadUrl + '\' class=\'inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700\'>Download Image</a></div>'"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <!-- PDF Preview -->
+                                    <div v-else-if="canPreview && previewUrl && isPdfFile">
+                                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                            Preview
+                                        </label>
+                                        <div class="overflow-hidden rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-600 dark:bg-gray-900">
+                                            <iframe
+                                                :src="previewUrl"
+                                                :title="`${record.display_name} preview`"
+                                                class="h-[70vh] w-full border-0 bg-white"
                                             />
                                         </div>
                                     </div>

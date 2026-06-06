@@ -528,7 +528,7 @@ class NotificationService
             $path = CreateDocument::storagePathForFilename($filename);
             $pdfOutput = $pdf->output();
 
-            Storage::disk('s3')->put($path, $pdfOutput);
+            Storage::disk('s3')->put($path, $pdfOutput, ['visibility' => 'private']);
 
             Document::create([
                 'display_name' => "Service Ticket #{$ticket->service_ticket_number} - Signed",

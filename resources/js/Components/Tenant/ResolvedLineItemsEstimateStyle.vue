@@ -17,8 +17,10 @@ import {
     lineTotalWithAddons,
     lineUnitDisplay,
     lineUnitId,
+    lineUnitShowUrl,
     lineVariantDisplay,
     lineVariantId,
+    lineVariantShowUrl,
     partitionLineItemsByCatalogType,
     selectedOptionLabel,
 } from '@/Utils/lineItemsFromEstimate';
@@ -95,6 +97,13 @@ const textMuted = computed(() =>
 const linkAsset = computed(() =>
     cx(
         'font-semibold text-base text-primary-600 hover:underline',
+        'dark:text-primary-400',
+    ),
+);
+
+const linkRelated = computed(() =>
+    cx(
+        'font-medium text-primary-600 hover:underline',
         'dark:text-primary-400',
     ),
 );
@@ -269,14 +278,28 @@ const inventoryDealRollup = computed(() => {
                         <div>
                             <div :class="labelMuted">Variant</div>
                             <div :class="textBody">
-                                <span v-if="lineVariantId(item)">{{ lineVariantDisplay(item) }}</span>
+                                <Link
+                                    v-if="lineVariantShowUrl(item)"
+                                    :href="lineVariantShowUrl(item)"
+                                    :class="linkRelated"
+                                >
+                                    {{ lineVariantDisplay(item) }}
+                                </Link>
+                                <span v-else-if="lineVariantId(item)">{{ lineVariantDisplay(item) }}</span>
                                 <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>
                             </div>
                         </div>
                         <div>
                             <div :class="labelMuted">Unit</div>
                             <div :class="textBody">
-                                <span v-if="lineUnitId(item)">{{ lineUnitDisplay(item) }}</span>
+                                <Link
+                                    v-if="lineUnitShowUrl(item)"
+                                    :href="lineUnitShowUrl(item)"
+                                    :class="linkRelated"
+                                >
+                                    {{ lineUnitDisplay(item) }}
+                                </Link>
+                                <span v-else-if="lineUnitId(item)">{{ lineUnitDisplay(item) }}</span>
                                 <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>
                             </div>
                         </div>
@@ -403,13 +426,33 @@ const inventoryDealRollup = computed(() => {
                                     </div>
                                 </td>
                                 <td :class="cx('px-4 py-3 text-sm text-gray-600', 'dark:text-gray-300')">
-                                    <span v-if="lineVariantId(item)" :class="cx('font-medium text-gray-800', 'dark:text-gray-200')">
+                                    <Link
+                                        v-if="lineVariantShowUrl(item)"
+                                        :href="lineVariantShowUrl(item)"
+                                        :class="linkRelated"
+                                    >
+                                        {{ lineVariantDisplay(item) }}
+                                    </Link>
+                                    <span
+                                        v-else-if="lineVariantId(item)"
+                                        :class="cx('font-medium text-gray-800', 'dark:text-gray-200')"
+                                    >
                                         {{ lineVariantDisplay(item) }}
                                     </span>
                                     <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>
                                 </td>
                                 <td class="px-4 py-3 text-sm">
-                                    <span v-if="lineUnitId(item)" :class="cx('font-medium text-gray-800', 'dark:text-gray-200')">
+                                    <Link
+                                        v-if="lineUnitShowUrl(item)"
+                                        :href="lineUnitShowUrl(item)"
+                                        :class="linkRelated"
+                                    >
+                                        {{ lineUnitDisplay(item) }}
+                                    </Link>
+                                    <span
+                                        v-else-if="lineUnitId(item)"
+                                        :class="cx('font-medium text-gray-800', 'dark:text-gray-200')"
+                                    >
                                         {{ lineUnitDisplay(item) }}
                                     </span>
                                     <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>

@@ -18,6 +18,7 @@ class CreateServiceTicket
             'customer_id' => 'required|exists:customer_profiles,id',
             'subsidiary_id' => 'required|exists:subsidiaries,id',
             'location_id' => 'required|exists:locations,id',
+            'transaction_id' => 'nullable|integer|exists:transactions,id',
         ])->validate();
 
         // Generate UUID if not provided

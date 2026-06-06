@@ -31,7 +31,11 @@ final class UpsertMsoRecordForLineItem
             'transaction_line_item_id' => $lineItem->id,
             'source_document_id' => $sourceDocument?->id,
             'status' => $status->value,
-            'details' => MsoRecordSnapshot::build($transaction, $lineItem, $assetUnit),
+            'details' => MsoRecordDetails::build(
+                MsoRecordSnapshot::build($transaction, $lineItem, $assetUnit),
+                $createdById ?? current_tenant_user_id(),
+                [],
+            ),
             'created_by_id' => $createdById ?? current_tenant_user_id(),
         ];
 

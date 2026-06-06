@@ -7,15 +7,32 @@ namespace App\Domain\MsoRecord\Support;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionLineItem;
+use App\Domain\User\Models\User;
 
 final class MsoRecordSnapshot
 {
     /**
      * @return array<string, mixed>
      */
-    public static function build(Transaction $transaction, TransactionLineItem $lineItem, AssetUnit $assetUnit): array
-    {
-        $transaction->loadMissing(['customer']);
+    public static function build(
+        Transaction $transaction,
+        TransactionLineItem $lineItem,
+        AssetUnit $assetUnit,
+        ?User $assignedUser = null,
+    ): array {
+        $transaction->loadMissing(['customer.contact', 'subsidiary']);
+
+        $customer = $transaction->customer;
+        $addressParts = array_filter([
+            $transaction->billing_address_line1,
+            $transaction->billing_address_line2,
+            trim(implode(', ', array_filter([
+                $transaction->billing_city,
+                $transaction->billing_state,
+                $transaction->billing_postal,
+            ]))),
+            $transaction->billing_country,
+        ]);
 
         return [
             'transaction' => [
@@ -24,7 +41,19 @@ final class MsoRecordSnapshot
                 'customer_name' => $transaction->customer_name,
                 'customer_email' => $transaction->customer_email,
                 'customer_phone' => $transaction->customer_phone,
+                'customer_title' => $customer?->title ?? $customer?->contact?->title,
+                'customer_address' => implode("\n", $addressParts),
+                'billing_address_line1' => $transaction->billing_address_line1,
+                'billing_address_line2' => $transaction->billing_address_line2,
+                'billing_city' => $transaction->billing_city,
+                'billing_state' => $transaction->billing_state,
+                'billing_postal' => $transaction->billing_postal,
+                'billing_country' => $transaction->billing_country,
                 'closed_at' => $transaction->closed_at?->toIso8601String(),
+            ],
+            'subsidiary' => [
+                'id' => $transaction->subsidiary_id,
+                'display_name' => $transaction->subsidiary?->display_name,
             ],
             'line_item' => [
                 'id' => $lineItem->id,
@@ -39,6 +68,11 @@ final class MsoRecordSnapshot
                 'serial_number' => $assetUnit->serial_number,
                 'hin' => $assetUnit->hin,
             ],
+            'assigned_user' => $assignedUser ? [
+                'id' => $assignedUser->id,
+                'display_name' => $assignedUser->display_name ?: $assignedUser->full_name,
+                'signature' => $assignedUser->savedSignaturePayload(),
+            ] : null,
         ];
     }
 }

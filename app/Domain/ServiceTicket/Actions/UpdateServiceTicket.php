@@ -17,6 +17,7 @@ class UpdateServiceTicket
             'customer_id' => 'sometimes|exists:customer_profiles,id',
             'subsidiary_id' => 'sometimes|exists:subsidiaries,id',
             'location_id' => 'sometimes|exists:locations,id',
+            'transaction_id' => 'nullable|integer|exists:transactions,id',
         ])->validate();
 
         try {

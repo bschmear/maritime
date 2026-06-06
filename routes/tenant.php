@@ -357,8 +357,14 @@ Route::middleware([
         });
 
         Route::prefix('mso')->name('mso.')->group(function () {
+            Route::get('/', [MsoController::class, 'index'])->name('index');
             Route::get('/pending', [MsoController::class, 'pending'])->name('pending');
             Route::get('/create', [MsoController::class, 'create'])->name('create');
+            Route::get('/records/{msoRecord}', [MsoController::class, 'show'])->name('show');
+            Route::put('/records/{msoRecord}/builder', [MsoController::class, 'saveBuilder'])->name('records.builder');
+            Route::post('/records/{msoRecord}/source-document', [MsoController::class, 'uploadSourceDocument'])->name('records.source-document');
+            Route::post('/records/{msoRecord}/generate-pdf', [MsoController::class, 'generatePdf'])->name('records.generate-pdf');
+            Route::post('/records/{msoRecord}/submit', [MsoController::class, 'submit'])->name('records.submit');
         });
 
         Route::prefix('transactions')->name('transactions.')->group(function () {
@@ -656,6 +662,7 @@ Route::middleware([
         Route::prefix('documents')->name('documents.')->group(function () {
             Route::get('/search', [DocumentController::class, 'search'])->name('search');
             Route::post('/upload-attach', [DocumentController::class, 'uploadAttach'])->name('upload-attach');
+            Route::get('/{id}/stream', [DocumentController::class, 'stream'])->name('stream');
             Route::get('/{id}/download', [DocumentController::class, 'download'])->name('download');
             Route::resource('/', DocumentController::class)->parameters(['' => 'document']);
         });

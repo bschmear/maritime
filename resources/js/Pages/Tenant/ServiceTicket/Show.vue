@@ -234,11 +234,15 @@ const isLocked = computed(() => {
 });
 
 const linkedTransaction = computed(() => {
-    if (!props.record.transaction_id) return null;
-    return {
-        id: props.record.transaction_id,
-        title: props.record.transaction?.title || `Deal #${props.record.transaction?.sequence || props.record.transaction_id}`,
-    };
+    const id = props.record.transaction?.id ?? props.record.transaction_id;
+    if (!id) return null;
+
+    const tx = props.record.transaction;
+    const title = tx?.title
+        || tx?.display_name
+        || (tx?.sequence ? `Deal #${tx.sequence}` : `Deal #${id}`);
+
+    return { id, title };
 });
 
 const isSigned = computed(() =>
@@ -262,21 +266,21 @@ const relatedRecords = computed(() => {
         });
     }
 
-    for (const workOrder of props.workOrders) {
-        out.push({
-            label: props.workOrders.length > 1 ? 'Work order' : 'Work order',
-            name: workOrder.display_name ?? `WO-${workOrder.work_order_number ?? workOrder.id}`,
-            href: route('workorders.show', workOrder.id),
-            icon: 'assignment',
-        });
-    }
-
     if (linkedTransaction.value) {
         out.push({
             label: 'Deal',
             name: linkedTransaction.value.title,
             href: route('transactions.show', linkedTransaction.value.id),
             icon: 'handshake',
+        });
+    }
+
+    for (const workOrder of props.workOrders) {
+        out.push({
+            label: props.workOrders.length > 1 ? 'Work order' : 'Work order',
+            name: workOrder.display_name ?? `WO-${workOrder.work_order_number ?? workOrder.id}`,
+            href: route('workorders.show', workOrder.id),
+            icon: 'assignment',
         });
     }
 
@@ -504,6 +508,14 @@ const relatedRecords = computed(() => {
                                     <span class="material-icons text-base">visibility</span>
                                     Customer preview
                                 </button>
+                                <Link
+                                    v-if="linkedTransaction"
+                                    :href="route('transactions.show', linkedTransaction.id)"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-800 transition hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100 dark:hover:bg-blue-900/50"
+                                >
+                                    <span class="material-icons text-base">handshake</span>
+                                    View deal
+                                </Link>
                                 <Link
                                     v-if="workOrders.length > 0"
                                     :href="route('workorders.show', workOrders[0].id)"

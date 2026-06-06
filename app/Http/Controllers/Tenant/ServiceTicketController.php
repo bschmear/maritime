@@ -397,6 +397,7 @@ class ServiceTicketController extends BaseController
             'customer_id' => 'required|exists:customer_profiles,id',
             'subsidiary_id' => 'required|exists:subsidiaries,id',
             'location_id' => 'required|exists:locations,id',
+            'transaction_id' => 'nullable|integer|exists:transactions,id',
         ]);
 
         $ticket = $this->service->create($request->all());
@@ -467,6 +468,15 @@ class ServiceTicketController extends BaseController
         $recordArray['signed_at'] = $record->signed_at?->toISOString();
         $recordArray['reauthorized_at'] = $record->reauthorized_at?->toISOString();
         $recordArray['signature_url'] = $record->signature_url;
+        $recordArray['transaction_id'] = $record->transaction_id;
+        if ($record->relationLoaded('transaction') && $record->transaction) {
+            $recordArray['transaction'] = [
+                'id' => $record->transaction->id,
+                'title' => $record->transaction->title,
+                'sequence' => $record->transaction->sequence,
+                'display_name' => $record->transaction->display_name,
+            ];
+        }
 
         $recordArray['service_items'] = $record->serviceItems->map(fn ($li) => [
             'id' => $li->id,

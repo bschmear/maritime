@@ -28,6 +28,24 @@ trait HasDocuments
     }
 
     /**
+     * Attach a document, replacing any existing document with the same pivot role (e.g. one MSO per unit).
+     *
+     * @param  array<string, mixed>  $pivot
+     */
+    public function attachDocumentWithRole(Document $document, array $pivot = []): void
+    {
+        $role = $pivot['role'] ?? null;
+        if (filled($role)) {
+            $this->documents()
+                ->wherePivot('role', $role)
+                ->get()
+                ->each(fn (Document $existing) => $this->detachDocument($existing));
+        }
+
+        $this->attachDocument($document, $pivot);
+    }
+
+    /**
      * @param  array<string, mixed>  $pivot
      */
     public function updateDocumentPivot(Document $document, array $pivot): void

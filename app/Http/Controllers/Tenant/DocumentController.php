@@ -8,10 +8,10 @@ use App\Domain\Document\Actions\CreateDocument as CreateAction;
 use App\Domain\Document\Actions\DeleteDocument as DeleteAction;
 use App\Domain\Document\Actions\UpdateDocument as UpdateAction;
 use App\Domain\Document\Models\Document as RecordModel;
-use App\Domain\Lead\Models\Lead;
-use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\Document\Support\DocumentableTypes;
 use App\Domain\Document\Support\TenantDocumentAccess;
+use App\Domain\Lead\Models\Lead;
+use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Support\ContactDocumentLinker;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -48,30 +48,12 @@ class DocumentController extends RecordController
 
         $imgUrls = $this->getImageUrls($record, $fieldsSchema);
 
-        // Get file information
-        $fileExtension = '';
-        $fileSize = 0;
-        $previewUrl = null;
-        $downloadUrl = null;
-        $canPreview = false;
-
-        if ($record->file && Storage::disk('public')->exists($record->file)) {
-            // Get file extension
-            $fileExtension = strtolower(pathinfo($record->file, PATHINFO_EXTENSION));
-
-            // Get file size
-            $fileSize = Storage::disk('public')->size($record->file);
-
-            // Generate URLs
-            $downloadUrl = Storage::disk('public')->url($record->file);
-
-            // Check if file can be previewed
-            $previewableExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
-            if (in_array($fileExtension, $previewableExtensions)) {
-                $canPreview = true;
-                $previewUrl = $downloadUrl;
-            }
-        }
+        $filePresentation = $this->filePresentationForRecord($record);
+        $fileExtension = $filePresentation['fileExtension'];
+        $fileSize = $filePresentation['fileSize'];
+        $previewUrl = $filePresentation['previewUrl'];
+        $downloadUrl = $filePresentation['downloadUrl'];
+        $canPreview = $filePresentation['canPreview'];
 
         // If it's a non-Inertia AJAX request, return JSON
         if ($request->ajax() && ! $request->header('X-Inertia')) {
@@ -148,6 +130,7 @@ class DocumentController extends RecordController
             'attach_to_id' => 'required|integer',
             'visible_to_customer' => 'sometimes|boolean',
             'visible_to_vendor' => 'sometimes|boolean',
+            'role' => 'nullable|string|max:64',
         ]);
 
         $visibleToCustomer = $request->boolean('visible_to_customer');
@@ -169,7 +152,13 @@ class DocumentController extends RecordController
                     (int) $request->input('attach_to_id'),
                 );
                 if ($parentModel) {
-                    $this->attachDocumentToParent($parentModel, $result['record'], $visibleToCustomer, $visibleToVendor);
+                    $this->attachDocumentToParent(
+                        $parentModel,
+                        $result['record'],
+                        $visibleToCustomer,
+                        $visibleToVendor,
+                        $request->input('role'),
+                    );
                 }
 
                 return $this->clusterAwareJson($parentModel, [
@@ -200,6 +189,7 @@ class DocumentController extends RecordController
             'document_id' => 'required|exists:documents,id',
             'documentable_type' => 'required|string',
             'documentable_id' => 'required|integer',
+            'role' => 'nullable|string|max:64',
         ]);
 
         try {
@@ -209,7 +199,13 @@ class DocumentController extends RecordController
                 (int) $request->input('documentable_id'),
             );
             if ($parentModel) {
-                $this->attachDocumentToParent($parentModel, $document);
+                $this->attachDocumentToParent(
+                    $parentModel,
+                    $document,
+                    false,
+                    false,
+                    $request->input('role'),
+                );
 
                 return $this->clusterAwareJson($parentModel, [
                     'success' => true,
@@ -268,25 +264,92 @@ class DocumentController extends RecordController
     }
 
     /**
+     * Stream a document inline (for PDF.js preview).
+     */
+    public function stream(Request $request, $id)
+    {
+        $document = $this->recordModel->findOrFail($id);
+
+        if (! TenantDocumentAccess::tenantCanDownload($document)) {
+            abort(403, 'Access denied.');
+        }
+
+        $mime = match (strtolower((string) $document->file_extension)) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            default => 'application/octet-stream',
+        };
+
+        return response(Storage::disk('s3')->get($document->file), 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="'.addslashes($document->display_name).'"',
+        ]);
+    }
+
+    /**
      * Download a document
      */
     public function download(Request $request, $id)
     {
-        try {
-            $document = $this->recordModel->findOrFail($id);
+        $document = $this->recordModel->findOrFail($id);
 
-            if (! TenantDocumentAccess::tenantCanDownload($document)) {
-                abort(403, 'Access denied.');
-            }
-
-            if (! $document->file || ! Storage::disk('s3')->exists($document->file)) {
-                abort(404, 'File not found.');
-            }
-
-            return Storage::disk('s3')->download($document->file, $document->display_name);
-        } catch (\Exception $e) {
-            abort(404, 'Document not found.');
+        if (! TenantDocumentAccess::tenantCanDownload($document)) {
+            abort(403, 'Access denied.');
         }
+
+        return Storage::disk('s3')->download($document->file, $document->display_name);
+    }
+
+    /**
+     * @return array{
+     *     fileExtension: string,
+     *     fileSize: int,
+     *     previewUrl: ?string,
+     *     downloadUrl: ?string,
+     *     canPreview: bool
+     * }
+     */
+    private function filePresentationForRecord(RecordModel $record): array
+    {
+        $fileExtension = strtolower((string) ($record->file_extension ?: pathinfo((string) $record->file, PATHINFO_EXTENSION)));
+        $fileSize = (int) ($record->file_size ?? 0);
+        $previewUrl = null;
+        $downloadUrl = null;
+        $canPreview = false;
+
+        if (! $record->file) {
+            return compact('fileExtension', 'fileSize', 'previewUrl', 'downloadUrl', 'canPreview');
+        }
+
+        if (auth()->check() && TenantDocumentAccess::pathBelongsToTenant((string) $record->file, tenant()?->id)) {
+            $downloadUrl = route('documents.download', $record->id);
+
+            $previewableExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'pdf'];
+            if (in_array($fileExtension, $previewableExtensions, true)) {
+                $canPreview = true;
+                $previewUrl = route('documents.stream', $record->id);
+            }
+
+            return compact('fileExtension', 'fileSize', 'previewUrl', 'downloadUrl', 'canPreview');
+        }
+
+        if (Storage::disk('public')->exists($record->file)) {
+            $fileExtension = strtolower(pathinfo($record->file, PATHINFO_EXTENSION));
+            $fileSize = Storage::disk('public')->size($record->file);
+            $downloadUrl = Storage::disk('public')->url($record->file);
+
+            $previewableExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
+            if (in_array($fileExtension, $previewableExtensions, true)) {
+                $canPreview = true;
+                $previewUrl = $downloadUrl;
+            }
+        }
+
+        return compact('fileExtension', 'fileSize', 'previewUrl', 'downloadUrl', 'canPreview');
     }
 
     private function attachDocumentToParent(
@@ -294,6 +357,7 @@ class DocumentController extends RecordController
         RecordModel $document,
         bool $visibleToCustomer = false,
         bool $visibleToVendor = false,
+        ?string $role = null,
     ): void {
         $contact = ContactDocumentLinker::resolveContact($parentModel::class, (int) $parentModel->getKey());
         if ($contact) {
@@ -308,10 +372,14 @@ class DocumentController extends RecordController
         }
 
         if (method_exists($parentModel, 'attachDocument')) {
-            $parentModel->attachDocument($document, [
+            $pivot = [
                 'visible_to_customer' => $visibleToCustomer,
                 'visible_to_vendor' => $visibleToVendor,
-            ]);
+            ];
+            if ($role !== null && $role !== '') {
+                $pivot['role'] = $role;
+            }
+            $parentModel->attachDocumentWithRole($document, $pivot);
         }
     }
 
@@ -417,6 +485,18 @@ class DocumentController extends RecordController
         } elseif ($parentModel instanceof WarrantyClaim) {
             ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($parentModel);
             $payload['documents'] = $parentModel->getRelation('documents') ?? [];
+        } elseif ($parentModel && method_exists($parentModel, 'documents')) {
+            $parentModel->unsetRelation('documents');
+            $parentModel->load(['documents' => fn ($q) => $q->select([
+                'documents.id',
+                'documents.display_name',
+                'documents.description',
+                'documents.file',
+                'documents.file_extension',
+                'documents.file_size',
+                'documents.created_at',
+            ])]);
+            $payload['documents'] = $parentModel->documents;
         }
 
         return response()->json($payload);

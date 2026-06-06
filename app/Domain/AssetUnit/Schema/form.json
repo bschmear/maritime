@@ -97,7 +97,9 @@
     {
       "label": "MSOs",
       "domain": "MsoRecord",
-      "modelRelationship": "msoRecords"
+      "modelRelationship": "msoRecords",
+      "sublistKind": "assetUnitMso",
+      "createLabel": "New MSO"
     }
   ]
 }

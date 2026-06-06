@@ -56,6 +56,12 @@
                             >
                                 Vendor visible
                             </span>
+                            <span
+                                v-if="document.role === 'mso'"
+                                class="inline-flex items-center px-2 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 font-medium"
+                            >
+                                Original MSO
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -112,6 +118,16 @@
                             class="inline-flex items-center justify-center w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
                         >
                             <span class="material-icons text-lg">edit</span>
+                        </button>
+
+                        <button
+                            v-if="canStreamDocument(document)"
+                            @click="viewDocument(document)"
+                            type="button"
+                            title="View"
+                            class="inline-flex items-center justify-center w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg transition-all"
+                        >
+                            <span class="material-icons text-lg">visibility</span>
                         </button>
 
                         <button
@@ -509,7 +525,12 @@ const props = defineProps({
     parentType: {
         type: String,
         required: true
-    }
+    },
+    /** Pivot role when uploading or attaching (e.g. `mso` on asset units). */
+    attachRole: {
+        type: String,
+        default: null,
+    },
 });
 
 // Emits
@@ -532,6 +553,7 @@ const coercePivotBool = (value) => {
 
 const normalizeDocument = (doc) => ({
     ...doc,
+    role: doc?.role ?? doc?.pivot?.role ?? null,
     visible_to_customer: coercePivotBool(
         doc?.visible_to_customer ?? doc?.pivot?.visible_to_customer,
     ),
@@ -710,8 +732,16 @@ const toggleVendorVisibility = async (document) => {
     }
 };
 
+const previewableExtensions = new Set(['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
+
+const canStreamDocument = (document) =>
+    previewableExtensions.has(String(document?.file_extension || '').toLowerCase());
+
+const viewDocument = (document) => {
+    window.open(route('documents.stream', document.id), '_blank');
+};
+
 const downloadDocument = (document) => {
-    // Open download URL in new window/tab
     window.open(route('documents.download', document.id), '_blank');
 };
 
@@ -792,7 +822,8 @@ const attachDocument = async (document) => {
         const response = await axios.post(route('documentables.attach'), {
             document_id: document.id,
             documentable_type: `App\\Domain\\${props.parentType}\\Models\\${props.parentType}`,
-            documentable_id: props.parentId
+            documentable_id: props.parentId,
+            ...(props.attachRole ? { role: props.attachRole } : {}),
         });
 
         if (Array.isArray(response.data?.documents)) {
@@ -838,6 +869,9 @@ const uploadDocument = async () => {
         }
         if (visibleToVendorOnUpload.value) {
             formData.append('visible_to_vendor', '1');
+        }
+        if (props.attachRole) {
+            formData.append('role', props.attachRole);
         }
 
         const response = await axios.post(route('documents.upload-attach'), formData, {
