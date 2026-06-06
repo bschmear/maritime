@@ -245,9 +245,6 @@ Route::middleware([
         });
 
         Route::prefix('contacts')->name('contacts.')->group(function () {
-            Route::post('parse-license-barcode', [ContactController::class, 'parseLicenseBarcode'])
-                ->middleware('throttle:60,1')
-                ->name('parse-license-barcode');
             Route::post('bulk-destroy', [ContactController::class, 'bulkDestroy'])->name('bulk-destroy');
             Route::get('{contact}/addresses', [ContactController::class, 'indexAddresses'])->name('addresses.index');
             Route::post('{contact}/addresses', [ContactController::class, 'storeAddress'])->name('addresses.store');
@@ -365,6 +362,7 @@ Route::middleware([
             Route::post('/records/{msoRecord}/source-document', [MsoController::class, 'uploadSourceDocument'])->name('records.source-document');
             Route::post('/records/{msoRecord}/generate-pdf', [MsoController::class, 'generatePdf'])->name('records.generate-pdf');
             Route::post('/records/{msoRecord}/submit', [MsoController::class, 'submit'])->name('records.submit');
+            Route::delete('/records/{msoRecord}', [MsoController::class, 'destroy'])->name('records.destroy');
         });
 
         Route::prefix('transactions')->name('transactions.')->group(function () {

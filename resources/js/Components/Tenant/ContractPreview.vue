@@ -169,7 +169,12 @@ const lineItemsSubtotal = computed(() => {
     return roundMoney(total);
 });
 
-const isSigned = computed(() => !!props.record.signed_at);
+const isSigned = computed(() => !!props.record.signed_at || props.record.status === 'signed');
+
+const hasSignatureVisual = computed(
+    () => !!props.record.signature_url
+        || (Number(props.record.signature_method) === 5 && !!props.record.customer_signature),
+);
 
 const footerPhone = computed(
     () => transactionLocationPreview.value?.phone || props.account?.phone || null,
@@ -192,10 +197,10 @@ const handlePrint = () => {
                 <div class="flex items-center justify-between gap-2 lg:gap-4">
                     <div class="min-w-0 flex-1">
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-white lg:text-lg truncate">
-                            Customer Preview
+                            {{ isSigned ? 'Signed contract' : 'Customer preview' }}
                         </h2>
                         <p class="hidden text-sm text-gray-500 dark:text-gray-400 lg:block mt-0.5">
-                            This is how the contract will appear to the customer
+                            {{ isSigned ? 'Print-ready copy with customer signature' : 'This is how the contract will appear to the customer' }}
                         </p>
                     </div>
 
@@ -211,6 +216,7 @@ const handlePrint = () => {
                         </button>
 
                         <button
+                            v-if="!isSigned"
                             type="button"
                             aria-label="Send contract to customer"
                             class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-orange-600 px-2.5 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50 lg:px-4"
@@ -401,13 +407,28 @@ const handlePrint = () => {
 
                     <!-- SIGNED state -->
                     <div v-if="isSigned">
-                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Signature</h2>
+                        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Customer signature</h2>
+                        <div
+                            v-if="account.contract_ack_text || account.service_ticket_ack_text"
+                            class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-5"
+                        >
+                            <p class="whitespace-pre-line text-sm leading-relaxed text-gray-900">
+                                {{ (account.contract_ack_text || account.service_ticket_ack_text).replace('[COMPANY NAME]', accountDisplayName) }}
+                            </p>
+                        </div>
                         <div class="flex flex-col sm:flex-row gap-6">
-                            <!-- Signature image if available -->
-                            <div v-if="record.signature_file" class="flex-shrink-0">
+                            <div v-if="hasSignatureVisual" class="flex-shrink-0">
                                 <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">Signature</p>
-                                <div class="border border-gray-300 rounded p-2 bg-white inline-block">
-                                    <img :src="record.signature_file" alt="Signature" class="h-16 w-auto object-contain" />
+                                <div class="signature-surface inline-block">
+                                    <img
+                                        v-if="record.signature_url"
+                                        :src="record.signature_url"
+                                        alt="Customer signature"
+                                        class="max-h-32 w-auto object-contain"
+                                    />
+                                    <p v-else class="signature-surface-text signature-cursive text-3xl">
+                                        {{ record.customer_signature }}
+                                    </p>
                                 </div>
                             </div>
                             <!-- Signature metadata -->

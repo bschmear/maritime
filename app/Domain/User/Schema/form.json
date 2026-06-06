@@ -1,27 +1,10 @@
 {
     "settings": {
-        "max_width": "4xl"
+        "max_width": "full"
     },
     "form": {
-        "personal": {
-            "label": "Personal Information",
-            "fields": [
-                {
-                    "key": "display_name",
-                    "required": false
-                },
-                {
-                    "key": "first_name",
-                    "required": true
-                },
-                {
-                    "key": "last_name",
-                    "required": true
-                }
-            ]
-        },
         "contact": {
-            "label": "Contact Information",
+            "label": "Contact",
             "fields": [
                 {
                     "key": "email",
@@ -41,10 +24,8 @@
             "label": "Profile",
             "fields": [
                 {
-                    "key": "bio"
-                },
-                {
-                    "key": "avatar"
+                    "key": "bio",
+                    "required": false
                 },
                 {
                     "key": "is_technician",

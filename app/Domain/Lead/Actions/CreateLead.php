@@ -8,6 +8,7 @@ use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Domain\Lead\Models\Lead as RecordModel;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
+use App\Enums\Entity\ContactType;
 use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,9 @@ class CreateLead
 
             $inactive = filter_var($fieldsToSave['inactive'] ?? false, FILTER_VALIDATE_BOOLEAN);
             $fieldsToSave['inactive'] = $inactive;
-            $fieldsToSave['status'] = $inactive ? ContactStatus::Inactive->value : ContactStatus::Active->value;
+            $fieldsToSave['status'] = $inactive
+                ? (string) ContactStatus::Inactive->id()
+                : (string) ContactStatus::Active->id();
 
             [$contactData, $addressData, $profileData] = RecordModel::splitPayload($fieldsToSave);
 
@@ -56,9 +59,11 @@ class CreateLead
             }
 
             $record = DB::transaction(function () use ($contactData, $addressData, $profileData) {
-                /** @var \App\Domain\Contact\Models\Contact $contact */
-                $contact = Contact::query()->create($contactData);
-                $contact->update(['stage_id' => ContactStage::Lead]);
+                /** @var Contact $contact */
+                $contact = Contact::query()->create(array_merge($contactData, [
+                    'type' => (string) ContactType::Person->id(),
+                ]));
+                $contact->update(['stage_id' => ContactStage::Lead->id()]);
 
                 $hasAddress = collect($addressData)->filter(fn ($v) => $v !== null && $v !== '')->isNotEmpty();
                 if ($hasAddress) {

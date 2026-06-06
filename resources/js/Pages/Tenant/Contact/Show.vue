@@ -601,15 +601,28 @@ const confirmDelete = () => {
                 </div>
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete contact</h3>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Are you sure you want to delete
-                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ contactLabel }}</span>?
-                    This cannot be undone.
+                    You are about to delete
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ contactLabel }}</span>.
+                </p>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                    This permanently removes the contact and its addresses. Deletion is blocked when this
+                    contact is linked to deals, estimates, invoices, contracts, or other records.
                 </p>
                 <div class="mt-6 flex items-center justify-center gap-3">
-                    <button type="button" :disabled="isDeleting" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50" @click="confirmDelete">
-                        {{ isDeleting ? 'Deleting…' : 'Delete contact' }}
+                    <button
+                        type="button"
+                        :disabled="isDeleting"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                        @click="confirmDelete"
+                    >
+                        {{ isDeleting ? 'Deleting…' : 'Continue and delete' }}
                     </button>
-                    <button type="button" :disabled="isDeleting" class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600" @click="showDeleteModal = false">
+                    <button
+                        type="button"
+                        :disabled="isDeleting"
+                        class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                        @click="showDeleteModal = false"
+                    >
                         Cancel
                     </button>
                 </div>

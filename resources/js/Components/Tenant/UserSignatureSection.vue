@@ -136,13 +136,13 @@ const removeSignature = () => {
 
         <div
             v-if="!editing && (signature.url || signature.typed)"
-            class="signature-preview rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-500 dark:bg-gray-100"
+            class="signature-surface shadow-sm"
         >
             <div v-if="signature.url" class="flex justify-center">
                 <img :src="signature.url" alt="Saved signature" class="max-h-28 w-auto" />
             </div>
             <div v-else-if="signature.typed" class="flex justify-center py-2">
-                <p class="signature-cursive text-4xl text-gray-900">{{ signature.typed }}</p>
+                <p class="signature-surface-text signature-cursive text-4xl">{{ signature.typed }}</p>
             </div>
             <p v-if="signature.saved_at" class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
                 Saved {{ new Date(signature.saved_at).toLocaleString() }}
@@ -182,7 +182,7 @@ const removeSignature = () => {
             </div>
 
             <div v-show="signatureMode === 'draw'">
-                <div class="signature-preview relative overflow-hidden rounded-lg border-2 border-gray-300 bg-white dark:border-gray-500 dark:bg-gray-100">
+                <div class="signature-surface relative overflow-hidden border-2 border-gray-300 dark:border-gray-300">
                     <VueSignaturePad
                         ref="signaturePadRef"
                         width="100%"
@@ -206,9 +206,9 @@ const removeSignature = () => {
                 />
                 <div
                     v-if="typedSignature.trim()"
-                    class="signature-preview mt-3 flex justify-center rounded-lg border border-gray-200 bg-white px-4 py-6 dark:border-gray-500 dark:bg-gray-100"
+                    class="signature-surface mt-3 flex justify-center px-4 py-6"
                 >
-                    <p class="signature-cursive text-4xl text-gray-900">{{ typedSignature }}</p>
+                    <p class="signature-surface-text signature-cursive text-4xl">{{ typedSignature }}</p>
                 </div>
             </div>
 

@@ -44,7 +44,9 @@ class UpdateLead
             if (array_key_exists('inactive', $fieldsToSave)) {
                 $inactive = filter_var($fieldsToSave['inactive'], FILTER_VALIDATE_BOOLEAN);
                 $fieldsToSave['inactive'] = $inactive;
-                $fieldsToSave['status'] = $inactive ? ContactStatus::Inactive->value : ContactStatus::Active->value;
+                $fieldsToSave['status'] = $inactive
+                    ? (string) ContactStatus::Inactive->id()
+                    : (string) ContactStatus::Active->id();
             }
 
             [$contactData, $addressData, $profileData] = RecordModel::splitPayload($fieldsToSave);

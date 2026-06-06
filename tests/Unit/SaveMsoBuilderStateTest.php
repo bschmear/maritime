@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Domain\MsoRecord\Models\MsoRecord;
-use App\Domain\MsoRecord\Models\MsoSourceLayout;
 use App\Domain\MsoRecord\Support\MsoRecordDetails;
 use App\Domain\MsoRecord\Support\SaveMsoBuilderState;
 use PHPUnit\Framework\TestCase;
 
 class SaveMsoBuilderStateTest extends TestCase
 {
-    public function test_fields_from_layout_template_generates_new_ids_and_prefill(): void
+    public function test_fields_from_template_generates_new_ids_and_prefill(): void
     {
         $record = new MsoRecord;
         $record->details = MsoRecordDetails::build([
@@ -21,8 +20,7 @@ class SaveMsoBuilderStateTest extends TestCase
             'line_item' => ['name' => 'Unit A'],
         ], null, []);
 
-        $layout = new MsoSourceLayout;
-        $layout->layout = [
+        $layout = [
             [
                 'type' => 'customer_name',
                 'page' => 1,
@@ -34,7 +32,7 @@ class SaveMsoBuilderStateTest extends TestCase
             ],
         ];
 
-        $fields = SaveMsoBuilderState::fieldsFromLayoutTemplate($layout, $record, null);
+        $fields = SaveMsoBuilderState::fieldsFromTemplate($layout, $record, null);
 
         $this->assertCount(1, $fields);
         $this->assertSame('customer_name', $fields[0]['type']);

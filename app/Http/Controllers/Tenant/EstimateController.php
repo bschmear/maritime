@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetOption\Models\EstimateSelectedOption;
+use App\Domain\Contact\Models\Contact;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Actions\CreateDealFromEstimate;
 use App\Domain\Estimate\Actions\CreateEstimate as CreateAction;
@@ -53,7 +54,7 @@ class EstimateController extends RecordController
         $out = [];
 
         foreach ($version->lineItems as $li) {
-            if (($li->itemable_type ?? '') !== \App\Domain\Asset\Models\Asset::class) {
+            if (($li->itemable_type ?? '') !== Asset::class) {
                 continue;
             }
 
@@ -174,7 +175,7 @@ class EstimateController extends RecordController
         $formSchema = $this->getFormSchema();
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $initialData = [];
         $opportunityLineItems = null;
@@ -207,7 +208,7 @@ class EstimateController extends RecordController
                     // Populate contact_id so the contact-first picker pre-fills.
                     $contactId = $opportunity->customer->contact_id;
                     if ($contactId) {
-                        $contact = $opportunity->customer->contact ?? \App\Domain\Contact\Models\Contact::find($contactId);
+                        $contact = $opportunity->customer->contact ?? Contact::find($contactId);
                         if ($contact) {
                             $initialData['contact_id'] = $contact->id;
                             $initialData['contact'] = ['id' => $contact->id, 'display_name' => $contact->display_name];
@@ -260,7 +261,7 @@ class EstimateController extends RecordController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $relationships = $this->buildEstimateRecordEagerRelationships($fieldsSchema);
 
@@ -323,7 +324,7 @@ class EstimateController extends RecordController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $relationships = $this->buildEstimateRecordEagerRelationships($fieldsSchema);
 
@@ -650,7 +651,15 @@ class EstimateController extends RecordController
     {
         $estimate = RecordModel::findOrFail($id);
 
-        $result = $createDeal($estimate);
+        $validated = $request->validate([
+            'needs_contract' => ['sometimes', 'boolean'],
+            'needs_delivery' => ['sometimes', 'boolean'],
+        ]);
+
+        $result = $createDeal($estimate, [
+            'needs_contract' => (bool) ($validated['needs_contract'] ?? true),
+            'needs_delivery' => (bool) ($validated['needs_delivery'] ?? false),
+        ]);
 
         if (! $result['success'] || empty($result['transaction'])) {
             return back()

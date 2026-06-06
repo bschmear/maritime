@@ -91,6 +91,14 @@ const paymentTextClass = computed(() => STATUS_TEXT[paymentInfo.value?.color] ??
 
 const isSigned = computed(() => props.record?.status === 'signed' || !!props.record?.signed_at);
 
+const signedContractReviewHref = computed(() => {
+    if (!isSigned.value || !props.record?.uuid || !route().has('contracts.review')) {
+        return null;
+    }
+
+    return route('contracts.review', props.record.uuid);
+});
+
 const signatureMethodOptions = computed(
     () => props.enumOptions?.['App\\Enums\\ServiceTicket\\SignatureMethod'] ?? [],
 );
@@ -361,7 +369,28 @@ onMounted(() => {
                             </button>
                         </Link>
                         <button
-                            v-if="!isSigned"
+                            v-if="isSigned"
+                            type="button"
+                            aria-label="View signed contract"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-secondary-600 p-2 text-md font-medium text-white hover:bg-secondary-700 md:gap-1.5 md:px-4 md:py-2"
+                            @click="openPreview"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">visibility</span>
+                            <span class="hidden md:inline">View signed contract</span>
+                        </button>
+                        <a
+                            v-if="signedContractReviewHref"
+                            :href="signedContractReviewHref"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-secondary-200 bg-secondary-50 p-2 text-md font-medium text-secondary-800 hover:bg-secondary-100 md:gap-1.5 md:px-4 md:py-2 dark:border-secondary-800 dark:bg-secondary-950/40 dark:text-secondary-100 dark:hover:bg-secondary-900/50"
+                            aria-label="Open signed contract in new tab for printing"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-lg">print</span>
+                            <span class="hidden md:inline">Print page</span>
+                        </a>
+                        <button
+                            v-else-if="!isSigned"
                             type="button"
                             aria-label="Preview contract"
                             class="inline-flex items-center justify-center gap-0 rounded-lg bg-purple-600 p-2 text-md font-medium text-white hover:bg-purple-700 md:gap-1.5 md:px-4 md:py-2"
@@ -427,12 +456,34 @@ onMounted(() => {
                     <div class="p-6 space-y-6">
 
                         <!-- Signed banner -->
-                        <div v-if="isSigned" class="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
-                            <span class="material-icons text-green-600 dark:text-green-400">verified</span>
-                            <div>
-                                <p class="text-md font-semibold text-green-800 dark:text-green-200">Contract Signed</p>
-                                <p v-if="record.signed_at" class="text-md text-green-600 dark:text-green-400">{{ formatDateTime(record.signed_at) }}</p>
-                                <p v-if="record.signed_name" class="text-md text-green-600 dark:text-green-400">by {{ record.signed_name }}</p>
+                        <div v-if="isSigned" class="flex flex-col gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="material-icons text-green-600 dark:text-green-400">verified</span>
+                                <div>
+                                    <p class="text-md font-semibold text-green-800 dark:text-green-200">Contract Signed</p>
+                                    <p v-if="record.signed_at" class="text-md text-green-600 dark:text-green-400">{{ formatDateTime(record.signed_at) }}</p>
+                                    <p v-if="record.signed_name" class="text-md text-green-600 dark:text-green-400">by {{ record.signed_name }}</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-lg bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-800"
+                                    @click="openPreview"
+                                >
+                                    <span class="material-icons text-base">visibility</span>
+                                    View signed contract
+                                </button>
+                                <a
+                                    v-if="signedContractReviewHref"
+                                    :href="signedContractReviewHref"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-2 rounded-lg border border-green-300 bg-white px-3 py-2 text-sm font-medium text-green-800 hover:bg-green-50 dark:border-green-700 dark:bg-green-950/40 dark:text-green-100 dark:hover:bg-green-900/50"
+                                >
+                                    <span class="material-icons text-base">print</span>
+                                    Print
+                                </a>
                             </div>
                         </div>
 
@@ -633,14 +684,14 @@ onMounted(() => {
                                 <div v-if="hasSignatureVisual" class="space-y-3">
                                     <div v-if="record.signature_url">
                                         <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature</p>
-                                        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                        <div class="signature-surface">
                                             <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
                                         </div>
                                     </div>
                                     <div v-else-if="Number(record.signature_method) === 5 && record.customer_signature">
                                         <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Signature</p>
-                                        <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                            <p class="text-2xl text-gray-900 dark:text-white" style="font-family: 'Dancing Script', cursive;">
+                                        <div class="signature-surface">
+                                            <p class="signature-surface-text signature-cursive text-2xl">
                                                 {{ record.customer_signature }}
                                             </p>
                                         </div>
@@ -745,6 +796,22 @@ onMounted(() => {
                             </div>
                             <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-500 text-lg transition-colors">chevron_right</span>
                         </Link>
+                        <a
+                            v-if="signedContractReviewHref"
+                            :href="signedContractReviewHref"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-all group"
+                        >
+                            <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-center group-hover:bg-green-100 dark:group-hover:bg-green-900/30 transition-colors">
+                                <span class="material-icons text-green-600 dark:text-green-400 text-xl">draw</span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Signed contract</p>
+                                <p class="text-md font-medium text-gray-900 dark:text-white">View &amp; print</p>
+                            </div>
+                            <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-green-500 text-lg transition-colors">open_in_new</span>
+                        </a>
                         <div v-if="record.document_url">
                             <a :href="record.document_url" target="_blank"
                                 class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all group">

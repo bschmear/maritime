@@ -93,13 +93,6 @@
     {
       "label": "Documents",
       "domain": "Document"
-    },
-    {
-      "label": "MSOs",
-      "domain": "MsoRecord",
-      "modelRelationship": "msoRecords",
-      "sublistKind": "assetUnitMso",
-      "createLabel": "New MSO"
     }
   ]
 }

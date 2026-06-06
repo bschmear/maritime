@@ -24,7 +24,7 @@ const props = defineProps({
     catalogResolvedOptions: { type: Array, default: () => [] },
     catalogContext: { type: Object, default: null },
     consignmentAgreementContext: { type: Object, default: null },
-    msoBuilderLinks: { type: Array, default: () => [] },
+    msoRecords: { type: Array, default: () => [] },
 });
 
 const originalMso = computed(() => {
@@ -184,6 +184,7 @@ const sublists = computed(() => props.formSchema?.sublists ?? []);
                             :parent-id="record.id"
                             :parent-type="domainName"
                             :document="originalMso"
+                            :mso-records="msoRecords"
                         />
                     </div>
                 </aside>
@@ -194,7 +195,6 @@ const sublists = computed(() => props.formSchema?.sublists ?? []);
                 :parent-record="record"
                 :parent-domain="domainName"
                 :sublists="sublists"
-                :mso-builder-links="msoBuilderLinks"
             />
         </div>
 

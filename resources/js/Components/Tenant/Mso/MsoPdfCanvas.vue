@@ -26,23 +26,86 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['add-field', 'select-field', 'update-field', 'delete-field', 'page-count']);
+const emit = defineEmits(['add-field', 'select-field', 'update-field', 'delete-field', 'page-count', 'page-sizes']);
 
 const pageCount = ref(0);
 const currentPage = ref(1);
 const pageWidth = ref(0);
 const pageHeight = ref(0);
+const naturalPageWidth = ref(0);
+const naturalPageHeight = ref(0);
 const loading = ref(false);
 const error = ref(null);
 const pageCanvas = ref(null);
 const overlayRoot = ref(null);
+const canvasContainerRef = ref(null);
+
+/** US Letter width at 72 DPI (pdf.js default user space). Used as fallback only. */
+const STANDARD_PDF_WIDTH_PT = 612;
 
 let pdfDoc = null;
 let interactCleanups = [];
+let resizeObserver = null;
+let resizeRenderTimer = null;
+let lastDisplayScale = 1;
+
+const canvasDisplayStyle = computed(() => {
+    if (!pageWidth.value || !pageHeight.value) {
+        return undefined;
+    }
+
+    return {
+        width: `${pageWidth.value}px`,
+        height: `${pageHeight.value}px`,
+    };
+});
+
+function containerWidthForScale() {
+    return canvasContainerRef.value?.clientWidth ?? 0;
+}
+
+/** Never upscale beyond the uploaded PDF's native size (scale ≤ 1). */
+function displayScaleForPage(containerWidth) {
+    const nativeWidth = naturalPageWidth.value || STANDARD_PDF_WIDTH_PT;
+
+    if (!containerWidth || containerWidth >= nativeWidth) {
+        return 1;
+    }
+
+    return containerWidth / nativeWidth;
+}
 
 const pageFields = computed(() =>
     props.fields.filter((field) => Number(field.page) === currentPage.value),
 );
+
+const interactBindingKey = computed(() =>
+    [
+        props.fields.map((field) => `${field.id}:${field.page}`).join('|'),
+        props.selectedFieldId ?? '',
+        pageWidth.value,
+        pageHeight.value,
+    ].join(':'),
+);
+
+const pageSizesByPage = ref({});
+
+function overlayMetrics() {
+    const rect = overlayRoot.value?.getBoundingClientRect();
+    if (!rect?.width || !rect?.height) {
+        return null;
+    }
+
+    return {
+        rect,
+        width: rect.width,
+        height: rect.height,
+    };
+}
+
+function emitPageSizes() {
+    emit('page-sizes', { ...pageSizesByPage.value });
+}
 
 async function renderPage(pageNumber) {
     if (!pdfDoc || !pageCanvas.value) {
@@ -54,16 +117,34 @@ async function renderPage(pageNumber) {
 
     try {
         const page = await pdfDoc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.2 });
+        const naturalViewport = page.getViewport({ scale: 1 });
+        naturalPageWidth.value = naturalViewport.width;
+        naturalPageHeight.value = naturalViewport.height;
+
+        const displayScale = displayScaleForPage(containerWidthForScale());
+        lastDisplayScale = displayScale;
+
+        const pixelRatio = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+        const renderViewport = page.getViewport({ scale: displayScale * pixelRatio });
+        const layoutViewport = page.getViewport({ scale: displayScale });
+
         const canvas = pageCanvas.value;
         const context = canvas.getContext('2d');
 
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        pageWidth.value = viewport.width;
-        pageHeight.value = viewport.height;
+        canvas.width = renderViewport.width;
+        canvas.height = renderViewport.height;
+        pageWidth.value = layoutViewport.width;
+        pageHeight.value = layoutViewport.height;
+        pageSizesByPage.value = {
+            ...pageSizesByPage.value,
+            [pageNumber]: {
+                width: naturalViewport.width,
+                height: naturalViewport.height,
+            },
+        };
+        emitPageSizes();
 
-        await page.render({ canvasContext: context, viewport }).promise;
+        await page.render({ canvasContext: context, viewport: renderViewport }).promise;
         await nextTick();
         setupInteract();
     } catch (e) {
@@ -119,16 +200,29 @@ function setupInteract() {
             }
 
             const applyResize = (event) => {
-                emit('update-field', field.id, {
-                    width: Math.min(1, Math.max(0.05, event.rect.width / pageWidth.value)),
-                    height: Math.min(1, Math.max(0.02, event.rect.height / pageHeight.value)),
-                });
+                const metrics = overlayMetrics();
+                const updates = {
+                    width: metrics
+                        ? Math.min(1, Math.max(0.05, event.rect.width / metrics.width))
+                        : Math.min(1, Math.max(0.05, event.rect.width / pageWidth.value)),
+                    height: metrics
+                        ? Math.min(1, Math.max(0.02, event.rect.height / metrics.height))
+                        : Math.min(1, Math.max(0.02, event.rect.height / pageHeight.value)),
+                };
+
+                if (metrics) {
+                    updates.x = Math.min(0.98, Math.max(0, (event.rect.left - metrics.rect.left) / metrics.width));
+                    updates.y = Math.min(0.98, Math.max(0, (event.rect.top - metrics.rect.top) / metrics.height));
+                }
+
+                emit('update-field', field.id, updates);
             };
 
             const interaction = interact(el);
 
             const draggable = interaction.draggable({
                 allowFrom: '.drag-handle',
+                ignoreFrom: '.field-input, button, .resize-handle-e, .resize-handle-s, .resize-handle-se',
                 listeners: {
                     move(event) {
                         const target = event.target;
@@ -142,12 +236,15 @@ function setupInteract() {
                         const target = event.target;
                         const translateX = parseFloat(target.getAttribute('data-x')) || 0;
                         const translateY = parseFloat(target.getAttribute('data-y')) || 0;
-                        const baseX = field.x * pageWidth.value;
-                        const baseY = field.y * pageHeight.value;
+                        const metrics = overlayMetrics();
+                        const coordWidth = metrics?.width ?? pageWidth.value;
+                        const coordHeight = metrics?.height ?? pageHeight.value;
+                        const baseX = field.x * coordWidth;
+                        const baseY = field.y * coordHeight;
 
                         emit('update-field', field.id, {
-                            x: Math.min(0.98, Math.max(0, (baseX + translateX) / pageWidth.value)),
-                            y: Math.min(0.98, Math.max(0, (baseY + translateY) / pageHeight.value)),
+                            x: Math.min(0.98, Math.max(0, (baseX + translateX) / coordWidth)),
+                            y: Math.min(0.98, Math.max(0, (baseY + translateY) / coordHeight)),
                         });
 
                         target.style.transform = '';
@@ -163,6 +260,7 @@ function setupInteract() {
                     bottom: '.resize-handle-s',
                     bottomRight: '.resize-handle-se',
                 },
+                ignoreFrom: '.field-input',
                 listeners: {
                     move: applyResize,
                     end: applyResize,
@@ -178,13 +276,13 @@ function setupInteract() {
 
 function placeNewField(type, clientX, clientY) {
     const rect = overlayRoot.value?.getBoundingClientRect();
-    if (!rect || !pageWidth.value || !pageHeight.value) {
+    if (!rect?.width || !rect?.height) {
         emit('add-field', { type, page: currentPage.value, x: 0.1, y: 0.1 });
         return;
     }
 
-    const x = Math.min(0.9, Math.max(0, (clientX - rect.left) / pageWidth.value));
-    const y = Math.min(0.9, Math.max(0, (clientY - rect.top) / pageHeight.value));
+    const x = Math.min(0.9, Math.max(0, (clientX - rect.left) / rect.width));
+    const y = Math.min(0.9, Math.max(0, (clientY - rect.top) / rect.height));
 
     emit('add-field', {
         type,
@@ -228,17 +326,56 @@ function goToPage(delta) {
     renderPage(next);
 }
 
-watch(() => props.previewUrl, (url) => loadPdf(url), { immediate: true });
-watch(() => props.fields, () => nextTick(() => setupInteract()), { deep: true });
-watch(currentPage, () => nextTick(() => setupInteract()));
+watch(interactBindingKey, () => nextTick(() => setupInteract()));
+
+function scheduleRenderOnResize() {
+    if (!pdfDoc || loading.value) {
+        return;
+    }
+
+    const nextScale = displayScaleForPage(containerWidthForScale());
+    if (nextScale === lastDisplayScale) {
+        return;
+    }
+
+    clearTimeout(resizeRenderTimer);
+    resizeRenderTimer = setTimeout(() => {
+        renderPage(currentPage.value);
+    }, 150);
+}
+
+function attachResizeObserver() {
+    nextTick(() => {
+        if (!resizeObserver || !canvasContainerRef.value) {
+            return;
+        }
+
+        resizeObserver.disconnect();
+        resizeObserver.observe(canvasContainerRef.value);
+    });
+}
+
+watch(
+    () => props.previewUrl,
+    async (url) => {
+        if (!url) {
+            return;
+        }
+
+        await loadPdf(url);
+        attachResizeObserver();
+    },
+    { immediate: true },
+);
 
 onMounted(() => {
-    if (props.previewUrl) {
-        loadPdf(props.previewUrl);
-    }
+    resizeObserver = new ResizeObserver(() => scheduleRenderOnResize());
+    attachResizeObserver();
 });
 
 onBeforeUnmount(() => {
+    clearTimeout(resizeRenderTimer);
+    resizeObserver?.disconnect();
     teardownInteract();
 });
 
@@ -272,14 +409,16 @@ defineExpose({ placeNewField, currentPage });
                 </button>
             </div>
 
-            <div
-                ref="overlayRoot"
-                class="relative inline-block max-w-full overflow-auto rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900"
-                @drop="onCanvasDrop"
-                @dragover="onCanvasDragOver"
-                @click="onCanvasClick"
-            >
-                <canvas ref="pageCanvas" class="block max-w-full" />
+            <div ref="canvasContainerRef" class="flex w-full justify-center overflow-auto">
+                <div
+                    ref="overlayRoot"
+                    class="relative inline-block shrink-0 rounded-xl bg-gray-100 outline outline-1 -outline-offset-1 outline-gray-200 dark:bg-gray-900 dark:outline-gray-700"
+                    :style="canvasDisplayStyle"
+                    @drop="onCanvasDrop"
+                    @dragover="onCanvasDragOver"
+                    @click="onCanvasClick"
+                >
+                    <canvas ref="pageCanvas" class="absolute left-0 top-0 block" :style="canvasDisplayStyle" />
                 <MsoFieldOverlay
                     v-for="field in pageFields"
                     :key="field.id"
@@ -292,6 +431,7 @@ defineExpose({ placeNewField, currentPage });
                     @update-value="(id, value) => emit('update-field', id, { value })"
                     @delete="emit('delete-field', $event)"
                 />
+                </div>
             </div>
 
             <p v-if="loading" class="text-sm text-gray-500 dark:text-gray-400">Loading PDF…</p>

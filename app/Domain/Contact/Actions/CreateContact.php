@@ -15,7 +15,6 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Throwable;
 
 class CreateContact
@@ -144,7 +143,8 @@ class CreateContact
 
                 continue;
             }
-            $validated[$key] = $enumClass::toStoredValue($v);
+            $id = $enumClass::toStoredId($v);
+            $validated[$key] = $id === null ? null : (string) $id;
         }
 
         if (array_key_exists('stage_id', $validated)) {
@@ -165,8 +165,8 @@ class CreateContact
                     ) ?: ($validated['company'] ?? null);
                 }
 
-                $validated['type'] = $validated['type'] ?? ContactType::Person->value;
-                $validated['status'] = $validated['status'] ?? ContactStatus::Active->value;
+                $validated['type'] = $validated['type'] ?? (string) ContactType::Person->id();
+                $validated['status'] = $validated['status'] ?? (string) ContactStatus::Active->id();
                 $validated['stage_id'] = $validated['stage_id'] ?? ContactStage::Contact->id();
 
                 $addresses = $validated['addresses'] ?? [];

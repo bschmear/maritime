@@ -416,7 +416,10 @@ const canCreateDeal = computed(() =>
 
 const showCreateDealModal = ref(false);
 
-const createDealForm = useForm({});
+const createDealForm = useForm({
+    needs_contract: true,
+    needs_delivery: false,
+});
 
 const submitCreateDeal = () => {
     createDealForm.clearErrors();
@@ -1658,8 +1661,36 @@ const confirmDelete = () => {
                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDateTime(record.approved_at) }}</span>.
                 </p>
                 <p class="mt-2 text-md text-center text-gray-600 dark:text-gray-400">
-                    Start the deal process by creating a deal (transaction and contract).
+                    Start the deal process by creating a deal from this estimate.
                 </p>
+                <div class="mt-5 space-y-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 text-left dark:border-gray-600 dark:bg-gray-800/60">
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input
+                            v-model="createDealForm.needs_contract"
+                            type="checkbox"
+                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                            <span class="font-medium text-gray-900 dark:text-white">This deal requires a contract</span>
+                            <span class="mt-0.5 block text-gray-500 dark:text-gray-400">
+                                Uncheck if no contract is needed for this deal.
+                            </span>
+                        </span>
+                    </label>
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input
+                            v-model="createDealForm.needs_delivery"
+                            type="checkbox"
+                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                            <span class="font-medium text-gray-900 dark:text-white">This deal requires delivery</span>
+                            <span class="mt-0.5 block text-gray-500 dark:text-gray-400">
+                                Check if a delivery must be scheduled before the deal can close.
+                            </span>
+                        </span>
+                    </label>
+                </div>
                 <div
                     v-if="createDealForm.errors.error || Object.keys(createDealForm.errors).length"
                     class="mt-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-md text-red-800 dark:text-red-200"

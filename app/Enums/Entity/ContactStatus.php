@@ -38,13 +38,10 @@ enum ContactStatus: string
         return $this === self::Active;
     }
 
-    /**
-     * Select options: {@see id} is the string backing value so forms and DB stay string columns.
-     */
     public static function options(): array
     {
         return array_map(fn (self $case) => [
-            'id' => $case->value,
+            'id' => $case->id(),
             'value' => $case->value,
             'name' => $case->label(),
         ], self::cases());

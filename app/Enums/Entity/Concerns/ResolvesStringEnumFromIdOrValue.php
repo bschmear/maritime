@@ -44,6 +44,20 @@ trait ResolvesStringEnumFromIdOrValue
     }
 
     /**
+     * Numeric option id for DB columns and table filters (accepts id, backing string, or enum).
+     */
+    public static function toStoredId(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $enum = $value instanceof static ? $value : static::tryFromStored($value);
+
+        return $enum?->id();
+    }
+
+    /**
      * Laravel validation closure helper: nullable; accepts backing string or legacy numeric id.
      */
     public static function assertValidForValidation(mixed $value, \Closure $fail, string $attribute): void

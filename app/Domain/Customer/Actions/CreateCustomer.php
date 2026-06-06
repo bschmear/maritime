@@ -8,6 +8,7 @@ use App\Domain\Customer\Models\Customer as RecordModel;
 use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
+use App\Enums\Entity\ContactType;
 use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -61,7 +62,9 @@ class CreateCustomer
 
                 $inactive = filter_var($fieldsToSave['inactive'] ?? false, FILTER_VALIDATE_BOOLEAN);
                 $fieldsToSave['inactive'] = $inactive;
-                $fieldsToSave['status'] = $inactive ? ContactStatus::Inactive->value : ContactStatus::Active->value;
+                $fieldsToSave['status'] = $inactive
+                    ? (string) ContactStatus::Inactive->id()
+                    : (string) ContactStatus::Active->id();
             }
 
             [$contactData, $addressData, $profileData] = RecordModel::splitPayload($fieldsToSave);
@@ -83,7 +86,9 @@ class CreateCustomer
                         $contact->update($contactData);
                     }
                 } else {
-                    $contact = Contact::query()->create($contactData);
+                    $contact = Contact::query()->create(array_merge($contactData, [
+                        'type' => (string) ContactType::Person->id(),
+                    ]));
                 }
 
                 $hasAddress = collect($addressData)->filter(fn ($v) => $v !== null && $v !== '')->isNotEmpty();
@@ -102,7 +107,7 @@ class CreateCustomer
                 $profileData['contact_id'] = $contact->id;
 
                 $customer = RecordModel::query()->create($profileData);
-                $contact->update(['stage_id' => ContactStage::Customer]);
+                $contact->update(['stage_id' => ContactStage::Customer->id()]);
 
                 return $customer;
             });

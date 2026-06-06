@@ -2,6 +2,7 @@
 
 namespace App\Domain\Customer\Actions;
 
+use App\Domain\Contact\Support\ContactDeletionGuard;
 use App\Domain\Customer\Models\Customer as RecordModel;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
@@ -9,8 +10,12 @@ use Throwable;
 
 class DeleteCustomer
 {
+    public function __construct(
+        private readonly ContactDeletionGuard $deletionGuard = new ContactDeletionGuard,
+    ) {}
+
     /**
-     * Deletes the contact (cascades customer_profiles and addresses; related rows with ON DELETE CASCADE follow).
+     * Deletes the contact when it is not referenced by other records.
      *
      * @return array{success: bool, message?: string}
      */
@@ -19,7 +24,15 @@ class DeleteCustomer
         try {
             $record = RecordModel::query()->with('contact')->findOrFail($id);
 
-            $record->contact?->delete();
+            $contact = $record->contact;
+            if ($contact && ($message = $this->deletionGuard->messageFor($contact))) {
+                return [
+                    'success' => false,
+                    'message' => $message,
+                ];
+            }
+
+            $contact?->delete();
 
             return [
                 'success' => true,

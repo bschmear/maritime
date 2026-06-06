@@ -1864,7 +1864,7 @@ const handleCancel = () => {
                                             <!-- Signature Image (drawn) -->
                                             <div v-if="record?.signature_url">
                                                 <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1">Signature</label>
-                                                <div class="bg-white  border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                                <div class="signature-surface">
                                                     <img :src="record.signature_url" alt="Customer Signature" class="max-h-32 w-auto" />
                                                 </div>
                                             </div>
@@ -1872,8 +1872,8 @@ const handleCancel = () => {
                                             <!-- Typed signature (no image file) -->
                                             <div v-else-if="record?.signature_method === 5 && record?.customer_signature">
                                                 <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1">Signature</label>
-                                                <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                                                    <p class="text-2xl text-gray-900 dark:text-white" style="font-family: 'Dancing Script', cursive;">
+                                                <div class="signature-surface">
+                                                    <p class="signature-surface-text signature-cursive text-2xl">
                                                         {{ record.customer_signature }}
                                                     </p>
                                                 </div>

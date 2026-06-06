@@ -740,14 +740,14 @@ const ownerView = computed(() => {
                             v-if="record.signature_url || (Number(record.signature_method) === 5 && record.customer_signature)"
                             class="flex flex-col gap-4 sm:flex-row sm:items-start"
                         >
-                            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-600 dark:bg-gray-700">
+                            <div class="signature-surface">
                                 <img
                                     v-if="record.signature_url"
                                     :src="record.signature_url"
                                     alt="Customer signature"
                                     class="max-h-28 w-auto object-contain"
                                 />
-                                <p v-else class="signature-cursive text-3xl text-gray-900 dark:text-gray-100">
+                                <p v-else class="signature-surface-text signature-cursive text-3xl">
                                     {{ record.customer_signature }}
                                 </p>
                             </div>

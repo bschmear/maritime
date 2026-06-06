@@ -15,6 +15,12 @@
         "type": "text",
         "validation": "required|string|max:255"
     },
+    "position_title": {
+        "label": "Position / title",
+        "type": "text",
+        "validation": "nullable|string|max:255",
+        "help": "Job title shown on documents such as MSO forms"
+    },
     "email": {
         "label": "Email Address",
         "type": "email",

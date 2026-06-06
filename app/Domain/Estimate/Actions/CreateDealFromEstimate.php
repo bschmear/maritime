@@ -6,12 +6,14 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Actions\CreateContract;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionItem;
 use App\Domain\Transaction\Models\TransactionItemAddon;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
+use App\Domain\User\Models\User;
 use App\Enums\Estimate\EstimateStatus;
 use App\Models\AccountSettings;
 use Illuminate\Support\Facades\DB;
@@ -24,9 +26,10 @@ class CreateDealFromEstimate
     ) {}
 
     /**
+     * @param  array{needs_contract?: bool, needs_delivery?: bool}  $options
      * @return array{success: bool, message?: string, transaction?: Transaction|null, already_existed?: bool}
      */
-    public function __invoke(Estimate $estimate): array
+    public function __invoke(Estimate $estimate, array $options = []): array
     {
         if ($estimate->transaction_id) {
             return [
@@ -47,7 +50,10 @@ class CreateDealFromEstimate
         try {
             $alreadyExisted = false;
 
-            $result = DB::transaction(function () use ($estimate, &$alreadyExisted): Transaction {
+            $needsContract = (bool) ($options['needs_contract'] ?? true);
+            $needsDelivery = (bool) ($options['needs_delivery'] ?? false);
+
+            $result = DB::transaction(function () use ($estimate, $needsContract, $needsDelivery, &$alreadyExisted): Transaction {
                 $locked = Estimate::query()
                     ->whereKey($estimate->id)
                     ->lockForUpdate()
@@ -115,6 +121,8 @@ class CreateDealFromEstimate
                     'total' => $total,
                     'currency' => 'USD',
                     'notes' => $locked->notes,
+                    'needs_contract' => $needsContract,
+                    'needs_delivery' => $needsDelivery,
                 ]);
 
                 if (! ($txResult['success'] ?? false) || empty($txResult['record'])) {
@@ -277,7 +285,7 @@ class CreateDealFromEstimate
             }
         }
 
-        return \App\Domain\Location\Models\Location::query()->value('id');
+        return Location::query()->value('id');
     }
 
     /**
@@ -288,7 +296,7 @@ class CreateDealFromEstimate
      */
     protected function resolveSubsidiaryId(Estimate $estimate): ?int
     {
-        $user = $estimate->user ?? \App\Domain\User\Models\User::query()->find($estimate->user_id);
+        $user = $estimate->user ?? User::query()->find($estimate->user_id);
 
         if ($user) {
             $primary = $user->subsidiaries()->wherePivot('primary', true)->first();

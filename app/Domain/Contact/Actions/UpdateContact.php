@@ -103,7 +103,8 @@ class UpdateContact
 
                 continue;
             }
-            $validated[$key] = $enumClass::toStoredValue($v);
+            $id = $enumClass::toStoredId($v);
+            $validated[$key] = $id === null ? null : (string) $id;
         }
 
         if (array_key_exists('stage_id', $validated)) {

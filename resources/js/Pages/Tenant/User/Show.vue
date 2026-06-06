@@ -220,6 +220,14 @@ const breadcrumbItems = computed(() => {
                             </div>
                             <div>
                                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                    Position / title
+                                </dt>
+                                <dd class="text-sm text-gray-900 dark:text-white font-medium">
+                                    {{ record.position_title || '—' }}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                                     Email Address
                                 </dt>
                                 <dd class="text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-md inline-flex items-center">

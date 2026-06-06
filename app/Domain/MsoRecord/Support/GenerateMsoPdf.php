@@ -31,9 +31,10 @@ final class GenerateMsoPdf
             $record,
             $user,
         );
+        $pageSizes = MsoRecordDetails::pageSizes($record->details);
 
         $sourcePath = self::localTempCopy($source->file, 'mso-source-');
-        $outputPath = self::buildFilledPdf($sourcePath, $fields, $user);
+        $outputPath = self::buildFilledPdf($sourcePath, $fields, $user, $pageSizes);
 
         try {
             $filename = 'mso-filled-'.$record->id.'-'.time().'.pdf';
@@ -71,12 +72,15 @@ final class GenerateMsoPdf
 
     /**
      * @param  list<array<string, mixed>>  $fields
+     * @param  array<int|string, array{width: float, height: float}>  $pageSizes
      */
-    private static function buildFilledPdf(string $sourcePath, array $fields, ?User $user): string
+    private static function buildFilledPdf(string $sourcePath, array $fields, ?User $user, array $pageSizes = []): string
     {
-        $pdf = new Fpdi;
-        $pageCount = $pdf->setSourceFile($sourcePath);
+        $pdf = new Fpdi('P', 'pt');
+        $pdf->SetAutoPageBreak(false);
+        $pdf->SetMargins(0, 0, 0);
 
+        $pageCount = $pdf->setSourceFile($sourcePath);
         $fieldsByPage = collect($fields)->groupBy(fn (array $field) => (int) ($field['page'] ?? 1));
 
         for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
@@ -86,8 +90,18 @@ final class GenerateMsoPdf
             $width = (float) $size['width'];
             $height = (float) $size['height'];
 
+            $storedSize = $pageSizes[$pageNo] ?? $pageSizes[(string) $pageNo] ?? null;
+            if (is_array($storedSize)) {
+                $storedWidth = (float) ($storedSize['width'] ?? 0);
+                $storedHeight = (float) ($storedSize['height'] ?? 0);
+                if ($storedWidth > 0 && $storedHeight > 0) {
+                    $width = $storedWidth;
+                    $height = $storedHeight;
+                }
+            }
+
             $pdf->AddPage($orientation, [$width, $height]);
-            $pdf->useTemplate($templateId);
+            $pdf->useTemplate($templateId, 0, 0, $width, $height);
 
             foreach ($fieldsByPage->get($pageNo, collect()) as $field) {
                 self::renderField($pdf, $field, $width, $height, $user);
@@ -110,6 +124,7 @@ final class GenerateMsoPdf
         $boxWidth = max(1.0, (float) ($field['width'] ?? 0.2) * $pageWidth);
         $boxHeight = max(1.0, (float) ($field['height'] ?? 0.04) * $pageHeight);
         $fontSize = (int) ($field['font_size'] ?? 10);
+        $fontStyle = ! empty($field['font_bold']) ? 'B' : '';
         $type = (string) ($field['type'] ?? 'free_text');
         $value = (string) ($field['value'] ?? '');
 
@@ -131,9 +146,12 @@ final class GenerateMsoPdf
             return;
         }
 
-        $pdf->SetFont('Arial', '', $fontSize);
+        $lineCount = max(1, substr_count($value, "\n") + 1);
+        $lineHeight = max((float) $fontSize * 1.2, $boxHeight / $lineCount);
+
+        $pdf->SetFont('Arial', $fontStyle, $fontSize);
         $pdf->SetXY($x, $y);
-        $pdf->MultiCell($boxWidth, max(4.0, $boxHeight / 2), $value, 0, 'L');
+        $pdf->MultiCell($boxWidth, $lineHeight, $value, 0, 'L');
     }
 
     private static function localTempCopy(string $s3Path, string $prefix): string

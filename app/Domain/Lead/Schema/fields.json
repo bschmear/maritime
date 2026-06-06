@@ -130,15 +130,20 @@
     "label": "Referrer",
     "type": "text"
   },
+  "status": {
+    "label": "Contact Status",
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\ContactStatus"
+  },
   "preferred_contact_method": {
     "label": "Preferred Contact Method",
     "type": "select",
-    "enum": "App\\Enums\\Entity\\PreferredContactMethod"
+    "enum": "App\\Enums\\Entity\\ContactMethod"
   },
   "preferred_contact_time": {
     "label": "Preferred Contact Time",
     "type": "select",
-    "enum": "App\\Enums\\Entity\\PreferredContactTime"
+    "enum": "App\\Enums\\Entity\\ContactTimePreference"
   },
   "purchase_timeline": {
     "label": "Purchase Timeline",

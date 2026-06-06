@@ -140,7 +140,11 @@ const getEnumOption = (fieldKey, value) => {
     if (!fieldDef?.enum || !value) return null;
     const opts = props.enumOptions[fieldDef.enum];
     if (!Array.isArray(opts)) return null;
-    return opts.find(o => o.id === value || o.value === value) ?? null;
+    return opts.find(
+        (o) =>
+            String(o.id) === String(value)
+            || (o.value !== undefined && o.value !== null && String(o.value) === String(value)),
+    ) ?? null;
 };
 
 const getEnumLabel = (fieldKey, value) => getEnumOption(fieldKey, value)?.name ?? value;

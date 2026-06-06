@@ -11,7 +11,6 @@ use App\Domain\Contact\Actions\DeleteContact;
 use App\Domain\Contact\Actions\UpdateContact;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
-use App\Domain\Contact\Support\AamvaPdf417Parser;
 use App\Domain\Customer\Actions\UploadDriverLicenseImage;
 use App\Domain\Document\Models\Document;
 use App\Enums\Timezone;
@@ -669,9 +668,6 @@ class ContactController extends Controller
             ->with('error', $result['message'] ?? 'Failed to delete '.$this->recordTitle);
     }
 
-    /**
-     * Parse an AAMVA PDF417 driver-license barcode into contact-friendly fields (JSON for the scanner UI).
-     */
     public function uploadDriverLicense(
         Request $request,
         Contact $contact,
@@ -731,29 +727,6 @@ class ContactController extends Controller
                 $query->select(['id', 'contact_id']);
             };
         }
-    }
-
-    public function parseLicenseBarcode(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'barcode' => ['required', 'string', 'max:65535'],
-        ]);
-
-        $parsed = AamvaPdf417Parser::parse($validated['barcode']);
-
-        if ($parsed['fields'] === []) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No license data could be read from this barcode. Try again with steadier framing and lighting, or create the contact manually.',
-            ], 422);
-        }
-
-        return response()->json([
-            'success' => true,
-            'fields' => $parsed['fields'],
-            'contact' => $parsed['contact'],
-            'extracted_rows' => $parsed['extracted_rows'],
-        ]);
     }
 
     /**

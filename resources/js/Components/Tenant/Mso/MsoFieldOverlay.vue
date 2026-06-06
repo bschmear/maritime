@@ -26,9 +26,24 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'update-value', 'delete']);
 
-const isMultiline = computed(() =>
-    ['free_text', 'line_item', 'customer_address'].includes(props.field.type),
+const isSignatureDrawn = computed(
+    () => props.field.type === 'user_signature'
+        && props.field.signature_method === 'draw'
+        && !!props.field.signature_url,
 );
+
+const isSignatureTyped = computed(
+    () => props.field.type === 'user_signature'
+        && props.field.signature_method === 'type',
+);
+
+const isMultiline = computed(() => {
+    if (props.field.type === 'customer_address' || props.field.type === 'dealership_address') {
+        return (props.field.address_layout ?? 'multiline') === 'multiline';
+    }
+
+    return ['free_text', 'line_item'].includes(props.field.type);
+});
 
 const isReadOnly = computed(() => props.field.type === 'user_signature');
 
@@ -54,13 +69,22 @@ const inputStyle = computed(() => ({
     fontSize: `${props.field.font_size || 10}px`,
     lineHeight: 1.2,
     color: '#000000',
+    fontWeight: props.field.font_bold ? '700' : '400',
+}));
+
+const signatureImageStyle = computed(() => ({
+    maxWidth: '100%',
+    maxHeight: '100%',
+    width: 'auto',
+    height: 'auto',
+    objectFit: 'contain',
 }));
 </script>
 
 <template>
     <div
         class="absolute z-20 flex overflow-visible bg-transparent"
-        :class="selected ? 'ring-1 ring-blue-500/80' : ''"
+        :class="selected ? 'ring-1 ring-blue-500/80 pl-3' : ''"
         :style="containerStyle"
         :data-field-id="field.id"
         :title="label"
@@ -68,15 +92,37 @@ const inputStyle = computed(() => ({
     >
         <div
             v-if="selected"
-            class="drag-handle z-10 w-2 shrink-0 cursor-move bg-blue-500/25"
+            class="drag-handle pointer-events-auto absolute inset-y-0 left-0 z-30 w-3 cursor-move bg-blue-500/25"
             aria-label="Drag to move"
         />
 
+        <div
+            v-if="isSignatureDrawn"
+            class="pointer-events-none flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-0.5"
+            @mousedown.stop
+            @click.stop="emit('select', field.id)"
+        >
+            <img
+                :src="field.signature_url"
+                alt="User signature"
+                :style="signatureImageStyle"
+            />
+        </div>
+        <div
+            v-else-if="isSignatureTyped"
+            class="pointer-events-none flex min-h-0 min-w-0 flex-1 items-center overflow-hidden bg-transparent px-1"
+            @mousedown.stop
+            @click.stop="emit('select', field.id)"
+        >
+            <p class="signature-cursive w-full truncate text-black" :style="inputStyle">
+                {{ inputValue }}
+            </p>
+        </div>
         <textarea
-            v-if="isMultiline"
+            v-else-if="isMultiline"
             :value="inputValue"
             :readonly="isReadOnly"
-            class="field-input pointer-events-auto m-0 min-h-0 min-w-0 flex-1 resize-none border-0 bg-transparent p-0 font-sans font-normal text-black shadow-none focus:outline-none focus:ring-0"
+            class="field-input pointer-events-auto m-0 min-h-0 min-w-0 flex-1 resize-none border-0 bg-transparent p-0 font-sans text-black shadow-none focus:outline-none focus:ring-0"
             :style="inputStyle"
             @input="emit('update-value', field.id, $event.target.value)"
             @mousedown.stop
@@ -87,7 +133,7 @@ const inputStyle = computed(() => ({
             :value="inputValue"
             :readonly="isReadOnly"
             type="text"
-            class="field-input pointer-events-auto m-0 min-h-0 min-w-0 flex-1 border-0 bg-transparent p-0 font-sans font-normal text-black shadow-none focus:outline-none focus:ring-0"
+            class="field-input pointer-events-auto m-0 min-h-0 min-w-0 flex-1 border-0 bg-transparent p-0 font-sans text-black shadow-none focus:outline-none focus:ring-0"
             :style="inputStyle"
             @input="emit('update-value', field.id, $event.target.value)"
             @mousedown.stop
@@ -96,18 +142,18 @@ const inputStyle = computed(() => ({
 
         <div
             v-if="selected"
-            class="resize-handle-e z-10 w-2 shrink-0 cursor-ew-resize bg-blue-500/25"
+            class="resize-handle-e pointer-events-auto z-10 w-2 shrink-0 cursor-ew-resize bg-blue-500/25"
             aria-label="Drag to resize width"
         />
 
         <div
             v-if="selected"
-            class="resize-handle-s absolute bottom-0 left-0 right-0 z-10 h-1.5 cursor-ns-resize"
+            class="resize-handle-s pointer-events-auto absolute bottom-0 left-0 right-0 z-10 h-1.5 cursor-ns-resize bg-blue-500/25"
             aria-label="Drag to resize height"
         />
         <div
             v-if="selected"
-            class="resize-handle-se absolute bottom-0 right-0 z-20 h-3 w-3 cursor-nwse-resize rounded-sm bg-blue-600 shadow"
+            class="resize-handle-se pointer-events-auto absolute bottom-0 right-0 z-20 h-3 w-3 cursor-nwse-resize rounded-sm bg-blue-600 shadow"
             aria-label="Drag to resize"
         />
 

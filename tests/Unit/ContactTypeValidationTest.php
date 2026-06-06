@@ -14,13 +14,13 @@ class ContactTypeValidationTest extends TestCase
     public function accepts_numeric_option_id_from_forms(): void
     {
         $this->assertSame(ContactType::Person, ContactType::tryFromStored(1));
-        $this->assertSame('person', ContactType::toStoredValue(1));
+        $this->assertSame(1, ContactType::toStoredId(1));
     }
 
     #[Test]
     public function accepts_string_backing_value(): void
     {
         $this->assertSame(ContactType::Company, ContactType::tryFromStored('company'));
-        $this->assertSame('company', ContactType::toStoredValue('company'));
+        $this->assertSame(2, ContactType::toStoredId('company'));
     }
 }

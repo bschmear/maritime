@@ -524,18 +524,14 @@ const handleConfirmSendApproval = () => {
                     <template v-if="isSigned && hasSignatureImage">
                         <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer signature</h3>
                         <div class="flex flex-wrap items-start gap-6">
-                            <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <div class="signature-surface">
                                 <img
                                     v-if="record.signature_url"
                                     :src="record.signature_url"
                                     alt="Customer signature"
                                     class="max-h-24 w-auto"
                                 />
-                                <p
-                                    v-else
-                                    class="text-3xl text-gray-900"
-                                    style="font-family: 'Brush Script MT', 'Segoe Script', cursive;"
-                                >
+                                <p v-else class="signature-surface-text signature-cursive text-3xl">
                                     {{ record.customer_signature }}
                                 </p>
                             </div>

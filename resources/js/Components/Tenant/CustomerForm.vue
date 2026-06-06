@@ -196,11 +196,8 @@ const enumOptionsFor = (key) => {
 
 const pseudoRecord = computed(() => props.record ?? (Object.keys(props.initialData || {}).length ? props.initialData : null));
 
-const selectUsesStoredEnumId = (key) =>
-    key === 'status_id' || key === 'payment_terms';
-
 const selectOptionValue = (key, opt) => {
-    if (selectUsesStoredEnumId(key)) {
+    if (fieldDef(key).type === 'select' && fieldDef(key).enum) {
         return opt.id;
     }
     return opt.value !== undefined && opt.value !== null ? opt.value : opt.id;
@@ -266,11 +263,7 @@ function initialValuesFromProps() {
                             String(o.value) === String(v),
                     );
                     if (hit) {
-                        values[key] = selectUsesStoredEnumId(key)
-                            ? hit.id
-                            : hit.value !== undefined && hit.value !== null
-                              ? hit.value
-                              : hit.id;
+                        values[key] = hit.id;
                     } else {
                         values[key] = v;
                     }

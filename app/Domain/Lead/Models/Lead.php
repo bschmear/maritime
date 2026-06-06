@@ -422,6 +422,7 @@ class Lead extends Model
             'facebook',
             'notes',
             'inactive',
+            'status',
             'source',
             'stripe_customer_id',
             'quickbooks_customer_id',

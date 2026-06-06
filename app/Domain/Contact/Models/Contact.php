@@ -91,7 +91,7 @@ class Contact extends Authenticatable
     {
         return Attribute::make(
             get: fn (?string $value) => ContactType::tryFromStored($value),
-            set: fn (mixed $value) => ['type' => ContactType::toStoredValue($value)],
+            set: fn (mixed $value) => ['type' => self::storedEnumId(ContactType::class, $value)],
         );
     }
 
@@ -99,7 +99,7 @@ class Contact extends Authenticatable
     {
         return Attribute::make(
             get: fn (?string $value) => ContactStatus::tryFromStored($value),
-            set: fn (mixed $value) => ['status' => ContactStatus::toStoredValue($value)],
+            set: fn (mixed $value) => ['status' => self::storedEnumId(ContactStatus::class, $value)],
         );
     }
 
@@ -107,7 +107,7 @@ class Contact extends Authenticatable
     {
         return Attribute::make(
             get: fn (?string $value) => ContactMethod::tryFromStored($value),
-            set: fn (mixed $value) => ['preferred_contact_method' => ContactMethod::toStoredValue($value)],
+            set: fn (mixed $value) => ['preferred_contact_method' => self::storedEnumId(ContactMethod::class, $value)],
         );
     }
 
@@ -115,8 +115,18 @@ class Contact extends Authenticatable
     {
         return Attribute::make(
             get: fn (?string $value) => ContactTimePreference::tryFromStored($value),
-            set: fn (mixed $value) => ['preferred_contact_time' => ContactTimePreference::toStoredValue($value)],
+            set: fn (mixed $value) => ['preferred_contact_time' => self::storedEnumId(ContactTimePreference::class, $value)],
         );
+    }
+
+    /**
+     * @param  class-string  $enumClass
+     */
+    private static function storedEnumId(string $enumClass, mixed $value): ?string
+    {
+        $id = $enumClass::toStoredId($value);
+
+        return $id === null ? null : (string) $id;
     }
 
     /**
@@ -306,17 +316,17 @@ class Contact extends Authenticatable
 
     public function scopeActive($query)
     {
-        return $query->where('status', ContactStatus::Active);
+        return $query->where('status', (string) ContactStatus::Active->id());
     }
 
     public function scopePeople($query)
     {
-        return $query->where('type', ContactType::Person);
+        return $query->where('type', (string) ContactType::Person->id());
     }
 
     public function scopeCompanies($query)
     {
-        return $query->where('type', ContactType::Company);
+        return $query->where('type', (string) ContactType::Company->id());
     }
 
     public function scopeAssignedTo($query, $userId)

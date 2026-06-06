@@ -7,8 +7,9 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Document\Actions\CreateDocument;
 use App\Domain\Document\Models\Document;
+use App\Domain\MsoRecord\Actions\DeleteMsoRecord;
 use App\Domain\MsoRecord\Models\MsoRecord;
-use App\Domain\MsoRecord\Models\MsoSourceLayout;
+use App\Domain\MsoRecord\Models\MsoLayoutTemplate;
 use App\Domain\MsoRecord\Support\GenerateMsoPdf;
 use App\Domain\MsoRecord\Support\MsoRecordDetails;
 use App\Domain\MsoRecord\Support\MsoValueResolver;
@@ -52,6 +53,7 @@ class MsoController extends BaseController
                     'transaction' => fn ($query) => $query->select(['id', 'sequence', 'title']),
                     'assetUnit' => fn ($query) => $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
                         ->with(['asset' => fn ($assetQuery) => $assetQuery->select(['id', 'display_name'])]),
+                    'createdBy' => fn ($query) => $query->select(['id', 'display_name', 'first_name', 'last_name']),
                 ])
                 ->orderByDesc('updated_at')
                 ->orderByDesc('id')
@@ -68,6 +70,9 @@ class MsoController extends BaseController
                     'asset_unit_display_name' => $record->assetUnit?->display_name,
                     'submitted_at' => $record->submitted_at?->toIso8601String(),
                     'created_at' => $record->created_at?->toIso8601String(),
+                    'created_by_display_name' => $record->createdBy?->display_name
+                        ?: trim(($record->createdBy?->first_name ?? '').' '.($record->createdBy?->last_name ?? ''))
+                        ?: null,
                 ]);
 
             return Inertia::render('Tenant/Mso/Index', [
@@ -240,6 +245,7 @@ class MsoController extends BaseController
         $validated = $request->validate([
             'transaction_id' => ['required', 'integer', 'exists:transactions,id'],
             'line_item_id' => ['required', 'integer', 'exists:transaction_line_items,id'],
+            'layout_template_id' => ['nullable', 'integer', 'exists:mso_layout_templates,id'],
         ]);
 
         $transaction = Transaction::query()
@@ -255,10 +261,22 @@ class MsoController extends BaseController
 
         $assetUnit = AssetUnit::query()->findOrFail((int) $lineItem->asset_unit_id);
         $msoRecord = UpsertMsoRecordForLineItem::ensureDraft($transaction, $lineItem);
+
+        if (isset($validated['layout_template_id'])) {
+            $msoRecord->layout_template_id = (int) $validated['layout_template_id'];
+            $msoRecord->save();
+        }
+
         $msoRecord->load('sourceDocument');
         $msoRecord->refresh();
 
-        return Inertia::render('Tenant/Mso/Create', $this->builderPageProps($msoRecord, $transaction, $lineItem, $assetUnit));
+        return Inertia::render('Tenant/Mso/Create', $this->builderPageProps(
+            $msoRecord,
+            $transaction,
+            $lineItem,
+            $assetUnit,
+            isset($validated['layout_template_id']) ? (int) $validated['layout_template_id'] : null,
+        ));
     }
 
     public function show(MsoRecord $msoRecord): Response
@@ -299,6 +317,7 @@ class MsoController extends BaseController
             'lineItem' => $lineItem ? [
                 'id' => $lineItem->id,
                 'name' => $lineItem->name,
+                'transaction_id' => $transaction?->id,
             ] : null,
             'sourceDocument' => $this->serializeDocument($msoRecord->sourceDocument),
             'outputDocument' => $this->serializeDocument($msoRecord->outputDocument),
@@ -313,7 +332,8 @@ class MsoController extends BaseController
 
     public function saveBuilder(Request $request, MsoRecord $msoRecord): JsonResponse|RedirectResponse
     {
-        $record = SaveMsoBuilderState::handle($msoRecord, $request->all());
+        $result = SaveMsoBuilderState::handle($msoRecord, $request->all());
+        $record = $result['record'];
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -321,8 +341,10 @@ class MsoController extends BaseController
                 'msoRecord' => [
                     'id' => $record->id,
                     'status' => $record->status?->value,
+                    'layout_template_id' => $record->layout_template_id,
                     'details' => MsoRecordDetails::normalize($record->details),
                 ],
+                'layoutTemplate' => $result['layoutTemplate'],
             ]);
         }
 
@@ -374,7 +396,7 @@ class MsoController extends BaseController
 
     public function generatePdf(Request $request, MsoRecord $msoRecord): JsonResponse|RedirectResponse
     {
-        SaveMsoBuilderState::handle($msoRecord, $request->all());
+        SaveMsoBuilderState::handle($msoRecord, $request->all())['record'];
         $msoRecord->refresh();
 
         try {
@@ -401,7 +423,7 @@ class MsoController extends BaseController
 
     public function submit(Request $request, MsoRecord $msoRecord): RedirectResponse
     {
-        SaveMsoBuilderState::handle($msoRecord, $request->all());
+        SaveMsoBuilderState::handle($msoRecord, $request->all())['record'];
         $msoRecord->refresh();
 
         try {
@@ -430,6 +452,27 @@ class MsoController extends BaseController
             ->with('success', 'MSO submitted successfully.');
     }
 
+    public function destroy(Request $request, MsoRecord $msoRecord): RedirectResponse
+    {
+        $resetTransaction = $request->boolean('reset_transaction', true);
+
+        $result = (new DeleteMsoRecord)($msoRecord->id, $resetTransaction);
+
+        if (! ($result['success'] ?? false)) {
+            return redirect()
+                ->back()
+                ->with('error', $result['message'] ?? 'Failed to delete MSO.');
+        }
+
+        $message = $resetTransaction
+            ? 'MSO deleted. The deal will require an MSO again if applicable.'
+            : 'MSO deleted.';
+
+        return redirect()
+            ->route('mso.index', ['tab' => 'existing'])
+            ->with('success', $message);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -438,6 +481,7 @@ class MsoController extends BaseController
         Transaction $transaction,
         TransactionLineItem $lineItem,
         AssetUnit $assetUnit,
+        ?int $layoutTemplateId = null,
     ): array {
         $details = MsoRecordDetails::normalize($msoRecord->details);
         $assignedUserId = $details['assigned_user_id'] ?? current_tenant_user_id();
@@ -449,26 +493,83 @@ class MsoController extends BaseController
             $msoRecord->save();
         }
 
-        $savedLayout = $sourceDocument
-            ? MsoSourceLayout::query()->where('source_document_id', $sourceDocument->id)->first()
-            : null;
-
-        $fields = MsoRecordDetails::fields($msoRecord->details);
-        if ($fields === [] && $savedLayout) {
-            $fields = SaveMsoBuilderState::fieldsFromLayoutTemplate($savedLayout, $msoRecord, $assignedUser);
-        } else {
-            $fields = MsoValueResolver::hydrateFieldValues($fields, $msoRecord, $assignedUser);
-        }
-
-        $users = User::query()
-            ->orderBy('display_name')
-            ->get(['id', 'display_name', 'first_name', 'last_name'])
-            ->map(fn (User $user) => [
-                'id' => $user->id,
-                'display_name' => $user->display_name ?: $user->full_name,
+        $layoutTemplates = MsoLayoutTemplate::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (MsoLayoutTemplate $template) => [
+                'id' => $template->id,
+                'name' => $template->name,
             ])
             ->values()
             ->all();
+
+        $storedFields = MsoRecordDetails::fields($msoRecord->details);
+        $resolvedTemplateId = $msoRecord->layout_template_id ?? $layoutTemplateId;
+        $appliedTemplate = $resolvedTemplateId
+            ? MsoLayoutTemplate::query()->find($resolvedTemplateId)
+            : null;
+
+        if ($storedFields !== []) {
+            $fields = MsoValueResolver::hydrateFieldValues($storedFields, $msoRecord, $assignedUser);
+        } elseif ($appliedTemplate) {
+            $fields = SaveMsoBuilderState::fieldsFromTemplate($appliedTemplate->layout, $msoRecord, $assignedUser);
+        } else {
+            $fields = [];
+        }
+
+        $showTemplatePicker = $storedFields === [] && ! $resolvedTemplateId && $layoutTemplates !== [];
+
+        $users = User::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name', 'first_name', 'last_name', 'position_title', 'signature_method', 'signature_file', 'typed_signature', 'signature_saved_at'])
+            ->map(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'display_name' => $user->display_name ?: $user->full_name,
+                    'position_title' => $user->position_title,
+                    'signature' => $user->savedSignaturePayload(),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $addressParts = [
+            'line1' => $transaction->billing_address_line1,
+            'line2' => $transaction->billing_address_line2,
+            'city_state_zip' => trim(implode(', ', array_filter([
+                $transaction->billing_city,
+                $transaction->billing_state,
+                $transaction->billing_postal,
+            ]))),
+            'country' => $transaction->billing_country,
+        ];
+
+        $transaction->loadMissing('location');
+
+        $dealershipAddressParts = [
+            'line1' => $transaction->location?->address_line_1,
+            'line2' => $transaction->location?->address_line_2,
+            'city_state_zip' => trim(implode(', ', array_filter([
+                $transaction->location?->city,
+                $transaction->location?->state,
+                $transaction->location?->postal_code,
+            ]))),
+            'country' => $transaction->location?->country,
+        ];
+
+        $prefill = MsoValueResolver::prefillMap($msoRecord, $assignedUser);
+        $prefill['customer_address_parts'] = $addressParts;
+        $prefill['dealership_address_parts'] = $dealershipAddressParts;
+        if ($transaction->location) {
+            $prefill['dealership_address'] = MsoValueResolver::formatLocationAddress([
+                'address_line_1' => $transaction->location->address_line_1,
+                'address_line_2' => $transaction->location->address_line_2,
+                'city' => $transaction->location->city,
+                'state' => $transaction->location->state,
+                'postal_code' => $transaction->location->postal_code,
+                'country' => $transaction->location->country,
+            ], 'multiline');
+        }
 
         return [
             'transaction' => [
@@ -478,12 +579,14 @@ class MsoController extends BaseController
                 'customer_email' => $transaction->customer_email,
                 'customer_phone' => $transaction->customer_phone,
                 'customer_title' => $transaction->customer?->title ?? $transaction->customer?->contact?->title,
-                'customer_address' => trim(implode("\n", array_filter([
-                    $transaction->billing_address_line1,
-                    $transaction->billing_address_line2,
-                    trim(implode(', ', array_filter([$transaction->billing_city, $transaction->billing_state, $transaction->billing_postal]))),
-                    $transaction->billing_country,
-                ]))),
+                'customer_address' => MsoValueResolver::formatCustomerAddress([
+                    'billing_address_line1' => $transaction->billing_address_line1,
+                    'billing_address_line2' => $transaction->billing_address_line2,
+                    'billing_city' => $transaction->billing_city,
+                    'billing_state' => $transaction->billing_state,
+                    'billing_postal' => $transaction->billing_postal,
+                    'billing_country' => $transaction->billing_country,
+                ], 'multiline'),
                 'closed_at' => $transaction->closed_at?->toIso8601String(),
                 'subsidiary_name' => $transaction->subsidiary?->display_name,
             ],
@@ -505,31 +608,75 @@ class MsoController extends BaseController
                 'id' => $msoRecord->id,
                 'status' => $msoRecord->status?->value,
                 'assigned_user_id' => $assignedUserId,
+                'layout_template_id' => $msoRecord->layout_template_id,
+                'page_sizes' => MsoRecordDetails::pageSizes($msoRecord->details),
                 'fields' => $fields,
-                'prefill' => MsoValueResolver::prefillMap($msoRecord, $assignedUser),
+                'prefill' => $prefill,
             ],
             'users' => $users,
-            'fieldTypes' => $this->fieldTypeOptions(),
-            'hasSavedLayout' => (bool) $savedLayout,
+            'fieldGroups' => $this->fieldTypeGroups(),
+            'layoutTemplates' => $layoutTemplates,
+            'showTemplatePicker' => $showTemplatePicker,
+            'appliedTemplate' => $appliedTemplate ? [
+                'id' => $appliedTemplate->id,
+                'name' => $appliedTemplate->name,
+            ] : null,
         ];
     }
 
     /**
-     * @return list<array{value: string, label: string}>
+     * @return list<array{label: string, fields: list<array{value: string, label: string}>}>
      */
-    private function fieldTypeOptions(): array
+    private function fieldTypeGroups(): array
     {
         return [
-            ['value' => 'customer_name', 'label' => 'Customer name'],
-            ['value' => 'customer_address', 'label' => 'Customer address'],
-            ['value' => 'customer_phone', 'label' => 'Customer phone'],
-            ['value' => 'customer_title', 'label' => 'Customer title'],
-            ['value' => 'line_item', 'label' => 'Line item'],
-            ['value' => 'date', 'label' => 'Date'],
-            ['value' => 'dealership_name', 'label' => 'Dealership name'],
-            ['value' => 'user_name', 'label' => 'User name'],
-            ['value' => 'user_signature', 'label' => 'User signature'],
-            ['value' => 'free_text', 'label' => 'Free text'],
+            [
+                'label' => 'Customer fields',
+                'fields' => [
+                    ['value' => 'customer_name', 'label' => 'Customer name'],
+                    ['value' => 'customer_address', 'label' => 'Customer address'],
+                    ['value' => 'customer_phone', 'label' => 'Customer phone'],
+                    ['value' => 'customer_title', 'label' => 'Customer title'],
+                ],
+            ],
+            [
+                'label' => 'Dealership fields',
+                'fields' => [
+                    ['value' => 'dealership_name', 'label' => 'Dealership name'],
+                    ['value' => 'dealership_address', 'label' => 'Dealership address'],
+                ],
+            ],
+            [
+                'label' => 'Date & time',
+                'fields' => [
+                    ['value' => 'date', 'label' => 'Date (MM/DD/YYYY)'],
+                    ['value' => 'current_month', 'label' => 'Current month'],
+                    ['value' => 'current_day', 'label' => 'Current day'],
+                    ['value' => 'current_year', 'label' => 'Current year'],
+                    ['value' => 'current_time', 'label' => 'Current time'],
+                ],
+            ],
+            [
+                'label' => 'Line item',
+                'fields' => [
+                    ['value' => 'line_item', 'label' => 'Line item'],
+                    ['value' => 'line_item_price', 'label' => 'Line item price'],
+                ],
+            ],
+            [
+                'label' => 'User fields',
+                'fields' => [
+                    ['value' => 'user_name', 'label' => 'User name'],
+                    ['value' => 'user_position_title', 'label' => 'User position / title'],
+                    ['value' => 'user_signature', 'label' => 'User signature'],
+                ],
+            ],
+            [
+                'label' => 'Other',
+                'fields' => [
+                    ['value' => 'free_text', 'label' => 'Free text'],
+                ],
+            ],
         ];
     }
 

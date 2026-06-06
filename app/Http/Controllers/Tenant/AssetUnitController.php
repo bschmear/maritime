@@ -8,8 +8,7 @@ use App\Domain\AssetUnit\Actions\DeleteAssetUnit as DeleteAction;
 use App\Domain\AssetUnit\Actions\UpdateAssetUnit as UpdateAction;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
-use App\Domain\Transaction\Models\Transaction;
-use App\Domain\Transaction\Models\TransactionLineItem;
+use App\Domain\MsoRecord\Models\MsoRecord;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
@@ -131,11 +130,11 @@ class AssetUnitController extends RecordController
             ];
         }
 
-        $msoBuilderLinks = $this->msoBuilderLinksForUnit($record);
+        $msoRecords = $this->serializeMsoRecordsForUnit($record);
 
         if (! $record->is_consignment) {
             return array_merge($base, $catalog, [
-                'msoBuilderLinks' => $msoBuilderLinks,
+                'msoRecords' => $msoRecords,
             ]);
         }
 
@@ -150,7 +149,7 @@ class AssetUnitController extends RecordController
             : null;
 
         return array_merge($base, $catalog, [
-            'msoBuilderLinks' => $msoBuilderLinks,
+            'msoRecords' => $msoRecords,
             'consignmentAgreementContext' => [
                 'needs_agreement' => ! $hasSigned,
                 'has_signed_agreement' => $hasSigned,
@@ -170,33 +169,27 @@ class AssetUnitController extends RecordController
     }
 
     /**
-     * @return list<array{transaction_id: int, line_item_id: int, transaction_label: string, builder_url: string}>
+     * @return list<array<string, mixed>>
      */
-    private function msoBuilderLinksForUnit(AssetUnit $record): array
+    private function serializeMsoRecordsForUnit(AssetUnit $record): array
     {
-        return TransactionLineItem::query()
-            ->select(['id', 'parent_id', 'parent_type', 'asset_unit_id', 'name'])
+        return MsoRecord::query()
             ->where('asset_unit_id', $record->id)
-            ->where('parent_type', Transaction::class)
-            ->with(['parent' => fn ($q) => $q->select(['id', 'sequence'])])
-            ->orderByDesc('id')
+            ->with(['transaction' => fn ($q) => $q->select(['id', 'sequence'])])
+            ->orderByDesc('created_at')
             ->get()
-            ->map(function (TransactionLineItem $line) {
-                $transaction = $line->parent;
-                $label = $transaction
-                    ? 'DL-'.($transaction->sequence ?: $transaction->id)
-                    : "Deal #{$line->parent_id}";
-
-                return [
-                    'transaction_id' => (int) $line->parent_id,
-                    'line_item_id' => (int) $line->id,
-                    'transaction_label' => $label,
-                    'builder_url' => route('mso.create', [
-                        'transaction_id' => $line->parent_id,
-                        'line_item_id' => $line->id,
-                    ]),
-                ];
-            })
+            ->map(fn (MsoRecord $mso) => [
+                'id' => $mso->id,
+                'display_name' => $mso->display_name,
+                'status' => $mso->status?->value,
+                'status_label' => $mso->status?->label(),
+                'created_at' => $mso->created_at?->toIso8601String(),
+                'submitted_at' => $mso->submitted_at?->toIso8601String(),
+                'show_url' => route('mso.show', $mso->id),
+                'transaction_label' => $mso->transaction
+                    ? 'DL-'.($mso->transaction->sequence ?: $mso->transaction->id)
+                    : null,
+            ])
             ->values()
             ->all();
     }

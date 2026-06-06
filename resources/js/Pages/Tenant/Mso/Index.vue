@@ -188,13 +188,14 @@ function recordHref(record) {
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Deal</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Asset unit</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Created by</th>
                         <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Submitted</th>
                         <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                     <tr v-if="!existingRows.length">
-                        <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                        <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                             No MSO records yet. Create one from the Pending tab.
                         </td>
                     </tr>
@@ -222,6 +223,9 @@ function recordHref(record) {
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                             {{ row.asset_unit_display_name || '—' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                            {{ row.created_by_display_name || '—' }}
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{{ formatDate(row.submitted_at) }}</td>
                         <td class="px-4 py-3 text-right">

@@ -12,14 +12,14 @@ use Throwable;
 
 class DeleteMsoRecord
 {
-    public function __invoke(int $id): array
+    public function __invoke(int $id, bool $syncTransaction = true): array
     {
         try {
             $record = RecordModel::query()->findOrFail($id);
             $transactionId = $record->transaction_id;
             $record->delete();
 
-            if ($transactionId) {
+            if ($syncTransaction && $transactionId) {
                 SyncTransactionMsoFlags::forTransaction((int) $transactionId);
             }
 

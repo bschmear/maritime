@@ -120,15 +120,6 @@ const enumOptionsFor = (key) => {
 
 const pseudoRecord = computed(() => props.record ?? (Object.keys(props.initialData || {}).length ? props.initialData : null));
 
-const numericEnumFields = new Set([
-    'status_id',
-    'source_id',
-    'priority_id',
-    'budget_range',
-    'preferred_contact_method',
-    'preferred_contact_time',
-]);
-
 function extractDate(val) {
     if (!val) {
         return '';
@@ -199,7 +190,7 @@ function initialValuesFromProps() {
                             String(o.value) === String(v),
                     );
                     if (hit) {
-                        values[key] = numericEnumFields.has(key) ? hit.id : hit.value ?? hit.id;
+                        values[key] = hit.id;
                     } else {
                         values[key] = v;
                     }
@@ -272,7 +263,7 @@ const headerSubtitle = computed(() =>
 const isFullWidthField = (key) => fieldDef(key).type === 'textarea' || fieldDef(key).type === 'json';
 
 const selectOptionValue = (key, opt) => {
-    if (numericEnumFields.has(key)) {
+    if (fieldDef(key).type === 'select' && fieldDef(key).enum) {
         return opt.id;
     }
     return opt.value !== undefined && opt.value !== null ? opt.value : opt.id;

@@ -26,6 +26,7 @@ class User extends Model
         'display_name',
         'first_name',
         'last_name',
+        'position_title',
         'email',
         'bio',
         'avatar',

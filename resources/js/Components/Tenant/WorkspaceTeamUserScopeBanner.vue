@@ -41,10 +41,29 @@ const needsLoginHelp = computed(() => {
     }
     return false;
 });
+
+const showSeatUsage = computed(() => Boolean(props.workspaceTeam?.viewer_can_manage_billing_seats && su.value));
+
+const showBanner = computed(() => {
+    if (!props.workspaceTeam) {
+        return false;
+    }
+    if (props.isCreatePage && !staff.value) {
+        return true;
+    }
+    if (showSeatUsage.value) {
+        return true;
+    }
+    if (staff.value && (needsLoginHelp.value || staff.value.on_account)) {
+        return true;
+    }
+
+    return false;
+});
 </script>
 
 <template>
-    <div v-if="workspaceTeam && su" class="space-y-4">
+    <div v-if="showBanner" class="space-y-4">
         <div
             v-if="isCreatePage && !staff"
             class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100"
@@ -56,8 +75,11 @@ const needsLoginHelp = computed(() => {
                 (invite) so they receive access to this workspace.
             </p>
         </div>
-        <!-- Seat usage -->
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+        <!-- Seat usage (account owner or tenant admin only) -->
+        <div
+            v-if="showSeatUsage"
+            class="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+        >
             <div class="flex items-start gap-3">
                 <svg class="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />

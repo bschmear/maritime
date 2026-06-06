@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\MsoRecord\Support;
 
 use App\Domain\AssetUnit\Models\AssetUnit;
+use App\Domain\Location\Models\Location;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Domain\User\Models\User;
@@ -20,7 +21,7 @@ final class MsoRecordSnapshot
         AssetUnit $assetUnit,
         ?User $assignedUser = null,
     ): array {
-        $transaction->loadMissing(['customer.contact', 'subsidiary']);
+        $transaction->loadMissing(['customer.contact', 'subsidiary', 'location']);
 
         $customer = $transaction->customer;
         $addressParts = array_filter([
@@ -55,6 +56,7 @@ final class MsoRecordSnapshot
                 'id' => $transaction->subsidiary_id,
                 'display_name' => $transaction->subsidiary?->display_name,
             ],
+            'location' => self::serializeLocation($transaction->location),
             'line_item' => [
                 'id' => $lineItem->id,
                 'name' => $lineItem->name,
@@ -71,8 +73,30 @@ final class MsoRecordSnapshot
             'assigned_user' => $assignedUser ? [
                 'id' => $assignedUser->id,
                 'display_name' => $assignedUser->display_name ?: $assignedUser->full_name,
+                'position_title' => $assignedUser->position_title,
                 'signature' => $assignedUser->savedSignaturePayload(),
             ] : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function serializeLocation(?Location $location): ?array
+    {
+        if (! $location) {
+            return null;
+        }
+
+        return [
+            'id' => $location->id,
+            'display_name' => $location->display_name,
+            'address_line_1' => $location->address_line_1,
+            'address_line_2' => $location->address_line_2,
+            'city' => $location->city,
+            'state' => $location->state,
+            'postal_code' => $location->postal_code,
+            'country' => $location->country,
         ];
     }
 }

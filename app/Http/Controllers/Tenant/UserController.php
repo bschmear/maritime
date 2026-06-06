@@ -81,6 +81,7 @@ class UserController extends RecordController
 
         $webUser = auth()->user();
         $viewerIsAccountOwner = $webUser && (int) $account->owner_id === (int) $webUser->id;
+        $viewerCanManageBillingSeats = $viewerIsAccountOwner || $this->tenantStaffIsAdministrator();
 
         $extraSeatMonthly = (float) (config('app.extra_seats.monthly_price') ?: 15.0);
 
@@ -119,6 +120,7 @@ class UserController extends RecordController
             'account_id' => $account->id,
             'account_show_url' => $accountShowUrl,
             'viewer_is_account_owner' => $viewerIsAccountOwner,
+            'viewer_can_manage_billing_seats' => $viewerCanManageBillingSeats,
             'staff_invite' => $staffInvite,
         ];
     }

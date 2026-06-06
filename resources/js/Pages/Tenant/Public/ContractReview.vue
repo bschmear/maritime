@@ -413,7 +413,7 @@ onMounted(() => {
                     </div>
 
                     <div class="mb-6 flex justify-center">
-                        <div v-if="record.signature_url" class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div v-if="record.signature_url" class="signature-surface">
                             <img
                                 :src="record.signature_url"
                                 alt="Customer signature"
@@ -422,9 +422,9 @@ onMounted(() => {
                         </div>
                         <div
                             v-else-if="Number(record.signature_method) === 5 && record.customer_signature"
-                            class="rounded-lg border border-gray-200 bg-gray-50 px-8 py-6"
+                            class="signature-surface px-8 py-6"
                         >
-                            <p class="signature-cursive text-center text-4xl text-gray-900">{{ record.customer_signature }}</p>
+                            <p class="signature-surface-text signature-cursive text-center text-4xl">{{ record.customer_signature }}</p>
                         </div>
                         <p v-else class="text-center text-sm text-gray-500">Signature on file.</p>
                     </div>

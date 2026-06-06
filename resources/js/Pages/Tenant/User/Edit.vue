@@ -65,7 +65,7 @@ const handleCancel = () => {
             </div>
         </template>
 
-        <div class="flex w-full flex-col space-y-6">
+        <div class="flex w-full flex-col space-y-4">
             <WorkspaceTeamUserScopeBanner :workspace-team="workspaceTeam" />
             <UserForm
                 :record="record"

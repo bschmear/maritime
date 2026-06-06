@@ -23,6 +23,7 @@ class MsoRecord extends Model
         'transaction_line_item_id',
         'source_document_id',
         'output_document_id',
+        'layout_template_id',
         'details',
         'status',
         'created_by_id',
@@ -65,6 +66,11 @@ class MsoRecord extends Model
     public function outputDocument(): BelongsTo
     {
         return $this->belongsTo(Document::class, 'output_document_id');
+    }
+
+    public function layoutTemplate(): BelongsTo
+    {
+        return $this->belongsTo(MsoLayoutTemplate::class, 'layout_template_id');
     }
 
     public function createdBy(): BelongsTo

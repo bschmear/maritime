@@ -19,6 +19,7 @@ class UpdateUser
             'email' => 'required|email|max:255|unique:users,email,'.$id,
             'mobile_phone' => 'nullable|string|max:20',
             'office_phone' => 'nullable|string|max:20',
+            'position_title' => 'nullable|string|max:255',
             'bio' => 'nullable|string|max:1000',
             'avatar' => 'sometimes|nullable|integer|exists:documents,id',
             'is_technician' => 'sometimes|boolean',
@@ -37,6 +38,9 @@ class UpdateUser
                 'email' => $validated['email'],
                 'mobile_phone' => $validated['mobile_phone'] ?? null,
                 'office_phone' => $validated['office_phone'] ?? null,
+                'position_title' => array_key_exists('position_title', $validated)
+                    ? ($validated['position_title'] !== '' ? $validated['position_title'] : null)
+                    : $record->position_title,
                 'bio' => $validated['bio'] ?? null,
                 'is_technician' => array_key_exists('is_technician', $validated)
                     ? (bool) $validated['is_technician']

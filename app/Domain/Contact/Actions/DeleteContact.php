@@ -3,16 +3,29 @@
 namespace App\Domain\Contact\Actions;
 
 use App\Domain\Contact\Models\Contact as RecordModel;
+use App\Domain\Contact\Support\ContactDeletionGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeleteContact
 {
+    public function __construct(
+        private readonly ContactDeletionGuard $deletionGuard = new ContactDeletionGuard,
+    ) {}
+
     public function __invoke(int $id): array
     {
         try {
             $record = RecordModel::findOrFail($id);
+
+            if ($message = $this->deletionGuard->messageFor($record)) {
+                return [
+                    'success' => false,
+                    'message' => $message,
+                ];
+            }
+
             $record->delete();
 
             return [
