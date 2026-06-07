@@ -170,6 +170,21 @@ td.sticky {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
+/* Applied before window.print() so the preview is not clipped at the scroll offset. */
+.consignment-agreement-preview-overlay.is-printing {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    z-index: auto !important;
+}
+
+.consignment-agreement-preview-overlay.is-printing .consignment-preview-shell {
+    min-height: 0 !important;
+}
+
 @media print {
     /*
      * Contract preview is Teleported to <body>, so the DOM order is:
@@ -189,7 +204,8 @@ td.sticky {
     body:has(.contract-preview-overlay) #app,
     body:has(.invoice-preview-overlay) #app,
     body:has(.service-ticket-preview-overlay) #app,
-    body:has(.delivery-preview-overlay) #app {
+    body:has(.delivery-preview-overlay) #app,
+    body:has(.consignment-agreement-preview-overlay) #app {
         display: none !important;
     }
 
@@ -252,6 +268,29 @@ td.sticky {
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+    }
+
+    /* Consignment agreement preview is Teleported to <body> (same as service ticket). */
+    .consignment-agreement-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+        background: white !important;
+    }
+
+    .consignment-preview-shell {
+        min-height: 0 !important;
+        background: white !important;
+    }
+
+    .consignment-agreement-preview-overlay,
+    .consignment-agreement-preview-overlay * {
+        visibility: visible;
     }
 
     /* Invoice preview is Teleported to <body> (same as contract). */

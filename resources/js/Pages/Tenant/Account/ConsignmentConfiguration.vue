@@ -1,4 +1,5 @@
 <script setup>
+import ConsignmentAgreementPreview from '@/Components/Tenant/ConsignmentAgreementPreview.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, ref, watch } from 'vue';
@@ -22,6 +23,7 @@ const props = defineProps({
 
 const page = usePage();
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
+const showPreview = ref(false);
 
 const settingsForm = useForm({
     consignment_fee_percent: parseFloat(props.account?.consignment_fee_percent) || 20,
@@ -35,6 +37,86 @@ const newPolicyForm = useForm({
 
 /** Local drafts for each policy row (avoid mutating props). */
 const policyDrafts = ref({});
+
+const logoUrl = computed(() => props.account?.logo_url ?? null);
+
+const previewAccount = computed(() => ({
+    ...props.account,
+    consignment_fee_percent: settingsForm.consignment_fee_percent,
+    consignment_terms: settingsForm.consignment_terms,
+}));
+
+const previewPolicies = computed(() =>
+    props.policies
+        .filter((policy) => policyDrafts.value[policy.id]?.is_active ?? policy.is_active)
+        .map((policy, index) => ({
+            id: policy.id,
+            body: policyDrafts.value[policy.id]?.body ?? policy.body,
+            sort_order: index,
+        })),
+);
+
+const sampleAgreementRecord = computed(() => {
+    const companyName = page.props.app?.name || 'Your dealership';
+
+    return {
+        display_name: 'PREVIEW-001',
+        agreement_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        boat_title_signed_delivered: true,
+        boat_description:
+            '2024 Example Boats 2400 XS — white hull, blue canvas, Garmin electronics package, and bow filler seating.',
+        motor_description: 'Mercury 250 HP Verado outboard with digital throttle and shift.',
+        other_description: 'Tandem axle galvanized trailer with spare tire.',
+        notes: 'Sample agreement for preview only. Replace with real unit and owner details on each consignment.',
+        asking_boat: 89500,
+        minimum_boat: 82500,
+        asking_motor: 0,
+        minimum_motor: 0,
+        asking_other: 3500,
+        minimum_other: 3000,
+        asking_sold: 0,
+        minimum_sold: 0,
+        owner_contact: {
+            display_name: 'Jordan Sample',
+            email: 'owner@example.com',
+            phone: '(555) 555-0100',
+            mobile: '(555) 555-0101',
+        },
+        owner_contact_address: {
+            address_line_1: '123 Harbor View Dr',
+            city: 'Anytown',
+            state: 'FL',
+            postal_code: '33101',
+            country: 'USA',
+        },
+        asset_unit: {
+            display_name: '2024 Example Boats 2400 XS',
+            serial_number: 'EXB-2400-001',
+            asset: {
+                year: 2024,
+                make: { display_name: 'Example Boats' },
+            },
+            subsidiary: {
+                display_name: companyName,
+                address_line_1: '100 Marina Way',
+                city: 'Anytown',
+                state: 'FL',
+                postal_code: '33101',
+                phone: '(555) 555-0200',
+                email: 'sales@example.com',
+            },
+        },
+    };
+});
+
+const openPreview = () => {
+    showPreview.value = true;
+};
+
+const closePreview = () => {
+    showPreview.value = false;
+};
 
 const syncDraftsFromPolicies = () => {
     const next = {};
@@ -133,6 +215,15 @@ const movePolicy = (index, delta) => {
                         Set the default consignment fee, long-form terms, and policy bullets shown to owners on the public consignment agreement page.
                     </p>
                 </div>
+                <button
+                    type="button"
+                    aria-label="Preview sample agreement"
+                    class="inline-flex shrink-0 items-center justify-center gap-0 whitespace-nowrap rounded-lg bg-secondary-600 p-2 text-md font-medium text-white transition-colors hover:bg-secondary-700 md:gap-1.5 md:px-4 md:py-2.5"
+                    @click="openPreview"
+                >
+                    <span class="material-icons text-xl leading-none md:text-md">visibility</span>
+                    <span class="hidden md:inline">Preview agreement</span>
+                </button>
             </div>
         </template>
 
@@ -341,5 +432,17 @@ const movePolicy = (index, delta) => {
                 </div>
             </div>
         </div>
+
+        <Teleport to="body">
+            <div v-if="showPreview" class="consignment-agreement-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
+                <ConsignmentAgreementPreview
+                    :record="sampleAgreementRecord"
+                    :account="previewAccount"
+                    :logo-url="logoUrl"
+                    :consignment-policies="previewPolicies"
+                    @close="closePreview"
+                />
+            </div>
+        </Teleport>
     </TenantLayout>
 </template>
