@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Checklist from '@/Components/Tenant/Checklist.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { formatCalendarDateShort } from '@/Utils/calendarDate.js';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -41,7 +42,7 @@ const activeTab = ref('events');
 
 // ── Formatting ──────────────────────────────────────────────────
 const formatDate = (val) =>
-    val ? new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    val ? (formatCalendarDateShort(val, { year: 'numeric' }) || '—') : '—';
 
 const formatEventRange = (ev) => {
     const a = formatDate(ev.starts_at);

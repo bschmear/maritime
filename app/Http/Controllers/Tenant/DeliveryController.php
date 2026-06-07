@@ -16,6 +16,7 @@ use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
 use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
+use App\Domain\DeliveryChecklistTemplate\Models\DeliveryChecklistTemplate;
 use App\Domain\Fleet\Models\Fleet;
 use App\Domain\Location\Models\Location;
 use App\Domain\Subsidiary\Models\Subsidiary;
@@ -32,6 +33,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 
@@ -64,14 +66,7 @@ class DeliveryController extends RecordController
         $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
         $tz = $this->deliveryIndexTimezone();
 
-        $deliveryIndexWith = [
-            'customer',
-            'assetUnit.asset',
-            'location',
-            'deliveryLocation',
-            'technician',
-            'items' => fn ($q) => $q->orderBy('position')->with(['assetUnit.asset', 'assetUnit.assetVariant', 'assetVariant']),
-        ];
+        $deliveryIndexWith = $this->deliveryIndexEagerLoads();
 
         $calendarMonthParam = $request->input('calendar_month');
         $monthStart = now($tz)->copy()->startOfMonth();
@@ -93,7 +88,6 @@ class DeliveryController extends RecordController
                 $scheduleDay = now($tz)->copy()->startOfDay();
             }
         }
-        $scheduleYmd = $scheduleDay->format('Y-m-d');
         [$scheduleDayStartUtc, $scheduleDayEndUtc] = $this->localCalendarDayUtcRange($scheduleDay, $tz);
 
         $calendarMonthQuery = RecordModel::with($deliveryIndexWith);
@@ -128,42 +122,49 @@ class DeliveryController extends RecordController
             ->when($statusesForQuery !== null, fn ($q) => $q->whereIn('status', $statusesForQuery))
             ->latest('scheduled_at');
 
-        $todayQuery = RecordModel::with($deliveryIndexWith);
-        $this->applyDeliveryIndexSubsidiaryLocationFilters($todayQuery, $request);
-        $todayDeliveries = $todayQuery
-            ->where('scheduled_at', '>=', $scheduleDayStartUtc)
-            ->where('scheduled_at', '<', $scheduleDayEndUtc)
-            ->orderBy('scheduled_at')
-            ->get()
-            ->filter(static function (RecordModel $d) use ($tz, $scheduleYmd): bool {
-                if (! $d->scheduled_at) {
-                    return false;
-                }
+        $scheduleInViewedMonth = (int) $scheduleDay->year === (int) $monthStart->year
+            && (int) $scheduleDay->month === (int) $monthStart->month;
 
-                return $d->scheduled_at->copy()->timezone($tz)->format('Y-m-d') === $scheduleYmd;
-            })
-            ->values();
+        if ($scheduleInViewedMonth) {
+            $todayDeliveries = $this->filterDeliveriesByLocalDate($calendarMonthDeliveries, $scheduleDay, $tz);
+        } else {
+            $todayQuery = RecordModel::with($deliveryIndexWith);
+            $this->applyDeliveryIndexSubsidiaryLocationFilters($todayQuery, $request);
+            $todayDeliveries = $this->filterDeliveriesByLocalDate(
+                $todayQuery
+                    ->where('scheduled_at', '>=', $scheduleDayStartUtc)
+                    ->where('scheduled_at', '<', $scheduleDayEndUtc)
+                    ->orderBy('scheduled_at')
+                    ->get(),
+                $scheduleDay,
+                $tz,
+            );
+        }
 
-        $upcomingQuery = RecordModel::with($deliveryIndexWith);
-        $this->applyDeliveryIndexSubsidiaryLocationFilters($upcomingQuery, $request);
-        $upcomingDeliveries = $upcomingQuery
-            ->where('scheduled_at', '>', now()->endOfDay())
-            ->orderBy('scheduled_at')
-            ->limit(10)
-            ->get();
+        $nowInTz = now($tz);
+        $calendarIsCurrentMonth = (int) $monthStart->year === (int) $nowInTz->year
+            && (int) $monthStart->month === (int) $nowInTz->month;
 
-        $statsBase = function () use ($request) {
-            $q = RecordModel::query();
-            $this->applyDeliveryIndexSubsidiaryLocationFilters($q, $request);
+        if ($calendarIsCurrentMonth) {
+            $upcomingAfterUtc = $nowInTz->copy()->endOfDay()->timezone('UTC');
+            $upcomingDeliveries = $calendarMonthDeliveries
+                ->filter(static function (RecordModel $d) use ($upcomingAfterUtc): bool {
+                    return $d->scheduled_at !== null && $d->scheduled_at->gt($upcomingAfterUtc);
+                })
+                ->sortBy('scheduled_at')
+                ->take(10)
+                ->values();
+        } else {
+            $upcomingQuery = RecordModel::with($deliveryIndexWith);
+            $this->applyDeliveryIndexSubsidiaryLocationFilters($upcomingQuery, $request);
+            $upcomingDeliveries = $upcomingQuery
+                ->where('scheduled_at', '>', $nowInTz->copy()->endOfDay()->timezone('UTC'))
+                ->orderBy('scheduled_at')
+                ->limit(10)
+                ->get();
+        }
 
-            return $q;
-        };
-        $stats = [
-            'scheduled' => $statsBase()->where('status', 'scheduled')->count(),
-            'en_route' => $statsBase()->where('status', 'en_route')->count(),
-            'delivered' => $statsBase()->where('status', 'delivered')->count(),
-            'cancelled' => $statsBase()->where('status', 'cancelled')->count(),
-        ];
+        $stats = $this->deliveryIndexStatusStats($request);
 
         $locations = Location::query()
             ->orderBy('display_name')
@@ -206,6 +207,63 @@ class DeliveryController extends RecordController
         $account = AccountSettings::getCurrent();
 
         return ($account?->timezone) ?: (string) config('app.timezone');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function deliveryIndexEagerLoads(): array
+    {
+        return [
+            'customer' => fn ($q) => $q->without(['contact'])->with([
+                'contact' => fn ($cq) => $cq->select(['id', 'display_name', 'first_name', 'last_name']),
+            ]),
+            'assetUnit.asset',
+            'location' => fn ($q) => $q->select(['id', 'display_name']),
+            'deliveryLocation' => fn ($q) => $q->select(['id', 'name', 'sequence']),
+            'technician' => fn ($q) => $q->without(['role'])->select(['id', 'display_name', 'first_name', 'last_name', 'email']),
+            'items' => fn ($q) => $q->with(['assetUnit.asset', 'assetUnit.assetVariant', 'assetVariant']),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, RecordModel>  $deliveries
+     * @return Collection<int, RecordModel>
+     */
+    private function filterDeliveriesByLocalDate(Collection $deliveries, Carbon $localDay, string $tz): Collection
+    {
+        $scheduleYmd = $localDay->format('Y-m-d');
+
+        return $deliveries
+            ->filter(static function (RecordModel $d) use ($tz, $scheduleYmd): bool {
+                if (! $d->scheduled_at) {
+                    return false;
+                }
+
+                return $d->scheduled_at->copy()->timezone($tz)->format('Y-m-d') === $scheduleYmd;
+            })
+            ->values();
+    }
+
+    /**
+     * @return array{scheduled: int, en_route: int, delivered: int, cancelled: int}
+     */
+    private function deliveryIndexStatusStats(Request $request): array
+    {
+        $statsQuery = RecordModel::query();
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($statsQuery, $request);
+
+        $counts = $statsQuery
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        return [
+            'scheduled' => (int) ($counts['scheduled'] ?? 0),
+            'en_route' => (int) ($counts['en_route'] ?? 0),
+            'delivered' => (int) ($counts['delivered'] ?? 0),
+            'cancelled' => (int) ($counts['cancelled'] ?? 0),
+        ];
     }
 
     /**
@@ -295,13 +353,13 @@ class DeliveryController extends RecordController
             ->orderBy('sort_order')
             ->get();
 
-        $checklistTemplates = \App\Domain\DeliveryChecklistTemplate\Models\DeliveryChecklistTemplate::with('items')
+        $checklistTemplates = DeliveryChecklistTemplate::with('items')
             ->where('is_default', true)
             ->get();
 
         $categories = DeliveryChecklistCategory::orderBy('name')->get();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $smsService = app(SmsService::class);
         $wantsDeliverySms = $smsService->tenantWantsSms(SMS::Delivery);
@@ -498,7 +556,7 @@ class DeliveryController extends RecordController
 
     public function create()
     {
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
         $prefill = $this->deliveryCreatePrefill(request());
 
         $customerAddresses = [];
@@ -522,7 +580,7 @@ class DeliveryController extends RecordController
 
     public function schedule()
     {
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
         $locations = Location::query()
             ->orderBy('display_name')
             ->get(['id', 'display_name']);
@@ -587,7 +645,7 @@ class DeliveryController extends RecordController
         $record = RecordModel::with($this->deliveryDetailRelationships())
             ->findOrFail($deliveryId);
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return Inertia::render('Tenant/Delivery/Edit', [
             'record' => $record,
@@ -1190,7 +1248,7 @@ class DeliveryController extends RecordController
             ->orderBy('sort_order')
             ->get();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return Inertia::render('Tenant/Delivery/Print', [
             'record' => $record,

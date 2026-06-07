@@ -181,7 +181,7 @@ const fieldError = (key) => {
                     <button
                         type="submit"
                         class="inline-flex justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                        :disabled="form.processing || (!isNested && !boatShowOptions.length)"
+                        :disabled="form.processing || (!isNested && !form.boat_show_id)"
                     >
                         {{ form.processing ? 'Saving…' : 'Create event' }}
                     </button>

@@ -17,6 +17,14 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    min: {
+        type: String,
+        default: '',
+    },
+    max: {
+        type: String,
+        default: '',
+    },
 });
 </script>
 
@@ -27,6 +35,8 @@ const props = defineProps({
         v-model="model"
         :required="required"
         :disabled="disabled"
+        :min="min || undefined"
+        :max="max || undefined"
         class="input-style w-full"
     />
 </template>

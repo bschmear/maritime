@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Casts\PaymentTermsCast;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Enums\SMS;
+use App\Support\Tenant\AccountSettingsCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Storage;
 
 class AccountSettings extends Model
 {
+    private static ?self $resolved = null;
+
     protected $table = 'account_settings';
 
     protected $fillable = [
@@ -69,34 +72,16 @@ class AccountSettings extends Model
     /**
      * Get the account settings for the current tenant.
      * Creates default settings if none exist.
-     * Caching is currently disabled to avoid tenancy cache tagging issues.
+     *
+     * Request memo + Redis cache (see {@see AccountSettingsCache}).
      */
     public static function getCurrent(): self
     {
-        // For now, skip caching entirely to avoid tenancy cache tagging issues
-        // TODO: Re-enable caching when Redis is properly configured
-        $settings = static::first();
-
-        if (! $settings) {
-            $settings = static::create([
-                'timezone' => 'America/Chicago',
-                'date_format' => 'Y-m-d',
-                'time_format' => 'H:i',
-                'currency' => 'USD',
-                'week_starts_on_monday' => false,
-                'auto_assign_work_orders' => false,
-                'brand_color' => '#3B82F6', // Blue-500
-                'workday_hours' => 6,
-                'start_time' => '08:00:00',
-                'allow_overlap' => false,
-                'consignment_fee_percent' => 20,
-                'onboarding_complete' => false,
-                'account_overviewed' => false,
-                'account_setup_complete' => false,
-            ]);
+        if (self::$resolved !== null) {
+            return self::$resolved;
         }
 
-        return $settings;
+        return self::$resolved = AccountSettingsCache::get();
     }
 
     public static function defaultConsignmentTerms(): string
@@ -202,12 +187,11 @@ TEXT;
 
     /**
      * Clear the account settings cache.
-     * Currently a no-op since caching is disabled.
      */
     public static function clearCache(): void
     {
-        // Caching is currently disabled to avoid tenancy cache tagging issues
-        // TODO: Re-enable when Redis is properly configured
+        self::$resolved = null;
+        AccountSettingsCache::forget();
     }
 
     /**
@@ -222,8 +206,8 @@ TEXT;
     {
         parent::boot();
 
-        // Clear cache when settings are updated
-        static::saved(function () {
+        static::saved(function (self $settings) {
+            static::$resolved = $settings;
             static::clearCache();
         });
 

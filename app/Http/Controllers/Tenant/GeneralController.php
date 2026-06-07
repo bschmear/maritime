@@ -509,6 +509,8 @@ class GeneralController extends BaseController
                 'ContactAddress' => 'contactaddresses',
                 'MaintenanceType' => 'maintenance-types',
                 'DeliveryLocation' => 'delivery-locations',
+                'BoatShow' => 'boat-shows',
+                'BoatShowEvent' => 'boat-show-events',
                 default => strtolower($domainName).'s',
             };
 

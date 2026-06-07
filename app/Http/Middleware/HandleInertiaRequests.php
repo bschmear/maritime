@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use App\Domain\AccountSetup\Services\AccountSetupService;
 use App\Domain\Delivery\Models\Delivery;
-use App\Domain\User\Models\User;
 use App\Models\AccountSettings;
 use App\Services\Help\HelpArticleSearch;
 use App\Services\Help\HelpCategoryTree;
@@ -160,14 +159,7 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $profileId = current_tenant_user_id();
-        if ($profileId === null) {
-            return null;
-        }
-
-        $user = User::query()->find($profileId);
-
-        return $user?->savedSignaturePayload();
+        return current_tenant_profile()?->savedSignaturePayload();
     }
 
     /**

@@ -316,7 +316,7 @@ watch(currentView, (newView) => {
             </div>
         </template>
 
-        <div class="w-full flex flex-col">
+        <div class="w-full flex flex-col grow">
             <!-- Kanban View -->
             <KanbanBoard
                 v-if="currentView === 'kanban'"

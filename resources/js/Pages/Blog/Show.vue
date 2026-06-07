@@ -200,7 +200,7 @@ const proseClass =
                             <img
                                 :src="post.cover_image"
                                 :alt="post.title"
-                                class="aspect-[2/1] w-full object-cover"
+                                class=" w-full "
                             />
                         </div>
 

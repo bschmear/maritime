@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import PublicBrandingFooter from '../../../Components/Tenant/Public/PublicBrandingFooter.vue';
+import { formatCalendarDateShort } from '@/Utils/calendarDate.js';
 
 const props = defineProps({
     event:            { type: Object, required: true },
@@ -21,7 +22,7 @@ const includeAssetPages = ref(false);
 const runPrint = () => setTimeout(() => window.print(), 120);
 
 const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    d ? (formatCalendarDateShort(d, { year: 'numeric' }) || '') : '';
 
 const venueLine = () => {
     const e = props.event;

@@ -4,6 +4,7 @@
         "type": "record",
         "typeDomain": "BoatShow",
         "relationship": "show",
+        "create": true,
         "validation": "required|exists:boat_shows,id",
         "help": "Parent boat show"
     },

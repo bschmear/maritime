@@ -154,14 +154,6 @@ class TenantDashboardDataService
             ->whereNull('lost_at')
             ->sum('estimated_value');
 
-        $recentPayments = Payment::query()
-            ->with(['invoice' => fn ($q) => $q->select(['id', 'sequence', 'customer_name'])])
-            ->whereIn('status', ['completed', 'partially_refunded'])
-            ->orderByDesc('paid_at')
-            ->orderByDesc('id')
-            ->limit(5)
-            ->get(['id', 'sequence', 'amount', 'paid_at', 'invoice_id', 'status']);
-
         $openServiceTicketCount = ServiceTicket::query()->whereIn('status', [1, 2, 3])->count();
         $openWorkOrderCount = WorkOrder::query()->whereNotIn('status', [7, 8])->count();
 
@@ -195,6 +187,8 @@ class TenantDashboardDataService
             ->orderByDesc('id')
             ->limit($activityFetchCap)
             ->get(['id', 'sequence', 'amount', 'paid_at', 'created_at', 'invoice_id', 'status']);
+
+        $recentPayments = $activityPayments->take(5);
 
         $activityItems = $this->mergeActivityFeed($activityNotifications, $activityPayments, $activityFetchCap);
 

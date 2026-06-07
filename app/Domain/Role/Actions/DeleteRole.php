@@ -1,9 +1,11 @@
 <?php
+
 namespace App\Domain\Role\Actions;
 
 use App\Domain\Role\Models\Role as RecordModel;
-use Illuminate\Support\Facades\Log;
+use App\Support\Tenant\TenantPermissionsCache;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeleteRole
@@ -13,6 +15,7 @@ class DeleteRole
         try {
             $record = RecordModel::findOrFail($id);
             $record->delete();
+            TenantPermissionsCache::bumpVersion();
 
             return [
                 'success' => true,
@@ -21,8 +24,9 @@ class DeleteRole
         } catch (QueryException $e) {
             Log::error('Database query error in DeleteRole', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -30,8 +34,9 @@ class DeleteRole
         } catch (Throwable $e) {
             Log::error('Unexpected error in DeleteRole', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

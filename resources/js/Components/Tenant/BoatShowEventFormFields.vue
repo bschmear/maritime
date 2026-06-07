@@ -1,9 +1,44 @@
 <script setup>
 import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { Link } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 
-defineProps({
+function parseLocalDate(ymd) {
+    if (!ymd || typeof ymd !== 'string' || ymd.length < 10) {
+        return null;
+    }
+    const [y, m, d] = ymd.slice(0, 10).split('-').map(Number);
+    if (!y || !m || !d) {
+        return null;
+    }
+
+    return new Date(y, m - 1, d);
+}
+
+function formatYmd(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+
+    return `${y}-${m}-${d}`;
+}
+
+/** Sunday on or after the start date (typical boat show end day). */
+function sundayOnOrAfterStart(ymd) {
+    const start = parseLocalDate(ymd);
+    if (!start) {
+        return '';
+    }
+    const day = start.getDay();
+    const daysUntilSunday = day === 0 ? 0 : 7 - day;
+    start.setDate(start.getDate() + daysUntilSunday);
+
+    return formatYmd(start);
+}
+
+const props = defineProps({
     form: { type: Object, required: true },
     fieldError: { type: Function, required: true },
     isNested: { type: Boolean, default: false },
@@ -14,6 +49,59 @@ defineProps({
     mode: { type: String, default: 'create' },
     addressFieldId: { type: String, default: 'boat-show-event-address' },
 });
+
+const boatShowField = computed(() => ({
+    type: 'record',
+    typeDomain: 'BoatShow',
+    label: 'Boat Show',
+    relationship: 'show',
+    required: true,
+    create: true,
+}));
+
+const pseudoRecord = computed(() => {
+    if (!props.parentBoatShow) {
+        return null;
+    }
+
+    return {
+        boat_show_id: props.parentBoatShow.id,
+        show: {
+            id: props.parentBoatShow.id,
+            display_name: props.parentBoatShow.name,
+        },
+    };
+});
+
+const boatShowEnumOptions = computed(() =>
+    (props.boatShowOptions ?? []).map((opt) => ({
+        id: opt.id,
+        name: opt.name,
+        display_name: opt.name,
+    })),
+);
+
+watch(
+    () => props.form.starts_at,
+    (start) => {
+        if (!start) {
+            props.form.ends_at = '';
+            return;
+        }
+        props.form.ends_at = sundayOnOrAfterStart(start);
+    },
+);
+
+watch(
+    () => props.form.ends_at,
+    (end) => {
+        const start = props.form.starts_at;
+        if (!end || !start || end >= start) {
+            return;
+        }
+        props.form.ends_at = start;
+    },
+);
 </script>
 
 <template>
@@ -46,23 +134,21 @@ defineProps({
             <label for="boat_show_id" class="block text-sm font-bold text-gray-900 dark:text-white">
                 Boat show <span class="text-red-500">*</span>
             </label>
-            <select
-                id="boat_show_id"
-                v-model="form.boat_show_id"
-                required
-                class="input-style mt-2 w-full max-w-xl"
-                :class="{ 'ring-2 ring-red-500': fieldError('boat_show_id') }"
-            >
-                <option disabled :value="null">Select a boat show</option>
-                <option v-for="opt in boatShowOptions" :key="opt.id" :value="opt.id">
-                    {{ opt.name }}
-                </option>
-            </select>
+            <div class="mt-2 max-w-xl">
+                <RecordSelect
+                    id="boat_show_id"
+                    v-model="form.boat_show_id"
+                    :field="boatShowField"
+                    :enum-options="boatShowEnumOptions"
+                    :record="pseudoRecord"
+                    field-key="boat_show_id"
+                />
+            </div>
             <p v-if="fieldError('boat_show_id')" class="mt-2 text-sm text-red-600 dark:text-red-500">
                 {{ fieldError('boat_show_id') }}
             </p>
-            <p v-if="!boatShowOptions.length" class="mt-2 text-sm text-amber-700 dark:text-amber-400">
-                No boat shows exist yet. Create a boat show first, then add events from its page.
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Search existing boat shows or use Create New to add one inline.
             </p>
         </div>
 
@@ -117,7 +203,10 @@ defineProps({
 
                 <div class="sm:col-span-4">
                     <label for="ends_at" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Ends</label>
-                    <DateInput id="ends_at" v-model="form.ends_at" />
+                    <DateInput id="ends_at" v-model="form.ends_at" :min="form.starts_at || ''" />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Defaults to the Sunday on or after the start date. You can change it manually.
+                    </p>
                     <p v-if="fieldError('ends_at')" class="mt-2 text-sm text-red-600 dark:text-red-500">
                         {{ fieldError('ends_at') }}
                     </p>

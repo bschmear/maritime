@@ -3,6 +3,7 @@
 namespace App\Domain\User\Actions;
 
 use App\Domain\User\Models\User as RecordModel;
+use App\Support\Tenant\TenantPermissionsCache;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -54,7 +55,15 @@ class UpdateUser
                 $payload['avatar'] = $validated['avatar'];
             }
 
+            $previousRole = $record->current_role;
             $record->update($payload);
+
+            if (
+                array_key_exists('current_role', $validated)
+                && (int) ($validated['current_role'] ?? 0) !== (int) ($previousRole ?? 0)
+            ) {
+                TenantPermissionsCache::forgetUser((int) $record->id);
+            }
 
             return [
                 'success' => true,

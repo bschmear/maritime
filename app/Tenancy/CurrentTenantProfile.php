@@ -3,8 +3,9 @@
 namespace App\Tenancy;
 
 use App\Domain\Role\Models\Role;
-use App\Domain\User\Models\UserProfile;
+use App\Domain\User\Models\User;
 use App\Enums\RecordType;
+use App\Support\Tenant\TenantPermissionsCache;
 use Illuminate\Contracts\Auth\Authenticatable;
 
 /**
@@ -13,7 +14,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
  */
 class CurrentTenantProfile
 {
-    private ?UserProfile $profile = null;
+    private ?User $profile = null;
 
     private bool $resolved = false;
 
@@ -28,7 +29,7 @@ class CurrentTenantProfile
         return auth()->user();
     }
 
-    public function profile(): ?UserProfile
+    public function profile(): ?User
     {
         if ($this->resolved) {
             return $this->profile;
@@ -45,9 +46,8 @@ class CurrentTenantProfile
             return $this->profile = null;
         }
 
-        $this->profile = UserProfile::query()
+        $this->profile = User::query()
             ->where('email', $central->email)
-            ->with('role')
             ->first();
 
         return $this->profile;
@@ -93,17 +93,19 @@ class CurrentTenantProfile
             return [];
         }
 
-        $profile->loadMissing('role.permissions');
+        return TenantPermissionsCache::remember((int) $profile->id, function () use ($profile) {
+            $profile->loadMissing('role.permissions');
 
-        if ($profile->role === null) {
-            return [];
-        }
+            if ($profile->role === null) {
+                return [];
+            }
 
-        return $profile->role->permissions
-            ->pluck('key')
-            ->filter(fn ($key) => is_string($key) && $key !== '')
-            ->values()
-            ->all();
+            return $profile->role->permissions
+                ->pluck('key')
+                ->filter(fn ($key) => is_string($key) && $key !== '')
+                ->values()
+                ->all();
+        });
     }
 
     public function hasPermission(string $permission): bool

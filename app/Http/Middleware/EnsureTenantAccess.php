@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Account;
+use App\Models\User;
 use App\Services\WorkspacePlanCache;
+use App\Support\Central\TenantAccountCache;
 use App\Support\SupportWorkspaceSession;
 use Closure;
 use Illuminate\Http\Request;
@@ -29,9 +31,8 @@ class EnsureTenantAccess
             abort(404, 'Tenant not found.');
         }
 
-        // Find the account linked to this tenant
         // Account model uses 'pgsql' connection (central/public schema) by default
-        $account = Account::where('tenant_id', $tenant->id)->first();
+        $account = TenantAccountCache::findByTenantId($tenant->id);
 
         if (! $account) {
             abort(404, 'Account not found for this tenant.');
@@ -54,9 +55,33 @@ class EnsureTenantAccess
         // Share the account with the request for easy access in controllers
         $request->merge(['tenant_account' => $account]);
 
+        $this->preloadWorkspaceSubscriptions($account, $user);
+
         // Cache central plan features for this workspace (plans table is not on tenant DB)
         WorkspacePlanCache::ensureForAccount($account);
 
         return $next($request);
+    }
+
+    /**
+     * Load Cashier subscriptions once per request (plan cache, billing middleware, Inertia trial props).
+     */
+    private function preloadWorkspaceSubscriptions(Account $account, User $user): void
+    {
+        $user->loadMissing('subscriptions.items');
+        $account->loadMissing('owner');
+
+        $owner = $account->owner;
+        if ($owner === null) {
+            return;
+        }
+
+        if ($owner->is($user)) {
+            $owner->setRelation('subscriptions', $user->subscriptions);
+
+            return;
+        }
+
+        $owner->loadMissing('subscriptions.items');
     }
 }

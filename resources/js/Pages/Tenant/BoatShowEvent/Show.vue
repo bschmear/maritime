@@ -8,6 +8,7 @@ import RelatableTasksBoard from '@/Components/Tenant/RelatableTasksBoard.vue';
 import axios from 'axios';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, onUnmounted, ref, watch } from 'vue';
+import { formatCalendarDateShort, parseCalendarYmdToLocalDate, startOfLocalToday } from '@/Utils/calendarDate.js';
 
 const appInstance = getCurrentInstance();
 function toast(type, message) {
@@ -119,14 +120,13 @@ const activeTab = ref('details');
 // ── Date helpers ─────────────────────────────────────────────────────────────
 const formatDate = (val) => {
     if (!val) return null;
-    return new Date(val).toLocaleDateString('en-US', {
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-    });
+    return formatCalendarDateShort(val, { year: 'numeric' }) || null;
 };
 
 const formatDateShort = (val) => {
-    if (!val) return null;
-    return new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const d = parseCalendarYmdToLocalDate(val);
+    if (!d) return null;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 const formatDateTime = (val) => {
@@ -146,21 +146,29 @@ const dateRange = computed(() => {
 });
 
 const isUpcoming = computed(() => {
-    if (!props.record.starts_at) return false;
-    return new Date(props.record.starts_at) > new Date();
+    const start = parseCalendarYmdToLocalDate(props.record.starts_at);
+    if (!start) return false;
+    return start > startOfLocalToday();
 });
 
 const isActive = computed(() => {
-    const now = new Date();
-    const s = props.record.starts_at ? new Date(props.record.starts_at) : null;
-    const e = props.record.ends_at ? new Date(props.record.ends_at) : null;
-    if (s && e) return now >= s && now <= e;
+    const today = startOfLocalToday();
+    const s = parseCalendarYmdToLocalDate(props.record.starts_at);
+    const e = parseCalendarYmdToLocalDate(props.record.ends_at);
+    if (s && e) return today >= s && today <= e;
     return false;
 });
 
 const isPast = computed(() => {
-    if (!props.record.ends_at) return false;
-    return new Date(props.record.ends_at) < new Date();
+    const end = parseCalendarYmdToLocalDate(props.record.ends_at);
+    if (!end) return false;
+    return end < startOfLocalToday();
+});
+
+const eventHasStarted = computed(() => {
+    const start = parseCalendarYmdToLocalDate(props.record.starts_at);
+    if (!start) return false;
+    return start <= startOfLocalToday();
 });
 
 const boatShowEventRelatableType = 'App\\Domain\\BoatShowEvent\\Models\\BoatShowEvent';
@@ -1215,7 +1223,7 @@ async function removeEventAsset(row) {
                             <ol class="relative ms-2 border-s border-gray-200 dark:border-gray-700 space-y-4">
                                 <li class="ms-6">
                                     <span class="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-gray-800">
-                                        <span :class="['material-icons text-[20px]', (record.starts_at && new Date(record.starts_at) <= new Date()) ? 'text-green-500' : 'text-gray-300 dark:text-gray-600']">check_circle</span>
+                                        <span :class="['material-icons text-[20px]', eventHasStarted ? 'text-green-500' : 'text-gray-300 dark:text-gray-600']">check_circle</span>
                                     </span>
                                     <div>
                                         <p class="text-sm font-medium text-gray-900 dark:text-white">Event starts</p>

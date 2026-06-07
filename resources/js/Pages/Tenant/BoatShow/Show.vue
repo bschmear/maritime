@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { formatCalendarDateShort } from '@/Utils/calendarDate.js';
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -28,7 +29,7 @@ const breadcrumbItems = computed(() => [
 ]);
 
 const formatDate = (val) =>
-    val ? new Date(val).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+    val ? (formatCalendarDateShort(val, { year: 'numeric' }) || '—') : '—';
 
 const formatEventRange = (ev) => {
     const a = formatDate(ev.starts_at);

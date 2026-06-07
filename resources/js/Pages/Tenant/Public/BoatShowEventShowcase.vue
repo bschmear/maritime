@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import PublicBrandingFooter from '../../../Components/Tenant/Public/PublicBrandingFooter.vue';
+import { formatCalendarDateShort } from '@/Utils/calendarDate.js';
 
 const props = defineProps({
     event:         { type: Object, required: true },
@@ -24,7 +25,7 @@ const allRows = computed(() => {
 });
 
 const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    d ? (formatCalendarDateShort(d, { year: 'numeric' }) || '') : '';
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Role\Models\Role;
+use App\Domain\User\Models\User as TenantUser;
 use App\Domain\User\Models\UserProfile;
 use App\Enums\RecordType;
 use App\Tenancy\CurrentTenantProfile;
@@ -9,7 +10,7 @@ if (! function_exists('current_tenant_profile')) {
     /**
      * Tenant `users` row for the authenticated central user (matched by email).
      */
-    function current_tenant_profile(): ?UserProfile
+    function current_tenant_profile(): TenantUser|UserProfile|null
     {
         return app(CurrentTenantProfile::class)->profile();
     }

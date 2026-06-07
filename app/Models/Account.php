@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\WorkspacePlanCache;
+use App\Support\Central\TenantAccountCache;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Stancl\Tenancy\Database\Models\Domain;
@@ -31,6 +32,18 @@ class Account extends Model
         return [
             'allow_support_access' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        $forget = function (self $account): void {
+            if ($account->tenant_id !== null && $account->tenant_id !== '') {
+                TenantAccountCache::forget((string) $account->tenant_id);
+            }
+        };
+
+        static::saved($forget);
+        static::deleted($forget);
     }
 
     /**

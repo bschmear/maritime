@@ -5,6 +5,7 @@ namespace App\Domain\Payment\Models;
 use App\Models\AccountSettings;
 use App\Models\PaymentAccount;
 use App\Services\Payments\QuickBooksOAuthService;
+use App\Support\Tenant\PaymentConfigurationCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -67,6 +68,14 @@ class PaymentConfiguration extends Model
     {
         $settings = $settings ?? AccountSettings::getCurrent();
 
+        return PaymentConfigurationCache::rememberStripe(
+            (int) $settings->id,
+            fn () => static::resolveStripe($settings),
+        );
+    }
+
+    private static function resolveStripe(AccountSettings $settings): self
+    {
         $config = static::query()
             ->where('account_settings_id', $settings->id)
             ->where('processor', 'stripe')
@@ -96,6 +105,7 @@ class PaymentConfiguration extends Model
         ]);
 
         $config->ensureProcessorPaymentMethods();
+        PaymentConfigurationCache::forgetForAccount((int) $settings->id);
 
         return $config;
     }
@@ -163,20 +173,41 @@ class PaymentConfiguration extends Model
      */
     public static function enabledStripeMethodOptionsForCurrentAccount(?AccountSettings $settings = null): array
     {
-        $config = static::forStripe($settings);
-        $config->ensureProcessorPaymentMethods();
+        $settings = $settings ?? AccountSettings::getCurrent();
 
-        return $config->processorPaymentMethods()
-            ->where('is_enabled', true)
-            ->with('methodConfig')
-            ->orderBy('payment_method_code')
-            ->get()
-            ->map(fn (ProcessorPaymentMethod $p) => [
-                'code' => $p->payment_method_code,
-                'label' => $p->methodConfig?->label ?? $p->payment_method_code,
-            ])
-            ->values()
-            ->all();
+        return PaymentConfigurationCache::rememberEnabledMethods(
+            (int) $settings->id,
+            function () use ($settings) {
+                $config = static::resolveStripe($settings);
+
+                return $config->processorPaymentMethods()
+                    ->where('is_enabled', true)
+                    ->with('methodConfig')
+                    ->orderBy('payment_method_code')
+                    ->get()
+                    ->map(fn (ProcessorPaymentMethod $p) => [
+                        'code' => $p->payment_method_code,
+                        'label' => $p->methodConfig?->label ?? $p->payment_method_code,
+                    ])
+                    ->values()
+                    ->all();
+            },
+        );
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $config): void {
+            if ($config->account_settings_id !== null) {
+                PaymentConfigurationCache::forgetForAccount((int) $config->account_settings_id);
+            }
+        });
+
+        static::deleted(function (self $config): void {
+            if ($config->account_settings_id !== null) {
+                PaymentConfigurationCache::forgetForAccount((int) $config->account_settings_id);
+            }
+        });
     }
 
     public function stripeReadyForCharges(): bool

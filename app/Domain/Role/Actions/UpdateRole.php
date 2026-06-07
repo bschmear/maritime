@@ -3,6 +3,7 @@
 namespace App\Domain\Role\Actions;
 
 use App\Domain\Role\Models\Role as RecordModel;
+use App\Support\Tenant\TenantPermissionsCache;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -39,6 +40,7 @@ class UpdateRole
 
             if (is_array($permissionIds)) {
                 $record->permissions()->sync($permissionIds);
+                TenantPermissionsCache::bumpVersion();
             }
 
             return [

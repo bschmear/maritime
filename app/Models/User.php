@@ -18,6 +18,11 @@ class User extends Authenticatable implements MustVerifyEmail
     use Billable, HasFactory, Notifiable;
 
     /**
+     * @var array<string, CashierSubscription|null>
+     */
+    private static array $cashierSubscriptionByAccount = [];
+
+    /**
      * The database connection name for the model.
      * Users are stored in the central/public schema, not tenant schemas.
      *
@@ -138,10 +143,25 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function cashierSubscriptionForAccount(Account $account): ?CashierSubscription
     {
-        return $this->subscriptions()
-            ->where('account_id', $account->id)
-            ->latest('id')
-            ->first();
+        $cacheKey = $this->id.'|'.$account->id;
+
+        if (array_key_exists($cacheKey, self::$cashierSubscriptionByAccount)) {
+            return self::$cashierSubscriptionByAccount[$cacheKey];
+        }
+
+        if ($this->relationLoaded('subscriptions')) {
+            $subscription = $this->subscriptions
+                ->where('account_id', $account->id)
+                ->sortByDesc('id')
+                ->first();
+        } else {
+            $subscription = $this->subscriptions()
+                ->where('account_id', $account->id)
+                ->latest('id')
+                ->first();
+        }
+
+        return self::$cashierSubscriptionByAccount[$cacheKey] = $subscription;
     }
 
     /**

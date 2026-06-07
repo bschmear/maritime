@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Domain\User\Models\User;
-use App\Domain\User\Models\UserProfile;
 use App\Domain\UserFavorite\Models\UserFavorite;
 use App\Http\Controllers\Tenant\UserFavoriteController;
 use App\Tenancy\CurrentTenantProfile;
@@ -130,10 +129,8 @@ class UserFavoriteControllerTest extends TestCase
 
     protected function actingAsTenantUser(User $tenantUser): void
     {
-        $profile = UserProfile::query()->find($tenantUser->id);
-
         $mock = $this->mock(CurrentTenantProfile::class);
-        $mock->shouldReceive('profile')->andReturn($profile);
+        $mock->shouldReceive('profile')->andReturn($tenantUser);
         $this->app->instance(CurrentTenantProfile::class, $mock);
     }
 }

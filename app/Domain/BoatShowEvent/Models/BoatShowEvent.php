@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class BoatShowEvent extends Model
@@ -64,6 +65,10 @@ class BoatShowEvent extends Model
         static::creating(function ($record) {
             if (empty($record->uuid)) {
                 $record->uuid = (string) Str::uuid();
+            }
+            if (empty($record->sequence)) {
+                $next = (int) (DB::table('boat_show_events')->max('sequence') ?? 999);
+                $record->sequence = $next + 1;
             }
             if ($record->email_template_id === null) {
                 $record->email_template_id = EmailTemplate::query()

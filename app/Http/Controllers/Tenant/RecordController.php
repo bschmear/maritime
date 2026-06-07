@@ -42,6 +42,11 @@ class RecordController extends BaseController
 
     protected $domainName;
 
+    /**
+     * @var array<string, list<string>>
+     */
+    private static array $tableColumnListingCache = [];
+
     public function __construct(
         Request $request,
         $recordType,
@@ -70,6 +75,51 @@ class RecordController extends BaseController
     protected function applyCustomSearch($query, string $rawSearch): bool
     {
         return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function getTableColumnListing(): array
+    {
+        return $this->getTableColumnListingFor(
+            $this->modelConnectionName($this->recordModel),
+            $this->recordModel->getTable(),
+        );
+    }
+
+    protected function modelConnectionName(Model $model): string
+    {
+        $name = $model->getConnectionName();
+        if (is_string($name) && $name !== '') {
+            return $name;
+        }
+
+        return $model->getConnection()->getName();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function getTableColumnListingFor(string $connection, string $table): array
+    {
+        $key = $connection.'.'.$table;
+
+        if (! isset(self::$tableColumnListingCache[$key])) {
+            self::$tableColumnListingCache[$key] = \Schema::connection($connection)->getColumnListing($table);
+        }
+
+        return self::$tableColumnListingCache[$key];
+    }
+
+    /**
+     * @param  list<string>|null  $dbColumns
+     */
+    protected function tableHasColumn(string $column, ?array $dbColumns = null): bool
+    {
+        $dbColumns ??= $this->getTableColumnListing();
+
+        return in_array($column, $dbColumns, true);
     }
 
     /**
@@ -211,8 +261,8 @@ class RecordController extends BaseController
             return false;
         }
 
-        $connection = $this->recordModel->getConnectionName();
-        if (! \Schema::connection($connection)->hasColumn($joinTable, $joinColumn)) {
+        $connection = $this->modelConnectionName($relatedModel);
+        if (! in_array($joinColumn, $this->getTableColumnListingFor($connection, $joinTable), true)) {
             return false;
         }
 
@@ -399,8 +449,8 @@ class RecordController extends BaseController
         $relationshipColumns = [];
 
         $tableName = $this->recordModel->getTable();
-        $dbColumns = \Schema::connection($this->recordModel->getConnectionName())
-            ->getColumnListing($tableName);
+        $dbColumns = $this->getTableColumnListing();
+        $hasDisplayName = $this->tableHasColumn('display_name', $dbColumns);
 
         foreach ($columns as $column) {
             if (strpos($column, '.') !== false) {
@@ -503,11 +553,6 @@ class RecordController extends BaseController
             $customHandled = $this->applyCustomSearch($query, trim($searchQuery));
 
             if (! $customHandled) {
-                // Check if display_name column exists, otherwise search in typical display name fields
-                $tableName = $this->recordModel->getTable();
-                $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
-                    ->hasColumn($tableName, 'display_name');
-
                 if ($hasDisplayName) {
                     $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
                 } else {
@@ -554,9 +599,6 @@ class RecordController extends BaseController
 
         // Order: ?sort=&direction= from table schema (sortable defaults true), else defaults below
         if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema)) {
-            $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
-                ->hasColumn($tableName, 'display_name');
-
             if ($hasDisplayName) {
                 $query->orderByRaw('LOWER('.$tableName.'.display_name) ASC');
             } else {

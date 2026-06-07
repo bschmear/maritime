@@ -4,13 +4,14 @@ namespace App\Services\Dashboard;
 
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Payment\Models\Payment;
+use App\Http\Controllers\Tenant\PaymentController;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /**
  * Payment list dashboard metrics (hero, AR context, period stats).
- * Shared by {@see \App\Http\Controllers\Tenant\PaymentController} and tenant dashboard.
+ * Shared by {@see PaymentController} and tenant dashboard.
  */
 final class PaymentDashboardMetricsService
 {
@@ -66,6 +67,7 @@ final class PaymentDashboardMetricsService
         $now = now($tz);
 
         $completedStatuses = ['completed', 'partially_refunded'];
+        $periodBounds = $this->resolvePaymentListPeriod($request);
 
         $collectedBase = Payment::query()->whereIn('payments.status', $completedStatuses);
 
@@ -117,7 +119,9 @@ final class PaymentDashboardMetricsService
             ->max('payments.amount') ?? 0);
 
         $periodCompleted = (clone $filteredPaymentQuery)->whereIn('payments.status', $completedStatuses);
-        $periodCollected = (float) (clone $periodCompleted)->sum('payments.amount');
+        $periodCollected = $this->shouldReuseAllTimeTotalForPeriod($request, $periodBounds)
+            ? $totalCollectedAllTime
+            : (float) (clone $periodCompleted)->sum('payments.amount');
         $periodPaymentCount = (clone $filteredPaymentQuery)->count();
         $periodCompletedCount = (clone $periodCompleted)->count();
         $periodAvgPayment = $periodCompletedCount > 0
@@ -143,7 +147,6 @@ final class PaymentDashboardMetricsService
             ];
         }
 
-        $periodBounds = $this->resolvePaymentListPeriod($request);
         $periodLabel = $periodBounds['label'] ?? 'All time';
         $periodKey = $periodBounds !== null ? $periodBounds['key'] : 'all';
 
@@ -185,6 +188,31 @@ final class PaymentDashboardMetricsService
                 'date_to' => $request->query('date_to'),
             ],
         ];
+    }
+
+    /**
+     * When the list is unfiltered and period is "all time", period collected equals the hero total.
+     */
+    private function shouldReuseAllTimeTotalForPeriod(Request $request, ?array $periodBounds): bool
+    {
+        if ($periodBounds !== null) {
+            return false;
+        }
+
+        if (trim((string) $request->get('search', '')) !== '') {
+            return false;
+        }
+
+        $filters = $request->get('filters');
+        if (is_string($filters) && trim($filters) !== '') {
+            return false;
+        }
+
+        if (is_array($filters) && $filters !== []) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Domain\Permission\Models\Permission;
 use App\Domain\Role\Models\Role;
 use App\Enums\RecordType;
+use App\Support\Tenant\TenantPermissionsCache;
 
 class PermissionGenerator
 {
@@ -62,6 +63,7 @@ class PermissionGenerator
 
         $ids = Permission::query()->pluck('id')->all();
         $admin->permissions()->sync($ids);
+        TenantPermissionsCache::bumpVersion();
     }
 
     /**
@@ -101,5 +103,7 @@ class PermissionGenerator
                 ->all();
             $guest->permissions()->sync($ids);
         }
+
+        TenantPermissionsCache::bumpVersion();
     }
 }
