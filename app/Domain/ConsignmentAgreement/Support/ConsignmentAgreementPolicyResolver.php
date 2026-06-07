@@ -6,6 +6,7 @@ namespace App\Domain\ConsignmentAgreement\Support;
 
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\ConsignmentPolicy\Models\ConsignmentPolicy;
+use App\Models\AccountSettings;
 
 class ConsignmentAgreementPolicyResolver
 {
@@ -28,6 +29,9 @@ class ConsignmentAgreementPolicyResolver
      */
     public static function fromActive(): array
     {
+        ConsignmentPolicy::ensureDefaultsExist();
+        AccountSettings::ensureConsignmentDefaults();
+
         return ConsignmentPolicy::query()
             ->active()
             ->ordered()

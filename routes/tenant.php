@@ -6,6 +6,7 @@ use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
 use App\Http\Controllers\Tenant\AccountController;
+use App\Http\Controllers\Tenant\AccountSetupController;
 use App\Http\Controllers\Tenant\AccountSmsNotificationsController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
@@ -694,6 +695,8 @@ Route::middleware([
 
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');
+            Route::get('/setup', [AccountSetupController::class, 'index'])->name('setup.index');
+            Route::patch('/setup/steps/{key}', [AccountSetupController::class, 'update'])->name('setup.steps.update');
             Route::post('/overview/dismiss', [AccountController::class, 'dismissOverview'])->name('overview.dismiss');
             Route::post('/update', [AccountController::class, 'update'])->name('update');
             Route::get('/consignment', [AccountConsignmentController::class, 'index'])->name('consignment.index');

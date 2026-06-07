@@ -36,6 +36,10 @@ const props = defineProps({
         type: String,
         default: 'Support',
     },
+    initial_tab: {
+        type: String,
+        default: 'general',
+    },
 });
 
 const defaultContractTermsFallback = 'This agreement outlines the terms and conditions of the sale, including product details, payment obligations, and delivery expectations.';
@@ -49,7 +53,10 @@ function timeInputValue(value) {
 }
 
 /** Which account settings form tab is visible (single form, all fields still submit together). */
-const settingsTab = ref('general');
+const validSettingsTabIds = ['general', 'scheduling', 'service_ticket', 'transactions'];
+const settingsTab = ref(
+    validSettingsTabIds.includes(props.initial_tab) ? props.initial_tab : 'general',
+);
 const settingsTabs = [
     { id: 'general', label: 'General account', title: 'General Account Settings', icon: 'settings' },
     { id: 'scheduling', label: 'Scheduling', title: 'Scheduling board defaults', icon: 'calendar_view_week' },
@@ -152,6 +159,28 @@ const submit = () => {
         preserveScroll: true,
     });
 };
+
+function syncTabToUrl(tab) {
+    if (!validSettingsTabIds.includes(tab)) {
+        return;
+    }
+
+    const url = new URL(window.location.href);
+    if (tab === 'general') {
+        url.searchParams.delete('tab');
+    } else {
+        url.searchParams.set('tab', tab);
+    }
+
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== next) {
+        window.history.replaceState({}, '', next);
+    }
+}
+
+watch(settingsTab, (tab) => {
+    syncTabToUrl(tab);
+});
 
 /** After validation errors, show the tab that contains the first failing field. */
 watch(

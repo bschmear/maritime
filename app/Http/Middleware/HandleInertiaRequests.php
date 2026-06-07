@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\AccountSetup\Services\AccountSetupService;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\User\Models\User;
 use App\Models\AccountSettings;
@@ -146,6 +147,7 @@ class HandleInertiaRequests extends Middleware
                 ? app(CurrentTenantProfile::class)->permissionKeys()
                 : [],
             'tenant_user_signature' => fn () => $this->tenantUserSignature(),
+            'account_setup' => fn () => $this->accountSetupPayload($request),
         ];
     }
 
@@ -305,5 +307,22 @@ class HandleInertiaRequests extends Middleware
                 ],
             ],
         );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function accountSetupPayload(Request $request): ?array
+    {
+        if (! tenancy()->initialized || $this->isHelpPortalHost($request)) {
+            return null;
+        }
+
+        $user = $request->user('web');
+        if ($user === null) {
+            return null;
+        }
+
+        return app(AccountSetupService::class)->widgetPayload();
     }
 }

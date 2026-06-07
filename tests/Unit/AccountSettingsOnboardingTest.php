@@ -15,6 +15,7 @@ class AccountSettingsOnboardingTest extends TestCase
 
         $this->assertContains('onboarding_complete', $fillable);
         $this->assertContains('account_overviewed', $fillable);
+        $this->assertContains('account_setup_complete', $fillable);
     }
 
     public function test_casts_include_onboarding_booleans(): void
@@ -23,5 +24,6 @@ class AccountSettingsOnboardingTest extends TestCase
 
         $this->assertSame('boolean', $casts['onboarding_complete'] ?? null);
         $this->assertSame('boolean', $casts['account_overviewed'] ?? null);
+        $this->assertSame('boolean', $casts['account_setup_complete'] ?? null);
     }
 }

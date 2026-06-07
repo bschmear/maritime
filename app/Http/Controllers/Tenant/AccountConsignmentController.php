@@ -14,6 +14,9 @@ class AccountConsignmentController extends Controller
 {
     public function index(): Response
     {
+        ConsignmentPolicy::ensureDefaultsExist();
+        AccountSettings::ensureConsignmentDefaults();
+
         $account = AccountSettings::getCurrent();
         $policies = ConsignmentPolicy::query()->ordered()->get();
 

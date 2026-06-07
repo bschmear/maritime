@@ -94,6 +94,10 @@ class AccountController extends Controller
             ],
         ];
 
+        $tab = $request->query('tab');
+        $validTabs = ['general', 'scheduling', 'service_ticket', 'transactions'];
+        $initialTab = in_array($tab, $validTabs, true) ? $tab : 'general';
+
         return Inertia::render('Tenant/Account/Index', [
             'accountSections' => $accountSections,
             'account' => $account,
@@ -103,6 +107,7 @@ class AccountController extends Controller
             'users' => $users,
             'paymentTermOptions' => Terms::options(),
             'show_account_intro_modal' => $account->onboarding_complete && ! $account->account_overviewed,
+            'initial_tab' => $initialTab,
         ]);
     }
 

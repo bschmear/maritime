@@ -8,6 +8,7 @@ use App\Enums\SMS;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 
 class AccountSettings extends Model
 {
@@ -43,6 +44,8 @@ class AccountSettings extends Model
         'onboarding_complete',
         /** When true, the post-onboarding “Account” overview modal has been dismissed. */
         'account_overviewed',
+        /** When true, the workspace setup tour is finished and the tour widget is hidden. */
+        'account_setup_complete',
     ];
 
     protected $casts = [
@@ -58,6 +61,7 @@ class AccountSettings extends Model
         'sandbox_mode' => 'boolean',
         'onboarding_complete' => 'boolean',
         'account_overviewed' => 'boolean',
+        'account_setup_complete' => 'boolean',
     ];
 
     protected $appends = ['logo_url'];
@@ -88,10 +92,35 @@ class AccountSettings extends Model
                 'consignment_fee_percent' => 20,
                 'onboarding_complete' => false,
                 'account_overviewed' => false,
+                'account_setup_complete' => false,
             ]);
         }
 
         return $settings;
+    }
+
+    public static function defaultConsignmentTerms(): string
+    {
+        return <<<'TEXT'
+This consignment agreement authorizes the dealer to offer the described property for sale on behalf of the owner. The owner retains title until a sale is completed and agrees to cooperate with reasonable requests for showings, documentation, and keeping the property in saleable condition.
+
+The dealer will use commercially reasonable efforts to market and sell the property at the asking and minimum prices stated on this agreement. Sale proceeds, less the agreed consignment fee and any documented expenses approved in writing, will be remitted to the owner upon closing.
+
+Either party may terminate this agreement in accordance with its terms and applicable law. Until termination or sale, the owner remains responsible for insurance, applicable storage or yard charges, and the accuracy of the information provided on this agreement.
+TEXT;
+    }
+
+    /**
+     * Seed default consignment narrative terms when none have been configured yet.
+     */
+    public static function ensureConsignmentDefaults(): void
+    {
+        $settings = static::getCurrent();
+
+        if (blank($settings->consignment_terms)) {
+            $settings->consignment_terms = static::defaultConsignmentTerms();
+            $settings->save();
+        }
     }
 
     /**
@@ -162,7 +191,7 @@ class AccountSettings extends Model
         }
 
         // Generate temporary signed URL with cache headers (valid for 7 days)
-        return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl(
+        return Storage::disk('s3')->temporaryUrl(
             $this->logo_file,
             now()->addDays(7),
             [
@@ -203,8 +232,8 @@ class AccountSettings extends Model
         });
 
         static::deleting(function ($settings) {
-            if ($settings->logo_file && \Illuminate\Support\Facades\Storage::disk('s3')->exists($settings->logo_file)) {
-                \Illuminate\Support\Facades\Storage::disk('s3')->delete($settings->logo_file);
+            if ($settings->logo_file && Storage::disk('s3')->exists($settings->logo_file)) {
+                Storage::disk('s3')->delete($settings->logo_file);
             }
         });
     }
