@@ -78,7 +78,7 @@ function updateStepStatus(key, status) {
                     <div class="min-w-[12rem] flex-1 max-w-xs">
                         <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                             <div
-                                class="h-full rounded-full bg-indigo-600 transition-all"
+                                class="h-full rounded-full bg-primary-600 transition-all"
                                 :style="{ width: `${progressPercent}%` }"
                             />
                         </div>
@@ -107,7 +107,7 @@ function updateStepStatus(key, status) {
                             <div class="flex min-w-0 flex-1 items-start gap-3">
                                 <span
                                     v-if="step.icon"
-                                    class="material-icons mt-0.5 text-2xl text-indigo-600 dark:text-indigo-400"
+                                    class="material-icons mt-0.5 text-2xl text-primary-600 dark:text-primary-400"
                                 >{{ step.icon }}</span>
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ function updateStepStatus(key, status) {
                             <div class="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
                                 <Link
                                     :href="step.url"
-                                    class="inline-flex items-center justify-center gap-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                                    class="inline-flex items-center justify-center gap-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
                                 >
                                     <span class="material-icons text-base">open_in_new</span>
                                     Open

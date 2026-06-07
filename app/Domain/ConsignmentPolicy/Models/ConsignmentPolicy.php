@@ -2,6 +2,7 @@
 
 namespace App\Domain\ConsignmentPolicy\Models;
 
+use App\Support\PostgresSequence;
 use Illuminate\Database\Eloquent\Model;
 
 class ConsignmentPolicy extends Model
@@ -34,6 +35,8 @@ class ConsignmentPolicy extends Model
 
     public static function ensureDefaultsExist(): void
     {
+        PostgresSequence::sync('consignment_policies');
+
         foreach (static::defaultBodies() as $index => $body) {
             static::query()->firstOrCreate(
                 ['body' => $body],
