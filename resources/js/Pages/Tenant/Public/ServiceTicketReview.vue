@@ -104,6 +104,16 @@ const estimateVariance = computed(() => {
     return (grandTotal.value * threshold) / 100;
 });
 
+const companyName = computed(() => props.record.subsidiary?.display_name || 'Company Name');
+
+const acknowledgementText = computed(() =>
+    (props.account.service_ticket_ack_text || '').replace('[COMPANY NAME]', companyName.value),
+);
+
+const consentLabel = computed(
+    () => 'I acknowledge that I have reviewed the service details, line items, and estimated costs above. By signing, I authorize the work described to proceed as outlined.',
+);
+
 // --- Actions ---
 
 const clearSignature = () => signaturePadRef.value?.clearSignature();
@@ -272,8 +282,8 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Customer & Asset Information -->
-                    <div class="px-8 print:px-0 py-6 bg-gray-50">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="px-8 print:px-0 py-6 bg-gray-50 print:bg-white">
+                        <div class="service-ticket-customer-asset-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-6">
                             <div>
                                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
                                 <div class="bg-white rounded-lg p-4 border border-gray-200">
@@ -473,13 +483,14 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- ==================== AUTHORIZATION SECTION (REVIEW ONLY) ==================== -->
-                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:hidden">
+                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:break-inside-avoid">
+                        <div class="print:hidden">
                         <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
                         <!-- Acknowledgement Text -->
-                        <div v-if="account.service_ticket_ack_text" class="mb-8 p-5 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div v-if="acknowledgementText" class="mb-8 p-5 bg-gray-50 border border-gray-200 rounded-lg">
                             <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-line">
-                                {{ account.service_ticket_ack_text.replace('[COMPANY NAME]', record.subsidiary?.display_name || 'Company Name') }}
+                                {{ acknowledgementText }}
                             </p>
                         </div>
 
@@ -669,6 +680,38 @@ const signaturePadOptions = {
                                 </div>
                             </div>
                         </Transition>
+                        </div>
+
+                        <div class="hidden print:block service-ticket-manual-signing">
+                            <h2 class="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-900">Customer authorization</h2>
+                            <div
+                                v-if="acknowledgementText"
+                                class="mb-6 whitespace-pre-line border border-gray-200 bg-white p-4 text-sm leading-relaxed text-gray-800 print:border-gray-400"
+                            >
+                                {{ acknowledgementText }}
+                            </div>
+                            <div class="mb-8 flex items-start gap-2 text-sm text-gray-800">
+                                <span
+                                    class="service-ticket-signature-checkbox mt-0.5 inline-block h-4 w-4 shrink-0 border border-gray-700 bg-white"
+                                    aria-hidden="true"
+                                />
+                                <span>{{ consentLabel }}</span>
+                            </div>
+                            <div class="service-ticket-manual-signing-grid grid gap-8 sm:grid-cols-2 print:grid-cols-2">
+                                <div>
+                                    <div class="service-ticket-signature-line h-12 border-b-2 border-gray-900" />
+                                    <p class="mt-1 text-xs uppercase tracking-wide text-gray-500">Customer signature</p>
+                                </div>
+                                <div>
+                                    <div class="service-ticket-signature-line min-h-[3rem] border-b-2 border-gray-900 pb-1 text-sm text-gray-900" />
+                                    <p class="mt-1 text-xs uppercase tracking-wide text-gray-500">Printed name</p>
+                                </div>
+                                <div>
+                                    <div class="service-ticket-signature-line min-h-[3rem] border-b-2 border-gray-900 pb-1 text-sm text-gray-900" />
+                                    <p class="mt-1 text-xs uppercase tracking-wide text-gray-500">Date</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Footer -->
@@ -726,6 +769,18 @@ const signaturePadOptions = {
         max-width: none !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
+    }
+
+    .service-ticket-customer-asset-grid,
+    .service-ticket-manual-signing-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .service-ticket-signature-line,
+    .service-ticket-signature-checkbox {
+        border-color: #111827 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }
 </style>
