@@ -44,15 +44,6 @@ class BoatShowEventAssetController extends Controller
             ], 422);
         }
 
-        if (BoatShowEventAsset::query()
-            ->where('boat_show_event_id', $event->id)
-            ->where('asset_id', $asset->id)
-            ->exists()) {
-            return response()->json([
-                'message' => 'This asset is already on the event.',
-            ], 422);
-        }
-
         $unitId = $validated['asset_unit_id'] ?? null;
         $unit = null;
         if ($unitId !== null) {
@@ -66,6 +57,23 @@ class BoatShowEventAssetController extends Controller
                     'message' => 'The selected unit does not belong to this asset.',
                 ], 422);
             }
+
+            if (BoatShowEventAsset::query()
+                ->where('boat_show_event_id', $event->id)
+                ->where('asset_unit_id', $unitId)
+                ->exists()) {
+                return response()->json([
+                    'message' => 'This unit is already on the event.',
+                ], 422);
+            }
+        } elseif (BoatShowEventAsset::query()
+            ->where('boat_show_event_id', $event->id)
+            ->where('asset_id', $asset->id)
+            ->whereNull('asset_unit_id')
+            ->exists()) {
+            return response()->json([
+                'message' => 'This asset is already on the event without a unit. Select a specific unit to add another.',
+            ], 422);
         }
 
         $footprint = EventAssetsPayload::defaultLayoutFootprint($asset, $unit);
@@ -97,6 +105,20 @@ class BoatShowEventAssetController extends Controller
         $validated = $request->validate([
             'width_ft' => ['required', 'integer', 'min:10', 'max:200'],
             'height_ft' => ['required', 'integer', 'min:10', 'max:200'],
+            'perimeter' => ['nullable', 'array', 'min:3', 'max:32'],
+            'perimeter.*.x' => ['required', 'numeric', 'min:0', 'max:500'],
+            'perimeter.*.y' => ['required', 'numeric', 'min:0', 'max:500'],
+            'fixtures' => ['nullable', 'array', 'max:100'],
+            'fixtures.*.id' => ['required', 'string', 'max:64'],
+            'fixtures.*.shape' => ['required', 'string', 'in:rectangle,square,circle'],
+            'fixtures.*.label' => ['required', 'string', 'max:255'],
+            'fixtures.*.include_in_layout' => ['sometimes', 'boolean'],
+            'fixtures.*.x' => ['required', 'numeric'],
+            'fixtures.*.y' => ['required', 'numeric'],
+            'fixtures.*.rotation' => ['required', 'integer', 'min:0', 'max:359'],
+            'fixtures.*.z_index' => ['sometimes', 'integer'],
+            'fixtures.*.length_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
+            'fixtures.*.width_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
             'items' => ['present', 'array'],
             'items.*.event_asset_id' => ['required', 'integer', 'exists:boat_show_event_assets,id'],
             'items.*.include_in_layout' => ['sometimes', 'boolean'],
@@ -148,6 +170,14 @@ class BoatShowEventAssetController extends Controller
             ->orderBy('id')
             ->first();
 
+        $meta = is_array($layout?->meta) ? $layout->meta : [];
+        if (array_key_exists('perimeter', $validated)) {
+            $meta['perimeter'] = $validated['perimeter'];
+        }
+        if (array_key_exists('fixtures', $validated)) {
+            $meta['fixtures'] = $validated['fixtures'];
+        }
+
         if ($layout === null) {
             $layout = BoatShowLayout::query()->create([
                 'boat_show_event_id' => $event->id,
@@ -156,11 +186,13 @@ class BoatShowEventAssetController extends Controller
                 'height_ft' => $validated['height_ft'],
                 'grid_size' => 1,
                 'scale' => 10,
+                'meta' => $meta,
             ]);
         } else {
             $layout->update([
                 'width_ft' => $validated['width_ft'],
                 'height_ft' => $validated['height_ft'],
+                'meta' => $meta,
             ]);
         }
 
@@ -169,6 +201,8 @@ class BoatShowEventAssetController extends Controller
             'layoutSpace' => [
                 'width_ft' => $layout->width_ft,
                 'height_ft' => $layout->height_ft,
+                'perimeter' => $meta['perimeter'] ?? null,
+                'fixtures' => $meta['fixtures'] ?? [],
             ],
         ]);
     }
@@ -191,15 +225,21 @@ class BoatShowEventAssetController extends Controller
      */
     public function units(Request $request): JsonResponse
     {
-        $this->resolveEvent($request);
+        $event = $this->resolveEvent($request);
 
         $assetId = $request->integer('asset_id');
         if ($assetId < 1) {
             return response()->json(['units' => []]);
         }
 
+        $linkedUnitIds = BoatShowEventAsset::query()
+            ->where('boat_show_event_id', $event->id)
+            ->whereNotNull('asset_unit_id')
+            ->pluck('asset_unit_id');
+
         $units = AssetUnit::query()
             ->where('asset_id', $assetId)
+            ->when($linkedUnitIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $linkedUnitIds))
             ->with('asset:id,display_name')
             ->orderBy('id')
             ->get(['id', 'asset_id', 'serial_number', 'hin', 'sku']);
@@ -208,6 +248,7 @@ class BoatShowEventAssetController extends Controller
             'units' => $units->map(fn (AssetUnit $u) => [
                 'id' => $u->id,
                 'display_name' => $u->display_name,
+                'unit_label' => EventAssetsPayload::unitShortLabel($u),
             ])->values()->all(),
         ]);
     }

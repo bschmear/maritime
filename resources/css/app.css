@@ -456,6 +456,8 @@ td.sticky {
     #warranty-claim-print-root *,
     #consignment-agreement-print-root,
     #consignment-agreement-print-root *,
+    #layout-print-root,
+    #layout-print-root *,
     #portal-service-ticket-print,
     #portal-service-ticket-print * {
         visibility: visible;
@@ -501,6 +503,17 @@ td.sticky {
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+    }
+
+    #layout-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     /* Force a page break between delivery document and checklist when both are present */

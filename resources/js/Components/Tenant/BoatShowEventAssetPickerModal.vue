@@ -4,7 +4,6 @@ import { ref, watch } from 'vue';
 
 const props = defineProps({
     modelValue:     { type: Boolean, default: false },
-    linkedAssetIds: { type: Array,   default: () => [] },
     storeUrl:       { type: String,  required: true },
     unitsBaseUrl:   { type: String,  required: true },
 });
@@ -78,8 +77,7 @@ async function fetchAssets() {
         const data = await response.json();
 
         if (data.records) {
-            const excluded = new Set(props.linkedAssetIds.map(Number));
-            assets.value     = data.records.filter(r => !excluded.has(Number(r.id)));
+            assets.value     = data.records;
             totalPages.value = data.meta?.last_page ?? 1;
         } else {
             assets.value = [];
@@ -304,12 +302,12 @@ async function submit() {
                             >
                                 <option value="">No specific unit</option>
                                 <option v-for="u in units" :key="u.id" :value="String(u.id)">
-                                    {{ u.display_name }}
+                                    {{ u.unit_label || u.display_name }}
                                 </option>
                             </select>
 
                             <p v-if="!loadingUnits && units.length === 0" class="text-sm text-gray-500 dark:text-gray-400">
-                                No units on file for this asset.
+                                No units available for this asset (none on file, or all are already on the event).
                             </p>
                         </div>
 

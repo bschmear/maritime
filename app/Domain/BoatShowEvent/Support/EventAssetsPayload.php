@@ -12,6 +12,25 @@ use App\Support\LengthMillimeters;
 
 final class EventAssetsPayload
 {
+    public static function unitShortLabel(?AssetUnit $unit): ?string
+    {
+        if ($unit === null) {
+            return null;
+        }
+
+        if (! empty($unit->hin)) {
+            return "Hull: {$unit->hin}";
+        }
+        if (! empty($unit->serial_number)) {
+            return "SN: {$unit->serial_number}";
+        }
+        if (! empty($unit->sku)) {
+            return "SKU: {$unit->sku}";
+        }
+
+        return "Unit #{$unit->id}";
+    }
+
     /**
      * Default floor-plan footprint (feet) from asset / variant columns (not dynamic specs).
      *
@@ -223,11 +242,14 @@ final class EventAssetsPayload
         $overallLength = $lengthForLayout;
         $overallWidth = $widthForLayout;
 
+        $unitLabel = self::unitShortLabel($unit);
+
         $assetUnitPayload = null;
         if ($unit !== null) {
             $assetUnitPayload = [
                 'id' => $unit->id,
                 'display_name' => $unit->display_name,
+                'unit_label' => $unitLabel,
             ];
         }
 
@@ -236,6 +258,7 @@ final class EventAssetsPayload
             'id' => $asset->id,
             'type' => (int) $asset->type,
             'display_name' => $asset->display_name,
+            'unit_label' => $unitLabel,
             'model' => $asset->model,
             'make' => $asset->make?->display_name,
             'year' => $asset->year,

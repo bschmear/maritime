@@ -1,5 +1,11 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import {
+    defaultRectPerimeter,
+    footprintOutsidePolygon,
+    isDefaultRectPerimeter,
+    nearestEdgeInsertIfClose,
+} from '@/Utils/layoutGeometry.js';
 
 const props = defineProps({
     /** Assigned boats, engines, and trailers for this event (each row includes `type` from the asset). */
@@ -26,10 +32,28 @@ const LAYOUT_COLOR_BY_TYPE = {
 };
 
 const CUSTOM_LAYOUT_COLOR = '#64748B';
+const FIXTURE_LAYOUT_COLOR = '#8B5CF6';
+
+const SHAPE_PRESETS = [
+    { label: 'Desk', shape: 'rectangle', length: 5, width: 3 },
+    { label: 'Display table', shape: 'rectangle', length: 8, width: 4 },
+    { label: 'Counter', shape: 'rectangle', length: 10, width: 3 },
+    { label: 'Square booth', shape: 'square', length: 10 },
+    { label: 'Round table', shape: 'circle', length: 6 },
+];
 
 function layoutFillColor(item) {
+    if (item.fixtureId) return FIXTURE_LAYOUT_COLOR;
     if (item.assetType == null) return CUSTOM_LAYOUT_COLOR;
     return LAYOUT_COLOR_BY_TYPE[item.assetType] ?? CUSTOM_LAYOUT_COLOR;
+}
+
+function isFixture(item) {
+    return !!item.fixtureId;
+}
+
+function itemShape(item) {
+    return item.shape || 'rectangle';
 }
 
 /** Stacking: trailers bottom (0), boats middle (1), engines top (2). Custom shapes use boat tier. */
@@ -43,6 +67,7 @@ function typeDrawTier(assetType) {
 }
 
 function stackTypeKey(item) {
+    if (item.fixtureId) return `fixture:${item.fixtureId}`;
     return item.assetType == null ? 'custom' : String(item.assetType);
 }
 
@@ -57,13 +82,28 @@ function footprintsOverlap(a, b) {
 }
 
 function hasSameTypeFootprintOverlap(moving, allItems) {
+    if (isFixture(moving)) return false;
     const m = itemFootprint(moving);
     for (const o of allItems) {
         if (o === moving || !o.includeInLayout) continue;
+        if (isFixture(o)) continue;
         if (stackTypeKey(o) !== stackTypeKey(moving)) continue;
         if (footprintsOverlap(m, itemFootprint(o))) return true;
     }
     return false;
+}
+
+function itemIsOutOfBounds(item) {
+    const fp = itemFootprint(item);
+    if (perimeterPoints.value.length >= 3) {
+        return footprintOutsidePolygon(fp, perimeterPoints.value);
+    }
+    return (
+        item.x < 0 ||
+        item.y < 0 ||
+        (item.rotated ? item.x + item.w > spaceW.value : item.x + item.l > spaceW.value) ||
+        (item.rotated ? item.y + item.l > spaceH.value : item.y + item.w > spaceH.value)
+    );
 }
 
 function nudgeItemToFreeSpot(item) {
@@ -90,13 +130,19 @@ const pendingH = ref(40);
 const boats = ref([]);
 const selected = ref(null);
 const boatIdCounter = ref(0);
+const fixtureIdCounter = ref(0);
+
+const perimeterPoints = ref([]);
+const perimeterMode = ref(false);
+const selectedVertex = ref(null);
 
 const showModal = ref(false);
 const modalMode = ref('add'); // 'add' | 'edit'
-const form = reactive({ name: '', length: 20, width: 8 });
+const form = reactive({ name: '', length: 20, width: 8, shape: 'rectangle' });
 const editingBoat = ref(null);
 
 const drag = { active: false, offX: 0, offY: 0, lastValidX: 0, lastValidY: 0 };
+const vertexDrag = { active: false, index: -1, offX: 0, offY: 0 };
 
 const SCALE = computed(() =>
     Math.max(4, Math.floor((containerW.value - MARGIN * 2) / spaceW.value)),
@@ -140,27 +186,43 @@ const selectedInfo = computed(() => {
     if (!b) return null;
     const l = b.rotated ? b.w : b.l;
     const w = b.rotated ? b.l : b.w;
-    const oob = b.x < 0 || b.y < 0 || b.x + l > spaceW.value || b.y + w > spaceH.value;
+    const oob = itemIsOutOfBounds(b);
+    const shapeLabel = isFixture(b) ? itemShape(b) : null;
     return {
         name: b.name,
-        dims: `${b.l} × ${b.w} ft`,
+        dims: itemShape(b) === 'circle' ? `Ø ${b.l} ft` : `${b.l} × ${b.w} ft`,
         pos: `${b.x}', ${b.y}'`,
         oob,
         onLayout: b.includeInLayout,
         hasEventAsset: b.eventAssetId != null,
+        isFixture: isFixture(b),
+        shapeLabel,
     };
 });
 
 const boatCount = computed(() => boats.value.length);
 
+function layoutItemLabel(b, i) {
+    if (b.layout_label && String(b.layout_label).trim()) {
+        return String(b.layout_label).trim();
+    }
+    const base = b.display_name ?? b.name ?? `Asset ${i + 1}`;
+    const unitLabel = b.unit_label ?? b.asset_unit?.unit_label ?? null;
+    if (unitLabel) {
+        return `${base} · ${unitLabel}`;
+    }
+
+    return base;
+}
+
 function rowToBoat(b, i) {
     const rot = Number(b.rotation ?? 0);
     const assetType = b.type != null ? Number(b.type) : null;
-    const label = b.layout_label && String(b.layout_label).trim()
-        ? b.layout_label
-        : (b.display_name ?? b.name ?? `Asset ${i + 1}`);
+    const label = layoutItemLabel(b, i);
     return {
         id: ++boatIdCounter.value,
+        fixtureId: null,
+        shape: null,
         eventAssetId: b.event_asset_id ?? null,
         assetId: b.id ?? null,
         assetType,
@@ -173,6 +235,68 @@ function rowToBoat(b, i) {
         rotated: rot % 180 === 90,
         zIndex: Number(b.z_index ?? 0),
     };
+}
+
+function fixtureToBoat(f, i) {
+    const rot = Number(f.rotation ?? 0);
+    const shape = f.shape || 'rectangle';
+    const length = parseFloat(f.length_ft) || 4;
+    const width = parseFloat(f.width_ft) || length;
+    return {
+        id: ++boatIdCounter.value,
+        fixtureId: f.id || `fixture_${++fixtureIdCounter.value}`,
+        shape,
+        eventAssetId: null,
+        assetId: null,
+        assetType: null,
+        includeInLayout: f.include_in_layout !== false,
+        name: (f.label || f.name || `Shape ${i + 1}`).trim(),
+        l: length,
+        w: shape === 'circle' || shape === 'square' ? length : width,
+        x: Number.isFinite(Number(f.x)) ? Number(f.x) : 2,
+        y: Number.isFinite(Number(f.y)) ? Number(f.y) : 2,
+        rotated: rot % 180 === 90,
+        zIndex: Number(f.z_index ?? 0),
+    };
+}
+
+function applyPerimeterFromProps() {
+    const raw = props.layoutSpace?.perimeter;
+    if (Array.isArray(raw) && raw.length >= 3) {
+        perimeterPoints.value = raw.map((pt) => ({
+            x: Math.round(Number(pt.x) || 0),
+            y: Math.round(Number(pt.y) || 0),
+        }));
+        return;
+    }
+    perimeterPoints.value = defaultRectPerimeter(spaceW.value, spaceH.value);
+}
+
+function syncFixturesFromProps() {
+    const fixtures = Array.isArray(props.layoutSpace?.fixtures) ? props.layoutSpace.fixtures : [];
+    const savedIds = new Set(fixtures.map((f) => f.id).filter(Boolean));
+    boats.value = boats.value.filter((b) => !b.fixtureId || savedIds.has(b.fixtureId));
+    const byId = new Map(boats.value.filter((b) => b.fixtureId).map((b) => [b.fixtureId, b]));
+    for (const f of fixtures) {
+        const existing = byId.get(f.id);
+        if (existing) {
+            const shape = f.shape || 'rectangle';
+            const length = parseFloat(f.length_ft) || existing.l;
+            Object.assign(existing, {
+                shape,
+                includeInLayout: f.include_in_layout !== false,
+                name: (f.label || f.name || existing.name).trim(),
+                l: length,
+                w: shape === 'circle' || shape === 'square' ? length : parseFloat(f.width_ft) || existing.w,
+                x: Number.isFinite(Number(f.x)) ? Number(f.x) : existing.x,
+                y: Number.isFinite(Number(f.y)) ? Number(f.y) : existing.y,
+                rotated: Number(f.rotation ?? 0) % 180 === 90,
+                zIndex: Number(f.z_index ?? existing.zIndex ?? 0),
+            });
+        } else {
+            boats.value.push(fixtureToBoat(f, boats.value.length));
+        }
+    }
 }
 
 function applyLayoutSpaceFromProps() {
@@ -192,6 +316,21 @@ function buildSyncPayload() {
     return {
         width_ft: spaceW.value,
         height_ft: spaceH.value,
+        perimeter: perimeterPoints.value.map((pt) => ({ x: pt.x, y: pt.y })),
+        fixtures: boats.value
+            .filter((b) => b.fixtureId)
+            .map((b) => ({
+                id: b.fixtureId,
+                shape: itemShape(b),
+                label: b.name?.trim() || 'Shape',
+                include_in_layout: !!b.includeInLayout,
+                x: b.x,
+                y: b.y,
+                rotation: b.rotated ? 90 : 0,
+                z_index: b.zIndex ?? 0,
+                length_ft: b.l,
+                width_ft: itemShape(b) === 'circle' || itemShape(b) === 'square' ? b.l : b.w,
+            })),
         items: boats.value
             .filter((b) => b.eventAssetId != null)
             .map((b) => ({
@@ -226,13 +365,42 @@ function draw() {
     ctx.clearRect(0, 0, cw, ch);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, cw, ch);
+
+    const poly = perimeterPoints.value;
     ctx.fillStyle = floorBg;
     ctx.strokeStyle = borderCol;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.rect(MARGIN, MARGIN, spaceW.value * S, spaceH.value * S);
+    if (poly.length >= 3) {
+        poly.forEach((pt, i) => {
+            const px = MARGIN + pt.x * S;
+            const py = MARGIN + pt.y * S;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+    } else {
+        ctx.rect(MARGIN, MARGIN, spaceW.value * S, spaceH.value * S);
+    }
     ctx.fill();
     ctx.stroke();
+
+    if (poly.length >= 3) {
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = isDark ? '#64748b' : '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        poly.forEach((pt, i) => {
+            const px = MARGIN + pt.x * S;
+            const py = MARGIN + pt.y * S;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+    }
 
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 0.5;
@@ -266,6 +434,21 @@ function draw() {
     for (const boat of boatsDrawOrder.value) {
         drawBoat(ctx, boat, boat === selected.value, S, false);
     }
+
+    if (perimeterMode.value && poly.length >= 3) {
+        for (let i = 0; i < poly.length; i++) {
+            const px = MARGIN + poly[i].x * S;
+            const py = MARGIN + poly[i].y * S;
+            const isSel = selectedVertex.value === i;
+            ctx.fillStyle = isSel ? '#F59E0B' : '#0EA5E9';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(px, py, isSel ? 8 : 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
 }
 
 function drawBoat(ctx, boat, isSel, S, dimmed) {
@@ -274,18 +457,21 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
     const pw = (boat.rotated ? boat.w : boat.l) * S;
     const ph = (boat.rotated ? boat.l : boat.w) * S;
 
-    const oob =
-        boat.x < 0 ||
-        boat.y < 0 ||
-        (boat.rotated ? boat.x + boat.w > spaceW.value : boat.x + boat.l > spaceW.value) ||
-        (boat.rotated ? boat.y + boat.l > spaceH.value : boat.y + boat.w > spaceH.value);
+    const oob = itemIsOutOfBounds(boat);
+    const shape = itemShape(boat);
+    const isCircle = shape === 'circle';
+    const isFixtureItem = isFixture(boat);
 
     ctx.globalAlpha = dimmed ? 0.38 : 0.9;
     ctx.fillStyle = oob ? '#E24B4A' : layoutFillColor(boat);
     ctx.strokeStyle = isSel ? '#fff' : 'rgba(0,0,0,0.22)';
     ctx.lineWidth = isSel ? 2.5 : 1;
     ctx.beginPath();
-    ctx.roundRect(px, py, pw, ph, 5);
+    if (isCircle) {
+        ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2);
+    } else {
+        ctx.roundRect(px, py, pw, ph, isFixtureItem ? 3 : 5);
+    }
     ctx.fill();
     ctx.stroke();
     ctx.globalAlpha = 1;
@@ -298,14 +484,16 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
         ctx.setLineDash([]);
     }
 
-    const bowLen = Math.min(pw * 0.22, 20);
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath();
-    ctx.moveTo(px + pw - bowLen, py);
-    ctx.lineTo(px + pw, py + ph / 2);
-    ctx.lineTo(px + pw - bowLen, py + ph);
-    ctx.closePath();
-    ctx.fill();
+    const bowLen = isFixtureItem || isCircle ? 0 : Math.min(pw * 0.22, 20);
+    if (bowLen > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.moveTo(px + pw - bowLen, py);
+        ctx.lineTo(px + pw, py + ph / 2);
+        ctx.lineTo(px + pw - bowLen, py + ph);
+        ctx.closePath();
+        ctx.fill();
+    }
 
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
@@ -320,11 +508,29 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
     ctx.fillText(label, px + (pw - bowLen) / 2, py + ph / 2 - (ph > 22 ? 7 : 0));
 
     if (ph > 22) {
-        const dim = `${boat.l}×${boat.w}ft`;
+        const dim = isCircle ? `Ø${boat.l}ft` : `${boat.l}×${boat.w}ft`;
         ctx.font = `400 ${Math.min(10, Math.max(8, ph * 0.18))}px sans-serif`;
         ctx.fillStyle = 'rgba(255,255,255,0.72)';
         ctx.fillText(dim, px + (pw - bowLen) / 2, py + ph / 2 + 7);
     }
+}
+
+const VERTEX_HIT_RADIUS_PX = 16;
+
+function hitTestVertex(mx, my) {
+    const S = SCALE.value;
+    const poly = perimeterPoints.value;
+    const r2 = VERTEX_HIT_RADIUS_PX * VERTEX_HIT_RADIUS_PX;
+    for (let i = poly.length - 1; i >= 0; i--) {
+        const px = MARGIN + poly[i].x * S;
+        const py = MARGIN + poly[i].y * S;
+        const dx = mx - px;
+        const dy = my - py;
+        if (dx * dx + dy * dy <= r2) {
+            return i;
+        }
+    }
+    return null;
 }
 
 function hitTest(mx, my) {
@@ -334,9 +540,27 @@ function hitTest(mx, my) {
         const py = MARGIN + b.y * S;
         const pw = (b.rotated ? b.w : b.l) * S;
         const ph = (b.rotated ? b.l : b.w) * S;
-        if (mx >= px && mx <= px + pw && my >= py && my <= py + ph) return b;
+        if (itemShape(b) === 'circle') {
+            const cx = px + pw / 2;
+            const cy = py + ph / 2;
+            const rx = pw / 2;
+            const ry = ph / 2;
+            const nx = (mx - cx) / rx;
+            const ny = (my - cy) / ry;
+            if (nx * nx + ny * ny <= 1) return b;
+        } else if (mx >= px && mx <= px + pw && my >= py && my <= py + ph) {
+            return b;
+        }
     }
     return null;
+}
+
+function canvasToFeet(mx, my) {
+    const S = SCALE.value;
+    return {
+        x: snap((mx - MARGIN) / S),
+        y: snap((my - MARGIN) / S),
+    };
 }
 
 function snap(val) { return Math.round(val); }
@@ -344,11 +568,51 @@ function snap(val) { return Math.round(val); }
 function getXY(e, canvas) {
     const r = canvas.getBoundingClientRect();
     const cl = e.touches ? e.touches[0] : e;
-    return { mx: cl.clientX - r.left, my: cl.clientY - r.top };
+    if (!canvas || r.width <= 0 || r.height <= 0) {
+        return { mx: 0, my: 0 };
+    }
+    const scaleX = canvas.width / r.width;
+    const scaleY = canvas.height / r.height;
+
+    return {
+        mx: (cl.clientX - r.left) * scaleX,
+        my: (cl.clientY - r.top) * scaleY,
+    };
 }
 
 function onPointerDown(e) {
     const { mx, my } = getXY(e, canvasRef.value);
+
+    if (perimeterMode.value) {
+        e.preventDefault?.();
+        const vi = hitTestVertex(mx, my);
+        if (vi !== null) {
+            selectedVertex.value = vi;
+            vertexDrag.active = true;
+            vertexDrag.index = vi;
+            vertexDrag.offX = mx - (MARGIN + perimeterPoints.value[vi].x * SCALE.value);
+            vertexDrag.offY = my - (MARGIN + perimeterPoints.value[vi].y * SCALE.value);
+            selected.value = null;
+            draw();
+            return;
+        }
+        const { x, y } = canvasToFeet(mx, my);
+        const insert = nearestEdgeInsertIfClose(x, y, perimeterPoints.value, 4);
+        if (insert && perimeterPoints.value.length < 32) {
+            perimeterPoints.value.splice(insert.index, 0, insert.point);
+            selectedVertex.value = insert.index;
+            vertexDrag.active = true;
+            vertexDrag.index = insert.index;
+            vertexDrag.offX = mx - (MARGIN + insert.point.x * SCALE.value);
+            vertexDrag.offY = my - (MARGIN + insert.point.y * SCALE.value);
+            emit('change', buildSyncPayload());
+        } else {
+            selectedVertex.value = null;
+        }
+        draw();
+        return;
+    }
+
     const hit = hitTest(mx, my);
     if (hit) {
         selected.value = hit;
@@ -365,6 +629,19 @@ function onPointerDown(e) {
 }
 
 function onPointerMove(e) {
+    if (vertexDrag.active && vertexDrag.index >= 0) {
+        const { mx, my } = getXY(e, canvasRef.value);
+        const S = SCALE.value;
+        const nx = snap((mx - vertexDrag.offX - MARGIN) / S);
+        const ny = snap((my - vertexDrag.offY - MARGIN) / S);
+        const clampedX = Math.max(0, Math.min(spaceW.value, nx));
+        const clampedY = Math.max(0, Math.min(spaceH.value, ny));
+        perimeterPoints.value[vertexDrag.index] = { x: clampedX, y: clampedY };
+        draw();
+        emit('change', buildSyncPayload());
+        return;
+    }
+
     if (!drag.active || !selected.value) return;
     const { mx, my } = getXY(e, canvasRef.value);
     const S = SCALE.value;
@@ -383,15 +660,32 @@ function onPointerMove(e) {
     emit('change', buildSyncPayload());
 }
 
-function onPointerUp() { drag.active = false; }
+function onPointerUp() {
+    drag.active = false;
+    vertexDrag.active = false;
+}
 
-// Open modal to ADD a new boat
+function applyShapePreset(preset) {
+    form.name = preset.label;
+    form.shape = preset.shape;
+    form.length = preset.length;
+    form.width = preset.shape === 'rectangle' ? preset.width : preset.length;
+}
+
+function syncFormDimensionsForShape() {
+    if (form.shape === 'square' || form.shape === 'circle') {
+        form.width = form.length;
+    }
+}
+
+// Open modal to ADD a new shape
 function openAddModal() {
     modalMode.value = 'add';
     editingBoat.value = null;
     form.name = '';
     form.length = 20;
     form.width = 8;
+    form.shape = 'rectangle';
     showModal.value = true;
 }
 
@@ -402,15 +696,24 @@ function openEditModal() {
     form.name = selected.value.name;
     form.length = selected.value.l;
     form.width = selected.value.w;
+    form.shape = isFixture(selected.value) ? itemShape(selected.value) : 'rectangle';
     showModal.value = true;
 }
 
 function submitModal() {
     if (!form.name.trim()) return;
+    syncFormDimensionsForShape();
+
     if (modalMode.value === 'edit' && editingBoat.value) {
         editingBoat.value.name = form.name.trim();
         editingBoat.value.l = parseFloat(form.length) || editingBoat.value.l;
-        editingBoat.value.w = parseFloat(form.width) || editingBoat.value.w;
+        editingBoat.value.w =
+            form.shape === 'circle' || form.shape === 'square'
+                ? editingBoat.value.l
+                : parseFloat(form.width) || editingBoat.value.w;
+        if (isFixture(editingBoat.value)) {
+            editingBoat.value.shape = form.shape;
+        }
         if (editingBoat.value.includeInLayout && hasSameTypeFootprintOverlap(editingBoat.value, boats.value)) {
             nudgeItemToFreeSpot(editingBoat.value);
         }
@@ -418,15 +721,20 @@ function submitModal() {
         draw();
         emit('change', buildSyncPayload());
     } else {
+        const length = parseFloat(form.length) || 4;
+        const width =
+            form.shape === 'circle' || form.shape === 'square' ? length : parseFloat(form.width) || 4;
         const boat = {
             id: ++boatIdCounter.value,
+            fixtureId: `fixture_${++fixtureIdCounter.value}`,
+            shape: form.shape,
             eventAssetId: null,
             assetId: null,
             assetType: null,
             includeInLayout: true,
             name: form.name.trim(),
-            l: parseFloat(form.length) || 20,
-            w: parseFloat(form.width) || 8,
+            l: length,
+            w: width,
             x: 2,
             y: 2,
             rotated: false,
@@ -491,10 +799,39 @@ function deleteSelected() {
 }
 
 function applySpace() {
+    const oldW = spaceW.value;
+    const oldH = spaceH.value;
     spaceW.value = Math.max(10, Math.min(200, parseInt(pendingW.value) || 60));
     spaceH.value = Math.max(10, Math.min(200, parseInt(pendingH.value) || 40));
     pendingW.value = spaceW.value;
     pendingH.value = spaceH.value;
+    if (isDefaultRectPerimeter(perimeterPoints.value, oldW, oldH)) {
+        perimeterPoints.value = defaultRectPerimeter(spaceW.value, spaceH.value);
+    }
+    draw();
+    emit('change', buildSyncPayload());
+}
+
+function togglePerimeterMode() {
+    perimeterMode.value = !perimeterMode.value;
+    selectedVertex.value = null;
+    selected.value = null;
+    draw();
+}
+
+function resetPerimeterToRect() {
+    perimeterPoints.value = defaultRectPerimeter(spaceW.value, spaceH.value);
+    selectedVertex.value = null;
+    draw();
+    emit('change', buildSyncPayload());
+}
+
+function removeSelectedVertex() {
+    if (selectedVertex.value === null || perimeterPoints.value.length <= 3) {
+        return;
+    }
+    perimeterPoints.value.splice(selectedVertex.value, 1);
+    selectedVertex.value = null;
     draw();
     emit('change', buildSyncPayload());
 }
@@ -513,6 +850,7 @@ let ro;
 
 onMounted(() => {
     applyLayoutSpaceFromProps();
+    applyPerimeterFromProps();
     ro = new ResizeObserver((entries) => {
         containerW.value = entries[0].contentRect.width;
         requestAnimationFrame(draw);
@@ -524,13 +862,19 @@ onMounted(() => {
     if (props.initialLayoutItems?.length) {
         boats.value = props.initialLayoutItems.map((b, i) => rowToBoat(b, i));
     }
+    syncFixturesFromProps();
     draw();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
 });
 
 watch(
     () => props.layoutSpace,
-    () => { applyLayoutSpaceFromProps(); requestAnimationFrame(draw); },
+    () => {
+        applyLayoutSpaceFromProps();
+        applyPerimeterFromProps();
+        syncFixturesFromProps();
+        requestAnimationFrame(draw);
+    },
     { deep: true },
 );
 
@@ -540,7 +884,8 @@ watch(
         const list = newItems ?? [];
         const byEventAsset = new Map(list.map((b) => [b.event_asset_id, b]));
         boats.value = boats.value.filter((b) => {
-            if (!b.eventAssetId) return true;
+            if (b.fixtureId) return true;
+            if (!b.eventAssetId) return false;
             return byEventAsset.has(b.eventAssetId);
         });
         for (const b of list) {
@@ -550,7 +895,7 @@ watch(
                 Object.assign(existing, {
                     includeInLayout: !!b.include_in_layout,
                     assetType: b.type != null ? Number(b.type) : existing.assetType,
-                    name: b.layout_label && String(b.layout_label).trim() ? b.layout_label : existing.name,
+                    name: layoutItemLabel(b, boats.value.indexOf(existing)),
                     l: parseFloat(b.length_ft ?? b.length) || existing.l,
                     w: parseFloat(b.width_ft ?? b.width) || existing.w,
                     x: Number.isFinite(Number(b.x)) ? Number(b.x) : existing.x,
@@ -590,13 +935,42 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 Add asset
             </button>
             <button
-                v-else
                 type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-md transition-colors"
                 @click="openAddModal"
             >
-                <span class="material-icons text-[14px]">add</span>
-                Add custom shape
+                <span class="material-icons text-[14px]">category</span>
+                Add shape
+            </button>
+
+            <div class="w-px h-5 bg-slate-200 dark:bg-slate-600 hidden sm:block"></div>
+
+            <button
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
+                :class="perimeterMode
+                    ? 'text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/30 border-sky-300 dark:border-sky-700'
+                    : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-600 border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-500'"
+                @click="togglePerimeterMode"
+            >
+                <span class="material-icons text-[14px]">polyline</span>
+                {{ perimeterMode ? 'Done editing perimeter' : 'Edit perimeter' }}
+            </button>
+            <button
+                v-if="perimeterMode"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-md hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors"
+                @click="resetPerimeterToRect"
+            >
+                Reset to rectangle
+            </button>
+            <button
+                v-if="perimeterMode && selectedVertex !== null && perimeterPoints.length > 3"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-white dark:bg-slate-600 border border-red-200 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                @click="removeSelectedVertex"
+            >
+                Remove corner
             </button>
 
             <div class="w-px h-5 bg-slate-200 dark:bg-slate-600 hidden sm:block"></div>
@@ -699,8 +1073,11 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                     Outside boundary
                 </span>
             </template>
+            <template v-else-if="perimeterMode">
+                <span class="text-sky-600 dark:text-sky-400">Drag blue corners to reshape the lot. Click within ~4 ft of an edge to add a corner.</span>
+            </template>
             <template v-else>
-                <span class="text-slate-400">Click an asset to select, then drag to reposition</span>
+                <span class="text-slate-400">Click an asset or shape to select, then drag to reposition</span>
             </template>
             <span class="ml-auto text-slate-500 dark:text-slate-400">
                 {{ onLayoutBoats.length }} on layout · {{ boatCount }} total
@@ -783,8 +1160,8 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 Trailer
             </span>
             <span class="flex items-center gap-1.5">
-                <span class="inline-block w-3 h-3 rounded-sm bg-[#64748B]"></span>
-                Custom
+                <span class="inline-block w-3 h-3 rounded-sm bg-[#8B5CF6]"></span>
+                Shapes
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="inline-block w-3 h-3 rounded-sm bg-[#E24B4A]"></span>
@@ -808,29 +1185,55 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                     @click.stop
                 >
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">
-                        {{ modalMode === 'edit' ? 'Edit dimensions' : 'Add custom shape' }}
+                        {{ modalMode === 'edit' ? 'Edit shape' : 'Add shape' }}
                     </h3>
                     <div class="space-y-3">
+                        <div v-if="modalMode === 'add'" class="flex flex-wrap gap-1.5">
+                            <button
+                                v-for="preset in SHAPE_PRESETS"
+                                :key="preset.label"
+                                type="button"
+                                class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-violet-50 hover:border-violet-200 hover:text-violet-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-violet-900/30 dark:hover:text-violet-300"
+                                @click="applyShapePreset(preset)"
+                            >
+                                {{ preset.label }}
+                            </button>
+                        </div>
                         <div>
                             <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Label</label>
                             <input
                                 v-model="form.name"
                                 type="text"
-                                placeholder="e.g. Display area"
+                                placeholder="e.g. Desk, Display table"
                                 class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
                                 @keydown.enter="submitModal"
                             />
                         </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Shape</label>
+                            <select
+                                v-model="form.shape"
+                                class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
+                                @change="syncFormDimensionsForShape"
+                            >
+                                <option value="rectangle">Rectangle</option>
+                                <option value="square">Square</option>
+                                <option value="circle">Circle</option>
+                            </select>
+                        </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Length (ft)</label>
+                                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                                    {{ form.shape === 'circle' ? 'Diameter (ft)' : 'Length (ft)' }}
+                                </label>
                                 <input
                                     v-model.number="form.length"
                                     type="number" min="1"
                                     class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-primary-500"
+                                    @input="syncFormDimensionsForShape"
                                 />
                             </div>
-                            <div>
+                            <div v-if="form.shape === 'rectangle'">
                                 <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Width (ft)</label>
                                 <input
                                     v-model.number="form.width"

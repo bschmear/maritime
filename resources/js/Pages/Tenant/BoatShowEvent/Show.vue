@@ -52,6 +52,7 @@ const props = defineProps({
         type: Object,
         default: () => ({ width_ft: 60, height_ft: 40 }),
     },
+    printUrl: { type: String, default: '' },
     followUpSettings: {
         type: Object,
         default: () => ({
@@ -76,6 +77,15 @@ const editHref = computed(() =>
         ? route('boat-shows.events.edit', { ...props.extraRouteParams, event: props.record.id })
         : route('boat-show-events.edit', props.record.id)
 );
+
+const printLayoutHref = computed(() => {
+    if (props.printUrl) {
+        return props.printUrl;
+    }
+    return isNested.value
+        ? route('boat-shows.events.layout.print', { ...props.extraRouteParams, event: props.record.id })
+        : route('boat-show-events.layout.print', props.record.id);
+});
 
 const parentLabel = computed(() =>
     isNested.value ? 'Events (show)' : 'Boat Show Events'
@@ -369,15 +379,6 @@ onUnmounted(() => {
 // ── Event assets (picker + remove) ───────────────────────────────
 const assetPickerOpen = ref(false);
 
-const linkedAssetIds = computed(() => {
-    const a = props.assets;
-    return [
-        ...(a.boats || []).map((x) => x.id),
-        ...(a.engines || []).map((x) => x.id),
-        ...(a.trailers || []).map((x) => x.id),
-    ].filter(Boolean);
-});
-
 const eventAssetStoreUrl = computed(() =>
     isNested.value
         ? route('boat-shows.events.assets.store', { ...props.extraRouteParams, event: props.record.id })
@@ -409,7 +410,7 @@ function formatBoatLengthFt(boat) {
 }
 
 function formatAssetUnitLabel(row) {
-    return row.asset_unit?.display_name ?? '—';
+    return row.unit_label ?? row.asset_unit?.unit_label ?? row.asset_unit?.display_name ?? '—';
 }
 
 async function onEventAssetAttached() {
@@ -786,6 +787,17 @@ async function removeEventAsset(row) {
 
                         <!-- ── LAYOUT BUILDER TAB ── -->
                         <div v-show="activeTab === 'layout'" class="relative p-4 space-y-2">
+                            <div class="flex justify-end">
+                                <a
+                                    :href="printLayoutHref"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                >
+                                    <span class="material-icons text-base leading-none">print</span>
+                                    Print layout
+                                </a>
+                            </div>
                             <LayoutBuilder
                                 :initial-layout-items="layoutItemsForBuilder"
                                 :layout-space="layoutSpace"
@@ -1278,7 +1290,6 @@ async function removeEventAsset(row) {
 
         <BoatShowEventAssetPickerModal
             v-model="assetPickerOpen"
-            :linked-asset-ids="linkedAssetIds"
             :store-url="eventAssetStoreUrl"
             :units-base-url="eventAssetUnitsUrl"
             @attached="onEventAssetAttached"

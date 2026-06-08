@@ -537,6 +537,7 @@ Route::middleware([
 
         Route::prefix('boat-show-events')->name('boat-show-events.')->group(function () {
             Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
+            Route::get('{event}/layout/print', [BoatShowEventController::class, 'printLayout'])->name('layout.print');
             Route::post('{event}/assets', [BoatShowEventAssetController::class, 'store'])->name('assets.store');
             Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
             Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');
@@ -558,6 +559,7 @@ Route::middleware([
             // Boat Show Events (scoped under a show)
             Route::prefix('{boatShow}/events')->name('events.')->group(function () {
                 Route::put('{event}/checklist', [EventChecklistController::class, 'updateBoatShowEvent'])->name('checklist.update');
+                Route::get('{event}/layout/print', [BoatShowEventController::class, 'printLayout'])->name('layout.print');
                 Route::post('{event}/assets', [BoatShowEventAssetController::class, 'store'])->name('assets.store');
                 Route::get('{event}/assets/units', [BoatShowEventAssetController::class, 'units'])->name('assets.units');
                 Route::delete('{event}/assets/{eventAsset}', [BoatShowEventAssetController::class, 'destroy'])->name('assets.destroy');

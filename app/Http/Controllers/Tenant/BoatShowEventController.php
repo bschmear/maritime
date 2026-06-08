@@ -15,10 +15,12 @@ use App\Domain\Document\Models\Document;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\User\Models\User;
 use App\Enums\Tasks\Priority;
+use App\Models\AccountSettings;
 use App\Enums\Tasks\Status;
 use App\Support\DynamicGlobalScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Response as InertiaResponse;
 
 class BoatShowEventController extends RecordController
@@ -273,7 +275,7 @@ class BoatShowEventController extends RecordController
             return back()
                 ->withInput()
                 ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([
                     'success' => false,
@@ -381,22 +383,83 @@ class BoatShowEventController extends RecordController
                 ->values()
                 ->all();
 
+            $routeParams = array_merge($this->eventExtraRouteParams($request), [
+                'event' => $event->getRouteKey(),
+            ]);
+
             return $response
                 ->with('extraRouteParams', $this->eventExtraRouteParams($request))
+                ->with('printUrl', route($this->recordType.'.layout.print', $routeParams))
                 ->with('checklist', $checklist)
                 ->with('checklistTemplates', $checklistTemplates)
                 ->with('tasks', $event->tasks)
                 ->with('eventLeads', $eventLeads)
                 ->with('assets', $event->assetsGroupedForInertia())
-                ->with('layoutSpace', [
-                    'width_ft' => $layout ? (int) $layout->width_ft : 60,
-                    'height_ft' => $layout ? (int) $layout->height_ft : 40,
-                ])
+                ->with('layoutSpace', (function () use ($layout) {
+                    $meta = is_array($layout?->meta) ? $layout->meta : [];
+
+                    return [
+                        'width_ft' => $layout ? (int) $layout->width_ft : 60,
+                        'height_ft' => $layout ? (int) $layout->height_ft : 40,
+                        'perimeter' => is_array($meta['perimeter'] ?? null) ? $meta['perimeter'] : null,
+                        'fixtures' => is_array($meta['fixtures'] ?? null) ? $meta['fixtures'] : [],
+                    ];
+                })())
                 ->with('followUpSettings', $followUpSettings)
                 ->with($this->taskBoardInertiaProps());
         }
 
         return $response;
+    }
+
+    public function printLayout(Request $request, $first, $second = null): InertiaResponse
+    {
+        $this->recordType = $this->currentEventRoutePrefix();
+        $eventId = $request->route('event') ?? $first;
+        $event = RecordModel::query()->findOrFail($eventId);
+
+        if ($request->route('boatShow') !== null) {
+            $show = $this->resolveBoatShow($request->route('boatShow'));
+            abort_unless((int) $event->boat_show_id === (int) $show->id, 404);
+        }
+
+        $layout = $event->layouts()->orderBy('id')->first();
+        $meta = is_array($layout?->meta) ? $layout->meta : [];
+
+        $params = array_merge($this->eventExtraRouteParams($request), [
+            'event' => $event->getRouteKey(),
+        ]);
+
+        return inertia('Tenant/BoatShowEvent/LayoutPrint', [
+            'record' => [
+                'id' => $event->id,
+                'display_name' => $event->display_name,
+                'venue' => $event->venue,
+                'year' => $event->year,
+                'starts_at' => $event->starts_at?->format('Y-m-d'),
+                'ends_at' => $event->ends_at?->format('Y-m-d'),
+            ],
+            'assets' => $event->assetsGroupedForInertia(),
+            'layoutSpace' => [
+                'width_ft' => $layout ? (int) $layout->width_ft : 60,
+                'height_ft' => $layout ? (int) $layout->height_ft : 40,
+                'perimeter' => is_array($meta['perimeter'] ?? null) ? $meta['perimeter'] : null,
+                'fixtures' => is_array($meta['fixtures'] ?? null) ? $meta['fixtures'] : [],
+            ],
+            'backUrl' => route($this->recordType.'.show', $params),
+            'companyName' => $this->companyDisplayName(),
+        ]);
+    }
+
+    private function companyDisplayName(): string
+    {
+        $account = AccountSettings::getCurrent();
+        $settings = $account->settings;
+        if (is_array($settings) && ! empty($settings['business_name'])) {
+            return (string) $settings['business_name'];
+        }
+
+        return 'Company';
     }
 
     public function edit($first, $second = null)
