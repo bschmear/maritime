@@ -3,6 +3,10 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import DeliveryPreview from '@/Components/Tenant/DeliveryPreview.vue';
+import MobileActionBar from '@/Components/Tenant/MobileActionBar.vue';
+import MobileActionBarButton from '@/Components/Tenant/MobileActionBarButton.vue';
+import { useMobileActionBar } from '@/composables/useMobileActionBar';
+import { usePwaLinks } from '@/composables/usePwaLinks';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, onMounted, ref } from 'vue';
@@ -40,6 +44,8 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { headerActionsClass } = useMobileActionBar();
+const { externalLinkTarget } = usePwaLinks();
 
 const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
 
@@ -485,6 +491,15 @@ const viewSignatureRequest = () => {
 const openPreview = () => { showPreview.value = true; };
 const closePreview = () => { showPreview.value = false; };
 
+const openPrint = () => {
+    const url = route('deliveries.print', props.record.id);
+    if (externalLinkTarget.value === '_self') {
+        window.location.assign(url);
+        return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+};
+
 const handleDelete = () => { showDeleteModal.value = true; };
 const cancelDelete = () => { showDeleteModal.value = false; };
 const confirmDelete = () => {
@@ -813,7 +828,7 @@ const googleMapsDirectionsUrl = computed(() => {
                             >Locked (signed)</span>
                         </div>
                     </div>
-                    <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    <div :class="['flex shrink-0 flex-wrap items-center gap-2', headerActionsClass]">
                         <button
                             @click="openPreview"
                             class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -847,6 +862,34 @@ const googleMapsDirectionsUrl = computed(() => {
                 </div>
             </div>
         </template>
+
+        <MobileActionBar>
+            <template #actions>
+                <MobileActionBarButton
+                    label="Preview delivery"
+                    @click="openPreview"
+                >
+                    <span class="material-icons leading-none">visibility</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    label="Print delivery"
+                    @click="openPrint"
+                >
+                    <span class="material-icons leading-none">print</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    label="Edit delivery"
+                    :href="route('deliveries.edit', record.id)"
+                >
+                    <span class="material-icons leading-none">edit</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    label="Delete delivery"
+                    @click="handleDelete"
+                >
+                    <span class="material-icons leading-none">delete</span>
+                </MobileActionBarButton>
+            </template>
 
         <div class="grid min-w-0 max-w-full grid-cols-1 gap-6 lg:grid-cols-12">
             <!-- Main content -->
@@ -1335,6 +1378,7 @@ const googleMapsDirectionsUrl = computed(() => {
                 </div>
             </div>
         </div>
+        </MobileActionBar>
 
         <!-- Delete Confirmation Modal -->
         <Modal :show="showDeleteModal" @close="cancelDelete" max-width="md">

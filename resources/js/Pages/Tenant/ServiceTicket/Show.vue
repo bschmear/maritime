@@ -6,8 +6,13 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import ServiceTicketForm from '@/Components/Tenant/ServiceTicketForm.vue';
 import ServiceTicketPreview from '@/Components/Tenant/ServiceTicketPreview.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
+import MobileActionBar from '@/Components/Tenant/MobileActionBar.vue';
+import MobileActionBarButton from '@/Components/Tenant/MobileActionBarButton.vue';
+import { useMobileActionBar } from '@/composables/useMobileActionBar';
 import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
 import { computed, ref, watch } from 'vue';
+
+const { headerActionsClass } = useMobileActionBar();
 
 const props = defineProps({
     record: {
@@ -276,6 +281,18 @@ const isSigned = computed(() =>
     ),
 );
 
+const workOrderHref = computed(() => {
+    if (props.workOrders.length > 0) {
+        return route('workorders.show', props.workOrders[0].id);
+    }
+
+    return `${route('workorders.create')}?service_ticket_id=${props.record.id}`;
+});
+
+const workOrderActionLabel = computed(() =>
+    props.workOrders.length > 0 ? 'View work order' : 'Create work order',
+);
+
 const relatedRecords = computed(() => {
     const out = [];
 
@@ -344,7 +361,7 @@ const relatedRecords = computed(() => {
                         Service Ticket Details
                     </h2>
 
-                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
+                    <div :class="['flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2', headerActionsClass]">
                         <Link :href="route('servicetickets.index')">
                             <button
                                 type="button"
@@ -417,6 +434,48 @@ const relatedRecords = computed(() => {
                 </div>
             </div>
         </template>
+
+        <MobileActionBar>
+            <template #actions>
+                <MobileActionBarButton
+                    label="Back to service tickets"
+                    :href="route('servicetickets.index')"
+                >
+                    <span class="material-icons leading-none">arrow_back</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    :label="workOrderActionLabel"
+                    :href="workOrderHref"
+                >
+                    <span class="material-icons leading-none">{{ workOrders.length > 0 ? 'assignment' : 'add_circle' }}</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    label="Customer preview"
+                    @click="openPreview"
+                >
+                    <span class="material-icons leading-none">visibility</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    v-if="!isLocked"
+                    label="Edit service ticket"
+                    :href="route('servicetickets.edit', record.id)"
+                >
+                    <span class="material-icons leading-none">edit</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    v-else
+                    label="Ticket is locked"
+                    disabled
+                >
+                    <span class="material-icons leading-none">lock</span>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    label="Delete service ticket"
+                    @click="deleteTicket"
+                >
+                    <span class="material-icons leading-none">delete_forever</span>
+                </MobileActionBarButton>
+            </template>
 
         <div class="border-t  border-gray-200 dark:border-gray-700  top-0 z-10 shadow-md bg-white dark:bg-gray-900 mb-4 dark:mb-0">
             <div class="w-full px-4 py-4 sm:py-5">
@@ -634,6 +693,7 @@ const relatedRecords = computed(() => {
                 :sublists="visibleSublists"
             />
         </div>
+        </MobileActionBar>
 
         <!-- Preview Modal -->
         <Teleport to="body">

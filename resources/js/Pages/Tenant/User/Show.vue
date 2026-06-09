@@ -5,6 +5,9 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import WorkspaceTeamUserScopeBanner from '@/Components/Tenant/WorkspaceTeamUserScopeBanner.vue';
 import UserSignatureSection from '@/Components/Tenant/UserSignatureSection.vue';
+import MobileActionBar from '@/Components/Tenant/MobileActionBar.vue';
+import MobileActionBarButton from '@/Components/Tenant/MobileActionBarButton.vue';
+import { useMobileActionBar } from '@/composables/useMobileActionBar';
 import { Head, router, Link, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
@@ -69,8 +72,10 @@ const props = defineProps({
 });
 
 const page = usePage();
+const { headerActionsClass } = useMobileActionBar();
 
 const flash = computed(() => page.props.flash || {});
+const hasHeaderActions = computed(() => props.canManageUsers || props.record.email !== 'admin@example.com');
 const isDeleting = ref(false);
 const showDeleteModal = ref(false);
 
@@ -121,55 +126,82 @@ const breadcrumbItems = computed(() => {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="flex items-center justify-between mt-4">
-                    <div class="flex items-center space-x-4">
+                <div class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex min-w-0 items-start gap-3 sm:gap-4">
                         <!-- User Avatar -->
-                        <div class="flex items-center justify-center w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800">
-                            <img v-if="record.avatar && imageUrls.avatar" :src="imageUrls.avatar" :alt="record.display_name" class="w-full h-full object-cover" />
-                            <svg v-else class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 ring-2 ring-white dark:bg-primary-900 dark:ring-gray-800 sm:h-16 sm:w-16 sm:ring-4">
+                            <img v-if="record.avatar && imageUrls.avatar" :src="imageUrls.avatar" :alt="record.display_name" class="h-full w-full object-cover" />
+                            <svg v-else class="h-6 w-6 text-primary-600 dark:text-primary-400 sm:h-8 sm:w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                         </div>
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                        <div class="min-w-0">
+                            <h2 class="truncate text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
                                 {{ record.display_name }}
                             </h2>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 flex items-center mt-1">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <p class="mt-1 flex min-w-0 items-start gap-1 text-sm text-gray-600 dark:text-gray-400">
+                                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                {{ record.email }}
+                                <span class="break-all">{{ record.email }}</span>
                             </p>
                         </div>
                     </div>
 
-                    <div v-if="canManageUsers || record.email !== 'admin@example.com'" class="flex items-center space-x-3">
+                    <div
+                        v-if="hasHeaderActions"
+                        :class="['w-full gap-2', headerActionsClass]"
+                    >
                         <button
                             v-if="canManageUsers"
                             type="button"
                             @click="goToEditUser"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
+                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-transparent bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-4 focus:ring-primary-300 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 sm:px-4"
                         >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
-                            Edit User
+                            <span class="sm:hidden">Edit</span>
+                            <span class="hidden sm:inline">Edit User</span>
                         </button>
                         <button
                             v-if="record.email !== 'admin@example.com'"
                             type="button"
                             @click="handleDelete"
-                            class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300"
+                            class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-transparent bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-300 sm:px-4"
                         >
-                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            Delete User
+                            <span class="sm:hidden">Delete</span>
+                            <span class="hidden sm:inline">Delete User</span>
                         </button>
                     </div>
                 </div>
             </div>
         </template>
+
+        <MobileActionBar :enabled="hasHeaderActions">
+            <template #actions>
+                <MobileActionBarButton
+                    v-if="canManageUsers"
+                    label="Edit User"
+                    @click="goToEditUser"
+                >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </MobileActionBarButton>
+                <MobileActionBarButton
+                    v-if="record.email !== 'admin@example.com'"
+                    label="Delete User"
+                    @click="handleDelete"
+                >
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </MobileActionBarButton>
+            </template>
 
         <div class="w-full space-y-4">
             <div
@@ -190,9 +222,9 @@ const breadcrumbItems = computed(() => {
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Personal Information Card -->
                 <div class="lg:col-span-2 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-                    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                    <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6 sm:py-5">
                         <div class="flex items-center">
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="mr-2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -200,7 +232,7 @@ const breadcrumbItems = computed(() => {
                             </h3>
                         </div>
                     </div>
-                    <div class="px-6 py-6">
+                    <div class="px-4 py-5 sm:px-6 sm:py-6">
                         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
                             <div>
                                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
@@ -230,11 +262,11 @@ const breadcrumbItems = computed(() => {
                                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
                                     Email Address
                                 </dt>
-                                <dd class="text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-md inline-flex items-center">
-                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <dd class="inline-flex max-w-full items-start gap-2 break-all rounded-md bg-gray-50 px-3 py-1.5 font-mono text-sm text-gray-900 dark:bg-gray-700/50 dark:text-white">
+                                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                     </svg>
-                                    {{ record.email }}
+                                    <span>{{ record.email }}</span>
                                 </dd>
                             </div>
                             <div>
@@ -280,9 +312,9 @@ const breadcrumbItems = computed(() => {
 
                 <!-- Role & Permissions Card -->
                 <div class="lg:col-span-1 bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden h-fit">
-                    <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+                    <div class="border-b border-gray-200 px-4 py-4 dark:border-gray-700 sm:px-6 sm:py-5">
                         <div class="flex items-center">
-                            <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="mr-2 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -290,7 +322,7 @@ const breadcrumbItems = computed(() => {
                             </h3>
                         </div>
                     </div>
-                    <div class="px-6 py-6 space-y-4">
+                    <div class="space-y-4 px-4 py-5 sm:px-6 sm:py-6">
                         <div v-if="record.role">
                             <div>
                                 <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
@@ -376,6 +408,7 @@ const breadcrumbItems = computed(() => {
                 <Sublist :parent-record="record" :parent-domain="domainName" :sublists="sublists" />
             </div>
         </div>
+        </MobileActionBar>
 
         <!-- Delete Confirmation Modal -->
         <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
@@ -391,11 +424,19 @@ const breadcrumbItems = computed(() => {
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     Are you sure you want to delete "{{ record.display_name }}"? This action cannot be undone and will permanently remove their access to the system.
                 </p>
-                <div class="mt-6 flex items-center justify-center space-x-3">
+                <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
                     <button
                         :disabled="isDeleting"
                         type="button"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="inline-flex w-full items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+                        @click="cancelDelete"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        :disabled="isDeleting"
+                        type="button"
+                        class="inline-flex w-full items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
                         @click="confirmDelete"
                     >
                         <svg v-if="isDeleting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -403,14 +444,6 @@ const breadcrumbItems = computed(() => {
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                         {{ isDeleting ? 'Deleting...' : 'Delete User' }}
-                    </button>
-                    <button
-                        :disabled="isDeleting"
-                        type="button"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        @click="cancelDelete"
-                    >
-                        Cancel
                     </button>
                 </div>
             </div>
