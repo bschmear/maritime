@@ -275,8 +275,21 @@ const fetchAssets = async () => {
     }
 };
 
-const searchAssets = () => {
+const debounce = (fn, delay) => {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+};
+
+const searchAssets = debounce(() => {
     fetchAssets();
+}, 300);
+
+const variantLabel = (unit) => {
+    const v = unit.asset_variant;
+    return (v?.display_name || v?.name || '').trim();
 };
 
 const selectAsset = (asset) => {
@@ -711,7 +724,7 @@ onMounted(() => {
                             @input="searchAssets"
                             @keyup.enter="searchAssets"
                             type="text"
-                            placeholder="Search assets by name, serial number, HIN..."
+                            placeholder="Search by hull ID, serial, or variant name..."
                             class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         />
                     </div>
@@ -735,18 +748,22 @@ onMounted(() => {
                                     <div class="font-medium text-gray-900 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-300">
                                         {{ asset.display_name }}
                                     </div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-3">
-                                        <span v-if="asset.serial_number" class="flex items-center gap-1">
-                                            <span class="material-icons text-xs">tag</span>
-                                            {{ asset.serial_number }}
-                                        </span>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-3">
                                         <span v-if="asset.hin" class="flex items-center gap-1">
                                             <span class="material-icons text-xs">directions_boat</span>
-                                            {{ asset.hin }}
+                                            Hull ID: {{ asset.hin }}
+                                        </span>
+                                        <span v-if="asset.serial_number" class="flex items-center gap-1">
+                                            <span class="material-icons text-xs">tag</span>
+                                            Serial: {{ asset.serial_number }}
+                                        </span>
+                                        <span v-if="variantLabel(asset)" class="flex items-center gap-1">
+                                            <span class="material-icons text-xs">category</span>
+                                            Variant: {{ variantLabel(asset) }}
                                         </span>
                                         <span v-if="asset.sku" class="flex items-center gap-1">
                                             <span class="material-icons text-xs">inventory_2</span>
-                                            {{ asset.sku }}
+                                            SKU: {{ asset.sku }}
                                         </span>
                                     </div>
                                 </div>

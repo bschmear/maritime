@@ -14,6 +14,7 @@
     "typeDomain": "ServiceItem",
     "relationship": "serviceItem",
     "nullable": true,
+    "create": true,
     "help": "Optional link to predefined service item"
   },
 

@@ -705,6 +705,7 @@ class WorkOrderController extends RecordController
                     'estimated_tax' => (float) ($ticket->estimated_tax ?? 0),
                     'tax_rate' => (float) ($ticket->tax_rate ?? 0),
                     'repair_description' => $ticket->repair_description,
+                    'type' => $ticket->type,
                     'customer' => $ticket->customer,
                     'subsidiary' => $ticket->subsidiary,
                     'location' => $ticket->location,

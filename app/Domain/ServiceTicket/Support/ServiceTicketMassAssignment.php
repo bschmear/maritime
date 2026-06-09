@@ -23,6 +23,8 @@ final class ServiceTicketMassAssignment
         'expedite',
         'pickup_delivery_requested_at',
         'status',
+        'type',
+        'approved',
         'repair_description',
         'internal_notes',
         'estimated_labor_hours',

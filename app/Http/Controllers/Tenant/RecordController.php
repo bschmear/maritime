@@ -559,15 +559,7 @@ class RecordController extends BaseController
                     // Search in fields that typically make up display names
                     $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                     if ($this->domainName === 'AssetUnit') {
-                        $query->where(function ($q) use ($searchTerm) {
-                            $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
-                                ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm])
-                                ->orWhereHas('asset', function ($aq) use ($searchTerm) {
-                                    $aq->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]);
-                                });
-                        });
+                        $query->whereMatchesPickerSearch(trim($searchQuery));
                     } elseif ($this->domainName === 'InventoryUnit') {
                         $query->where(function ($q) use ($searchTerm) {
                             $q->whereRaw('LOWER(inventory_units.serial_number) LIKE ?', [$searchTerm])

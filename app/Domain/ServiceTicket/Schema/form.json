@@ -58,6 +58,10 @@
           "required": true
         },
         {
+          "key": "type",
+          "required": true
+        },
+        {
           "key": "expedite",
           "required": false
         }

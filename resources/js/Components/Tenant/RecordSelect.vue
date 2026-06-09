@@ -1,5 +1,5 @@
 <script setup>
-    import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+    import { ref, computed, watch, onMounted, onUnmounted, nextTick, defineExpose } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
     import DeliveryLocationForm from '@/Components/Tenant/DeliveryLocationForm.vue';
@@ -70,10 +70,17 @@
         multiHints: {
             type: Array,
             default: () => []
-        }
+        },
+        /** Stack modals above parent overlays (e.g. line-item modals at z-50). */
+        overlayZIndex: {
+            type: Number,
+            default: 50,
+        },
     });
     
     const emit = defineEmits(['update:modelValue', 'record-selected']);
+
+    const overlayZStyle = computed(() => ({ zIndex: props.overlayZIndex }));
     
     const showModal = ref(false);
     const showCreateModal = ref(false);
@@ -358,6 +365,8 @@
             }
         }
     };
+
+    defineExpose({ openPicker: openModal });
     
     // Close modal or dropdown
     const closeModal = () => {
@@ -880,8 +889,9 @@
                 </div>
             </div>
 
-            <!-- Modal Overlay -->
-            <div v-if="showModal && !disabled" @click="closeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50">
+            <!-- Modal Overlay (teleported so nested parents with transform/overflow do not clip fixed positioning) -->
+            <Teleport to="body">
+            <div v-if="showModal && !disabled" @click="closeModal" class="fixed inset-0 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50" :style="overlayZStyle">
                 <div @click.stop class="relative w-full max-w-2xl max-h-[90vh] bg-white rounded-lg shadow-xl dark:bg-gray-800 flex flex-col">
                     <!-- Modal Header -->
                     <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1022,9 +1032,11 @@
                     </div>
                 </div>
             </div>
+            </Teleport>
 
             <!-- Create Modal -->
-            <div v-if="showCreateModal && !disabled" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50">
+            <Teleport to="body">
+            <div v-if="showCreateModal && !disabled" class="fixed inset-0 flex items-center justify-center p-4 bg-gray-900 bg-opacity-50" :style="overlayZStyle">
                 <div class="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-xl dark:bg-gray-800 flex flex-col">
                     <!-- Modal Header -->
                     <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1071,15 +1083,17 @@
                     </div>
                 </div>
             </div>
+            </Teleport>
         </div>
 
         <!-- Enhanced Modal (when create=true) -->
-        <div v-if="showEnhancedModal && !disabled" @keydown.escape="closeEnhancedModal" class="fixed inset-0 z-50 overflow-y-auto">
+        <Teleport to="body">
+        <div v-if="showEnhancedModal && !disabled" @keydown.escape="closeEnhancedModal" class="fixed inset-0 overflow-y-auto" :style="overlayZStyle">
             <!-- Background overlay with blur -->
             <div class="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm transition-opacity" @click="closeEnhancedModal"></div>
 
             <!-- Modal container -->
-            <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="relative z-10 flex items-center justify-center min-h-screen p-4">
                 <!-- Modal panel -->
                 <div
                     @click.stop
@@ -1323,4 +1337,5 @@
                 </div>
             </div>
         </div>
+        </Teleport>
     </template>

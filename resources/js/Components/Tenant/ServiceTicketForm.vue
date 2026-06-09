@@ -6,7 +6,7 @@ import CustomerApprovalDeliveryModal from '@/Components/Tenant/CustomerApprovalD
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps({
     record: {
@@ -88,13 +88,13 @@ const editingLineIndex = ref(null);
 
 const lineItems = ref([]);
 
-// Service item lookup state
-const serviceItemSearchQuery = ref('');
-const serviceItemRecords = ref([]);
-const serviceItemCurrentPage = ref(1);
-const serviceItemTotalPages = ref(1);
-const serviceItemPerPage = ref(10);
-const serviceItemIsLoading = ref(false);
+const serviceItemPickerRef = ref(null);
+const serviceItemPickerField = {
+    type: 'record',
+    typeDomain: 'ServiceItem',
+    label: 'Service Item',
+    create: true,
+};
 
 // Billing type options from enum
 const billingTypeOptions = computed(() => props.enumOptions?.billing_type || []);
@@ -196,9 +196,6 @@ const addServiceItemLine = () => {
         billing_type: null
     };
     selectedServiceItem.value = null;
-    serviceItemSearchQuery.value = '';
-    serviceItemCurrentPage.value = 1;
-    fetchServiceItems(true);
     showServiceItemModal.value = true;
 };
 
@@ -234,6 +231,24 @@ const editServiceItemLine = (index) => {
 
 const removeServiceItemLine = (index) => {
     lineItems.value.splice(index, 1);
+};
+
+const openServiceItemPicker = () => {
+    nextTick(() => {
+        serviceItemPickerRef.value?.openPicker();
+    });
+};
+
+const onServiceItemPicked = (record) => {
+    if (record) {
+        selectServiceItem(record);
+    }
+};
+
+const clearSelectedServiceItem = () => {
+    selectedServiceItem.value = null;
+    lineItemForm.value.service_item_id = null;
+    openServiceItemPicker();
 };
 
 const selectServiceItem = (item) => {
@@ -272,66 +287,11 @@ const cancelLineItem = () => {
     showServiceItemModal.value = false;
 };
 
-// Fetch service items with pagination and search
-const fetchServiceItems = async (resetPage = false) => {
-    if (resetPage) {
-        serviceItemCurrentPage.value = 1;
+watch(showServiceItemModal, (open) => {
+    if (open && !selectedServiceItem.value && editingLineIndex.value === null) {
+        openServiceItemPicker();
     }
-
-    serviceItemIsLoading.value = true;
-
-    try {
-        const url = new URL(route('servicetickets.service-items.lookup'), window.location.origin);
-        url.searchParams.append('page', serviceItemCurrentPage.value);
-        url.searchParams.append('per_page', serviceItemPerPage.value);
-
-        if (serviceItemSearchQuery.value.trim()) {
-            url.searchParams.append('search', serviceItemSearchQuery.value.trim());
-        }
-
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-            },
-            credentials: 'same-origin'
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch service items: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        serviceItemRecords.value = data.records || [];
-        serviceItemTotalPages.value = data.meta?.last_page || 1;
-    } catch (error) {
-        console.error('Error fetching service items:', error);
-        serviceItemRecords.value = [];
-    } finally {
-        serviceItemIsLoading.value = false;
-    }
-};
-
-const searchServiceItems = () => {
-    fetchServiceItems(true);
-};
-
-const nextServiceItemPage = () => {
-    if (serviceItemCurrentPage.value < serviceItemTotalPages.value) {
-        serviceItemCurrentPage.value++;
-        fetchServiceItems();
-    }
-};
-
-const prevServiceItemPage = () => {
-    if (serviceItemCurrentPage.value > 1) {
-        serviceItemCurrentPage.value--;
-        fetchServiceItems();
-    }
-};
+});
 
 // ==============================
 // Aggregated Totals
@@ -1417,6 +1377,16 @@ const handleCancel = () => {
                                             </p>
                                         </div>
 
+                                        <!-- Work Type (show mode only, edit/create uses sidebar) -->
+                                        <div v-if="mode === 'show'">
+                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                {{ fieldsSchema.type?.label || 'Work Type' }}
+                                            </label>
+                                            <p class="text-md text-gray-900 dark:text-white">
+                                                {{ getEnumLabel('type', record?.type) }}
+                                            </p>
+                                        </div>
+
                                         <!-- Expedite -->
                                         <div>
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1464,14 +1434,14 @@ const handleCancel = () => {
                                 <!-- Repair Description Section -->
                                 <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                                     <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
-                                        Repair Description
+                                        Service Description
                                     </h3>
 
                                     <div class="space-y-4">
                                         <!-- Repair Description -->
                                         <div>
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.repair_description?.label || 'Repair Description' }}
+                                                {{ fieldsSchema.repair_description?.label || 'Service Description' }}
                                                 {{ isFieldRequired('repair_description') ? '*' : '' }}
                                             </label>
                                             <textarea
@@ -1944,6 +1914,22 @@ const handleCancel = () => {
                                         </select>
                                     </div>
 
+                                    <!-- Work Type -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                                            {{ fieldsSchema.type?.label || 'Work Type' }}
+                                        </label>
+                                        <select
+                                            v-model="form.type"
+                                            :disabled="isFieldReadonly('type')"
+                                            class="input-style"
+                                        >
+                                            <option v-for="option in getEnumOptions('type')" :key="option.id" :value="option.id">
+                                                {{ option.name }}
+                                            </option>
+                                        </select>
+                                    </div>
+
                                     <!-- Expedite Toggle -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
@@ -2081,79 +2067,19 @@ const handleCancel = () => {
 
                     <!-- Body -->
                     <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                        <!-- Service Item Selection -->
+                        <!-- Service Item Selection (RecordSelect: pick existing or create new) -->
                         <div v-if="!selectedServiceItem">
-                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
-                                Select a Service Item
-                            </label>
-
-                            <!-- Search Input -->
-                            <div class="relative mb-4">
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    v-model="serviceItemSearchQuery"
-                                    @input="searchServiceItems"
-                                    type="text"
-                                    placeholder="Search service items..."
-                                    class="rounded-xl w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-transparent transition-all"
-                                />
-                            </div>
-
-                            <!-- Loading State -->
-                            <div v-if="serviceItemIsLoading" class="flex justify-center py-8">
-                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                            </div>
-
-                            <!-- Service Items List -->
-                            <div v-else-if="serviceItemRecords.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-                                <button
-                                    v-for="item in serviceItemRecords"
-                                    :key="item.id"
-                                    @click="selectServiceItem(item)"
-                                    type="button"
-                                    class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
-                                >
-                                    <div class="font-medium text-gray-900 dark:text-white">
-                                        {{ item.display_name }}
-                                    </div>
-                                </button>
-                            </div>
-
-                            <!-- Empty State -->
-                            <div v-else class="text-center py-8 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
-                                <span class="material-icons text-4xl text-gray-400 dark:text-gray-600 mb-2 block">receipt_long</span>
-                                <p class="text-gray-500 dark:text-gray-400 mb-1">
-                                    {{ serviceItemSearchQuery.trim() ? 'No service items found' : 'No service items available' }}
-                                </p>
-                                <p v-if="serviceItemSearchQuery.trim()" class="text-md text-gray-400 dark:text-gray-500">
-                                    Try a different search term
-                                </p>
-                            </div>
-
-                            <!-- Pagination -->
-                            <div v-if="serviceItemRecords.length > 0 && serviceItemTotalPages > 1" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-                                <button
-                                    @click="prevServiceItemPage"
-                                    :disabled="serviceItemCurrentPage === 1"
-                                    class="px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                                >
-                                    Previous
-                                </button>
-                                <span class="text-md text-gray-700 dark:text-gray-300">
-                                    Page {{ serviceItemCurrentPage }} of {{ serviceItemTotalPages }}
-                                </span>
-                                <button
-                                    @click="nextServiceItemPage"
-                                    :disabled="serviceItemCurrentPage === serviceItemTotalPages"
-                                    class="px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
-                                >
-                                    Next
-                                </button>
-                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                Choose an existing service item from the catalog or create a new one.
+                            </p>
+                            <RecordSelect
+                                ref="serviceItemPickerRef"
+                                id="service_item_line_picker"
+                                :field="serviceItemPickerField"
+                                v-model="lineItemForm.service_item_id"
+                                :overlay-z-index="100"
+                                @record-selected="onServiceItemPicked"
+                            />
                         </div>
 
                         <!-- Line Item Form -->
@@ -2169,7 +2095,7 @@ const handleCancel = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    <button @click="selectedServiceItem = null" type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-md">
+                                    <button @click="clearSelectedServiceItem" type="button" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-md">
                                         Change
                                     </button>
                                 </div>

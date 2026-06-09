@@ -205,7 +205,8 @@ td.sticky {
     body:has(.invoice-preview-overlay) #app,
     body:has(.service-ticket-preview-overlay) #app,
     body:has(.delivery-preview-overlay) #app,
-    body:has(.consignment-agreement-preview-overlay) #app {
+    body:has(.consignment-agreement-preview-overlay) #app,
+    body:has(.schedule-preview-overlay) #app {
         display: none !important;
     }
 
@@ -291,6 +292,44 @@ td.sticky {
     .consignment-agreement-preview-overlay,
     .consignment-agreement-preview-overlay * {
         visibility: visible;
+    }
+
+    /* Schedule print preview is Teleported to <body> (same as invoice). */
+    .schedule-preview-overlay {
+        position: static !important;
+        inset: auto !important;
+        display: block !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        z-index: auto !important;
+        background: white !important;
+        backdrop-filter: none !important;
+    }
+
+    .schedule-preview-shell {
+        min-height: 0 !important;
+        background: white !important;
+    }
+
+    #schedule-print-root {
+        position: static !important;
+        width: 100%;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .schedule-document-for-print {
+        padding: 0 !important;
+        background: #fff !important;
+        color: #111827 !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     /* Invoice preview is Teleported to <body> (same as contract). */
@@ -456,6 +495,8 @@ td.sticky {
     #warranty-claim-print-root *,
     #consignment-agreement-print-root,
     #consignment-agreement-print-root *,
+    #schedule-print-root,
+    #schedule-print-root *,
     #layout-print-root,
     #layout-print-root *,
     #portal-service-ticket-print,

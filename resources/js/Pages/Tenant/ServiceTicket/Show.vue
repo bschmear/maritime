@@ -96,6 +96,7 @@ const statusChanged = ref(false);
 const updatingStatus = ref(false);
 const approving = ref(false);
 const showWorkOrderCompleteModal = ref(false);
+const showApproveConfirmModal = ref(false);
 
 watch(
     () => props.record.status,
@@ -148,6 +149,22 @@ const completedStatusId = computed(() => {
     return option?.id ?? 4;
 });
 
+const inProgressStatusId = computed(() => {
+    const option = statusOptions.value.find((status) => status.value === 'in_progress');
+    return option?.id ?? 3;
+});
+
+const getStatusLabel = (statusId) => {
+    const option = statusOptions.value.find((status) => Number(status.id) === Number(statusId));
+    return option?.name ?? 'Unknown';
+};
+
+const currentStatusLabel = computed(() => getStatusLabel(props.record.status));
+const manualApproveStatusLabel = computed(() => getStatusLabel(inProgressStatusId.value));
+const approveWillChangeStatus = computed(
+    () => Number(props.record.status) !== Number(inProgressStatusId.value),
+);
+
 const openWorkOrders = computed(() => {
     return props.workOrders.filter((workOrder) => !TERMINAL_WORK_ORDER_STATUSES.has(Number(workOrder.status)));
 });
@@ -197,12 +214,17 @@ const updateStatus = () => {
     confirmUpdateStatus(false);
 };
 
-const approveTicket = async () => {
+const openApproveConfirmModal = () => {
+    showApproveConfirmModal.value = true;
+};
+
+const confirmApproveTicket = async () => {
+    showApproveConfirmModal.value = false;
     approving.value = true;
     try {
         await router.patch(route('servicetickets.update', props.record.id), {
             approved: true,
-            status: 4 // Approved status
+            status: inProgressStatusId.value,
         }, {
             preserveState: true,
             preserveScroll: true,
@@ -451,7 +473,7 @@ const relatedRecords = computed(() => {
                                 </span>
                                 <button
                                     v-if="!record.approved"
-                                    @click="approveTicket"
+                                    @click="openApproveConfirmModal"
                                     class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md text-md font-medium hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap"
                                     :disabled="approving"
                                 >
@@ -626,6 +648,62 @@ const relatedRecords = computed(() => {
                 />
             </div>
         </Teleport>
+
+        <Modal :show="showApproveConfirmModal" max-width="md" @close="showApproveConfirmModal = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    Skip customer approval and approve manually?
+                </h3>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                    This records staff approval without waiting for the customer to review and sign the estimate.
+                </p>
+                <ul class="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                    <li class="flex items-start gap-2">
+                        <span class="material-icons mt-0.5 text-base text-green-600 dark:text-green-400">check_circle</span>
+                        <span><span class="font-medium text-gray-900 dark:text-white">Approved</span> will be set to yes.</span>
+                    </li>
+                    <li v-if="approveWillChangeStatus" class="flex items-start gap-2">
+                        <span class="material-icons mt-0.5 text-base text-blue-600 dark:text-blue-400">swap_horiz</span>
+                        <span>
+                            Status will change from
+                            <span class="font-medium text-gray-900 dark:text-white">{{ currentStatusLabel }}</span>
+                            to
+                            <span class="font-medium text-gray-900 dark:text-white">{{ manualApproveStatusLabel }}</span>.
+                        </span>
+                    </li>
+                    <li v-else class="flex items-start gap-2">
+                        <span class="material-icons mt-0.5 text-base text-blue-600 dark:text-blue-400">info</span>
+                        <span>
+                            Status will remain
+                            <span class="font-medium text-gray-900 dark:text-white">{{ currentStatusLabel }}</span>.
+                        </span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="material-icons mt-0.5 text-base text-amber-600 dark:text-amber-400">lock</span>
+                        <span>The ticket will be locked and can no longer be edited.</span>
+                    </li>
+                </ul>
+                <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                        :disabled="approving"
+                        @click="showApproveConfirmModal = false"
+                    >
+                        No, cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-60"
+                        :disabled="approving"
+                        @click="confirmApproveTicket"
+                    >
+                        <span v-if="approving" class="material-icons text-md animate-spin mr-1">refresh</span>
+                        Yes, approve manually
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <Modal :show="showWorkOrderCompleteModal" max-width="md" @close="showWorkOrderCompleteModal = false">
             <div class="p-6">

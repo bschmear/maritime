@@ -57,7 +57,7 @@ class GeneralController extends BaseController
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
         // "customer" / "lead" are profile rows: labels come from the linked contact (and primary address), not profile tables.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead', 'workorder'];
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead', 'workorder', 'assetunit', 'inventoryunit'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -72,6 +72,7 @@ class GeneralController extends BaseController
             // For models without display_name column, add foreign keys needed for relationships
             if ($type === 'assetunit') {
                 $columns[] = 'asset_id';
+                $columns[] = 'asset_variant_id';
                 $columns[] = 'serial_number';
                 $columns[] = 'hin';
                 $columns[] = 'sku';
@@ -145,12 +146,26 @@ class GeneralController extends BaseController
             $columns[] = 'category';
             $columns[] = 'applies_to';
             $columns[] = 'sort_order';
+        } elseif ($typeKey === 'serviceitem') {
+            $columns[] = 'code';
+            $columns[] = 'description';
+            $columns[] = 'default_rate';
+            $columns[] = 'default_cost';
+            $columns[] = 'default_hours';
+            $columns[] = 'billable';
+            $columns[] = 'warranty_eligible';
+            $columns[] = 'warranty_type';
+            $columns[] = 'billing_type';
         }
 
         $query = $recordModel->select(array_unique($columns));
 
         if ($typeKey === 'assetoption') {
             $query->where($recordModel->getTable().'.active', true);
+        }
+
+        if ($typeKey === 'serviceitem') {
+            $query->where($recordModel->getTable().'.inactive', false);
         }
 
         if ($typeKey === 'contact') {
@@ -162,7 +177,11 @@ class GeneralController extends BaseController
 
         // Load relationships for models that need them for display names
         if ($type === 'assetunit') {
-            $query->with('asset:id,display_name');
+            $query->with([
+                'asset:id,display_name,year,make_id,has_variants',
+                'asset.make:id,display_name',
+                'assetVariant:id,display_name,name,asset_id',
+            ]);
         } elseif ($type === 'inventoryunit') {
             $query->with('inventoryItem:id,display_name');
         } elseif (strtolower($type) === 'asset') {
@@ -305,20 +324,20 @@ class GeneralController extends BaseController
             } elseif ($typeKey === 'assetoption') {
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+            } elseif ($typeKey === 'serviceitem') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(code, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(description, \'\')) LIKE ?', [$searchTerm]);
+                });
             } elseif ($hasDisplayNameColumn) {
                 $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
             } else {
                 // For models without display_name column, search in typical display name fields
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 if ($type === 'assetunit') {
-                    // For AssetUnit, also search in the joined assets table
-                    $query->where(function ($q) use ($searchTerm) {
-                        $q->whereRaw('LOWER(asset_units.serial_number) LIKE ?', [$searchTerm])
-                            ->orWhereRaw('LOWER(asset_units.hin) LIKE ?', [$searchTerm])
-                            ->orWhereRaw('LOWER(asset_units.sku) LIKE ?', [$searchTerm])
-                            ->orWhereRaw('LOWER(assets.display_name) LIKE ?', [$searchTerm])
-                            ->orWhereRaw('CAST(asset_units.id AS TEXT) LIKE ?', [$searchTerm]);
-                    });
+                    $query->whereMatchesPickerSearch(trim((string) $searchQuery));
                 } elseif ($type === 'inventoryunit') {
                     // For InventoryUnit, also search in the joined inventory_items table
                     $query->where(function ($q) use ($searchTerm) {

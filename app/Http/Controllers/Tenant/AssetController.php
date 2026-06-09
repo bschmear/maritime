@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant;
 use App\Domain\Asset\Actions\CreateAsset as CreateAction;
 use App\Domain\Asset\Actions\DeleteAsset as DeleteAction;
 use App\Domain\Asset\Actions\UpdateAsset as UpdateAction;
+use App\Domain\Asset\Models\Asset;
 use App\Domain\Asset\Models\Asset as RecordModel;
 use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecDefinition;
@@ -20,6 +21,7 @@ use App\Enums\Communication\CommunicationType;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Mail\CustomerAssetSpecSheetShareMail;
+use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use App\Services\Mail\TenantMailService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -49,7 +51,7 @@ class AssetController extends RecordController
     /**
      * Catalog asset options (resolved for this model + brand-wide assignments).
      *
-     * @param  \App\Domain\Asset\Models\Asset  $record
+     * @param  Asset  $record
      */
     protected function showPageExtraProps($record): array
     {
@@ -110,7 +112,7 @@ class AssetController extends RecordController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = $this->getEnumOptions();
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
@@ -195,7 +197,7 @@ class AssetController extends RecordController
             }
         }
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
         $userId = current_tenant_user_id();
         $confirmResend = $request->boolean('confirm_resend');
 
@@ -514,7 +516,7 @@ class AssetController extends RecordController
             ];
         });
 
-        $account = \App\Models\AccountSettings::getCurrent();
+        $account = AccountSettings::getCurrent();
 
         return Inertia::render('Tenant/Asset/VariantEdit', [
             'asset' => [
@@ -766,12 +768,7 @@ class AssetController extends RecordController
         if ($request->filled('search')) {
             $term = trim((string) $request->get('search'));
             if ($term !== '') {
-                $like = '%'.$term.'%';
-                $query->where(function ($q) use ($like) {
-                    $q->where('serial_number', 'like', $like)
-                        ->orWhere('hin', 'like', $like)
-                        ->orWhere('sku', 'like', $like);
-                });
+                $query->whereMatchesPickerSearch($term);
             }
         }
 

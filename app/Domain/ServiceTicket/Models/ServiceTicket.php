@@ -31,6 +31,7 @@ class ServiceTicket extends Model
 
     protected $casts = [
         'status' => 'integer',
+        'type' => 'integer',
         'expedite' => 'boolean',
         'approved' => 'boolean',
         'requires_reauthorization' => 'boolean',

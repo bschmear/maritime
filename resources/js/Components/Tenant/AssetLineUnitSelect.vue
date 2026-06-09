@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useAssetLineUnit } from '@/composables/useAssetLineUnit.js';
 
 const unitId = defineModel({ default: null });
@@ -19,6 +19,16 @@ const props = defineProps({
 });
 
 const { unitOptions, unitsLoading, loadForAsset, clear } = useAssetLineUnit();
+
+const unitSearchQuery = ref('');
+
+const debounce = (fn, delay) => {
+    let timer;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delay);
+    };
+};
 
 const selectedUnit = computed(() => {
     if (unitId.value == null || unitId.value === '') {
@@ -59,26 +69,39 @@ async function onSelectChange(e) {
     applySelection(unitId.value);
 }
 
+const reloadUnits = async () => {
+    const aid = props.assetId;
+    if (!aid) {
+        clear();
+        return;
+    }
+    await loadForAsset(aid, props.variantId, props.customerId, unitSearchQuery.value);
+    if (unitId.value != null) {
+        const stillValid = unitOptions.value.some((u) => Number(u.id) === Number(unitId.value));
+        if (!stillValid) {
+            unitId.value = null;
+            unitDisplayName.value = '';
+        } else {
+            applySelection(unitId.value);
+        }
+    }
+};
+
+const debouncedReloadUnits = debounce(() => reloadUnits(), 300);
+
 watch(
     () => [props.assetId, props.variantId, props.customerId],
-    async ([aid, vid, cid]) => {
+    async () => {
+        unitSearchQuery.value = '';
         clear();
-        if (!aid) {
-            return;
-        }
-        await loadForAsset(aid, vid, cid);
-        if (unitId.value != null) {
-            const stillValid = unitOptions.value.some((u) => Number(u.id) === Number(unitId.value));
-            if (!stillValid) {
-                unitId.value = null;
-                unitDisplayName.value = '';
-            } else {
-                applySelection(unitId.value);
-            }
-        }
+        await reloadUnits();
     },
     { immediate: true },
 );
+
+watch(unitSearchQuery, () => {
+    debouncedReloadUnits();
+});
 
 watch(unitOptions, (opts) => {
     if (opts.length && unitId.value != null) {
@@ -88,8 +111,14 @@ watch(unitOptions, (opts) => {
 </script>
 
 <template>
-    <div v-if="assetId && (unitsLoading || unitOptions.length > 0)" class="space-y-1.5">
+    <div v-if="assetId && (unitsLoading || unitOptions.length > 0 || unitSearchQuery.trim())" class="space-y-1.5">
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Unit</label>
+        <input
+            v-model="unitSearchQuery"
+            type="text"
+            placeholder="Search by hull ID, serial, or variant name..."
+            class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        />
         <select
             class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
             :disabled="unitsLoading"
@@ -102,6 +131,12 @@ watch(unitOptions, (opts) => {
             </option>
         </select>
         <p v-if="unitsLoading" class="text-xs text-gray-500 dark:text-gray-400">Loading units…</p>
+        <p
+            v-else-if="unitSearchQuery.trim() && unitOptions.length === 0"
+            class="text-xs text-gray-500 dark:text-gray-400"
+        >
+            No units match your search.
+        </p>
         <p
             v-else-if="selectedUnit && !props.hideFinancialDetails"
             class="text-xs text-gray-500 dark:text-gray-400"

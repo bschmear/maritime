@@ -59,6 +59,14 @@
     "default": 1
   },
 
+  "type": {
+    "label": "Work Type",
+    "type": "select",
+    "enum": "App\\Enums\\WorkOrder\\Type",
+    "required": true,
+    "default": 1
+  },
+
   "repair_description": {
     "label": "Repair Description",
     "type": "textarea",

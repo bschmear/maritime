@@ -395,7 +395,7 @@ function hoursBadgeClass(bucket) {
                                             :href="route('servicetickets.show', ticket.id)"
                                             class="font-medium text-primary-600 hover:underline dark:text-primary-400"
                                         >
-                                            {{ ticket.number }} — {{ ticket.title }}
+                                            {{ ticket.title }}
                                         </Link>
                                         <span
                                             class="inline-flex items-center rounded px-2 py-0.5 text-sm font-medium"
@@ -426,7 +426,7 @@ function hoursBadgeClass(bucket) {
                                                     :href="route('workorders.show', wo.id)"
                                                     class="font-medium text-primary-600 hover:underline dark:text-primary-400"
                                                 >
-                                                    WO-{{ wo.number }} — {{ wo.title }}
+                                                    {{ wo.title }}
                                                 </Link>
                                                 <span
                                                     class="inline-flex items-center rounded px-1.5 py-0.5 text-sm font-medium"
@@ -484,7 +484,7 @@ function hoursBadgeClass(bucket) {
                                             :href="route('workorders.show', wo.id)"
                                             class="font-medium text-primary-600 hover:underline dark:text-primary-400"
                                         >
-                                            WO-{{ wo.number }} — {{ wo.title }}
+                                            {{ wo.title }}
                                         </Link>
                                         <span
                                             class="inline-flex items-center rounded px-2 py-0.5 text-sm font-medium"

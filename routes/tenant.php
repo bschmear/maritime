@@ -438,6 +438,7 @@ Route::middleware([
 
         Route::prefix('scheduling')->name('scheduling.')->group(function () {
             Route::post('update-item', [SchedulingController::class, 'updateItem'])->name('update-item');
+            Route::post('qr-codes', [SchedulingController::class, 'qrCodes'])->name('qr-codes');
             Route::post('defaults', [SchedulingController::class, 'updateDefaults'])->name('update-defaults');
             Route::get('/', fn () => redirect()->route('serviceyard.scheduling', request()->query()))->name('index');
         });

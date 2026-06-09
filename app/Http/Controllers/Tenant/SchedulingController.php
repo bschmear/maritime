@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\BoatShowEvent\Support\BoatShowQrCode;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\WorkOrder\Status as WorkOrderStatus;
@@ -36,25 +37,27 @@ class SchedulingController extends Controller
         $rangeStart = now()->startOfWeek()->subWeeks(self::RANGE_WEEKS_PAST)->startOfDay();
         $rangeEnd = now()->startOfWeek()->addWeeks(self::RANGE_WEEKS_FUTURE)->endOfDay();
 
-        $workOrders = [];
-
-        if ($techIds !== []) {
-            $workOrders = WorkOrder::query()
-                ->whereIn('assigned_user_id', $techIds)
-                ->where(function ($q) {
-                    $q->whereNotNull('scheduled_start_at')
-                        ->orWhereNotNull('due_at');
-                })
-                ->where(function ($q) use ($rangeStart, $rangeEnd) {
-                    $q->whereBetween('scheduled_start_at', [$rangeStart, $rangeEnd])
-                        ->orWhereBetween('due_at', [$rangeStart, $rangeEnd]);
-                })
-                ->get()
-                ->map(fn (WorkOrder $wo) => $this->mapWorkOrderRow($wo))
-                ->filter()
-                ->values()
-                ->all();
-        }
+        $workOrders = WorkOrder::query()
+            ->with(['serviceTicket:id,service_ticket_number'])
+            ->where(function ($q) use ($techIds) {
+                $q->whereNull('assigned_user_id');
+                if ($techIds !== []) {
+                    $q->orWhereIn('assigned_user_id', $techIds);
+                }
+            })
+            ->where(function ($q) {
+                $q->whereNotNull('scheduled_start_at')
+                    ->orWhereNotNull('due_at');
+            })
+            ->where(function ($q) use ($rangeStart, $rangeEnd) {
+                $q->whereBetween('scheduled_start_at', [$rangeStart, $rangeEnd])
+                    ->orWhereBetween('due_at', [$rangeStart, $rangeEnd]);
+            })
+            ->get()
+            ->map(fn (WorkOrder $wo) => $this->mapWorkOrderRow($wo))
+            ->filter()
+            ->values()
+            ->all();
 
         $locationNames = $technicians
             ->pluck('location')
@@ -145,6 +148,27 @@ class SchedulingController extends Controller
     }
 
     /**
+     * Batch QR code data URIs for schedule print (work order show URLs).
+     */
+    public function qrCodes(Request $request)
+    {
+        $data = $request->validate([
+            'urls' => 'required|array|max:50',
+            'urls.*' => 'required|url|max:2048',
+        ]);
+
+        $codes = [];
+        foreach ($data['urls'] as $url) {
+            $codes[$url] = BoatShowQrCode::dataUriForUrl($url, 96);
+        }
+
+        return response()->json([
+            'success' => true,
+            'codes' => $codes,
+        ]);
+    }
+
+    /**
      * Persist workday length, start hour, and overlap from the scheduling toolbar.
      */
     public function updateDefaults(Request $request)
@@ -185,10 +209,6 @@ class SchedulingController extends Controller
      */
     private function mapWorkOrderRow(WorkOrder $wo): ?array
     {
-        if (! $wo->assigned_user_id) {
-            return null;
-        }
-
         $start = $wo->scheduled_start_at ?? $wo->due_at;
         if (! $start) {
             return null;
@@ -203,22 +223,28 @@ class SchedulingController extends Controller
 
         $status = $this->workOrderStatusValue($wo->status);
 
-        $num = $wo->work_order_number;
-        $title = $num
-            ? 'WO-'.$num.' '.($wo->display_name ?? '')
-            : ($wo->display_name ?? 'Work Order #'.$wo->id);
+        $label = $wo->work_order_number
+            ? 'WO-'.$wo->work_order_number
+            : 'Work Order #'.$wo->id;
+
+        $description = trim((string) ($wo->description ?? ''));
 
         return [
             'id' => 'wo-'.$wo->id,
             'record_id' => $wo->id,
             'record_type' => 'work_order',
-            'title' => trim($title) ?: 'Work Order #'.$wo->id,
+            'title' => $label,
+            'work_order_label' => $label,
+            'description' => $description,
             'type' => 'work_order',
-            'technician_id' => (int) $wo->assigned_user_id,
+            'technician_id' => $wo->assigned_user_id ? (int) $wo->assigned_user_id : 0,
             'start_date' => $start->format('Y-m-d'),
             'scheduled_at_local' => $this->formatScheduleLocal($start),
             'status' => $status,
             'planned_hours' => $plannedHours,
+            'service_ticket_id' => $wo->service_ticket_id,
+            'service_ticket_number' => $wo->serviceTicket?->service_ticket_number,
+            'show_url' => url(route('workorders.show', $wo->id)),
         ];
     }
 

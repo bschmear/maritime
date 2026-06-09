@@ -74,6 +74,11 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 const isLoading = ref(false);
 
+const unitSearchQuery = ref('');
+const unitSearchResults = ref([]);
+const unitSearchLoading = ref(false);
+const showCatalogBrowse = ref(false);
+
 const fetchAssets = async (resetPage = false) => {
     if (resetPage) currentPage.value = 1;
     isLoading.value = true;
@@ -105,9 +110,75 @@ const fetchAssets = async (resetPage = false) => {
 
 const debouncedFetchAssets = debounce(() => fetchAssets(true), 300);
 
+const fetchUnitsForCustomer = async () => {
+    if (!props.customerId) {
+        return;
+    }
+    unitSearchLoading.value = true;
+    try {
+        const url = new URL(route('records.lookup'), window.location.origin);
+        url.searchParams.append('type', 'assetunit');
+        url.searchParams.append('per_page', '25');
+        url.searchParams.append('filters', JSON.stringify([
+            { field: 'customer_id', operator: 'equals', value: props.customerId },
+        ]));
+        if (unitSearchQuery.value.trim()) {
+            url.searchParams.append('search', unitSearchQuery.value.trim());
+        }
+        const response = await fetch(url.toString(), {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        unitSearchResults.value = data.records || data.data || [];
+    } catch (err) {
+        console.error('Failed to fetch units:', err);
+        unitSearchResults.value = [];
+    } finally {
+        unitSearchLoading.value = false;
+    }
+};
+
+const debouncedUnitSearch = debounce(() => fetchUnitsForCustomer(), 300);
+
+const selectUnitFromSearch = (unit) => {
+    model.value.itemable_id = unit.asset_id;
+    model.value.asset_id = unit.asset_id;
+    model.value.name = unit.asset?.display_name || '';
+    model.value.year = unit.asset?.year || '';
+    model.value.make = unit.asset?.make?.display_name || '';
+    model.value.has_variants = Boolean(unit.asset?.has_variants);
+    model.value.asset_variant_id = unit.asset_variant_id ?? null;
+    model.value.variant_display_name =
+        unit.asset_variant?.display_name || unit.asset_variant?.name || '';
+    model.value.asset_unit_id = unit.id;
+    model.value.unit_display_name = unit.display_name || '';
+};
+
+const variantLabel = (unit) => {
+    const v = unit.asset_variant;
+    return (v?.display_name || v?.name || '').trim();
+};
+
 watch(open, (isOpen) => {
-    if (!isOpen) return;
+    if (!isOpen) {
+        showCatalogBrowse.value = false;
+        return;
+    }
     if (!model.value?.itemable_id) {
+        if (props.pickAssetOnly && props.customerId) {
+            unitSearchQuery.value = '';
+            showCatalogBrowse.value = false;
+            fetchUnitsForCustomer();
+            return;
+        }
         searchQuery.value = '';
         currentPage.value = 1;
         fetchAssets(true);
@@ -245,8 +316,73 @@ const save = async () => {
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-6 space-y-5">
-                    <!-- Search (shown when no asset selected) -->
-                    <div v-if="!model.itemable_id">
+                    <!-- Service ticket: search customer units by hull / serial / variant -->
+                    <div v-if="!model.itemable_id && props.pickAssetOnly && props.customerId && !showCatalogBrowse">
+                        <div class="relative mb-3">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </div>
+                            <input
+                                v-model="unitSearchQuery"
+                                @input="debouncedUnitSearch"
+                                type="text"
+                                placeholder="Search by hull ID, serial, or variant name..."
+                                class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div v-if="unitSearchLoading" class="flex justify-center py-8">
+                            <svg class="w-6 h-6 animate-spin text-primary-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                        </div>
+
+                        <div v-else-if="unitSearchResults.length > 0" class="space-y-1.5 max-h-56 overflow-y-auto">
+                            <button
+                                v-for="unit in unitSearchResults"
+                                :key="unit.id"
+                                type="button"
+                                @click="selectUnitFromSearch(unit)"
+                                class="w-full text-left p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all group"
+                            >
+                                <div class="font-medium text-gray-900 dark:text-white text-sm group-hover:text-primary-700 dark:group-hover:text-primary-300">
+                                    {{ unit.display_name }}
+                                </div>
+                                <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                                    <span v-if="unit.hin">Hull ID: {{ unit.hin }}</span>
+                                    <span v-if="unit.serial_number">Serial: {{ unit.serial_number }}</span>
+                                    <span v-if="variantLabel(unit)">Variant: {{ variantLabel(unit) }}</span>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div v-else class="text-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+                            {{ unitSearchQuery.trim() ? 'No equipment matches your search' : 'No equipment found for this customer' }}
+                        </div>
+
+                        <button
+                            type="button"
+                            class="mt-3 text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                            @click="showCatalogBrowse = true"
+                        >
+                            Browse catalog assets instead
+                        </button>
+                    </div>
+
+                    <!-- Search catalog assets (shown when no asset selected) -->
+                    <div v-else-if="!model.itemable_id">
+                        <div v-if="props.pickAssetOnly && props.customerId" class="mb-3">
+                            <button
+                                type="button"
+                                class="text-xs text-primary-600 dark:text-primary-400 hover:underline"
+                                @click="showCatalogBrowse = false"
+                            >
+                                ← Search customer equipment
+                            </button>
+                        </div>
                         <div class="relative mb-3">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

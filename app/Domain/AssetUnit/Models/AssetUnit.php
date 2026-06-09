@@ -18,6 +18,7 @@ use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Models\Concerns\HasDocuments;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -87,6 +88,36 @@ class AssetUnit extends Model
     public function assetVariant()
     {
         return $this->belongsTo(AssetVariant::class, 'asset_variant_id');
+    }
+
+    /**
+     * Picker search: hull ID (HIN), serial, SKU, catalog asset name, or variant name.
+     */
+    public function scopeWhereMatchesPickerSearch(Builder $query, string $rawSearch): Builder
+    {
+        $term = trim($rawSearch);
+        if ($term === '') {
+            return $query;
+        }
+
+        $searchTerm = '%'.strtolower($term).'%';
+        $table = $query->getModel()->getTable();
+
+        return $query->where(function ($q) use ($searchTerm, $term, $table) {
+            $q->whereRaw('LOWER(COALESCE('.$table.'.serial_number, \'\')) LIKE ?', [$searchTerm])
+                ->orWhereRaw('LOWER(COALESCE('.$table.'.hin, \'\')) LIKE ?', [$searchTerm])
+                ->orWhereRaw('LOWER(COALESCE('.$table.'.sku, \'\')) LIKE ?', [$searchTerm])
+                ->orWhereRaw('CAST('.$table.'.id AS TEXT) LIKE ?', [$searchTerm])
+                ->orWhereHas('asset', fn ($aq) => $aq->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm]))
+                ->orWhereHas('assetVariant', function ($vq) use ($searchTerm) {
+                    $vq->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(name, \'\')) LIKE ?', [$searchTerm]);
+                });
+
+            if (ctype_digit($term)) {
+                $q->orWhere($table.'.id', '=', (int) $term);
+            }
+        });
     }
 
     public function customer()

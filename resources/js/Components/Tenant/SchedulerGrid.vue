@@ -24,7 +24,10 @@ function isSameDay(a, b) { return fmt(a) === fmt(b) }
 import axios from 'axios'
 import { ref, computed, watch, getCurrentInstance, onMounted, onUnmounted } from 'vue'
 import ScheduleDayPicker from '@/Components/Tenant/ScheduleDayPicker.vue'
+import SchedulePrintPreview from '@/Components/Tenant/SchedulePrintPreview.vue'
 import { useTimezone } from '@/composables/useTimezone'
+
+const UNASSIGNED_TECH_ID = 0
 
 const { accountTimezone } = useTimezone()
 
@@ -70,6 +73,7 @@ const locationFilter = ref(props.locations[0] ?? 'All Locations')
 const selectedWo     = ref(null)
 const modalScheduledAtLocal = ref('')
 const isSavingSchedule      = ref(false)
+const showPrintPreview      = ref(false)
 
 // ─── Interaction state ────────────────────────────────────────────────────────
 // One unified "active gesture" at a time.
@@ -160,6 +164,41 @@ function technicianMatchesLocationFilter(tech, sel) {
 }
 const filteredTechs = computed(() => props.technicians.filter(t => technicianMatchesLocationFilter(t, locationFilter.value)))
 
+function orderVisibleThisWeek(wo) {
+  return weekDays.value.some(day => woCoversDay(wo, fmt(day)))
+}
+
+const hasUnassignedThisWeek = computed(() =>
+  localOrders.value.some(w => Number(w.technician_id) === UNASSIGNED_TECH_ID && orderVisibleThisWeek(w)),
+)
+
+const displayTechs = computed(() => {
+  if (!hasUnassignedThisWeek.value) {
+    return filteredTechs.value
+  }
+  return [
+    { id: UNASSIGNED_TECH_ID, name: 'Unassigned', location: '—' },
+    ...filteredTechs.value,
+  ]
+})
+
+const weekPrintOrders = computed(() =>
+  localOrders.value
+    .filter(orderVisibleThisWeek)
+    .map(wo => ({
+      ...wo,
+      start_time_label: fmtTime(startTimeOnDay(wo, wo.start_date)),
+      end_time_label: fmtTime(endTimeOnDay(wo, wo.start_date)),
+      start_date_label: fmtDateShort(wo.start_date),
+      end_date_label: fmtDateShort(computedEndDate(wo)),
+    })),
+)
+
+function technicianLabel(techId) {
+  if (Number(techId) === UNASSIGNED_TECH_ID) return 'Unassigned'
+  return props.technicians.find(t => Number(t.id) === Number(techId))?.name ?? '—'
+}
+
 // ─── WO helpers ───────────────────────────────────────────────────────────────
 function computedEndDate(wo) {
   return fmt(addDays(new Date(wo.start_date + 'T00:00:00'), Math.ceil(wo.planned_hours / hoursPerDay.value) - 1))
@@ -228,6 +267,7 @@ function hasOverlapOnDay(techId, dayStr) {
   return items.length > 1 && usedHours(techId, dayStr) > hoursPerDay.value + 0.001
 }
 function canDrop(techId, newStartDate, wo) {
+  if (Number(techId) === UNASSIGNED_TECH_ID) return false
   if (allowOverlap.value) return true
   for (let i = 0; i < woSpan(wo); i++) {
     const d = fmt(addDays(new Date(newStartDate + 'T00:00:00'), i))
@@ -612,6 +652,14 @@ function cardRingClass(wo, dayStr) {
           <span class="text-sm font-semibold text-gray-900 dark:text-white min-w-[210px] text-center">{{ weekLabel }}</span>
           <button @click="nextWeek" class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-lg leading-none">›</button>
           <button @click="goToToday" class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Today</button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            @click="showPrintPreview = true"
+          >
+            <span class="material-icons text-base">print</span>
+            Print
+          </button>
           <ScheduleDayPicker
             :model-value="weekAnchorYmd"
             :timezone="accountTimezone"
@@ -684,12 +732,22 @@ function cardRingClass(wo, dayStr) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="tech in filteredTechs" :key="tech.id" class="border-b border-gray-50 dark:border-gray-700/60">
+          <tr v-for="tech in displayTechs" :key="tech.id" class="border-b border-gray-50 dark:border-gray-700/60">
             <!-- Tech label -->
             <td class="w-36 px-3 py-2 border-r border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 align-middle">
               <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/40 flex items-center justify-center shrink-0">
-                  <span class="text-[11px] font-bold text-primary-700 dark:text-primary-300">{{ initials(tech.name) }}</span>
+                <div
+                  class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  :class="Number(tech.id) === UNASSIGNED_TECH_ID
+                    ? 'bg-amber-100 dark:bg-amber-900/40'
+                    : 'bg-primary-100 dark:bg-primary-900/40'"
+                >
+                  <span
+                    class="text-[11px] font-bold"
+                    :class="Number(tech.id) === UNASSIGNED_TECH_ID
+                      ? 'text-amber-700 dark:text-amber-300'
+                      : 'text-primary-700 dark:text-primary-300'"
+                  >{{ Number(tech.id) === UNASSIGNED_TECH_ID ? 'UA' : initials(tech.name) }}</span>
                 </div>
                 <div class="min-w-0">
                   <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ tech.name }}</p>
@@ -877,7 +935,7 @@ function cardRingClass(wo, dayStr) {
             </div>
             <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2.5">
               <p class="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Technician</p>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ technicians.find(t => t.id === selectedWo.technician_id)?.name ?? '—' }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ technicianLabel(selectedWo.technician_id) }}</p>
             </div>
             <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2.5">
               <p class="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Status</p>
@@ -925,5 +983,17 @@ function cardRingClass(wo, dayStr) {
         </div>
       </div>
     </Transition>
+  </Teleport>
+
+  <!-- ── Print Preview ─────────────────────────────────────────────────────── -->
+  <Teleport to="body">
+    <div v-if="showPrintPreview" class="schedule-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
+      <SchedulePrintPreview
+        :orders="weekPrintOrders"
+        :technicians="technicians"
+        :week-label="weekLabel"
+        @close="showPrintPreview = false"
+      />
+    </div>
   </Teleport>
 </template>
