@@ -52,6 +52,10 @@ const props = defineProps({
         type: Number,
         default: 20,
     },
+    users: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -115,6 +119,7 @@ const handleCancelled = () => {
             :service-items="serviceItems"
             :service-ticket="serviceTicket"
             :estimate-threshold="estimateThreshold"
+            :users="users"
             mode="edit"
             @cancelled="handleCancelled"
         />

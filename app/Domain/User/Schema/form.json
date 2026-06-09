@@ -30,6 +30,10 @@
                 {
                     "key": "is_technician",
                     "required": false
+                },
+                {
+                    "key": "manager_user_id",
+                    "required": false
                 }
             ]
         },

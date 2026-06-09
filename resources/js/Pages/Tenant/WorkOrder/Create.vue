@@ -50,6 +50,18 @@ const props = defineProps({
         type: Number,
         default: 20,
     },
+    currentUser: {
+        type: Object,
+        default: null,
+    },
+    users: {
+        type: Array,
+        default: () => [],
+    },
+    checklistTemplates: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const breadcrumbItems = computed(() => {
@@ -89,6 +101,9 @@ const breadcrumbItems = computed(() => {
             :service-ticket="serviceTicket"
             :service-ticket-items="serviceTicketItems"
             :estimate-threshold="estimateThreshold"
+            :current-user="currentUser"
+            :users="users"
+            :checklist-templates="checklistTemplates"
             mode="create"
         />
     </TenantLayout>

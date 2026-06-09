@@ -3,7 +3,7 @@
 namespace App\Domain\Checklist\Services;
 
 use App\Domain\Checklist\Models\Checklist;
-use App\Domain\Checklist\Models\ChecklistTemplate;
+use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 
 class ChecklistService
 {

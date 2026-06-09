@@ -145,6 +145,9 @@ class HandleInertiaRequests extends Middleware
             'tenant_permissions' => fn () => tenancy()->initialized
                 ? app(CurrentTenantProfile::class)->permissionKeys()
                 : [],
+            'tenant_role_slug' => fn () => tenancy()->initialized
+                ? app(CurrentTenantProfile::class)->roleSlug()
+                : null,
             'tenant_user_signature' => fn () => $this->tenantUserSignature(),
             'account_setup' => fn () => $this->accountSetupPayload($request),
         ];

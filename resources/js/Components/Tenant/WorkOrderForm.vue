@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { useTimezone } from '@/composables/useTimezone';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import ChecklistTemplatePicker from '@/Components/Tenant/ChecklistTemplatePicker.vue';
 import axios from 'axios';
 import { computed, nextTick, ref, watch } from 'vue';
 
@@ -55,6 +56,18 @@ const props = defineProps({
         type: Number,
         default: 20, // Percentage threshold from account_settings
     },
+    users: {
+        type: Array,
+        default: () => [],
+    },
+    checklistTemplates: {
+        type: Array,
+        default: () => [],
+    },
+    currentUser: {
+        type: Object,
+        default: null,
+    },
 });
 
 const emit = defineEmits(['saved', 'cancelled']);
@@ -99,6 +112,9 @@ const editingLineIndex = ref(null);
 const lineItems = ref([]);
 
 const serviceItemPickerRef = ref(null);
+const showChecklistTemplatePicker = ref(false);
+const selectedChecklistTemplateId = ref(null);
+const selectedChecklistTemplateName = ref('');
 const serviceItemPickerField = {
     type: 'record',
     typeDomain: 'ServiceItem',
@@ -791,6 +807,23 @@ watch(() => form.asset_unit_id, async (newValue, oldValue) => {
     }
 });
 
+watch(() => form.assigned_user_id, (newValue) => {
+    if (props.mode === 'show' || !newValue) {
+        return;
+    }
+    const assignee = props.users.find((user) => Number(user.id) === Number(newValue));
+    if (assignee?.manager_user_id) {
+        form.manager_user_id = assignee.manager_user_id;
+    }
+});
+
+watch(() => form.requires_manager_approval, (enabled) => {
+    if (!enabled) {
+        selectedChecklistTemplateId.value = null;
+        selectedChecklistTemplateName.value = '';
+    }
+});
+
 // Watch for location changes to auto-populate tax rate
 watch(() => form.location_id, async (newValue, oldValue) => {
     if (formInitialized.value && newValue && newValue !== oldValue) {
@@ -883,6 +916,10 @@ const submit = () => {
             allData.link_all_service_ticket_images = linkAllStTicketImages.value;
         }
 
+        if (props.mode === 'create' && form.requires_manager_approval && selectedChecklistTemplateId.value) {
+            allData.checklist_template_id = selectedChecklistTemplateId.value;
+        }
+
         return allData;
     });
 
@@ -931,53 +968,70 @@ const saveAndOpen = () => {
 const handleCancel = () => {
     emit('cancelled');
 };
+
+const applyChecklistTemplate = (template) => {
+    selectedChecklistTemplateId.value = template.id ?? null;
+    selectedChecklistTemplateName.value = template.name ?? '';
+    showChecklistTemplatePicker.value = false;
+};
+
+const clearChecklistTemplate = () => {
+    selectedChecklistTemplateId.value = null;
+    selectedChecklistTemplateName.value = '';
+};
 </script>
 
 <template>
 
-    <div class="w-full flex flex-col space-y-4 md:space-y-6">
+    <div class="flex w-full min-w-0 max-w-full flex-col space-y-4 md:space-y-6">
 
 
         <div class="">
             <form @submit.prevent="submit">
-                <div class="grid gap-4 lg:gap-6  lg:grid-cols-12">
+                <div class="grid min-w-0 gap-4 lg:grid-cols-12 lg:gap-6">
             <!-- Main Work Order Form -->
             <div
                 :class="{
                     'lg:col-span-9': mode !== 'show',
                     'lg:col-span-12': mode === 'show',
-                    'space-y-6': true
+                    'min-w-0 space-y-6': true
                 }"
             >
                 <!-- Work Order Header -->
                 <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 px-6 py-4">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h1 class="text-2xl font-bold text-white">{{ mode === 'edit' ? 'EDIT' : 'WORK ORDER' }}</h1>
-                                <p class="text-blue-100 text-md mt-1">{{ mode === 'edit' ? 'Update Work Order' : 'Service Request Form' }}</p>
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-4 dark:from-blue-700 dark:to-blue-800 sm:px-6">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="min-w-0">
+                                <h1 class="text-xl font-bold text-white sm:text-2xl">{{ mode === 'edit' ? 'EDIT' : 'WORK ORDER' }}</h1>
+                                <p class="mt-1 text-sm text-blue-100 sm:text-md">{{ mode === 'edit' ? 'Update Work Order' : 'Service Request Form' }}</p>
                             </div>
-                            <div class="text-right">
-                                <div class="text-white text-md font-medium">Work order</div>
-                                <div class="text-white text-xl font-mono">{{ record?.display_name || (form.work_order_number ? `WO-${form.work_order_number}` : 'Auto-generated') }}</div>
+                            <div class="min-w-0 sm:text-right">
+                                <div class="text-sm font-medium text-white sm:text-md">Work order</div>
+                                <div class="truncate font-mono text-lg text-white sm:text-xl">{{ record?.display_name || (form.work_order_number ? `WO-${form.work_order_number}` : 'Auto-generated') }}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="p-6 space-y-6">
+                    <div class="space-y-6 p-4 sm:p-6">
                         <!-- Service Ticket Link Banner -->
-                        <div v-if="isLinkedToServiceTicket" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                            <div class="flex items-center gap-3">
-                                <span class="material-icons text-amber-600 dark:text-amber-400">link</span>
-                                <div class="flex-1">
-                                    <p class="text-md font-semibold text-amber-800 dark:text-amber-200">
-                                        Linked to Service Ticket {{ serviceTicket?.service_ticket_number || record?.service_ticket_id }}
-                                    </p>
-                                    <p class="text-sm text-amber-600 dark:text-amber-400 mt-0.5">
-                                        Customer, location, and asset are sourced from the service ticket.
-                                    </p>
+                        <div v-if="isLinkedToServiceTicket" class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                <div class="flex min-w-0 items-start gap-3 sm:flex-1">
+                                    <span class="material-icons shrink-0 text-amber-600 dark:text-amber-400">link</span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-md font-semibold text-amber-800 dark:text-amber-200">
+                                            Linked to Service Ticket {{ serviceTicket?.service_ticket_number || record?.service_ticket_id }}
+                                        </p>
+                                        <p class="mt-0.5 text-sm text-amber-600 dark:text-amber-400">
+                                            Customer, location, and asset are sourced from the service ticket.
+                                        </p>
+                                    </div>
                                 </div>
-                                <a v-if="serviceTicket" :href="route('servicetickets.show', serviceTicket.id)" class="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-md text-sm font-medium hover:bg-amber-700 transition-colors whitespace-nowrap">
+                                <a
+                                    v-if="serviceTicket"
+                                    :href="route('servicetickets.show', serviceTicket.id)"
+                                    class="inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 sm:w-auto sm:py-1.5"
+                                >
                                     <span class="material-icons text-md">open_in_new</span>
                                     View Ticket
                                 </a>
@@ -1233,6 +1287,74 @@ const handleCancel = () => {
                                         {{ fieldsSchema.completed_at.help }}
                                     </p>
                                 </div>
+                                </div>
+                            </div>
+
+                            <div
+                                v-if="mode !== 'show'"
+                                class="space-y-4 border-t border-gray-200 pt-6 dark:border-gray-700"
+                            >
+                                <h3 class="text-md font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700">
+                                    Manager Approval
+                                </h3>
+
+                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                                    <div class="flex items-start gap-3 md:col-span-2">
+                                        <input
+                                            id="requires_manager_approval"
+                                            v-model="form.requires_manager_approval"
+                                            type="checkbox"
+                                            class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        <label for="requires_manager_approval" class="text-sm text-gray-700 dark:text-gray-300">
+                                            <span class="font-medium">{{ fieldsSchema.requires_manager_approval?.label || 'Requires Manager Approval' }}</span>
+                                            <span v-if="fieldsSchema.requires_manager_approval?.help" class="mt-1 block text-gray-500 dark:text-gray-400">
+                                                {{ fieldsSchema.requires_manager_approval.help }}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div v-if="form.requires_manager_approval">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            {{ fieldsSchema.manager_user_id?.label || 'Approving Manager' }}
+                                        </label>
+                                        <RecordSelect
+                                            :id="'manager_user_id'"
+                                            :field="fieldsSchema.manager_user_id"
+                                            v-model="form.manager_user_id"
+                                            :enum-options="getEnumOptions('manager_user_id')"
+                                            :record="record"
+                                            field-key="manager_user_id"
+                                        />
+                                    </div>
+
+                                    <div v-if="mode === 'create' && form.requires_manager_approval">
+                                        <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Approval Checklist Template
+                                        </label>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button
+                                                type="button"
+                                                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                                @click="showChecklistTemplatePicker = true"
+                                            >
+                                                <span class="material-icons text-[16px]">library_books</span>
+                                                Choose template
+                                            </button>
+                                            <span
+                                                v-if="selectedChecklistTemplateName"
+                                                class="inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-900/20 dark:text-primary-300"
+                                            >
+                                                {{ selectedChecklistTemplateName }}
+                                                <button type="button" class="text-primary-500 hover:text-primary-700" @click="clearChecklistTemplate">
+                                                    <span class="material-icons text-[16px]">close</span>
+                                                </button>
+                                            </span>
+                                            <span v-else class="text-sm text-gray-500 dark:text-gray-400">
+                                                Optional — pre-populate checklist lines on create
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2082,5 +2204,12 @@ const handleCancel = () => {
                 </div>
             </div>
         </div>
+
+        <ChecklistTemplatePicker
+            v-if="showChecklistTemplatePicker"
+            :templates="checklistTemplates"
+            @close="showChecklistTemplatePicker = false"
+            @select="applyChecklistTemplate"
+        />
     </div>
 </template>

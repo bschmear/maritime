@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\PublicStorage;
 use App\Domain\Attachment\Services\InventoryImageAttachmentService;
+use App\Domain\Checklist\Actions\SyncWorkOrderChecklist;
+use App\Domain\Checklist\Services\ChecklistService;
+use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 use App\Domain\ServiceItem\Models\ServiceItem;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
@@ -16,6 +19,7 @@ use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Domain\WorkOrder\Models\WorkOrder as RecordModel;
 use App\Domain\WorkOrder\Support\MapWorkOrderStatusToServiceTicketStatus;
 use App\Domain\WorkOrder\Support\SyncWorkOrderStatusToServiceTicket;
+use App\Domain\WorkOrder\Support\WorkOrderApprovalState;
 use App\Domain\WorkOrderServiceItem\Models\WorkOrderServiceItem;
 use App\Enums\RecordType;
 use App\Enums\ServiceItem\BillingType;
@@ -631,6 +635,10 @@ class WorkOrderController extends RecordController
 
         $account = AccountSettings::getCurrent();
 
+        $users = User::select('id', 'display_name', 'manager_user_id')
+            ->orderBy('display_name')
+            ->get();
+
         return inertia('Tenant/'.$this->domainName.'/Edit', [
             'record' => $record,
             'recordType' => $this->recordType,
@@ -643,6 +651,7 @@ class WorkOrderController extends RecordController
             'serviceItems' => [], // Service items are now loaded on-demand via paginated modal
             'serviceTicket' => $serviceTicket,
             'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
+            'users' => $users,
         ]);
     }
 
@@ -657,7 +666,7 @@ class WorkOrderController extends RecordController
         $currentUser = Auth::user();
 
         // Get other users for assignment dropdown
-        $users = User::select('id', 'display_name')
+        $users = User::select('id', 'display_name', 'manager_user_id')
             ->where('id', '!=', $currentUser->id)
             ->orderBy('display_name')
             ->get();
@@ -749,6 +758,7 @@ class WorkOrderController extends RecordController
             'serviceTicket' => $serviceTicket,
             'serviceTicketItems' => $serviceTicketItems,
             'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
+            'checklistTemplates' => $this->workOrderChecklistTemplates(),
         ]);
     }
 
@@ -761,11 +771,19 @@ class WorkOrderController extends RecordController
 
         // Load WorkOrder-specific relationships
         $relationships['assignedUser'] = function ($query) {
+            $query->select(['id', 'display_name', 'manager_user_id']);
+        };
+
+        $relationships['manager_user'] = function ($query) {
             $query->select(['id', 'display_name']);
         };
 
         $relationships['requested_by_user'] = function ($query) {
             $query->select(['id', 'display_name']);
+        };
+
+        $relationships['approvalChecklist'] = function ($query) {
+            $query->with(['items' => fn ($q) => $q->orderBy('position')]);
         };
 
         // Load the record with relationships including service items (WorkOrderServiceItem)
@@ -842,6 +860,17 @@ class WorkOrderController extends RecordController
             ])
             ->findOrFail($id);
 
+        $checklist = $record->approvalChecklist
+            ? SyncWorkOrderChecklist::formatForFrontend($record->approvalChecklist)
+            : [
+                'id' => null,
+                'name' => 'Approval Checklist',
+                'checklist_template_id' => null,
+                'items' => [],
+            ];
+
+        $recordArray['approval_state'] = WorkOrderApprovalState::resolve($record);
+
         return inertia('Tenant/'.$this->domainName.'/Show', array_merge([
             'record' => $recordArray,
             'recordType' => $this->recordType,
@@ -857,6 +886,9 @@ class WorkOrderController extends RecordController
             'serviceTicketStatusMap' => MapWorkOrderStatusToServiceTicketStatus::all(),
             'estimateThreshold' => (float) ($account->estimate_threshold_percent ?? 20),
             'tasks' => $workOrderWithTasks->tasks,
+            'checklist' => $checklist,
+            'checklistTemplates' => $this->workOrderChecklistTemplates(),
+            'currentUser' => Auth::user() ? ['id' => Auth::id()] : null,
         ], $this->taskBoardInertiaProps()));
     }
 
@@ -877,6 +909,16 @@ class WorkOrderController extends RecordController
         $linkServiceTicketImageIds = array_values(array_unique(array_map(static fn ($v) => (int) $v, $linkServiceTicketImageIds)));
         $linkAllServiceTicketImages = filter_var($data['link_all_service_ticket_images'] ?? false, FILTER_VALIDATE_BOOLEAN);
         unset($data['link_service_ticket_image_ids'], $data['link_all_service_ticket_images']);
+
+        $checklistTemplateId = $data['checklist_template_id'] ?? null;
+        unset($data['checklist_template_id']);
+
+        if (empty($data['manager_user_id']) && ! empty($data['assigned_user_id'])) {
+            $assignee = User::query()->find($data['assigned_user_id']);
+            if ($assignee?->manager_user_id) {
+                $data['manager_user_id'] = $assignee->manager_user_id;
+            }
+        }
 
         // Validate threshold if linked to a service ticket
         $serviceTicketId = $data['service_ticket_id'] ?? null;
@@ -913,6 +955,7 @@ class WorkOrderController extends RecordController
         $request->request->remove('service_items');
         $request->request->remove('link_service_ticket_image_ids');
         $request->request->remove('link_all_service_ticket_images');
+        $request->request->remove('checklist_template_id');
         $response = parent::store($request, $publicStorage);
 
         // If successful, always recalculate work order totals
@@ -938,6 +981,15 @@ class WorkOrderController extends RecordController
                             $linkAllServiceTicketImages
                         );
                     }
+
+                    if ($checklistTemplateId) {
+                        $template = ChecklistTemplate::query()
+                            ->with(['items' => fn ($q) => $q->orderBy('position')])
+                            ->find($checklistTemplateId);
+                        if ($template) {
+                            app(ChecklistService::class)->createFromTemplate($template, $workOrder);
+                        }
+                    }
                 }
             }
         }
@@ -959,8 +1011,15 @@ class WorkOrderController extends RecordController
         unset($data['sync_service_ticket_status']);
         $statusToSync = isset($data['status']) ? (int) $data['status'] : null;
 
-        // Validate threshold if linked to a service ticket
         $workOrder = WorkOrder::find($id);
+
+        if ($workOrder && $statusToSync === WorkOrderStatus::Closed->id() && ! WorkOrderApprovalState::canClose($workOrder)) {
+            return back()->withErrors([
+                'status' => 'Manager approval sign-off is required before closing this work order.',
+            ]);
+        }
+
+        // Validate threshold if linked to a service ticket
         $serviceTicketId = $data['service_ticket_id'] ?? $workOrder->service_ticket_id ?? null;
         if ($serviceTicketId) {
             $thresholdError = $this->validateThreshold($serviceTicketId, $serviceItems, $data['tax_rate'] ?? 0);
@@ -976,8 +1035,11 @@ class WorkOrderController extends RecordController
         $calculator = app(WorkOrderCalculator::class);
         $workOrder = WorkOrder::find($id);
         if ($workOrder) {
-            if ($syncServiceTicketStatus && $statusToSync !== null && (int) $workOrder->status === $statusToSync) {
-                (new SyncWorkOrderStatusToServiceTicket)($workOrder, $statusToSync);
+            $shouldSyncTicket = ($syncServiceTicketStatus && $statusToSync !== null && (int) $workOrder->status === $statusToSync)
+                || ($statusToSync === WorkOrderStatus::Closed->id() && (int) $workOrder->status === WorkOrderStatus::Closed->id());
+
+            if ($shouldSyncTicket && $workOrder->service_ticket_id) {
+                (new SyncWorkOrderStatusToServiceTicket)($workOrder, (int) $workOrder->status);
             }
 
             // Update service items if provided
@@ -1281,5 +1343,30 @@ class WorkOrderController extends RecordController
         }
 
         return back();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function workOrderChecklistTemplates(): array
+    {
+        return ChecklistTemplate::query()
+            ->where('is_active', true)
+            ->where(function ($q) {
+                $q->where('context', 'work_order')->orWhereNull('context');
+            })
+            ->with(['items' => fn ($q) => $q->orderBy('position')])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (ChecklistTemplate $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'items' => $t->items->map(fn ($i) => [
+                    'label' => $i->label,
+                    'required' => (bool) $i->required,
+                ])->values()->all(),
+            ])
+            ->values()
+            ->all();
     }
 }

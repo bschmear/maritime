@@ -34,6 +34,7 @@ class User extends Model
         'mobile_phone',
         'current_role',
         'is_technician',
+        'manager_user_id',
         'delivery_in_progress',
         'signature_method',
         'signature_file',
@@ -56,6 +57,11 @@ class User extends Model
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'current_role');
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'manager_user_id');
     }
 
     public function hasPermission(string $permission): bool

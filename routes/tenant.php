@@ -83,6 +83,7 @@ use App\Http\Controllers\Tenant\UserController;
 use App\Http\Controllers\Tenant\UserFavoriteController;
 use App\Http\Controllers\Tenant\VendorController;
 use App\Http\Controllers\Tenant\WarrantyClaimController;
+use App\Http\Controllers\Tenant\WorkOrderChecklistController;
 use App\Http\Controllers\Tenant\WorkOrderController;
 use App\Http\Controllers\Tenant\WorkspaceBillingController;
 use Illuminate\Support\Facades\Route;
@@ -424,8 +425,13 @@ Route::middleware([
         Route::prefix('workorders')->name('workorders.')->group(function () {
             Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/service-items/lookup', [WorkOrderController::class, 'lookupServiceItems'])->name('service-items.lookup');
+            Route::post('/checklist-templates', [WorkOrderChecklistController::class, 'storeTemplate'])->name('checklist-templates.store');
             Route::get('/{id}/preview', [WorkOrderController::class, 'preview'])->name('preview.view');
             Route::post('/{id}/log-time', [WorkOrderController::class, 'logLineItemTime'])->name('log-time');
+            Route::put('/{workorder}/checklist', [WorkOrderChecklistController::class, 'update'])->name('checklist.update');
+            Route::post('/{workorder}/checklist/submit-for-approval', [WorkOrderChecklistController::class, 'submitForApproval'])->name('checklist.submit-for-approval');
+            Route::post('/{workorder}/checklist/manager-approve-line', [WorkOrderChecklistController::class, 'managerApproveLine'])->name('checklist.manager-approve-line');
+            Route::post('/{workorder}/checklist/manager-signoff', [WorkOrderChecklistController::class, 'managerSignoff'])->name('checklist.manager-signoff');
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {

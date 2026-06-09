@@ -67,6 +67,20 @@
       ]
     },
 
+    "approval": {
+      "label": "Manager Approval",
+      "fields": [
+        {
+          "key": "requires_manager_approval",
+          "required": false
+        },
+        {
+          "key": "manager_user_id",
+          "required": false
+        }
+      ]
+    },
+
     "schedule": {
       "label": "Schedule",
       "fields": [

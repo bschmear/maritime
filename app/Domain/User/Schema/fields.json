@@ -68,5 +68,13 @@
         "type": "boolean",
         "validation": "sometimes|boolean",
         "help": "When enabled, this user is treated as a technician (e.g. for scheduling and assignments)"
+    },
+    "manager_user_id": {
+        "label": "Manager",
+        "type": "record",
+        "typeDomain": "User",
+        "relationship": "manager",
+        "validation": "nullable|exists:users,id",
+        "help": "Default approving manager for work orders assigned to this user"
     }
 }

@@ -4,6 +4,7 @@ namespace App\Domain\WorkOrder\Models;
 
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Attachment\Concerns\HasLinkedInventoryImages;
+use App\Domain\Checklist\Models\Checklist;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\InventoryUnit\Models\InventoryUnit;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -52,6 +54,10 @@ class WorkOrder extends Model
         'warranty' => 'boolean',
         'has_warranty' => 'boolean',
         'warranty_closed' => 'boolean',
+        'requires_manager_approval' => 'boolean',
+
+        'technician_submitted_at' => 'datetime',
+        'manager_signed_off_at' => 'datetime',
 
         'scheduled_start_at' => 'datetime',
         'scheduled_end_at' => 'datetime',
@@ -175,6 +181,41 @@ class WorkOrder extends Model
             User::class,
             'assigned_user_id'
         );
+    }
+
+    public function managerUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_user_id');
+    }
+
+    public function manager_user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_user_id');
+    }
+
+    public function technicianSubmittedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'technician_submitted_by');
+    }
+
+    public function technician_submitted_by(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'technician_submitted_by');
+    }
+
+    public function managerSignedOffBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_signed_off_by');
+    }
+
+    public function manager_signed_off_by(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_signed_off_by');
+    }
+
+    public function approvalChecklist(): MorphOne
+    {
+        return $this->morphOne(Checklist::class, 'checklistable');
     }
 
     public function requested_by_user(): BelongsTo

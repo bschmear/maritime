@@ -95,6 +95,52 @@
     "disabled": true
   },
 
+  "requires_manager_approval": {
+    "label": "Requires Manager Approval",
+    "type": "boolean",
+    "default": false,
+    "help": "Technician must complete checklist and manager must sign off before closing"
+  },
+
+  "manager_user_id": {
+    "label": "Approving Manager",
+    "type": "record",
+    "typeDomain": "User",
+    "relationship": "manager_user",
+    "nullable": true,
+    "help": "Defaults from assigned technician's manager when creating"
+  },
+
+  "technician_submitted_at": {
+    "label": "Submitted for Approval",
+    "type": "datetime",
+    "disabled": true,
+    "hidden": true
+  },
+
+  "technician_submitted_by": {
+    "label": "Submitted By",
+    "type": "record",
+    "typeDomain": "User",
+    "disabled": true,
+    "hidden": true
+  },
+
+  "manager_signed_off_at": {
+    "label": "Manager Signed Off",
+    "type": "datetime",
+    "disabled": true,
+    "hidden": true
+  },
+
+  "manager_signed_off_by": {
+    "label": "Signed Off By",
+    "type": "record",
+    "typeDomain": "User",
+    "disabled": true,
+    "hidden": true
+  },
+
   "scheduled_start_at": {
     "label": "Scheduled Start",
     "type": "datetime",

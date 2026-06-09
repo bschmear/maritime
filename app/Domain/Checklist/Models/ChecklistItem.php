@@ -17,12 +17,18 @@ class ChecklistItem extends Model
         'completed_at',
         'position',
         'completed_by',
+        'response',
+        'manager_approved',
+        'manager_approved_at',
+        'manager_approved_by',
     ];
 
     protected $casts = [
         'required' => 'boolean',
         'completed' => 'boolean',
         'completed_at' => 'datetime',
+        'manager_approved' => 'boolean',
+        'manager_approved_at' => 'datetime',
     ];
 
     /*

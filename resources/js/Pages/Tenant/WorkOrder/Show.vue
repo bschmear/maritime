@@ -7,7 +7,8 @@ import Sublist from '@/Components/Tenant/Sublist.vue';
 import RelatableTasksBoard from '@/Components/Tenant/RelatableTasksBoard.vue';
 import WorkOrderForm from '@/Components/Tenant/WorkOrderForm.vue';
 import WorkOrderLogTimePanel from '@/Components/Tenant/WorkOrderLogTimePanel.vue';
-import { computed, ref, watch } from 'vue';
+import WorkOrderApprovalChecklist from '@/Components/Tenant/WorkOrderApprovalChecklist.vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     record: {
@@ -55,7 +56,25 @@ const props = defineProps({
     taskBoardFormSchema: { type: Object, default: null },
     taskBoardFieldsSchema: { type: Object, default: () => ({}) },
     taskBoardEnumOptions: { type: Object, default: () => ({}) },
+    checklist: {
+        type: Object,
+        default: () => ({ name: 'Approval Checklist', items: [] }),
+    },
+    checklistTemplates: { type: Array, default: () => [] },
+    currentUser: { type: Object, default: null },
 });
+
+const CLOSED_STATUS_ID = 8;
+
+const checklistData = ref({ ...props.checklist });
+
+watch(
+    () => props.checklist,
+    (value) => {
+        checklistData.value = { ...value };
+    },
+    { deep: true },
+);
 
 const workOrderRelatableType = 'App\\Domain\\WorkOrder\\Models\\WorkOrder';
 
@@ -109,13 +128,61 @@ const visibleSublists = computed(() => (props.formSchema?.sublists || []).filter
 
 const tabs = computed(() => {
     const list = [
-        { key: 'details', label: 'Details', icon: 'info' },
-        { key: 'tasks', label: 'Tasks', icon: 'task_alt' },
+        { key: 'details', label: 'Details', shortLabel: 'Details', icon: 'info' },
+        { key: 'tasks', label: 'Tasks', shortLabel: 'Tasks', icon: 'task_alt' },
     ];
+    if (props.record.requires_manager_approval) {
+        list.push({
+            key: 'approval',
+            label: 'Approval checklist',
+            shortLabel: 'Approval',
+            icon: 'fact_check',
+        });
+    }
     if (visibleSublists.value.length > 0) {
-        list.push({ key: 'related', label: 'Related', icon: 'link' });
+        list.push({ key: 'related', label: 'Related', shortLabel: 'Related', icon: 'link' });
     }
     return list;
+});
+
+const currentUserId = computed(() => props.currentUser?.id ?? null);
+
+const isAssignedTechnician = computed(() => {
+    return currentUserId.value && Number(props.record.assigned_user_id) === Number(currentUserId.value);
+});
+
+const isAssignedManager = computed(() => {
+    return currentUserId.value && Number(props.record.manager_user_id) === Number(currentUserId.value);
+});
+
+const showTechnicianAwaitingBanner = computed(() => {
+    return props.record.requires_manager_approval
+        && props.record.approval_state === 'in_progress'
+        && isAssignedTechnician.value;
+});
+
+const showManagerPendingBanner = computed(() => {
+    return props.record.requires_manager_approval
+        && props.record.approval_state === 'pending_manager'
+        && isAssignedManager.value;
+});
+
+const canCloseWorkOrder = computed(() => {
+    if (!props.record.requires_manager_approval) {
+        return true;
+    }
+    return !!props.record.manager_signed_off_at;
+});
+
+const isStatusOptionDisabled = (statusId) => {
+    return statusId === CLOSED_STATUS_ID && !canCloseWorkOrder.value;
+};
+
+onMounted(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'approval' && props.record.requires_manager_approval) {
+        activeTab.value = 'approval';
+    }
 });
 
 const statusOptions = computed(() => {
@@ -196,6 +263,14 @@ const formatDateTime = (value) => {
 
 const confirmUpdateStatus = async (syncServiceTicketStatus) => {
     showServiceTicketSyncModal.value = false;
+
+    if (selectedStatus.value === CLOSED_STATUS_ID && !canCloseWorkOrder.value) {
+        alert('Manager approval sign-off is required before closing this work order.');
+        selectedStatus.value = props.record.status;
+        statusChanged.value = false;
+        return;
+    }
+
     updatingStatus.value = true;
 
     try {
@@ -300,17 +375,58 @@ const deleteWorkOrder = () => {
             </div>
         </template>
 
-        <div class="w-full space-y-4 md:space-y-6">
-            <div class="grid gap-4 lg:gap-6  xl:grid-cols-12">
+        <div class="w-full min-w-0 max-w-full space-y-4 md:space-y-6">
+            <div
+                v-if="showTechnicianAwaitingBanner"
+                class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+            >
+                Complete the approval checklist and submit for manager sign-off before this work order can be closed.
+            </div>
+            <div
+                v-if="showManagerPendingBanner"
+                class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200"
+            >
+                This work order is awaiting your manager approval on the checklist.
+            </div>
+
+            <div class="grid min-w-0 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-12">
                 <!-- Main Work Order Display -->
-                <div class="xl:col-span-9">
-                    <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                        <div class="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-2 dark:border-gray-700">
+                <div class="min-w-0 xl:col-span-9">
+                    <div class="min-w-0 overflow-hidden md:rounded-xl md:border md:border-gray-100 md:bg-white md:shadow-sm dark:md:border-gray-700 dark:md:bg-gray-800">
+                        <!-- Mobile: compact tab grid -->
+                        <div class="mb-3 md:hidden">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button
+                                    v-for="tab in tabs"
+                                    :key="'mobile-grid-' + tab.key"
+                                    type="button"
+                                    class="flex min-w-0 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors sm:text-sm"
+                                    :class="
+                                        activeTab === tab.key
+                                            ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-300'
+                                            : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-300 dark:hover:bg-gray-700'
+                                    "
+                                    @click="activeTab = tab.key"
+                                >
+                                    <span class="material-icons shrink-0 text-[16px]">{{ tab.icon }}</span>
+                                    <span class="truncate">{{ tab.shortLabel }}</span>
+                                    <span
+                                        v-if="tab.key === 'tasks'"
+                                        class="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                    >
+                                        {{ tasks.length }}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Desktop: horizontal tab bar -->
+                        <div class="hidden min-w-0 items-center gap-1 overflow-x-auto border-b border-gray-100 px-2 dark:border-gray-700 md:flex">
                             <button
                                 v-for="tab in tabs"
                                 :key="tab.key"
                                 type="button"
-                                class="flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3.5 text-sm font-medium transition-colors"
+                                class="flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3.5 text-sm font-medium transition-colors"
                                 :class="
                                     activeTab === tab.key
                                         ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
@@ -329,7 +445,7 @@ const deleteWorkOrder = () => {
                             </button>
                         </div>
 
-                        <div v-show="activeTab === 'details'" class="space-y-6 p-4 sm:p-6">
+                        <div v-show="activeTab === 'details'" class="min-w-0 space-y-4 md:space-y-6 md:p-6">
                             <WorkOrderLogTimePanel
                                 ref="logTimePanelRef"
                                 :work-order-id="record.id"
@@ -350,7 +466,7 @@ const deleteWorkOrder = () => {
                             />
                         </div>
 
-                        <div v-show="activeTab === 'tasks'" class="p-6">
+                        <div v-show="activeTab === 'tasks'" class="min-w-0 md:p-6">
                             <div class="mb-5">
                                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">Tasks</h3>
                                 <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
@@ -375,7 +491,17 @@ const deleteWorkOrder = () => {
                             </p>
                         </div>
 
-                        <div v-show="activeTab === 'related'" class="p-6">
+                        <div v-show="activeTab === 'approval'" class="min-w-0 md:p-6">
+                            <WorkOrderApprovalChecklist
+                                v-model="checklistData"
+                                :work-order-id="record.id"
+                                :templates="checklistTemplates"
+                                :approval-record="record"
+                                :current-user-id="currentUserId"
+                            />
+                        </div>
+
+                        <div v-show="activeTab === 'related'" class="min-w-0 overflow-x-auto md:p-6">
                             <Sublist
                                 v-if="visibleSublists.length > 0 && formSchema"
                                 :key="`work-order-sublist-${record?.id || 'new'}`"
@@ -388,8 +514,8 @@ const deleteWorkOrder = () => {
                 </div>
 
                 <!-- Actions Sidebar -->
-                <div class="xl:col-span-3">
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-5">
+                <div class="min-w-0 xl:col-span-3">
+                    <div class="overflow-hidden bg-white shadow-lg sm:rounded-lg dark:bg-gray-800 xl:sticky xl:top-5">
                         <div class="flex justify-between items-center p-4 sm:px-5 font-semibold text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700">
                             Actions
                         </div>
@@ -429,20 +555,26 @@ const deleteWorkOrder = () => {
                                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                                         Status
                                     </label>
-                                    <div class="flex items-center gap-2">
+                                    <div class="min-w-0 space-y-2">
                                         <select
                                             v-model="selectedStatus"
-                                            class="flex-1 text-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            class="w-full min-w-0 max-w-full truncate text-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            :title="!canCloseWorkOrder && selectedStatus === CLOSED_STATUS_ID ? 'Manager approval sign-off is required before closing.' : ''"
                                             @change="statusChanged = true"
                                         >
-                                            <option v-for="status in statusOptions" :key="status.id" :value="status.id">
+                                            <option
+                                                v-for="status in statusOptions"
+                                                :key="status.id"
+                                                :value="status.id"
+                                                :disabled="isStatusOptionDisabled(status.id)"
+                                            >
                                                 {{ status.name }}
                                             </option>
                                         </select>
                                         <button
                                             v-if="statusChanged"
                                             type="button"
-                                            class="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all shadow-sm whitespace-nowrap disabled:opacity-60"
+                                            class="inline-flex w-full items-center justify-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all shadow-sm disabled:opacity-60"
                                             :disabled="updatingStatus"
                                             @click="updateStatus"
                                         >
@@ -451,6 +583,13 @@ const deleteWorkOrder = () => {
                                             Update
                                         </button>
                                     </div>
+
+                                    <p
+                                        v-if="record.requires_manager_approval && !canCloseWorkOrder"
+                                        class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+                                    >
+                                        Manager sign-off required before closing.
+                                    </p>
                                 </div>
                             </div>
 
@@ -484,7 +623,7 @@ const deleteWorkOrder = () => {
                                 </div>
                             </div>
 
-                            <div class="space-y-1 border-t border-gray-200 pt-4 dark:border-gray-700">
+                            <div class="hidden space-y-1 border-t border-gray-200 pt-4 dark:border-gray-700 xl:block">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     Jump to
                                 </p>

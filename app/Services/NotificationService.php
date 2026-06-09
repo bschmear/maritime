@@ -16,6 +16,7 @@ use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WarrantyClaim\Support\LogWarrantyClaimVendorEmailCommunication;
+use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
@@ -36,6 +37,43 @@ class NotificationService
         private readonly TenantMailService $tenantMail,
         private readonly LogWarrantyClaimVendorEmailCommunication $logWarrantyClaimVendorEmailCommunication,
     ) {}
+    // ─────────────────────────────────────────────────────────────────────────
+    // Work Order
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function notifyWorkOrderPendingManagerApproval(WorkOrder $workOrder): void
+    {
+        try {
+            $workOrder->loadMissing(['managerUser', 'assignedUser']);
+
+            $manager = $workOrder->managerUser;
+            if (! $manager) {
+                Log::warning('No manager assigned for work order pending approval notification', [
+                    'work_order_id' => $workOrder->id,
+                ]);
+
+                return;
+            }
+
+            $label = $workOrder->display_name;
+            $technician = $workOrder->assignedUser?->display_name ?? 'Technician';
+
+            Notification::create([
+                'assigned_to_user_id' => $manager->id,
+                'type' => 'work_order_pending_approval',
+                'title' => 'Work Order Pending Approval',
+                'message' => "{$label} submitted by {$technician} is pending manager approval.",
+                'route' => 'workorders.show',
+                'route_params' => ['workorder' => $workOrder->id],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to notify work order pending manager approval', [
+                'work_order_id' => $workOrder->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Service Ticket
     // ─────────────────────────────────────────────────────────────────────────
