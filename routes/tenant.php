@@ -60,6 +60,7 @@ use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\PortalAccessController;
 use App\Http\Controllers\Tenant\PublicBoatShowEventController;
 use App\Http\Controllers\Tenant\PublicController;
+use App\Http\Controllers\Tenant\PushSubscriptionController;
 use App\Http\Controllers\Tenant\QualificationController;
 use App\Http\Controllers\Tenant\ReportsController;
 use App\Http\Controllers\Tenant\RoleController;
@@ -832,6 +833,17 @@ Route::middleware([
         Route::prefix('notifications')
             ->name('notifications.')
             ->group(function () {
+
+                Route::prefix('push')
+                    ->name('push.')
+                    ->group(function () {
+                        Route::get('/status', [PushSubscriptionController::class, 'status'])
+                            ->name('status');
+                        Route::post('/subscribe', [PushSubscriptionController::class, 'subscribe'])
+                            ->name('subscribe');
+                        Route::delete('/subscribe', [PushSubscriptionController::class, 'unsubscribe'])
+                            ->name('unsubscribe');
+                    });
 
                 // List notifications (API or page)
                 Route::get('/', [NotificationController::class, 'index'])

@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
                  */
                 includeManifestIcons: false,
                 workbox: {
+                    importScripts: ['sw-push.js'],
                     globPatterns: [],
                     runtimeCaching: [],
                     // Default globDirectory is `outDir` (public/). Point at Vite output only so

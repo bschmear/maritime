@@ -148,6 +148,9 @@ class HandleInertiaRequests extends Middleware
             'tenant_role_slug' => fn () => tenancy()->initialized
                 ? app(CurrentTenantProfile::class)->roleSlug()
                 : null,
+            'vapid_public_key' => fn () => tenancy()->initialized && config('webpush.enabled')
+                ? config('webpush.public_key')
+                : null,
             'tenant_user_signature' => fn () => $this->tenantUserSignature(),
             'account_setup' => fn () => $this->accountSetupPayload($request),
         ];

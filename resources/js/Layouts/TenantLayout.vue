@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
 import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
 import AccountSetupWidget from '@/Components/Tenant/AccountSetup/AccountSetupWidget.vue';
+import WebPushOptIn from '@/Components/Tenant/WebPushOptIn.vue';
 import Toast from '@/Components/Toast.vue';
 import LoadingOverlay from '@/Components/LoadingOverlay.vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -595,6 +596,7 @@ const secondaryNavItems = ref([
 
         <!-- Page Content -->
         <main class="relative mx-auto flex h-full w-full min-w-0 max-w-full grow flex-col space-y-4 p-4 md:space-y-6 [&>*]:min-w-0 [&>*]:max-w-full">
+            <WebPushOptIn />
             <slot />
         </main>
 

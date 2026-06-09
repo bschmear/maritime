@@ -19,6 +19,7 @@ class Notification extends Model
         'warrantyclaims.show' => 'warrantyclaim',
         'opportunities.show' => 'opportunity',
         'tasks.show' => 'task',
+        'workorders.show' => 'workorder',
     ];
 
     protected $fillable = [
@@ -120,5 +121,13 @@ class Notification extends Model
         $this->update([
             'read_at' => now(),
         ]);
+    }
+
+    /**
+     * Relative URL for in-app / push navigation (no host).
+     */
+    public static function relativeUrlForRoute(string $routeName, array $params = []): string
+    {
+        return route($routeName, $params, false);
     }
 }

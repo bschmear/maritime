@@ -17,6 +17,7 @@ use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WarrantyClaim\Support\LogWarrantyClaimVendorEmailCommunication;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Jobs\SendWebPushNotification;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
@@ -58,14 +59,26 @@ class NotificationService
             $label = $workOrder->display_name;
             $technician = $workOrder->assignedUser?->display_name ?? 'Technician';
 
+            $title = 'Work Order Pending Approval';
+            $message = "{$label} submitted by {$technician} is pending manager approval.";
+            $routeParams = ['workorder' => $workOrder->id];
+
             Notification::create([
                 'assigned_to_user_id' => $manager->id,
                 'type' => 'work_order_pending_approval',
-                'title' => 'Work Order Pending Approval',
-                'message' => "{$label} submitted by {$technician} is pending manager approval.",
+                'title' => $title,
+                'message' => $message,
                 'route' => 'workorders.show',
-                'route_params' => ['workorder' => $workOrder->id],
+                'route_params' => $routeParams,
             ]);
+
+            SendWebPushNotification::dispatch(
+                userId: $manager->id,
+                title: $title,
+                body: $message,
+                url: Notification::relativeUrlForRoute('workorders.show', $routeParams),
+                tag: 'work_order_pending_approval:'.$workOrder->id,
+            );
         } catch (\Exception $e) {
             Log::error('Failed to notify work order pending manager approval', [
                 'work_order_id' => $workOrder->id,

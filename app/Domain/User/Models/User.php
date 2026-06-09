@@ -4,6 +4,7 @@ namespace App\Domain\User\Models;
 
 use App\Domain\Location\Models\Location;
 use App\Domain\Notification\Models\Notification;
+use App\Domain\Notification\Models\PushSubscription;
 use App\Domain\Role\Models\Role;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
@@ -117,6 +118,11 @@ class User extends Model
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class, 'assigned_to_user_id');
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     public function favorites(): HasMany
