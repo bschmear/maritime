@@ -1,4 +1,5 @@
 <script setup>
+import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -44,11 +45,14 @@ const form = useForm({
     bio: props.record?.bio ?? '',
     avatar: props.record?.avatar ?? null,
     is_technician: Boolean(props.record?.is_technician),
+    manager_user_id: props.record?.manager_user_id ?? props.record?.manager?.id ?? null,
     current_role: props.record?.current_role ?? props.record?.role?.id ?? null,
 });
 
 const fieldLabel = (key) => props.fieldsSchema[key]?.label ?? key;
 const fieldHelp = (key) => props.fieldsSchema[key]?.help ?? null;
+const getEnumOptions = (key) => props.enumOptions[key] ?? [];
+const managerExcludeIds = computed(() => (props.record?.id ? [props.record.id] : []));
 
 const onAvatarChange = (e) => {
     const file = e.target.files?.[0];
@@ -260,6 +264,25 @@ const submit = () => {
                                         <span>{{ fieldLabel(field.key) }}</span>
                                     </label>
                                     <p v-if="form.errors.is_technician" class="mt-1 text-sm text-red-600">{{ form.errors.is_technician }}</p>
+                                </div>
+                            </template>
+
+                            <template v-else-if="field.key === 'manager_user_id'">
+                                <div class="md:col-span-2">
+                                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" :for="`uf-${field.key}`">
+                                        {{ fieldLabel(field.key) }}
+                                    </label>
+                                    <RecordSelect
+                                        :id="`uf-${field.key}`"
+                                        :field="fieldsSchema.manager_user_id"
+                                        v-model="form.manager_user_id"
+                                        :enum-options="getEnumOptions('manager_user_id')"
+                                        :record="record"
+                                        field-key="manager_user_id"
+                                        :exclude-ids="managerExcludeIds"
+                                    />
+                                    <p v-if="fieldHelp(field.key)" class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ fieldHelp(field.key) }}</p>
+                                    <p v-if="form.errors.manager_user_id" class="mt-1 text-sm text-red-600">{{ form.errors.manager_user_id }}</p>
                                 </div>
                             </template>
                         </template>

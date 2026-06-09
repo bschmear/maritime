@@ -389,7 +389,7 @@ class UserController extends RecordController
         }
 
         $userId = $id instanceof RecordModel ? $id->id : $id;
-        $record = RecordModel::with(['role'])->findOrFail($userId);
+        $record = RecordModel::with(['role', 'manager'])->findOrFail($userId);
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $avatarUrls = $this->getImageUrls($record, $fieldsSchema);
 

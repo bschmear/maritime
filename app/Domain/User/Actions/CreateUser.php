@@ -23,6 +23,7 @@ class CreateUser
             'bio' => 'nullable|string|max:1000',
             'avatar' => 'nullable|integer|exists:documents,id',
             'is_technician' => 'sometimes|boolean',
+            'manager_user_id' => 'nullable|exists:users,id',
             'current_role' => 'nullable|exists:roles,id',
         ])->validate();
 
@@ -41,6 +42,9 @@ class CreateUser
                 'bio' => $validated['bio'] ?? null,
                 'avatar' => $validated['avatar'] ?? null,
                 'is_technician' => (bool) ($validated['is_technician'] ?? false),
+                'manager_user_id' => isset($validated['manager_user_id']) && $validated['manager_user_id'] !== ''
+                    ? $validated['manager_user_id']
+                    : null,
                 'current_role' => $validated['current_role'] ?? null,
             ]);
 

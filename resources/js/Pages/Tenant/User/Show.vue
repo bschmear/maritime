@@ -339,7 +339,23 @@ const breadcrumbItems = computed(() => {
                             </p>
                         </div>
 
-                        <div :class="record.role ? 'pt-4 border-t border-gray-200 dark:border-gray-700' : ''">
+                        <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
+                            <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                Manager
+                            </dt>
+                            <dd class="text-sm text-gray-900 dark:text-white font-medium">
+                                <Link
+                                    v-if="record.manager"
+                                    :href="route('users.show', record.manager.id)"
+                                    class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                >
+                                    {{ record.manager.display_name }}
+                                </Link>
+                                <span v-else class="text-gray-500 dark:text-gray-400">—</span>
+                            </dd>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-4 dark:border-gray-700">
                             <dt class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                                 Technician
                             </dt>

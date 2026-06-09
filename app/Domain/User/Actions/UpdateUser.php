@@ -24,6 +24,7 @@ class UpdateUser
             'bio' => 'nullable|string|max:1000',
             'avatar' => 'sometimes|nullable|integer|exists:documents,id',
             'is_technician' => 'sometimes|boolean',
+            'manager_user_id' => 'nullable|exists:users,id|not_in:'.$id,
             'current_role' => 'nullable|exists:roles,id',
         ])->validate();
 
@@ -46,6 +47,9 @@ class UpdateUser
                 'is_technician' => array_key_exists('is_technician', $validated)
                     ? (bool) $validated['is_technician']
                     : $record->is_technician,
+                'manager_user_id' => array_key_exists('manager_user_id', $validated)
+                    ? ($validated['manager_user_id'] !== '' ? $validated['manager_user_id'] : null)
+                    : $record->manager_user_id,
                 'current_role' => array_key_exists('current_role', $validated)
                     ? $validated['current_role']
                     : $record->current_role,
