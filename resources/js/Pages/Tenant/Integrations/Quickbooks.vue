@@ -313,7 +313,6 @@ function saveSyncSettings() {
                 v-if="hasQuickbooksToken"
                 ref="quickBooksServiceImportRef"
                 record-type="serviceitem"
-                success-redirect-route="serviceitems.index"
             />
         </div>
     </TenantLayout>

@@ -299,21 +299,9 @@ class QuickbooksController extends Controller
         $profileId = (int) $profile->getKey();
         $billingType = (int) $validated['billing_type'];
 
-        Log::info('QuickBooks service import: dispatch requested', [
-            'profile_id' => $profileId,
-            'billing_type' => $billingType,
-            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
-            'queue_connection' => config('queue.default'),
-        ]);
-
         try {
             PullServiceItemsFromQuickBooks::dispatch($profileId, $billingType);
         } catch (\Throwable $e) {
-            Log::error('QuickBooks service import: dispatch failed', [
-                'profile_id' => $profileId,
-                'error' => $e->getMessage(),
-            ]);
-
             return response()->json([
                 'error' => 'Could not queue the import job. Check that the central jobs table exists and queue workers are running.',
             ], 500);

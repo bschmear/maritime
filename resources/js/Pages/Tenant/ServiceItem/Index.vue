@@ -123,7 +123,6 @@ const handleBulkAction = (item) => {
         <QuickBooksImport
             ref="quickBooksImportRef"
             record-type="serviceitem"
-            success-redirect-route="serviceitems.index"
         />
     </TenantLayout>
 </template>

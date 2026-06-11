@@ -17,22 +17,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class PullServiceItemsFromQuickBooks implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    /** @var array{skipped_inactive: int, skipped_no_qbo_id: int, skipped_no_name: int, skipped_wrong_type: int, created: int, updated: int, failed: int} */
-    private array $importStats = [
-        'skipped_inactive' => 0,
-        'skipped_no_qbo_id' => 0,
-        'skipped_no_name' => 0,
-        'skipped_wrong_type' => 0,
-        'created' => 0,
-        'updated' => 0,
-        'failed' => 0,
-    ];
 
     public function __construct(
         public int $tenantUserProfileId,
@@ -48,17 +36,7 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
             ->where('integration_type', IntegrationType::QuickBooks)
             ->first();
 
-        Log::info('QuickBooks service import: job started', $this->logContext([
-            'default_billing_type' => $this->defaultBillingType,
-            'integration_found' => $integration !== null,
-            'has_access_token' => (bool) ($integration?->access_token),
-            'has_refresh_token' => (bool) ($integration?->refresh_token),
-            'queue_connection' => config('queue.default'),
-        ]));
-
         if (! $integration?->access_token || ! $integration->refresh_token) {
-            Log::warning('QuickBooks service import: integration not connected in job context', $this->logContext());
-
             return;
         }
 
@@ -96,11 +74,6 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
 
                 $count = count($items);
 
-                Log::info('QuickBooks service import: fetched item page from QBO', $this->logContext([
-                    'start_position' => $start,
-                    'item_count' => $count,
-                ]));
-
                 $start += $pageSize;
             } while ($count === $pageSize);
 
@@ -110,17 +83,7 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
                 'last_synced_at' => now(),
                 'sync_error_message' => null,
             ]);
-
-            Log::info('QuickBooks service import: completed', $this->logContext([
-                'stats' => $this->importStats,
-            ]));
         } catch (\Throwable $e) {
-            Log::error('QuickBooks service import: failed', $this->logContext([
-                'error' => $e->getMessage(),
-                'stats' => $this->importStats,
-                'trace' => $e->getTraceAsString(),
-            ]));
-
             $integration->refresh();
             $integration->update([
                 'sync_status' => IntegrationSyncStatus::Failed,
@@ -132,19 +95,6 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
     }
 
     /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function logContext(array $extra = []): array
-    {
-        return array_merge([
-            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
-            'tenancy_initialized' => tenancy()->initialized,
-            'tenant_user_profile_id' => $this->tenantUserProfileId,
-        ], $extra);
-    }
-
-    /**
      * @param  array<string, mixed>  $row
      */
     private function importOneItem(
@@ -153,60 +103,35 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
         UpdateServiceItem $updateServiceItem,
     ): void {
         if (array_key_exists('Active', $row) && $row['Active'] === false) {
-            $this->importStats['skipped_inactive']++;
-
             return;
         }
 
         $type = $this->normalizeNamePart($row['Type'] ?? null);
         if ($type !== '' && strcasecmp($type, 'Service') !== 0) {
-            $this->importStats['skipped_wrong_type']++;
-
             return;
         }
 
         $qboId = isset($row['Id']) ? (string) $row['Id'] : '';
         if ($qboId === '') {
-            $this->importStats['skipped_no_qbo_id']++;
-
             return;
         }
 
         $name = $this->normalizeNamePart($row['Name'] ?? null);
         if ($name === '') {
-            $this->importStats['skipped_no_name']++;
-
             return;
         }
 
         $payload = $this->mapRowToPayload($row, $qboId, $name);
+
         $existing = ServiceItem::query()->where('quickbooks_item_id', $qboId)->first();
 
         if ($existing !== null) {
-            $result = $updateServiceItem((int) $existing->id, $payload);
-            if ($result['success'] ?? false) {
-                $this->importStats['updated']++;
-            } else {
-                $this->importStats['failed']++;
-                Log::warning('QuickBooks service import: update failed', $this->logContext([
-                    'qbo_id' => $qboId,
-                    'message' => $result['message'] ?? null,
-                ]));
-            }
+            $updateServiceItem((int) $existing->id, $payload);
 
             return;
         }
 
-        $result = $createServiceItem(array_merge($payload, ['for_import' => true]));
-        if ($result['success'] ?? false) {
-            $this->importStats['created']++;
-        } else {
-            $this->importStats['failed']++;
-            Log::warning('QuickBooks service import: create failed', $this->logContext([
-                'qbo_id' => $qboId,
-                'message' => $result['message'] ?? null,
-            ]));
-        }
+        $createServiceItem(array_merge($payload, ['for_import' => true]));
     }
 
     /**
@@ -221,12 +146,7 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
         $unitPrice = $this->parseMoney($row['UnitPrice'] ?? null);
         $purchaseCost = $this->parseMoney($row['PurchaseCost'] ?? null);
         $taxable = $this->parseBool($row['Taxable'] ?? false);
-        $incomeAccount = $this->refName($row['IncomeAccountRef'] ?? null);
-
-        $attributes = [];
-        if ($incomeAccount !== '') {
-            $attributes['quickbooks'] = ['income_account' => $incomeAccount];
-        }
+        $attributes = $this->buildQboAttributes($row);
 
         $notes = $purchaseDesc !== '' ? 'Purchase: '.$purchaseDesc : null;
 
@@ -244,7 +164,7 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
             'inactive' => false,
             'notes' => $notes,
             'quickbooks_item_id' => $qboId,
-            'attributes' => $attributes !== [] ? $attributes : null,
+            'attributes' => $attributes,
         ];
     }
 
@@ -272,6 +192,35 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
     }
 
     /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>|null
+     */
+    private function buildQboAttributes(array $row): ?array
+    {
+        $quickbooks = [];
+
+        $incomeName = $this->refName($row['IncomeAccountRef'] ?? null);
+        $incomeId = $this->refValue($row['IncomeAccountRef'] ?? null);
+        if ($incomeName !== '') {
+            $quickbooks['income_account'] = $incomeName;
+        }
+        if ($incomeId !== '') {
+            $quickbooks['income_account_id'] = $incomeId;
+        }
+
+        $expenseName = $this->refName($row['ExpenseAccountRef'] ?? null);
+        $expenseId = $this->refValue($row['ExpenseAccountRef'] ?? null);
+        if ($expenseName !== '') {
+            $quickbooks['expense_account'] = $expenseName;
+        }
+        if ($expenseId !== '') {
+            $quickbooks['expense_account_id'] = $expenseId;
+        }
+
+        return $quickbooks !== [] ? ['quickbooks' => $quickbooks] : null;
+    }
+
+    /**
      * @param  array<string, mixed>|null  $ref
      */
     private function refName(?array $ref): string
@@ -281,6 +230,23 @@ class PullServiceItemsFromQuickBooks implements ShouldQueue
         }
 
         return $this->normalizeNamePart($ref['name'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $ref
+     */
+    private function refValue(?array $ref): string
+    {
+        if ($ref === null) {
+            return '';
+        }
+
+        $value = $ref['value'] ?? null;
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return (string) $value;
     }
 
     /**

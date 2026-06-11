@@ -1,7 +1,6 @@
 <script setup>
 import Modal from '@/Components/Modal.vue';
 import axios from 'axios';
-import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -9,11 +8,6 @@ const props = defineProps({
     recordType: {
         type: String,
         default: 'customer',
-    },
-    /** Inertia route name to visit after a successful import (default: QuickBooks integration page). */
-    successRedirectRoute: {
-        type: String,
-        default: 'quickbooks',
     },
 });
 
@@ -82,9 +76,8 @@ function closeImportModal() {
     showModal.value = false;
 }
 
-function goToSuccessPage() {
+function closeSuccessModal() {
     showSuccessModal.value = false;
-    router.visit(route(props.successRedirectRoute));
 }
 
 function closeErrorModal() {
@@ -213,7 +206,7 @@ defineExpose({ openImportModal, closeImportModal });
     </div>
 
     <!-- Success notification -->
-    <Modal :show="showSuccessModal" max-width="sm" :closeable="false" @close="goToSuccessPage">
+    <Modal :show="showSuccessModal" max-width="sm" @close="closeSuccessModal">
         <div class="p-8 text-center">
             <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
                 <span class="material-icons text-2xl text-green-600 dark:text-green-400">check_circle</span>
@@ -227,9 +220,9 @@ defineExpose({ openImportModal, closeImportModal });
             <button
                 type="button"
                 class="inline-flex items-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
-                @click="goToSuccessPage"
+                @click="closeSuccessModal"
             >
-                Go
+                Close
             </button>
         </div>
     </Modal>

@@ -25,7 +25,7 @@ class PullServiceItemsFromQuickBooksTest extends TestCase
             'UnitPrice' => 35,
             'PurchaseCost' => 10,
             'Taxable' => true,
-            'IncomeAccountRef' => ['name' => 'Landscaping Services'],
+            'IncomeAccountRef' => ['name' => 'Landscaping Services', 'value' => '45'],
             'PurchaseDesc' => 'Vendor labor',
         ], '42', 'Gardening');
 
@@ -38,6 +38,7 @@ class PullServiceItemsFromQuickBooksTest extends TestCase
         $this->assertSame(10.0, $payload['default_cost']);
         $this->assertTrue($payload['taxable']);
         $this->assertSame('Landscaping Services', $payload['attributes']['quickbooks']['income_account']);
+        $this->assertSame('45', $payload['attributes']['quickbooks']['income_account_id']);
         $this->assertStringContainsString('Vendor labor', (string) $payload['notes']);
     }
 
