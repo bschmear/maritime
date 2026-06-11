@@ -24,6 +24,9 @@ class CreateCustomer
     public function __invoke(array $data): array
     {
         try {
+            $forImport = filter_var($data['for_import'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            unset($data['for_import']);
+
             $existingContactId = null;
             if (isset($data['contact_id']) && $data['contact_id'] !== null && $data['contact_id'] !== '') {
                 $cid = filter_var($data['contact_id'], FILTER_VALIDATE_INT);
@@ -49,9 +52,13 @@ class CreateCustomer
                 ])->validate();
                 $fieldsToSave = $data;
             } else {
+                $nameRules = $forImport
+                    ? ['nullable', 'string', 'max:255']
+                    : ['required', 'string', 'max:255'];
+
                 $validated = Validator::make($data, [
-                    'first_name' => ['required', 'string', 'max:255'],
-                    'last_name' => ['required', 'string', 'max:255'],
+                    'first_name' => $nameRules,
+                    'last_name' => $nameRules,
                     'email' => ['nullable', 'email', 'max:255'],
                     'phone' => ['nullable', 'string', 'max:50'],
                     'notes' => ['nullable', 'string'],
@@ -66,7 +73,9 @@ class CreateCustomer
             unset($fieldsToSave['contact_id']);
 
             if ($existingContactId === null) {
-                $fieldsToSave['display_name'] = trim(($fieldsToSave['first_name'] ?? '').' '.($fieldsToSave['last_name'] ?? ''));
+                if (empty($fieldsToSave['display_name'])) {
+                    $fieldsToSave['display_name'] = trim(($fieldsToSave['first_name'] ?? '').' '.($fieldsToSave['last_name'] ?? ''));
+                }
 
                 if ($fieldsToSave['display_name'] === '') {
                     $fieldsToSave['display_name'] = $fieldsToSave['email'] ?? $fieldsToSave['company'] ?? 'Customer';

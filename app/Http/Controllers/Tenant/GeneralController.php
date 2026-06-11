@@ -42,6 +42,10 @@ class GeneralController extends BaseController
             'addon' => 'AddOn',
             // Str::studly('boatmake') is "Boatmake" but the domain / model is BoatMake
             'boatmake' => 'BoatMake',
+            // Str::studly('boatshow') is "Boatshow" but the domain / model is BoatShow
+            'boatshow' => 'BoatShow',
+            'boatshowevent' => 'BoatShowEvent',
+            'boatshowlayout' => 'BoatShowLayout',
             'assetoption' => 'AssetOption',
             'delivery_location' => 'DeliveryLocation',
             'deliverylocation' => 'DeliveryLocation',
@@ -477,6 +481,9 @@ class GeneralController extends BaseController
             'inventoryunit' => 'InventoryUnit',
             'addon' => 'AddOn',
             'boatmake' => 'BoatMake',
+            'boatshow' => 'BoatShow',
+            'boatshowevent' => 'BoatShowEvent',
+            'boatshowlayout' => 'BoatShowLayout',
             'assetoption' => 'AssetOption',
             'deliverylocation' => 'DeliveryLocation',
             'delivery_location' => 'DeliveryLocation',

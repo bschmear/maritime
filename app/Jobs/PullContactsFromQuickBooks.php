@@ -21,6 +21,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class PullContactsFromQuickBooks implements ShouldQueue
 {
@@ -205,17 +206,7 @@ class PullContactsFromQuickBooks implements ShouldQueue
         }
 
         [$first, $last, $company] = $this->resolveNames($row);
-
-        if ($first === '' && $last === '' && $company === '') {
-            $this->importStats['skipped_no_names']++;
-
-            return;
-        }
-
-        if ($first === '' && $last === '') {
-            $first = $company !== '' ? $company : 'QuickBooks';
-            $last = 'Customer';
-        }
+        $displayName = $this->resolveDisplayName($row, $company, $qboId);
 
         $phone = $this->firstNonEmptyString([
             $row['PrimaryPhone']['FreeFormNumber'] ?? null,
@@ -224,17 +215,30 @@ class PullContactsFromQuickBooks implements ShouldQueue
         ]);
 
         if ($this->recordType === 'lead') {
-            $result = $createLead([
-                'first_name' => $first,
-                'last_name' => $last,
-                'email' => $email !== '' ? $email : null,
-                'phone' => $phone,
-                'mobile' => $phone,
-                'company' => $company !== '' ? $company : null,
-                'assigned_user_id' => $this->tenantUserProfileId,
-                'quickbooks_customer_id' => $qboId,
-                'source' => 'QuickBooks',
-            ]);
+            try {
+                $result = $createLead([
+                    'for_import' => true,
+                    'first_name' => $first !== '' ? $first : null,
+                    'last_name' => $last !== '' ? $last : null,
+                    'display_name' => $displayName,
+                    'email' => $email !== '' ? $email : null,
+                    'phone' => $phone,
+                    'mobile' => $phone,
+                    'company' => $company !== '' ? $company : null,
+                    'assigned_user_id' => $this->tenantUserProfileId,
+                    'quickbooks_customer_id' => $qboId,
+                    'source' => 'QuickBooks',
+                ]);
+            } catch (ValidationException $e) {
+                $this->importStats['failed_create']++;
+                Log::warning('QuickBooks customer import: create lead validation failed', $this->logContext([
+                    'qbo_id' => $qboId,
+                    'errors' => $e->errors(),
+                ]));
+
+                return;
+            }
+
             if ($result['success'] ?? false) {
                 $this->importStats['created_lead']++;
                 $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
@@ -260,8 +264,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
         }
 
         $payload = [
-            'first_name' => $first,
-            'last_name' => $last,
+            'for_import' => true,
+            'first_name' => $first !== '' ? $first : null,
+            'last_name' => $last !== '' ? $last : null,
+            'display_name' => $displayName,
             'email' => $email !== '' ? $email : null,
             'phone' => $phone,
             'mobile' => $phone,
@@ -272,7 +278,18 @@ class PullContactsFromQuickBooks implements ShouldQueue
             'subsidiary_id' => $subsidiaryId,
         ];
 
-        $result = $createCustomer($payload);
+        try {
+            $result = $createCustomer($payload);
+        } catch (ValidationException $e) {
+            $this->importStats['failed_create']++;
+            Log::warning('QuickBooks customer import: create customer validation failed', $this->logContext([
+                'qbo_id' => $qboId,
+                'errors' => $e->errors(),
+            ]));
+
+            return;
+        }
+
         if ($result['success'] ?? false) {
             $this->importStats['created_customer']++;
             $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
@@ -338,6 +355,25 @@ class PullContactsFromQuickBooks implements ShouldQueue
         $second = $parts[1] ?? '';
 
         return [$first, $second, $company];
+    }
+
+    private function resolveDisplayName(array $row, string $company, string $qboId): string
+    {
+        $display = $this->normalizeNamePart($row['DisplayName'] ?? null);
+        if ($display !== '') {
+            return $display;
+        }
+
+        $fully = $this->normalizeNamePart($row['FullyQualifiedName'] ?? null);
+        if ($fully !== '') {
+            return $fully;
+        }
+
+        if ($company !== '') {
+            return $company;
+        }
+
+        return $qboId !== '' ? "QuickBooks #{$qboId}" : 'QuickBooks Customer';
     }
 
     private function normalizeNamePart(mixed $value): string
