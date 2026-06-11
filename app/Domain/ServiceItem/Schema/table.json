@@ -4,6 +4,14 @@
       {
         "label": "Import from QuickBooks",
         "action": "importFromQuickbooks"
+      },
+      {
+        "label": "Update Selected",
+        "action": "bulkUpdate"
+      },
+      {
+        "label": "Delete Selected",
+        "action": "bulkDelete"
       }
     ]
   },

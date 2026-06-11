@@ -436,6 +436,8 @@ Route::middleware([
             Route::resource('/', WorkOrderController::class)->parameters(['' => 'workorder']);
         });
         Route::prefix('serviceitems')->name('serviceitems.')->group(function () {
+            Route::post('bulk-update', [ServiceItemController::class, 'bulkUpdate'])->name('bulk-update');
+            Route::post('bulk-destroy', [ServiceItemController::class, 'bulkDestroy'])->name('bulk-destroy');
             Route::resource('/', ServiceItemController::class)->parameters(['' => 'serviceitem']);
         });
         Route::prefix('serviceyard')->name('serviceyard.')->group(function () {

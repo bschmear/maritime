@@ -8,6 +8,9 @@ use Throwable;
 
 class DeleteServiceItem
 {
+    /**
+     * Remove the service item from Helmful only. Does not delete or deactivate the linked QuickBooks item.
+     */
     public function __invoke(int $id): array
     {
         try {
