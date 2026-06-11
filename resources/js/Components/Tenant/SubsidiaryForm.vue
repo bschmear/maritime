@@ -8,6 +8,7 @@ const props = defineProps({
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
     timezones: { type: Array, default: () => [] },
+    account: { type: Object, default: null },
     imageUrls: { type: Object, default: () => ({}) },
     mode: {
         type: String,
@@ -20,10 +21,13 @@ const props = defineProps({
 const emit = defineEmits(['saved', 'cancelled']);
 
 const isEdit = computed(() => props.mode === 'edit' && props.record?.id);
+const isCreate = computed(() => props.mode === 'create');
 const logoPreview = ref(props.imageUrls?.logo ?? props.record?.logo_url ?? null);
 const logoInputRef = ref(null);
+const locationValidationError = ref('');
 
 const timezoneEnumKey = 'App\\Enums\\Timezone';
+const locationTypeEnumKey = 'App\\Enums\\Locations\\LocationType';
 
 const initial = computed(() => props.record ?? {});
 
@@ -35,15 +39,7 @@ const form = useForm({
     email: initial.value.email ?? '',
     phone: initial.value.phone ?? '',
     website: initial.value.website ?? '',
-    timezone: initial.value.timezone ?? '',
-    address_line_1: initial.value.address_line_1 ?? '',
-    address_line_2: initial.value.address_line_2 ?? '',
-    city: initial.value.city ?? '',
-    state: initial.value.state ?? '',
-    postal_code: initial.value.postal_code ?? '',
-    country: initial.value.country ?? 'US',
-    latitude: initial.value.latitude ?? null,
-    longitude: initial.value.longitude ?? null,
+    timezone: initial.value.timezone ?? (props.mode === 'create' ? props.account?.timezone ?? '' : ''),
     logo: null,
 });
 
@@ -62,16 +58,58 @@ const timezoneOptions = computed(() => {
     }));
 });
 
-const onAddressUpdate = (data) => {
-    form.address_line_1 = data.street ?? '';
-    form.address_line_2 = data.unit ?? '';
-    form.city = data.city ?? '';
-    form.state = data.stateCode || data.state || '';
-    form.postal_code = data.postalCode ?? '';
-    form.country = data.countryCode || data.country || '';
-    form.latitude = data.latitude ?? null;
-    form.longitude = data.longitude ?? null;
+const locationTypeOptions = computed(() => props.enumOptions[locationTypeEnumKey] ?? []);
+
+const defaultLocationTypeId = computed(
+    () => locationTypeOptions.value.find((t) => t.value === 'dealership')?.id
+        ?? locationTypeOptions.value[0]?.id
+        ?? 1,
+);
+
+const emptyLocation = () => ({
+    display_name: '',
+    location_type: defaultLocationTypeId.value,
+    email: '',
+    phone: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: 'US',
+    latitude: null,
+    longitude: null,
+});
+
+const locationDrafts = ref([emptyLocation()]);
+
+const addLocationDraft = () => {
+    locationDrafts.value.push(emptyLocation());
 };
+
+const removeLocationDraft = (index) => {
+    if (locationDrafts.value.length <= 1) {
+        return;
+    }
+    locationDrafts.value.splice(index, 1);
+};
+
+const onLocationAddressUpdate = (index, data) => {
+    const loc = locationDrafts.value[index];
+    if (!loc) {
+        return;
+    }
+    loc.address_line_1 = data.street ?? '';
+    loc.address_line_2 = data.unit ?? '';
+    loc.city = data.city ?? '';
+    loc.state = data.stateCode || data.state || '';
+    loc.postal_code = data.postalCode ?? '';
+    loc.country = data.countryCode || data.country || '';
+    loc.latitude = data.latitude ?? null;
+    loc.longitude = data.longitude ?? null;
+};
+
+const locationFieldError = (index, field) => form.errors[`locations.${index}.${field}`];
 
 const hasLogoUpload = computed(() => form.logo instanceof File);
 
@@ -91,13 +129,65 @@ const clearLogo = () => {
     }
 };
 
-const transformPayload = (data) => ({
-    ...data,
-    inactive: !!(data.inactive === true || data.inactive === 1 || data.inactive === '1'),
-    timezone: data.timezone === '' ? null : data.timezone,
-});
+const transformPayload = (data) => {
+    const payload = {
+        ...data,
+        inactive: !!(data.inactive === true || data.inactive === 1 || data.inactive === '1'),
+        timezone: data.timezone === '' ? null : data.timezone,
+    };
+
+    if (isCreate.value) {
+        payload.locations = locationDrafts.value.map((loc) => ({
+            display_name: loc.display_name?.trim() ?? '',
+            location_type: Number(loc.location_type),
+            email: loc.email?.trim() || null,
+            phone: loc.phone?.trim() || null,
+            address_line_1: loc.address_line_1?.trim() || null,
+            address_line_2: loc.address_line_2?.trim() || null,
+            city: loc.city?.trim() || null,
+            state: loc.state?.trim() || null,
+            postal_code: loc.postal_code?.trim() || null,
+            country: loc.country?.trim() || null,
+            latitude: loc.latitude ?? null,
+            longitude: loc.longitude ?? null,
+        }));
+    }
+
+    return payload;
+};
+
+const validateLocations = () => {
+    locationValidationError.value = '';
+
+    if (!isCreate.value) {
+        return true;
+    }
+
+    if (!locationDrafts.value.length) {
+        locationValidationError.value = 'Add at least one location.';
+        return false;
+    }
+
+    for (let i = 0; i < locationDrafts.value.length; i++) {
+        const loc = locationDrafts.value[i];
+        if (!loc.display_name?.trim()) {
+            locationValidationError.value = `Location ${i + 1} needs a name.`;
+            return false;
+        }
+        if (!loc.location_type) {
+            locationValidationError.value = `Location ${i + 1} needs a type.`;
+            return false;
+        }
+    }
+
+    return true;
+};
 
 const submit = () => {
+    if (!validateLocations()) {
+        return;
+    }
+
     const url = isEdit.value
         ? route(`${props.recordType}.update`, props.record.id)
         : route(`${props.recordType}.store`);
@@ -118,7 +208,6 @@ const submit = () => {
     };
 
     if (isEdit.value && hasLogoUpload.value) {
-        // Multipart file uploads must POST with method spoofing (same pattern as generic Form.vue).
         form.transform((data) => ({
             ...transformPayload(data),
             _method: 'put',
@@ -169,7 +258,7 @@ const submit = () => {
                             {{
                                 isEdit
                                     ? 'Update branding and contact details for this business unit.'
-                                    : 'Set up a business unit with its own address and branding.'
+                                    : 'Set up a business unit with one or more physical locations and branding.'
                             }}
                         </p>
                     </div>
@@ -299,24 +388,135 @@ const submit = () => {
                     </div>
                 </section>
 
-                <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <section
+                    v-if="isCreate"
+                    class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
                     <header class="border-b border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-700 dark:bg-gray-900/30">
-                        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Address</h3>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Physical location for this subsidiary.</p>
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Locations
+                                </h3>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                    Add physical locations for this subsidiary. Each becomes a location record.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                                @click="addLocationDraft"
+                            >
+                                <span class="material-icons text-[18px]">add</span>
+                                Add location
+                            </button>
+                        </div>
                     </header>
-                    <div class="min-h-[220px] p-5">
-                        <AddressAutocomplete
-                            :street="form.address_line_1"
-                            :unit="form.address_line_2"
-                            :city="form.city"
-                            :state="form.state"
-                            :state-code="form.state"
-                            :postal-code="form.postal_code"
-                            :country="form.country"
-                            :latitude="form.latitude"
-                            :longitude="form.longitude"
-                            @update="onAddressUpdate"
-                        />
+
+                    <div class="space-y-4 p-5">
+                        <p v-if="locationValidationError" class="text-sm text-red-600 dark:text-red-400">
+                            {{ locationValidationError }}
+                        </p>
+                        <p v-if="form.errors.locations" class="text-sm text-red-600 dark:text-red-400">
+                            {{ form.errors.locations }}
+                        </p>
+
+                        <div
+                            v-for="(loc, index) in locationDrafts"
+                            :key="index"
+                            class="rounded-xl border border-gray-200 bg-gray-50/80 dark:border-gray-600 dark:bg-gray-900/30"
+                        >
+                            <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-600">
+                                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+                                    Location {{ index + 1 }}
+                                </h4>
+                                <button
+                                    v-if="locationDrafts.length > 1"
+                                    type="button"
+                                    class="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400"
+                                    @click="removeLocationDraft(index)"
+                                >
+                                    <span class="material-icons text-[18px]">delete</span>
+                                    Remove
+                                </button>
+                            </div>
+
+                            <div class="space-y-4 p-4">
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div class="sm:col-span-2">
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Location name <span class="text-red-500">*</span>
+                                        </label>
+                                        <input v-model="loc.display_name" type="text" class="input-style" />
+                                        <p
+                                            v-if="locationFieldError(index, 'display_name')"
+                                            class="mt-1 text-xs text-red-600 dark:text-red-400"
+                                        >
+                                            {{ locationFieldError(index, 'display_name') }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Location type <span class="text-red-500">*</span>
+                                        </label>
+                                        <select v-model.number="loc.location_type" class="input-style">
+                                            <option v-for="t in locationTypeOptions" :key="t.id" :value="t.id">
+                                                {{ t.name }}
+                                            </option>
+                                        </select>
+                                        <p
+                                            v-if="locationFieldError(index, 'location_type')"
+                                            class="mt-1 text-xs text-red-600 dark:text-red-400"
+                                        >
+                                            {{ locationFieldError(index, 'location_type') }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
+                                    <AddressAutocomplete
+                                        :id="`subsidiary-location-address-${index}`"
+                                        :street="loc.address_line_1"
+                                        :unit="loc.address_line_2"
+                                        :city="loc.city"
+                                        :state="loc.state"
+                                        :state-code="loc.state"
+                                        :postal-code="loc.postal_code"
+                                        :country="loc.country"
+                                        :latitude="loc.latitude"
+                                        :longitude="loc.longitude"
+                                        @update="(data) => onLocationAddressUpdate(index, data)"
+                                    />
+                                </div>
+
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+                                        <input v-model="loc.email" type="email" class="input-style" />
+                                    </div>
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Phone</label>
+                                        <input v-model="loc.phone" type="tel" class="input-style" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    v-else
+                    class="overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-600 dark:bg-gray-900/20"
+                >
+                    <div class="flex items-start gap-3 p-5">
+                        <span class="material-icons text-xl text-gray-400">place</span>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">Locations are managed separately</p>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                Add or link locations from the subsidiary detail page after saving.
+                            </p>
+                        </div>
                     </div>
                 </section>
 

@@ -7,7 +7,10 @@ use App\Domain\Subsidiary\Models\Subsidiary as RecordModel;
 use App\Domain\Subsidiary\Actions\CreateSubsidiary as CreateAction;
 use App\Domain\Subsidiary\Actions\UpdateSubsidiary as UpdateAction;
 use App\Domain\Subsidiary\Actions\DeleteSubsidiary as DeleteAction;
+use App\Enums\Locations\LocationType;
 use App\Enums\RecordType;
+use App\Enums\Timezone;
+use App\Models\AccountSettings;
 use Illuminate\Http\Request;
 
 class SubsidiaryController extends RecordController
@@ -26,5 +29,19 @@ class SubsidiaryController extends RecordController
             new DeleteAction(),
             $recordType->domainName()
         );
+    }
+
+    public function create()
+    {
+        return inertia('Tenant/'.$this->domainName.'/Create', [
+            'recordType' => $this->recordType,
+            'formSchema' => $this->getFormSchema(),
+            'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
+            'enumOptions' => array_merge($this->getEnumOptions(), [
+                LocationType::class => LocationType::options(),
+            ]),
+            'account' => AccountSettings::getCurrent(),
+            'timezones' => Timezone::options(),
+        ]);
     }
 }

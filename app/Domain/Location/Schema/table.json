@@ -3,7 +3,8 @@
         {
             "key": "display_name",
             "label": "Location Name",
-            "sortable": true
+            "sortable": true,
+            "isKey": true
         },
         {
             "key": "city",

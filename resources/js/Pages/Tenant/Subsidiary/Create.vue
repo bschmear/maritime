@@ -10,6 +10,7 @@ defineProps({
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
     timezones: { type: Array, default: () => [] },
+    account: { type: Object, default: null },
 });
 
 const breadcrumbItems = computed(() => [
@@ -48,6 +49,7 @@ const handleCancelled = () => {
             :fields-schema="fieldsSchema"
             :enum-options="enumOptions"
             :timezones="timezones"
+            :account="account"
             @saved="handleSaved"
             @cancelled="handleCancelled"
             />
