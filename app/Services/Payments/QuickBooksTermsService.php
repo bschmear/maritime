@@ -48,7 +48,7 @@ class QuickBooksTermsService
             }
         }
 
-        Log::warning('QuickBooks payment term not found for Maritime term', [
+        Log::warning('QuickBooks payment term not found for Helmful term', [
             'integration_id' => $integration->id,
             'realm_id' => $integration->external_id,
             'maritime_term' => $term->value,

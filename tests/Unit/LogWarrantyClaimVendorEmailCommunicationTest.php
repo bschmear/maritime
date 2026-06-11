@@ -146,7 +146,7 @@ class LogWarrantyClaimVendorEmailCommunicationTest extends TestCase
             'status' => 'submitted',
         ]);
 
-        $account = new AccountSettings(['name' => 'Maritime Test']);
+        $account = new AccountSettings(['name' => 'Helmful Test']);
 
         app(LogWarrantyClaimVendorEmailCommunication::class)(
             $claim,

@@ -26,7 +26,7 @@ enum IntegrationType: int
     {
         return match ($this) {
             self::MailChimp => 'Online platform for sending professional e-mails to mass recipients.',
-            self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Maritime.',
+            self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Helmful.',
         };
     }
 
