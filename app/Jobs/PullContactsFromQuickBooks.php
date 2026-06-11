@@ -54,47 +54,16 @@ class PullContactsFromQuickBooks implements ShouldQueue
             ->where('integration_type', IntegrationType::QuickBooks)
             ->first();
 
-        // #region agent log
-        file_put_contents(
-            base_path('.cursor/debug-ae1c12.log'),
-            json_encode([
-                'sessionId' => 'ae1c12',
-                'hypothesisId' => 'A,E',
-                'location' => 'PullContactsFromQuickBooks::handle:start',
-                'message' => 'job handle started',
-                'data' => [
-                    'recordType' => $this->recordType,
-                    'tenantUserProfileId' => $this->tenantUserProfileId,
-                    'tenancyInitialized' => tenancy()->initialized,
-                    'tenantId' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
-                    'integrationFound' => $integration !== null,
-                    'hasAccessToken' => (bool) ($integration?->access_token),
-                    'hasRefreshToken' => (bool) ($integration?->refresh_token),
-                    'queueConnection' => config('queue.default'),
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ])."\n",
-            FILE_APPEND
-        );
-        // #endregion
+        Log::info('QuickBooks customer import: job started', $this->logContext([
+            'record_type' => $this->recordType,
+            'integration_found' => $integration !== null,
+            'has_access_token' => (bool) ($integration?->access_token),
+            'has_refresh_token' => (bool) ($integration?->refresh_token),
+            'queue_connection' => config('queue.default'),
+        ]));
 
         if (! $integration?->access_token || ! $integration->refresh_token) {
-            Log::warning('PullContactsFromQuickBooks: QuickBooks integration not connected');
-
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-ae1c12.log'),
-                json_encode([
-                    'sessionId' => 'ae1c12',
-                    'hypothesisId' => 'E',
-                    'location' => 'PullContactsFromQuickBooks::handle:early_return',
-                    'message' => 'integration not connected in job context',
-                    'data' => [],
-                    'timestamp' => (int) round(microtime(true) * 1000),
-                ])."\n",
-                FILE_APPEND
-            );
-            // #endregion
+            Log::warning('QuickBooks customer import: integration not connected in job context', $this->logContext());
 
             return;
         }
@@ -133,24 +102,11 @@ class PullContactsFromQuickBooks implements ShouldQueue
 
                 $count = count($customers);
 
-                // #region agent log
-                file_put_contents(
-                    base_path('.cursor/debug-ae1c12.log'),
-                    json_encode([
-                        'sessionId' => 'ae1c12',
-                        'hypothesisId' => 'D',
-                        'location' => 'PullContactsFromQuickBooks::handle:qb_page',
-                        'message' => 'quickbooks customer page fetched',
-                        'data' => [
-                            'start' => $start,
-                            'customerCount' => $count,
-                            'hasFault' => ! empty($payload['Fault']),
-                        ],
-                        'timestamp' => (int) round(microtime(true) * 1000),
-                    ])."\n",
-                    FILE_APPEND
-                );
-                // #endregion
+                Log::info('QuickBooks customer import: fetched customer page from QBO', $this->logContext([
+                    'start_position' => $start,
+                    'customer_count' => $count,
+                    'has_fault' => ! empty($payload['Fault']),
+                ]));
 
                 $start += $pageSize;
             } while ($count === $pageSize);
@@ -162,26 +118,15 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'sync_error_message' => null,
             ]);
 
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-ae1c12.log'),
-                json_encode([
-                    'sessionId' => 'ae1c12',
-                    'hypothesisId' => 'C',
-                    'location' => 'PullContactsFromQuickBooks::handle:success',
-                    'message' => 'import completed',
-                    'data' => $this->importStats,
-                    'timestamp' => (int) round(microtime(true) * 1000),
-                ])."\n",
-                FILE_APPEND
-            );
-            // #endregion
+            Log::info('QuickBooks customer import: completed', $this->logContext([
+                'stats' => $this->importStats,
+            ]));
         } catch (\Throwable $e) {
-            Log::error('PullContactsFromQuickBooks failed', [
-                'tenant_user_profile_id' => $this->tenantUserProfileId,
+            Log::error('QuickBooks customer import: failed', $this->logContext([
                 'error' => $e->getMessage(),
+                'stats' => $this->importStats,
                 'trace' => $e->getTraceAsString(),
-            ]);
+            ]));
 
             $integration->refresh();
             $integration->update([
@@ -189,26 +134,22 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'sync_error_message' => $e->getMessage(),
             ]);
 
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-ae1c12.log'),
-                json_encode([
-                    'sessionId' => 'ae1c12',
-                    'hypothesisId' => 'D',
-                    'location' => 'PullContactsFromQuickBooks::handle:failed',
-                    'message' => 'import job failed',
-                    'data' => [
-                        'error' => $e->getMessage(),
-                        'importStats' => $this->importStats,
-                    ],
-                    'timestamp' => (int) round(microtime(true) * 1000),
-                ])."\n",
-                FILE_APPEND
-            );
-            // #endregion
-
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function logContext(array $extra = []): array
+    {
+        return array_merge([
+            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+            'tenancy_initialized' => tenancy()->initialized,
+            'tenant_user_profile_id' => $this->tenantUserProfileId,
+            'record_type' => $this->recordType,
+        ], $extra);
     }
 
     /**
@@ -299,10 +240,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
             } else {
                 $this->importStats['failed_create']++;
-                Log::warning('PullContactsFromQuickBooks: CreateLead failed', [
+                Log::warning('QuickBooks customer import: create lead failed', $this->logContext([
                     'qbo_id' => $qboId,
                     'message' => $result['message'] ?? null,
-                ]);
+                ]));
             }
 
             return;
@@ -311,9 +252,9 @@ class PullContactsFromQuickBooks implements ShouldQueue
         $subsidiaryId = Customer::defaultSubsidiaryId();
         if ($subsidiaryId === null) {
             $this->importStats['skipped_no_subsidiary']++;
-            Log::warning('PullContactsFromQuickBooks: no subsidiary available for customer import', [
+            Log::warning('QuickBooks customer import: no subsidiary available', $this->logContext([
                 'qbo_id' => $qboId,
-            ]);
+            ]));
 
             return;
         }
@@ -337,10 +278,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
             $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
         } else {
             $this->importStats['failed_create']++;
-            Log::warning('PullContactsFromQuickBooks: CreateCustomer failed', [
+            Log::warning('QuickBooks customer import: create customer failed', $this->logContext([
                 'qbo_id' => $qboId,
                 'message' => $result['message'] ?? null,
-            ]);
+            ]));
         }
     }
 

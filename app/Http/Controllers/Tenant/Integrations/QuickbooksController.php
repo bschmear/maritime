@@ -224,35 +224,22 @@ class QuickbooksController extends Controller
         $profileId = (int) $profile->getKey();
         $importType = $request->input('type');
 
-        // #region agent log
-        file_put_contents(
-            base_path('.cursor/debug-ae1c12.log'),
-            json_encode([
-                'sessionId' => 'ae1c12',
-                'hypothesisId' => 'B',
-                'location' => 'QuickbooksController::importCustomers',
-                'message' => 'dispatching PullContactsFromQuickBooks',
-                'data' => [
-                    'profileId' => $profileId,
-                    'importType' => $importType,
-                    'queueConnection' => config('queue.default'),
-                    'tenancyInitialized' => tenancy()->initialized,
-                    'tenantId' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
-                    'integrationHasTokens' => true,
-                ],
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ])."\n",
-            FILE_APPEND
-        );
-        // #endregion
-
         $queueConnection = config('queue.default');
         $queueDbConnection = config('queue.connections.database.connection');
+
+        Log::info('QuickBooks customer import: dispatch requested', [
+            'profile_id' => $profileId,
+            'import_type' => $importType,
+            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+            'tenancy_initialized' => tenancy()->initialized,
+            'queue_connection' => $queueConnection,
+            'queue_db_connection' => $queueDbConnection,
+        ]);
 
         try {
             PullContactsFromQuickBooks::dispatch($profileId, $importType);
         } catch (\Throwable $e) {
-            Log::error('QuickBooks import dispatch failed', [
+            Log::error('QuickBooks customer import: dispatch failed', [
                 'profile_id' => $profileId,
                 'import_type' => $importType,
                 'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
@@ -261,31 +248,12 @@ class QuickbooksController extends Controller
                 'error' => $e->getMessage(),
             ]);
 
-            // #region agent log
-            file_put_contents(
-                base_path('.cursor/debug-ae1c12.log'),
-                json_encode([
-                    'sessionId' => 'ae1c12',
-                    'hypothesisId' => 'A',
-                    'location' => 'QuickbooksController::importCustomers:dispatch_failed',
-                    'message' => 'dispatch threw',
-                    'data' => [
-                        'error' => $e->getMessage(),
-                        'queueConnection' => $queueConnection,
-                        'queueDbConnection' => $queueDbConnection,
-                    ],
-                    'timestamp' => (int) round(microtime(true) * 1000),
-                ])."\n",
-                FILE_APPEND
-            );
-            // #endregion
-
             return response()->json([
                 'error' => 'Could not queue the import job. Check that the central jobs table exists and queue workers are running.',
             ], 500);
         }
 
-        Log::info('QuickBooks import job queued', [
+        Log::info('QuickBooks customer import: job queued', [
             'profile_id' => $profileId,
             'import_type' => $importType,
             'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
